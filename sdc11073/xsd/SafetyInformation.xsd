@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Mit XMLSpy v2011 rel. 3 sp1 (x64) (http://www.altova.com) von David Gregorczyk (Drägerwerk AG & Co. KGaA) bearbeitet -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:si="http://safety-information-uri/15/08" targetNamespace="http://safety-information-uri/15/08" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<!-- Safety requirements definition -->
+	<xs:complexType name="T_Selector">
+		<xs:simpleContent>
+			<xs:extension base="xs:string">
+				<xs:attribute name="Id" type="xs:string" use="required">
+					<xs:annotation>
+						<xs:documentation>Sets a unique identifier over all T_Selector instances that can be used to address the XPath expression the selector defines.</xs:documentation>
+					</xs:annotation>
+				</xs:attribute>
+				<xs:anyAttribute namespace="##other" processContents="skip"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	<xs:complexType name="T_SafetyReq">
+		<xs:sequence>
+			<xs:element ref="si:DualChannelDef" minOccurs="0"/>
+			<xs:element ref="si:SafetyContextDef" minOccurs="0"/>
+			<xs:any namespace="##other" processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+		<xs:anyAttribute namespace="##other" processContents="skip"/>
+	</xs:complexType>
+	<xs:complexType name="T_DualChannelDef">
+		<xs:sequence>
+			<xs:element ref="si:Selector" maxOccurs="unbounded"/>
+			<xs:any namespace="##other" processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+		<xs:attribute name="Algorithm" type="xs:QName">
+			<xs:annotation>
+				<xs:documentation>Qualified name of an algorithm that SHALL be applied on the transformed data in order to compute the value of the second channel representation. Default is /si:Base64SHA1</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="Transform" type="xs:QName">
+			<xs:annotation>
+				<xs:documentation>Qualified name of a transformation that should be applied on the data before an algorithm is applied. Default is /si:xml-exc-c14n.</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:anyAttribute namespace="##other" processContents="skip"/>
+	</xs:complexType>
+	<xs:complexType name="T_SafetyContextDef">
+		<xs:sequence>
+			<xs:element ref="si:Selector" maxOccurs="unbounded"/>
+			<xs:any namespace="##other" processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+		<xs:anyAttribute namespace="##other" processContents="skip"/>
+	</xs:complexType>
+	<xs:element name="Selector" type="si:T_Selector">
+		<xs:annotation>
+			<xs:documentation>XPath expression that points to a specific text value or attribute in an XML structure. The following rules SHALL apply:
+
+1. {Path} must be a valid XPath expression, as defined in XPath [http://www.w3.org/TR/1999/REC-xpath-19991116].
+2. {Path} must conform to the following extended BNF:
+
+[1]	Path       ::=   ( '/' Step )* '/' ( '@' Name | 'text()' )
+[2]	Step       ::=   Name | Name '[' Expr ']'
+[3]	Expr       ::=   '@' Name '=' ( Number | Literal ) | Number
+[4] Name       ::=   QName | NCName
+[5]	Literal    ::=   '"' [^"]* '"' | "'" [^']* "'"
+[6]	Number     ::=   Digits ( '.' Digits? )?
+[7] Digits     ::=   [0-9]+
+
+where
+- QName is defined in: http://www.w3.org/TR/REC-xml-names/#NT-QName
+- NCName is defined in: http://www.w3.org/TR/REC-xml-names/#NT-NCName
+
+Samples including allowed features:
+/ns:Foo[@FooAttr='sample']/Bar[21]/text()
+/Foo[@FooAttr="sample"]/ns:Bar/@BarAttr</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SafetyReq" type="si:T_SafetyReq">
+		<xs:annotation>
+			<xs:documentation>Indicates that data is required that preserve patient safety during transmission.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="DualChannelDef" type="si:T_DualChannelDef">
+		<xs:annotation>
+			<xs:documentation>Defines a list of selectors that point to elements which are required to be protected by a dual-channel. The selector's root is SOAP message's body element.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SafetyContextDef" type="si:T_SafetyContextDef">
+		<xs:annotation>
+			<xs:documentation>Defines a list of selectors that point to elements which are required to establish a safety context. The selector's root is an arbitrary element with type dom:Mdib.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<!-- Transmission -->
+	<xs:complexType name="T_SafetyInfo">
+		<xs:sequence>
+			<xs:element ref="si:DualChannel" minOccurs="0"/>
+			<xs:element ref="si:SafetyContext" minOccurs="0"/>
+			<xs:any namespace="##other" processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+		<xs:anyAttribute namespace="##other" processContents="skip"/>
+	</xs:complexType>
+	<xs:complexType name="T_DualChannel">
+		<xs:sequence>
+			<xs:element ref="si:DcValue" maxOccurs="unbounded">
+				<xs:annotation>
+					<xs:documentation>List of dual-channel values.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:any namespace="##other" processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+		<xs:anyAttribute namespace="##other" processContents="skip"/>
+	</xs:complexType>
+	<xs:complexType name="T_SafetyContext">
+		<xs:sequence>
+			<xs:element ref="si:CtxtValue" maxOccurs="unbounded">
+				<xs:annotation>
+					<xs:documentation>List of safety context values.</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:any namespace="##other" processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+		<xs:anyAttribute namespace="##other" processContents="skip"/>
+	</xs:complexType>
+	<xs:element name="SafetyInfo" type="si:T_SafetyInfo">
+		<xs:annotation>
+			<xs:documentation>Container element for embedding safety information in a SOAP message header.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="DualChannel" type="si:T_DualChannel">
+		<xs:annotation>
+			<xs:documentation>Dual-channel element that can be used to embed dual-channel information in a SOAP message header by providing a list of dual-channel values.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="SafetyContext" type="si:T_SafetyContext">
+		<xs:annotation>
+			<xs:documentation>Safety context element that can be used to embed safety context information in a SOAP message header.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+	<xs:element name="DcValue">
+		<xs:annotation>
+			<xs:documentation>A single dual-channel value.</xs:documentation>
+		</xs:annotation>
+		<xs:complexType>
+			<xs:simpleContent>
+				<xs:extension base="xs:anySimpleType">
+					<xs:attribute name="ReferencedSelector" type="xs:string" use="required">
+						<xs:annotation>
+							<xs:documentation>Name that points to a valid selector identifier (/si:Selector/@Id)</xs:documentation>
+						</xs:annotation>
+					</xs:attribute>
+					<xs:anyAttribute namespace="##other" processContents="skip"/>
+				</xs:extension>
+			</xs:simpleContent>
+		</xs:complexType>
+	</xs:element>
+	<xs:element name="CtxtValue">
+		<xs:annotation>
+			<xs:documentation>A single safety context value (complex or primitive element depending on the XPath selector).</xs:documentation>
+		</xs:annotation>
+		<xs:complexType mixed="true">
+			<xs:sequence>
+				<xs:any namespace="##other" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+			</xs:sequence>
+			<xs:attribute name="ReferencedSelector" type="xs:string" use="required">
+				<xs:annotation>
+					<xs:documentation>Name that points to a valid selector identifier (/si:Selector/@Id)</xs:documentation>
+				</xs:annotation>
+			</xs:attribute>
+			<xs:anyAttribute namespace="##other" processContents="skip"/>
+		</xs:complexType>
+	</xs:element>
+	<!-- Assertion -->
+	<xs:complexType name="T_SafetyReqAssertion">
+		<xs:sequence>
+			<xs:any namespace="##other" processContents="skip" minOccurs="0" maxOccurs="unbounded"/>
+		</xs:sequence>
+		<xs:attribute name="TransmitDualChannel" type="xs:boolean" default="true">
+			<xs:annotation>
+				<xs:documentation>Boolean attribute that indicates that dual channel transmission is required for the specified message elements.</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="TransmitSafetyContext" type="xs:boolean" default="true">
+			<xs:annotation>
+				<xs:documentation>Boolean attribute that indicates that specified safety context information is required to be transmitted for the subject.</xs:documentation>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:anyAttribute namespace="##other" processContents="skip"/>
+	</xs:complexType>
+	<xs:element name="SafetyReqAssertion" type="si:T_SafetyReqAssertion">
+		<xs:annotation>
+			<xs:documentation>Assertion has [Message Policy Subject] or [Operation Policy Subject] or [Endpoint Policy Subject]. When present in a policy alternative, it indicates that for the subject additional safety information need to be transmitted for the specified message elements.</xs:documentation>
+		</xs:annotation>
+	</xs:element>
+</xs:schema>
