@@ -53,7 +53,7 @@ class LocalizationServiceClient(HostedServiceClient):
     def getLocalizedTexts(self, refs=None, version=None, langs=None, textWidths=None, numberOfLines=None, request_manipulator=None):
         result = []
         responseNode = self._getLocalizedTextResponse(refs, version, langs, textWidths, numberOfLines, request_manipulator).msgNode
-        if responseNode:
+        if responseNode is not None:
             for element in responseNode:
                 lt = LocalizedText.fromNode(element)
                 result.append(lt)

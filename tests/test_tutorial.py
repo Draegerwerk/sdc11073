@@ -3,6 +3,8 @@ import os
 import uuid
 import sdc11073
 
+loopback_adapter = 'Loopback Pseudo-Interface 1' if os.name == 'nt' else 'lo'
+
 
 SEARCH_TIMEOUT = 2 # in real world applications this timeout is too short, 10 seconds is a good value.
                    # Here this short timeout is used to accelerate the test.
@@ -93,7 +95,7 @@ class Test_Tutorial(unittest.TestCase):
         # create a new discovery instance for searching.
         # (technically this would not be necessary, but it makes things much clearer in our example)
         # for searching we use again localhost adapter. For demonstration purpose a WSDiscoverySingleAdapter is used
-        my_client_wsDiscovery = sdc11073.wsdiscovery.WSDiscoverySingleAdapter('Loopback Pseudo-Interface 1')
+        my_client_wsDiscovery = sdc11073.wsdiscovery.WSDiscoverySingleAdapter(loopback_adapter)
         self.my_wsdiscoveries.append(my_client_wsDiscovery)
         my_client_wsDiscovery.start()
 

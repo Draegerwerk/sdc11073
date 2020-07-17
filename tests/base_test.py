@@ -1,10 +1,12 @@
 import unittest
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist, WSDiscoverySingleAdapter
+import os
+from sdc11073.wsdiscovery import WSDiscoverySingleAdapter
 from sdc11073 import pmtypes
 from sdc11073.location import SdcLocation
 from sdc11073.sdcclient import SdcClient
 from tests.mockstuff import SomeDevice
 
+loopback_adapter = 'Loopback Pseudo-Interface 1' if os.name == 'nt' else 'lo'
 """
 Base test to use in all test that require device or a client. This sets up a default device and client
 and has connect method.
@@ -13,7 +15,7 @@ and has connect method.
 class BaseTest(unittest.TestCase):
 
     def setUp(self):
-        self.wsdiscovery = WSDiscoverySingleAdapter("Loopback Pseudo-Interface 1")
+        self.wsdiscovery = WSDiscoverySingleAdapter(loopback_adapter)
         self.wsdiscovery.start()
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extensionString='System')]
 
