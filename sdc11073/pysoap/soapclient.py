@@ -208,11 +208,11 @@ class SoapClient(CompressionHandler):
                 self._log.warn("{}: could not send request, got httplib.CannotSendRequest Error. Will read response and retry", msg)
                 tmp = self._httpConnection.getresponse()
                 tmp.read()
-            except WindowsError as ex:
+            except OSError as ex:
                 if ex.errno in (10053, 10054):
-                    self._log.warn("{}: could not send request, WindowsError={!r}", msg, ex)
+                    self._log.warn("{}: could not send request, OSError={!r}", msg, ex)
                 else:
-                    self._log.warn("{}: could not send request, WindowsError={}", msg, traceback.format_exc())
+                    self._log.warn("{}: could not send request, OSError={}", msg, traceback.format_exc())
                 do_reopen = True
             except socket.error as ex:
                 self._log.warn("{}: could not send request, socket error={!r}", msg, ex)
@@ -229,11 +229,11 @@ class SoapClient(CompressionHandler):
             except httplib.BadStatusLine as ex:
                 self._log.warn("{}: invalid http response, error= {!r} ", msg, ex)
                 raise
-            except WindowsError as ex:
+            except OSError as ex:
                 if ex.errno in (10053, 10054):
-                    self._log.warn("{}: could not receive response, WindowsError={!r}", msg, ex)
+                    self._log.warn("{}: could not receive response, OSError={!r}", msg, ex)
                 else:
-                    self._log.warn("{}: could not receive response, WindowsError={} ({!r})\n{}", msg, ex.errno,
+                    self._log.warn("{}: could not receive response, OSError={} ({!r})\n{}", msg, ex.errno,
                                    ex, traceback.format_exc())
                 raise httplib.NotConnected()
             except socket.error as ex:
