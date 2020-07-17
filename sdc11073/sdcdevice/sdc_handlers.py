@@ -145,9 +145,10 @@ class SdcHandler_Base(object):
                     self._sslContext.load_cert_chain(certfile=_ssl_certfile, keyfile=_ssl_keyfile, password=_ssl_passwd)
                     self._sslContext.verify_mode = ssl.CERT_REQUIRED
                     self._sslContext.load_verify_locations(_ssl_cacert)
-                except AttributeError:
+                except (AttributeError, FileNotFoundError):
                     self._logger.warn('Could not create SSLContext, https connections will not work!')
                     self._urlschema = 'http'
+                    self._sslContext = None
 
         self.dpwsHost = None
         self._subscriptionsManager = self._mkSubscriptionManager(max_subscription_duration)
