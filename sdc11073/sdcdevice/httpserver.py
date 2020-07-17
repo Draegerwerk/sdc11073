@@ -193,6 +193,9 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
         except Exception as ex:
             # make an error 500 response with the soap fault as content
             self.server.logger.error(traceback.format_exc())
+            # we must create a soapEnvelope in order to generate a SoapFault
+            normalizedRequest = self.sdc_definitions.normalizeXMLText(request)
+            soapEnvelope = pysoap.soapenvelope.AddressedSoap12Envelope.fromXMLString(normalizedRequest)
 
             response = pysoap.soapenvelope.SoapFault(soapEnvelope, code=pysoap.soapenvelope.SoapFaultCode.SENDER,
                                                           reason=str(ex))

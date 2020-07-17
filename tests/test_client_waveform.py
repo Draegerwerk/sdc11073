@@ -252,7 +252,7 @@ class TestClientWaveform(unittest.TestCase):
 
 
 def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(TestClientWafeform)
+    return unittest.TestLoader().loadTestsFromTestCase(TestClientWaveform)
 
 
 if __name__ == '__main__':
