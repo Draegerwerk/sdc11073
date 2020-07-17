@@ -1,0 +1,1398 @@
+<msg:GetMdibResponse xmlns:msg="http://standards.ieee.org/downloads/11073/11073-10207-2017/message" xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope" xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:chan="http://schemas.microsoft.com/ws/2005/02/duplex" xmlns:wsa5="http://www.w3.org/2005/08/addressing" xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant" xmlns:dpws="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01" xmlns:si="__MDPWS__" xmlns:ece="urn:oid:1.3.6.1.4.1.3592.2.23.5.1" xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension" xmlns:srv="http://standards.ieee.org/downloads/11073/11073-20701-2018" xmlns:wsd11="http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01" xmlns:wse4="http://schemas.xmlsoap.org/ws/2004/08/eventing" xmlns:wst4="http://schemas.xmlsoap.org/ws/2004/09/transfer" xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex" MdibVersion="174" SequenceId="urn:uuid:6f4ff7de-6809-4883-9938-54dd4f6f9173">
+  <msg:Mdib MdibVersion="174" SequenceId="urn:uuid:6f4ff7de-6809-4883-9938-54dd4f6f9173">
+    <pm:MdDescription DescriptionVersion="8">
+      <pm:Mds Handle="3569" DescriptorVersion="5" SafetyClassification="MedA">
+        <ext:Extension>
+          <msg:Retrievability>
+            <msg:By Method="Get"/>
+            <msg:By Method="Ep"/>
+          </msg:Retrievability>
+        </ext:Extension>
+        <pm:Type Code="70041">
+          <pm:ConceptDescription Lang="en-US">Anesthesia System</pm:ConceptDescription>
+        </pm:Type>
+        <pm:ProductionSpecification>
+          <pm:SpecType Code="68543">
+            <pm:ConceptDescription Lang="en-US">Private Coding Semantics</pm:ConceptDescription>
+          </pm:SpecType>
+          <pm:ProductionSpec>urn:oid:1.3.6.1.4.1.3592.2.1.2.1</pm:ProductionSpec>
+        </pm:ProductionSpecification>
+        <pm:ProductionSpecification>
+          <pm:SpecType Code="68186">
+            <pm:ConceptDescription Lang="en-US">Device Specialization</pm:ConceptDescription>
+          </pm:SpecType>
+          <pm:ProductionSpec>1.3.6.1.4.1.3592.2.601.13.1.1</pm:ProductionSpec>
+        </pm:ProductionSpecification>
+        <pm:AlertSystem Handle="Asy.mds0" DescriptorVersion="2" SafetyClassification="MedA" SelfCheckPeriod="PT00H00M11S">
+          <ext:Extension>
+            <msg:Retrievability>
+              <msg:By Method="Get"/>
+              <msg:By Method="Ep"/>
+            </msg:Retrievability>
+          </ext:Extension>
+          <pm:AlertCondition Handle="0xD3C00100" DescriptorVersion="2" SafetyClassification="MedA" Kind="Phy" Priority="Me" DefaultConditionGenerationDelay="PT00H00M30S" CanEscalate="Hi">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="199680">
+              <pm:ConceptDescription Lang="en-US">Apnea by different or undefined sources</pm:ConceptDescription>
+            </pm:Type>
+            <pm:Source>3569</pm:Source>
+          </pm:AlertCondition>
+          
+		  <pm:AlertSignal Handle="0xD3C00100.loc.Vis" DescriptorVersion="2" SafetyClassification="MedA" ConditionSignaled="0xD3C00100" Manifestation="Vis" Latching="false">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="194088">
+              <pm:ConceptDescription Lang="en-US">Normal</pm:ConceptDescription>
+            </pm:Type>
+          </pm:AlertSignal>
+        
+		</pm:AlertSystem>
+        <pm:Sco Handle="Sco.mds0" DescriptorVersion="2">
+          <ext:Extension>
+            <msg:Retrievability>
+              <msg:By Method="Get"/>
+              <msg:By Method="Ep"/>
+            </msg:Retrievability>
+          </ext:Extension>
+          <pm:Operation xsi:type="pm:ActivateOperationDescriptor" Handle="SVO.37.3569" DescriptorVersion="2" SafetyClassification="MedB" OperationTarget="3569" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+              <ece:InvocationPerformedFrom Location="SameLocation" ext:MustUnderstand="true"/>
+            </ext:Extension>
+            <pm:Type Code="193820">
+              <pm:ConceptDescription Lang="en-US">An operation to initiate global all audio pause</pm:ConceptDescription>
+            </pm:Type>
+          </pm:Operation>
+          <pm:Operation xsi:type="pm:ActivateOperationDescriptor" Handle="SVO.38.3569" DescriptorVersion="2" SafetyClassification="MedA" OperationTarget="3569" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+              <ece:InvocationPerformedFrom Location="SameLocation" ext:MustUnderstand="true"/>
+            </ext:Extension>
+            <pm:Type Code="193821">
+              <pm:ConceptDescription Lang="en-US">An operation to cancel global all audio pause</pm:ConceptDescription>
+            </pm:Type>
+          </pm:Operation>
+          <pm:Operation xsi:type="pm:SetContextStateOperationDescriptor" Handle="SVO.41.PC.mds0" DescriptorVersion="2" SafetyClassification="MedA" OperationTarget="PC.mds0" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="68610">
+              <pm:ConceptDescription Lang="en-US">An Operation to associate the not-associated, pre-assoiciated or disassociated Patient of a System Context.</pm:ConceptDescription>
+            </pm:Type>
+          </pm:Operation>
+          <pm:Operation xsi:type="pm:SetStringOperationDescriptor" Handle="SVO.39.CL.mds0" DescriptorVersion="2" SafetyClassification="MedA" OperationTarget="CL.mds0" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="194041">
+              <pm:ConceptDescription Lang="en-US">An operation to Set the active reference source of a clock for time synchronization.</pm:ConceptDescription>
+            </pm:Type>
+          </pm:Operation>
+          <pm:Operation xsi:type="pm:SetStringOperationDescriptor" Handle="SVO.40.CL.mds0" DescriptorVersion="2" SafetyClassification="MedA" OperationTarget="CL.mds0" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="194040">
+              <pm:ConceptDescription Lang="en-US">An operation to set the time zone of a clock.</pm:ConceptDescription>
+            </pm:Type>
+          </pm:Operation>
+        </pm:Sco>
+        <pm:MetaData>
+          <pm:Udi>
+            <pm:DeviceIdentifier>device</pm:DeviceIdentifier>
+            <pm:HumanReadableForm>humanreadable</pm:HumanReadableForm>
+            <pm:Issuer/>
+          </pm:Udi>
+          <pm:Manufacturer Lang="en-US">Dr&#228;gerwerk AG &amp; Co. KGaA</pm:Manufacturer>
+          <pm:ModelName Lang="en-US">A3XX</pm:ModelName>
+          <pm:ModelNumber>01.00</pm:ModelNumber>
+          <pm:SerialNumber/>
+        </pm:MetaData>
+        <pm:SystemContext Handle="SC.mds0" DescriptorVersion="2">
+          <ext:Extension>
+            <msg:Retrievability>
+              <msg:By Method="Get"/>
+              <msg:By Method="Ep"/>
+            </msg:Retrievability>
+          </ext:Extension>
+          <pm:PatientContext Handle="PC.mds0" DescriptorVersion="2">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+          </pm:PatientContext>
+          <pm:LocationContext Handle="LC.mds0" DescriptorVersion="2">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+          </pm:LocationContext>
+        </pm:SystemContext>
+        <pm:Clock Handle="CL.mds0" DescriptorVersion="2">
+          <ext:Extension>
+            <msg:Retrievability>
+              <msg:By Method="Get"/>
+              <msg:By Method="Ep"/>
+            </msg:Retrievability>
+          </ext:Extension>
+          <pm:TimeProtocol Code="532224">
+            <pm:ConceptDescription Lang="en-US">None</pm:ConceptDescription>
+          </pm:TimeProtocol>
+          <pm:TimeProtocol Code="532225">
+            <pm:ConceptDescription Lang="en-US">NTPv3</pm:ConceptDescription>
+          </pm:TimeProtocol>
+          <pm:TimeProtocol Code="532234">
+            <pm:ConceptDescription Lang="en-US">EBWW</pm:ConceptDescription>
+          </pm:TimeProtocol>
+        </pm:Clock>
+		
+		
+        <pm:Vmd Handle="2.1.1" DescriptorVersion="2" SafetyClassification="MedA">
+          <ext:Extension>
+            <msg:Retrievability>
+              <msg:By Method="Get"/>
+              <msg:By Method="Ep"/>
+            </msg:Retrievability>
+          </ext:Extension>
+          <pm:Type Code="69634">
+            <pm:ConceptDescription Lang="en-US">Patient-related device-specific settings</pm:ConceptDescription>
+          </pm:Type>
+		  <pm:Sco Handle="Sco.3527" DescriptorVersion="2">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Operation xsi:type="pm:SetStringOperationDescriptor" Handle="SVO.42.2.1.1.2.0-6" DescriptorVersion="2" SafetyClassification="MedA" OperationTarget="2.1.1.2.0-6" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="193819">
+                <pm:ConceptDescription Lang="en-US">An operation to select a mode</pm:ConceptDescription>
+              </pm:Type>
+            </pm:Operation>
+          </pm:Sco>
+          <pm:Channel Handle="2.1.1.1" DescriptorVersion="2" SafetyClassification="MedA">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="69635">
+              <pm:ConceptDescription Lang="en-US">Patient related device specific settings channel</pm:ConceptDescription>
+            </pm:Type>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F0434A" DescriptorVersion="2" SafetyClassification="MedA" Resolution="1.0" MetricCategory="Set" MetricAvailability="Intr" MaxDelayTime="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="16845272">
+                <pm:ConceptDescription Lang="en-US">Age</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="264512">
+                <pm:ConceptDescription Lang="en-US">y</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="130.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F0434B" DescriptorVersion="2" SafetyClassification="MedA" Resolution="0.1" MetricCategory="Set" MetricAvailability="Intr" MaxDelayTime="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="16965952">
+                <pm:ConceptDescription Lang="en-US">Body weight</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="263875">
+                <pm:ConceptDescription Lang="en-US">kg</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="999.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F04383" DescriptorVersion="2" SafetyClassification="MedA" Resolution="0.1" MetricCategory="Set" MetricAvailability="Intr" MaxDelayTime="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="16965956">
+                <pm:ConceptDescription Lang="en-US">Height</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="263441">
+                <pm:ConceptDescription Lang="en-US">cm</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="300.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:EnumStringMetricDescriptor" Handle="0x34F06409" DescriptorVersion="2" SafetyClassification="MedA" MetricCategory="Set" MetricAvailability="Intr" MaxDelayTime="PT00H00M30S" DerivationMethod="Auto">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="16845154">
+                <pm:ConceptDescription Lang="en-US">Patient category</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262656">
+                <pm:ConceptDescription Lang="en-US">no unit</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:AllowedValue>
+                <pm:Value>ADULT</pm:Value>
+                <pm:Type Code="202890">
+                  <pm:ConceptDescription Lang="en-US">ADULT</pm:ConceptDescription>
+                </pm:Type>
+              </pm:AllowedValue>
+              <pm:AllowedValue>
+                <pm:Value>PEDIATRIC</pm:Value>
+                <pm:Type Code="202888">
+                  <pm:ConceptDescription Lang="en-US">PEDIATRIC</pm:ConceptDescription>
+                </pm:Type>
+              </pm:AllowedValue>
+              <pm:AllowedValue>
+                <pm:Value>NEONATE</pm:Value>
+                <pm:Type Code="192862">
+                  <pm:ConceptDescription Lang="en-US">NEONATE</pm:ConceptDescription>
+                </pm:Type>
+              </pm:AllowedValue>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:EnumStringMetricDescriptor" Handle="0x34F0640B" DescriptorVersion="2" SafetyClassification="MedA" MetricCategory="Set" MetricAvailability="Intr" MaxDelayTime="PT00H00M30S" DerivationMethod="Auto">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="16845153">
+                <pm:ConceptDescription Lang="en-US">Gender</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262656">
+                <pm:ConceptDescription Lang="en-US">no unit</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:AllowedValue>
+                <pm:Value>FEMALE</pm:Value>
+                <pm:Type Code="192858">
+                  <pm:ConceptDescription Lang="en-US">FEMALE</pm:ConceptDescription>
+                </pm:Type>
+              </pm:AllowedValue>
+              <pm:AllowedValue>
+                <pm:Value>MALE</pm:Value>
+                <pm:Type Code="192859">
+                  <pm:ConceptDescription Lang="en-US">MALE</pm:ConceptDescription>
+                </pm:Type>
+              </pm:AllowedValue>
+              <pm:AllowedValue>
+                <pm:Value>UNKNOWN</pm:Value>
+                <pm:Type Code="194082">
+                  <pm:ConceptDescription Lang="en-US">UNKNOWN</pm:ConceptDescription>
+                </pm:Type>
+              </pm:AllowedValue>
+              <pm:AllowedValue>
+                <pm:Value>UNSPECIFIED</pm:Value>
+                <pm:Type Code="194081">
+                  <pm:ConceptDescription Lang="en-US">UNSPECIFIED</pm:ConceptDescription>
+                </pm:Type>
+              </pm:AllowedValue>
+            </pm:Metric>
+          </pm:Channel>
+          
+		</pm:Vmd>
+		
+		
+		
+        <pm:Vmd Handle="2.1.2" DescriptorVersion="2" SafetyClassification="MedA">
+          <ext:Extension>
+            <msg:Retrievability>
+              <msg:By Method="Get"/>
+              <msg:By Method="Ep"/>
+            </msg:Retrievability>
+          </ext:Extension>
+          <pm:Type Code="69650">
+            <pm:ConceptDescription Lang="en-US">Gas concentration Monitor</pm:ConceptDescription>
+          </pm:Type>
+          
+		  <pm:AlertSystem Handle="Asy.3208" DescriptorVersion="2" SafetyClassification="MedA" SelfCheckPeriod="PT00H00M11S">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+			
+            <pm:AlertCondition Handle="0xD3C00109" DescriptorVersion="2" SafetyClassification="MedA" Kind="Phy" Priority="Me" DefaultConditionGenerationDelay="PT00H00M30S" CanEscalate="Hi">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="196650">
+                <pm:ConceptDescription Lang="en-US">Inspiratory halothane concentration &gt; high limit</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Source>0x34F00150</pm:Source>
+            </pm:AlertCondition>
+            <pm:AlertCondition xsi:type="pm:LimitAlertConditionDescriptor" Handle="0xD3C00108" DescriptorVersion="2" SafetyClassification="MedA" Kind="Phy" Priority="Hi" DefaultConditionGenerationDelay="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="196672">
+                <pm:ConceptDescription Lang="en-US">Inspiratory oxygen concentration &lt; low limit</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Source>0x34F001F0</pm:Source>
+              <pm:MaxLimits/>
+            </pm:AlertCondition>
+          </pm:AlertSystem>
+          
+		  <pm:Sco Handle="Sco.3208" DescriptorVersion="2">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+          </pm:Sco>
+          <pm:Channel Handle="2.1.2.1" DescriptorVersion="2" SafetyClassification="MedA">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="69651">
+              <pm:ConceptDescription Lang="en-US">gas concentrations</pm:ConceptDescription>
+            </pm:Type>
+            <pm:ProductionSpecification>
+              <pm:SpecType Code="68186">
+                <pm:ConceptDescription Lang="en-US">Device Specialization</pm:ConceptDescription>
+              </pm:SpecType>
+              <pm:ProductionSpec>1.3.6.1.4.1.3592.2.601.55.1.1</pm:ProductionSpec>
+            </pm:ProductionSpecification>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F00150" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152176">
+                <pm:ConceptDescription Lang="en-US">inHal</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F00151" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152092">
+                <pm:ConceptDescription Lang="en-US">etHal</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F00152" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152172">
+                <pm:ConceptDescription Lang="en-US">inEnf</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F00153" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152088">
+                <pm:ConceptDescription Lang="en-US">etEnf</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F00154" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152184">
+                <pm:ConceptDescription Lang="en-US">inIso</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F00155" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152100">
+                <pm:ConceptDescription Lang="en-US">etIso</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F00156" DescriptorVersion="2" Resolution="0.1" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152168">
+                <pm:ConceptDescription Lang="en-US">inDes</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F00157" DescriptorVersion="2" Resolution="0.1" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152084">
+                <pm:ConceptDescription Lang="en-US">etDes</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F00158" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152180">
+                <pm:ConceptDescription Lang="en-US">inSev</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F00159" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152096">
+                <pm:ConceptDescription Lang="en-US">etSev</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F0015A" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152464">
+                <pm:ConceptDescription Lang="en-US">inVA 1</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F0015B" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152460">
+                <pm:ConceptDescription Lang="en-US">etPrimVA</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F0015C" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152464">
+                <pm:ConceptDescription Lang="en-US">inVA 2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F0015D" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152460">
+                <pm:ConceptDescription Lang="en-US">etSecVA</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001AE" DescriptorVersion="2" Resolution="0.1" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152168">
+                <pm:ConceptDescription Lang="en-US">inDes</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001AF" DescriptorVersion="2" Resolution="0.1" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152084">
+                <pm:ConceptDescription Lang="en-US">etDes</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001B0" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152180">
+                <pm:ConceptDescription Lang="en-US">inSev</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001B1" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152096">
+                <pm:ConceptDescription Lang="en-US">etSev</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001C4" DescriptorVersion="2" SafetyClassification="MedA" Resolution="1.0" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151744">
+                <pm:ConceptDescription Lang="en-US">&#916;O2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001D5" DescriptorVersion="2" Resolution="1.0" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151594">
+                <pm:ConceptDescription Lang="en-US">RRc</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="264928">
+                <pm:ConceptDescription Lang="en-US">/min</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001DA" DescriptorVersion="2" Resolution="0.1" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151716">
+                <pm:ConceptDescription Lang="en-US">inCO2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001DB" DescriptorVersion="2" Resolution="0.1" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151708">
+                <pm:ConceptDescription Lang="en-US">etCO2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001E3" DescriptorVersion="2" Resolution="0.1" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151708">
+                <pm:ConceptDescription Lang="en-US">etCO2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001E5" DescriptorVersion="2" Resolution="0.1" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151716">
+                <pm:ConceptDescription Lang="en-US">inCO2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="266016">
+                <pm:ConceptDescription Lang="en-US">mmHg</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="750.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001E6" DescriptorVersion="2" Resolution="0.1" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151708">
+                <pm:ConceptDescription Lang="en-US">etCO2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="266016">
+                <pm:ConceptDescription Lang="en-US">mmHg</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="750.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001E9" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152464">
+                <pm:ConceptDescription Lang="en-US">inVA 1</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001EA" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152460">
+                <pm:ConceptDescription Lang="en-US">etPrimVA</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001ED" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152464">
+                <pm:ConceptDescription Lang="en-US">inVA 2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001EE" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152460">
+                <pm:ConceptDescription Lang="en-US">etSecVA</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001EF" DescriptorVersion="2" Resolution="1.0" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152440">
+                <pm:ConceptDescription Lang="en-US">etO2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001F0" DescriptorVersion="2" Resolution="1.0" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="153144">
+                <pm:ConceptDescription Lang="en-US">FiO2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001F4" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152176">
+                <pm:ConceptDescription Lang="en-US">inHal</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001F5" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152092">
+                <pm:ConceptDescription Lang="en-US">etHal</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001F6" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152172">
+                <pm:ConceptDescription Lang="en-US">inEnf</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001F7" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152088">
+                <pm:ConceptDescription Lang="en-US">etEnf</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001F8" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152184">
+                <pm:ConceptDescription Lang="en-US">inIso</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001F9" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152100">
+                <pm:ConceptDescription Lang="en-US">etIso</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001FB" DescriptorVersion="2" Resolution="1.0" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152192">
+                <pm:ConceptDescription Lang="en-US">inN2O</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001FC" DescriptorVersion="2" Resolution="1.0" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152108">
+                <pm:ConceptDescription Lang="en-US">etN2O</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F001FF" DescriptorVersion="2" Resolution="0.1" MetricCategory="Msrmt" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151716">
+                <pm:ConceptDescription Lang="en-US">inCO2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F05505" DescriptorVersion="2" Resolution="0.025" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151908">
+                <pm:ConceptDescription Lang="en-US">O2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F05506" DescriptorVersion="2" Resolution="0.18" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151700">
+                <pm:ConceptDescription Lang="en-US">CO2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="266016">
+                <pm:ConceptDescription Lang="en-US">mmHg</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="750.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F05507" DescriptorVersion="2" Resolution="0.18" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151700">
+                <pm:ConceptDescription Lang="en-US">CO2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F05508" DescriptorVersion="2" Resolution="0.18" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151700">
+                <pm:ConceptDescription Lang="en-US">CO2</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F0550A" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152456">
+                <pm:ConceptDescription Lang="en-US">Concentration of primary agent (inspiratory/expiratory)</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F0550B" DescriptorVersion="2" Resolution="0.025" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152032">
+                <pm:ConceptDescription Lang="en-US">Hal</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F0550C" DescriptorVersion="2" Resolution="0.025" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152028">
+                <pm:ConceptDescription Lang="en-US">Enf</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F0550D" DescriptorVersion="2" Resolution="0.025" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152040">
+                <pm:ConceptDescription Lang="en-US">Iso</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F0550E" DescriptorVersion="2" Resolution="0.025" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152024">
+                <pm:ConceptDescription Lang="en-US">Des</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F0550F" DescriptorVersion="2" Resolution="0.025" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152036">
+                <pm:ConceptDescription Lang="en-US">Sev</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="262688">
+                <pm:ConceptDescription Lang="en-US">%</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F0552A" DescriptorVersion="2" Resolution="0.01" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152456">
+                <pm:ConceptDescription Lang="en-US">Concentration of primary agent (inspiratory/expiratory)</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F0552B" DescriptorVersion="2" Resolution="0.025" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152032">
+                <pm:ConceptDescription Lang="en-US">Hal</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F0552C" DescriptorVersion="2" Resolution="0.025" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152028">
+                <pm:ConceptDescription Lang="en-US">Enf</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F0552D" DescriptorVersion="2" Resolution="0.025" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152040">
+                <pm:ConceptDescription Lang="en-US">Iso</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F0552E" DescriptorVersion="2" Resolution="0.025" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152024">
+                <pm:ConceptDescription Lang="en-US">Des</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+            <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F0552F" DescriptorVersion="2" Resolution="0.025" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152036">
+                <pm:ConceptDescription Lang="en-US">Sev</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265987">
+                <pm:ConceptDescription Lang="en-US">kPa</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="100.0"/>
+            </pm:Metric>
+          </pm:Channel>
+        </pm:Vmd>
+		
+		
+        <pm:Vmd Handle="2.1.5" DescriptorVersion="2" SafetyClassification="MedA">
+          <ext:Extension>
+            <msg:Retrievability>
+              <msg:By Method="Get"/>
+              <msg:By Method="Ep"/>
+            </msg:Retrievability>
+          </ext:Extension>
+          <pm:Type Code="69682">
+            <pm:ConceptDescription Lang="en-US">Airway Parameter Monitor</pm:ConceptDescription>
+          </pm:Type>
+		  <pm:Sco Handle="Sco.3313" DescriptorVersion="2">
+		  
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+          </pm:Sco>
+          
+		  <pm:Channel Handle="2.1.5.1" DescriptorVersion="2" SafetyClassification="MedA">
+		  
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="69707">
+              <pm:ConceptDescription Lang="en-US">away pressure</pm:ConceptDescription>
+            </pm:Type>
+			<pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F05500" DescriptorVersion="2" SafetyClassification="MedA" Resolution="0.024" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151792">
+                <pm:ConceptDescription Lang="en-US">Paw</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="266098">
+                <pm:ConceptDescription Lang="en-US">mbar</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="-20.0" Upper="80.0"/>
+            </pm:Metric>
+          </pm:Channel>
+          
+		<pm:Channel Handle="2.1.5.2" DescriptorVersion="2" SafetyClassification="MedA">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="69667">
+              <pm:ConceptDescription Lang="en-US">Flow</pm:ConceptDescription>
+            </pm:Type>
+			<pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Handle="0x34F05501" DescriptorVersion="2" SafetyClassification="MedA" Resolution="0.059" MetricCategory="Msrmt" MetricAvailability="Cont" DeterminationPeriod="PT00H00M00.100000000S" SamplePeriod="PT00H00M00.010000000S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Strm"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="151764">
+                <pm:ConceptDescription Lang="en-US">Flow</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="265216">
+                <pm:ConceptDescription Lang="en-US">L/min</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="-120.0" Upper="120.0"/>
+            </pm:Metric>
+          </pm:Channel>
+          
+		  <pm:Channel Handle="2.1.5.3" DescriptorVersion="2" SafetyClassification="MedA">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="69691">
+              <pm:ConceptDescription Lang="en-US">Lung</pm:ConceptDescription>
+            </pm:Type>
+		  </pm:Channel>
+        
+		</pm:Vmd>
+        
+		
+		<pm:Vmd Handle="2.1.6" DescriptorVersion="2" SafetyClassification="MedA">
+          <ext:Extension>
+            <msg:Retrievability>
+              <msg:By Method="Get"/>
+              <msg:By Method="Ep"/>
+            </msg:Retrievability>
+          </ext:Extension>
+          <pm:Type Code="69742">
+            <pm:ConceptDescription Lang="en-US">Calculated parameters</pm:ConceptDescription>
+          </pm:Type>
+		  <pm:Sco Handle="Sco.2911" DescriptorVersion="2">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+          </pm:Sco>
+          <pm:Channel Handle="2.1.6.1" DescriptorVersion="2" SafetyClassification="MedA">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="69743">
+              <pm:ConceptDescription Lang="en-US">Misc</pm:ConceptDescription>
+            </pm:Type>
+            <pm:ProductionSpecification>
+              <pm:SpecType Code="68186">
+                <pm:ConceptDescription Lang="en-US">Device Specialization</pm:ConceptDescription>
+              </pm:SpecType>
+              <pm:ProductionSpec>1.3.6.1.4.1.3592.2.601.55.1.1</pm:ProductionSpec>
+            </pm:ProductionSpecification>
+            <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F00100" DescriptorVersion="2" SafetyClassification="MedA" Resolution="1.0" MetricCategory="Clc" MetricAvailability="Cont" MaxDelayTime="PT00H00M30S" DeterminationPeriod="PT00H00M30S">
+              <ext:Extension>
+                <msg:Retrievability>
+                  <msg:By Method="Get"/>
+                  <msg:By Method="Ep"/>
+                </msg:Retrievability>
+              </ext:Extension>
+              <pm:Type Code="152880">
+                <pm:ConceptDescription Lang="en-US">Air consumpt</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Unit Code="263744">
+                <pm:ConceptDescription Lang="en-US">L</pm:ConceptDescription>
+              </pm:Unit>
+              <pm:TechnicalRange Lower="0.0" Upper="99999.0"/>
+            </pm:Metric>
+		  </pm:Channel>
+        </pm:Vmd>
+      
+	  
+	  </pm:Mds>
+    </pm:MdDescription>
+  </msg:Mdib>
+</msg:GetMdibResponse>
