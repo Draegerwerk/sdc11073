@@ -77,9 +77,9 @@ if __name__ == '__main__':
     # now find the setEnsembleContext operation to register on it 
     contextStateOperation = sdcDevice.getOperationByHandle("ensemble.mds0_sco0")
     # use observable property to get notified on ensemble changes of the device
-    pysdc.observableproperties.bind(contextStateOperation, currentArgument=onEnsembleContextChanged)
+    sdc11073.observableproperties.bind(contextStateOperation, currentArgument=onEnsembleContextChanged)
     # create one local numeric metric that will change later on
-    numMetrDescr = pysdc.namespaces.domTag("NumericMetricDescriptor")
+    numMetrDescr = sdc11073.namespaces.domTag("NumericMetricDescriptor")
     # get all metrics from the mdib (as described in the file)
     allMetricDescrs = [c for c in my_mdib.descriptions.objects if c.NODETYPE == numMetrDescr]
     # now change all the metrics in one transaction
