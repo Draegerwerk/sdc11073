@@ -14,10 +14,6 @@ baseUUID = uuid.UUID('{cc013678-79f6-403c-998f-3cc0cc050230}')
 my_uuid = uuid.uuid5(baseUUID, "12345")
 
 
-# callback function that gets called when the setEnsembleContext operation is called
-def onEnsembleContextChanged(newEnsembleContext):
-    print("Ensemble context change called: {}!".format(newEnsembleContext))
-
 
 # setting the local ensemble context upfront
 def setLocalEnsembleContext(mdib, ensemble):
@@ -49,7 +45,7 @@ if __name__ == '__main__':
     my_mdib = sdc11073.mdib.DeviceMdibContainer.fromMdibFile("mdib.xml")
     print ("My UUID is {}".format(my_uuid))
     # set a location context to allow easy discovery
-    my_location = sdc11073.location.DraegerLocation(fac='HOSP',
+    my_location = sdc11073.location.SdcLocation(fac='HOSP',
                                                  poc='CU2',
                                                  bed='BedSim')
     # set model information for discovery
@@ -74,10 +70,6 @@ if __name__ == '__main__':
     setLocalEnsembleContext(my_mdib, "MyEnsemble")
     # set the location on our device
     sdcDevice.setLocation(my_location) 
-    # now find the setEnsembleContext operation to register on it 
-    contextStateOperation = sdcDevice.getOperationByHandle("ensemble.mds0_sco0")
-    # use observable property to get notified on ensemble changes of the device
-    sdc11073.observableproperties.bind(contextStateOperation, currentArgument=onEnsembleContextChanged)
     # create one local numeric metric that will change later on
     numMetrDescr = sdc11073.namespaces.domTag("NumericMetricDescriptor")
     # get all metrics from the mdib (as described in the file)

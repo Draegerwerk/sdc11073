@@ -55,7 +55,7 @@ if __name__ == '__main__':
         # we now search explicitly for MedicalDevices on the network
         # this will send a probe to the network and wait for responses
         # See MDPWS discovery mechanisms for details
-        services = myDiscovery.searchServices(types=sdc11073.definitions_final.Final.MedicalDeviceTypesFilter)
+        services = myDiscovery.searchServices(types=sdc11073.definitions_sdc.SDC_v1_Definitions.MedicalDeviceTypesFilter)
 
         # now iterate through the discovered services to check if we foundDevice
         # the specific provider we search for
