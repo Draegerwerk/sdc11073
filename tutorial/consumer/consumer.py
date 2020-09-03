@@ -44,8 +44,8 @@ def setEnsembleContext(theMDIB, theClient):
 # main entry, will start to scan for the known provider and connect
 # runs forever and consumes metrics everafter
 if __name__ == '__main__':
-    # start with discovery (MDPWS) that is running on the named adapter "Ethernet" (replace as you need it on your machine, e.g. "enet0")
-    myDiscovery = sdc11073.wsdiscovery.WSDiscoverySingleAdapter("CORP")
+    # start with discovery (MDPWS) that is running on the named adapter "Ethernet" (replace as you need it on your machine, e.g. "enet0" or "Ethernet)
+    myDiscovery = sdc11073.wsdiscovery.WSDiscoverySingleAdapter("Ethernet")
     # start the discovery
     myDiscovery.start()
     # we want to search until we found one device with this client
