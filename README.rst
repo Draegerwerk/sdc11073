@@ -5,7 +5,7 @@ Overview
 (Service-Oriented Device Connectivity) is one of the latest additions to
 this family and is `described
 here <https://en.wikipedia.org/wiki/IEEE_11073_service-oriented_device_connectivity>`__
-Market-Oriented information can be foudn
+Market-Oriented information can be found
 `here <https://www.draeger.com/Library/Content/sdc-information-sheet-9107546-en.pdf>`__
 SDC is supported by `OR.Net <https://ornet.org/en>`__
 
