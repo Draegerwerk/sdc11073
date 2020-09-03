@@ -37,8 +37,8 @@ def setLocalEnsembleContext(mdib, ensemble):
 
 
 if __name__ == '__main__':
-    # start with discovery (MDPWS) that is running on the named adapter "Ethernet" (replace as you need it on your machine, e.g. "enet0")
-    myDiscovery = sdc11073.wsdiscovery.WSDiscoverySingleAdapter("CORP")
+    # start with discovery (MDPWS) that is running on the named adapter "Ethernet" (replace as you need it on your machine, e.g. "enet0" or "Ethernet")
+    myDiscovery = sdc11073.wsdiscovery.WSDiscoverySingleAdapter("Ethernet")
     # start the discovery
     myDiscovery.start()
     # create a local mdib that will be sent out on the network, the mdib is based on a XML file
