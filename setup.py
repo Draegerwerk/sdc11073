@@ -11,8 +11,12 @@ from setuptools import setup, find_packages
 from codecs import open
 import os
 import subprocess
+
 version = '0.1'
 
+# create a version.py file that is
+# a) used for __version__ info
+# b) contains current git hash of repo
 try:
     gitrev = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
     gitrev = gitrev.decode('ascii')
@@ -41,9 +45,9 @@ if os.name == 'posix':
 setup(
     name='sdc11073',
     version=version ,
-    description='pure python implementation of SDC protocol',
+    description='pure python implementation of IEEE11073 SDC protocol',
     long_description=long_description,
-    url='https://stash.draeger.com/projects/PYLIB/repos/pysdc/browse',
+    url='https://github.com/Draegerwerk/sdc11073',
     author='Bernd Deichmann',
     author_email='bernd.deichmann@draeger.com',
 
@@ -53,7 +57,7 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 5 - Production/Stable',
+        'Development Status :: 4 - Beta',
 
         # Indicate who your project is intended for
         'Intended Audience :: Developers',
@@ -64,8 +68,6 @@ setup(
 
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
     ],
 
@@ -98,13 +100,13 @@ setup(
     # installed, specify them here.  If using Python 2.6 or less, then these
     # have to be included in MANIFEST.in as well.
     package_data={
-        'sdc11073': ['examples/*.py',
-                  'examples/ReferenceTest/*.py',
-                  'examples/ReferenceTest/*.xml',
-                  'examples/ReferenceTest/*.jsn',
-                  'xsd/*.xsd',
-                  'ca/*.*',
-                  'codings/*.csv'],
+        'sdc11073': ['tutorial/readme.rst',
+                     'tutorial/consumer/*.py',
+                     'tutorial/provider/*.xml',
+                     'tutorial/provider/*.py',
+                     'xsd/*.xsd',
+                     'ca/*.*',
+                     'codings/*.csv'],
     },
 
     # Although 'package_data' is the preferred approach, in some case you may
