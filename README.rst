@@ -14,8 +14,7 @@ SDC is supported by the interoperability association `OR.Net <https://ornet.org/
 Getting Started
 ===============
 
-A tutorial can be found in the `tutorial
-folder </tutorial/readme.rst>`__.
+A tutorial can be found in the tutorial folder.
 
 Usage
 =====
