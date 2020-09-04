@@ -12,7 +12,7 @@ from codecs import open
 import os
 import subprocess
 
-version = '0.1.1'
+version = '1.0.0'
 
 # create a version.py file that is
 # a) used for __version__ info
@@ -57,7 +57,7 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
 
         # Indicate who your project is intended for
         'Intended Audience :: Developers',
