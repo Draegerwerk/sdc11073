@@ -6,7 +6,6 @@ import socket
 import traceback
 import http.client
 from http.server import HTTPServer
-from urllib.error import HTTPError
 import queue
 import urllib
 from lxml import etree as etree_
@@ -207,11 +206,22 @@ class _ClSubscription(object):
             resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
                                                                                soapEnvelope, msg='renew')
             self._logger.debug('{}', resultSoapEnvelope.as_xml(pretty=True))
-            self._handleRenewResponse(resultSoapEnvelope)
-            return self.remainingSubscriptionSeconds
-        except (http.client.NotConnected, HTTPError) as ex:
-            self._logger.error('renew failed: {}', ex)
+        except HTTPReturnCodeError as ex:
             self.isSubscribed = False
+            self._logger.error('could not renew: {}'.format(HTTPReturnCodeError))
+        except (http.client.HTTPException, ConnectionError) as ex:
+            self._logger.warn('renew failed: {}', ex)
+            self.isSubscribed = False
+        except Exception as ex:
+            self._logger.error('Exception in renew: {}', ex)
+            self.isSubscribed = False
+        else:
+            try:
+                self._handleRenewResponse(resultSoapEnvelope)
+                return self.remainingSubscriptionSeconds
+            except SoapResponseException as ex:
+                self.isSubscribed = False
+                self._logger.warn('renew failed: {}', etree_.tostring(ex.soapResponseEnvelope.bodyNode, pretty_print=True))
 
 
     def unsubscribe(self):
@@ -252,21 +262,21 @@ class _ClSubscription(object):
         try:
             resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
                                                                                soapEnvelope, msg='getStatus')
-        except HTTPError as ex:
+        except HTTPReturnCodeError as ex:
             self.isSubscribed = False
-            if ex.code == 400: # Bad Request: in this case the subscription is unknown
-                self._logger.warn('Could not get status of subscription {}, subscription expired?', self._filter)
-                return None
-            else:
-                raise
-        except http.client.NotConnected as ex:
+            self._logger.error('could not get status: {}'.format(HTTPReturnCodeError))
+        except (http.client.HTTPException, ConnectionError) as ex:
             self.isSubscribed = False
-            self._logger.warn('Could not get status of subscription {}, error=NotConnected', self._filter)
+            self._logger.warn('getStatus: Connection Error {} for subscription {}', ex, self._filter)
+        except Exception as ex:
+            self._logger.error('Exception in getStatus: {}', ex)
+            self.isSubscribed = False
         else:
             try:
                 expiresNode = resultSoapEnvelope.msgNode.find('wse:Expires', namespaces=_global_nsmap )
                 if expiresNode is None:
                     self._logger.warn ('getStatus for {}: Could not find "Expires" node! getStatus={} ', self._filter, resultSoapEnvelope.rawdata)
+                    raise SoapResponseException(resultSoapEnvelope)
                 else:
                     expires = expiresNode.text
                     expiresValue = isoduration.parse_duration(expires)
@@ -296,27 +306,15 @@ class _ClSubscription(object):
             self.expireAt = time.time() + remainingTime
 
         if self.remainingSubscriptionSeconds < renewLimit:
-            try:
-                self._logger.info('renewing subscription')
-                self.renew()
-            except SoapResponseException as ex:
-                self._logger.warn( '##### SoapResponseException #####')
-                self._logger.warn( '{}', etree_.tostring(ex.soapResponseEnvelope.bodyNode, pretty_print=True))
-                self.isSubscribed = False
+            self._logger.info('renewing subscription')
+            self.renew()
 
     def checkStatus_renew(self):
         ''' Calls renew and updates internal data.
         @return: None
         '''
-        if not self.isSubscribed:
-            return
-
-        try:
+        if self.isSubscribed:
             self.renew()
-        except SoapResponseException as ex:
-            self._logger.warn('##### SoapResponseException #####')
-            self._logger.warn('{}', etree_.tostring(ex.soapResponseEnvelope.bodyNode, pretty_print=True))
-            self.isSubscribed = False
 
     @property
     def remainingSubscriptionSeconds(self):
