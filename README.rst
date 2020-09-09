@@ -1,3 +1,7 @@
+.. image:: doc/pySDC_Social_Preview.jpg
+  :width: 400
+  :alt: pySDC Picture
+
 Overview
 ========
 
