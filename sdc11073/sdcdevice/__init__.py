@@ -1,1 +1,1 @@
-from .sdcdeviceimpl import SdcDevice, PublishingSdcDevice
+from .sdcdeviceimpl import SdcDevice

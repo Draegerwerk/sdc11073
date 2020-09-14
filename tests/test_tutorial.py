@@ -26,11 +26,11 @@ def createGenericDevice(wsdiscovery_instance, location, mdibPath):
     dpwsDevice = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendlyName='TestDevice',
                                                              firmwareVersion='Version1',
                                                              serialNumber='12345')
-    sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.PublishingSdcDevice(wsdiscovery_instance,
-                                                                     my_uuid,
-                                                                     dpwsModel,
-                                                                     dpwsDevice,
-                                                                     my_mdib)
+    sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.SdcDevice(wsdiscovery_instance,
+                                                           my_uuid,
+                                                           dpwsModel,
+                                                           dpwsDevice,
+                                                           my_mdib)
     #sdcDevice._handler.mkDefaultRoleHandlers()
     for desc in sdcDevice.mdib.descriptions.objects:
         desc.SafetyClassification = sdc11073.pmtypes.SafetyClassification.MED_A

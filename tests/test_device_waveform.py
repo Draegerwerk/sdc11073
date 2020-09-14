@@ -125,7 +125,7 @@ class TestDeviceWaveform(unittest.TestCase):
         
         self.wsDiscovery = mockstuff.MockWsDiscovery(['5.6.7.8'])
         uuid = None # let device create one
-        self.sdcDevice = sdc11073.sdcdevice.SdcDevice(uuid, self.wsDiscovery, self._model, self._device, self.mdib, logLevel=logging.DEBUG)
+        self.sdcDevice = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, uuid, self._model, self._device, self.mdib, logLevel=logging.DEBUG)
         self.sdcDevice.startAll()
         testSubscr = mockstuff.TestDevSubscription(self.sdcDevice.mdib.sdc_definitions.Actions.Waveform, self.sdcDevice.mdib.bicepsSchema)
         self.sdcDevice.subscriptionsManager._subscriptions. addObject(testSubscr)

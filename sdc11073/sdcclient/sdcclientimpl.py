@@ -185,14 +185,13 @@ class SdcClient(object):
                        }
 
     SSL_CIPHERS = None  # None : use SSL default
-    def __init__(self, devicelocation, deviceType, validate=True, allowSSL=True, sslEvents='auto', sslContext=None,
+    def __init__(self, devicelocation, deviceType, validate=True, sslEvents='auto', sslContext=None,
                  my_ipaddress=None, logLevel=None, ident='',
                  soap_notifications_handler_class=None):  # pylint:disable=too-many-arguments
         '''
         @param devicelocation: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         @param deviceType: a QName that defines the device type, e.g. '{http://standards.ieee.org/downloads/11073/11073-20702-2016}MedicalDevice'
                           can be None, in that case value from pysdc.xmlparsing.Final is used
-        @param allowSSL: set to False if client shall not use a SSL Certificate.
         @param sslEvents: define if HTTP server of client uses https
              sslEvents='auto': use https if Xaddress of device is https
              sslEvents=True: always use https
@@ -233,41 +232,11 @@ class SdcClient(object):
         self.hostDescription = None
         self._hostedServices = {} # lookup by service id
         self._validate = validate
-        if allowSSL:
-            try:
-                self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)
-            except AttributeError:
-                self._logger.info('Using SSL is enabled. TLS 1.3 is not supported')
-        else:
-            self._logger.info('Using SSL is disabled.')
-        if sslContext is not None:
-            self._logger.info('Using SSLContext supplied by application')
+        try:
+            self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)
+        except AttributeError:
+            self._logger.info('Using SSL is enabled. TLS 1.3 is not supported')
         self._sslContext = sslContext
-        if allowSSL and sslContext is None:
-            # create sslContext with default certificates
-            self._logger.info('Using default SSLContext.')
-            try:
-                self._sslContext = ssl.SSLContext(ssl.PROTOCOL_SSLv23) #pylint:disable=no-member
-                client_cyphers = self.SSL_CIPHERS
-                if os.path.exists(_ssl_cypherfile):
-                    try:
-                        with open(_ssl_cypherfile)  as f:
-                            cyphers = json.load(f)
-                            client_cyphers = cyphers.get('client', self.SSL_CIPHERS)
-                    except Exception as ex:
-                        self._logger.warn(
-                            'ssl: Could not create cyphers from file "{}", will use default. error is: {}'.format(
-                                _ssl_cypherfile, traceback.format_exc()))
-                if client_cyphers is not None:
-                    self._logger.info('ssl: using cyphers="{}"', client_cyphers)
-                    self._sslContext.set_ciphers(client_cyphers)
-                self._logger.info ('ssl: loading {} and {}', _ssl_certfile, _ssl_keyfile)
-                self._sslContext.load_cert_chain(certfile=_ssl_certfile, keyfile=_ssl_keyfile, password=_ssl_passwd)
-                self._sslContext.verify_mode = ssl.CERT_REQUIRED
-                self._sslContext.load_verify_locations(_ssl_cacert)
-            except (AttributeError, FileNotFoundError):
-                self._logger.warn('Could not create SSLContext, https connections will not work!')
-        
         self._notificationsDispatcherThread = None
         
         self._logger.info('created {} for {}', self.__class__.__name__, self._devicelocation)
@@ -701,7 +670,7 @@ class SdcClient(object):
 
 
     @classmethod
-    def fromWsdService(cls, wsdService, validate=True, allowSSL=True, sslEvents='auto',
+    def fromWsdService(cls, wsdService, validate=True, sslEvents='auto',
                      sslContext=None, my_ipaddress=None, logLevel=logging.INFO,
                      ident='', soap_notifications_handler_class=None):
         device_locations = wsdService.getXAddrs()
@@ -715,6 +684,6 @@ class SdcClient(object):
                 if protocol.ns_matches(qname):
                     deviceType = protocol.MedicalDeviceType
                     break
-        return cls(device_location, deviceType=deviceType, validate=validate, allowSSL=allowSSL, sslEvents=sslEvents,
+        return cls(device_location, deviceType=deviceType, validate=validate, sslEvents=sslEvents,
                    sslContext=sslContext, my_ipaddress=my_ipaddress, logLevel=logLevel, ident=ident,
                    soap_notifications_handler_class=soap_notifications_handler_class)

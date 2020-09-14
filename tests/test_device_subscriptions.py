@@ -66,7 +66,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
         self.wsDiscovery.start()
         my_uuid = None # let device create one
         mdib_d10 = sdc11073.mdib.DeviceMdibContainer.fromMdibFile(os.path.join(mdibFolder, '70041_MDIB_Final.xml'))
-        self.sdcDevice_d10 = sdc11073.sdcdevice.SdcDevice(my_uuid, self.wsDiscovery, self._model, self._device, mdib_d10, logLevel=logging.DEBUG)
+        self.sdcDevice_d10 = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, my_uuid, self._model, self._device, mdib_d10, logLevel=logging.DEBUG)
         self.sdcDevice_d10.startAll()
         self._allDevices = (self.sdcDevice_d10,)
 

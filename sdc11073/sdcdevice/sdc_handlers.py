@@ -53,7 +53,6 @@ class SdcHandler_Base(object):
     These must be instantiated in a derived class.'''
 
     SSL_CIPHERS = 'HIGH:!3DES:!DSS:!aNULL@STRENGTH'
-    #    SSL_CIPHERS = 'DHE-RSA-AES256-GCM-SHA384'
 
     WARN_LIMIT_REALTIMESAMPLES_BEHIND_SCHEDULE = 0.2  # warn limit when real time samples cannot be sent in time (typically because receiver is too slow)
     WARN_RATE_REALTIMESAMPLES_BEHIND_SCHEDULE = 5  # max. every x seconds a message
@@ -63,8 +62,8 @@ class SdcHandler_Base(object):
     # member "contextstates_in_getmdib".
     defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extensionString='System'),)
 
-    def __init__(self, my_uuid, ws_discovery, model, device, deviceMdibContainer, validate=True, roleProvider=None,
-                 useSSL=True, sslContext=None,
+    def __init__(self, my_uuid, ws_discovery, model, device, deviceMdibContainer, validate=True,
+                 roleProvider=None, sslContext=None,
                  logLevel=None, max_subscription_duration=7200, log_prefix=''):  # pylint:disable=too-many-arguments
         """
         @param uuid: a string that becomes part of the devices url (no spaces, no special characters please. This could cause an invalid url!).
@@ -74,7 +73,7 @@ class SdcHandler_Base(object):
         @param device: a pysoap.soapenvelope.DPWSThisDevice instance
         @param deviceMdibContainer: a DeviceMdibContainer instance
         @param roleProvider: handles the operation calls
-        @param sslContext: if not None, this context is used. Otherwise a sSSLContext is automatically generated.
+        @param sslContext: if not None, this context is used and https url is used. Otherwise http
         @param logLevel: if not None, the "sdc.device" logger will use this level
         @param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
         @param ident: names a device, used for logging
@@ -87,6 +86,7 @@ class SdcHandler_Base(object):
         self._log_prefix = log_prefix
         self._mdib.log_prefix = log_prefix
         self._validate = validate
+        self._sslContext = sslContext
         self._compression_methods = compression.encodings[:]
         self._httpServerThread = None
         self._setupLogging(logLevel)
@@ -111,44 +111,10 @@ class SdcHandler_Base(object):
         self._rtSampleSendThread = None
         self._runRtSampleThread = False
         self.collectRtSamplesPeriod = 0.1  # in seconds
-        if sslContext is not None:
-            self._logger.info('Using SSLContext supplied by application')
-        if not useSSL:
-            self._sslContext = None
-            self._urlschema = 'http'
-        else:
-            try:
-                self._logger.info('Using SSL. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)
-            except AttributeError:
-                self._logger.info('Using SSL. TLS 1.3 is not supported')
-            self._sslContext = sslContext
+        if self._sslContext is not None:
             self._urlschema = 'https'
-            if sslContext is None:
-                # create sslContext with default certificates
-                self._logger.info('Using default SSLContext')
-                try:
-                    self._sslContext = ssl.SSLContext(ssl.PROTOCOL_TLS)  # pylint:disable=no-member
-                    device_cyphers = self.SSL_CIPHERS
-                    if os.path.exists(_ssl_cypherfile):
-                        try:
-                            with open(_ssl_cypherfile)  as f:
-                                cyphers = json.load(f)
-                                device_cyphers = cyphers.get('device', self.SSL_CIPHERS)
-                        except Exception as ex:
-                            self._logger.warn(
-                                'ssl: Could not create cyphers from file "{}", will use default. error is: {}'.format(
-                                    _ssl_cypherfile, traceback.format_exc()))
-                    self._logger.info('ssl: loading {} and {}', _ssl_certfile, _ssl_keyfile)
-                    if device_cyphers is not None:
-                        self._logger.info('ssl: using cyphers="{}"', device_cyphers)
-                        self._sslContext.set_ciphers(device_cyphers)
-                    self._sslContext.load_cert_chain(certfile=_ssl_certfile, keyfile=_ssl_keyfile, password=_ssl_passwd)
-                    self._sslContext.verify_mode = ssl.CERT_REQUIRED
-                    self._sslContext.load_verify_locations(_ssl_cacert)
-                except (AttributeError, FileNotFoundError):
-                    self._logger.warn('Could not create SSLContext, https connections will not work!')
-                    self._urlschema = 'http'
-                    self._sslContext = None
+        else:
+            self._urlschema = 'http'
 
         self.dpwsHost = None
         self._subscriptionsManager = self._mkSubscriptionManager(max_subscription_duration)
