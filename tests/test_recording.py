@@ -14,7 +14,7 @@ from sdc11073.location import SdcLocation
 from sdc11073.mdib.descriptorcontainers import NumericMetricDescriptorContainer
 from sdc11073.pmtypes import CodedValue
 from sdc11073.pysoap.soapenvelope import DPWSThisModel, DPWSThisDevice
-from sdc11073.sdcdevice import PublishingSdcDevice, waveforms
+from sdc11073.sdcdevice import SdcDevice, waveforms
 from tests.base_test import BaseTest
 from sdc11073 import pmtypes
 
@@ -172,8 +172,8 @@ class Test_Client_recording(BaseTest):
                                 firmwareVersion="v1.23",
                                 serialNumber="MISAD31245124")
 
-        self._publishingDevice = PublishingSdcDevice(self.wsdiscovery, uuid.uuid1(),
-                                                     model, device, mdib)
+        self._publishingDevice = SdcDevice(self.wsdiscovery, uuid.uuid1(),
+                                           model, device, mdib)
         # commLogger = commlog.CommLogger(log_folder="testcomm",
         #                                 log_out=True,
         #                                 log_in=False,

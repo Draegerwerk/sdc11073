@@ -3,18 +3,50 @@ from .sdc_handlers import SdcHandler_Full
 
 
 class SdcDevice(object):
-    def __init__(self, my_uuid, ws_discovery, model, device, deviceMdibContainer, validate=True, roleProvider=None, useSSL=True, sslContext=None,
+    defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extensionString='System'),)
+    def __init__(self, ws_discovery, my_uuid, model, device, deviceMdibContainer, validate=True, roleProvider=None, sslContext=None,
                  logLevel=None, max_subscription_duration=7200, log_prefix='', handler_cls=None): #pylint:disable=too-many-arguments
         # ssl protocol handling itself is delegated to a handler.
         # Specific protocol versions or behaviours are implemented there.
         if handler_cls is None:
             handler_cls = SdcHandler_Full
         self._handler = handler_cls(my_uuid, ws_discovery, model, device, deviceMdibContainer, validate,
-                                roleProvider, useSSL, sslContext, logLevel, max_subscription_duration,
+                                roleProvider, sslContext, logLevel, max_subscription_duration,
                                 log_prefix=log_prefix)
         self._wsdiscovery = ws_discovery
         self._logger = self._handler._logger
         self._mdib = deviceMdibContainer
+        self._location = None
+
+    def setLocation(self, location, validators=defaultInstanceIdentifiers, publishNow=True):
+        '''
+        @param location: a pysdc.location.DraegerLocation instance
+        @param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
+        @param publishNow: if True, the device is published via its wsdiscovery reference.
+        '''
+        if location == self._location:
+            return
+
+        if self._location is not None:
+            self._wsdiscovery.clearService(self.epr)
+
+        self._location = location
+
+        if location is None:
+            return
+
+        self._mdib.setLocation(location, validators)
+        if publishNow:
+            self.publish()
+
+    def publish(self):
+        """
+        publish device on the network (sends HELLO message)
+        :return:
+        """
+        scopes = self._handler.mkScopes()
+        xAddrs = self.getXAddrs()
+        self._wsdiscovery.publishService(self.epr, self._mdib.sdc_definitions.MedicalDeviceTypesFilter, scopes, xAddrs)
 
 
     @property
@@ -109,63 +141,3 @@ class SdcDevice(object):
     @product_roles.setter
     def product_roles(self, product_roles):
         self._handler.product_roles = product_roles
-
-
-
-class PublishingSdcDevice(SdcDevice):
-    defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extensionString='System'),)
-
-    def __init__(self, ws_discovery, my_uuid, model, device, deviceMdibContainer, validate=True,
-                 roleProvider=None, useSSL=True, sslContext=None, logLevel=None,
-                 max_subscription_duration=7200, log_prefix='', handler_cls=None):
-        """
-        @param ws_discovery: reference to the wsDiscovery instance
-        @param uuid: a string that becomes part of the devices url (no spaces, no special characters please. This could cause an invalid url!).
-                     Parameter can be None, in this case a random uuid string is generated.
-        @param model: a pysoap.soapenvelope.DPWSThisModel instance
-        @param device: a pysoap.soapenvelope.DPWSThisDevice instance
-        @param deviceMdibContainer: a DeviceMdibContainer instance
-        @param validate: activates schema validation
-        @param roleProvider: if provided, ait defines the behaviour of the device ( reactions on operation calls)
-        @param useSSL: determines if http or https is used
-        @param sslContext: if not None, this context is used. Otherwise a sSSLContext is automatically generated.
-        @param logLevel: if not None, the "sdc.device" logger will use this level
-        @param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
-        @param ident: names a device, used for logging
-        """
-        super(PublishingSdcDevice, self).__init__(my_uuid, ws_discovery, model, device, deviceMdibContainer, validate,
-                                                  roleProvider, useSSL, sslContext, logLevel,
-                                                  max_subscription_duration=max_subscription_duration,
-                                                  log_prefix=log_prefix, handler_cls=handler_cls)
-        self._location = None
-
-    def setLocation(self, location, validators=defaultInstanceIdentifiers, publishNow=True):
-        '''
-        @param location: a pysdc.location.DraegerLocation instance
-        @param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
-        @param publishNow: if True, the device is published via its wsdiscovery reference.
-        '''
-        if location == self._location:
-            return
-
-        if self._location is not None:
-            self._wsdiscovery.clearService(self.epr)
-
-        self._location = location
-
-        if location is None:
-            return
-
-        self._mdib.setLocation(location, validators)
-        if publishNow:
-            self.publish()
-
-    def publish(self):
-        """
-        publish device on the network (sends HELLO message)
-        :return:
-        """
-        scopes = self._handler.mkScopes()
-        xAddrs = self.getXAddrs()
-        self._wsdiscovery.publishService(self.epr, self._mdib.sdc_definitions.MedicalDeviceTypesFilter, scopes, xAddrs)
-

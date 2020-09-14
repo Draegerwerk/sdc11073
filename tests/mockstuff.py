@@ -8,7 +8,7 @@ from sdc11073.mdib import DeviceMdibContainer
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
 
-from sdc11073.sdcdevice import  PublishingSdcDevice
+from sdc11073.sdcdevice import  SdcDevice
 from lxml import etree as etree_
 portsLock = threading.Lock()
 _ports = 10000
@@ -85,12 +85,12 @@ class TestDevSubscription(_DevSubscription):
         self.reports.append(rep)
 
 
-class SomeDevice(PublishingSdcDevice):
+class SomeDevice(SdcDevice):
     """A device used for unit tests
 
     """
     def __init__(self, wsdiscovery, my_uuid, mdib_xml_string,
-                 validate=True, useSSL=True, sslContext=None, logLevel=logging.INFO, log_prefix=''):
+                 validate=True, sslContext=None, logLevel=logging.INFO, log_prefix=''):
         model = DPWSThisModel(manufacturer='Draeger CoC Systems',
                               manufacturerUrl='www.draeger.com',
                               modelName='SomeDevice',
@@ -111,11 +111,11 @@ class SomeDevice(PublishingSdcDevice):
         mdsDescriptor.updateNode()
         super(SomeDevice, self).__init__(wsdiscovery, my_uuid, model, device, deviceMdibContainer, validate,
                                          # registerDefaultOperations=True,
-                                         useSSL=useSSL, sslContext=sslContext, logLevel=logLevel, log_prefix=log_prefix)
+                                         sslContext=sslContext, logLevel=logLevel, log_prefix=log_prefix)
         #self._handler.mkDefaultRoleHandlers()
     @classmethod
     def fromMdibFile(cls, wsdiscovery, my_uuid, mdib_xml_path,
-                 validate=True, useSSL=True, sslContext=None, logLevel=logging.INFO, log_prefix=''):
+                 validate=True, sslContext=None, logLevel=logging.INFO, log_prefix=''):
         """
         An alternative constructor for the class
         """
@@ -125,4 +125,4 @@ class SomeDevice(PublishingSdcDevice):
 
         with open(mdib_xml_path, 'rb') as f:
             mdib_xml_string = f.read()
-        return cls(wsdiscovery, my_uuid, mdib_xml_string, validate, useSSL, sslContext, logLevel, log_prefix=log_prefix)
+        return cls(wsdiscovery, my_uuid, mdib_xml_string, validate, sslContext, logLevel, log_prefix=log_prefix)
