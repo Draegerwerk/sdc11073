@@ -37,9 +37,8 @@ with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 dependencies = ['lxml>=2.3',
                 'lz4',
-                'cryptography']
-if os.name == 'posix':
-    dependencies.append('netifaces')
+                'cryptography',
+                'netifaces']
 
 
 setup(
