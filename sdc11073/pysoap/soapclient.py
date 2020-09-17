@@ -148,11 +148,11 @@ class SoapClient(CompressionHandler):
             if tmp:
                 xml_request = tmp
 
-        started = time.monotonic()
+        started = time.perf_counter()
         try:
             xml_response = self._sendSoapRequest(path, xml_request, msg)
         finally:
-            self.roundtrip_time = time.monotonic() - started # set roundtrip time even if method raises an exception
+            self.roundtrip_time = time.perf_counter() - started # set roundtrip time even if method raises an exception
         normalized_xml_response = self._sdc_definitions.normalizeXMLText(xml_response)
         my_responseFactory = responseFactory or soapenvelope.ReceivedSoap12Envelope.fromXMLString
         try:
