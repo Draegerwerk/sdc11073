@@ -55,14 +55,22 @@ def parse_duration(datestring):
 
 def durationString(seconds):
     sign = '-' if seconds < 0 else ''
-    fract = seconds - int(seconds)
+    fract = abs(seconds - int(seconds))
     seconds = abs(int(seconds))
     minutes, sec = divmod(seconds,60)
     hours, minutes= divmod(minutes,60)
     days, hours = divmod(hours, 24)
-    sec += fract
-    return '{}P0Y0M{}DT{}H{}M{}S'.format(sign, days, hours, minutes, sec)
-    
+#    sec += fract
+    if fract == 0:
+        fract_string = ''
+    else:
+        fract_string = f'{fract:.9f}'[1:] # starting from dot char
+        while fract_string[-1] == '0':
+            fract_string = fract_string[:-1]
+    if days == 0:
+        return '{}PT{}H{}M{}{}S'.format(sign, hours, minutes, sec, fract_string)
+    else:
+        return '{}P0Y0M{}DT{}H{}M{}{}S'.format(sign, days, hours, minutes, sec, fract_string)
 
 
 ##### Date Time ######
