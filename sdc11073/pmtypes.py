@@ -1169,6 +1169,7 @@ class Relation(PropertyBasedPMType):
     Identification = cp.SubElementProperty([namespaces.domTag('Identification')], valueClass=InstanceIdentifier) # optional
     Kind = cp.NodeAttributeProperty('Kind') # required, Rcm, PS, SST, ECE, DCE, Oth
     Entries = cp.NodeAttributeListProperty('Entries')
+    _props = ['Code', 'Identification', 'Kind', 'Entries']
 
 
 # SafetyReq definitions
