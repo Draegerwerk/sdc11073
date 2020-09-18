@@ -305,6 +305,10 @@ class BatteryDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     CapacitySpecified = cp.SubElementProperty([domTag('CapacitySpecified')], valueClass=pmtypes.Measurement)  # optional
     VoltageSpecified = cp.SubElementProperty([domTag('VoltageSpecified')], valueClass=pmtypes.Measurement)  # optional
     _props = ('CapacityFullCharge', 'CapacitySpecified', 'VoltageSpecified')
+    _childNodeNames = (domTag('CapacityFullCharge'),
+                       domTag('CapacitySpecified'),
+                       domTag('VoltageSpecified'),
+                       )
 
 
 class ScoDescriptorContainer(AbstractDeviceComponentDescriptorContainer):

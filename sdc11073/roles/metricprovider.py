@@ -96,6 +96,7 @@ class GenericMetricProvider(providerbase.ProviderRole):
                                             ComponentActivation.SHUTDOWN,
                                             ComponentActivation.FAILURE):
                 if newstate.metricValue is not None:
-                    self._logger.info('{}: Requirement SF717: remove metric value because activation="{}", handle="{}"',
+                    # remove metric value
+                    self._logger.info('{}: remove metric value because ActivationState="{}", handle="{}"',
                                       self.__class__.__name__, newstate.ActivationState, newstate.descriptorHandle)
                     newstate.metricValue = None

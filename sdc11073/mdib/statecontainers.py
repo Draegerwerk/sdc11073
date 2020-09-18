@@ -335,11 +335,12 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
 class AlertConditionStateContainer(AbstractAlertStateContainer):
     isAlertCondition = True
     NODETYPE = domTag('AlertConditionState')
+    ActualConditionGenerationDelay = cp.DurationAttributeProperty('ActualConditionGenerationDelay')# xsd:duration
     ActualPriority = cp.NodeAttributeProperty('ActualPriority') # optional, pmtypes.AlertConditionPriority ('Lo', 'Me', 'Hi', 'None')
     Rank = cp.NodeAttributeProperty('Rank', valueConverter=cp.IntegerConverter) # Integer
     DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime') # Integer
     Presence = cp.NodeAttributeProperty('Presence', valueConverter=cp.BooleanConverter, impliedPyValue=False)
-    _props=('ActualPriority', 'Rank', 'DeterminationTime', 'Presence')
+    _props=('ActualConditionGenerationDelay', 'ActualPriority', 'Rank', 'DeterminationTime', 'Presence')
 
 
 class LimitAlertConditionStateContainer(AlertConditionStateContainer):

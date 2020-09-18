@@ -26,7 +26,7 @@ MAX_ROUNDTRIP_VALUES = 20
 class _RoundTripData(object):
     def __init__(self, values, abs_max):
         if values:
-            self.values = values
+            self.values = list(values) # make a copy
             self.min = min(values)
             self.max = max(values)
             self.avg = sum(values)/len(values)

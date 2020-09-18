@@ -73,21 +73,18 @@ class DevicesDispatcher(object):
             raise RuntimeError('Path "{}" already registered'.format(path))
         self.deviceByUrl[path] = dispatcher
 
-    def on_post(self, path, headers, request):
+    def get_device_dispather(self, path):
         _path = path[1:] if path.startswith('/') else path
         for url, dispatcher in self.deviceByUrl.items():
             if _path.startswith(url):
-                return dispatcher.on_post(path, headers, request)
+                return dispatcher
         raise HTTPRequestHandlingError(status=404, reason='not found', soapfault='client error')
+
+    def on_post(self, path, headers, request):
+        return self.get_device_dispather(path).on_post(path, headers, request)
 
     def on_get(self, path, headers):
-        _path = path[1:] if path.startswith('/') else path
-        for url, dispatcher in self.deviceByUrl.items():
-            if _path.startswith(url):
-                # return dispatcher.dispatchGetRequest(path, headers)
-                return dispatcher.on_get(path, headers)
-        raise HTTPRequestHandlingError(status=404, reason='not found', soapfault='client error')
-
+        return self.get_device_dispather(path).on_get(path, headers)
 
 
 class HostedServiceDispatcher(object):
@@ -163,8 +160,8 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
     def do_POST(self):
         """SOAP POST gateway"""
         try:
-            dispatcher = self.server.dispatcher
-            if dispatcher is None:
+            devices_dispatcher = self.server.dispatcher
+            if devices_dispatcher is None:
                 # close this connection
                 self.close_connection = 1
                 response_xml_string = 'received a POST request, but have no dispatcher'
@@ -174,7 +171,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
                 commlog.defaultLogger.logSoapReqIn(request, 'POST')
                 try:
                     #delegate handling to on_post method of dispatcher
-                    response_xml_string = self.server.dispatcher.on_post(self.path, self.headers, request)
+                    response_xml_string = devices_dispatcher.on_post(self.path, self.headers, request)
                     http_status = 200
                     http_reason = 'Ok'
                 except HTTPRequestHandlingError as ex:
@@ -194,13 +191,14 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             # make an error 500 response with the soap fault as content
             self.server.logger.error(traceback.format_exc())
             # we must create a soapEnvelope in order to generate a SoapFault
-            normalizedRequest = self.sdc_definitions.normalizeXMLText(request)
+            dev_dispatcher = devices_dispatcher.get_device_dispather(self.path)
+            normalizedRequest = dev_dispatcher.sdc_definitions.normalizeXMLText(request)
             soapEnvelope = pysoap.soapenvelope.AddressedSoap12Envelope.fromXMLString(normalizedRequest)
 
             response = pysoap.soapenvelope.SoapFault(soapEnvelope, code=pysoap.soapenvelope.SoapFaultCode.SENDER,
                                                           reason=str(ex))
             normalized_response_xml_string = response.as_xml()
-            response_xml_string = self.server.dispatcher.sdc_definitions.denormalizeXMLText(normalized_response_xml_string)
+            response_xml_string = dev_dispatcher.sdc_definitions.denormalizeXMLText(normalized_response_xml_string)
             self.send_response(500)
             self.send_header("Content-type", "application/soap+xml; charset=utf-8")
             self.send_header("Content-length", len(response_xml_string))
