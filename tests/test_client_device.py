@@ -687,34 +687,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(state.SystemSignalActivation[0].State, pmtypes.AlertActivation.ON)
 
 
-    def test_DayNight(self):
-        for sdcClient, sdcDevice in self._all_cl_dev:
-            setService = sdcClient.client('Set')
-            clientMdib = ClientMdibContainer(sdcClient)
-            clientMdib.initMdib()
-            dn_operation = sdcDevice.getOperationByHandle(operationHandle='DN_SET')
-
-            self.assertEqual (dn_operation.currentValue, None)
-            
-            myOperationDescriptor = clientMdib.getOperationsForMetric(pmtypes.PrivateCodedValue('DN_VMD'),
-                                                                      pmtypes.PrivateCodedValue('DN_CHAN'),
-                                                                      pmtypes.PrivateCodedValue('DN_METRIC'))[0]
-            operationHandle = myOperationDescriptor.handle
-            for value in ('Day', 'DayDark', 'Night'):
-                print ('day-night mode', value)
-                future = setService.setString(operationHandle=operationHandle, requestedString=value)
-                result = future.result(timeout=SET_TIMEOUT*1000)
-                state = result.state
-                self.assertEqual(state, pmtypes.InvocationState.FINISHED)
-                self.assertTrue(result.error in ('', 'Unspec'))
-                self.assertEqual(result.errorMsg, '')
-                # verify that device reflects current day-night value
-                self.assertEqual(value, dn_operation.currentValue)
-                
-                #verify that the corresponding state has been updated
-                state = clientMdib.states.descriptorHandle.getOne(myOperationDescriptor.OperationTarget)
-                self.assertEqual(state.metricValue.Value, value)
-
     # @unittest.skip("depends on role provider properties, disabled for now")
     def test_setNtpServer_SDC(self):
         sdcClient = self.sdcClient_Final
@@ -950,19 +922,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.assertEqual(len(stateContainers), 1)
                 stateContainer = stateContainers[0]
                 self.assertEqual(stateContainer.OperatingMode, 'En')
-            
-            # now disable an Operation and verify that state change becomes visible in client mdib    
-            op_handle = 'DN_SET' # we know this operation exists, our role provider enforces it.
-            stateContainer = clientMdib.states.descriptorHandle.getOne(op_handle)
-            start = time.monotonic()
-            coll = observableproperties.SingleValueCollector(stateContainer, 'node')
-            op = sdcDevice.getOperationByHandle(op_handle)
-            self.assertIsNotNone(op, msg='No operation for handle {}'.format(op_handle))
-            op.setOperatingMode('Dis')
-            coll.result(timeout=NOTIFICATION_TIMEOUT)
-            print ('whole disable action took {} sec.'.format(time.monotonic()-start))
-            self.assertEqual(stateContainer.OperatingMode, 'Dis')
-
 
     def test_realtimeSamples(self):
         # a random number for maxRealtimeSamples, not too big, otherwise we have to wait too long. 

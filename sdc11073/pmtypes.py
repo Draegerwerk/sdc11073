@@ -135,7 +135,7 @@ class LocalizedText(PropertyBasedPMType):
 
         
 DefaultCodingSystem = 'urn:oid:1.2.840.10004.1.1.1.0.0.1' # ISO/IEC 11073-10101
-CommonDraegerParameterNomenclature = 'urn:oid:1.3.6.1.4.1.3592.2.1.1.0'
+PrivateNomenclature = 'urn:oid:1.3.6.1.4.1.9999.2.1.1.0' # just an example of a private nomenclature
 
 
 class NotCompareableVersionError(Exception):
@@ -397,7 +397,7 @@ class CodedValue(_CodedValueBase):
 class PrivateCodedValue(CodedValue):
     def __init__(self, code, conceptDescriptions=None, symbolicCodeName=None):
         super(PrivateCodedValue, self).__init__(code,
-                                                CommonDraegerParameterNomenclature,
+                                                PrivateNomenclature,
                                                 codingSystemNames=[LocalizedText('Private Nomenclature')],
                                                 conceptDescriptions=conceptDescriptions,
                                                 symbolicCodeName=symbolicCodeName)

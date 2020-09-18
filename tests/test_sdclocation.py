@@ -4,24 +4,11 @@ import unittest
 
 from sdc11073.location import SdcLocation
 
-class TestDraegerLocation(unittest.TestCase):
+class TestSdcLocation(unittest.TestCase):
     scheme = SdcLocation.scheme  #'sdc.ctxt.loc'
     default_root = SdcLocation.locationDetailRoot  #'sdc.ctxt.loc.detail'
     scope_prefix = scheme + ':/' + default_root #sdc.ctxt.loc:/sdc.ctxt.loc.detail'
     def test_scopeString(self):
-        # this is an usual scope with facility, poc and bed
-        expectedScopeStringWpf = self.scope_prefix + '/HOSP1%2FCU1%2FBedA500?fac=HOSP1&poc=CU1&bed=BedA500'
-        loc = SdcLocation(fac='HOSP1', poc='CU1', bed='BedA500')
-        self.assertEqual(loc.root, self.default_root)
-        self.assertEqual(loc.fac, 'HOSP1')
-        self.assertEqual(loc.poc, 'CU1')
-        self.assertEqual(loc.bed, 'BedA500')
-        self.assertEqual(loc.rm, None)
-        self.assertEqual(loc.bld, None)
-        self.assertEqual(loc.flr, None)
-        scopeString = loc.scopeStringWpf
-        self.assertEqual(loc.scopeStringWpf, expectedScopeStringWpf)
-
         expectedScopeStringSdc = self.scope_prefix + '/HOSP1%2F%2F%2FCU1%2F%2FBedA500?fac=HOSP1&poc=CU1&bed=BedA500'
         loc = SdcLocation(fac='HOSP1', poc='CU1', bed='BedA500')
         self.assertEqual(loc.root, self.default_root)
@@ -31,11 +18,11 @@ class TestDraegerLocation(unittest.TestCase):
         self.assertEqual(loc.rm, None)
         self.assertEqual(loc.bld, None)
         self.assertEqual(loc.flr, None)
-        scopeString = loc.scopeStringWpf
+        scopeString = loc.scopeStringSdc
         self.assertEqual(loc.scopeStringSdc, expectedScopeStringSdc)
 
         # this is an unusual scope with bed only plus root
-        expectedScopeString = self.scheme + ':/myroot/BedA500?bed=BedA500'
+        expectedScopeString = self.scheme + ':/myroot/%2F%2F%2F%2F%2FBedA500?bed=BedA500'
         loc = SdcLocation(bed='BedA500', root='myroot')
         self.assertEqual(loc.root, 'myroot')
         self.assertEqual(loc.fac, None)
@@ -44,7 +31,7 @@ class TestDraegerLocation(unittest.TestCase):
         self.assertEqual(loc.rm, None)
         self.assertEqual(loc.bld, None)
         self.assertEqual(loc.flr, None)
-        scopeString = loc.scopeStringWpf
+        scopeString = loc.scopeStringSdc
         self.assertEqual(scopeString, expectedScopeString)
 
         # this is an unusual scope with all parameters and spaces in them
@@ -58,22 +45,10 @@ class TestDraegerLocation(unittest.TestCase):
         self.assertEqual(loc.bld, 'abc 1')
         self.assertEqual(loc.flr, 'flr 1')
 
-        self.assertEqual(loc, SdcLocation.fromScopeString(loc.scopeStringWpf))
         self.assertEqual(loc, SdcLocation.fromScopeString(loc.scopeStringSdc))
 
 
     def test_fromScopeString(self):
-        scopeStringWpf = self.scope_prefix + '/HOSP1%2FCU1%2FBedA500?fac=HOSP1&poc=CU1&bed=BedA500'
-        loc = SdcLocation.fromScopeString(scopeStringWpf)
-        self.assertEqual(loc.root, self.default_root)
-        self.assertEqual(loc.fac, 'HOSP1')
-        self.assertEqual(loc.poc, 'CU1')
-        self.assertEqual(loc.bed, 'BedA500')
-        self.assertEqual(loc.rm, None)
-        self.assertEqual(loc.bld, None)
-        self.assertEqual(loc.flr, None)
-        self.assertEqual(loc.scopeStringWpf, scopeStringWpf)
-
         scopeStringSdc = self.scope_prefix + '/HOSP1%2F%2F%2FCU1%2F%2FBedA500?fac=HOSP1&poc=CU1&bed=BedA500'
         loc = SdcLocation.fromScopeString(scopeStringSdc)
         self.assertEqual(loc.root, self.default_root)
@@ -97,7 +72,6 @@ class TestDraegerLocation(unittest.TestCase):
         self.assertEqual(loc.flr, 'flr 1')
         
         #if we can create another identical  DraegerLocation from loc, then scopeString also seems okay.
-        self.assertEqual(loc, SdcLocation.fromScopeString(loc.scopeStringWpf))
         self.assertEqual(loc, SdcLocation.fromScopeString(loc.scopeStringSdc))
 
         # correct handling of scope with %20 spaces also in query
@@ -154,7 +128,7 @@ class TestDraegerLocation(unittest.TestCase):
 
 
 def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(TestDraegerLocation)
+    return unittest.TestLoader().loadTestsFromTestCase(TestSdcLocation)
 
 
 if __name__ == '__main__':

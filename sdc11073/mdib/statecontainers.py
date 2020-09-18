@@ -401,30 +401,30 @@ class LocationContextStateContainer(AbstractContextStateContainer):
     Floor = cp.NodeAttributeProperty('Floor', [lc])
     _props = ('PoC', 'Room', 'Bed', 'Facility', 'Building', 'Floor')
 
-    def updateFromDraegerLocation(self, draegerLocation, bicepsSchema):
-        self.PoC = draegerLocation.poc
-        self.Room = draegerLocation.rm
-        self.Bed = draegerLocation.bed
-        self.Facility = draegerLocation.fac
-        self.Building = draegerLocation.bld
-        self.Floor = draegerLocation.flr
+    def updateFromSdcLocation(self, sdc_location, bicepsSchema):
+        self.PoC = sdc_location.poc
+        self.Room = sdc_location.rm
+        self.Bed = sdc_location.bed
+        self.Facility = sdc_location.fac
+        self.Building = sdc_location.bld
+        self.Floor = sdc_location.flr
         self.ContextAssociation = 'Assoc'
 
-        extensionString = self._mkExtensionstring(draegerLocation)
+        extensionString = self._mkExtensionstring(sdc_location)
         if not extensionString:
             # schema does not allow extension string of zero length
             extensionString = None
-        self.Identification = [pmtypes.InstanceIdentifier(root=draegerLocation.root, extensionString=extensionString)]
+        self.Identification = [pmtypes.InstanceIdentifier(root=sdc_location.root, extensionString=extensionString)]
         self.updateNode()
 
-    def _mkExtensionstring(self, draegerLocation):
-        return draegerLocation.mkExtensionStringSdc()
+    def _mkExtensionstring(self, sdcLocation):
+        return sdcLocation.mkExtensionStringSdc()
 
     @classmethod
-    def fromDrLocation(cls, nsmapper, descriptorContainer, handle, draegerLocation, bicepsSchema):
+    def fromSdcLocation(cls, nsmapper, descriptorContainer, handle, sdc_location, bicepsSchema):
         obj = cls(nsmapper, descriptorContainer)
         obj.Handle = handle
-        obj.updateFromDraegerLocation(draegerLocation, bicepsSchema)
+        obj.updateFromSdcLocation(sdc_location, bicepsSchema)
         return obj
 
 

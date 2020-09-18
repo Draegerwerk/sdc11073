@@ -630,12 +630,12 @@ class TestStateContainers(unittest.TestCase):
         sc2.updateFromNode(node)
         verifyEqual(sc, sc2)
 
-        dr = SdcLocation(fac='a', poc='b', bed='c', bld='d', flr='e', rm='f', root='g')
+        loc = SdcLocation(fac='a', poc='b', bed='c', bld='d', flr='e', rm='f', root='g')
         bicepsSchema = xmlparsing.BicepsSchema(SDC_v1_Definitions)
-        sc = statecontainers.LocationContextStateContainer.fromDrLocation(nsmapper=self.nsmapper, 
+        sc = statecontainers.LocationContextStateContainer.fromSdcLocation(nsmapper=self.nsmapper,
                                                                            descriptorContainer=self.dc, 
                                                                            handle='abc', 
-                                                                           draegerLocation=dr,
+                                                                           sdc_location=loc,
                                                                            bicepsSchema=bicepsSchema)
         self.assertEqual(sc.Handle, 'abc')
         self.assertEqual(sc.PoC, 'b')
@@ -654,12 +654,12 @@ class TestStateContainers(unittest.TestCase):
         
         #Umlaut test
         dr = SdcLocation(fac=u'Dräger', poc=u'b', bed=u'c', bld=u'd', flr=u'e', rm=u'f', root=u'g')
-        sc3 = statecontainers.LocationContextStateContainer.fromDrLocation(nsmapper=self.nsmapper, 
+        sc3 = statecontainers.LocationContextStateContainer.fromSdcLocation(nsmapper=self.nsmapper,
                                                                            descriptorContainer=self.dc, 
                                                                            handle='abc', 
-                                                                           draegerLocation=dr,
+                                                                           sdc_location=loc,
                                                                            bicepsSchema=bicepsSchema)
-        sc2.updateFromDraegerLocation(dr, bicepsSchema)
+        sc2.updateFromSdcLocation(loc, bicepsSchema)
         verifyEqual(sc3, sc2)
 
 

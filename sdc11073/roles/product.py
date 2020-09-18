@@ -233,7 +233,7 @@ class MinimalProduct(BaseProduct):
         super().__init__(log_prefix)
         self.metric_provider = metricprovider.GenericMetricProvider(log_prefix=log_prefix) # needed in a test
         self._ordered_providers.extend([audiopauseprovider.GenericSDCAudioPauseProvider(log_prefix=log_prefix),
-                                       daynightprovider.GenericSDCDayNightProvider(log_prefix=log_prefix),
+                                       #daynightprovider.GenericSDCDayNightProvider(log_prefix=log_prefix),
                                        clockprovider.GenericSDCClockProvider(log_prefix=log_prefix),
                                        patientcontextprovider.GenericPatientContextProvider(log_prefix=log_prefix),
                                        alarmprovider.GenericAlarmProvider(log_prefix=log_prefix),

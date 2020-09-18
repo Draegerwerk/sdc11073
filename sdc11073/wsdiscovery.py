@@ -1700,13 +1700,13 @@ class WSDiscoveryBase(object):
             result.extend(filterServices(self._remoteServices.values(), t, scopes))
         return result
 
-    def searchMedicalDeviceServicesinLocation(self, draegerLocation, timeout=3, bicepsVersion=None):
+    def searchMedicalDeviceServicesinLocation(self, sdcLocation, timeout=3, bicepsVersion=None):
         if bicepsVersion is None:
             types = _FallbackMedicalDeviceTypesFilter
         else:
             types = bicepsVersion.MedicalDeviceTypesFilter
         services = self.searchServices(types=types, timeout=timeout)
-        return draegerLocation.matchingServices(services)
+        return sdcLocation.matchingServices(services)
 
     def publishService(self, epr, types, scopes, xAddrs):
         """Publish a service with the given TYPES, SCOPES and XAddrs (service addresses)
