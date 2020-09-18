@@ -18,27 +18,10 @@ class SdcLocation(object):
         self.bed = bed   # Bed
     
 
-    def mkExtensionStringWpf(self):
-        elements = self._getExtensionElementsWpf()
-        values = [e[1] for e in elements]
-        return '/'.join(values)
-
     def mkExtensionStringSdc(self):
         elements = self._getExtensionElementsSdc()
         values = [e[1] for e in elements]
         return '/'.join(values)
-
-
-    def _getExtensionElementsWpf(self):
-        '''
-        :return: a list of (urlName, value) tuples
-        '''
-        identifiers = []
-        for urlName, attrName in self._url_member_mapping:
-            value = getattr(self, attrName)
-            if value is not None:
-                identifiers.append((urlName, value))
-        return identifiers
 
 
     def _getExtensionElementsSdc(self):
@@ -53,10 +36,6 @@ class SdcLocation(object):
             identifiers.append((urlName, value))
         return identifiers
 
-
-    @property
-    def scopeStringWpf(self):
-        return self._mkScopeString(self._getExtensionElementsWpf())
 
     @property
     def scopeStringSdc(self):
@@ -128,7 +107,7 @@ class SdcLocation(object):
         '''
         Construct a Location from a scope string. If url scheme is not 'sdc.ctxt.loc', an UrlSchemeError is raised
         :param s: an url
-        :return: a DraegerLocation object
+        :return: a SdcLocation object
         '''
         src = urllib.parse.urlsplit(s)
         
@@ -162,5 +141,5 @@ class SdcLocation(object):
         return not self == other    
     
     def __str__(self):
-        return 'DragerLocation {}'.format(self.scopeStringSdc)
+        return '{}} {}'.format(self.__class__.__name__, self.scopeStringSdc)
         

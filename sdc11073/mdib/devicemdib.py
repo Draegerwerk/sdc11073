@@ -472,7 +472,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
         self.sequenceId = uuid.uuid4().urn # this uuid identifies this mdib instance
         
-        self._currentLocation = None  # or a DraegerLocation instance
+        self._currentLocation = None  # or a SdcLocation instance
 
         self._waveformGenerators = {}
         self._annotators = {}
@@ -752,11 +752,11 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         self._sdcDevice = sdcDevice
 
 
-    def setLocation(self, draegerLocation, validators=None):
+    def setLocation(self, sdcLocation, validators=None):
         '''
         This method updates only the mdib internal data! 
         use the SdcDevice.setLocation method if you want to publish the address an the network.
-        @param dragerLocation: a pysdc.location.DraegerLocation instance
+        @param sdcLocation: a pysdc.location.SdcLocation instance
         @param validator: a list of pysdc.pmtypes.InstanceIdentifier objects or None
         '''
         allLocationContexts = self.contextStates.NODETYPE.get(domTag('LocationContextState'), [])
@@ -770,7 +770,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             descriptorContainer = self.descriptions.NODETYPE.getOne(domTag('LocationContextDescriptor'))
                     
             self._currentLocation = mgr.getContextState(descriptorContainer.handle) # this creates a new location state
-            self._currentLocation.updateFromDraegerLocation(draegerLocation, self.bicepsSchema)
+            self._currentLocation.updateFromSdcLocation(sdcLocation, self.bicepsSchema)
             if validators is not None:
                 self._currentLocation.Validator = validators
   
