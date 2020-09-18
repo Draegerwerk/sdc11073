@@ -305,8 +305,6 @@ class SubscriptionsManager(object):
         self._subscriptions.addIndex('netloc', multikey.IndexDefinition(
             lambda obj: obj._url.netloc))  # pylint:disable=protected-access
         self.base_urls = None
-        self.last_roundtrip_report = 0
-        self.last_roundtrip_report_cycle = 10 # log every 10 seconds
 
     def setBaseUrls(self, base_urls):
         self.base_urls = base_urls
@@ -713,10 +711,6 @@ class SubscriptionsManager(object):
             for s in also_unreachable:
                 self._logger.info('deleting also subscription {}, same endpoint', s)
                 self._subscriptions.removeObject(s)
-        now = time.time()
-        if (now - self.last_roundtrip_report) > self.last_roundtrip_report_cycle:
-            self.last_roundtrip_report = now
-            self._logger.info('getClientRoundtripTimes {}', self.getClientRoundtripTimes)
 
     def getSubScriptionRoundtripTimes(self):
         '''Calculates roundtrip times based on last MAX_ROUNDTRIP_VALUES values.
