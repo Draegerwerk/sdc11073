@@ -1,7 +1,7 @@
-import os
+import platform
 
 # OS dependent import
-if os.name == 'nt':
+if platform.system() == 'Windows':
     from .ntifmanagerdll import getNetworkAdapterConfigs, GetAdaptersAddresses
 else:
     from .posixifmanager import getNetworkAdapterConfigs, GetAdaptersAddresses
