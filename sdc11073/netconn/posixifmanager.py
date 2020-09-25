@@ -5,9 +5,9 @@ class Adapter():
     friendly_name = ""
     ip = ""
 
+
 def getNetworkAdapterConfigs():
     interfaces = netifaces.interfaces()
-    print(interfaces)
     adapters = []
     for ad in interfaces:
         addresses = netifaces.ifaddresses(ad)
@@ -21,7 +21,6 @@ def getNetworkAdapterConfigs():
 
 def GetAdaptersAddresses():
     interfaces = netifaces.interfaces()
-    print(interfaces)
     adapters = []
     for ad in interfaces:
         addresses = netifaces.ifaddresses(ad)
