@@ -291,12 +291,14 @@ class SubscriptionsManager(object):
     NotificationPrefixes = [Prefix.S12, Prefix.PM, Prefix.WSA, Prefix.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
-    def __init__(self, sslContext, sdc_definitions, bicepsParser, supportedEncodings, max_subscription_duration=None, log_prefix=None):
+    def __init__(self, sslContext, sdc_definitions, bicepsParser, supportedEncodings,
+                 max_subscription_duration=None, log_prefix=None, chunked_messages=False):
         self._sslContext = sslContext
         self.bicepsParser = bicepsParser
         self.sdc_definitions = sdc_definitions
         self.log_prefix = log_prefix
         self._logger = loghelper.getLoggerAdapter('sdc.device.subscrMgr', self.log_prefix)
+        self._chunked_messages = chunked_messages
         self.soapClients = {}  # key: net location, value soapClient instance
         self._supportedEncodings = supportedEncodings
         self._max_subscription_duration = max_subscription_duration or self.DEFAULT_MAX_SUBSCR_DURATION
@@ -320,7 +322,8 @@ class SubscriptionsManager(object):
             soapClient = pysoap.soapclient.SoapClient(key, loghelper.getLoggerAdapter('sdc.device.soap', self.log_prefix),
                                                       sslContext=self._sslContext, sdc_definitions=self.sdc_definitions,
                                                       supportedEncodings=self._supportedEncodings,
-                                                      requestEncodings=acceptedEncodings)
+                                                      requestEncodings=acceptedEncodings,
+                                                      chunked_requests=self._chunked_messages)
             self.soapClients[key] = soapClient
         s.setSoapClient(soapClient)
         with self._subscriptions.lock:

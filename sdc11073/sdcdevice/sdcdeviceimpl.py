@@ -5,14 +5,15 @@ from .sdc_handlers import SdcHandler_Full
 class SdcDevice(object):
     defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extensionString='System'),)
     def __init__(self, ws_discovery, my_uuid, model, device, deviceMdibContainer, validate=True, roleProvider=None, sslContext=None,
-                 logLevel=None, max_subscription_duration=7200, log_prefix='', handler_cls=None): #pylint:disable=too-many-arguments
+                 logLevel=None, max_subscription_duration=7200, log_prefix='', handler_cls=None,
+                 chunked_messages=False): #pylint:disable=too-many-arguments
         # ssl protocol handling itself is delegated to a handler.
         # Specific protocol versions or behaviours are implemented there.
         if handler_cls is None:
             handler_cls = SdcHandler_Full
         self._handler = handler_cls(my_uuid, ws_discovery, model, device, deviceMdibContainer, validate,
                                 roleProvider, sslContext, logLevel, max_subscription_duration,
-                                log_prefix=log_prefix)
+                                log_prefix=log_prefix, chunked_messages=chunked_messages)
         self._wsdiscovery = ws_discovery
         self._logger = self._handler._logger
         self._mdib = deviceMdibContainer

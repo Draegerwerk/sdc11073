@@ -8,7 +8,7 @@ from .exceptions import HTTPRequestHandlingError, InvalidPathError, InvalidActio
 from .. import pysoap
 from .. import commlog
 from .. import loghelper
-from ..httprequesthandler import HTTPRequestHandler
+from ..httprequesthandler import HTTPRequestHandler, mkchunks
 
 
 MULTITHREADED = True
@@ -56,7 +56,6 @@ if MULTITHREADED:
             self.dispatcher = None
 else:
     MyHTTPServer = HTTPServer # single threaded, sequential operation
-    
 
 class DevicesDispatcher(object):
     """ Dispatch to one of the registered devices, based on url"""
@@ -184,9 +183,14 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             assert(b'utf-8' in response_xml_string[:100].lower()) # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
             response_xml_string = self._compressIfRequired(response_xml_string)
             self.send_header("Content-type", "application/soap+xml; charset=utf-8")
-            self.send_header("Content-length", len(response_xml_string))
-            self.end_headers()
-            self.wfile.write(response_xml_string)
+            if self.server.chunked_response:
+                self.send_header("transfer-encoding", "chunked")
+                self.end_headers()
+                self.wfile.write(mkchunks(response_xml_string))
+            else:
+                self.send_header("Content-length", len(response_xml_string))
+                self.end_headers()
+                self.wfile.write(response_xml_string)
         except Exception as ex:
             # make an error 500 response with the soap fault as content
             self.server.logger.error(traceback.format_exc())
@@ -230,7 +234,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 
 class HttpServerThread(threading.Thread):
     
-    def __init__(self, my_ipaddress, sslContext, supportedEncodings, log_prefix=None):
+    def __init__(self, my_ipaddress, sslContext, supportedEncodings, log_prefix=None, chunked_responses=False):
         '''
         :param my_ipaddress:
         :param sslContext:
@@ -246,7 +250,7 @@ class HttpServerThread(threading.Thread):
         self.supportedEncodings = supportedEncodings
 
         self._logger = loghelper.getLoggerAdapter('sdc.device.httpsrv', log_prefix)
-
+        self.chunked_responses = chunked_responses
         # create and set up the dispatcher for all incoming requests
         self.devices_dispatcher = DevicesDispatcher(self._logger)
         self.started_evt = threading.Event() # helps to wait until thread has initialised is variables
@@ -256,6 +260,7 @@ class HttpServerThread(threading.Thread):
         try:
             myport = 0  # zero means that OS selects a free port
             self.httpd = MyHTTPServer((self._my_ipaddress, myport), _SdcServerRequestHandler)
+            self.httpd.chunked_response = self.chunked_responses # monkey-patching, value needed by _SdcServerRequestHandler
             # add use compression flag to the server
             setattr(self.httpd, 'supportedEncodings', self.supportedEncodings)
             self.httpd.logger = self._logger # add logger by monkey-pathing

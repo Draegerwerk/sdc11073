@@ -90,7 +90,8 @@ class SomeDevice(SdcDevice):
 
     """
     def __init__(self, wsdiscovery, my_uuid, mdib_xml_string,
-                 validate=True, sslContext=None, logLevel=logging.INFO, log_prefix=''):
+                 validate=True, sslContext=None, logLevel=logging.INFO, log_prefix='',
+                 chunked_messages=False):
         model = DPWSThisModel(manufacturer='Draeger CoC Systems',
                               manufacturerUrl='www.draeger.com',
                               modelName='SomeDevice',
@@ -111,11 +112,12 @@ class SomeDevice(SdcDevice):
         mdsDescriptor.updateNode()
         super(SomeDevice, self).__init__(wsdiscovery, my_uuid, model, device, deviceMdibContainer, validate,
                                          # registerDefaultOperations=True,
-                                         sslContext=sslContext, logLevel=logLevel, log_prefix=log_prefix)
+                                         sslContext=sslContext, logLevel=logLevel, log_prefix=log_prefix,
+                                         chunked_messages=chunked_messages)
         #self._handler.mkDefaultRoleHandlers()
     @classmethod
     def fromMdibFile(cls, wsdiscovery, my_uuid, mdib_xml_path,
-                 validate=True, sslContext=None, logLevel=logging.INFO, log_prefix=''):
+                 validate=True, sslContext=None, logLevel=logging.INFO, log_prefix='', chunked_messages=False):
         """
         An alternative constructor for the class
         """
@@ -125,4 +127,5 @@ class SomeDevice(SdcDevice):
 
         with open(mdib_xml_path, 'rb') as f:
             mdib_xml_string = f.read()
-        return cls(wsdiscovery, my_uuid, mdib_xml_string, validate, sslContext, logLevel, log_prefix=log_prefix)
+        return cls(wsdiscovery, my_uuid, mdib_xml_string, validate, sslContext, logLevel, log_prefix=log_prefix,
+                   chunked_messages=chunked_messages)

@@ -14,7 +14,7 @@ from .. import observableproperties
 from .. import commlog
 from ..compression import CompressionHandler
 from . import soapenvelope
-from ..httprequesthandler import HTTPReader
+from ..httprequesthandler import HTTPReader, mkchunks
 
 class HTTPConnection_NODELAY(httplib.HTTPConnection):
     def connect(self):
@@ -56,7 +56,8 @@ class SoapClient(CompressionHandler):
 
     """SOAP Client"""
     roundtrip_time = observableproperties.ObservableProperty()
-    def __init__(self, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None, requestEncodings=None):
+    def __init__(self, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
+                 requestEncodings=None, chunked_requests=False):
         ''' Connects to one url
         @param netloc: the location of the service (domainname:port) ###url of the service
         @param sslContext: an optional sll.SSLContext instance
@@ -81,6 +82,7 @@ class SoapClient(CompressionHandler):
         self._makeGetHeaders()
         self._lock = Lock()
 
+        self._chunked_requests = chunked_requests
 
     @property
     def netloc(self):
@@ -119,7 +121,8 @@ class SoapClient(CompressionHandler):
         return self._httpConnection is None
     
     
-    def postSoapEnvelopeTo(self, path, soapEnvelopeRequest, responseFactory=None, schema=None, msg='', request_manipulator=None):
+    def postSoapEnvelopeTo(self, path, soapEnvelopeRequest, responseFactory=None, schema=None, msg='',
+                           request_manipulator=None):
         '''
         @param path: url path component
         @param soapEnvelopeRequest: The soap envelope that shall be sent
@@ -181,18 +184,16 @@ class SoapClient(CompressionHandler):
                 if compr in self.supportedEncodings:
                     xml = self.compressPayload(compr, xml)
                     headers['Content-Encoding'] = compr
-                    xml = bytearray(xml) # cast to bytes, required to bypass httplib checks for is str
                     break
-        headers['Content-Length'] = str(len(xml))
+        if self._chunked_requests:
+            headers['transfer-encoding'] = "chunked"
+            xml = mkchunks(xml)
+        else:
+            headers['Content-Length'] = str(len(xml))
+
+        xml = bytearray(xml)  # cast to bytes, required to bypass httplib checks for is str
 
         self._log.debug("{}:POST to netloc='{}' path='{}'", msg, self._netloc, path)
-        #        header = ', '.join(["%s: %s" % (k, v) for k, v in headers.items()])
-        if sys.version < '3':
-            # Ensure http_method, location and all headers are binary to prevent
-            # UnicodeError inside httplib.HTTPConnection._send_output.
-
-            # httplib in python3 do the same inside itself, don't need to convert it here
-            headers = dict((str(k), str(v)) for k, v in headers.items())
         response = None
         content = None
 
