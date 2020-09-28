@@ -63,8 +63,6 @@ class HTTPReader(CompressionHandler):
                 chunk_len = int(chunk_len.strip(), 16)
             except (ValueError, TypeError) as err:
                 raise DechunkError('Could not parse chunk size: %s' % (err,))
-            #if chunk_len == 0: # len == 0 indicates end of data
-            #    break
 
             bytes_to_read = chunk_len
             while bytes_to_read:
@@ -136,7 +134,6 @@ class HTTPReader(CompressionHandler):
                 raise DecompressError('content-encoding "{}" is not supported',actual_enc )
         return http_body
 
-
     @classmethod
     def read_response_body(cls, http_response, supported_encodings=None):
         ''' checks header for content-length, chunk-encoding and compression entries.
@@ -187,14 +184,12 @@ class HTTPRequestHandler(BaseHTTPRequestHandler, CompressionHandler):
     '''
     protocol_version = "HTTP/1.1"  # this enables keep-alive
 
-
     def _read_request(self):
         ''' checks header for content-length, chunk-encoding and compression entries.
         Handles incoming bytes correspondingly.
         :return: http body as bytes
         '''
         return HTTPReader.read_request_body(self)
-
 
     def _compressIfRequired(self, response_bytes):
         '''Compress response if header of request indicates that other side
@@ -209,4 +204,3 @@ class HTTPRequestHandler(BaseHTTPRequestHandler, CompressionHandler):
 
     def log_request(self, *args, **kwargs):
         pass   # supress printing of every request to stderr
-
