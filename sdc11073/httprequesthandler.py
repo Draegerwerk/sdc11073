@@ -1,6 +1,6 @@
 from http.server import BaseHTTPRequestHandler
 from .compression import CompressionHandler
-
+from io import BytesIO
 
 class DechunkError(Exception):
 
@@ -15,6 +15,24 @@ class DecompressError(Exception):
     """
 
     pass
+
+
+def mkchunks(body, chunk_size=512):
+    """
+    make body a chunked bytes
+    :param body: bytes
+    :param chunk_size: size of chunks
+    :return: body converted to chunks ( but still as single bytes array)
+    """
+    data = BytesIO()
+    tail = body
+    while True:
+        head, tail = tail[:chunk_size], tail[chunk_size:]
+        data.write(f'{len(head):x}\r\n'.encode('utf-8'))
+        data.write(head)
+        data.write(b'\r\n')
+        if not head:
+            return data.getvalue()
 
 
 class HTTPReader(CompressionHandler):
@@ -45,9 +63,8 @@ class HTTPReader(CompressionHandler):
                 chunk_len = int(chunk_len.strip(), 16)
             except (ValueError, TypeError) as err:
                 raise DechunkError('Could not parse chunk size: %s' % (err,))
-
-            if chunk_len == 0:
-                break
+            #if chunk_len == 0: # len == 0 indicates end of data
+            #    break
 
             bytes_to_read = chunk_len
             while bytes_to_read:
@@ -59,6 +76,8 @@ class HTTPReader(CompressionHandler):
             crlf = stream.read(2)
             if crlf != CRLF:
                 raise DechunkError('No CR+LF at the end of chunk!')
+            if chunk_len == 0: # len == 0 indicates end of data
+                break
         return b''.join(body)
 
     @staticmethod
