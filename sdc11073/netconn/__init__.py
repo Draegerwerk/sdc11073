@@ -1,9 +1,7 @@
-import os
+import platform
 
 # OS dependent import
-if os.name == 'posix':
-    from .posixifmanager import getNetworkAdapterConfigs, GetAdaptersAddresses
-elif os.name == 'nt':
+if platform.system() == 'Windows':
     from .ntifmanagerdll import getNetworkAdapterConfigs, GetAdaptersAddresses
 else:
-    raise Exception('netconn does not support os "%s"' % os.name)
+    from .posixifmanager import getNetworkAdapterConfigs, GetAdaptersAddresses
