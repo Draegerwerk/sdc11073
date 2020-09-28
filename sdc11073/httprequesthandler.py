@@ -19,7 +19,7 @@ class DecompressError(Exception):
 
 def mkchunks(body, chunk_size=512):
     """
-    make body a chunked bytes
+    convert plain body bytes to chunked bytes
     :param body: bytes
     :param chunk_size: size of chunks
     :return: body converted to chunks ( but still as single bytes array)
