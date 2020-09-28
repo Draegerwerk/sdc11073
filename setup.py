@@ -38,12 +38,12 @@ with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
 dependencies = ['lxml>=2.3',
                 'lz4',
                 'cryptography',
-                'netifaces']
+                "netifaces ; platform_system!='Windows'"]
 
 
 setup(
     name='sdc11073',
-    version=version ,
+    version=version,
     description='pure python implementation of IEEE11073 SDC protocol',
     long_description=long_description,
     url='https://github.com/Draegerwerk/sdc11073',
