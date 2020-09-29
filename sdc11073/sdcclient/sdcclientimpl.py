@@ -36,13 +36,17 @@ MetaDataSection = sdc11073.pysoap.soapenvelope.MetaDataSection
 SoapResponseException = sdc11073.pysoap.soapenvelope.SoapResponseException
 
 
-def _mkSoapClient(scheme, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None, requestEncodings=None):
+def _mkSoapClient(scheme, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
+                  requestEncodings=None, chunked_requests=False):
     if scheme == 'https':
         _sslContext = sslContext
     else:
         _sslContext = None
-    return  sdc11073.pysoap.soapclient.SoapClient(netloc, logger, sslContext=_sslContext, sdc_definitions=sdc_definitions,
-                                                  supportedEncodings=supportedEncodings, requestEncodings=requestEncodings)
+    return  sdc11073.pysoap.soapclient.SoapClient(netloc, logger, sslContext=_sslContext,
+                                                  sdc_definitions=sdc_definitions,
+                                                  supportedEncodings=supportedEncodings,
+                                                  requestEncodings=requestEncodings,
+                                                  chunked_requests=chunked_requests)
 
 
 # default ssl context data
@@ -187,7 +191,8 @@ class SdcClient(object):
     SSL_CIPHERS = None  # None : use SSL default
     def __init__(self, devicelocation, deviceType, validate=True, sslEvents='auto', sslContext=None,
                  my_ipaddress=None, logLevel=None, ident='',
-                 soap_notifications_handler_class=None):  # pylint:disable=too-many-arguments
+                 soap_notifications_handler_class=None,
+                 chunked_requests=False):  # pylint:disable=too-many-arguments
         '''
         @param devicelocation: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         @param deviceType: a QName that defines the device type, e.g. '{http://standards.ieee.org/downloads/11073/11073-20702-2016}MedicalDevice'
@@ -218,7 +223,7 @@ class SdcClient(object):
         self._device_uses_https = splitted.scheme.lower() == 'https'
 
         self.log_prefix = ident or ''
-
+        self.chunked_requests = chunked_requests
         self._sslEvents = sslEvents
         self._setupLogging(logLevel)
         self._logger = loghelper.getLoggerAdapter('sdc.client', self.log_prefix)
@@ -485,7 +490,8 @@ class SdcClient(object):
                                        loghelper.getLoggerAdapter('sdc.client.soap', self.log_prefix),
                                        sslContext=self._sslContext,
                                        sdc_definitions=self.sdc_definitions,
-                                       supportedEncodings=self._compression_methods)
+                                       supportedEncodings=self._compression_methods,
+                                       chunked_requests=self.chunked_requests)
             self._soapClients[key] = soapClient
         return soapClient
 

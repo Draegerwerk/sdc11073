@@ -1,6 +1,6 @@
 from http.server import BaseHTTPRequestHandler
 from .compression import CompressionHandler
-
+from io import BytesIO
 
 class DechunkError(Exception):
 
@@ -15,6 +15,24 @@ class DecompressError(Exception):
     """
 
     pass
+
+
+def mkchunks(body, chunk_size=512):
+    """
+    convert plain body bytes to chunked bytes
+    :param body: bytes
+    :param chunk_size: size of chunks
+    :return: body converted to chunks ( but still as single bytes array)
+    """
+    data = BytesIO()
+    tail = body
+    while True:
+        head, tail = tail[:chunk_size], tail[chunk_size:]
+        data.write(f'{len(head):x}\r\n'.encode('utf-8'))
+        data.write(head)
+        data.write(b'\r\n')
+        if not head:
+            return data.getvalue()
 
 
 class HTTPReader(CompressionHandler):
@@ -46,9 +64,6 @@ class HTTPReader(CompressionHandler):
             except (ValueError, TypeError) as err:
                 raise DechunkError('Could not parse chunk size: %s' % (err,))
 
-            if chunk_len == 0:
-                break
-
             bytes_to_read = chunk_len
             while bytes_to_read:
                 chunk = stream.read(bytes_to_read)
@@ -59,6 +74,8 @@ class HTTPReader(CompressionHandler):
             crlf = stream.read(2)
             if crlf != CRLF:
                 raise DechunkError('No CR+LF at the end of chunk!')
+            if chunk_len == 0: # len == 0 indicates end of data
+                break
         return b''.join(body)
 
     @staticmethod
@@ -117,7 +134,6 @@ class HTTPReader(CompressionHandler):
                 raise DecompressError('content-encoding "{}" is not supported',actual_enc )
         return http_body
 
-
     @classmethod
     def read_response_body(cls, http_response, supported_encodings=None):
         ''' checks header for content-length, chunk-encoding and compression entries.
@@ -168,14 +184,12 @@ class HTTPRequestHandler(BaseHTTPRequestHandler, CompressionHandler):
     '''
     protocol_version = "HTTP/1.1"  # this enables keep-alive
 
-
     def _read_request(self):
         ''' checks header for content-length, chunk-encoding and compression entries.
         Handles incoming bytes correspondingly.
         :return: http body as bytes
         '''
         return HTTPReader.read_request_body(self)
-
 
     def _compressIfRequired(self, response_bytes):
         '''Compress response if header of request indicates that other side
@@ -190,4 +204,3 @@ class HTTPRequestHandler(BaseHTTPRequestHandler, CompressionHandler):
 
     def log_request(self, *args, **kwargs):
         pass   # supress printing of every request to stderr
-

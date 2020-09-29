@@ -26,7 +26,6 @@ from . import sco
 from . import httpserver
 from . import intervaltimer
 
-HttpServerThread = httpserver.HttpServerThread
 Soap12Envelope = pysoap.soapenvelope.Soap12Envelope
 
 Prefix = namespaces.Prefix_Namespace
@@ -64,7 +63,7 @@ class SdcHandler_Base(object):
 
     def __init__(self, my_uuid, ws_discovery, model, device, deviceMdibContainer, validate=True,
                  roleProvider=None, sslContext=None,
-                 logLevel=None, max_subscription_duration=7200, log_prefix=''):  # pylint:disable=too-many-arguments
+                 logLevel=None, max_subscription_duration=7200, log_prefix='', chunked_messages=False):  # pylint:disable=too-many-arguments
         """
         @param uuid: a string that becomes part of the devices url (no spaces, no special characters please. This could cause an invalid url!).
                      Parameter can be None, in this case a random uuid string is generated.
@@ -92,6 +91,7 @@ class SdcHandler_Base(object):
         self._setupLogging(logLevel)
         self._logger = loghelper.getLoggerAdapter('sdc.device', log_prefix)
 
+        self.chunked_messages = chunked_messages
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
         # hostDispatcher provides data of the sdc device itself
         self._hostDispatcher = self._mkHostDispatcher()
@@ -189,7 +189,8 @@ class SdcHandler_Base(object):
                                                     self._mdib.bicepsSchema,
                                                     self._compression_methods,
                                                     max_subscription_duration,
-                                                    log_prefix=self._log_prefix)
+                                                    log_prefix=self._log_prefix,
+                                                    chunked_messages=self.chunked_messages)
 
     def _mkScoOperationsRegistry(self, handle):
         return sco.ScoOperationsRegistry(self._subscriptionsManager, self._mdib, handle, log_prefix=self._log_prefix)
@@ -248,10 +249,11 @@ class SdcHandler_Base(object):
         if shared_http_server:
             self._httpServerThread = shared_http_server
         else:
-            self._httpServerThread = HttpServerThread(my_ipaddress='0.0.0.0',
-                                                      sslContext=self._sslContext,
-                                                      supportedEncodings=self._compression_methods,
-                                                      log_prefix=self._log_prefix)
+            self._httpServerThread = httpserver.HttpServerThread(my_ipaddress='0.0.0.0',
+                                                                 sslContext=self._sslContext,
+                                                                 supportedEncodings=self._compression_methods,
+                                                                 log_prefix=self._log_prefix,
+                                                                 chunked_responses=self.chunked_messages)
 
             # first start http server, the services need to know the ip port number
             self._httpServerThread.start()

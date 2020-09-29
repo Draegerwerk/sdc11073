@@ -1437,6 +1437,97 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
             sdcDevice.stopAll()
 
 
+class Test_Client_SomeDevice_chunked(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        mklogger()
+
+    def setUp(self):
+        sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
+        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd.start()
+        location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
+        self.sdcDevice_Final = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<Final> ',
+                                                       chunked_messages=True)
+        # in order to test correct handling of default namespaces, we make participant model the default namespace
+        nsmapper = self.sdcDevice_Final.mdib.nsmapper
+        nsmapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
+        self.sdcDevice_Final.startAll()
+        self._locValidators = [pmtypes.InstanceIdentifier('Validator', extensionString='System')]
+        self.sdcDevice_Final.setLocation(location, self._locValidators)
+        self.provideRealtimeData(self.sdcDevice_Final)
+
+        time.sleep(0.5)  # allow full init of devices
+
+        xAddr = self.sdcDevice_Final.getXAddrs()
+        self.sdcClient_Final = SdcClient(xAddr[0],
+                                         deviceType=self.sdcDevice_Final.mdib.sdc_definitions.MedicalDeviceType,
+                                         validate=CLIENT_VALIDATE,
+                                         ident='<Final> ',
+                                         chunked_requests=True)
+        self.sdcClient_Final.startAll()
+
+        self._all_cl_dev = [(self.sdcClient_Final, self.sdcDevice_Final)]
+
+        time.sleep(1)
+        sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))
+        time.sleep(0.5)
+        self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
+
+    def tearDown(self):
+        sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
+        self.log_watcher.setPaused(True)
+        for sdcClient, sdcDevice in self._all_cl_dev:
+            sdcClient.stopAll()
+            sdcDevice.stopAll()
+        self.wsd.stop()
+        try:
+            self.log_watcher.check()
+        except loghelper.LogWatchException as ex:
+            sys.stderr.write(repr(ex))
+            raise
+        sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
+
+    @staticmethod
+    def provideRealtimeData(sdcDevice):
+        paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
+        sdcDevice.mdib.registerWaveformGenerator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
+
+        flow = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=1.2, sampleperiod=0.01)
+        sdcDevice.mdib.registerWaveformGenerator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
+
+        co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveformperiod=1.0, sampleperiod=0.01)
+        sdcDevice.mdib.registerWaveformGenerator('0x34F05506', co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
+
+        # make SinusGenerator (0x34F05501) the annotator source
+        annotation = pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))  # what is CodedValue for startOfInspirationCycle?
+        sdcDevice.mdib.registerAnnotationGenerator(annotation,
+                                                   triggerHandle='0x34F05501',
+                                                   annotatedHandles=('0x34F05500', '0x34F05501', '0x34F05506'))
+
+    def test_BasicConnect(self):
+        # simply check that correct top node is returned
+        for sdcClient, _ in self._all_cl_dev:
+            cl_getService = sdcClient.client('Get')
+            node = cl_getService.getMdDescriptionNode()
+            self.assertEqual(node.tag, str(namespaces.msgTag('GetMdDescriptionResponse')))
+
+            node = cl_getService.getMdibNode()
+            self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
+
+            node = cl_getService.getMdStateNode()
+            self.assertEqual(node.tag, str(namespaces.msgTag('GetMdStateResponse')))
+
+            contextService = sdcClient.client('Context')
+            node = contextService.getContextStatesNode()
+            self.assertEqual(node.tag, str(namespaces.msgTag('GetContextStatesResponse')))
+
+        for _, sdcDevice in self._all_cl_dev:
+            sdcDevice.stopAll()
+
+
 def suite():
     return unittest.TestLoader().loadTestsFromTestCase(Test_Client_SomeDevice)
 
