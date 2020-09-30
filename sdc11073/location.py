@@ -141,5 +141,5 @@ class SdcLocation(object):
         return not self == other    
     
     def __str__(self):
-        return '{}} {}'.format(self.__class__.__name__, self.scopeStringSdc)
+        return '{} {}'.format(self.__class__.__name__, self.scopeStringSdc)
         
