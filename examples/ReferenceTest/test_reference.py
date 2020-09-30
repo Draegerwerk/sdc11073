@@ -167,6 +167,7 @@ class Test_Reference(unittest.TestCase):
         time.sleep(1)
         self._runtest_client_connects()
 
+    @unittest.skip
     def test_client_connects(self):
         # This test need an externally started device to run the tests against it.
         #
