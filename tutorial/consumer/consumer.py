@@ -1,9 +1,11 @@
 import uuid
-
-import sdc11073
 from sdc11073 import pmtypes
 from sdc11073.namespaces import domTag
-
+from sdc11073.wsdiscovery import WSDiscoverySingleAdapter
+from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.sdcclient import SdcClient
+from sdc11073.mdib import ClientMdibContainer
+from sdc11073 import observableproperties
 # This example shows how to implement a very simple SDC Consumer (client)
 # It will scan for SDC Providers and connect to on well known UUID
 
@@ -45,7 +47,7 @@ def setEnsembleContext(theMDIB, theClient):
 # runs forever and consumes metrics everafter
 if __name__ == '__main__':
     # start with discovery (MDPWS) that is running on the named adapter "Ethernet" (replace as you need it on your machine, e.g. "enet0" or "Ethernet)
-    myDiscovery = sdc11073.wsdiscovery.WSDiscoverySingleAdapter("Ethernet")
+    myDiscovery = WSDiscoverySingleAdapter("Ethernet")
     # start the discovery
     myDiscovery.start()
     # we want to search until we found one device with this client
@@ -55,7 +57,7 @@ if __name__ == '__main__':
         # we now search explicitly for MedicalDevices on the network
         # this will send a probe to the network and wait for responses
         # See MDPWS discovery mechanisms for details
-        services = myDiscovery.searchServices(types=sdc11073.definitions_sdc.SDC_v1_Definitions.MedicalDeviceTypesFilter)
+        services = myDiscovery.searchServices(types=SDC_v1_Definitions.MedicalDeviceTypesFilter)
 
         # now iterate through the discovered services to check if we foundDevice
         # the specific provider we search for
@@ -67,18 +69,18 @@ if __name__ == '__main__':
                     print("Got a match: {}".format(oneService))
                     # now create a new SDCClient (=Consumer) that can be used
                     # for all interactions with the communication partner
-                    my_client = sdc11073.sdcclient.SdcClient.fromWsdService(oneService)
+                    my_client = SdcClient.fromWsdService(oneService)
                     # start all services on the client to make sure we get updates
                     my_client.startAll()
                     # all data interactions happen through the MDIB (MedicalDeviceInformationBase)
                     # that contains data as described in the BICEPS standard
                     # this variable will contain the data from the provider
-                    my_mdib = sdc11073.mdib.ClientMdibContainer(my_client)                    
+                    my_mdib = ClientMdibContainer(my_client)
                     my_mdib.initMdib()
                     # we can subscribe to updates in the MDIB through the 
                     # Observable Properties in order to get a callback on
                     # specific changes in the MDIB
-                    sdc11073.observableproperties.bind(my_mdib, metricsByHandle=onMetricUpdate)
+                    observableproperties.bind(my_mdib, metricsByHandle=onMetricUpdate)
                     # in order to end the 'scan' loop 
                     foundDevice = True
             except:

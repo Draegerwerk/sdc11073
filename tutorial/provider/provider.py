@@ -1,10 +1,12 @@
 import uuid
-
-import sdc11073
 import time
 from sdc11073 import pmtypes
 from sdc11073.namespaces import domTag
-
+from sdc11073.sdcdevice import SdcDevice
+from sdc11073.mdib import DeviceMdibContainer
+from sdc11073.pysoap.soapenvelope import DPWSThisModel, DPWSThisDevice
+from sdc11073.location import SdcLocation
+from sdc11073.wsdiscovery import WSDiscoverySingleAdapter
 # example SDC provider (device) that sends out metrics every now and then
 
 
@@ -38,32 +40,30 @@ def setLocalEnsembleContext(mdib, ensemble):
 
 if __name__ == '__main__':
     # start with discovery (MDPWS) that is running on the named adapter "Ethernet" (replace as you need it on your machine, e.g. "enet0" or "Ethernet")
-    myDiscovery = sdc11073.wsdiscovery.WSDiscoverySingleAdapter("Ethernet")
+    myDiscovery = WSDiscoverySingleAdapter("Ethernet")
     # start the discovery
     myDiscovery.start()
     # create a local mdib that will be sent out on the network, the mdib is based on a XML file
-    my_mdib = sdc11073.mdib.DeviceMdibContainer.fromMdibFile("mdib.xml")
+    my_mdib = DeviceMdibContainer.fromMdibFile("mdib.xml")
     print ("My UUID is {}".format(my_uuid))
     # set a location context to allow easy discovery
-    my_location = sdc11073.location.SdcLocation(fac='HOSP',
-                                                 poc='CU2',
-                                                 bed='BedSim')
+    my_location = SdcLocation(fac='HOSP', poc='CU2', bed='BedSim')
     # set model information for discovery
-    dpwsModel = sdc11073.pysoap.soapenvelope.DPWSThisModel(manufacturer='Draeger',
-                                                        manufacturerUrl='www.draeger.com',
-                                                        modelName='TestDevice',
-                                                        modelNumber='1.0',
-                                                        modelUrl='www.draeger.com/model',
-                                                        presentationUrl='www.draeger.com/model/presentation')
-    dpwsDevice = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendlyName='TestDevice',
-                                                          firmwareVersion='Version1',
-                                                          serialNumber='12345')
+    dpwsModel = DPWSThisModel(manufacturer='Draeger',
+                              manufacturerUrl='www.draeger.com',
+                              modelName='TestDevice',
+                              modelNumber='1.0',
+                              modelUrl='www.draeger.com/model',
+                              presentationUrl='www.draeger.com/model/presentation')
+    dpwsDevice = DPWSThisDevice(friendlyName='TestDevice',
+                                firmwareVersion='Version1',
+                                serialNumber='12345')
     # create a device (provider) class that will do all the SDC magic
-    sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.PublishingSdcDevice(ws_discovery=myDiscovery,
-                                                                  my_uuid=my_uuid,
-                                                                  model=dpwsModel,
-                                                                  device=dpwsDevice,
-                                                                  deviceMdibContainer=my_mdib)
+    sdcDevice = SdcDevice(ws_discovery=myDiscovery,
+                          my_uuid=my_uuid,
+                          model=dpwsModel,
+                          device=dpwsDevice,
+                          deviceMdibContainer=my_mdib)
     # start the local device and make it discoverable
     sdcDevice.startAll()
     # set the local ensemble context to ease discovery based on ensemble ID
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     # set the location on our device
     sdcDevice.setLocation(my_location) 
     # create one local numeric metric that will change later on
-    numMetrDescr = sdc11073.namespaces.domTag("NumericMetricDescriptor")
+    numMetrDescr = domTag("NumericMetricDescriptor")
     # get all metrics from the mdib (as described in the file)
     allMetricDescrs = [c for c in my_mdib.descriptions.objects if c.NODETYPE == numMetrDescr]
     # now change all the metrics in one transaction
