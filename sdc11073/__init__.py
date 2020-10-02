@@ -10,7 +10,6 @@ from . import sdcclient
 from . import sdcdevice
 from . import xmlparsing
 from . import commlog
-from . import recording
 from . import compression
 
 try:
