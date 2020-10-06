@@ -1,7 +1,6 @@
 import time
 import traceback
 import os
-import json
 import sdc11073
 from collections import defaultdict
 from sdc11073 import observableproperties
