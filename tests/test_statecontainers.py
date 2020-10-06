@@ -3,6 +3,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 import unittest
 import datetime
+from math import isclose
 from lxml import etree as etree_
 import copy
 import sdc11073.mdib.statecontainers as statecontainers
@@ -182,7 +183,7 @@ class TestStateContainers(unittest.TestCase):
                                                           node=node)
         # verify also that mkStateNode on receiving sc does not change anything
         for dummy in range(1):
-            self.assertEqual(sc.metricValue.Value, sc2.metricValue.Value)
+            self.assertTrue(isclose(sc.metricValue.Value, sc2.metricValue.Value))
             self.assertEqual(sc.metricValue.StartTime, sc2.metricValue.StartTime)
             self.assertEqual(sc.metricValue.StopTime, sc2.metricValue.StopTime)
             self.assertEqual(sc.metricValue.DeterminationTime, sc2.metricValue.DeterminationTime)
@@ -200,7 +201,7 @@ class TestStateContainers(unittest.TestCase):
         sc.PhysiologicalRange[1].Lower =100
         node = sc.mkStateNode()
         sc2.updateFromNode(node)
-        self.assertEqual(sc.metricValue.Value, sc2.metricValue.Value)
+        self.assertTrue(isclose(sc.metricValue.Value, sc2.metricValue.Value))
         self.assertEqual(sc.ActiveAveragingPeriod, sc2.ActiveAveragingPeriod)
         self.assertEqual(sc.PhysiologicalRange, sc2.PhysiologicalRange)
         self._verifyAbstractStateContainerDataEqual(sc, sc2)
@@ -238,7 +239,9 @@ class TestStateContainers(unittest.TestCase):
                                                                                parentHandle='456')
 
         def verifyEqual(origin, copied):
-            self.assertEqual(copied.metricValue.Samples, origin.metricValue.Samples)
+            self.assertEqual(len(copied.metricValue.Samples), len(origin.metricValue.Samples))
+            for c, o in zip(copied.metricValue.Samples, origin.metricValue.Samples):
+                self.assertTrue((isclose(c, o)))
             self.assertEqual(copied.metricValue.DeterminationTime, origin.metricValue.DeterminationTime)
             self.assertEqual(copied.metricValue.Annotation, origin.metricValue.Annotation)
             self.assertEqual(copied.metricValue.ApplyAnnotations, origin.metricValue.ApplyAnnotations)
