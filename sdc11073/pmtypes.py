@@ -67,9 +67,8 @@ class PropertyBasedPMType(object):
                 other_value = getattr(other, name)
                 if my_value == other_value:
                     continue
-                elif (isinstance(my_value, Decimal) or isinstance(other_value, Decimal)) and isclose(my_value, other_value):
-                    # if only one is a decimal, treat it like a float compare (almost equal)
-                    continue
+                elif isinstance(my_value, (Decimal, float)) and isinstance(other_value, (Decimal, float)) and isclose(my_value, other_value):
+                    continue # float compare (almost equal)
                 else:
                     return False
             return True

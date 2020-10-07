@@ -51,7 +51,7 @@ class DecimalConverter(object):
             # assume Decimal is exact, no rounding errors
             # Decimal has no method to force string representation without exponential notion.
             # => convert to float and use :f string formatting (6 digits after decimal point, which should be good enough)
-            xmlValue = f'{float(pyValue):f}'
+            xmlValue = f'{pyValue:f}'
         else:
             xmlValue = str(pyValue)
         # remove trailing zeros after decimal point
