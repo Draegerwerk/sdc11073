@@ -6,12 +6,14 @@ from collections import defaultdict
 from sdc11073 import observableproperties
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from concurrent import futures
-from sdc11073.certloader import mk_ssl_context
+from sdc11073.certloader import mk_ssl_context_from_folder
 
 
 adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
-ca_folder = os.getenv('ref_ca')  # or None
+ca_folder = os.getenv('ref_ca')
+ssl_passwd = os.getenv('ref_ssl_passwd') or None
 search_epr = os.getenv('ref_search_epr')  or 'abc' # abc is fixed ending in reference_device uuid.
+
 
 def run_ref_test():
     results = []
@@ -33,7 +35,8 @@ def run_ref_test():
     print('Test step 2: connect to device...')
     try:
         if ca_folder:
-            ssl_context = mk_ssl_context(ca_folder, "client")
+            ssl_context = mk_ssl_context_from_folder(ca_folder, cyphers_file='client_cyphers.txt',
+                                                     ssl_passwd=ssl_passwd)
         else:
             ssl_context = None
         client = sdc11073.sdcclient.SdcClient.fromWsdService(my_service,

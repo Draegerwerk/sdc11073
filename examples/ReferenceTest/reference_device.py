@@ -9,7 +9,7 @@ from uuid import UUID
 import sdc11073
 from sdc11073.loghelper import LoggerAdapter
 from sdc11073.namespaces import domTag
-from sdc11073.certloader import mk_ssl_context
+from sdc11073.certloader import mk_ssl_context_from_folder
 
 here = os.path.dirname(__file__)
 default_mdib_path = os.path.join(here, 'reference_mdib.xml')
@@ -24,6 +24,7 @@ adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
 ref_fac = os.getenv('ref_fac') or 'r_fac'
 ref_poc = os.getenv('ref_poc') or 'r_poc'
 ref_bed = os.getenv('ref_bed') or 'r_bed'
+ssl_passwd = os.getenv('ref_ssl_passwd') or None
 
 if __name__ == '__main__':
     with open(os.path.join(here, 'logging_default.jsn')) as f:
@@ -55,7 +56,8 @@ if __name__ == '__main__':
                                                              firmwareVersion='Version1',
                                                              serialNumber='12345')
     if ca_folder:
-        ssl_context = mk_ssl_context(ca_folder, "device")
+        ssl_context = mk_ssl_context_from_folder(ca_folder, cyphers_file='device_cyphers.txt',
+                                                 ssl_passwd=ssl_passwd)
     else:
         ssl_context = None
     sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.SdcDevice(wsd, my_uuid, dpwsModel, dpwsDevice, my_mdib,
