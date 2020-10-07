@@ -1,5 +1,5 @@
 from sdc11073 import isoduration
-
+from decimal import Decimal
 
 class NullConverter(object):
     @staticmethod
@@ -12,7 +12,7 @@ class NullConverter(object):
 
 
 class TimestampConverter(object):
-    ''' XML representation: integer, representing timestamo in milliseconds
+    ''' XML representation: integer, representing timestamp in milliseconds
      Python representation: float in seconds
     '''
     @staticmethod
@@ -24,31 +24,40 @@ class TimestampConverter(object):
         return str(ms_value)
 
 
-
 class DecimalConverter(object):
-    @staticmethod
-    def toPy(xmlValue):
-        if '.' in xmlValue:
-            return float(xmlValue)
+    USE_DECIMAL_TYPE = True
+
+    @classmethod
+    def toPy(cls, xmlValue):
+        if cls.USE_DECIMAL_TYPE:
+            return Decimal(xmlValue)
         else:
-            return int(xmlValue)
-        
+            if '.' in xmlValue:
+                return float(xmlValue)
+            else:
+                return int(xmlValue)
+
     @staticmethod
     def toXML(pyValue):
-        """ This method rounds the decimal value to a reasonable precision. """
         if isinstance(pyValue, float):
-            if abs(pyValue) >=100:
+            # round value to handle float inaccuracies
+            if abs(pyValue) >= 100:
                 xmlValue = '{:.1f}'.format(round(pyValue, 1))
-            elif abs(pyValue) >=10:
+            elif abs(pyValue) >= 10:
                 xmlValue = '{:.2f}'.format(round(pyValue, 2))
             else:
                 xmlValue = '{:.3f}'.format(round(pyValue, 3))
-            while '.' in xmlValue and xmlValue[-1] in ('0', '.'):
-                xmlValue = xmlValue[:-1]
+        elif isinstance(pyValue, Decimal):
+            # assume Decimal is exact, no rounding errors
+            # Decimal has no method to force string representation without exponential notion.
+            # => convert to float and use :f string formatting (6 digits after decimal point, which should be good enough)
+            xmlValue = f'{pyValue:f}'
         else:
             xmlValue = str(pyValue)
+        # remove trailing zeros after decimal point
+        while '.' in xmlValue and xmlValue[-1] in ('0', '.'):
+            xmlValue = xmlValue[:-1]
         return xmlValue
-
 
 
 class IntegerConverter(object):

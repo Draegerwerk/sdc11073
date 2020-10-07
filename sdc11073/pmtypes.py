@@ -7,8 +7,8 @@ import enum
 from lxml import etree as etree_
 from sdc11073 import namespaces
 from .mdib import containerproperties  as cp
-
-
+from decimal import Decimal
+from math import isclose
 '''
 Interface of  pmTypes:
 
@@ -60,16 +60,19 @@ class PropertyBasedPMType(object):
 
 
     def __eq__(self, other):
-        ''' compares all properties'''
+        """ compares all properties"""
         try:
             for name, dummy in self._sortedContainerProperties():
-                if getattr(self, name) == getattr(other, name):
-                    # only __eq__ methods implemented, therefore compare for equality
+                my_value = getattr(self, name)
+                other_value = getattr(other, name)
+                if my_value == other_value:
                     continue
+                elif (isinstance(my_value,  float) or isinstance(other_value,  float)) and isclose(my_value, other_value):
+                    continue # float compare (almost equal)
                 else:
                     return False
             return True
-        except AttributeError:
+        except (TypeError, AttributeError):
             return False
 
     def __ne__(self, other):
