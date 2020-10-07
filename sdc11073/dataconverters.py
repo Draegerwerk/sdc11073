@@ -25,7 +25,7 @@ class TimestampConverter(object):
 
 
 class DecimalConverter(object):
-    USE_DECIMAL_TYPE = False
+    USE_DECIMAL_TYPE = True
 
     @classmethod
     def toPy(cls, xmlValue):

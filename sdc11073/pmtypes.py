@@ -67,12 +67,12 @@ class PropertyBasedPMType(object):
                 other_value = getattr(other, name)
                 if my_value == other_value:
                     continue
-                elif isinstance(my_value, (Decimal, float)) and isinstance(other_value, (Decimal, float)) and isclose(my_value, other_value):
+                elif (isinstance(my_value,  float) or isinstance(other_value,  float)) and isclose(my_value, other_value):
                     continue # float compare (almost equal)
                 else:
                     return False
             return True
-        except AttributeError:
+        except (TypeError, AttributeError):
             return False
 
     def __ne__(self, other):
