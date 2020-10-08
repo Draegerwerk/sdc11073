@@ -176,7 +176,7 @@ class TestClientWaveform(unittest.TestCase):
 
         # same test for draft10 version
         cl = self.sdcClient_final
-        soapenvelope = sdc11073.pysoap.soapenvelope.AddressedSoap12Envelope.fromXMLString(WfReport_draft10.encode('utf-8'),
+        soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(WfReport_draft10.encode('utf-8'),
                                                                                           schema=cl._bicepsSchema.bmmSchema)
         cl._onWaveFormReport(soapenvelope)
         self.assertEqual(cl.waveFormReport.tag, namespaces.msgTag('WaveformStream'))
@@ -198,7 +198,7 @@ class TestClientWaveform(unittest.TestCase):
                               'Handle':handle}
                 element = etree_.Element('Metric', attrib=attributes, nsmap=sdc11073.namespaces.nsmap)
                 clientmdib.descriptions.addObject(sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.fromNode(clientmdib.nsmapper, element, None)) # None = no parent handle
-            soapenvelope = sdc11073.pysoap.soapenvelope.AddressedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
+            soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
             cl._onWaveFormReport(soapenvelope)
             
             # verify that all handles of reported RealTimeSampleArrays are present
@@ -229,7 +229,7 @@ class TestClientWaveform(unittest.TestCase):
                 self.assertEqual(len(rtBuffer.rt_data[i].annotations), 0)
     
             # add another Report (with identical data, but that is not relevant here)
-            soapenvelope = sdc11073.pysoap.soapenvelope.AddressedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
+            soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
             cl._onWaveFormReport(soapenvelope)
             # verify only that array length is 2*bigger now
             for handle in my_handles:
@@ -240,7 +240,7 @@ class TestClientWaveform(unittest.TestCase):
             
             #add a lot more data, verify that length limitation is working
             for i in range(100):
-                soapenvelope = sdc11073.pysoap.soapenvelope.AddressedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
+                soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
                 cl._onWaveFormReport(soapenvelope)
             # verify only that array length is limited
             for handle in my_handles:

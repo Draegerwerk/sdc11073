@@ -30,7 +30,7 @@ from ..definitions_sdc import SDC_v1_Definitions
 GenericNode = sdc11073.pysoap.soapenvelope.GenericNode
 WsAddress = sdc11073.pysoap.soapenvelope.WsAddress
 Soap12Envelope = sdc11073.pysoap.soapenvelope.Soap12Envelope
-AddressedSoap12Envelope = sdc11073.pysoap.soapenvelope.AddressedSoap12Envelope
+#ReceivedSoap12Envelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope
 DPWSEnvelope = sdc11073.pysoap.soapenvelope.DPWSEnvelope
 MetaDataSection = sdc11073.pysoap.soapenvelope.MetaDataSection
 SoapResponseException = sdc11073.pysoap.soapenvelope.SoapResponseException

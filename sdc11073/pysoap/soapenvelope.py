@@ -684,9 +684,6 @@ class ReceivedSoap12Envelope(Soap12EnvelopeBase):
 
 
 
-class AddressedSoap12Envelope(ReceivedSoap12Envelope):
-    pass
-
 
 
 class DPWSEnvelope(ReceivedSoap12Envelope):

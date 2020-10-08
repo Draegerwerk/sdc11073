@@ -15,7 +15,7 @@ from sdc11073 import pmtypes
 
 mdibFolder = os.path.dirname(__file__)
 
-AddressedSoap12Envelope = sdc11073.pysoap.soapenvelope.AddressedSoap12Envelope
+ReceivedSoap12Envelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope
 Soap12Envelope = sdc11073.pysoap.soapenvelope.Soap12Envelope
 
 #pylint: disable=protected-access
@@ -94,7 +94,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             time.sleep(3)
             self.assertGreater(len(testSubscr.reports), 20)
             report = testSubscr.reports[-1] # a 
-            in_report = AddressedSoap12Envelope.fromXMLString(report.as_xml())
+            in_report = ReceivedSoap12Envelope.fromXMLString(report.as_xml())
             expected_action = sdcDevice.mdib.sdc_definitions.Actions.Waveform
             self.assertEqual(in_report.address.action, expected_action) 
 
@@ -121,10 +121,10 @@ class TestDeviceSubscriptions(unittest.TestCase):
             # avoid instantiation of new soap client by pretenting there is one already
             sdcDevice.subscriptionsManager.soapClients['localhost:123'] = 'dummy'
             response = sdcDevice.subscriptionsManager.onSubscribeRequest(httpHeader,
-                                                                          AddressedSoap12Envelope.fromXMLString(subscrRequest.as_xml()),
+                                                                          ReceivedSoap12Envelope.fromXMLString(subscrRequest.as_xml()),
                                                                           'http://abc.com:123/def')
             response.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
-            clSubscr._handleSubscribeResponse(AddressedSoap12Envelope.fromXMLString(response.as_xml()))
+            clSubscr._handleSubscribeResponse(ReceivedSoap12Envelope.fromXMLString(response.as_xml()))
             
             # verify that devices subscription contains the subscription identifier of the client Subscription object
             devSubscr = list(sdcDevice.subscriptionsManager._subscriptions.objects)[0]
@@ -142,7 +142,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             renewRequest.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
             print (renewRequest.as_xml(pretty=True))
     
-            response = sdcDevice.subscriptionsManager.onRenewRequest(AddressedSoap12Envelope.fromXMLString(renewRequest.as_xml()))
+            response = sdcDevice.subscriptionsManager.onRenewRequest(ReceivedSoap12Envelope.fromXMLString(renewRequest.as_xml()))
             print (response.as_xml(pretty=True))
             response.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
     
@@ -151,7 +151,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             getStatusRequest.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
             print (getStatusRequest.as_xml(pretty=True))
     
-            response = sdcDevice.subscriptionsManager.onGetStatusRequest(AddressedSoap12Envelope.fromXMLString(getStatusRequest.as_xml()))
+            response = sdcDevice.subscriptionsManager.onGetStatusRequest(ReceivedSoap12Envelope.fromXMLString(getStatusRequest.as_xml()))
             print (response.as_xml(pretty=True))
             response.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
 
@@ -177,7 +177,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
             
             # verify that header contains the identifier of client subscription
-            env  = AddressedSoap12Envelope.fromXMLString(response.as_xml())
+            env  = ReceivedSoap12Envelope.fromXMLString(response.as_xml())
             idents = env.headerNode.findall(namespaces.wseTag('Identifier'))
             self.assertEqual(len(idents), 1)
             self.assertEqual(idents[0].text, mockstuff.TestDevSubscription.notifyRef)
@@ -234,10 +234,10 @@ class TestDeviceSubscriptions(unittest.TestCase):
             # avoid instantiation of new soap client by pretenting there is one already
             sdcDevice.subscriptionsManager.soapClients['localhost:123'] = 'dummy'
             response = sdcDevice.subscriptionsManager.onSubscribeRequest(httpHeader,
-                                                                          AddressedSoap12Envelope.fromXMLString(subscrRequest.as_xml()),
+                                                                          ReceivedSoap12Envelope.fromXMLString(subscrRequest.as_xml()),
                                                                           'http://abc.com:123/def')
             response.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
-            clSubscr._handleSubscribeResponse(AddressedSoap12Envelope.fromXMLString(response.as_xml()))
+            clSubscr._handleSubscribeResponse(ReceivedSoap12Envelope.fromXMLString(response.as_xml()))
     
             # check renew
             clSubscr.dev_reference_param[0].text = 'bla'# make ident invalid
@@ -245,7 +245,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             renewRequest.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
             print (renewRequest.as_xml(pretty=True))
     
-            response = sdcDevice.subscriptionsManager.onRenewRequest(AddressedSoap12Envelope.fromXMLString(renewRequest.as_xml()))
+            response = sdcDevice.subscriptionsManager.onRenewRequest(ReceivedSoap12Envelope.fromXMLString(renewRequest.as_xml()))
             print (response.as_xml(pretty=True))
             self.assertEqual(response.bodyNode[0].tag, namespaces.s12Tag('Fault'))
             response.validateBody(sdcDevice.mdib.bicepsSchema.s12Schema)
@@ -254,7 +254,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             getStatusRequest.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
             print (getStatusRequest.as_xml(pretty=True))
     
-            response = sdcDevice.subscriptionsManager.onRenewRequest(AddressedSoap12Envelope.fromXMLString(renewRequest.as_xml()))
+            response = sdcDevice.subscriptionsManager.onRenewRequest(ReceivedSoap12Envelope.fromXMLString(renewRequest.as_xml()))
             print (response.as_xml(pretty=True))
             self.assertEqual(response.bodyNode[0].tag, namespaces.s12Tag('Fault'))
             response.validateBody(sdcDevice.mdib.bicepsSchema.s12Schema)

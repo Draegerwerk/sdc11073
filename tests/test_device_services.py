@@ -9,7 +9,7 @@ from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.location import SdcLocation
 from sdc11073.namespaces import msgTag, domTag, nsmap
 from sdc11073.namespaces import Prefix_Namespace as Prefix
-from sdc11073.pysoap.soapenvelope import GenericNode, WsAddress, Soap12Envelope, AddressedSoap12Envelope
+from sdc11073.pysoap.soapenvelope import GenericNode, WsAddress, Soap12Envelope, ReceivedSoap12Envelope
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from tests import mockstuff
 _msg_ns = Prefix.MSG.namespace
@@ -83,7 +83,7 @@ class TestDeviceServices(unittest.TestCase):
             getService = sdcDevice._handler._GetDispatcher
             endpoint_reference = '123'
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdib', endpoint_reference)
-            receivedEnv = AddressedSoap12Envelope.fromXMLString(getEnv.as_xml())
+            receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
             response = getService._onGetMdib(httpHeader, receivedEnv)
             response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
@@ -93,7 +93,7 @@ class TestDeviceServices(unittest.TestCase):
             getService = sdcDevice._handler._GetDispatcher
             endpoint_reference = '123'
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdState', endpoint_reference)
-            receivedEnv = AddressedSoap12Envelope.fromXMLString(getEnv.as_xml())
+            receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
             response = getService.dispatchSoapRequest(None, httpHeader, receivedEnv)
             response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
@@ -104,7 +104,7 @@ class TestDeviceServices(unittest.TestCase):
             getService = sdcDevice._handler._GetDispatcher
             endpoint_reference = '123'
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdDescription', endpoint_reference)
-            receivedEnv = AddressedSoap12Envelope.fromXMLString(getEnv.as_xml())
+            receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
             response = getService.dispatchSoapRequest(None, httpHeader, receivedEnv)
             
@@ -121,7 +121,7 @@ class TestDeviceServices(unittest.TestCase):
                 alarmConditionDescriptor = tr.getDescriptor('0xD3C00109')
                 alarmConditionDescriptor.Priority='Lo'
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdDescription', endpoint_reference)
-            receivedEnv = AddressedSoap12Envelope.fromXMLString(getEnv.as_xml())
+            receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
             response = getService.dispatchSoapRequest(None, httpHeader, receivedEnv)
             response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
@@ -137,7 +137,7 @@ class TestDeviceServices(unittest.TestCase):
             contextService = sdcDevice._handler._ContextDispatcher
             endpoint_reference = '123'
             getEnv = self._mkGetRequest(sdcDevice, contextService.port_type_string, 'GetContextStates', endpoint_reference)
-            receivedEnv = AddressedSoap12Envelope.fromXMLString(getEnv.as_xml())
+            receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
             response = contextService.dispatchSoapRequest(None, httpHeader, receivedEnv)
             print (response.as_xml(pretty=True))
