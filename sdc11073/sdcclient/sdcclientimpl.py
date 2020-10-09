@@ -5,7 +5,6 @@ import logging
 import os
 import traceback
 import ssl
-import json
 import urllib
 from lxml import etree as etree_
 from cryptography import x509
@@ -30,7 +29,6 @@ from ..definitions_sdc import SDC_v1_Definitions
 GenericNode = sdc11073.pysoap.soapenvelope.GenericNode
 WsAddress = sdc11073.pysoap.soapenvelope.WsAddress
 Soap12Envelope = sdc11073.pysoap.soapenvelope.Soap12Envelope
-AddressedSoap12Envelope = sdc11073.pysoap.soapenvelope.AddressedSoap12Envelope
 DPWSEnvelope = sdc11073.pysoap.soapenvelope.DPWSEnvelope
 MetaDataSection = sdc11073.pysoap.soapenvelope.MetaDataSection
 SoapResponseException = sdc11073.pysoap.soapenvelope.SoapResponseException
