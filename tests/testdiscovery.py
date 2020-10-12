@@ -1,10 +1,8 @@
-from __future__ import absolute_import
-from __future__ import print_function
 import unittest
 from sdc11073 import wsdiscovery
 import logging
 import time
-from six.moves import urllib
+import urllib
 from sdc11073 import loghelper #, definitions_sdc, location
 
 QName = wsdiscovery.QName
