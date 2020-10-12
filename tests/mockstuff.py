@@ -1,7 +1,7 @@
 import threading
 import logging
 import os.path
-from six.moves import urllib
+import urllib
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, DPWSThisModel, DPWSThisDevice
 from sdc11073.sdcdevice.subscriptionmgr import _DevSubscription
 from sdc11073.mdib import DeviceMdibContainer

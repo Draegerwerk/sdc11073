@@ -1,6 +1,5 @@
 import unittest
 import time
-import six
 import sdc11073
 from tests.mockstuff import SomeDevice
 from sdc11073.sdcclient import SdcClient
@@ -63,12 +62,12 @@ class Test_Compression(unittest.TestCase):
 
         # Get http connection to execute the call
         self.getService = self.sdcClient_Final.client('Set')
-        self.soapClient = six.next(six.itervalues(self.sdcClient_Final._soapClients))
+        self.soapClient = next(iter(self.sdcClient_Final._soapClients.values()))
         self.clientHttpCon = self.soapClient._httpConnection
 
         self.xml = XML_REQ
         # Python 2 and 3 compatibility
-        if six.PY3 and not isinstance(XML_REQ, bytes):
+        if not isinstance(XML_REQ, bytes):
             self.xml = XML_REQ.encode('utf-8')
 
     def test_no_compression(self):
@@ -82,8 +81,7 @@ class Test_Compression(unittest.TestCase):
             'Content-Length': str(len(self.xml))
         }
 
-        if six.PY3:
-            headers = dict((str(k), str(v)) for k, v in headers.items())
+        headers = dict((str(k), str(v)) for k, v in headers.items())
 
         self.clientHttpCon.request('POST', self.getService._url.path, body=self.xml, headers=headers)
 
@@ -111,8 +109,7 @@ class Test_Compression(unittest.TestCase):
             'Accept-Encoding': 'gzip, x-lz4',
             'Content-Length': str(len(self.xml))
         }
-        if six.PY3:
-            headers = dict((str(k), str(v)) for k, v in headers.items())
+        headers = dict((str(k), str(v)) for k, v in headers.items())
         self.clientHttpCon.request('POST', self.getService._url.path, body=self.xml, headers=headers)
         # Verify response is comressed
         response = self.clientHttpCon.getresponse()
@@ -141,8 +138,7 @@ class Test_Compression(unittest.TestCase):
             'Accept-Encoding': 'gzip, x-lz4',
             'Content-Length': str(len(self.xml))
         }
-        if six.PY3:
-            headers = dict((str(k), str(v)) for k, v in headers.items())
+        headers = dict((str(k), str(v)) for k, v in headers.items())
         self.clientHttpCon.request('POST', self.getService._url.path, body=self.xml, headers=headers)
         # Verify response is comressed
         response = self.clientHttpCon.getresponse()
