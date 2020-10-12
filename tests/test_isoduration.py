@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-from __future__ import print_function
 import unittest
 from sdc11073.isoduration import parse_duration, durationString
 from sdc11073.isoduration import parse_date_time, date_time_string, GYearMonth, GYear, UTC

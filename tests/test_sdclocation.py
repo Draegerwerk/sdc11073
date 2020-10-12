@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-from __future__ import print_function 
 import unittest
 
 from sdc11073.location import SdcLocation

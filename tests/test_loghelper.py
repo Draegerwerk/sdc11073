@@ -1,4 +1,3 @@
-from __future__ import print_function
 import unittest
 import logging
 from sdc11073 import loghelper
