@@ -14,7 +14,7 @@ from sdc11073.pysoap.soapenvelope import Soap12Envelope, ReceivedSoap12Envelope,
 from sdc11073.pysoap.soapenvelope import WsaEndpointReferenceType
 from ..namespaces import Prefix_Namespace as Prefix
 from ..namespaces import nsmap as _global_nsmap
-from ..namespaces import wseTag
+from ..namespaces import wseTag, wsaTag
 from .. import xmlparsing, isoduration
 from .. import commlog
 from .. import observableproperties as properties
@@ -168,7 +168,7 @@ class _ClSubscription(object):
             for e in self.dev_reference_param:
                 e_ = copy.copy(e)
                 # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
-                e_.set('IsReferenceParameter', 'true')
+                e_.set(wsaTag('IsReferenceParameter'), 'true')
                 soapEnvelope.addHeaderElement(e_)
 
     def _mkRenewEnvelope(self, expire_minutes):

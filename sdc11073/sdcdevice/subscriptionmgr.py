@@ -159,7 +159,7 @@ class _DevSubscription(object):
         for identNode in ref_nodes:
             identNode_ = copy.copy(identNode)
             # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
-            identNode_.set('IsReferenceParameter', 'true')
+            identNode_.set(wsaTag('IsReferenceParameter'), 'true')
             soapEnvelope.addHeaderElement(identNode_)
         return soapEnvelope
 
