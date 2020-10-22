@@ -454,7 +454,7 @@ class MdibContainer(object):
         cls = self.sdc_definitions.sc.getContainerClass(qNameType)
         if cls is None:
             self._logger.warn('No class for type={}; using AbstractStateContainer', str(qNameType))
-            cls = self.bicepsSchema._sc.AbstractStateContainer #pylint: disable=protected-access
+            cls = self.sdc_definitions.sc.AbstractStateContainer
         return cls
 
     def getStateClsForDescriptor(self, descriptorContainer):
