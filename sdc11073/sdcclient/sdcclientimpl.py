@@ -261,8 +261,10 @@ class SdcClient(object):
         self._mdib = None if mdib is None else weakref.ref(mdib)
         if mdib is not None:
             mdib.bicepsSchema = self._bicepsSchema
-        self.client('Set').register_mdib(mdib)
-        self.client('Context').register_mdib(mdib)
+        if self.client('Set') is not None:
+            self.client('Set').register_mdib(mdib)
+        if self.client('Context') is not None:
+            self.client('Context').register_mdib(mdib)
 
 
     @property
