@@ -220,6 +220,7 @@ class GenericProduct(BaseProduct):
 
         self._ordered_providers.extend([audiopause_provider, daynight_provider, clock_provider])
         self._ordered_providers.extend([contextprovider.EnsembleContextProvider(log_prefix=log_prefix),
+                                       contextprovider.LocationContextProvider(log_prefix=log_prefix),
                                        patientcontextprovider.GenericPatientContextProvider(log_prefix=log_prefix),
                                        alarmprovider.GenericAlarmProvider(log_prefix=log_prefix),
                                        metricprovider.GenericMetricProvider(log_prefix=log_prefix),
@@ -235,6 +236,7 @@ class MinimalProduct(BaseProduct):
         self._ordered_providers.extend([audiopauseprovider.GenericSDCAudioPauseProvider(log_prefix=log_prefix),
                                        clockprovider.GenericSDCClockProvider(log_prefix=log_prefix),
                                        contextprovider.EnsembleContextProvider(log_prefix=log_prefix),
+                                       contextprovider.LocationContextProvider(log_prefix=log_prefix),
                                        patientcontextprovider.GenericPatientContextProvider(log_prefix=log_prefix),
                                        alarmprovider.GenericAlarmProvider(log_prefix=log_prefix),
                                        self.metric_provider,
