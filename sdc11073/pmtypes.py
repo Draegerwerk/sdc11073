@@ -889,15 +889,18 @@ class ProductionSpecification(PropertyBasedPMType):
 
 class BaseDemographics(PropertyBasedPMType):
     Givenname = cp.NodeTextProperty([namespaces.domTag('Givenname')])
-    Middlename = cp.NodeTextProperty([namespaces.domTag('Middlename')])
+    Middlename = cp.SubElementListProperty([namespaces.domTag('Middlename')], cls=ElementWithTextOnly)  # 0...n Elements
     Familyname = cp.NodeTextProperty([namespaces.domTag('Familyname')])
     Birthname = cp.NodeTextProperty([namespaces.domTag('Birthname')])
     Title = cp.NodeTextProperty([namespaces.domTag('Title')])
     _props = ['Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title']
 
-    def __init__(self, givenname=None, middlename=None, familyname=None, birthname=None, title=None):
+    def __init__(self, givenname=None, middlenames=None, familyname=None, birthname=None, title=None):
         self.Givenname = givenname
-        self.Middlename = middlename
+        if isinstance(middlenames, str):
+            self.Middlename = [middlenames]
+        else:
+            self.Middlename = middlenames or []
         self.Familyname = familyname
         self.Birthname = birthname
         self.Title = title

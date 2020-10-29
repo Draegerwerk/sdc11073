@@ -22,3 +22,12 @@ class TestPmtypes(unittest.TestCase):
         c3 = pmtypes.CodedValue(42)
         c3.Translation.append(pmtypes.T_Translation(41)) # same translation as c2
         self.assertEqual(c2, c3)
+
+    def test_base_demographics(self):
+        """Verify that Middlename is instantiated correctly as a list of strings"""
+        bd = pmtypes.BaseDemographics()
+        self.assertEqual(bd.Middlename, [])
+        bd = pmtypes.BaseDemographics(middlenames='foo')
+        self.assertEqual(bd.Middlename, ['foo'])
+        bd = pmtypes.BaseDemographics(middlenames=['foo', 'bar'])
+        self.assertEqual(bd.Middlename, ['foo', 'bar'])
