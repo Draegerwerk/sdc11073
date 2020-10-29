@@ -75,3 +75,8 @@ class GenericContextProvider(providerbase.ProviderRole):
 class EnsembleContextProvider(GenericContextProvider):
     def __init__(self, log_prefix):
         super(EnsembleContextProvider, self).__init__(opTargetDescriptorTypes=[namespaces.domTag('EnsembleContextDescriptor')], log_prefix=log_prefix)
+
+
+class LocationContextProvider(GenericContextProvider):
+    def __init__(self, log_prefix):
+        super(LocationContextProvider, self).__init__(opTargetDescriptorTypes=[namespaces.domTag('LocationContextDescriptor')], log_prefix=log_prefix)

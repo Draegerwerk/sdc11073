@@ -3,6 +3,7 @@ from . import alarmprovider
 from . import audiopauseprovider
 from . import clockprovider
 from . import metricprovider
+from . import contextprovider
 from . import patientcontextprovider
 from . import providerbase
 from .. import loghelper
@@ -232,6 +233,21 @@ class MinimalProduct(BaseProduct):
         self.metric_provider = metricprovider.GenericMetricProvider(log_prefix=log_prefix) # needed in a test
         self._ordered_providers.extend([audiopauseprovider.GenericSDCAudioPauseProvider(log_prefix=log_prefix),
                                        clockprovider.GenericSDCClockProvider(log_prefix=log_prefix),
+                                       patientcontextprovider.GenericPatientContextProvider(log_prefix=log_prefix),
+                                       alarmprovider.GenericAlarmProvider(log_prefix=log_prefix),
+                                       self.metric_provider,
+                                       operationprovider.OperationProvider(log_prefix=log_prefix),
+                                       GenericSetComponentStateOperationProvider(log_prefix=log_prefix)
+        ])
+
+
+class ExtendedProduct(BaseProduct):
+    def __init__(self, log_prefix=None):
+        super().__init__(log_prefix)
+        self._ordered_providers.extend([audiopauseprovider.GenericSDCAudioPauseProvider(log_prefix=log_prefix),
+                                       clockprovider.GenericSDCClockProvider(log_prefix=log_prefix),
+                                       contextprovider.EnsembleContextProvider(log_prefix=log_prefix),
+                                       contextprovider.LocationContextProvider(log_prefix=log_prefix),
                                        patientcontextprovider.GenericPatientContextProvider(log_prefix=log_prefix),
                                        alarmprovider.GenericAlarmProvider(log_prefix=log_prefix),
                                        self.metric_provider,
