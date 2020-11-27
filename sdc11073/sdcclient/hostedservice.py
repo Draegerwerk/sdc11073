@@ -1,6 +1,8 @@
 import weakref
 from lxml import etree as etree_
 import urllib
+
+from sdc11073 import namespaces
 from .. import loghelper
 from ..namespaces import msgTag, domTag, QN_TYPE, nsmap, DocNamespaceHelper
 from ..namespaces import Prefix_Namespace as Prefix
@@ -517,6 +519,19 @@ class ContextServiceClient(HostedServiceClient):
         resultSoapEnvelope.validateBody(self._bmmSchema)
         return resultSoapEnvelope.msgNode
 
+    def getContextStateByIdentification(self, identifications, contextType=None, request_manipulator=None):
+        """
+        :param identifications: list of identifiers (type: InstanceIdentifier from pmtypes)
+        :param contextType: Type to query
+        :return:
+        """
+        params = []
+        for oneId in identifications:
+            params.append(oneId.asEtreeNode(qname=namespaces.msgTag('Identification'), nsmap=namespaces.nsmap))
+        # todo: set attribute type based on contextType if set
+        resultSoapEnvelope = self._callGetMethod('GetContextStatesByIdentification', params, request_manipulator=request_manipulator)
+        resultSoapEnvelope.validateBody(self._bmmSchema)
+        return resultSoapEnvelope.msgNode
 
 class WaveformClient(HostedServiceClient):
     subscribeable_actions = ('Waveform',)

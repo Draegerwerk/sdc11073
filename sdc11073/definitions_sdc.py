@@ -43,6 +43,8 @@ class _SDC_v1_Actions(object):
     GetContainmentTreeResponse = _ActionsNamespace + '/GetService/GetContainmentTreeResponse'
     GetContextStates = _ActionsNamespace + '/ContextService/GetContextStates'
     GetContextStatesResponse = _ActionsNamespace + '/ContextService/GetContextStatesResponse'
+    GetContextStatesByIdentification = _ActionsNamespace + '/ContextService/GetContextStatesByIdentification'
+    GetContextStatesByIdentificationResponse = _ActionsNamespace + '/ContextService/GetContextStatesByIdentificationResponse'
     SetContextState = _ActionsNamespace + '/ContextService/SetContextState'
     SetContextStateResponse = _ActionsNamespace + '/ContextService/SetContextStateResponse'
     GetSupportedLanguages = _ActionsNamespace + '/LocalizationService/GetSupportedLanguages'
