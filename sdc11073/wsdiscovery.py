@@ -1234,6 +1234,30 @@ class WSDiscoveryWithHTTPProxy(object):
             resolvedServices.append( self._sendResolve(s.getEPR()))
         return resolvedServices
 
+    def searchMultipleTypes(self, typesList, scopes=None, timeout=5, repeatProbeInterval=3):
+        # repeatProbeInterval is not needed, but kept in order to have identical signature
+        result = {} # avoid double entries by adding to dictionary with epr as key
+        for t in typesList:
+            services = self.searchServices(t, scopes, timeout)
+            for s in services:
+                result[s.getEPR()] = s
+        return result.values()
+
+    def getActiveAddresses(self):
+        s = socket.socket()
+        try:
+            s.connect((self._dpAddr.hostname, self._dpAddr.port))
+            return [s.getsockname()[0]]
+        finally:
+            s.close()
+
+    def clearRemoteServices(self):
+        # do nothing, this implementation has no internal list
+        pass
+
+    def clearLocalServices(self):
+        # do nothing, this implementation has no internal list
+        pass
 
     def publishService(self, epr, types, scopes, xAddrs):
         """Publish a service with the given TYPES, SCOPES and XAddrs (service addresses)
