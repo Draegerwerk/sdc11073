@@ -275,9 +275,6 @@ class _CodedValueBase(PropertyBasedPMType):
     conceptDescriptions = ConceptDescription
     codingSystem = CodingSystem
 
-    ''' This class represents the "CodedValue" type in Participant Model.
-    Translation is strictly speaking only part of BICEPS Final, but for simplicity reasons also 
-    technically available in Draft 6. Don't use it in Draft6 scenarios.'''
     def __init__(self, code, codingsystem=None, codingSystemVersion=None, codingSystemNames=None, conceptDescriptions=None, symbolicCodeName=None):
         '''
         @param code: a string or an int
@@ -580,7 +577,7 @@ class AbstractMetricValue(PropertyBasedPMType):
     StopTime = cp.TimestampAttributeProperty('StopTime') # time.time() value (float)
     DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime') # time.time() value (float)
     MQ_Extension = cp.ExtensionNodeProperty([namespaces.domTag('MetricQuality')])
-    Validity = cp.NodeAttributeProperty('Validity', [namespaces.domTag('MetricQuality')]) # pm:MetricMeasurementValidity
+    Validity = cp.NodeAttributeProperty('Validity', [namespaces.domTag('MetricQuality')]) # pm:MeasurementValidity
     Mode = cp.NodeAttributeProperty('Mode', [namespaces.domTag('MetricQuality')], impliedPyValue='Real') # pm:GenerationMode
     Qi = cp.DecimalAttributeProperty('Qi', [namespaces.domTag('MetricQuality')], impliedPyValue=1) # pm:QualityIndicator
     Annotation = cp.SubElementListProperty([namespaces.domTag('Annotation')], Annotation)
@@ -1007,29 +1004,7 @@ class ImagingProcedure(PropertyBasedPMType):
         return obj
 
 
-class OrderDetail_Draft6(PropertyBasedPMType):
-    Start = cp.NodeTextProperty([namespaces.domTag('Start')]) # optional, xsd:dateTime
-    End = cp.NodeTextProperty([namespaces.domTag('End')]) # optional, xsd:dateTime
-    Performer = cp.SubElementListProperty([namespaces.domTag('Performer')], cls=PersonParticipation) #0...n)
-    Service = cp.SubElementListProperty([namespaces.domTag('Service')], cls=CodedValue) #0...n)
-    _props = ['Start', 'End', 'Performer', 'Service']
-
-    def __init__(self, start=None, end=None, performer=None, service=None):
-        '''
-        :param start: a xsd:DateTime string
-        :param end: a xsd:DateTime string
-        :param performer: a list of PersonParticipation objects
-        :param service: a list of CodedValue objects
-        '''
-        self.Start = start
-        self.End = end
-        if performer:
-            self.Performer = performer
-        if service:
-            self.Service = service
-
-
-class OrderDetail_Final(PropertyBasedPMType):
+class OrderDetail(PropertyBasedPMType):
     Start = cp.NodeTextProperty([namespaces.domTag('Start')]) # optional, xsd:dateTime
     End = cp.NodeTextProperty([namespaces.domTag('End')]) # optional, xsd:dateTime
     Performer = cp.SubElementListProperty([namespaces.domTag('Performer')], cls=PersonParticipation) #0...n)
@@ -1055,7 +1030,7 @@ class OrderDetail_Final(PropertyBasedPMType):
             self.ImagingProcedure = imagingprocedure
 
 
-class RequestedOrderDetail(OrderDetail_Final): # BICEPS Final
+class RequestedOrderDetail(OrderDetail):
     ReferringPhysician = cp.SubElementProperty([namespaces.domTag('ReferringPhysician')], valueClass=PersonReference) # optional
     RequestingPhysician = cp.SubElementProperty([namespaces.domTag('RequestingPhysician')], valueClass=PersonReference) # optional
     PlacerOrderNumber = cp.SubElementProperty([namespaces.domTag('PlacerOrderNumber')], valueClass=InstanceIdentifier) # mandatory
@@ -1075,7 +1050,7 @@ class RequestedOrderDetail(OrderDetail_Final): # BICEPS Final
         self.PlacerOrderNumber = placerordernumber
 
 
-class PerformedOrderDetail(OrderDetail_Final): # BICEPS Final
+class PerformedOrderDetail(OrderDetail):
     FillerOrderNumber = cp.SubElementProperty([namespaces.domTag('FillerOrderNumber')], valueClass=InstanceIdentifier) # optional
     ResultingClinicalInfo = cp.SubElementListProperty([namespaces.domTag('RelevantClinicalInfo')], cls=ClinicalInfo)
     _props = ['FillerOrderNumber', 'ResultingClinicalInfo']
@@ -1089,46 +1064,7 @@ class PerformedOrderDetail(OrderDetail_Final): # BICEPS Final
 
 
 
-class WorkflowOrderDetail_Draft6(PropertyBasedPMType):
-    VisitNumber = cp.SubElementProperty([namespaces.domTag('VisitNumber')], valueClass=InstanceIdentifier) # optional
-    PlacerOrderNumber = cp.SubElementProperty([namespaces.domTag('PlacerOrderNumber')], valueClass=InstanceIdentifier) # mandatory
-    FillerOrderNumber = cp.SubElementProperty([namespaces.domTag('FillerOrderNumber')], valueClass=InstanceIdentifier) # optional
-    Patient = cp.SubElementProperty([namespaces.domTag('Patient')], valueClass=PersonReference) # mandatory
-    ReferringPhysician = cp.SubElementProperty([namespaces.domTag('ReferringPhysician')], valueClass=PersonReference) # optional
-    RequestingPhysician = cp.SubElementProperty([namespaces.domTag('RequestingPhysician')], valueClass=PersonReference) # optional
-    Reason = cp.SubElementListProperty([namespaces.domTag('Reason')], cls=ClinicalInfo)
-    DangerCode = cp.SubElementListProperty([namespaces.domTag('Reason')], cls=CodedValue)
-    RelevantClinicalInfo = cp.SubElementListProperty([namespaces.domTag('RelevantClinicalInfo')], cls=ClinicalInfo)
-    ImagingProcedure = cp.SubElementListProperty([namespaces.domTag('ImagingProcedure')], cls=ImagingProcedure)
-    RequestedOrderDetail = cp.SubElementProperty([namespaces.domTag('RequestedOrderDetail')], valueClass=OrderDetail_Draft6) # optional
-    PerformedOrderDetail = cp.SubElementProperty([namespaces.domTag('PerformedOrderDetail')], valueClass=OrderDetail_Draft6) # optional
-    _props = ['VisitNumber', 'PlacerOrderNumber', 'FillerOrderNumber', 'Patient',
-              'ReferringPhysician', 'RequestingPhysician', 'Reason', 'DangerCode', 'RelevantClinicalInfo',
-              'ImagingProcedure', 'RequestedOrderDetail', 'PerformedOrderDetail']
-
-    def __init__(self, visitnumber=None, placerordernumber=None, fillerordernumber=None, patient=None,
-                 referringphysician=None, requestingphysician=None, reason=None, dangercode=None,
-                 relevantclinicalinfo=None, imagingprocedure=None, requestedorderdetail=None, performedorderdetail=None):
-        self.VisitNumber = visitnumber
-        self.PlacerOrderNumber = placerordernumber
-        self.FillerOrderNumber = fillerordernumber
-        self.Patient = patient
-        self.ReferringPhysician = referringphysician
-        self.RequestingPhysician = requestingphysician
-        if reason:
-            self.Reason = reason
-        if dangercode:
-            self.DangerCode = dangercode
-        if relevantclinicalinfo:
-            self.RelevantClinicalInfo = relevantclinicalinfo
-        if imagingprocedure:
-            self.ImagingProcedure = imagingprocedure
-        self.RequestedOrderDetail = requestedorderdetail
-        self.PerformedOrderDetail = performedorderdetail
-
-
-
-class WorkflowDetail(PropertyBasedPMType): # BICEPS Final
+class WorkflowDetail(PropertyBasedPMType):
     Patient = cp.SubElementProperty([namespaces.domTag('Patient')], valueClass=PersonReference) # optional
     AssignedLocation = cp.SubElementProperty([namespaces.domTag('AssignedLocation')], valueClass=LocationReference) # optional
     VisitNumber = cp.SubElementProperty([namespaces.domTag('VisitNumber')], valueClass=InstanceIdentifier) # optional
@@ -1155,10 +1091,7 @@ class WorkflowDetail(PropertyBasedPMType): # BICEPS Final
 
 
 class Relation(PropertyBasedPMType):
-    ''' Relation allows the modelling of relationships between a metric and other containtment tree entries.
-    Only used in final version, not in Draft6
-
-    '''
+    """Relation allows the modelling of relationships between a metric and other containtment tree entries."""
     Code = cp.SubElementProperty([namespaces.domTag('Code')], valueClass=CodedValue) #optional
     Identification = cp.SubElementProperty([namespaces.domTag('Identification')], valueClass=InstanceIdentifier) # optional
     Kind = cp.NodeAttributeProperty('Kind') # required, Rcm, PS, SST, ECE, DCE, Oth
@@ -1374,19 +1307,6 @@ class MetricCategory(StringEnum):
     SETTING = 'Set'
     PRESETTING = 'Preset'
     RECOMMENDATION = 'Rcmm'
-
-
-class MetricMeasurementValidity(StringEnum):
-    '''Level of validity of a measured value.
-     Used in BICEPS Draft6'''
-    VALID = 'Vld'                  # Valid. A measured value that is correct from the perspective of the measuring device
-    VALIDATED_DATA = 'Vldated'     # Validated Data. A measured value where the validity has been confirmed by an external actor, e.g., an operator, other than the POC MEDICAL DEVICE
-    MEASUREMENT_ONGOING = 'Ong'    #  Measurement Ongoing. Indicates that a new measurement is just being taken and therefore measured value is not available
-    QUESTIONABLE = 'Qst'           # Questionable. A measured value where correctness can not be guaranteed
-    CALIBRATION_ONGOING = 'Calib'  # Calibration Ongoing. A measured value where correctness can not be guaranteed, because a calibration is currently going on
-    INVALID = 'Inv'                # Invalid. A measured value that is incorrect from the perspective of the measuring device
-    OVERFLOW = 'Oflw'              # Overflow. A measured value where correctness cannot be guaranteed as it is above all defined technical ranges
-    UNDERFLOW = 'Uflw'             # Underflow. A measured value where correctness cannot be guaranteed as it is below all defined technical ranges
 
 
 class MeasurementValidity(StringEnum):
