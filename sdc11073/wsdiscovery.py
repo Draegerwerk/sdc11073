@@ -15,7 +15,7 @@ import traceback
 import logging
 import urllib
 from urllib.parse import urlparse
-from http.client import HTTPConnection, RemoteDisconnected
+from http.client import HTTPConnection, HTTPSConnection, RemoteDisconnected
 import queue
 
 try:
@@ -1211,6 +1211,7 @@ class WSDiscoveryWithHTTPProxy(object):
     def __init__(self, proxy_url, logger=None, sslContext=None):
         self._dpAddr = urllib.parse.urlsplit(proxy_url)
         self._logger = logger or logging.getLogger('sdc.discover')
+        self._sslContext = sslContext
         self._localServices = {}
         self.resolve_services = False
 
@@ -1252,7 +1253,10 @@ class WSDiscoveryWithHTTPProxy(object):
         del self._localServices[epr]
 
     def post_http(self, data):
-        conn = HTTPConnection(self._dpAddr.netloc, timeout=5)
+        if self._dpAddr.scheme == 'https':
+            conn = HTTPSConnection(self._dpAddr.netloc, timeout=5, context=self._sslContext)
+        else:
+            conn = HTTPConnection(self._dpAddr.netloc, timeout=5)
         conn.request('POST', self._dpAddr.path, data)
         resp = conn.getresponse()
         resp_data = resp.read()
