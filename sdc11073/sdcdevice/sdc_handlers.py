@@ -130,7 +130,7 @@ class SdcHandler_Base(object):
 
     def mkScopes(self):
         scopes = []
-        locations = self._mdib.contextStates.NODETYPE.get(namespaces.domTag('LocationContextState'))
+        locations = self._mdib.contextStates.NODETYPE.get(namespaces.domTag('LocationContextState'), [])
         assoc_loc = [l for l in locations if l.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
         for loc in assoc_loc:
             dr_loc = SdcLocation(fac=loc.Facility, poc=loc.PoC, bed=loc.Bed, bld=loc.Building,
