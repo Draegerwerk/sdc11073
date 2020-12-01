@@ -1358,9 +1358,93 @@ class WSDiscoveryWithHTTPProxy(object):
             pass
 
 
+class WsDiscoveryProxyAndUdp:
+    """Use proxy and local discovery at the same time.
+    A device is published and cleared over both mechanisms.
+    The search methods allow to select where to search."""
+    def __init__(self, wsd_proxy_instance, wsd_over_udp_instance):
+        self._wsd_proxy = wsd_proxy_instance
+        self._wsd_udp = wsd_over_udp_instance
+
+    @classmethod
+    def withSingleAdapter(cls, proxy_url, adapterName, logger=None, forceAdapterName=False, sslContext=None):
+        """Alternative constructor that instantiates WSDiscoveryWithHTTPProxy and WSDiscoverySingleAdapter"""
+        proxy = WSDiscoveryWithHTTPProxy(proxy_url, logger, sslContext)
+        direct = WSDiscoverySingleAdapter(adapterName, logger, forceAdapterName)
+        return cls(proxy, direct)
+
+    @classmethod
+    def withWhitelistAdapter(cls, proxy_url, acceptedAdapterIPAddresses, logger=None, sslContext=None):
+        """Alternative constructor that instantiates WSDiscoveryWithHTTPProxy and WSDiscoveryWhitelist"""
+        proxy = WSDiscoveryWithHTTPProxy(proxy_url, logger, sslContext)
+        direct = WSDiscoveryWhitelist(acceptedAdapterIPAddresses, logger )
+        return cls(proxy, direct)
+
+    @classmethod
+    def withBlacklistAdapter(cls, proxy_url, ignoredAdaptorIPAddresses, logger=None, sslContext=None):
+        """Alternative constructor that instantiates WSDiscoveryWithHTTPProxy and WSDiscoveryBlacklist"""
+        proxy = WSDiscoveryWithHTTPProxy(proxy_url, logger, sslContext)
+        direct = WSDiscoveryBlacklist(ignoredAdaptorIPAddresses, logger )
+        return cls(proxy, direct)
+
+    def start(self):
+        self._wsd_proxy.start()
+        self._wsd_udp.start()
+
+    def stop(self):
+        self._wsd_proxy.stop()
+        self._wsd_udp.stop()
+
+    def searchServices(self, types=None, scopes=None, timeout=5,
+                       searchproxy=True, searchdirekt=False):
+        results = {}
+        if searchproxy:
+            services = self._wsd_proxy.searchServices(types, scopes, timeout)
+            for s in services:
+                results[s.getEPR()] = s
+        if searchdirekt:
+            services = self._wsd_udp.searchServices(types, scopes, timeout)
+            for s in services:
+                results[s.getEPR()] = s
+        return results.values()
+
+    def searchMultipleTypes(self, typesList, scopes=None, timeout=5, repeatProbeInterval=3,
+                            searchproxy=True, searchdirekt=False):
+        results = {}
+        if searchproxy:
+            services = self._wsd_proxy.searchMultipleTypes(typesList, scopes, timeout, repeatProbeInterval)
+            for s in services:
+                results[s.getEPR()] = s
+        if searchdirekt:
+            services = self._wsd_udp.searchMultipleTypes(typesList, scopes, timeout, repeatProbeInterval)
+            for s in services:
+                results[s.getEPR()] = s
+        return results.values()
+
+    def getActiveAddresses(self):
+        addresses = set(self._wsd_proxy.getActiveAddresses())
+        addresses.update(self._wsd_udp.getActiveAddresses())
+        return list(addresses)
+
+    def clearRemoteServices(self):
+        self._wsd_proxy.clearRemoteServices()
+        self._wsd_udp.clearRemoteServices()
+
+    def clearLocalServices(self):
+        self._wsd_proxy.clearLocalServices()
+        self._wsd_udp.clearLocalServices()
+
+    def publishService(self, epr, types, scopes, xAddrs):
+        self._wsd_proxy.publishService(epr, types, scopes, xAddrs)
+        self._wsd_udp.publishService(epr, types, scopes, xAddrs)
+
+    def clearService(self, epr):
+        self._wsd_proxy.clearService(epr)
+        self._wsd_udp.clearService(epr)
 
 
 class WSDiscoveryBase(object):
+    # UDP based discovery.
     # these flags control which data is included in ProbeResponse messages.
     PROBEMATCH_EPR = True
     PROBEMATCH_TYPES = True
@@ -1389,7 +1473,7 @@ class WSDiscoveryBase(object):
         self._onProbeCallback = None
 
         self._logger = logger or logging.getLogger('sdc.discover')
-        random.seed((int)(time.time() * 1000000))
+        random.seed(int(time.time() * 1000000))
 
     def setRemoteServiceHelloCallback(self, cb, types=None, scopes=None):
         """Set callback, which will be called when new service appeared online
@@ -1620,17 +1704,18 @@ class WSDiscoveryBase(object):
 
     def start(self):
         'start the discovery server - should be called before using other functions'
-        self._startThreads()
-        self._serverStarted = True
+        if not self._serverStarted:
+            self._startThreads()
+            self._serverStarted = True
 
     def stop(self):
         'cleans up and stops the discovery server'
+        if self._serverStarted:
+            self.clearRemoteServices()
+            self.clearLocalServices()
 
-        self.clearRemoteServices()
-        self.clearLocalServices()
-
-        self._stopThreads()
-        self._serverStarted = False
+            self._stopThreads()
+            self._serverStarted = False
 
     def _isAcceptedAddress(self, addr):  # pylint: disable=unused-argument
         ''' accept any interface. Overwritten in derived classes.'''
