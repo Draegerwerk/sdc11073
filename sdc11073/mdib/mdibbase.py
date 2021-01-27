@@ -568,6 +568,8 @@ class MdibContainer(object):
             for m_key in (self.states, self.contextStates):
                 stateContainers = m_key.descriptorHandle.get(descriptorContainer.handle)
                 if stateContainers is not None:
+                    # make a copy, otherwise removeObjects will manipulate same list in place
+                    stateContainers = stateContainers[:]
                     self._logger.debug('rm {} states(s) associated to descriptor {} ',
                                       len(stateContainers), descriptorContainer.handle)
                     m_key.removeObjects(stateContainers)
