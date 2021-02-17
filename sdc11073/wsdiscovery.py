@@ -17,6 +17,9 @@ import urllib
 from urllib.parse import urlparse
 from http.client import HTTPConnection, HTTPSConnection, RemoteDisconnected
 import queue
+from dataclasses import dataclass, field
+from typing import Any
+
 
 try:
     from sdc11073.netconn import getNetworkAdapterConfigs
@@ -743,15 +746,21 @@ class _AddressMonitorThread(threading.Thread):
         self._quitEvent.set()
 
 
+
 class _NetworkingThread(object):
     ''' Has one thread for sending and one for receiving'''
+
+    @dataclass(order=True)
+    class _EnqueuedMessage:
+        send_time: float
+        msg: Any = field(compare=False)
 
     def __init__(self, observer, logger):
         self._recvThread = None
         self._sendThread = None
         self._quitRecvEvent = threading.Event()
         self._quitSendEvent = threading.Event()
-        self._queue = queue.Queue(1000)
+        self._send_queue = queue.PriorityQueue()
 
         self._knownMessageIds = deque()
         self._iidMap = {}
@@ -820,43 +829,40 @@ class _NetworkingThread(object):
     def addUnicastMessage(self, env, addr, port, initialDelay=0):
         msg = Message(env, addr, port, Message.UNICAST, initialDelay)
         self._logger.debug('addUnicastMessage: adding message Id %s. delay=%.2f'.format(env.getMessageId(), initialDelay))
-        self._queue.put(msg)
+        self._repeated_enqueue_msg(msg, initialDelay, UNICAST_UDP_REPEAT, UNICAST_UDP_MIN_DELAY,
+                                   UNICAST_UDP_MAX_DELAY, UNICAST_UDP_UPPER_DELAY)
 
     def addMulticastMessage(self, env, addr, port, initialDelay=0):
         msg = Message(env, addr, port, Message.MULTICAST, initialDelay)
         self._logger.debug('addMulticastMessage: adding message Id %s. delay=%.2f'.format(env.getMessageId(), initialDelay))
-        self._queue.put(msg)
+        self._repeated_enqueue_msg(msg, initialDelay, MULTICAST_UDP_REPEAT, MULTICAST_UDP_MIN_DELAY,
+                                   MULTICAST_UDP_MAX_DELAY, MULTICAST_UDP_UPPER_DELAY)
+
+    def _repeated_enqueue_msg(self, msg, initial_delay_ms, repeat, min_delay_ms, max_delay_ms, upper_delay_ms):
+        next_send = time.time() + initial_delay_ms/1000.0
+        dt = (min_delay_ms + ((max_delay_ms - min_delay_ms) * random.random())) / 2000.0
+        self._send_queue.put(self._EnqueuedMessage(next_send, msg))
+        for _ in range(repeat):
+            next_send += dt
+            self._send_queue.put(self._EnqueuedMessage(next_send, msg))
+            dt = min(dt*2, upper_delay_ms)
 
     def _run_send(self):
         ''' run by thread'''
-        while not self._quitSendEvent.is_set():  # or self._queue:
-            if not self._queue.empty():
-                try:
-                    sz = self._queue.qsize()
-                    if sz > 800:
-                        self._logger.error('_queue size =%d', sz)
-                    elif sz > 500:
-                        self._logger.warn('_queue size =%d', sz)
-                    elif sz > 100:
-                        self._logger.info('_queue size =%d', sz)
-                    for dummy in range(self._queue.qsize()):
-                        msg = self._queue.get()
-                        if msg.canSend():
-                            self._sendMsg(msg)
-                            msg.refresh()
-                            if not msg.isFinished():
-                                self._queue.put(msg)
-                        else:
-                            self._queue.put(msg)
-                except:
-                    self._logger.error('_run_send:{}'.format(traceback.format_exc()))
-                time.sleep(0.02)
+        while not self._quitSendEvent.is_set():
+            try:
+                enqueued_msg = self._send_queue.get(timeout=0.1)
+            except queue.Empty:
+                pass
             else:
-                time.sleep(0.2)
+                now = time.time()
+                if enqueued_msg.send_time > now:
+                    time.sleep(enqueued_msg.send_time - now)
+                self._sendMsg(enqueued_msg.msg)
 
     def _run_recv(self):
         ''' run by thread'''
-        while not self._quitRecvEvent.is_set():  # or self._queue:
+        while not self._quitRecvEvent.is_set():
             try:
                 self._recvMessages()
             except:
