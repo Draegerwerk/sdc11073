@@ -8,7 +8,7 @@ import time
 import uuid
 import threading
 import sys
-import select
+import selectors
 import re
 from collections import deque
 import traceback
@@ -768,12 +768,15 @@ class _NetworkingThread(object):
         self._logger = logger
 
         self._select_in = []
+        self._full_selector = selectors.DefaultSelector()
 
     def _register(self, sock):
         self._select_in.append(sock)
+        self._full_selector.register(sock, selectors.EVENT_READ)
 
     def _unregister(self, sock):
         self._select_in.remove(sock)
+        self._full_selector.unregister(sock)
 
     @staticmethod
     def _makeMreq(addr):
@@ -782,14 +785,12 @@ class _NetworkingThread(object):
     @staticmethod
     def _createMulticastOutSocket(addr):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setblocking(0)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, MULTICAST_OUT_TTL)
         if addr is None:
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.INADDR_ANY)
         else:
             _addr = socket.inet_aton(addr)
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, _addr)
-
         return sock
 
     @staticmethod
@@ -799,7 +800,7 @@ class _NetworkingThread(object):
 
         sock.bind(('', MULTICAST_PORT))
 
-        sock.setblocking(0)
+        sock.setblocking(False)
 
         return sock
 
@@ -881,12 +882,8 @@ class _NetworkingThread(object):
         return False
 
     def _recvMessages(self):
-        outputs = []
-        while self._select_in:
-            readable, dummy_writable, dummy_exceptional = select.select(self._select_in, outputs, self._select_in, 0.1)
-            if not readable:
-                break
-            sock = readable[0]
+        for key, events in self._full_selector.select(timeout=0.1):
+            sock =key.fileobj
             try:
                 data, addr = sock.recvfrom(BUFFER_SIZE)
             except socket.error as e:
@@ -1012,6 +1009,7 @@ class _NetworkingThread(object):
 
         self._unregister(self._multiInSocket)
         self._multiInSocket.close()
+        self._full_selector.close()
         self._logger.debug('%s: ... join done', self.__class__.__name__)
 
     def getActiveAddresses(self):
