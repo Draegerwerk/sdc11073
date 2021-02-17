@@ -757,11 +757,12 @@ class _NetworkingThread(object):
 
     def __init__(self, observer, logger):
         self._recvThread = None
+        self._qread_thread = None
         self._sendThread = None
         self._quitRecvEvent = threading.Event()
         self._quitSendEvent = threading.Event()
         self._send_queue = queue.PriorityQueue()
-
+        self._read_queue = queue.Queue()
         self._knownMessageIds = deque()
         self._iidMap = {}
         self._observer = observer
@@ -881,9 +882,11 @@ class _NetworkingThread(object):
                     continue
         return False
 
+
     def _recvMessages(self):
+        '''For performance reasons this thread only writes to a queue, no parsing etc.'''
         for key, events in self._full_selector.select(timeout=0.1):
-            sock =key.fileobj
+            sock = key.fileobj
             try:
                 data, addr = sock.recvfrom(BUFFER_SIZE)
             except socket.error as e:
@@ -892,39 +895,94 @@ class _NetworkingThread(object):
                 continue
             if self.isFromMySocket(addr):
                 continue
-            getCommunicationLogger().logDiscoveryMsgIn(addr[0], data)
+            self._read_queue.put((addr, data))
 
-            env = None
-            env = parseEnvelope(data, addr[0])
-            if env is None:  # fault or failed to parse
-                continue
-
-            mid = env.getMessageId()
-            if mid in self._knownMessageIds:
-                self._logger.debug('message Id %s already known. This is a duplicate receive, ignoring.', mid)
-                continue
+    def _run_q_read(self):
+        while not self._quitRecvEvent.is_set():
+            try:
+                incoming = self._read_queue.get(timeout=0.1)
+            except queue.Empty:
+                pass
             else:
-                self._knownMessageIds.appendleft(mid)
-                try:
-                    del self._knownMessageIds[-50]  # limit length of remembered message Ids
-                except IndexError:
-                    pass
-            iid = env.getInstanceId()
-            mid = env.getMessageId()
-            if iid:
-                mnum = env.getMessageNumber()
-                key = addr[0] + ":" + str(addr[1]) + ":" + str(iid)
-                if mid is not None and len(mid) > 0:
-                    key = key + ":" + mid
-                if not key in self._iidMap:
-                    self._iidMap[key] = iid
+                addr, data = incoming
+                getCommunicationLogger().logDiscoveryMsgIn(addr[0], data)
+
+                env = None
+                env = parseEnvelope(data, addr[0])
+                if env is None:  # fault or failed to parse
+                    continue
+
+                mid = env.getMessageId()
+                if mid in self._knownMessageIds:
+                    self._logger.debug('message Id %s already known. This is a duplicate receive, ignoring.', mid)
+                    continue
                 else:
-                    tmnum = self._iidMap[key]
-                    if mnum > tmnum:
-                        self._iidMap[key] = mnum
+                    self._knownMessageIds.appendleft(mid)
+                    try:
+                        del self._knownMessageIds[-50]  # limit length of remembered message Ids
+                    except IndexError:
+                        pass
+                iid = env.getInstanceId()
+                mid = env.getMessageId()
+                if iid:
+                    mnum = env.getMessageNumber()
+                    key = addr[0] + ":" + str(addr[1]) + ":" + str(iid)
+                    if mid is not None and len(mid) > 0:
+                        key = key + ":" + mid
+                    if not key in self._iidMap:
+                        self._iidMap[key] = iid
                     else:
-                        continue
-            self._observer.envReceived(env, addr)
+                        tmnum = self._iidMap[key]
+                        if mnum > tmnum:
+                            self._iidMap[key] = mnum
+                        else:
+                            continue
+                self._observer.envReceived(env, addr)
+
+    # def _recvMessages(self):
+    #     for key, events in self._full_selector.select(timeout=0.1):
+    #         sock = key.fileobj
+    #         try:
+    #             data, addr = sock.recvfrom(BUFFER_SIZE)
+    #         except socket.error as e:
+    #             print('socket read error', e)
+    #             time.sleep(0.01)
+    #             continue
+    #         if self.isFromMySocket(addr):
+    #             continue
+    #         getCommunicationLogger().logDiscoveryMsgIn(addr[0], data)
+    #
+    #         env = None
+    #         env = parseEnvelope(data, addr[0])
+    #         if env is None:  # fault or failed to parse
+    #             continue
+    #
+    #         mid = env.getMessageId()
+    #         if mid in self._knownMessageIds:
+    #             self._logger.debug('message Id %s already known. This is a duplicate receive, ignoring.', mid)
+    #             continue
+    #         else:
+    #             self._knownMessageIds.appendleft(mid)
+    #             try:
+    #                 del self._knownMessageIds[-50]  # limit length of remembered message Ids
+    #             except IndexError:
+    #                 pass
+    #         iid = env.getInstanceId()
+    #         mid = env.getMessageId()
+    #         if iid:
+    #             mnum = env.getMessageNumber()
+    #             key = addr[0] + ":" + str(addr[1]) + ":" + str(iid)
+    #             if mid is not None and len(mid) > 0:
+    #                 key = key + ":" + mid
+    #             if not key in self._iidMap:
+    #                 self._iidMap[key] = iid
+    #             else:
+    #                 tmnum = self._iidMap[key]
+    #                 if mnum > tmnum:
+    #                     self._iidMap[key] = mnum
+    #                 else:
+    #                     continue
+    #         self._observer.envReceived(env, addr)
 
     def _sendMsg(self, msg):
         action = msg._env.getAction().split('/')[-1]  # only last part
@@ -979,10 +1037,13 @@ class _NetworkingThread(object):
         self._multiOutUniInSockets = {}  # FIXME synchronisation
 
         self._recvThread = threading.Thread(target=self._run_recv, name='wsd.recvThread')
+        self._qread_thread = threading.Thread(target=self._run_q_read, name='wsd.qreadThread')
         self._sendThread = threading.Thread(target=self._run_send, name='wsd.sendThread')
         self._recvThread.daemon = True
+        self._qread_thread.daemon = True
         self._sendThread.daemon = True
         self._recvThread.start()
+        self._qread_thread.start()
         self._sendThread.start()
 
     def schedule_stop(self):
@@ -993,6 +1054,7 @@ class _NetworkingThread(object):
         self._quitRecvEvent.set()
         self._quitSendEvent.set()
         self._recvThread.join(1)
+        self._qread_thread.join(1)
         self._sendThread.join(1)
         for sock in self._select_in:
             sock.close()
