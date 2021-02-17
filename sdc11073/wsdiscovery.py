@@ -929,13 +929,12 @@ class _NetworkingThread(object):
     def _sendMsg(self, msg):
         action = msg._env.getAction().split('/')[-1]  # only last part
         if action in ('ResolveMatches', 'ProbeMatches'):
-            self._logger.debug('_sendMsg: sending %s %s to %s ProbeResolveMatches=%r, epr=%s, repeat=%d msgNo=%r',
+            self._logger.debug('_sendMsg: sending %s %s to %s ProbeResolveMatches=%r, epr=%s, msgNo=%r',
                                action,
                                msg.msgType(),
                                msg.getAddr(),
                                msg._env.getProbeResolveMatches(),
                                msg._env.getEPR(),
-                               msg._udpRepeat,
                                msg._env._messageNumber
                                )
         elif action == 'Probe':
@@ -947,13 +946,12 @@ class _NetworkingThread(object):
                                msg._env.getScopes(),
                                )
         else:
-            self._logger.debug('_sendMsg: sending %s %s to %s xaddr=%r, epr=%s, repeat=%d msgNo=%r',
+            self._logger.debug('_sendMsg: sending %s %s to %s xaddr=%r, epr=%s, msgNo=%r',
                                action,
                                msg.msgType(),
                                msg.getAddr(),
                                msg._env.getXAddrs(),
                                msg._env.getEPR(),
-                               msg._udpRepeat,
                                msg._env._messageNumber
                                )
 
@@ -1027,24 +1025,6 @@ class Message:
         self._port = port
         self._msgType = msgType
 
-        if msgType == self.UNICAST:
-            udpRepeat, udpMinDelay, udpMaxDelay, udpUpperDelay = \
-                UNICAST_UDP_REPEAT, \
-                UNICAST_UDP_MIN_DELAY, \
-                UNICAST_UDP_MAX_DELAY, \
-                UNICAST_UDP_UPPER_DELAY
-        else:
-            udpRepeat, udpMinDelay, udpMaxDelay, udpUpperDelay = \
-                MULTICAST_UDP_REPEAT, \
-                MULTICAST_UDP_MIN_DELAY, \
-                MULTICAST_UDP_MAX_DELAY, \
-                MULTICAST_UDP_UPPER_DELAY
-
-        self._udpRepeat = udpRepeat
-        self._udpUpperDelay = udpUpperDelay
-        self._t = (udpMinDelay + ((udpMaxDelay - udpMinDelay) * random.random())) / 2
-        self._nextTime = int(time.time() * 1000) + initialDelay
-
     def getEnv(self):
         return self._env
 
@@ -1056,20 +1036,6 @@ class Message:
 
     def msgType(self):
         return self._msgType
-
-    def isFinished(self):
-        return self._udpRepeat <= 0
-
-    def canSend(self):
-        ct = int(time.time() * 1000)
-        return self._nextTime < ct
-
-    def refresh(self):
-        self._t = self._t * 2
-        if self._t > self._udpUpperDelay:
-            self._t = self._udpUpperDelay
-        self._nextTime = int(time.time() * 1000) + self._t
-        self._udpRepeat = self._udpRepeat - 1
 
 
 class Service:
