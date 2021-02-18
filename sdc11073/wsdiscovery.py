@@ -491,12 +491,12 @@ def _parseReplyTo(headerNode, env):
     if replyTo is not None:
         env.setReplyTo(replyTo.text)
 
-def parseEnvelope(data, ipAddr):
+def parseEnvelope(data, ipAddr, logger):
     parser = ETCompatXMLParser()
     try:
         dom = fromstring(data, parser=parser)
     except Exception as ex:
-        print('load error "{}" in "{}"'.format(ex, data))
+        logger.error('load error "%s" in "%s"', ex, data)
         return
 
     header = dom.find('s12:Header', _namespaces_map)
@@ -567,8 +567,8 @@ def parseEnvelope(data, ipAddr):
             env.setMetadataVersion(_parseMetaDataVersion(msgNode))
             return env
     except:
-        print('Parse Error %s:' % (traceback.format_exc()), file=sys.stderr)
-        print('parsed data is from {}, data: {}:'.format(ipAddr, data), file=sys.stderr)
+        logger.error('Parse Error %s:', traceback.format_exc())
+        logger.error('parsed data is from %r, data: %r:', ipAddr, data)
         return
 
 
@@ -727,7 +727,7 @@ class _AddressMonitorThread(threading.Thread):
             try:
                 self._wsd._networkAddressAdded(addr)
             except:
-                print(traceback.format_exc())
+                self._logger.warning(traceback.format_exc())
         self._addrs = addrs
 
     def run(self):
@@ -842,7 +842,7 @@ class _NetworkingThread(object):
 
     def _repeated_enqueue_msg(self, msg, initial_delay_ms, repeat, min_delay_ms, max_delay_ms, upper_delay_ms):
         next_send = time.time() + initial_delay_ms/1000.0
-        dt = (min_delay_ms + ((max_delay_ms - min_delay_ms) * random.random())) / 2000.0
+        dt = random.randrange(min_delay_ms, max_delay_ms) /1000.0 # millisec -> seconds
         self._send_queue.put(self._EnqueuedMessage(next_send, msg))
         for _ in range(repeat):
             next_send += dt
@@ -890,7 +890,7 @@ class _NetworkingThread(object):
             try:
                 data, addr = sock.recvfrom(BUFFER_SIZE)
             except socket.error as e:
-                print('socket read error', e)
+                self._logger.warning('socket read error %s', e)
                 time.sleep(0.01)
                 continue
             if self.isFromMySocket(addr):
@@ -909,8 +909,7 @@ class _NetworkingThread(object):
                 addr, data = incoming
                 getCommunicationLogger().logDiscoveryMsgIn(addr[0], data)
 
-                env = None
-                env = parseEnvelope(data, addr[0])
+                env = parseEnvelope(data, addr[0], self._logger)
                 if env is None:  # fault or failed to parse
                     continue
 
@@ -1010,20 +1009,18 @@ class _NetworkingThread(object):
         self._logger.debug('%s: schedule_stop ', self.__class__.__name__)
         self._quitRecvEvent.set()
         self._quitSendEvent.set()
-        self._recvThread.join(1)
-        self._qread_thread.join(1)
-        self._sendThread.join(1)
-        for sock in self._select_in:
-            sock.close()
 
     def join(self):
         self._logger.debug('%s: join... ', self.__class__.__name__)
-        self._recvThread.join()
-        self._sendThread.join()
+        self._recvThread.join(1)
+        self._sendThread.join(1)
+        self._qread_thread.join(1)
         self._recvThread = None
         self._sendThread = None
+        self._qread_thread = None
+        for sock in self._select_in:
+            sock.close()
         self._uniOutSocket.close()
-
         self._unregister(self._multiInSocket)
         self._multiInSocket.close()
         self._full_selector.close()
@@ -1287,7 +1284,7 @@ class WSDiscoveryWithHTTPProxy(object):
         data = createProbeMessage(env)
         resp_data = self.post_http(data)
         getCommunicationLogger().logDiscoveryMsgIn(self._dpAddr.netloc, resp_data)
-        resp_env = parseEnvelope(resp_data, self._dpAddr.netloc)
+        resp_env = parseEnvelope(resp_data, self._dpAddr.netloc, self._logger)
         services = {}
         for match in resp_env.getProbeResolveMatches():
             services[match.getEPR()] = (Service(match.getTypes(), match.getScopes(), match.getXAddrs(), match.getEPR(),
@@ -1303,7 +1300,7 @@ class WSDiscoveryWithHTTPProxy(object):
         data = createResolveMessage(env)
         resp_data = self.post_http(data)
         getCommunicationLogger().logDiscoveryMsgIn(self._dpAddr.netloc, resp_data)
-        resp_env = parseEnvelope(resp_data, self._dpAddr.netloc)
+        resp_env = parseEnvelope(resp_data, self._dpAddr.netloc, self._logger)
         services = {}
         for match in resp_env.getProbeResolveMatches():
             services[match.getEPR()] = (Service(match.getTypes(), match.getScopes(), match.getXAddrs(), match.getEPR(),

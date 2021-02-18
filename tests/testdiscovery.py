@@ -173,12 +173,13 @@ class TestDiscovery(unittest.TestCase):
         xAddrs = ["localhost:8080/abc", ]
         epr = 'my_epr'
         self.wsdService.publishService(epr, types=[ttype], scopes=[scope], xAddrs=xAddrs)
-        time.sleep(2)
+        time.sleep(5) # make sure hello messages are all sent before client discovery starts
 
         testlog.info('starting client...')
         self.wsdclient.start()
         time.sleep(0.2)
         testlog.info('starting search...')
+        self.wsdclient.clearRemoteServices()
         services = self.wsdclient.searchServices(timeout=self.SEARCH_TIMEOUT)
         testlog.info('search done.')
         self.assertEqual(len(services), 0)
