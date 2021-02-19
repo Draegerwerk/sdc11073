@@ -88,6 +88,9 @@ MATCH_BY_STRCMP = NS_D + '/strcmp0'  # "http://docs.oasis-open.org/ws-dd/ns/disc
 
 _IP_BLACKLIST = ('0.0.0.0', None)  # None can happen if an adapter does not have any IP address
 
+# these time constants control the send loop
+SEND_LOOP_IDLE_SLEEP = 0.1
+SEND_LOOP_BUSY_SLEEP = 0.01
 
 class WsaTag(QName):
     def __init__(self, localname):
@@ -855,13 +858,13 @@ class _NetworkingThread(object):
         """send-loop"""
         while not self._quitSendEvent.is_set():
             if self._send_queue.empty():
-                time.sleep(0.1)  # nothing to do currently
+                time.sleep(SEND_LOOP_IDLE_SLEEP)  # nothing to do currently
             else:
                 if self._send_queue.queue[0].send_time <= time.time():
                     enqueued_msg = self._send_queue.get()
                     self._sendMsg(enqueued_msg.msg)
                 else:
-                    time.sleep(0.01) # this creates a 10ms raster for sending, but that is good enough
+                    time.sleep(SEND_LOOP_BUSY_SLEEP) # this creates a 10ms raster for sending, but that is good enough
 
     def _run_recv(self):
         ''' run by thread'''
