@@ -766,7 +766,7 @@ class _NetworkingThread(object):
         self._quitSendEvent = threading.Event()
         self._send_queue = queue.PriorityQueue(10000)
         self._read_queue = queue.Queue(10000)
-        self._knownMessageIds = deque()
+        self._knownMessageIds = deque(maxlen=50)
         self._iidMap = {}
         self._observer = observer
         self._logger = logger
@@ -924,25 +924,6 @@ class _NetworkingThread(object):
                     continue
                 else:
                     self._knownMessageIds.appendleft(mid)
-                    try:
-                        del self._knownMessageIds[-50]  # limit length of remembered message Ids
-                    except IndexError:
-                        pass
-                iid = env.getInstanceId()
-                mid = env.getMessageId()
-                if iid:
-                    mnum = env.getMessageNumber()
-                    key = addr[0] + ":" + str(addr[1]) + ":" + str(iid)
-                    if mid is not None and len(mid) > 0:
-                        key = key + ":" + mid
-                    if not key in self._iidMap:
-                        self._iidMap[key] = iid
-                    else:
-                        tmnum = self._iidMap[key]
-                        if mnum > tmnum:
-                            self._iidMap[key] = mnum
-                        else:
-                            continue
                 self._observer.envReceived(env, addr)
 
     def _sendMsg(self, msg):
