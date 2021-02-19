@@ -813,8 +813,9 @@ class _NetworkingThread(object):
             pass
 
         sock = self._createMulticastOutSocket(addr)
-        self._multiOutUniInSockets[addr] = sock
-        self._register(sock)
+        with self._multi_out_uni_in_sockets_lock:
+            self._multiOutUniInSockets[addr] = sock
+            self._register(sock)
 
     def removeSourceAddr(self, addr):
         try:
@@ -824,9 +825,10 @@ class _NetworkingThread(object):
 
         sock = self._multiOutUniInSockets.get(addr)
         if sock:
-            self._unregister(sock)
-            sock.close()
-            del self._multiOutUniInSockets[addr]
+            with self._multi_out_uni_in_sockets_lock:
+                self._unregister(sock)
+                sock.close()
+                del self._multiOutUniInSockets[addr]
 
     def addUnicastMessage(self, env, addr, port, initialDelay=0):
         msg = Message(env, addr, port, Message.UNICAST, initialDelay)
@@ -871,14 +873,15 @@ class _NetworkingThread(object):
                     self._logger.error('_run_recv:%s', traceback.format_exc())
 
     def isFromMySocket(self, addr):
-        for ipaddr, _sock in self._multiOutUniInSockets.items():
-            if addr[0] == ipaddr:
-                try:
-                    sName = _sock.getsockname()
-                    if addr[1] == sName[1]:  # compare ports
-                        return True
-                except:  # port is not opened
-                    continue
+        with self._multi_out_uni_in_sockets_lock:
+            for ipaddr, _sock in self._multiOutUniInSockets.items():
+                if addr[0] == ipaddr:
+                    try:
+                        sName = _sock.getsockname()
+                        if addr[1] == sName[1]:  # compare ports
+                            return True
+                    except:  # port is not opened
+                        continue
         return False
 
 
@@ -975,12 +978,13 @@ class _NetworkingThread(object):
             self._uniOutSocket.sendto(data, (msg.getAddr(), msg.getPort()))
         else:
             getCommunicationLogger().logBroadCastMsgOut(data)
-            for sock in self._multiOutUniInSockets.values():
-                try:
-                    tmp = sock.getsockname()
-                except:
-                    pass
-                sock.sendto(data, (msg.getAddr(), msg.getPort()))
+            with self._multi_out_uni_in_sockets_lock:
+                for sock in self._multiOutUniInSockets.values():
+                    try:
+                        tmp = sock.getsockname()
+                    except:
+                        pass
+                    sock.sendto(data, (msg.getAddr(), msg.getPort()))
 
     def start(self):
         self._logger.debug('%s: starting ', self.__class__.__name__)
@@ -989,7 +993,8 @@ class _NetworkingThread(object):
         self._multiInSocket = self._createMulticastInSocket()
         self._register(self._multiInSocket)
 
-        self._multiOutUniInSockets = {}  # FIXME synchronisation
+        self._multiOutUniInSockets = {}
+        self._multi_out_uni_in_sockets_lock = threading.RLock()
 
         self._recvThread = threading.Thread(target=self._run_recv, name='wsd.recvThread')
         self._qread_thread = threading.Thread(target=self._run_q_read, name='wsd.qreadThread')
@@ -1026,7 +1031,8 @@ class _NetworkingThread(object):
         self._logger.debug('%s: ... join done', self.__class__.__name__)
 
     def getActiveAddresses(self):
-        return list(self._multiOutUniInSockets.keys())
+        with self._multi_out_uni_in_sockets_lock:
+            return list(self._multiOutUniInSockets.keys())
 
 
 class Message:
