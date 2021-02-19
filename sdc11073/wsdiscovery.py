@@ -850,17 +850,16 @@ class _NetworkingThread(object):
             dt = min(dt*2, upper_delay_ms)
 
     def _run_send(self):
-        ''' run by thread'''
+        """send-loop"""
         while not self._quitSendEvent.is_set():
-            try:
-                enqueued_msg = self._send_queue.get(timeout=0.1)
-            except queue.Empty:
-                pass
+            if self._send_queue.empty():
+                time.sleep(0.1)  # nothing to do currently
             else:
-                now = time.time()
-                if enqueued_msg.send_time > now:
-                    time.sleep(enqueued_msg.send_time - now)
-                self._sendMsg(enqueued_msg.msg)
+                if self._send_queue.queue[0].send_time <= time.time():
+                    enqueued_msg = self._send_queue.get()
+                    self._sendMsg(enqueued_msg.msg)
+                else:
+                    time.sleep(0.01) # this creates a 10ms raster for sending, but that is good enough
 
     def _run_recv(self):
         ''' run by thread'''
