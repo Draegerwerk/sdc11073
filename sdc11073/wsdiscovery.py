@@ -767,7 +767,6 @@ class _NetworkingThread(object):
         self._send_queue = queue.PriorityQueue(10000)
         self._read_queue = queue.Queue(10000)
         self._knownMessageIds = deque(maxlen=50)
-        self._iidMap = {}
         self._observer = observer
         self._logger = logger
 
