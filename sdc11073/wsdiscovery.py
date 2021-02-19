@@ -8,7 +8,7 @@ import time
 import uuid
 import threading
 import sys
-import select
+import selectors
 import re
 from collections import deque
 import traceback
@@ -17,6 +17,9 @@ import urllib
 from urllib.parse import urlparse
 from http.client import HTTPConnection, HTTPSConnection, RemoteDisconnected
 import queue
+from dataclasses import dataclass, field
+from typing import Any
+
 
 try:
     from sdc11073.netconn import getNetworkAdapterConfigs
@@ -85,6 +88,9 @@ MATCH_BY_STRCMP = NS_D + '/strcmp0'  # "http://docs.oasis-open.org/ws-dd/ns/disc
 
 _IP_BLACKLIST = ('0.0.0.0', None)  # None can happen if an adapter does not have any IP address
 
+# these time constants control the send loop
+SEND_LOOP_IDLE_SLEEP = 0.1
+SEND_LOOP_BUSY_SLEEP = 0.01
 
 class WsaTag(QName):
     def __init__(self, localname):
@@ -488,12 +494,12 @@ def _parseReplyTo(headerNode, env):
     if replyTo is not None:
         env.setReplyTo(replyTo.text)
 
-def parseEnvelope(data, ipAddr):
+def parseEnvelope(data, ipAddr, logger):
     parser = ETCompatXMLParser()
     try:
         dom = fromstring(data, parser=parser)
     except Exception as ex:
-        print('load error "{}" in "{}"'.format(ex, data))
+        logger.error('load error "%s" in "%s"', ex, data)
         return
 
     header = dom.find('s12:Header', _namespaces_map)
@@ -564,8 +570,8 @@ def parseEnvelope(data, ipAddr):
             env.setMetadataVersion(_parseMetaDataVersion(msgNode))
             return env
     except:
-        print('Parse Error %s:' % (traceback.format_exc()), file=sys.stderr)
-        print('parsed data is from {}, data: {}:'.format(ipAddr, data), file=sys.stderr)
+        logger.error('Parse Error %s:', traceback.format_exc())
+        logger.error('parsed data is from %r, data: %r:', ipAddr, data)
         return
 
 
@@ -724,7 +730,7 @@ class _AddressMonitorThread(threading.Thread):
             try:
                 self._wsd._networkAddressAdded(addr)
             except:
-                print(traceback.format_exc())
+                self._logger.warning(traceback.format_exc())
         self._addrs = addrs
 
     def run(self):
@@ -743,28 +749,37 @@ class _AddressMonitorThread(threading.Thread):
         self._quitEvent.set()
 
 
+
 class _NetworkingThread(object):
     ''' Has one thread for sending and one for receiving'''
 
+    @dataclass(order=True)
+    class _EnqueuedMessage:
+        send_time: float
+        msg: Any = field(compare=False)
+
     def __init__(self, observer, logger):
         self._recvThread = None
+        self._qread_thread = None
         self._sendThread = None
         self._quitRecvEvent = threading.Event()
         self._quitSendEvent = threading.Event()
-        self._queue = queue.Queue(1000)
-
-        self._knownMessageIds = deque()
-        self._iidMap = {}
+        self._send_queue = queue.PriorityQueue(10000)
+        self._read_queue = queue.Queue(10000)
+        self._knownMessageIds = deque(maxlen=50)
         self._observer = observer
         self._logger = logger
 
         self._select_in = []
+        self._full_selector = selectors.DefaultSelector()
 
     def _register(self, sock):
         self._select_in.append(sock)
+        self._full_selector.register(sock, selectors.EVENT_READ)
 
     def _unregister(self, sock):
         self._select_in.remove(sock)
+        self._full_selector.unregister(sock)
 
     @staticmethod
     def _makeMreq(addr):
@@ -773,14 +788,12 @@ class _NetworkingThread(object):
     @staticmethod
     def _createMulticastOutSocket(addr):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setblocking(0)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, MULTICAST_OUT_TTL)
         if addr is None:
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.INADDR_ANY)
         else:
             _addr = socket.inet_aton(addr)
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, _addr)
-
         return sock
 
     @staticmethod
@@ -790,7 +803,7 @@ class _NetworkingThread(object):
 
         sock.bind(('', MULTICAST_PORT))
 
-        sock.setblocking(0)
+        sock.setblocking(False)
 
         return sock
 
@@ -802,8 +815,9 @@ class _NetworkingThread(object):
             pass
 
         sock = self._createMulticastOutSocket(addr)
-        self._multiOutUniInSockets[addr] = sock
-        self._register(sock)
+        with self._multi_out_uni_in_sockets_lock:
+            self._multiOutUniInSockets[addr] = sock
+            self._register(sock)
 
     def removeSourceAddr(self, addr):
         try:
@@ -813,126 +827,113 @@ class _NetworkingThread(object):
 
         sock = self._multiOutUniInSockets.get(addr)
         if sock:
-            self._unregister(sock)
-            sock.close()
-            del self._multiOutUniInSockets[addr]
+            with self._multi_out_uni_in_sockets_lock:
+                self._unregister(sock)
+                sock.close()
+                del self._multiOutUniInSockets[addr]
 
     def addUnicastMessage(self, env, addr, port, initialDelay=0):
         msg = Message(env, addr, port, Message.UNICAST, initialDelay)
         self._logger.debug('addUnicastMessage: adding message Id %s. delay=%.2f'.format(env.getMessageId(), initialDelay))
-        self._queue.put(msg)
+        self._repeated_enqueue_msg(msg, initialDelay, UNICAST_UDP_REPEAT, UNICAST_UDP_MIN_DELAY,
+                                   UNICAST_UDP_MAX_DELAY, UNICAST_UDP_UPPER_DELAY)
 
     def addMulticastMessage(self, env, addr, port, initialDelay=0):
         msg = Message(env, addr, port, Message.MULTICAST, initialDelay)
         self._logger.debug('addMulticastMessage: adding message Id %s. delay=%.2f'.format(env.getMessageId(), initialDelay))
-        self._queue.put(msg)
+        self._repeated_enqueue_msg(msg, initialDelay, MULTICAST_UDP_REPEAT, MULTICAST_UDP_MIN_DELAY,
+                                   MULTICAST_UDP_MAX_DELAY, MULTICAST_UDP_UPPER_DELAY)
+
+    def _repeated_enqueue_msg(self, msg, initial_delay_ms, repeat, min_delay_ms, max_delay_ms, upper_delay_ms):
+        next_send = time.time() + initial_delay_ms/1000.0
+        dt = random.randrange(min_delay_ms, max_delay_ms) /1000.0 # millisec -> seconds
+        self._send_queue.put(self._EnqueuedMessage(next_send, msg))
+        for _ in range(repeat):
+            next_send += dt
+            self._send_queue.put(self._EnqueuedMessage(next_send, msg))
+            dt = min(dt*2, upper_delay_ms)
 
     def _run_send(self):
-        ''' run by thread'''
-        while not self._quitSendEvent.is_set():  # or self._queue:
-            if not self._queue.empty():
-                try:
-                    sz = self._queue.qsize()
-                    if sz > 800:
-                        self._logger.error('_queue size =%d', sz)
-                    elif sz > 500:
-                        self._logger.warn('_queue size =%d', sz)
-                    elif sz > 100:
-                        self._logger.info('_queue size =%d', sz)
-                    for dummy in range(self._queue.qsize()):
-                        msg = self._queue.get()
-                        if msg.canSend():
-                            self._sendMsg(msg)
-                            msg.refresh()
-                            if not msg.isFinished():
-                                self._queue.put(msg)
-                        else:
-                            self._queue.put(msg)
-                except:
-                    self._logger.error('_run_send:{}'.format(traceback.format_exc()))
-                time.sleep(0.02)
+        """send-loop"""
+        while not self._quitSendEvent.is_set():
+            if self._send_queue.empty():
+                time.sleep(SEND_LOOP_IDLE_SLEEP)  # nothing to do currently
             else:
-                time.sleep(0.2)
+                if self._send_queue.queue[0].send_time <= time.time():
+                    enqueued_msg = self._send_queue.get()
+                    self._sendMsg(enqueued_msg.msg)
+                else:
+                    time.sleep(SEND_LOOP_BUSY_SLEEP) # this creates a 10ms raster for sending, but that is good enough
 
     def _run_recv(self):
         ''' run by thread'''
-        while not self._quitRecvEvent.is_set():  # or self._queue:
+        while not self._quitRecvEvent.is_set():
             try:
-                self._recvMessages()
+                self._recv_messages()
             except:
                 if not self._quitRecvEvent.is_set():  # only log error if it does not happen during stop
                     self._logger.error('_run_recv:%s', traceback.format_exc())
 
     def isFromMySocket(self, addr):
-        for ipaddr, _sock in self._multiOutUniInSockets.items():
-            if addr[0] == ipaddr:
-                try:
-                    sName = _sock.getsockname()
-                    if addr[1] == sName[1]:  # compare ports
-                        return True
-                except:  # port is not opened
-                    continue
+        with self._multi_out_uni_in_sockets_lock:
+            for ipaddr, _sock in self._multiOutUniInSockets.items():
+                if addr[0] == ipaddr:
+                    try:
+                        sName = _sock.getsockname()
+                        if addr[1] == sName[1]:  # compare ports
+                            return True
+                    except:  # port is not opened
+                        continue
         return False
 
-    def _recvMessages(self):
-        outputs = []
-        while self._select_in:
-            readable, dummy_writable, dummy_exceptional = select.select(self._select_in, outputs, self._select_in, 0.1)
-            if not readable:
-                break
-            sock = readable[0]
+
+    def _recv_messages(self):
+        """For performance reasons this thread only writes to a queue, no parsing etc."""
+        for key, events in self._full_selector.select(timeout=0.1):
+            sock = key.fileobj
             try:
                 data, addr = sock.recvfrom(BUFFER_SIZE)
             except socket.error as e:
-                print('socket read error', e)
+                self._logger.warning('socket read error %s', e)
                 time.sleep(0.01)
                 continue
             if self.isFromMySocket(addr):
                 continue
-            getCommunicationLogger().logDiscoveryMsgIn(addr[0], data)
+            self._read_queue.put((addr, data))
 
-            env = None
-            env = parseEnvelope(data, addr[0])
-            if env is None:  # fault or failed to parse
-                continue
 
-            mid = env.getMessageId()
-            if mid in self._knownMessageIds:
-                self._logger.debug('message Id %s already known. This is a duplicate receive, ignoring.', mid)
-                continue
+    def _run_q_read(self):
+        """Read from internal queue and process message"""
+        while not self._quitRecvEvent.is_set():
+            try:
+                incoming = self._read_queue.get(timeout=0.1)
+            except queue.Empty:
+                pass
             else:
-                self._knownMessageIds.appendleft(mid)
-                try:
-                    del self._knownMessageIds[-50]  # limit length of remembered message Ids
-                except IndexError:
-                    pass
-            iid = env.getInstanceId()
-            mid = env.getMessageId()
-            if iid:
-                mnum = env.getMessageNumber()
-                key = addr[0] + ":" + str(addr[1]) + ":" + str(iid)
-                if mid is not None and len(mid) > 0:
-                    key = key + ":" + mid
-                if not key in self._iidMap:
-                    self._iidMap[key] = iid
+                addr, data = incoming
+                getCommunicationLogger().logDiscoveryMsgIn(addr[0], data)
+
+                env = parseEnvelope(data, addr[0], self._logger)
+                if env is None:  # fault or failed to parse
+                    continue
+
+                mid = env.getMessageId()
+                if mid in self._knownMessageIds:
+                    self._logger.debug('message Id %s already known. This is a duplicate receive, ignoring.', mid)
+                    continue
                 else:
-                    tmnum = self._iidMap[key]
-                    if mnum > tmnum:
-                        self._iidMap[key] = mnum
-                    else:
-                        continue
-            self._observer.envReceived(env, addr)
+                    self._knownMessageIds.appendleft(mid)
+                self._observer.envReceived(env, addr)
 
     def _sendMsg(self, msg):
         action = msg._env.getAction().split('/')[-1]  # only last part
         if action in ('ResolveMatches', 'ProbeMatches'):
-            self._logger.debug('_sendMsg: sending %s %s to %s ProbeResolveMatches=%r, epr=%s, repeat=%d msgNo=%r',
+            self._logger.debug('_sendMsg: sending %s %s to %s ProbeResolveMatches=%r, epr=%s, msgNo=%r',
                                action,
                                msg.msgType(),
                                msg.getAddr(),
                                msg._env.getProbeResolveMatches(),
                                msg._env.getEPR(),
-                               msg._udpRepeat,
                                msg._env._messageNumber
                                )
         elif action == 'Probe':
@@ -944,13 +945,12 @@ class _NetworkingThread(object):
                                msg._env.getScopes(),
                                )
         else:
-            self._logger.debug('_sendMsg: sending %s %s to %s xaddr=%r, epr=%s, repeat=%d msgNo=%r',
+            self._logger.debug('_sendMsg: sending %s %s to %s xaddr=%r, epr=%s, msgNo=%r',
                                action,
                                msg.msgType(),
                                msg.getAddr(),
                                msg._env.getXAddrs(),
                                msg._env.getEPR(),
-                               msg._udpRepeat,
                                msg._env._messageNumber
                                )
 
@@ -961,12 +961,13 @@ class _NetworkingThread(object):
             self._uniOutSocket.sendto(data, (msg.getAddr(), msg.getPort()))
         else:
             getCommunicationLogger().logBroadCastMsgOut(data)
-            for sock in self._multiOutUniInSockets.values():
-                try:
-                    tmp = sock.getsockname()
-                except:
-                    pass
-                sock.sendto(data, (msg.getAddr(), msg.getPort()))
+            with self._multi_out_uni_in_sockets_lock:
+                for sock in self._multiOutUniInSockets.values():
+                    try:
+                        tmp = sock.getsockname()
+                    except:
+                        pass
+                    sock.sendto(data, (msg.getAddr(), msg.getPort()))
 
     def start(self):
         self._logger.debug('%s: starting ', self.__class__.__name__)
@@ -975,13 +976,17 @@ class _NetworkingThread(object):
         self._multiInSocket = self._createMulticastInSocket()
         self._register(self._multiInSocket)
 
-        self._multiOutUniInSockets = {}  # FIXME synchronisation
+        self._multiOutUniInSockets = {}
+        self._multi_out_uni_in_sockets_lock = threading.RLock()
 
         self._recvThread = threading.Thread(target=self._run_recv, name='wsd.recvThread')
+        self._qread_thread = threading.Thread(target=self._run_q_read, name='wsd.qreadThread')
         self._sendThread = threading.Thread(target=self._run_send, name='wsd.sendThread')
         self._recvThread.daemon = True
+        self._qread_thread.daemon = True
         self._sendThread.daemon = True
         self._recvThread.start()
+        self._qread_thread.start()
         self._sendThread.start()
 
     def schedule_stop(self):
@@ -991,25 +996,26 @@ class _NetworkingThread(object):
         self._logger.debug('%s: schedule_stop ', self.__class__.__name__)
         self._quitRecvEvent.set()
         self._quitSendEvent.set()
-        self._recvThread.join(1)
-        self._sendThread.join(1)
-        for sock in self._select_in:
-            sock.close()
 
     def join(self):
         self._logger.debug('%s: join... ', self.__class__.__name__)
-        self._recvThread.join()
-        self._sendThread.join()
+        self._recvThread.join(1)
+        self._sendThread.join(1)
+        self._qread_thread.join(1)
         self._recvThread = None
         self._sendThread = None
+        self._qread_thread = None
+        for sock in self._select_in:
+            sock.close()
         self._uniOutSocket.close()
-
         self._unregister(self._multiInSocket)
         self._multiInSocket.close()
+        self._full_selector.close()
         self._logger.debug('%s: ... join done', self.__class__.__name__)
 
     def getActiveAddresses(self):
-        return list(self._multiOutUniInSockets.keys())
+        with self._multi_out_uni_in_sockets_lock:
+            return list(self._multiOutUniInSockets.keys())
 
 
 class Message:
@@ -1023,24 +1029,6 @@ class Message:
         self._port = port
         self._msgType = msgType
 
-        if msgType == self.UNICAST:
-            udpRepeat, udpMinDelay, udpMaxDelay, udpUpperDelay = \
-                UNICAST_UDP_REPEAT, \
-                UNICAST_UDP_MIN_DELAY, \
-                UNICAST_UDP_MAX_DELAY, \
-                UNICAST_UDP_UPPER_DELAY
-        else:
-            udpRepeat, udpMinDelay, udpMaxDelay, udpUpperDelay = \
-                MULTICAST_UDP_REPEAT, \
-                MULTICAST_UDP_MIN_DELAY, \
-                MULTICAST_UDP_MAX_DELAY, \
-                MULTICAST_UDP_UPPER_DELAY
-
-        self._udpRepeat = udpRepeat
-        self._udpUpperDelay = udpUpperDelay
-        self._t = (udpMinDelay + ((udpMaxDelay - udpMinDelay) * random.random())) / 2
-        self._nextTime = int(time.time() * 1000) + initialDelay
-
     def getEnv(self):
         return self._env
 
@@ -1052,20 +1040,6 @@ class Message:
 
     def msgType(self):
         return self._msgType
-
-    def isFinished(self):
-        return self._udpRepeat <= 0
-
-    def canSend(self):
-        ct = int(time.time() * 1000)
-        return self._nextTime < ct
-
-    def refresh(self):
-        self._t = self._t * 2
-        if self._t > self._udpUpperDelay:
-            self._t = self._udpUpperDelay
-        self._nextTime = int(time.time() * 1000) + self._t
-        self._udpRepeat = self._udpRepeat - 1
 
 
 class Service:
@@ -1298,7 +1272,7 @@ class WSDiscoveryWithHTTPProxy(object):
         data = createProbeMessage(env)
         resp_data = self.post_http(data)
         getCommunicationLogger().logDiscoveryMsgIn(self._dpAddr.netloc, resp_data)
-        resp_env = parseEnvelope(resp_data, self._dpAddr.netloc)
+        resp_env = parseEnvelope(resp_data, self._dpAddr.netloc, self._logger)
         services = {}
         for match in resp_env.getProbeResolveMatches():
             services[match.getEPR()] = (Service(match.getTypes(), match.getScopes(), match.getXAddrs(), match.getEPR(),
@@ -1314,7 +1288,7 @@ class WSDiscoveryWithHTTPProxy(object):
         data = createResolveMessage(env)
         resp_data = self.post_http(data)
         getCommunicationLogger().logDiscoveryMsgIn(self._dpAddr.netloc, resp_data)
-        resp_env = parseEnvelope(resp_data, self._dpAddr.netloc)
+        resp_env = parseEnvelope(resp_data, self._dpAddr.netloc, self._logger)
         services = {}
         for match in resp_env.getProbeResolveMatches():
             services[match.getEPR()] = (Service(match.getTypes(), match.getScopes(), match.getXAddrs(), match.getEPR(),
