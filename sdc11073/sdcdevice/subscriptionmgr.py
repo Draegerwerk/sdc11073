@@ -496,6 +496,27 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
+    def sendPeriodicMetricReport(self, updatedMetricStatesList, nsmapper, sequenceId):
+        action = self.sdc_definitions.Actions.PeriodicMetricReport
+        subscribers = self._getSubscriptionsForAction(action)
+        if not subscribers:
+            return
+        self._logger.debug('sending periodic metric report, contains last {} episodic updates', len(updatedMetricStatesList))
+        bodyNode = etree_.Element(msgTag('PeriodicMetricReport'),
+                                  attrib={'SequenceId': sequenceId,
+                                          'MdibVersion': str(updatedMetricStatesList[-1].mdib_version)},
+                                  nsmap=nsmapper.docNssmap)
+        for part in updatedMetricStatesList:
+            reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
+            for s in part.states:
+                stateNode = s.mkStateNode(msgTag('MetricState'))
+                reportPartNode.append(stateNode)
+
+        for s in subscribers:
+            self._logger.debug('sendPeriodicMetricReport: sending report to {}', s.notifyToAddress)
+            self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
+        self._doHousekeeping()
+
     def sendEpisodicOperationalStateReport(self, updatedStates, nsmapper, mdibVersion, sequenceId):
         action = self.sdc_definitions.Actions.EpisodicOperationalStateReport
         subscribers = self._getSubscriptionsForAction(action)
@@ -514,6 +535,27 @@ class SubscriptionsManager(object):
 
         for s in subscribers:
             self._logger.debug('sendEpisodicOperationalStateReport: sending report to {}', s.notifyToAddress)
+            self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
+        self._doHousekeeping()
+
+    def sendPeriodicOperationalStateReport(self, updatedStatesList, nsmapper, sequenceId):
+        action = self.sdc_definitions.Actions.PeriodicOperationalStateReport
+        subscribers = self._getSubscriptionsForAction(action)
+        if not subscribers:
+            return
+        self._logger.debug('sending periodic operational state report, contains last {} episodic updates', len(updatedStatesList))
+        bodyNode = etree_.Element(msgTag('PeriodicOperationalStateReport'),
+                                  attrib={'SequenceId': sequenceId,
+                                          'MdibVersion': str(updatedStatesList[-1].mdib_version)},
+                                  nsmap=nsmapper.docNssmap)
+        for part in updatedStatesList:
+            reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
+            for s in part.states:
+                stateNode = s.mkStateNode(msgTag('OperationState'))
+                reportPartNode.append(stateNode)
+
+        for s in subscribers:
+            self._logger.debug('sendPeriodicOperationalStateReport: sending report to {}', s.notifyToAddress)
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
@@ -538,6 +580,27 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
+    def sendPeriodicAlertReport(self, updatedStatesList, nsmapper, sequenceId):
+        action = self.sdc_definitions.Actions.PeriodicAlertReport
+        subscribers = self._getSubscriptionsForAction(action)
+        if not subscribers:
+            return
+        self._logger.debug('sending periodic alert report, contains last {} episodic updates', len(updatedStatesList))
+        bodyNode = etree_.Element(msgTag('PeriodicAlertReport'),
+                                  attrib={'SequenceId': sequenceId,
+                                          'MdibVersion': str(updatedStatesList[-1].mdib_version)},
+                                  nsmap=nsmapper.docNssmap)
+        for part in updatedStatesList:
+            reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
+            for s in part.states:
+                stateNode = s.mkStateNode(msgTag('AlertState'))
+                reportPartNode.append(stateNode)
+
+        for s in subscribers:
+            self._logger.debug('sendPeriodicAlertReport: sending report to {}', s.notifyToAddress)
+            self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
+        self._doHousekeeping()
+
     def sendEpisodicComponentStateReport(self, updatedComponentStates, nsmapper, mdibVersion, sequenceId):
         action = self.sdc_definitions.Actions.EpisodicComponentReport
         subscribers = self._getSubscriptionsForAction(action)
@@ -556,6 +619,27 @@ class SubscriptionsManager(object):
 
         for s in subscribers:
             self._logger.debug('sendEpisodicComponentStateReport: sending report to {}', s.notifyToAddress)
+            self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
+        self._doHousekeeping()
+
+    def sendPeriodicComponentStateReport(self, updatedStatesList, nsmapper, sequenceId):
+        action = self.sdc_definitions.Actions.PeriodicComponentReport
+        subscribers = self._getSubscriptionsForAction(action)
+        if not subscribers:
+            return
+        self._logger.debug('sending periodic component report, contains last {} episodic updates', len(updatedStatesList))
+        bodyNode = etree_.Element(msgTag('PeriodicComponentReport'),
+                                  attrib={'SequenceId': sequenceId,
+                                          'MdibVersion': str(updatedStatesList[-1].mdib_version)},
+                                  nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
+        for part in updatedStatesList:
+            reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
+            for s in part.states:
+                stateNode = s.mkStateNode(msgTag('ComponentState'))
+                reportPartNode.append(stateNode)
+
+        for s in subscribers:
+            self._logger.debug('sendPeriodicComponentStateReport: sending report to {}', s.notifyToAddress)
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
@@ -578,6 +662,27 @@ class SubscriptionsManager(object):
 
         for s in subscribers:
             self._logger.info('sendEpisodicContextReport: sending report to {}', s.notifyToAddress)
+            self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
+        self._doHousekeeping()
+
+    def sendPeriodicContextReport(self, updatedStatesList, nsmapper, sequenceId):
+        action = self.sdc_definitions.Actions.PeriodicContextReport
+        subscribers = self._getSubscriptionsForAction(action)
+        if not subscribers:
+            return
+        self._logger.debug('sending periodic context report, contains last {} episodic updates', len(updatedStatesList))
+        bodyNode = etree_.Element(msgTag('PeriodicContextReport'),
+                                  attrib={'SequenceId': sequenceId,
+                                          'MdibVersion': str(updatedStatesList[-1].mdib_version)},
+                                  nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
+        for part in updatedStatesList:
+            reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
+            for s in part.states:
+                stateNode = s.mkStateNode(msgTag('ContextState'))
+                reportPartNode.append(stateNode)
+
+        for s in subscribers:
+            self._logger.debug('sendPeriodicContextStateReport: sending report to {}', s.notifyToAddress)
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 

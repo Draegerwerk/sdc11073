@@ -448,7 +448,13 @@ class StateEventClient(HostedServiceClient):
     subscribeable_actions = ('EpisodicMetricReport',
                              'EpisodicAlertReport',
                              'EpisodicComponentReport',
-                             'EpisodicOperationalStateReport')
+                             'EpisodicOperationalStateReport',
+                             'PeriodicMetricReport',
+                             'PeriodicAlertReport',
+                             'PeriodicComponentReport',
+                             'PeriodicContextReport',
+                             'PeriodicOperationalStateReport'
+                             )
 
 
 class DescriptionEventClient(HostedServiceClient):

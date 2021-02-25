@@ -1,12 +1,10 @@
 import uuid
-import json
 import os
 import time
-import ssl
 import urllib
 import logging
 import threading
-import traceback
+from collections import namedtuple
 
 from lxml import etree as etree_
 
@@ -46,6 +44,8 @@ _ssl_cacert = os.path.join(caFolder, 'cacert.pem')    # this is the common root 
 _ssl_passwd = 'dummypass' #'Phase1' #dummypass
 _ssl_cypherfile = os.path.join(caFolder, 'cyphers.json') # Json file that determines ciphers to be used
 
+
+PeriodicStates = namedtuple('PeriodicStates', 'mdib_version states')
 
 class SdcHandler_Base(object):
     ''' This is the base class for the sdc device handler. It contains all functionality of a device except the definition of the hosted services.
@@ -127,6 +127,15 @@ class SdcHandler_Base(object):
             self.mkDefaultRoleHandlers()
 
         self._location = None
+        self._periodic_reports_lock = threading.Lock()
+        self._periodic_reports_thread = None
+        self._run_periodic_reports_thread = None
+        self._periodic_reports_interval = None
+        self._periodic_metric_reports = []
+        self._periodic_alert_reports = []
+        self._periodic_component_state_reports = []
+        self._periodic_context_state_reports = []
+        self._periodic_operational_state_reports = []
 
     def mkScopes(self):
         scopes = []
@@ -291,7 +300,7 @@ class SdcHandler_Base(object):
             self._logger.info('serving Services on {}:{}', host_ip, port)
         self._subscriptionsManager.setBaseUrls(base_urls)
 
-    def startAll(self, startRealtimeSampleLoop=True, shared_http_server=None):
+    def startAll(self, startRealtimeSampleLoop=True, periodic_reports_interval=None, shared_http_server=None):
         if self.product_roles is not None:
             self.product_roles.initOperations(self._mdib, self._scoOperationsRegistry)
 
@@ -301,12 +310,21 @@ class SdcHandler_Base(object):
             self._rtSampleSendThread = threading.Thread(target=self._rtSampleSendLoop, name='DevRtSampleSendLoop')
             self._rtSampleSendThread.daemon = True
             self._rtSampleSendThread.start()
+        if periodic_reports_interval:
+            self._run_periodic_reports_thread = True
+            self._periodic_reports_interval = periodic_reports_interval
+            self._periodic_reports_thread = threading.Thread(target=self._periodic_reports_send_loop, name='DevPeriodicSendLoop')
+            self._periodic_reports_thread.daemon = True
+            self._periodic_reports_thread.start()
 
     def stopAll(self, closeAllConnections, sendSubscriptionEnd):
         if self._rtSampleSendThread is not None:
             self._runRtSampleThread = False
             self._rtSampleSendThread.join()
             self._rtSampleSendThread = None
+            if self._run_periodic_reports_thread:
+                self._run_periodic_reports_thread = False
+                self._periodic_reports_thread.join()
 
         self._subscriptionsManager.endAllSubscriptions(sendSubscriptionEnd)
         self._scoOperationsRegistry.stopWorker()
@@ -405,30 +423,41 @@ class SdcHandler_Base(object):
             self._validateDPWS(relationshipNode[-1])
         return metaDataNode
 
+    def _store_for_periodic_report(self, mdib_version, state_updates, dest_list):
+        copied_updates = [s.mkCopy() for s in state_updates]
+        if self._run_periodic_reports_thread:
+            with self._periodic_reports_lock:
+                dest_list.append(PeriodicStates(mdib_version, copied_updates))
+
     def sendMetricStateUpdates(self, mdibVersion, stateUpdates):
         self._logger.debug('sending metric state updates {}', stateUpdates)
         self._subscriptionsManager.sendEpisodicMetricReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
                                                             self.mdib.sequenceId)
+        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_metric_reports)
 
     def sendAlertStateUpdates(self, mdibVersion, stateUpdates):
         self._logger.debug('sending alert updates {}', stateUpdates)
         self._subscriptionsManager.sendEpisodicAlertReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
                                                            self.mdib.sequenceId)
+        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_alert_reports)
 
     def sendComponentStateUpdates(self, mdibVersion, stateUpdates):
         self._logger.debug('sending component state updates {}', stateUpdates)
         self._subscriptionsManager.sendEpisodicComponentStateReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
                                                                     self.mdib.sequenceId)
+        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_component_state_reports)
 
     def sendContextStateUpdates(self, mdibVersion, stateUpdates):
         self._logger.debug('sending context updates {}', stateUpdates)
         self._subscriptionsManager.sendEpisodicContextReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
                                                              self.mdib.sequenceId)
+        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_context_state_reports)
 
     def sendOperationalStateUpdates(self, mdibVersion, stateUpdates):
         self._logger.debug('sending operational state updates {}', stateUpdates)
         self._subscriptionsManager.sendEpisodicOperationalStateReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
                                                                       self.mdib.sequenceId)
+        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_operational_state_reports)
 
     def sendRealtimeSamplesStateUpdates(self, mdibVersion, stateUpdates):
         self._logger.debug('sending real time sample state updates {}', stateUpdates)
@@ -489,6 +518,29 @@ class SdcHandler_Base(object):
                     print(s.getvalue())
                     pr.enable()
                     pr_time = time.monotonic()
+
+    def _periodic_reports_send_loop(self):
+        self._logger.debug('_periodic_reports_send_loop start')
+        time.sleep(0.1)  # start delayed
+        timer = intervaltimer.IntervalTimer(periodInSeconds=self._periodic_reports_interval)
+        while self._run_periodic_reports_thread:
+            timer.waitForNextIntervalBegin()
+            self._logger.debug('_periodic_reports_send_loop')
+            for reports_list, send_func, msg in [
+                (self._periodic_metric_reports, self._subscriptionsManager.sendPeriodicMetricReport, 'metric'),
+                (self._periodic_alert_reports, self._subscriptionsManager.sendPeriodicAlertReport, 'alert'),
+                (self._periodic_component_state_reports, self._subscriptionsManager.sendPeriodicComponentStateReport, 'component'),
+                (self._periodic_context_state_reports, self._subscriptionsManager.sendPeriodicContextReport, 'context'),
+                (self._periodic_operational_state_reports, self._subscriptionsManager.sendPeriodicOperationalStateReport, 'operational'),
+            ]:
+                tmp = None
+                with self._periodic_reports_lock:
+                    if reports_list:
+                        tmp = reports_list[:]
+                        del reports_list[:]
+                if tmp:
+                    self._logger.debug('send periodic %s report', msg)
+                    send_func(tmp, self._mdib.nsmapper, self.mdib.sequenceId)
 
     def _setupLogging(self, logLevel):
         loghelper.ensureLogStream()
@@ -558,7 +610,12 @@ class SdcHandler_Full(SdcHandler_Base):
                                 actions.EpisodicComponentReport,
                                 actions.EpisodicOperationalStateReport,
                                 actions.Waveform,
-                                actions.SystemErrorReport
+                                actions.SystemErrorReport,
+                                actions.PeriodicMetricReport,
+                                actions.PeriodicAlertReport,
+                                actions.PeriodicContextReport,
+                                actions.PeriodicComponentReport,
+                                actions.PeriodicOperationalStateReport
                                 ]
 
         self._SdcServiceHosted = DPWSHostedService(self, base_urls, 'StateEvent',

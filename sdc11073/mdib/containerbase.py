@@ -102,10 +102,16 @@ class ContainerBase(object):
             except AttributeError:
                 ret.append('{}={}, other does not have this attribute'.format(name, myvalue))
             else:
-                #                if not myvalue == othervalue: # use ==, because only __eq__ is implemented
-                if myvalue != othervalue:
+                if isinstance(myvalue, float) or isinstance(othervalue, float):
+                    # cast both to float, if one is a Decimal Exception might be thrown
+                    if abs((float(myvalue)-float(othervalue))/float(myvalue)) > 1e-10: # 1e-10 is good enough
+                        ret.append('{}={}, other={}'.format(name, myvalue, othervalue))
+                elif myvalue != othervalue:
                     ret.append('{}={}, other={}'.format(name, myvalue, othervalue))
         return ret
+
+    def is_equal(self, other):
+        return len(self.diff(other)) == 0
 
     def __repr__(self):
         return '{} name="{}" type={}'.format(self.__class__.__name__, self.NODENAME, self.NODETYPE)

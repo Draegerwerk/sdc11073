@@ -95,11 +95,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
         location =SdcLocation(fac='tklx', poc='CU1', bed='Bed')
-        self.sdcDevice_Final = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<Final> ')
+        self.sdcDevice_Final = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml', logLevel=logging.INFO)
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         nsmapper = self.sdcDevice_Final.mdib.nsmapper
         nsmapper._prefixmap['__BICEPS_ParticipantModel__'] = None #make this the default namespace
-        self.sdcDevice_Final.startAll()
+        self.sdcDevice_Final.startAll(periodic_reports_interval=1.0)
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extensionString='System')]
         self.sdcDevice_Final.setLocation(location, self._locValidators)
         self.provideRealtimeData(self.sdcDevice_Final)
@@ -109,9 +109,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         xAddr = self.sdcDevice_Final.getXAddrs()
         self.sdcClient_Final = SdcClient(xAddr[0],
                                          deviceType=self.sdcDevice_Final.mdib.sdc_definitions.MedicalDeviceType,
-                                         validate=CLIENT_VALIDATE,
-                                         ident='<Final> ')
-        self.sdcClient_Final.startAll()
+                                         validate=CLIENT_VALIDATE)
+        self.sdcClient_Final.startAll(subscribe_periodic_reports=True)
         
         self._all_cl_dev = [(self.sdcClient_Final, self.sdcDevice_Final)]
 
@@ -171,8 +170,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             node = contextService.getContextStatesNode()
             self.assertEqual(node.tag, str(namespaces.msgTag('GetContextStatesResponse')))
 
-        for _ , sdcDevice in self._all_cl_dev:
-            sdcDevice.stopAll()
 
     def test_renew_getStatus(self):
         for sdcClient, sdcDevice in self._all_cl_dev:
@@ -290,13 +287,16 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(len(descriptors), 1)
 
 
-    def test_EpisodicMetricReport(self):
+    def test_metric_reports(self):
+        """ verify that the client receives correct EpisodicMetricReports and PeriodicMetricReports"""
         for sdcClient, sdcDevice in self._all_cl_dev:
             cl_mdib = ClientMdibContainer(sdcClient)
             cl_mdib.initMdib()
+            # wait for the next EpisodicMetricReport
+            coll = observableproperties.SingleValueCollector(sdcClient, 'episodicMetricReport')
+            # wait for the next PeriodicMetricReport
+            coll2 = observableproperties.SingleValueCollector(sdcClient, 'periodicMetricReport')
 
-            coll = observableproperties.SingleValueCollector(sdcClient, 'episodicMetricReport')  # wait for the next EpisodicMetricReport
-            
             # create a state instance
             descriptorHandle = '0x34F00100'
             firstValue = 12
@@ -331,26 +331,31 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st = mgr.getMetricState(descriptorHandle)
                 st.metricValue.Value = newValue
     
-            #verify that client automatically got the state (via EpisodicMetricReport )
+            # verify that client automatically got the state (via EpisodicMetricReport )
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             cl_state1 = cl_mdib.states.descriptorHandle.getOne(descriptorHandle)
             self.assertEqual(cl_state1.metricValue.Value, newValue)
             self.assertEqual(cl_state1.StateVersion, 2)  # this is the 2nd state update after init
-            
 
-    def test_EpisodicComponentStateReport(self):
+            # verify that client also got a PeriodicMetricReport
+            periodic_report = coll2.result(timeout=NOTIFICATION_TIMEOUT)
+            state_nodes = periodic_report.xpath('//msg:MetricState', namespaces=namespaces.nsmap)
+            self.assertGreaterEqual(len(state_nodes), 1)
+
+
+    def test_component_state_reports(self):
         for sdcClient, sdcDevice in self._all_cl_dev:
             cl_mdib = ClientMdibContainer(sdcClient)
             cl_mdib.initMdib()
-            
-            cl_getService = sdcClient.client('Get')
             
             # create a state instance
             metricDescriptorHandle = '0x34F00100' # this is a metric state. look for its parent, that is a component
             metricDescriptorContainer = sdcDevice.mdib.descriptions.handle.getOne(metricDescriptorHandle)
             descriptorHandle = metricDescriptorContainer.parentHandle
-            
-            coll = observableproperties.SingleValueCollector(sdcClient, 'episodicComponentReport')  # wait for the next EpisodicComponentReport
+            # wait for the next EpisodicComponentReport
+            coll = observableproperties.SingleValueCollector(sdcClient, 'episodicComponentReport')
+            # wait for the next PeriodicComponentReport
+            coll2 = observableproperties.SingleValueCollector(sdcClient, 'periodicComponentReport')
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 st = mgr.getComponentState(descriptorHandle)
                 st.ActivationState = 'On' if st.ActivationState != 'On' else 'Off'
@@ -360,16 +365,21 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             #verify that client automatically got the state (via EpisodicComponentReport )
             cl_state1 = cl_mdib.states.descriptorHandle.getOne(descriptorHandle)
-            self.assertEqual(cl_state1.ActivationState, st.ActivationState)
-            self.assertEqual(cl_state1.OperatingHours, st.OperatingHours)
-            self.assertEqual(cl_state1.OperatingCycles, st.OperatingCycles)
-        
+            self.assertEqual(cl_state1.diff(st), [])
+            # verify that client also got a PeriodicMetricReport
+            periodic_report = coll2.result(timeout=NOTIFICATION_TIMEOUT)
+            state_nodes = periodic_report.xpath('//msg:ComponentState', namespaces=namespaces.nsmap)
+            self.assertGreaterEqual(len(state_nodes), 1)
 
-    def test_EpisodicAlertReport(self):
+    def test_alert_reports(self):
+        """ verify that the client receives correct EpisodicAlertReports and PeriodicAlertReports"""
         for sdcClient, sdcDevice in self._all_cl_dev:
             clientMdib = ClientMdibContainer(sdcClient)
             clientMdib.initMdib()
             
+            # wait for the next PeriodicAlertReport
+            coll2 = observableproperties.SingleValueCollector(sdcClient, 'periodicAlertReport')
+
             # pick an AlertCondition for testing
             alertConditionDescr = sdcDevice.mdib.states.NODETYPE[namespaces.domTag('AlertConditionState')][0]
             descriptorHandle = alertConditionDescr.descriptorHandle
@@ -383,10 +393,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     st.Presence = _presence
                 coll.result(timeout=NOTIFICATION_TIMEOUT)
                 clientStateContainer = clientMdib.states.descriptorHandle.getOne(descriptorHandle) # this shall be updated by notification 
-                self.assertEqual(clientStateContainer.ActivationState, _activationState)
-                self.assertEqual(clientStateContainer.ActualPriority, _actualPriority)
-                self.assertEqual(clientStateContainer.Presence, _presence)
-            
+                self.assertEqual(clientStateContainer.diff(st), [])
+
             # pick an AlertSignal for testing
             alertConditionDescr = sdcDevice.mdib.states.NODETYPE[namespaces.domTag('AlertSignalState')][0]
             descriptorHandle = alertConditionDescr.descriptorHandle
@@ -400,11 +408,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     st.Location =_location
                     st.Slot = _slot
                 coll.result(timeout=NOTIFICATION_TIMEOUT)
-                clientStateContainer = clientMdib.states.descriptorHandle.getOne(descriptorHandle) # this shall be updated by notification 
-                self.assertEqual(clientStateContainer.ActivationState, _activationState)
-                self.assertEqual(clientStateContainer.Presence, _presence)
-                self.assertEqual(clientStateContainer.Location, _location)
-                self.assertEqual(clientStateContainer.Slot, _slot)
+                clientStateContainer = clientMdib.states.descriptorHandle.getOne(descriptorHandle) # this shall be updated by notification
+                self.assertEqual(clientStateContainer.diff(st), [])
+
+            # verify that client also got a PeriodicAlertReport
+            periodic_report = coll2.result(timeout=NOTIFICATION_TIMEOUT)
+            state_nodes = periodic_report.xpath('//msg:AlertState', namespaces=namespaces.nsmap)
+            self.assertGreaterEqual(len(state_nodes), 1)
+            pass
 
 
     def test_setPatientContextOperation(self):
@@ -1432,9 +1443,6 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
             contextService = sdcClient.client('Context')
             node = contextService.getContextStatesNode()
             self.assertEqual(node.tag, str(namespaces.msgTag('GetContextStatesResponse')))
-
-        for _, sdcDevice in self._all_cl_dev:
-            sdcDevice.stopAll()
 
 
 class Test_Client_SomeDevice_chunked(unittest.TestCase):

@@ -2,6 +2,7 @@ import time
 import uuid
 import sys
 import inspect
+import copy
 from .containerbase import ContainerBase
 from ..namespaces import domTag
 from .. import pmtypes 
@@ -80,6 +81,11 @@ class AbstractStateContainer(ContainerBase):
                 new_value = getattr(other, prop_name)
                 setattr(self, prop_name, new_value)
 
+    def mkCopy(self):
+        ret = self.__class__(self.nsmapper, self.descriptorContainer)
+        ret.updateFromOtherContainer(self)
+        ret.node = copy.deepcopy(self.node)
+        return ret
 
     def incrementState(self):
         if self.StateVersion is None:
@@ -166,6 +172,11 @@ class AbstractMetricStateContainer_Base(AbstractStateContainer):
             return self._MetricValue
         else:
             raise RuntimeError('State (handle="{}") already has a metric value'.format(self.handle))
+
+    def mkCopy(self):
+        copied = super().mkCopy()
+        copied._MetricValue = copy.deepcopy(self._MetricValue)
+        return copied
 
 
 class AbstractMetricStateContainer(AbstractMetricStateContainer_Base):

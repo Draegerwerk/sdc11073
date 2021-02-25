@@ -173,6 +173,8 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
                     response_xml_string = devices_dispatcher.on_post(self.path, self.headers, request)
                     http_status = 200
                     http_reason = 'Ok'
+                    # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
+                    assert (b'utf-8' in response_xml_string[:100].lower())
                 except HTTPRequestHandlingError as ex:
                     response_xml_string = ex.soapfault
                     http_status = ex.status
@@ -180,7 +182,8 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 
                 commlog.defaultLogger.logSoapRespOut(response_xml_string, 'POST')
                 self.send_response(http_status, http_reason)
-            assert(b'utf-8' in response_xml_string[:100].lower()) # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
+            if isinstance(response_xml_string, str):
+                response_xml_string = response_xml_string.encode('utf-8')
             response_xml_string = self._compressIfRequired(response_xml_string)
             self.send_header("Content-type", "application/soap+xml; charset=utf-8")
             if self.server.chunked_response:
