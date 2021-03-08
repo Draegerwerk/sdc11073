@@ -81,10 +81,11 @@ class AbstractStateContainer(ContainerBase):
                 new_value = getattr(other, prop_name)
                 setattr(self, prop_name, new_value)
 
-    def mkCopy(self):
+    def mkCopy(self, copy_node=True):
         ret = self.__class__(self.nsmapper, self.descriptorContainer)
         ret.updateFromOtherContainer(self)
-        ret.node = copy.deepcopy(self.node)
+        if copy_node:
+            ret.node = copy.deepcopy(self.node)
         return ret
 
     def incrementState(self):
@@ -173,8 +174,8 @@ class AbstractMetricStateContainer_Base(AbstractStateContainer):
         else:
             raise RuntimeError('State (handle="{}") already has a metric value'.format(self.handle))
 
-    def mkCopy(self):
-        copied = super().mkCopy()
+    def mkCopy(self, copy_node=True):
+        copied = super().mkCopy(copy_node)
         copied._MetricValue = copy.deepcopy(self._MetricValue)
         return copied
 
@@ -223,9 +224,8 @@ class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
         samplesCount = 0
         if self.metricValue is not None and self.metricValue.Samples is not None:
             samplesCount = len(self.metricValue.Samples)
-        return '{} descriptorHandle="{}" Activation="{}" Samples={}'.format(self.__class__.__name__,
-                                                                            self.descriptorHandle, self.ActivationState,
-                                                                            samplesCount)
+        return '{} Version={} descriptorHandle="{}" Activation="{}" Samples={}'.format(
+            self.__class__.__name__, self.StateVersion, self.descriptorHandle, self.ActivationState, samplesCount)
 
 
 class DistributionSampleArrayMetricStateContainer(AbstractMetricStateContainer):

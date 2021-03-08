@@ -66,35 +66,35 @@ class TestDeviceWaveform(unittest.TestCase):
         
         # first read shall always be empty
         for h in HANDLES:
-            determinationTime, sampleperiod, samples, activationState = self.mdib._getNextRealtimeSample(h)
-            self.assertEqual(activationState, pmtypes.ComponentActivation.ON)
-            self.assertEqual(len(samples), 0)
+            rt_sample_array = self.mdib._waveformGenerators[h].getNextSampleArray()
+            self.assertEqual(rt_sample_array.activationState, pmtypes.ComponentActivation.ON)
+            self.assertEqual(len(rt_sample_array.samples), 0)
         # collect some samples
         now = time.time()
         time.sleep(1)
         for h in HANDLES:
             period = self.mdib._waveformGenerators[h]._generator.sampleperiod
             expectedCount = 1.0/period
-            determinationTime, sampleperiod, samples, activationState = self.mdib._getNextRealtimeSample(h)
+            rt_sample_array = self.mdib._waveformGenerators[h].getNextSampleArray()
             # sleep is not very precise, therefore verify that number of sample is in a certein range
-            self.assertTrue(expectedCount-5 <= len(samples) <= expectedCount+5) #
-            self.assertTrue(abs(now - determinationTime) <= 0.02)
-            self.assertEqual(activationState, pmtypes.ComponentActivation.ON)
+            self.assertTrue(expectedCount-5 <= len(rt_sample_array.samples) <= expectedCount+5) #
+            self.assertTrue(abs(now - rt_sample_array.determinationTime) <= 0.02)
+            self.assertEqual(rt_sample_array.activationState, pmtypes.ComponentActivation.ON)
         ca = pmtypes.ComponentActivation # shortcut
         h = HANDLES[0]
         for actState in (ca.OFF, ca.FAILURE, ca.NOT_READY, ca.SHUTDOWN, ca.STANDBY):    
             self.mdib.setWaveformGeneratorActivationState(h, actState)    
-            determinationTime, sampleperiod, samples, activationState = self.mdib._getNextRealtimeSample(h)
-            self.assertEqual(activationState, actState)
-            self.assertEqual(len(samples), 0)
+            rt_sample_array = self.mdib._waveformGenerators[h].getNextSampleArray()
+            self.assertEqual(rt_sample_array.activationState, actState)
+            self.assertEqual(len(rt_sample_array.samples), 0)
 
         self.mdib.setWaveformGeneratorActivationState(h, pmtypes.ComponentActivation.ON)
         now = time.time()
         time.sleep(0.1)    
-        determinationTime, sampleperiod, samples, activationState = self.mdib._getNextRealtimeSample(h)
-        self.assertEqual(activationState, pmtypes.ComponentActivation.ON)
-        self.assertTrue(len(samples) > 0)
-        self.assertTrue(abs(now - determinationTime) <= 0.02)
+        rt_sample_array = self.mdib._waveformGenerators[h].getNextSampleArray()
+        self.assertEqual(rt_sample_array.activationState, pmtypes.ComponentActivation.ON)
+        self.assertTrue(len(rt_sample_array.samples) > 0)
+        self.assertTrue(abs(now -  rt_sample_array.determinationTime) <= 0.02)
 
 
     def test_waveformSubscription(self):

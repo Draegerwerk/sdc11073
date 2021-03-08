@@ -936,7 +936,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_realtimeSamples(self):
         # a random number for maxRealtimeSamples, not too big, otherwise we have to wait too long. 
-        # But wait long enough to have at least one full waveform period in buffer for annotions.
+        # But wait long enough to have at least one full waveform period in buffer for annotations.
         for sdcClient, sdcDevice in self._all_cl_dev:
             clientMdib = ClientMdibContainer(sdcClient, maxRealtimeSamples=297)
             clientMdib.initMdib()
@@ -947,8 +947,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             for d_handle in d_handles:
                 # check content of state container
                 container = clientMdib.states.descriptorHandle.getOne(d_handle)
-                print ('SSSamples', container.metricValue.Samples)
-                self.assertEqual(container.ActivationState, 'On')
+                self.assertEqual(container.ActivationState, pmtypes.ComponentActivation.ON)
+                self.assertIsNotNone(container.metricValue)
                 self.assertAlmostEqual(container.metricValue.DeterminationTime, time.time(), delta=0.5)
                 self.assertGreater(len(container.metricValue.Samples), 1)
                 

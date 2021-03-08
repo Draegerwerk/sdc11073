@@ -307,7 +307,7 @@ class SdcHandler_Base(object):
         self._startServices(shared_http_server)
         if startRealtimeSampleLoop:
             self._runRtSampleThread = True
-            self._rtSampleSendThread = threading.Thread(target=self._rtSampleSendLoop, name='DevRtSampleSendLoop')
+            self._rtSampleSendThread = threading.Thread(target=self._rt_sample_sendloop, name='DevRtSampleSendLoop')
             self._rtSampleSendThread.daemon = True
             self._rtSampleSendThread.start()
         if periodic_reports_interval:
@@ -332,7 +332,7 @@ class SdcHandler_Base(object):
         try:
             self._wsdiscovery.clearService(self.epr)
         except KeyError:
-            print('epr "{}" not known in self._wsdiscovery'.format(self.epr))
+            self._logger.info('epr "{}" not known in self._wsdiscovery'.format(self.epr))
 
         if self.product_roles is not None:
             self.product_roles.stop()
@@ -471,53 +471,16 @@ class SdcHandler_Base(object):
                                                          mdibVersion,
                                                          self.mdib.sequenceId)
 
-    def sendWaveformUpdates(self, changedSamples):
-        '''
-        @param changedSamples: a dictionary with key = handle, value= devicemdib.RtSampleArray instance
-        '''
-        with self._mdib.mdibUpdateTransaction() as tr:
-            for descriptorHandle, changedSample in changedSamples.items():
-                determinationTime = changedSample.determinationTime
-                samples = [s[0] for s in changedSample.samples]  # only the values without the 'start of cycle' flags
-                activationState = changedSample.activationState
-                st = tr.getRealTimeSampleArrayMetricState(descriptorHandle)
-                if st.metricValue is None:
-                    st.mkMetricValue()
-                st.metricValue.Samples = samples
-                st.metricValue.DeterminationTime = determinationTime  # set Attribute
-                st.metricValue.Annotations = changedSample.annotations
-                st.metricValue.ApplyAnnotations = changedSample.applyAnnotations
-                st.ActivationState = activationState
-
-    def _rtSampleSendLoop(self):
-        if PROFILING:
-            pr = cProfile.Profile()
-        time.sleep(
-            0.1)  # start delayed in order to have a fully initialized device when waveforms start (otherwise timing issues might happen)
+    def _rt_sample_sendloop(self):
+        """Periodically send waveform samples."""
+        # start delayed in order to have a fully initialized device when waveforms start
+        # (otherwise timing issues might happen)
+        time.sleep(0.1)
         timer = intervaltimer.IntervalTimer(periodInSeconds=self.collectRtSamplesPeriod)
-        if PROFILING:
-            pr_time = time.monotonic()
-            initial_time = pr_time  # delayed start of profiler, ignore init calls
         while self._runRtSampleThread:
-            if PROFILING:
-                if initial_time is not None and time.monotonic() - initial_time > 2:
-                    pr.enable()
-                    initial_time = None
             behindScheduleSeconds = timer.waitForNextIntervalBegin()
-            changedSamples = self._mdib.getUpdatedDeviceRtSamples()
-            if len(changedSamples) > 0:
-                self._logWaveformTiming(behindScheduleSeconds)  #
-                self.sendWaveformUpdates(changedSamples)
-            if PROFILING and initial_time is None:
-                if time.monotonic() - pr_time > 5:
-                    print('profile')
-                    pr.disable()
-                    s = StringIO()
-                    ps = pstats.Stats(pr, stream=s).sort_stats('time')
-                    ps.print_stats(30)
-                    print(s.getvalue())
-                    pr.enable()
-                    pr_time = time.monotonic()
+            self._mdib.update_all_rt_samples() # update from waveform generators
+            self._logWaveformTiming(behindScheduleSeconds)
 
     def _periodic_reports_send_loop(self):
         self._logger.debug('_periodic_reports_send_loop start')

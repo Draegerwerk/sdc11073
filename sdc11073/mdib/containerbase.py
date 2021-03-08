@@ -66,10 +66,11 @@ class ContainerBase(object):
             cprop.updateFromNode(self, node)
 
 
-    def mkCopy(self):
+    def mkCopy(self, copy_node=True):
         copied = copy.copy(self)
-        cpNode = copy.deepcopy(self.node)
-        copied.node = cpNode
+        if copy_node:
+            cpNode = copy.deepcopy(self.node)
+            copied.node = cpNode
         return copied
 
 
