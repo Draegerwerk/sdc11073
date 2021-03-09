@@ -49,11 +49,10 @@ class TestDeviceWaveform(unittest.TestCase):
         self.sdcDevice = None
         self.nsmapper = sdc11073.namespaces.DocNamespaceHelper()
 
-        
+
     def tearDown(self):
         if self.sdcDevice:
             self.sdcDevice.stopAll()
-
 
     def test_waveformGeneratorHandling(self):
         tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.005)
@@ -63,39 +62,39 @@ class TestDeviceWaveform(unittest.TestCase):
         self.mdib.registerWaveformGenerator(HANDLES[0], tr)
         self.mdib.registerWaveformGenerator(HANDLES[1], st)
         self.mdib.registerWaveformGenerator(HANDLES[2], si)
-        
+
+        waveform_generators = self.mdib._waveform_source._waveform_generators
         # first read shall always be empty
         for h in HANDLES:
-            rt_sample_array = self.mdib._waveformGenerators[h].getNextSampleArray()
-            self.assertEqual(rt_sample_array.activationState, pmtypes.ComponentActivation.ON)
+            rt_sample_array = waveform_generators[h].getNextSampleArray()
+            self.assertEqual(rt_sample_array.activation_state, pmtypes.ComponentActivation.ON)
             self.assertEqual(len(rt_sample_array.samples), 0)
         # collect some samples
         now = time.time()
         time.sleep(1)
         for h in HANDLES:
-            period = self.mdib._waveformGenerators[h]._generator.sampleperiod
+            period = waveform_generators[h]._generator.sampleperiod
             expectedCount = 1.0/period
-            rt_sample_array = self.mdib._waveformGenerators[h].getNextSampleArray()
+            rt_sample_array = waveform_generators[h].getNextSampleArray()
             # sleep is not very precise, therefore verify that number of sample is in a certein range
             self.assertTrue(expectedCount-5 <= len(rt_sample_array.samples) <= expectedCount+5) #
-            self.assertTrue(abs(now - rt_sample_array.determinationTime) <= 0.02)
-            self.assertEqual(rt_sample_array.activationState, pmtypes.ComponentActivation.ON)
+            self.assertTrue(abs(now - rt_sample_array.determination_time) <= 0.02)
+            self.assertEqual(rt_sample_array.activation_state, pmtypes.ComponentActivation.ON)
         ca = pmtypes.ComponentActivation # shortcut
         h = HANDLES[0]
         for actState in (ca.OFF, ca.FAILURE, ca.NOT_READY, ca.SHUTDOWN, ca.STANDBY):    
             self.mdib.setWaveformGeneratorActivationState(h, actState)    
-            rt_sample_array = self.mdib._waveformGenerators[h].getNextSampleArray()
-            self.assertEqual(rt_sample_array.activationState, actState)
+            rt_sample_array = waveform_generators[h].getNextSampleArray()
+            self.assertEqual(rt_sample_array.activation_state, actState)
             self.assertEqual(len(rt_sample_array.samples), 0)
 
         self.mdib.setWaveformGeneratorActivationState(h, pmtypes.ComponentActivation.ON)
         now = time.time()
         time.sleep(0.1)    
-        rt_sample_array = self.mdib._waveformGenerators[h].getNextSampleArray()
-        self.assertEqual(rt_sample_array.activationState, pmtypes.ComponentActivation.ON)
+        rt_sample_array = waveform_generators[h].getNextSampleArray()
+        self.assertEqual(rt_sample_array.activation_state, pmtypes.ComponentActivation.ON)
         self.assertTrue(len(rt_sample_array.samples) > 0)
-        self.assertTrue(abs(now -  rt_sample_array.determinationTime) <= 0.02)
-
+        self.assertTrue(abs(now - rt_sample_array.determination_time) <= 0.02)
 
     def test_waveformSubscription(self):
         self._model = sdc11073.pysoap.soapenvelope.DPWSThisModel(manufacturer='Chinakracher GmbH',

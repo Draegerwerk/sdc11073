@@ -5,97 +5,12 @@ from collections import OrderedDict, namedtuple
 from threading import Lock
 from . import mdibbase
 from . import msgreader
-from .. import xmlparsing
 from ..namespaces import domTag
 from .. import loghelper
 from .. import pmtypes
 from ..definitions_base import ProtocolsRegistry
-
-class _SampleArraySource(object):
-    def __init__(self, descriptorHandle):
-        self._descriptorHandle = descriptorHandle
-        self._lastTimeStamp = None
-        self._activationState = pmtypes.ComponentActivation.ON
-
-    def setActivationState(self, componentActivation):
-        '''
-        @param componentActivation: one of pmtypes.ComponentActivation values
-        '''
-        self._activationState = componentActivation
-        if componentActivation == pmtypes.ComponentActivation.ON:
-            self._lastTimeStamp = time.time()
-
-
-class _WaveformGeneratorSource(_SampleArraySource):
-    """Wraps a waveform generator"""
-    def __init__(self, descriptorHandle, generator):
-        super().__init__(descriptorHandle)
-        self._generator = generator
-        self.current_rt_sample_array = None
-
-    def getNextSampleArray(self):
-        if self._activationState != pmtypes.ComponentActivation.ON:
-            self.current_rt_sample_array = RtSampleArray(None, self._generator.sampleperiod, [], self._activationState)
-        else:
-            now = time.time()
-            observationTime = self._lastTimeStamp or now
-            samples_count = int((now - observationTime) / self._generator.sampleperiod)
-            samples = self._generator.nextSamples(samples_count)
-            self._lastTimeStamp = observationTime + self._generator.sampleperiod * samples_count
-            self.current_rt_sample_array = RtSampleArray(observationTime, self._generator.sampleperiod, samples, self._activationState)
-        return self.current_rt_sample_array
-
-    def setWfGenerator(self, generator):
-        self._generator = generator
-
-
-class RtSampleArray(object):
-    ''' This class contains a list of waveform values plus time stamps and annotations.
-    It is used to create Waveform notifications.'''  
-    def __init__(self, determinationTime, sampleperiod, samples, activationState):
-        '''
-        @param determinationTime: the time stamp of the first value in samples
-        @param sampleperiod: the time difference between two samples
-        @param samples: a list of values (float or int)
-        @param acticationState: one of pmtypes.ComponentActivation values
-        '''
-        self.determinationTime = determinationTime
-        self._sampleperiod = sampleperiod
-        self.samples = samples
-        self.activationState = activationState
-        self.annotations = []
-        self.applyAnnotations = []
-        
-        
-    def _nearestIndex(self, timestamp):
-        # first check if timestamp is outside the range of this samplearray. Accept 0.5*sampleperiod as tolerance.
-        if self.determinationTime is None: # when deactivated, determinationTime is None
-            return None
-        if timestamp < (self.determinationTime - self._sampleperiod*0.5):
-            return None 
-        elif timestamp >  self.determinationTime + len(self.samples)*self._sampleperiod + self._sampleperiod*0.5:
-            return None
-        n = (timestamp - self.determinationTime) / self._sampleperiod 
-        return  int(n)+1 if n%1 > 0.5 else int(n) 
-
-
-    def getAnnotationTriggerTimestamps(self):
-        ''' returns the time stamps of all samples that mark the beginning of a period'''
-        return [self.determinationTime + i*self._sampleperiod for i, sample in enumerate(self.samples) if sample[1]]
-        
-
-    def addAnnotationsAt(self, annotation, timestamps):
-        '''
-        @param annotation: a pmtypes.Annotation instance
-        @param timestamps: a list of time stamps (time.time based)
-        '''
-        annotationIndex = len(self.annotations) # Index is zero-based
-        self.annotations.append(annotation)
-        for t in timestamps:
-            i = self._nearestIndex(t)
-            if i is not None:
-                self.applyAnnotations.append(pmtypes.ApplyAnnotation(int(annotationIndex), i))
-
+from .devicewaveform import DefaultWaveformSource
+from ..definitions_sdc import SDC_v1_Definitions
 _TrItem = namedtuple('_TrItem', 'old new') # a named tuple for better readability of code
 
 
@@ -301,7 +216,6 @@ class _MdibUpdateTransaction(_TransactionBase):
             if stateContainer.descriptorHandle in lookup:
                 del lookup[stateContainer.descriptorHandle]
 
-
     def getMetricState(self, descriptorHandle, adjustStateVersion=True):
         ''' Update a MetricState.
         When the transaction is committed, the modifications to the copy will be applied to the original version, 
@@ -497,63 +411,19 @@ class _MdibUpdateTransaction(_TransactionBase):
             self._error = True
             raise
 
-    # def getRealTimeSampleArrayMetricState(self, descriptorHandle):
-    #     # for performance reasons, this method does not return a deep copy of the original object.
-    #     # This means no rollback possible.
-    #     if self._closed:
-    #         raise RuntimeError('This _MdibUpdateTransaction is closed!')
-    #     if self._error:
-    #         raise RuntimeError('This _MdibUpdateTransaction failed due to an previous error!')
-    #     try:
-    #         if descriptorHandle in self.rtSampleStateUpdates:
-    #             raise ValueError('descriptorHandle {} already in updated set!'.format(descriptorHandle))
-    #         stateContainer = self._deviceMdibContainer.states.descriptorHandle.getOne(descriptorHandle, allowNone=True)
-    #         if stateContainer is None:
-    #             descriptorContainer = self._getDescriptorInTransaction(descriptorHandle)
-    #             stateContainer = self._deviceMdibContainer.mkStateContainerFromDescriptor(descriptorContainer)
-    #             self._deviceMdibContainer.states.addObject(stateContainer)
-    #         else:
-    #             stateContainer.incrementState()
-    #
-    #         if not stateContainer.isRealtimeSampleArrayMetricState:
-    #             raise ValueError('descriptorHandle {} does not reference a RealTimeSampleArrayMetricState'.format(descriptorHandle))
-    #         newstate = stateContainer.mkCopy()
-    #         self.rtSampleStateUpdates[descriptorHandle] = _TrItem(stateContainer, newstate)
-    #         return newstate
-    #     except:
-    #         self._error = True
-    #         raise
-
-    # def _getDescriptorInTransaction(self, descriptorHandle):
-    #     ''' looks for descriptor in current transaction and in mdib'''
-    #     tr_containers = self.descriptorUpdates.get(descriptorHandle)
-    #     if tr_containers is not None:
-    #         old, new = tr_containers
-    #         if new is None: # descriptor is dwlwted in this transaction!
-    #             raise RuntimeError('The descriptor {} is going to be deleted'.format(descriptorHandle))
-    #         else:
-    #             return new
-    #     else:
-    #         return self._deviceMdibContainer.descriptions.handle.getOne(descriptorHandle)
-    #
-    # def _get_or_mk_StateContainer(self, descriptorHandle, adjustStateVersion=True):
-    #     ''' returns oldContainer, newContainer'''
-    #     descriptorContainer = self._getDescriptorInTransaction(descriptorHandle)
-    #     old_stateContainer = self._deviceMdibContainer.states.descriptorHandle.getOne(descriptorContainer.handle, allowNone=True)
-    #     if old_stateContainer is None:
-    #         # create a new state object
-    #         new_stateContainer = self._deviceMdibContainer.mkStateContainerFromDescriptor(descriptorContainer)
-    #         if adjustStateVersion:
-    #             self._deviceMdibContainer.states.setVersion(new_stateContainer)
-    #     else:
-    #         new_stateContainer = old_stateContainer.mkCopy()
-    #         new_stateContainer.incrementState()
-    #     return old_stateContainer, new_stateContainer
-
 
 class DeviceMdibContainer(mdibbase.MdibContainer):
-    ''' update source is the users program.'''
-    def __init__(self, sdc_definitions, log_prefix=None):
+    """Device side implementation of an mdib.
+     Do not modify containers directly, use transactions for that purpose.
+     Transactions keep track o changes and initiate sending of update notifications to clients."""
+    def __init__(self, sdc_definitions, log_prefix=None, waveform_source=None):
+        """
+        :param sdc_definitions: defaults to sdc11073.definitions_sdc.SDC_v1_Definitions
+        :param log_prefix: a string
+        :param waveform_source: an object that implements devicewaveform.AbstractWaveformSource
+        """
+        if sdc_definitions is None:
+            sdc_definitions = SDC_v1_Definitions
         super(DeviceMdibContainer, self).__init__(sdc_definitions)
         self._logger = loghelper.getLoggerAdapter('sdc.device.mdib', log_prefix)
         self._sdcDevice = None
@@ -562,13 +432,12 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         self.sequenceId = uuid.uuid4().urn # this uuid identifies this mdib instance
         
         self._currentLocation = None  # or a SdcLocation instance
-
-        self._waveformGenerators = {}
         self._annotators = {}
         self._current_transaction = None
 
         self.preCommitHandler = None # preCommitHandler can modify transaction if needed before it is committed
         self.postCommitHandler = None # postCommitHandler can modify mdib if needed after it is committed
+        self._waveform_source = waveform_source or DefaultWaveformSource()
 
     @contextmanager
     def mdibUpdateTransaction(self, setDeterminationTime=True):
@@ -718,7 +587,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 created = [d.mkCopy() for d in created]
                 deleted = [d.mkCopy() for d in deleted]
                 updated_states = [s.mkCopy() for s in updated_states]
-            self._sdcDevice.sendDescriptorUpdates(mdibVersion, updated=updated, created=created, deleted=deleted, updated_states=updated_states)
+            if self._sdcDevice is not None:
+                self._sdcDevice.sendDescriptorUpdates(mdibVersion, updated=updated, created=created, deleted=deleted, updated_states=updated_states)
 
         # handle metric states
         if len(mgr.metricStateUpdates) > 0:
@@ -743,7 +613,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 mdibVersion = self.mdibVersion
                 # makes copies of all states for sending, so that they can't be affected by transactions after this one
                 updates = [s.mkCopy() for s in updates]
-            self._sdcDevice.sendMetricStateUpdates(mdibVersion, updates)
+            if self._sdcDevice is not None:
+                self._sdcDevice.sendMetricStateUpdates(mdibVersion, updates)
 
         # handle alert states
         if len(mgr.alertStateUpdates) > 0:
@@ -767,7 +638,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 mdibVersion = self.mdibVersion
                 # makes copies of all states for sending, so that they can't be affected by transactions after this one
                 updates = [s.mkCopy() for s in updates]
-            self._sdcDevice.sendAlertStateUpdates(mdibVersion, updates)
+            if self._sdcDevice is not None:
+                self._sdcDevice.sendAlertStateUpdates(mdibVersion, updates)
 
             # handle component state states
         if len(mgr.componentStateUpdates) > 0:
@@ -789,7 +661,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 mdibVersion = self.mdibVersion
                 # makes copies of all states for sending, so that they can't be affected by transactions after this one
                 updates = [s.mkCopy() for s in updates]
-            self._sdcDevice.sendComponentStateUpdates(mdibVersion, updates)
+            if self._sdcDevice is not None:
+                self._sdcDevice.sendComponentStateUpdates(mdibVersion, updates)
 
         # handle context states
         if len(mgr.contextStateUpdates) > 0:
@@ -811,7 +684,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 mdibVersion = self.mdibVersion
                 # makes copies of all tates for sending, so that they can't be affected by transactions after this one
                 updates = [s.mkCopy() for s in updates]
-            self._sdcDevice.sendContextStateUpdates(mdibVersion, updates)
+            if self._sdcDevice is not None:
+                self._sdcDevice.sendContextStateUpdates(mdibVersion, updates)
 
         # handle operational states
         if len(mgr.operationalStateUpdates) > 0:
@@ -832,7 +706,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 mdibVersion = self.mdibVersion
                 # makes copies of all states for sending, so that they can't be affected by transactions after this one
                 updates = [s.mkCopy() for s in updates]
-            self._sdcDevice.sendOperationalStateUpdates(mdibVersion, updates)
+            if self._sdcDevice is not None:
+                self._sdcDevice.sendOperationalStateUpdates(mdibVersion, updates)
 
         # handle real time samples
         if len(mgr.rtSampleStateUpdates) > 0:
@@ -863,8 +738,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 mdibVersion = self.mdibVersion
                 # makes copies of all states for sending, so that they can't be affected by transactions after this one
                 updates = [s.mkCopy() for s in updates]
-                # self._sdcDevice.notify_realtime_samples_state_updates(mdibVersion, updates)
-                self._sdcDevice.sendRealtimeSamplesStateUpdates(mdibVersion, updates)
+                if self._sdcDevice is not None:
+                    self._sdcDevice.sendRealtimeSamplesStateUpdates(mdibVersion, updates)
         mgr.mdib_version = self.mdibVersion
 
     def _process_internal_rt_transaction(self):
@@ -884,7 +759,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     raise
             # makes copies of all states for sending, so that they can't be affected by transactions after this one
             updates = [s.mkCopy() for s in updates]
-            self._sdcDevice.sendRealtimeSamplesStateUpdates(self.mdibVersion, updates)
+            if self._sdcDevice is not None:
+                self._sdcDevice.sendRealtimeSamplesStateUpdates(self.mdibVersion, updates)
         mgr.mdib_version = self.mdibVersion
 
     def setSdcDevice(self, sdcDevice):
@@ -911,7 +787,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             self._currentLocation.updateFromSdcLocation(sdcLocation, self.bicepsSchema)
             if validators is not None:
                 self._currentLocation.Validator = validators
-  
 
     def _createDescriptorContainer(self, cls, nodeName, handle, parentHandle, codedValue, safetyClassification):
         obj = cls(nsmapper=self.nsmapper, 
@@ -923,7 +798,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         obj.Type = codedValue
         obj.updateNode()
         return obj
-
 
     def createVmdDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification):
         '''
@@ -945,7 +819,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             self.descriptions.addObject(obj)
         return obj
 
-
     def createChannelDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification):
         '''
         This method creates a ChannelDescriptorContainer with the given properties and optionally adds it to the mdib.
@@ -965,7 +838,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         else:
             self.descriptions.addObject(obj)
         return obj
-    
 
     def createStringMetricDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification, unit,  metricAvailability='Intr', metricCategory='Unspec'):
         '''
@@ -991,7 +863,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         else:
             self.descriptions.addObject(obj)
         return obj
-
 
     def createEnumStringMetricDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification, unit,  allowedValues, metricAvailability='Intr', metricCategory='Unspec'):
         '''
@@ -1019,7 +890,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             self.descriptions.addObject(obj)
         return obj
 
-
     def createClockDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification):
         '''
         This method creates a ClockDescriptorContainer with the given properties.
@@ -1038,7 +908,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         else:
             self.descriptions.addObject(obj)
         return obj
-
 
     def addState(self, stateContainer, adjustStateVersion=True):
         if self._current_transaction is not None:
@@ -1079,41 +948,17 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
     # real time data handling
     def registerWaveformGenerator(self, descriptorHandle, wfGenerator):
-        '''
-        @param descriptorHandle: the handle of the RealtimeSampelArray that shall accept this data
-        @param wfGenerator: a waveforms.WaveformGenerator instance
-        '''
-        sampleperiod = wfGenerator.sampleperiod
-        descriptorContainer = self.descriptions.handle.getOne(descriptorHandle)
-        if descriptorContainer.SamplePeriod != sampleperiod:
-            if self._sdcDevice is not None:
-                # we must inform subscribers 
-                with self.mdibUpdateTransaction() as tr:
-                    descr = tr.getDescriptor(descriptorHandle)
-                    descr.SamplePeriod = sampleperiod
-            else:
-                # we are at initialization time, this is a local operation. 
-                descriptorContainer.SamplePeriod = sampleperiod
-        if descriptorHandle in self._waveformGenerators:
-            self._waveformGenerators[descriptorHandle].setWfGenerator(wfGenerator)
-        else:
-            self._waveformGenerators[descriptorHandle] = (_WaveformGeneratorSource(descriptorHandle, wfGenerator))
-
+        self._waveform_source.register_waveform_generator(self, descriptorHandle, wfGenerator)
 
     def setWaveformGeneratorActivationState(self, descriptorHandle, componentActivation):
-        '''
-        @param componentActivation: one of pmtypes.ComponentActivation values
-        '''   
-        self._waveformGenerators[descriptorHandle].setActivationState(componentActivation)
-
+        self._waveform_source.set_activation_state(descriptorHandle, componentActivation)
 
     def registerAnnotationGenerator(self, annotator, triggerHandle, annotatedHandles):
-        '''
-        @param annotator: a pmtypes.Annotation instance
-        @param triggerHandle: The handle of the waveform that triggers the annotator ( trigger = start of a waveform cycle)
-        @param annotatedHandles: the handles of the waveforms that shall be annotated.
-        '''
-        self._annotators[triggerHandle] = (annotator, annotatedHandles)
+        self._waveform_source.register_annotation_generator(annotator, triggerHandle, annotatedHandles)
+
+    def update_all_rt_samples(self):
+        with self._rtsample_transaction() as tr:
+            self._waveform_source.update_all_realtime_samples(tr)
 
     def mkStateContainersforAllDescriptors(self):
         '''The model requires that there is a state for every descriptor (exception: multi-states)
@@ -1140,7 +985,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                         self._current_transaction.addState(st)
                     else:
                         self.states.addObject(st)
-
 
     @classmethod
     def fromMdibFile(cls, path, createLocationContextDescr=True, createPatientContextDescr=True,
@@ -1216,38 +1060,3 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     mdib.descriptions.addObject(pc)
         mdib.mkStateContainersforAllDescriptors()
         return mdib
-
-    def _update_rt_samples(self, state):
-        """ update waveforms state from waveform generator (if available)"""
-        wf_generator = self._waveformGenerators.get(state.descriptorHandle)
-        if wf_generator:
-            rt_sample = wf_generator.getNextSampleArray()
-            samples = [s[0] for s in rt_sample.samples]  # only the values without the 'start of cycle' flags
-            if state.metricValue is None:
-                state.mkMetricValue()
-            state.metricValue.Samples = samples
-            state.metricValue.DeterminationTime = rt_sample.determinationTime
-            state.metricValue.Annotations = rt_sample.annotations
-            state.metricValue.ApplyAnnotations = rt_sample.applyAnnotations
-            state.ActivationState = rt_sample.activationState
-
-    def update_all_rt_samples(self):
-        """ update all waveforms states that have a waveform generator registered"""
-        with self._rtsample_transaction() as tr:
-            for descriptor_handle in self._waveformGenerators.keys():
-                st = tr.getRealTimeSampleArrayMetricState(descriptor_handle)
-                self._update_rt_samples(st)
-            self._add_all_annotations()
-
-    def _add_all_annotations(self):
-            """ add annotations to all current RtSampleArrays """
-            rt_sample_arrays = {handle: g.current_rt_sample_array for (handle, g) in self._waveformGenerators.items()}
-            for src_handle, _annotator in self._annotators.items():
-                if src_handle in rt_sample_arrays:
-                    annotation, dest_handles = _annotator
-                    timestamps = rt_sample_arrays[src_handle].getAnnotationTriggerTimestamps()
-                    if timestamps:
-                        for dest_handle in dest_handles:
-                            if dest_handle in rt_sample_arrays:
-                                rt_sample_arrays[dest_handle].addAnnotationsAt(annotation, timestamps)
-

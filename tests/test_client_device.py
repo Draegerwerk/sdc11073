@@ -985,7 +985,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             
             # check waveform for completeness: the delta between all two-value-pairs of the triangle must be identical
             my_handle = d_handles[-1]
-            wfGenerator = sdcDevice.mdib._waveformGenerators[my_handle]
             expected_delta = 0.4 # triangle, waveform-period = 1 sec., 10 values per second, max-min=2
             
             time.sleep(1)
