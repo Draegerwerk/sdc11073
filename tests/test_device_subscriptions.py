@@ -75,6 +75,16 @@ class TestDeviceSubscriptions(unittest.TestCase):
             if d:
                 d.stopAll()
 
+    def _verify_proper_namespaces(self, report):
+        """We want some namespaces declared only once for small report sizes."""
+        import re
+        xml_string = report.as_xml().decode('utf-8')
+        for ns in (namespaces.Prefix_Namespace.PM.namespace,
+                   namespaces.Prefix_Namespace.MSG.namespace,
+                   namespaces.Prefix_Namespace.EXT.namespace,
+                   namespaces.Prefix_Namespace.XSI.namespace,):
+            occurances = [i.start() for i in re.finditer(ns, xml_string)]
+            self.assertLessEqual(len(occurances), 1)
 
     def test_waveformSubscription(self):
         for sdcDevice in self._allDevices:
@@ -92,9 +102,10 @@ class TestDeviceSubscriptions(unittest.TestCase):
             time.sleep(3)
             self.assertGreater(len(testSubscr.reports), 20)
             report = testSubscr.reports[-1] # a 
+            self._verify_proper_namespaces(report)
             in_report = ReceivedSoap12Envelope.fromXMLString(report.as_xml())
             expected_action = sdcDevice.mdib.sdc_definitions.Actions.Waveform
-            self.assertEqual(in_report.address.action, expected_action) 
+            self.assertEqual(in_report.address.action, expected_action)
 
 
     def test_episodicMetricReportSubscription(self):
@@ -113,7 +124,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
                                                                        ident='')
             subscrRequest = clSubscr._mkSubscribeEnvelope(subscribe_epr='http://otherdevice:123/bla', expire_minutes=59)
             subscrRequest.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
-            print (subscrRequest.as_xml(pretty=True))
+            self._verify_proper_namespaces(subscrRequest)
 
             httpHeader = {}
             # avoid instantiation of new soap client by pretenting there is one already
@@ -121,6 +132,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             response = sdcDevice.subscriptionsManager.onSubscribeRequest(httpHeader,
                                                                           ReceivedSoap12Envelope.fromXMLString(subscrRequest.as_xml()),
                                                                           'http://abc.com:123/def')
+            self._verify_proper_namespaces(response)
             response.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
             clSubscr._handleSubscribeResponse(ReceivedSoap12Envelope.fromXMLString(response.as_xml()))
             
@@ -171,6 +183,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
                 st.Validity = 'Vld'
             self.assertEqual(len(testSubscr.reports), 1)
             response = testSubscr.reports[0]
+            self._verify_proper_namespaces(response)
             print (response.as_xml(pretty=True))
             response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
             
@@ -194,6 +207,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
                 st.PatientType = pmtypes.PatientType.ADULT
             self.assertEqual(len(testSubscr.reports), 1)
             response = testSubscr.reports[0]
+            self._verify_proper_namespaces(response)
             response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
 
 
@@ -283,6 +297,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
                                                                          ReceivedSoap12Envelope.fromXMLString(
                                                                              subscrRequest.as_xml()),
                                                                          'http://abc.com:123/def')
+            self._verify_proper_namespaces(response)
             response.validateBody(sdcDevice.mdib.bicepsSchema.evtSchema)
             clSubscr._handleSubscribeResponse(ReceivedSoap12Envelope.fromXMLString(response.as_xml()))
 
@@ -350,6 +365,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             time.sleep(2)
             self.assertEqual(len(testEpisodicSubscr.reports), 2)
             for response in testEpisodicSubscr.reports:
+                self._verify_proper_namespaces(response)
                 print(response.as_xml(pretty=True).decode('UTF-8'))
 
             self.assertEqual(len(testPeriodicSubscr.reports), 1)

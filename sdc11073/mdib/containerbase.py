@@ -3,7 +3,7 @@ import inspect
 from lxml import etree as etree_
 from .. import observableproperties as properties
 from ..namespaces import QN_TYPE
-
+from ..namespaces import Prefix_Namespace as Prefix
 
 class ContainerBase(object):
     NODETYPE = None   # overwrite in derived classes! determines the value of xsi:Type attribute, must be a etree_.QName object
@@ -40,7 +40,7 @@ class ContainerBase(object):
         :return: etree node
         '''
         myTag = tag or self.NODENAME
-        node = etree_.Element(myTag, nsmap=self.nsmapper.docNssmap)
+        node = etree_.Element(myTag, nsmap=self.nsmapper.partialMap(Prefix.PM, Prefix.MSG, Prefix.XSI))
         self._updateNode(node, setXsiType)
         return node
 

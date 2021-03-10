@@ -4,6 +4,7 @@ from lxml import etree as etree_
 from .containerbase import ContainerBase
 from .. import observableproperties as properties
 from ..namespaces import domTag, extTag, siTag
+from ..namespaces import Prefix_Namespace as Prefix
 from .. import pmtypes
 from . import containerproperties as cp
 
@@ -175,7 +176,8 @@ class AbstractDescriptorContainer(ContainerBase):
         :return: an etree node
         '''
         myTag = tag or self.nodeName
-        node = etree_.Element(myTag, attrib={'Handle': self.handle}, nsmap=self.nsmapper.docNssmap)
+        node = etree_.Element(myTag, attrib={'Handle': self.handle},
+                              nsmap = self.nsmapper.partialMap(Prefix.PM, Prefix.MSG))
         self._updateNode(node, setXsiType)
         order = self._sortedChildNames()
         self._sortChildNodes(node, order)

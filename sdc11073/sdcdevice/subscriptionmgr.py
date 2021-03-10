@@ -288,7 +288,8 @@ class _DevSubscription(object):
 
 
 class SubscriptionsManager(object):
-    NotificationPrefixes = [Prefix.S12, Prefix.PM, Prefix.WSA, Prefix.WSE]
+    BodyNodePrefixes = [Prefix.PM, Prefix.MSG, Prefix.XSI, Prefix.EXT, Prefix.XML]
+    NotificationPrefixes = [Prefix.S12, Prefix.WSA, Prefix.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
     def __init__(self, sslContext, sdc_definitions, bicepsParser, supportedEncodings,
@@ -330,7 +331,7 @@ class SubscriptionsManager(object):
             self._subscriptions.addObject(s)
         self._logger.info('new {}', s)
 
-        response = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
+        response = Soap12Envelope(Prefix.partialMap(*self.NotificationPrefixes))
         replyAddress = soapEnvelope.address.mkReplyAddress(
             'http://schemas.xmlsoap.org/ws/2004/08/eventing/SubscribeResponse')
         response.addHeaderObject(replyAddress)
@@ -419,7 +420,7 @@ class SubscriptionsManager(object):
 
         for s in subscribers:
             self._logger.info('notifyOperation: sending report to {}', s.notifyToAddress)
-            self._sendNotificationReport(s, bodyNode, action, Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
+            self._sendNotificationReport(s, bodyNode, action, Prefix.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
     def onGetStatusRequest(self, soapEnvelope):
@@ -433,7 +434,7 @@ class SubscriptionsManager(object):
                                                      )
 
         else:
-            response = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
+            response = Soap12Envelope(Prefix.partialMap(*self.NotificationPrefixes))
             replyAddress = soapEnvelope.address.mkReplyAddress(
                 'http://schemas.xmlsoap.org/ws/2004/08/eventing/GetStatusResponse')
             response.addHeaderObject(replyAddress)
@@ -465,7 +466,7 @@ class SubscriptionsManager(object):
         else:
             subscr.renew(expires)
 
-            response = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
+            response = Soap12Envelope(Prefix.partialMap(*self.NotificationPrefixes))
             replyAddress = soapEnvelope.address.mkReplyAddress(
                 'http://schemas.xmlsoap.org/ws/2004/08/eventing/RenewResponse')
             response.addHeaderObject(replyAddress)
@@ -484,7 +485,7 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('EpisodicMetricReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(mdibVersion)},
-                                  nsmap=nsmapper.docNssmap)
+                                  nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedMetricStates:
@@ -505,7 +506,7 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('PeriodicMetricReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(updatedMetricStatesList[-1].mdib_version)},
-                                  nsmap=nsmapper.docNssmap)
+                                  nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         for part in updatedMetricStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
@@ -526,7 +527,7 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('EpisodicOperationalStateReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(mdibVersion)},
-                                  nsmap=nsmapper.docNssmap)
+                                  nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedStates:
@@ -547,7 +548,7 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('PeriodicOperationalStateReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(updatedStatesList[-1].mdib_version)},
-                                  nsmap=nsmapper.docNssmap)
+                                  nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         for part in updatedStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
@@ -568,7 +569,7 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('EpisodicAlertReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(mdibVersion)},
-                                  nsmap=nsmapper.docNssmap)
+                                  nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedAlertStates:
@@ -589,7 +590,7 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('PeriodicAlertReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(updatedStatesList[-1].mdib_version)},
-                                  nsmap=nsmapper.docNssmap)
+                                  nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         for part in updatedStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
@@ -610,7 +611,7 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('EpisodicComponentReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(mdibVersion)},
-                                  nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
+                                  nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedComponentStates:
@@ -631,7 +632,7 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('PeriodicComponentReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(updatedStatesList[-1].mdib_version)},
-                                  nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
+                                  nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         for part in updatedStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
@@ -652,7 +653,7 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('EpisodicContextReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(mdibVersion)},
-                                  nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
+                                  nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
 
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
@@ -674,7 +675,7 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('PeriodicContextReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(updatedStatesList[-1].mdib_version)},
-                                  nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
+                                  nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         for part in updatedStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
@@ -695,12 +696,11 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('WaveformStream'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(mdibVersion)},
-                                  nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
+                                  nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
 
         for s in updatedRealTimeSampleStates:
             stateNode = s.mkStateNode(msgTag('State'))
             bodyNode.append(stateNode)
-
         for s in subscribers:
             self._logger.debug('sendRealtimeSamplesReport: sending report to {}', s.notifyToAddress)
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
@@ -740,14 +740,14 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('DescriptionModificationReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(mdibVersion)},
-                                  nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
+                                  nsmap=nsmapper.partialMap(Prefix.MSG, Prefix.PM))
         self._mkDescriptorUpdatesReportPart(bodyNode, 'Upt', updated, updated_states)
         self._mkDescriptorUpdatesReportPart(bodyNode, 'Crt', created, updated_states)
         self._mkDescriptorUpdatesReportPart(bodyNode, 'Del', deleted, updated_states)
 
         for s in subscribers:
             self._sendNotificationReport(s, bodyNode, action,
-                                         nsmapper.partialMap(Prefix.S12, Prefix.PM, Prefix.WSA, Prefix.WSE))
+                                         nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
     def _sendNotificationReport(self, subscription, bodyNode, action, doc_nsmap):
