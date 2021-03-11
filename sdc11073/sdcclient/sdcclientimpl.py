@@ -357,11 +357,11 @@ class SdcClient(object):
         '''
         self.discoverHostedServices()
         self._startEventSink(async_dispatch)
-        periodic_actions = set([SDC_v1_Definitions.Actions.PeriodicMetricReport,
-                                SDC_v1_Definitions.Actions.PeriodicAlertReport,
-                                SDC_v1_Definitions.Actions.PeriodicComponentReport,
-                                SDC_v1_Definitions.Actions.PeriodicContextReport,
-                                SDC_v1_Definitions.Actions.PeriodicOperationalStateReport])
+        periodic_actions = set([self.sdc_definitions.Actions.PeriodicMetricReport,
+                                self.sdc_definitions.Actions.PeriodicAlertReport,
+                                self.sdc_definitions.Actions.PeriodicComponentReport,
+                                self.sdc_definitions.Actions.PeriodicContextReport,
+                                self.sdc_definitions.Actions.PeriodicOperationalStateReport])
         # start subscription manager
         self._subscriptionMgr = subscription.SubscriptionManager(self._notificationsDispatcherThread.base_url, log_prefix=self.log_prefix, checkInterval=subscriptionsCheckInterval)
         self._subscriptionMgr.start()
@@ -391,7 +391,7 @@ class SdcClient(object):
             if len(available_actions) > 0:
                 subscribe_actions = set(available_actions) - notSubscribedActionsSet
                 if not subscribe_periodic_reports:
-                    subscribe_actions -= periodic_actions
+                    subscribe_actions -= set(periodic_actions)
                 try:
                     self._subscribe(dpwsHosted, subscribe_actions,
                                     self._onAnyStateEventReport)
