@@ -710,6 +710,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 self._sdcDevice.sendOperationalStateUpdates(mdibVersion, updates)
 
         # handle real time samples
+        # important note: this transaction does not pull values from registerd waveform providers!
+        # Application i responsible to provide data.
         if len(mgr.rtSampleStateUpdates) > 0:
             with self.mdibLock:
                 self.mdibVersion += 1
@@ -717,14 +719,11 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 self._logger.debug('mdibUpdateTransaction: rtSample updates = {}', mgr.rtSampleStateUpdates)
                 for value in mgr.rtSampleStateUpdates.values():
                     oldstate, newstate = value.old, value.new
-                    update_samples = True
                     try:
                         if oldstate.MetricValue.Samples != newstate.MetricValue.Samples:
                             update_samples = False # user updated them, do not interfere
                     except:
                         pass
-                    if update_samples:
-                        self._update_rt_samples(newstate)
                     try:
                         newstate.updateNode()
                         self.states.removeObjectNoLock(oldstate)
