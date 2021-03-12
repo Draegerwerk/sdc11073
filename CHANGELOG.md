@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.0] - 2021-03-12
 ### Fixed
 - fixed wsdiscovery problems in high load scenarios (possible deadlocks, performance degrations)
-
+- fixed broken enabling of communication logger
+ 
 ### Added
 - support for discovery proxy over http(s)
 - periodic reports implemented
