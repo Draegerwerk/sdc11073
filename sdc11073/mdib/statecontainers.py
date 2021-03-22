@@ -81,19 +81,11 @@ class AbstractStateContainer(ContainerBase):
                 new_value = getattr(other, prop_name)
                 setattr(self, prop_name, new_value)
 
-    def mkCopy(self, copy_node=True):
-        ret = self.__class__(self.nsmapper, self.descriptorContainer)
-        ret.updateFromOtherContainer(self)
-        if copy_node:
-            ret.node = copy.deepcopy(self.node)
-        return ret
-
     def incrementState(self):
         if self.StateVersion is None:
             self.StateVersion = 1
         else:
             self.StateVersion += 1
-
 
     def updateDescriptorVersion(self):
         if self.descriptorContainer is None:
@@ -283,6 +275,15 @@ class ClockStateContainer(AbstractDeviceComponentStateContainer):
     TimeZone = cp.NodeAttributeProperty('TimeZone') # optional, a time zone string
     CriticalUse = cp.BooleanAttributeProperty('CriticalUse', impliedPyValue=False) # optional
     _props = ('ActiveSyncProtocol', 'ReferenceSource', 'DateAndTime', 'RemoteSync', 'Accuracy', 'LastSet', 'TimeZone', 'CriticalUse')
+
+    def diff(self, other):
+        """ compares all properties EXCEPT DateAndTime.
+        BICEPS says:
+        "As the current date/time changes at a high frequency, a change of this value SHALL NOT cause
+        an update of the state version unless it has been synchronized either remotely or manually."
+        returns a list of strings that describe differences"""
+        ret = super().diff(other)
+        return [n for n in ret if not 'DateAndTime' in n] # rely on string formatting
 
 
 class SystemContextStateContainer(AbstractDeviceComponentStateContainer):

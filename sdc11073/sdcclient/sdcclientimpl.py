@@ -363,15 +363,20 @@ class SdcClient(object):
                                 self.sdc_definitions.Actions.PeriodicContextReport,
                                 self.sdc_definitions.Actions.PeriodicOperationalStateReport])
         # start subscription manager
-        self._subscriptionMgr = subscription.SubscriptionManager(self._notificationsDispatcherThread.base_url, log_prefix=self.log_prefix, checkInterval=subscriptionsCheckInterval)
+        self._subscriptionMgr = subscription.SubscriptionManager(self._notificationsDispatcherThread.base_url,
+                                                                 log_prefix=self.log_prefix,
+                                                                 checkInterval=subscriptionsCheckInterval)
         self._subscriptionMgr.start()
 
-        if notSubscribedActions is None:
-            self.all_subscribed = True # this tells mdib that mdib state versions shall not have any gaps => log warnings for missing versions
-            notSubscribedActionsSet = set([])
-        else:
-            self.all_subscribed = False # this tells mdib that mdib state versions can have gaps => do not log warnings for missing versions
-            notSubscribedActionsSet = set(notSubscribedActions)
+        # flag 'self.all_subscribed' tells mdib that mdib state versions shall not have any gaps
+        # => log warnings for missing versions
+        self.all_subscribed = True
+        notSubscribedActionsSet = set([])
+        if notSubscribedActions:
+            not_subscribed_episodic_actions = [a for a in notSubscribedActions if not 'Periodic' in a]
+            if not_subscribed_episodic_actions:
+                self.all_subscribed = False
+                notSubscribedActionsSet = set(notSubscribedActions)
 
         # start operationInvoked subscription and tell all
         self._operationsManager = OperationsManager(self.log_prefix)
@@ -401,7 +406,8 @@ class SdcClient(object):
                                        traceback.format_exc(), subscribe_actions)
 
         # register callback for end of subscription
-        self._notificationsDispatcherThread.dispatcher.register_function( self.sdc_definitions.Actions.SubscriptionEnd, self._onSubScriptionEnd)
+        self._notificationsDispatcherThread.dispatcher.register_function(
+            self.sdc_definitions.Actions.SubscriptionEnd, self._onSubScriptionEnd)
 
         #connect self.isConnected observable to allSubscriptionsOkay observable in subscriptionsmanager
         def setIsConnected(isOk):

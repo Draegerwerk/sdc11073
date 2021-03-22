@@ -89,6 +89,7 @@ class AbstractDescriptorContainer(ContainerBase):
             # rename new node to name of old node
         node.tag = self.nodeName
         self._updateFromNode(node)
+        self.node = node
 
     def mkNode(self, tag=None, setXsiType=False):
         my_tag = tag or self.nodeName or self.NODENAME
@@ -177,7 +178,7 @@ class AbstractDescriptorContainer(ContainerBase):
         '''
         myTag = tag or self.nodeName
         node = etree_.Element(myTag, attrib={'Handle': self.handle},
-                              nsmap = self.nsmapper.partialMap(Prefix.PM, Prefix.MSG))
+                              nsmap = self.nsmapper.partialMap(Prefix.PM, Prefix.XSI))
         self._updateNode(node, setXsiType)
         order = self._sortedChildNames()
         self._sortChildNodes(node, order)

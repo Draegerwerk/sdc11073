@@ -1213,8 +1213,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 obj = sdcDevice.mdib.states.descriptorHandle.getOne(handle, allowNone=True)
                 if obj:
                     self.assertGreater(obj.StateVersion, version, msg='state {}: {} not greater than {}'.format(obj, obj.StateVersion, version) )
-                else:
-                    self.assertEqual(handle, '_sco') # special case handling for sco state in draft6: it is not sent over network
             for handle, version in contextState_descriptorHandles_lookup1.items():
                 obj = sdcDevice.mdib.contextStates.handle.getOne(handle)
                 print('checking object {} state={} expected={}'.format(obj, obj.StateVersion, version+1))

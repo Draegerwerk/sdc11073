@@ -1,7 +1,7 @@
 """
 This module contains the default implementation for waveform handling of the device.
 The sdc device periodically calls mdib.update_all_rt_samples method, which itself calls same method
-of its waveform source. It is in the responsibility of this method to update the RealtimeSampleArrayStates
+of its waveform source. It is the responsibility of this method to update the RealtimeSampleArrayStates
 of the mdib.
 """
 import time
@@ -16,7 +16,7 @@ class RtSampleArray:
         """
         @param determination_time: the time stamp of the first value in samples
         @param sample_period: the time difference between two samples
-        @param samples: a list of values (float or int)
+        @param samples: a list of 2-tuples (value (float or int), flag annotation_trigger)
         @param activation_state: one of pmtypes.ComponentActivation values
         """
         self.determination_time = determination_time
@@ -27,18 +27,18 @@ class RtSampleArray:
         self.apply_annotations = []
 
     def _nearest_index(self, timestamp):
-        # first check if timestamp is outside the range of this samplearray. Accept 0.5*sampleperiod as tolerance.
+        # first check if timestamp is outside the range of this sample array. Accept 0.5*sample period as tolerance.
         if self.determination_time is None:  # when deactivated, determinationTime is None
             return None
         if timestamp < (self.determination_time - self.sample_period * 0.5):
             return None
-        elif timestamp > self.determination_time + len(self.samples) * self.sample_period + self.sample_period * 0.5:
+        elif timestamp >= self.determination_time + len(self.samples) * self.sample_period + self.sample_period * 0.5:
             return None
         n = (timestamp - self.determination_time) / self.sample_period
-        return int(n) + 1 if n % 1 > 0.5 else int(n)
+        return int(n) + 1 if n % 1 >= 0.5 else int(n)
 
     def get_annotation_trigger_timestamps(self):
-        """ returns the time stamps of all samples that mark the beginning of a period"""
+        """ returns the time stamps of all samples annotation_trigger set"""
         return [self.determination_time + i * self.sample_period for i, sample in enumerate(self.samples) if sample[1]]
 
     def add_annotations_at(self, annotation, timestamps):
@@ -46,27 +46,15 @@ class RtSampleArray:
         @param annotation: a pmtypes.Annotation instance
         @param timestamps: a list of time stamps (time.time based)
         """
+        applied = False
         annotation_index = len(self.annotations)  # Index is zero-based
-        self.annotations.append(annotation)
         for t in timestamps:
             i = self._nearest_index(t)
             if i is not None:
                 self.apply_annotations.append(pmtypes.ApplyAnnotation(annotation_index, i))
-
-
-class _SampleArraySource:
-    def __init__(self, descriptor_handle):
-        self._descriptor_handle = descriptor_handle
-        self._last_timestamp = None
-        self._activation_state = pmtypes.ComponentActivation.ON
-
-    def set_activation_state(self, component_activation):
-        """
-        @param component_activation: one of pmtypes.ComponentActivation values
-        """
-        self._activation_state = component_activation
-        if component_activation == pmtypes.ComponentActivation.ON:
-            self._last_timestamp = time.time()
+                applied = True
+        if applied:
+            self.annotations.append(annotation)
 
 
 class _SampleArrayGenerator:
@@ -114,17 +102,16 @@ class AbstractWaveformSource(ABC):
 
     @abstractmethod
     def register_waveform_generator(self, mdib, descriptorHandle, wfGenerator):
-        """deprecated, only required for backwards compatibility"""
         pass
 
     @abstractmethod
     def set_activation_state(self, mdib, descriptorHandle, componentActivation):
-        """deprecated, only required for backwards compatibility"""
         pass
 
 
 class DefaultWaveformSource(AbstractWaveformSource):
-    """ This is the basic mechanism that read data from waveform sources and applies to mdib via real time transaction.
+    """ This is the basic mechanism that reads data from waveform sources and applies it to mdib
+    via real time transaction.
     Method 'update_all_realtime_samples' must be called periodically."""
     def __init__(self):
         self._waveform_generators = {}
@@ -139,7 +126,8 @@ class DefaultWaveformSource(AbstractWaveformSource):
         self._add_all_annotations()
 
     def register_waveform_generator(self, mdib, descriptor_handle, wf_generator):
-        """deprecated, only required for backwards compatibility.
+        """
+        param mdib: a device mdib instance
         @param descriptor_handle: the handle of the RealtimeSampelArray that shall accept this data
         @param wf_generator: a waveforms.WaveformGenerator instance
         """
@@ -153,14 +141,18 @@ class DefaultWaveformSource(AbstractWaveformSource):
         if descriptor_handle in self._waveform_generators:
             self._waveform_generators[descriptor_handle].setWfGenerator(wf_generator)
         else:
-            self._waveform_generators[descriptor_handle] = (_SampleArrayGenerator(descriptor_handle, wf_generator))
+            self._waveform_generators[descriptor_handle] = _SampleArrayGenerator(descriptor_handle, wf_generator)
 
-    def set_activation_state(self, descriptorHandle, componentActivation):
-        """deprecated, only required for backwards compatibility
+    def set_activation_state(self, mdib, descriptorHandle, componentActivation):
+        """
+        param mdib: a device mdib instance
         @param descriptorHandle: a handle string
         @param componentActivation: one of pmtypes.ComponentActivation values
         """
         self._waveform_generators[descriptorHandle].set_activation_state(componentActivation)
+        with mdib.mdibUpdateTransaction() as tr:
+            st = tr.getRealTimeSampleArrayMetricState(descriptorHandle)
+            st.ActivationState = componentActivation
 
     def register_annotation_generator(self, annotator, triggerHandle, annotatedHandles):
         """

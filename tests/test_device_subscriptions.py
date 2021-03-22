@@ -243,7 +243,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             print (subscrRequest.as_xml(pretty=True))
 
             httpHeader = {}
-            # avoid instantiation of new soap client by pretenting there is one already
+            # avoid instantiation of new soap client by pretending there is one already
             sdcDevice.subscriptionsManager.soapClients['localhost:123'] = 'dummy'
             response = sdcDevice.subscriptionsManager.onSubscribeRequest(httpHeader,
                                                                           ReceivedSoap12Envelope.fromXMLString(subscrRequest.as_xml()),

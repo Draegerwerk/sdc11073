@@ -93,22 +93,29 @@ class ContainerBase(object):
 
 
     def diff(self, other):
-        ''' compares all properties.
-        returns a list of strings that describe differences'''
+        """ compares all properties.
+        returns a list of strings that describe differences"""
         ret = []
-        for name, dummy in self._sortedContainerProperties():
-            myvalue = getattr(self, name)
+        my_properties = self._sortedContainerProperties()
+        for name, dummy in my_properties:
+            my_value = getattr(self, name)
             try:
-                othervalue = getattr(other, name)
+                other_value = getattr(other, name)
             except AttributeError:
-                ret.append('{}={}, other does not have this attribute'.format(name, myvalue))
+                ret.append('{}={}, other does not have this attribute'.format(name, my_value))
             else:
-                if isinstance(myvalue, float) or isinstance(othervalue, float):
+                if isinstance(my_value, float) or isinstance(other_value, float):
                     # cast both to float, if one is a Decimal Exception might be thrown
-                    if abs((float(myvalue)-float(othervalue))/float(myvalue)) > 1e-10: # 1e-10 is good enough
-                        ret.append('{}={}, other={}'.format(name, myvalue, othervalue))
-                elif myvalue != othervalue:
-                    ret.append('{}={}, other={}'.format(name, myvalue, othervalue))
+                    if abs((float(my_value)-float(other_value))/float(my_value)) > 1e-10: # 1e-10 is good enough
+                        ret.append('{}={}, other={}'.format(name, my_value, other_value))
+                elif my_value != other_value:
+                    ret.append('{}={}, other={}'.format(name, my_value, other_value))
+        # check also if other has a different list of properties
+        my_property_names = set([p[0] for p in my_properties])
+        other_property_names = set([p[0] for p in other._sortedContainerProperties()])
+        surplus_names = other_property_names - my_property_names
+        if surplus_names:
+            ret.append(f'other has more data elements:{surplus_names}')
         return ret
 
     def is_equal(self, other):

@@ -77,7 +77,7 @@ class DevicesDispatcher(object):
         for url, dispatcher in self.deviceByUrl.items():
             if _path.startswith(url):
                 return dispatcher
-        raise HTTPRequestHandlingError(status=404, reason='not found', soapfault='client error')
+        raise HTTPRequestHandlingError(status=404, reason='not found', soapfault=b'client error')
 
     def on_post(self, path, headers, request):
         return self.get_device_dispather(path).on_post(path, headers, request)
@@ -182,8 +182,6 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 
                 commlog.defaultLogger.logSoapRespOut(response_xml_string, 'POST')
                 self.send_response(http_status, http_reason)
-            if isinstance(response_xml_string, str):
-                response_xml_string = response_xml_string.encode('utf-8')
             response_xml_string = self._compressIfRequired(response_xml_string)
             self.send_header("Content-type", "application/soap+xml; charset=utf-8")
             if self.server.chunked_response:

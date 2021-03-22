@@ -4,6 +4,7 @@ import time
 import urllib
 import logging
 import threading
+import traceback
 from collections import namedtuple
 
 from lxml import etree as etree_
@@ -424,8 +425,8 @@ class SdcHandler_Base(object):
         return metaDataNode
 
     def _store_for_periodic_report(self, mdib_version, state_updates, dest_list):
-        copied_updates = [s.mkCopy() for s in state_updates]
         if self._run_periodic_reports_thread:
+            copied_updates = [s.mkCopy() for s in state_updates]
             with self._periodic_reports_lock:
                 dest_list.append(PeriodicStates(mdib_version, copied_updates))
 
@@ -479,10 +480,16 @@ class SdcHandler_Base(object):
         timer = intervaltimer.IntervalTimer(periodInSeconds=self.collectRtSamplesPeriod)
         while self._runRtSampleThread:
             behindScheduleSeconds = timer.waitForNextIntervalBegin()
-            self._mdib.update_all_rt_samples() # update from waveform generators
-            self._logWaveformTiming(behindScheduleSeconds)
+            try:
+                self._mdib.update_all_rt_samples() # update from waveform generators
+                self._logWaveformTiming(behindScheduleSeconds)
+            except Exception:
+                self._logger.warn(' could not update real time samples: {}', traceback.format_exc())
 
     def _periodic_reports_send_loop(self):
+        """This is a very basic implementation of periodic reports, it only supports fixed interval.
+        It does not care about retrievability settings in the mdib.
+        """
         self._logger.debug('_periodic_reports_send_loop start')
         time.sleep(0.1)  # start delayed
         timer = intervaltimer.IntervalTimer(periodInSeconds=self._periodic_reports_interval)
