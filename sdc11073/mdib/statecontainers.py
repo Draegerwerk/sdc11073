@@ -282,8 +282,7 @@ class ClockStateContainer(AbstractDeviceComponentStateContainer):
         "As the current date/time changes at a high frequency, a change of this value SHALL NOT cause
         an update of the state version unless it has been synchronized either remotely or manually."
         returns a list of strings that describe differences"""
-        ret = super().diff(other)
-        return [n for n in ret if not 'DateAndTime' in n] # rely on string formatting
+        return super().diff(other, ignore_property_names=['DateAndTime'])
 
 
 class SystemContextStateContainer(AbstractDeviceComponentStateContainer):

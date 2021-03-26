@@ -92,12 +92,15 @@ class ContainerBase(object):
         return ret
 
 
-    def diff(self, other):
-        """ compares all properties.
+    def diff(self, other, ignore_property_names=None):
+        """ compares all properties (except to be ignored ones).
         returns a list of strings that describe differences"""
         ret = []
+        ignore_list = ignore_property_names or []
         my_properties = self._sortedContainerProperties()
         for name, dummy in my_properties:
+            if name in ignore_list:
+                continue
             my_value = getattr(self, name)
             try:
                 other_value = getattr(other, name)

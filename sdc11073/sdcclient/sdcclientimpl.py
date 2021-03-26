@@ -358,10 +358,10 @@ class SdcClient(object):
         self.discoverHostedServices()
         self._startEventSink(async_dispatch)
         periodic_actions = set([self.sdc_definitions.Actions.PeriodicMetricReport,
-                                self.sdc_definitions.Actions.PeriodicAlertReport,
-                                self.sdc_definitions.Actions.PeriodicComponentReport,
-                                self.sdc_definitions.Actions.PeriodicContextReport,
-                                self.sdc_definitions.Actions.PeriodicOperationalStateReport])
+                             self.sdc_definitions.Actions.PeriodicAlertReport,
+                             self.sdc_definitions.Actions.PeriodicComponentReport,
+                             self.sdc_definitions.Actions.PeriodicContextReport,
+                             self.sdc_definitions.Actions.PeriodicOperationalStateReport])
         # start subscription manager
         self._subscriptionMgr = subscription.SubscriptionManager(self._notificationsDispatcherThread.base_url,
                                                                  log_prefix=self.log_prefix,
