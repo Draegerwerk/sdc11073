@@ -288,8 +288,7 @@ class HttpServerThread(threading.Thread):
         self.httpd.socket.close()
         if closeAllConnections:
             if self.httpd.dispatcher is not None:
-                self.httpd.dispatcher.methods = None
-                self.httpd.dispatcher = None # this leads to a '503' reaction in SOAPNotificationsHandler 
+                self.httpd.dispatcher = None # this leads to a '503' reaction in SOAPNotificationsHandler
             for thr in self.httpd.threads:
                 thread, request, client_addr = thr
                 if thread.is_alive():
