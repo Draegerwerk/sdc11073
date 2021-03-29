@@ -22,7 +22,7 @@ T_HTTP_RESP = 'http_resp'
 
 
 class NullLogger(object):
-    ''' This is a dummy logger that does nothing.'''
+    """This is a dummy logger that does nothing."""
     def __getattr__(self, name):
         return self.do_nothing
     
@@ -31,7 +31,7 @@ class NullLogger(object):
 
 
 class CommLogger(object):
-    ''' This is the logger that writes communication logs.'''
+    """This is the logger that writes communication logs."""
     def __init__(self, log_folder, log_out=False, log_in=False, broadcastIpFilter=None):
         self._log_folder = log_folder
         self._log_out = log_out
@@ -114,3 +114,7 @@ defaultLogger = NullLogger()
 
 def getCommunicationLogger():
     return defaultLogger
+
+def setCommunicationLogger(comm_logger):
+    global defaultLogger
+    defaultLogger = comm_logger

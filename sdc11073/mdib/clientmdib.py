@@ -744,6 +744,15 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     else:
                         container.updateDescrFromNode(dc.node)
                     updatedDescriptorByHandle[dc.handle] = dc
+                    # if this is a context descriptor, delete all associated states that are not in
+                    # state_containers list
+                    if dc.isContextDescriptor:
+                        updated_handles = set([s.Handle for s in stateContainers if s.descriptorHandle == dc.handle])
+                        my_handles = set([s.Handle for s in self.contextStates.handle.get(dc.handle, [])])
+                        to_be_deleted = my_handles - updated_handles
+                        for handle in to_be_deleted:
+                            st = multikey.handle.getOne(handle)
+                            self.contextStates.removeObjectNoLock(st)
                 for sc in stateContainers:
                     # determine multikey
                     if sc.isContextState:
@@ -792,10 +801,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             diffs = oldStateContainer.diff(newStateContainer) # compares all xml attributes
             if diffs:
                 self._logger.error(
-                    '{}: repeated state version {} for state DescriptorHandle={}, but states have different data:{}',
-                    reportName,
-                    oldStateContainer.StateVersion, oldStateContainer.descriptorHandle,
-                    diffs)
+                    '{}: repeated state version {} for state {}, DescriptorHandle={}, but states have different data:{}',
+                    reportName, oldStateContainer.StateVersion, oldStateContainer.__class__.__name__,
+                    oldStateContainer.descriptorHandle, diffs)
             return False
 
 

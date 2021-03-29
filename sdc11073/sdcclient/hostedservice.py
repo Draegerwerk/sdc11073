@@ -448,7 +448,12 @@ class StateEventClient(HostedServiceClient):
     subscribeable_actions = ('EpisodicMetricReport',
                              'EpisodicAlertReport',
                              'EpisodicComponentReport',
-                             'EpisodicOperationalStateReport')
+                             'EpisodicOperationalStateReport',
+                             'PeriodicMetricReport',
+                             'PeriodicAlertReport',
+                             'PeriodicComponentReport',
+                             'PeriodicOperationalStateReport'
+                             )
 
 
 class DescriptionEventClient(HostedServiceClient):
@@ -456,7 +461,7 @@ class DescriptionEventClient(HostedServiceClient):
 
 
 class ContextServiceClient(HostedServiceClient):
-    subscribeable_actions = ('EpisodicContextReport',)
+    subscribeable_actions = ('EpisodicContextReport', 'PeriodicContextReport')
 
     def mkProposedContextObject(self, descriptorHandle, handle=None):
         """

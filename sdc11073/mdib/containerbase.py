@@ -3,7 +3,7 @@ import inspect
 from lxml import etree as etree_
 from .. import observableproperties as properties
 from ..namespaces import QN_TYPE
-
+from ..namespaces import Prefix_Namespace as Prefix
 
 class ContainerBase(object):
     NODETYPE = None   # overwrite in derived classes! determines the value of xsi:Type attribute, must be a etree_.QName object
@@ -40,7 +40,7 @@ class ContainerBase(object):
         :return: etree node
         '''
         myTag = tag or self.NODENAME
-        node = etree_.Element(myTag, nsmap=self.nsmapper.docNssmap)
+        node = etree_.Element(myTag, nsmap=self.nsmapper.partialMap(Prefix.PM, Prefix.MSG, Prefix.XSI))
         self._updateNode(node, setXsiType)
         return node
 
@@ -66,10 +66,11 @@ class ContainerBase(object):
             cprop.updateFromNode(self, node)
 
 
-    def mkCopy(self):
+    def mkCopy(self, copy_node=True):
         copied = copy.copy(self)
-        cpNode = copy.deepcopy(self.node)
-        copied.node = cpNode
+        if copy_node:
+            cpNode = copy.deepcopy(self.node)
+            copied.node = cpNode
         return copied
 
 
@@ -91,21 +92,37 @@ class ContainerBase(object):
         return ret
 
 
-    def diff(self, other):
-        ''' compares all properties.
-        returns a list of strings that describe differences'''
+    def diff(self, other, ignore_property_names=None):
+        """ compares all properties (except to be ignored ones).
+        returns a list of strings that describe differences"""
         ret = []
-        for name, dummy in self._sortedContainerProperties():
-            myvalue = getattr(self, name)
+        ignore_list = ignore_property_names or []
+        my_properties = self._sortedContainerProperties()
+        for name, dummy in my_properties:
+            if name in ignore_list:
+                continue
+            my_value = getattr(self, name)
             try:
-                othervalue = getattr(other, name)
+                other_value = getattr(other, name)
             except AttributeError:
-                ret.append('{}={}, other does not have this attribute'.format(name, myvalue))
+                ret.append('{}={}, other does not have this attribute'.format(name, my_value))
             else:
-                #                if not myvalue == othervalue: # use ==, because only __eq__ is implemented
-                if myvalue != othervalue:
-                    ret.append('{}={}, other={}'.format(name, myvalue, othervalue))
+                if isinstance(my_value, float) or isinstance(other_value, float):
+                    # cast both to float, if one is a Decimal Exception might be thrown
+                    if abs((float(my_value)-float(other_value))/float(my_value)) > 1e-10: # 1e-10 is good enough
+                        ret.append('{}={}, other={}'.format(name, my_value, other_value))
+                elif my_value != other_value:
+                    ret.append('{}={}, other={}'.format(name, my_value, other_value))
+        # check also if other has a different list of properties
+        my_property_names = set([p[0] for p in my_properties])
+        other_property_names = set([p[0] for p in other._sortedContainerProperties()])
+        surplus_names = other_property_names - my_property_names
+        if surplus_names:
+            ret.append(f'other has more data elements:{surplus_names}')
         return ret
+
+    def is_equal(self, other):
+        return len(self.diff(other)) == 0
 
     def __repr__(self):
         return '{} name="{}" type={}'.format(self.__class__.__name__, self.NODENAME, self.NODETYPE)

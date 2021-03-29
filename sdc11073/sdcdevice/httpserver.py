@@ -77,7 +77,7 @@ class DevicesDispatcher(object):
         for url, dispatcher in self.deviceByUrl.items():
             if _path.startswith(url):
                 return dispatcher
-        raise HTTPRequestHandlingError(status=404, reason='not found', soapfault='client error')
+        raise HTTPRequestHandlingError(status=404, reason='not found', soapfault=b'client error')
 
     def on_post(self, path, headers, request):
         return self.get_device_dispather(path).on_post(path, headers, request)
@@ -173,6 +173,8 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
                     response_xml_string = devices_dispatcher.on_post(self.path, self.headers, request)
                     http_status = 200
                     http_reason = 'Ok'
+                    # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
+                    assert (b'utf-8' in response_xml_string[:100].lower())
                 except HTTPRequestHandlingError as ex:
                     response_xml_string = ex.soapfault
                     http_status = ex.status
@@ -180,7 +182,6 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 
                 commlog.defaultLogger.logSoapRespOut(response_xml_string, 'POST')
                 self.send_response(http_status, http_reason)
-            assert(b'utf-8' in response_xml_string[:100].lower()) # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
             response_xml_string = self._compressIfRequired(response_xml_string)
             self.send_header("Content-type", "application/soap+xml; charset=utf-8")
             if self.server.chunked_response:
@@ -287,8 +288,7 @@ class HttpServerThread(threading.Thread):
         self.httpd.socket.close()
         if closeAllConnections:
             if self.httpd.dispatcher is not None:
-                self.httpd.dispatcher.methods = None
-                self.httpd.dispatcher = None # this leads to a '503' reaction in SOAPNotificationsHandler 
+                self.httpd.dispatcher = None # this leads to a '503' reaction in SOAPNotificationsHandler
             for thr in self.httpd.threads:
                 thread, request, client_addr = thr
                 if thread.is_alive():

@@ -2,6 +2,7 @@ import time
 import uuid
 import sys
 import inspect
+import copy
 from .containerbase import ContainerBase
 from ..namespaces import domTag
 from .. import pmtypes 
@@ -80,13 +81,11 @@ class AbstractStateContainer(ContainerBase):
                 new_value = getattr(other, prop_name)
                 setattr(self, prop_name, new_value)
 
-
     def incrementState(self):
         if self.StateVersion is None:
             self.StateVersion = 1
         else:
             self.StateVersion += 1
-
 
     def updateDescriptorVersion(self):
         if self.descriptorContainer is None:
@@ -167,6 +166,11 @@ class AbstractMetricStateContainer_Base(AbstractStateContainer):
         else:
             raise RuntimeError('State (handle="{}") already has a metric value'.format(self.handle))
 
+    def mkCopy(self, copy_node=True):
+        copied = super().mkCopy(copy_node)
+        copied._MetricValue = copy.deepcopy(self._MetricValue)
+        return copied
+
 
 class AbstractMetricStateContainer(AbstractMetricStateContainer_Base):
     BodySite = cp.SubElementListProperty([domTag('BodySite')], cls=pmtypes.CodedValue)
@@ -212,9 +216,8 @@ class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
         samplesCount = 0
         if self.metricValue is not None and self.metricValue.Samples is not None:
             samplesCount = len(self.metricValue.Samples)
-        return '{} descriptorHandle="{}" Activation="{}" Samples={}'.format(self.__class__.__name__,
-                                                                            self.descriptorHandle, self.ActivationState,
-                                                                            samplesCount)
+        return '{} Version={} descriptorHandle="{}" Activation="{}" Samples={}'.format(
+            self.__class__.__name__, self.StateVersion, self.descriptorHandle, self.ActivationState, samplesCount)
 
 
 class DistributionSampleArrayMetricStateContainer(AbstractMetricStateContainer):
@@ -272,6 +275,14 @@ class ClockStateContainer(AbstractDeviceComponentStateContainer):
     TimeZone = cp.NodeAttributeProperty('TimeZone') # optional, a time zone string
     CriticalUse = cp.BooleanAttributeProperty('CriticalUse', impliedPyValue=False) # optional
     _props = ('ActiveSyncProtocol', 'ReferenceSource', 'DateAndTime', 'RemoteSync', 'Accuracy', 'LastSet', 'TimeZone', 'CriticalUse')
+
+    def diff(self, other):
+        """ compares all properties EXCEPT DateAndTime.
+        BICEPS says:
+        "As the current date/time changes at a high frequency, a change of this value SHALL NOT cause
+        an update of the state version unless it has been synchronized either remotely or manually."
+        returns a list of strings that describe differences"""
+        return super().diff(other, ignore_property_names=['DateAndTime'])
 
 
 class SystemContextStateContainer(AbstractDeviceComponentStateContainer):
