@@ -526,7 +526,7 @@ class AlertSignalDescriptorContainer(AbstractAlertDescriptorContainer):
 
 
     
-class SystemContextDescriptorContainer(AbstractDeviceComponentDescriptorContainer): #AbstractDescriptorContainer):
+class SystemContextDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     isSystemContextDescriptor = True
     NODETYPE = domTag('SystemContextDescriptor')
     STATE_QNAME = domTag('SystemContextState')

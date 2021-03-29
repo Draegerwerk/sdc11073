@@ -463,13 +463,12 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                         update_dict = mgr.componentStateUpdates
                     elif descriptorContainer.isContextDescriptor:
                         update_dict = mgr.contextStateUpdates
-                    elif descriptorContainer.isMetricDescriptor \
-                            and not descriptorContainer.isRealtimeSampleArrayMetricDescriptor:
+                    elif descriptorContainer.isRealtimeSampleArrayMetricDescriptor:
+                        update_dict = mgr.rtSampleStateUpdates
+                    elif descriptorContainer.isMetricDescriptor:
                         update_dict = mgr.metricStateUpdates
                     elif descriptorContainer.isOperationalDescriptor:
                         update_dict = mgr.operationalStateUpdates
-                    elif descriptorContainer.isRealtimeSampleArrayMetricDescriptor:
-                        update_dict = mgr.rtSampleStateUpdates
                     else:
                         raise RuntimeError(f'do not know how to handle {descriptorContainer.__class__.__name__}')
                     if descriptorContainer.isContextDescriptor:
