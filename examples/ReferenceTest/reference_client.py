@@ -1,4 +1,5 @@
 import time
+import logging
 import traceback
 import os
 import sdc11073
@@ -35,8 +36,10 @@ def run_ref_test():
     print('Test step 2: connect to device...')
     try:
         if ca_folder:
-            ssl_context = mk_ssl_context_from_folder(ca_folder, cyphers_file='client_cyphers.txt',
-                                                     ssl_passwd=ssl_passwd)
+            ssl_context = mk_ssl_context_from_folder(ca_folder, cyphers_file=None,
+                                                     certificate='sdccert.pem',
+                                                     ssl_passwd=ssl_passwd,
+                                                     )
         else:
             ssl_context = None
         client = sdc11073.sdcclient.SdcClient.fromWsdService(my_service,
@@ -97,32 +100,38 @@ def run_ref_test():
     observableproperties.bind(mdib, metricsByHandle=onMetricUpdates)
     observableproperties.bind(mdib, alertByHandle=onAlertUpdates)
 
-    sleep_timer = 11
+    sleep_timer = 20
     min_updates = sleep_timer // 5 - 1
     print('will wait for {} seconds now, expecting at least {} updates per handle'.format(sleep_timer, metric_updates))
     time.sleep(sleep_timer)
     print(metric_updates)
     print(alert_updates)
-    for k, v in metric_updates.items():
-        if len(v) < min_updates:
-            print('found only {} updates for {}, test step 7 failed'.format(len(v), k))
-            results.append('### Test 7 ### failed')
-        else:
-            print('found {} updates for {}, test step 7 ok'.format(len(v), k))
-            results.append('### Test 7 ### passed')
-    for k, v in alert_updates.items():
-        if len(v) < min_updates:
-            print('found only {} updates for {}, test step 8 failed'.format(len(v), k))
-            results.append('### Test 8 ### failed')
-        else:
-            print('found {} updates for {}, test step 8 ok'.format(len(v), k))
-            results.append('### Test 8 ### passed')
+    if len(metric_updates) == 0:
+        results.append('### Test 7 ### failed')
+    else:
+        for k, v in metric_updates.items():
+            if len(v) < min_updates:
+                print('found only {} updates for {}, test step 7 failed'.format(len(v), k))
+                results.append(f'### Test 7 handle {k} ### failed')
+            else:
+                print('found {} updates for {}, test step 7 ok'.format(len(v), k))
+                results.append(f'### Test 7 handle {k} ### passed')
+    if len(alert_updates) == 0:
+        results.append('### Test 8 ### failed')
+    else:
+        for k, v in alert_updates.items():
+            if len(v) < min_updates:
+                print('found only {} updates for {}, test step 8 failed'.format(len(v), k))
+                results.append(f'### Test 8 handle {k} ### failed')
+            else:
+                print('found {} updates for {}, test step 8 ok'.format(len(v), k))
+                results.append(f'### Test 8 handle {k} ### passed')
 
     print('Test step 9: call SetString operation')
     setstring_operations = mdib.descriptions.NODETYPE.get(sdc11073.namespaces.domTag('SetStringOperationDescriptor'), [])
     setst_handle = 'string.ch0.vmd1_sco_0'
     if len(setstring_operations) == 0:
-        print('Test step 9 failed, no SetString operation found')
+        print('Test step 9(SetString) failed, no SetString operation found')
         results.append('### Test 9 ### failed')
     else:
         for s in setstring_operations:
@@ -135,21 +144,21 @@ def run_ref_test():
                 print(res)
                 if res.state != sdc11073.pmtypes.InvocationState.FINISHED:
                     print('set string operation {} did not finish with "Fin":{}'.format(s.handle, res))
-                    results.append('### Test 9 ### failed')
+                    results.append('### Test 9(SetString) ### failed')
                 else:
                     print('set value operation {} ok:{}'.format(s.handle, res))
-                    results.append('### Test 9 ### passed')
+                    results.append('### Test 9(SetString) ### passed')
             except futures.TimeoutError:
                 print('timeout error')
-                results.append('### Test 9 ### failed')
+                results.append('### Test 9(SetString) ### failed')
 
-    print('Test step 10: call SetValue operation')
+    print('Test step 9: call SetValue operation')
     setvalue_operations = mdib.descriptions.NODETYPE.get(sdc11073.namespaces.domTag('SetValueOperationDescriptor'), [])
 #    print('setvalue_operations', setvalue_operations)
     setval_handle = 'numeric.ch0.vmd1_sco_0'
     if len(setvalue_operations) == 0:
-        print('Test step 10 failed, no SetValue operation found')
-        results.append('### Test 10 ### failed')
+        print('Test step 9 failed, no SetValue operation found')
+        results.append('### Test 9(SetValue) ### failed')
     else:
         for s in setvalue_operations:
             if s.handle != setval_handle:
@@ -163,10 +172,36 @@ def run_ref_test():
                     print('set value operation {} did not finish with "Fin":{}'.format(s.handle, res))
                 else:
                     print('set value operation {} ok:{}'.format(s.handle, res))
-                    results.append('### Test 10 ### passed')
+                    results.append('### Test 9(SetValue) ### passed')
             except futures.TimeoutError:
                 print('timeout error')
-                results.append('### Test 10 ### failed')
+                results.append('### Test 9(SetValue) ### failed')
+
+    print('Test step 9: call Activate operation')
+    activate_operations = mdib.descriptions.NODETYPE.get(sdc11073.namespaces.domTag('ActivateOperationDescriptor'), [])
+    activate_handle = 'actop.vmd1_sco_0'
+    if len(setstring_operations) == 0:
+        print('Test step 9 failed, no Activate operation found')
+        results.append('### Test 9(Activate) ### failed')
+    else:
+        for s in activate_operations:
+            if s.handle != activate_handle:
+                continue
+            print('activate Op ={}'.format(s))
+            fut = client.SetService_client.activate(s.handle, 'hoppeldipop')
+            try:
+                res = fut.result(timeout=10)
+                print(res)
+                if res.state != sdc11073.pmtypes.InvocationState.FINISHED:
+                    print('set string operation {} did not finish with "Fin":{}'.format(s.handle, res))
+                    results.append('### Test 9(Activate) ### failed')
+                else:
+                    print('set value operation {} ok:{}'.format(s.handle, res))
+                    results.append('### Test 9(Activate) ### passed')
+            except futures.TimeoutError:
+                print('timeout error')
+                results.append('### Test 9(Activate) ### failed')
+
     return results
 
 
