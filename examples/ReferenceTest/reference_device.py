@@ -56,7 +56,7 @@ if __name__ == '__main__':
                                                              firmwareVersion='Version1',
                                                              serialNumber='12345')
     if ca_folder:
-        ssl_context = mk_ssl_context_from_folder(ca_folder, cyphers_file='device_cyphers.txt',
+        ssl_context = mk_ssl_context_from_folder(ca_folder, cyphers_file=None,
                                                  ssl_passwd=ssl_passwd)
     else:
         ssl_context = None

@@ -748,7 +748,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     # state_containers list
                     if dc.isContextDescriptor:
                         updated_handles = set([s.Handle for s in stateContainers if s.descriptorHandle == dc.handle])
-                        my_handles = set([s.Handle for s in self.contextStates.handle.get(dc.handle, [])])
+                        my_handles = set([s.Handle for s in self.contextStates.descriptorHandle.get(dc.handle, [])])
                         to_be_deleted = my_handles - updated_handles
                         for handle in to_be_deleted:
                             st = multikey.handle.getOne(handle)
