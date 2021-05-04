@@ -143,8 +143,9 @@ class SdcHandler_Base(object):
         locations = self._mdib.contextStates.NODETYPE.get(namespaces.domTag('LocationContextState'), [])
         assoc_loc = [l for l in locations if l.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
         for loc in assoc_loc:
-            dr_loc = SdcLocation(fac=loc.Facility, poc=loc.PoC, bed=loc.Bed, bld=loc.Building,
-                                 flr=loc.Floor, rm=loc.Room)
+            det = loc.LocationDetail
+            dr_loc = SdcLocation(fac=det.Facility, poc=det.PoC, bed=det.Bed, bld=det.Building,
+                                 flr=det.Floor, rm=det.Room)
             scopes.append(wsdiscovery.Scope(dr_loc.scopeStringSdc))
 
         for nodetype, scheme in (
@@ -244,8 +245,8 @@ class SdcHandler_Base(object):
     def getOperationByHandle(self, operationHandle):
         return self._scoOperationsRegistry.getOperationByHandle(operationHandle)
 
-    def enqueueOperation(self, operation, request):
-        return self._scoOperationsRegistry.enqueueOperation(operation, request)
+    def enqueueOperation(self, operation, request, argument):
+        return self._scoOperationsRegistry.enqueueOperation(operation, request, argument)
 
     def dispatchGetRequest(self, parseResult, headers):
         ''' device itself can also handle GET requests. This is the handler'''
