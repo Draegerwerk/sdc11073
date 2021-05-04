@@ -85,8 +85,8 @@ class SdcDevice(object):
     def getOperationByHandle(self, operationHandle):
         return self._handler.getOperationByHandle(operationHandle)
 
-    def enqueueOperation(self, operation, request):
-        return self._handler.enqueueOperation(operation, request)
+    def enqueueOperation(self, operation, request, argument):
+        return self._handler.enqueueOperation(operation, request, argument)
 
     def dispatchGetRequest(self, parseResult, headers):
         ''' device itself can also handle GET requests. This is the handler'''
