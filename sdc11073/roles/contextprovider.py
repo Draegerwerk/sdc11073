@@ -1,8 +1,6 @@
 import time
-from lxml import etree as etree_
 from .. import namespaces
 from ..pmtypes import ContextAssociation
-from..mdib import msgreader
 from . import providerbase
 
 
@@ -64,7 +62,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                     self._logger.info('update {}, handle={}', proposed_st.NODETYPE.localname, proposed_st.Handle)
                     tmp = tr.getContextState(proposed_st.descriptorHandle,
                                              contextStateHandle=proposed_st.Handle)
-                    tmp.updateFromOtherContainer(proposed_st, skippedProperties=['ContextAssociation',
+                    tmp.updateFromOtherContainer(proposed_st, skipped_properties=['ContextAssociation',
                                                                                  'BindingMdibVersion',
                                                                                  'UnbindingMdibVersion',
                                                                                  'BindingStartTime',
