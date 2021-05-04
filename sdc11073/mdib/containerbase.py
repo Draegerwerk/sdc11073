@@ -5,9 +5,9 @@ from .. import observableproperties as properties
 from ..namespaces import QN_TYPE
 from ..namespaces import Prefix_Namespace as Prefix
 
+
 class ContainerBase(object):
     NODETYPE = None   # overwrite in derived classes! determines the value of xsi:Type attribute, must be a etree_.QName object
-    NODENAME = None
     node = properties.ObservableProperty()
 
     # every class with containerproperties must provice a list of property names.
@@ -17,30 +17,24 @@ class ContainerBase(object):
     # This is according to the inheritance in BICEPS xml schema
     _props = tuple()  # empty tuple, this base class has no properties
 
-    def __init__(self, nsmapper, node=None):
+    def __init__(self, nsmapper):
         self.nsmapper = nsmapper
-        self.node = node
-        if node is None:
-            # initialize all ContainerProperties
-            for dummy_name, cprop in self._sortedContainerProperties():
-                cprop.initInstanceData(self)
-        else:
-            self._updateFromNode(node)
-
+        self.node = None
+        for dummy_name, cprop in self._sortedContainerProperties():
+            cprop.initInstanceData(self)
 
     def getActualValue(self, attr_name):
         ''' ignores default value and implied value, e.g. returns None if value is not present in xml'''
         return getattr(self.__class__, attr_name).getActualValue(self)
 
 
-    def mkNode(self, tag=None, setXsiType=False):
+    def mkNode(self, tag, setXsiType=False):
         '''
         create a etree node from instance data
-        :param tag: tag of the newly created node, defaults to self.NODENAME
+        :param tag: tag of the newly created node
         :return: etree node
         '''
-        myTag = tag or self.NODENAME
-        node = etree_.Element(myTag, nsmap=self.nsmapper.partialMap(Prefix.PM, Prefix.MSG, Prefix.XSI))
+        node = etree_.Element(tag, nsmap=self.nsmapper.partialMap(Prefix.PM, Prefix.MSG, Prefix.XSI))
         self._updateNode(node, setXsiType)
         return node
 
@@ -65,6 +59,14 @@ class ContainerBase(object):
         for dummy_name, cprop in self._sortedContainerProperties():
             cprop.updateFromNode(self, node)
 
+    def _update_from_other(self, other_container, skipped_properties):
+        # update all ContainerProperties
+        if skipped_properties is None:
+            skipped_properties = []
+        for prop_name, _ in self._sortedContainerProperties():
+            if prop_name not in skipped_properties:
+                new_value = getattr(other_container, prop_name)
+                setattr(self, prop_name, copy.copy(new_value))
 
     def mkCopy(self, copy_node=True):
         copied = copy.copy(self)

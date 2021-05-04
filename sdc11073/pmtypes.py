@@ -1,4 +1,4 @@
-''' Implementation of some data types used in Participant Model'''
+""" Implementation of some data types used in Participant Model"""
 from collections import namedtuple
 import traceback
 import inspect
@@ -17,9 +17,13 @@ fromEtreeNode (class method) is a constructor that is used to create a type obje
 asEtreeNode: returns an etree node that represents the object
 '''
 
+class StringEnum(str, enum.Enum):
+
+    def __str__(self):
+        return self.value
 
 class PropertyBasedPMType(object):
-    ''' Base class that assumes all data is defined as containerproperties and _props lists all property names.'''
+    """ Base class that assumes all data is defined as containerproperties and _props lists all property names."""
 
     def asEtreeNode(self, qname, nsmap):
         node = etree_.Element(qname, nsmap=nsmap)
@@ -32,19 +36,25 @@ class PropertyBasedPMType(object):
             try:
                 prop.updateXMLValue(self, node)
             except Exception as ex:
-                raise RuntimeError('In {}.{}, {} could not update: {}'.format(self.__class__.__name__, prop_name, str(prop), traceback.format_exc()))
+                raise RuntimeError('In {}.{}, {} could not update: {}'.format(
+                    self.__class__.__name__, prop_name, str(prop), traceback.format_exc()))
 
 
     def updateFromNode(self, node):
         for dummy, prop in self._sortedContainerProperties():
             prop.updateFromNode(self, node)
 
+    def update_from_other(self, other):
+        """copies the python values, no xml involved"""
+        for dummy, prop in self._sortedContainerProperties():
+            prop.update_from_other(self, other)
+
 
     def _sortedContainerProperties(self):
-        '''
+        """
         @return: a list of (name, object) tuples of all GenericProperties ( and subclasses)
         list is created based on _props lists of classes
-        ''' 
+        """
         ret = []
         classes = inspect.getmro(self.__class__)
         for cls in reversed(classes):
@@ -78,9 +88,12 @@ class PropertyBasedPMType(object):
     def __ne__(self, other):
         return not self == other
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self._sortedContainerProperties()})'
+
     @classmethod
     def fromNode(cls, node):
-        ''' default fromNode Constructor that provides no arguments for class __init__'''
+        """ default fromNode Constructor that provides no arguments for class __init__"""
         obj = cls()
         obj.updateFromNode(node)
         return obj
@@ -100,29 +113,35 @@ class ElementWithTextOnly(PropertyBasedPMType):
         return cls(text)    
 
 
+class T_TextWidth(StringEnum):
+    XS = 'xs'
+    S = 's'
+    M = 'm'
+    L = 'l'
+    XL = 'xl'
+    XXL = 'xxl'
 
 class LocalizedText(PropertyBasedPMType):
     text = cp.NodeTextProperty()  # this is the text of the node. Here attribute is lower case!
-    Ref = cp.NodeAttributeProperty('Ref')
-    Lang = cp.NodeAttributeProperty('Lang')
+    Ref = cp.StringAttributeProperty('Ref')
+    Lang = cp.StringAttributeProperty('Lang')
     Version = cp.IntegerAttributeProperty('Version')
-    TextWidth = cp.NodeAttributeProperty('TextWidth') # one of xs, s, m, l, xl, xxl
+    TextWidth = cp.EnumAttributeProperty('TextWidth', enum_cls=T_TextWidth)
     _props = ['text', 'Ref', 'Lang', 'Version', 'TextWidth']
     ''' Represents a LocalizedText type in the Participant Model. '''
-    def __init__(self, text, lang=None, ref=None, version=None, textWidth = None):
-        '''
+    def __init__(self, text, lang=None, ref=None, version=None, textWidth=None):
+        """
         @param text: a string
         @param lang: a string or None
         @param ref: a string or None
         @param version: an int or None
         @param textWidth: xs, s, m, l, xl, xxl or None
-        '''
+        """
         self.text = text
         self.Lang = lang
         self.Ref = ref
         self.Version = version
         self.TextWidth = textWidth
-
 
     @classmethod
     def fromNode(cls, node):
@@ -141,13 +160,13 @@ DefaultCodingSystem = 'urn:oid:1.2.840.10004.1.1.1.0.0.1' # ISO/IEC 11073-10101
 
 
 class NotCompareableVersionError(Exception):
-    ''' This exception says that two coded values cannot be compared, because one has a coding system version, the other one not.
-    In that case it is not possible to decide if they are equal.'''
+    """ This exception says that two coded values cannot be compared, because one has a coding system version, the other one not.
+    In that case it is not possible to decide if they are equal."""
     pass
 
 _CodingBase = namedtuple('_CodingBase', 'code codingSystem codingSystemVersion')
 class Coding(_CodingBase):
-    ''' Immutable representation of a coding. Can be used as key in dictionaries'''
+    """ Immutable representation of a coding. Can be used as key in dictionaries"""
 
 
     def __new__(cls, code, codingSystem=DefaultCodingSystem, codingSystemVersion=None):
@@ -157,10 +176,10 @@ class Coding(_CodingBase):
                                           codingSystemVersion)
 
     def equals(self, other, raiseNotComparableException=False):
-        ''' different compare method to __eq__, overwriting this one makes Coding unhashable!
+        """ different compare method to __eq__, overwriting __eq__ makes Coding un-hashable!
          other can be an int, a string, or a Coding.
          Simple comparision with int or string only works if self.codingSystem == DefaultCodingSystem
-         and self.codingSystemVersion is None'''
+         and self.codingSystemVersion is None"""
         if isinstance(other, int):
             other = str(other)
         if isinstance(other, str):
@@ -194,7 +213,7 @@ class Coding(_CodingBase):
 
     @classmethod
     def fromNode(cls, node):
-        ''' Read Code and CodingSystem attributes of a node (CodedValue). '''
+        """ Read Code and CodingSystem attributes of a node (CodedValue). """
         code = node.get('Code')
         codingSystem = node.get('CodingSystem', DefaultCodingSystem)
         codingSystemVersion = node.get('CodingSystemVersion')
@@ -207,27 +226,26 @@ def mkCoding(code, codingSystem=DefaultCodingSystem, codingSystemVersion=None):
 
 
 class T_Translation(PropertyBasedPMType):
-    '''
+    """
     Translation is part of CodedValue in BICEPS FINAL
-    '''
+    """
     ext_Extension = cp.ExtensionNodeProperty()
-    Code = cp.NodeAttributeProperty('Code')
-    CodingSystem = cp.NodeAttributeProperty('CodingSystem', impliedPyValue=DefaultCodingSystem)
-    CodingSystemVersion = cp.NodeAttributeProperty('CodingSystemVersion')
+    Code = cp.StringAttributeProperty('Code', isOptional=False)
+    CodingSystem = cp.StringAttributeProperty('CodingSystem', impliedPyValue=DefaultCodingSystem)
+    CodingSystemVersion = cp.StringAttributeProperty('CodingSystemVersion')
 
     _props = ['ext_Extension', 'Code', 'CodingSystem', 'CodingSystemVersion']
 
-    def __init__(self, code=None, codingsystem=None, codingSystemVersion=None):
-        '''
-
+    def __init__(self, code, codingsystem=None, codingSystemVersion=None):
+        """
         @param code: a string or an int
         @param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
         @param codingSystemVersion: a string, min. length = 1
-        '''
+        """
         self.Code = str(code)
         self.CodingSystem = codingsystem
         self.CodingSystemVersion = codingSystemVersion
-        self.coding = None # oberwritten by self._mkCoding()
+        self.coding = None # set by self._mkCoding()
         self.mkCoding()
 
     def __repr__(self):
@@ -245,7 +263,7 @@ class T_Translation(PropertyBasedPMType):
             self.coding = None
 
     def __eq__(self, other):
-        ''' other can be an int, a string, a CodedValue like object (has "coding" member) or a Coding'''
+        """ other can be an int, a string, a CodedValue like object (has "coding" member) or a Coding"""
         if hasattr(other, 'coding'):
             return self.coding.equals(other.coding)
         else:
@@ -259,38 +277,34 @@ class T_Translation(PropertyBasedPMType):
         return obj
 
 
-class _CodedValueBase(PropertyBasedPMType):
+class CodedValue(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
     CodingSystemName = cp.SubElementListProperty([namespaces.domTag('CodingSystemName')], cls = LocalizedText)
     ConceptDescription = cp.SubElementListProperty([namespaces.domTag('ConceptDescription')], cls = LocalizedText)
-    Code = cp.NodeAttributeProperty('Code')
-    CodingSystem = cp.NodeAttributeProperty('CodingSystem', impliedPyValue=DefaultCodingSystem)
-    CodingSystemVersion = cp.NodeAttributeProperty('CodingSystemVersion')
-    SymbolicCodeName = cp.NodeAttributeProperty('SymbolicCodeName')
-    Type = cp.XsiTypeAttributeProperty(namespaces.QN_TYPE)
-    _props = ['ext_Extension', 'CodingSystemName', 'ConceptDescription',
-              'Code', 'CodingSystem', 'CodingSystemVersion', 'SymbolicCodeName', 'Type']
-    # aliases for backward compatibility
-    codingSystemNames = CodingSystemName
-    conceptDescriptions = ConceptDescription
-    codingSystem = CodingSystem
+    Translation = cp.SubElementListProperty([namespaces.domTag('Translation')], cls = T_Translation)
+    Code = cp.StringAttributeProperty('Code', isOptional=False)
+    CodingSystem = cp.StringAttributeProperty('CodingSystem', impliedPyValue=DefaultCodingSystem)
+    CodingSystemVersion = cp.StringAttributeProperty('CodingSystemVersion')
+    SymbolicCodeName = cp.StringAttributeProperty('SymbolicCodeName')
+    _props = ['ext_Extension', 'CodingSystemName', 'ConceptDescription', 'Translation',
+              'Code', 'CodingSystem', 'CodingSystemVersion', 'SymbolicCodeName']
 
     def __init__(self, code, codingsystem=None, codingSystemVersion=None, codingSystemNames=None, conceptDescriptions=None, symbolicCodeName=None):
-        '''
+        """
         @param code: a string or an int
-        @param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None 
+        @param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
         @param codingSystemVersion: a string, min. length = 1
         @param codingSystemNames: a list of LocalizedText objects or None
         @param conceptDescriptions: a list of LocalizedText objects or None
         @param symbolicCodeName: a string, min. length = 1 or None
-        '''
+        """
         self.Code = str(code)
         self.CodingSystem = codingsystem
         self.CodingSystemVersion = codingSystemVersion
         self.CodingSystemName = [] if codingSystemNames is None else codingSystemNames
         self.ConceptDescription = [] if conceptDescriptions is None else conceptDescriptions
         self.SymbolicCodeName = symbolicCodeName
-        self.coding = None # oberwritten by self._mkCoding()
+        self.coding = None # set by self.mkCoding()
         self.mkCoding()
 
 
@@ -308,49 +322,16 @@ class _CodedValueBase(PropertyBasedPMType):
         else:
             return 'CodedValue({}, codingsystem={}, codingsystemversion={})'.format(self.Code, self.CodingSystem, self.CodingSystemVersion)
 
-    @classmethod
-    def fromNode(cls, node):
-        obj = cls(None)
-        obj.updateFromNode(node)
-        obj.mkCoding()
-        return obj
-
-
-
-class CodedWithTranslations(_CodedValueBase):
-    Translation = cp.SubElementListProperty([namespaces.domTag('Translation')], cls = _CodedValueBase)
-    _props = ['Translation']
-
-    def __eq__(self, other):
-        ''' other can be an int, a string, a CodedValue like object (has "coding" member) or a Coding'''
-        if hasattr(other, 'coding'):
-            return self.coding == other.coding
-        else:
-            return self.coding == other
-
-
-
-class CodedValue(_CodedValueBase):
-    Translation = cp.SubElementListProperty([namespaces.domTag('Translation')], cls = T_Translation)
-    _props = ['Translation']
-
-    def __eq__(self, other):
-        ''' This operator handles not comparable versions as different versions
-
-        :param other: int, str or another CodedValue
-        '''
-        return self.equals(other, raiseNotComparableException=False)
-
 
     def equals(self, other, raiseNotComparableException=True):
-        '''
+        """
         Compare this CodedValue with another one.
         A simplified compare with an int or string is also possible, it assumes DefaultCodingSystem and no CodingSystemVersion
         :param other: int, str or another CodedValue
         :param raiseNotComparableException: if False, not comparable versions are handled as different versions
                         if True, a NotCompareableVersionError is thrown if any of the Codings are not comparable
         :return: boolean
-        '''
+        """
         if isinstance(other, self.__class__):
                 # Two CodedValue objects C1 and C2 are equivalent, if there exists a CodedValue object T1 in C1/pm:Translation
                 # and a CodedValue object T2 in C2/pm:Translation such that T1 and T2 are equivalent, C1 and T2 are equivalent, or C2 and T1 are equivalent.
@@ -379,13 +360,6 @@ class CodedValue(_CodedValueBase):
 
     @classmethod
     def fromNode(cls, node):
-        nodeType = None
-        nodeTypeText = node.get(namespaces.QN_TYPE)
-        if nodeTypeText is not None:
-            nodeType = namespaces.txt2QName(node.get(namespaces.QN_TYPE), node.nsmap)
-        if nodeType == namespaces.domTag('CodedWithTranslations'):
-            cls = CodedWithTranslations  # pylint: disable=self-cls-assignment
-
         obj = cls(None)
         obj.updateFromNode(node)
         obj.mkCoding()
@@ -412,19 +386,25 @@ class Annotation(PropertyBasedPMType):
         return cls(codedValue)
 
 
+class OperatingMode(StringEnum):
+    DISABLED = 'Dis'
+    ENABLED = 'En'
+    NA = 'NA'
+
+
 class OperationGroup(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
     Type = cp.SubElementProperty([namespaces.domTag('Type')], valueClass=CodedValue)
-    OperatingMode = cp.NodeAttributeProperty('OperatingMode')
-    Operations = cp.NodeAttributeListProperty('Operations') #pm:OperationRef
+    OperatingMode = cp.EnumAttributeProperty('OperatingMode', enum_cls=OperatingMode)
+    Operations = cp.OperationRefListAttributeProperty('Operations')
     _props = ['ext_Extension', 'Type', 'OperatingMode', 'Operations']
 
     def __init__(self, codedValue=None, operatingMode=None, operations=None):
-        '''
-        @param OperatingMode:  xsd:string string
+        """
         @param codedValue: a CodedValue instances or None
-        @param Operations: a xsd:string
-        '''
+        @param operatingMode:  xsd:string string
+        @param operations: a xsd:string
+        """
         self.Type = codedValue
         self.OperatingMode = operatingMode
         self.Operations = operations
@@ -445,17 +425,17 @@ class InstanceIdentifier(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
     Type = cp.SubElementProperty([namespaces.domTag('Type')], valueClass=CodedValue)
     IdentifierName = cp.SubElementListProperty([namespaces.domTag('IdentifierName')], cls = LocalizedText)
-    Root = cp.NodeAttributeProperty('Root', defaultPyValue='biceps.uri.unk') # xsd:anyURI string, default is defined in R0135
-    Extension = cp.NodeAttributeProperty('Extension') # a xsd:string
+    Root = cp.StringAttributeProperty('Root', defaultPyValue='biceps.uri.unk') # xsd:anyURI string, default is defined in R0135
+    Extension = cp.StringAttributeProperty('Extension') # a xsd:string
     _props=('ext_Extension', 'Type', 'IdentifierName', 'Root', 'Extension')
 
     def __init__(self, root, type_codedValue=None, identifierNames=None, extensionString=None):
-        '''
+        """
         @param root:  xsd:anyURI string
         @param type_codedValue: a CodedValue instances or None
         @param identifierNames: a list of LocalizedText instances or None
         @param extensionString: a xsd:string
-        '''
+        """
         self.Root = root
         self.Type = type_codedValue
         self.IdentifierName = [] if identifierNames is None else identifierNames
@@ -479,6 +459,9 @@ class InstanceIdentifier(PropertyBasedPMType):
         return 'InstanceIdentifier(root={!r}, Type={} ext={!r})'.format(self.Root, self.Type, self.Extension)
 
 
+class OperatingJurisdiction(InstanceIdentifier):
+    _props = tuple() # no properties
+
 
 class Range(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
@@ -490,13 +473,13 @@ class Range(PropertyBasedPMType):
     _props= ['ext_Extension', 'Lower', 'Upper', 'StepWidth', 'RelativeAccuracy', 'AbsoluteAccuracy']
     
     def __init__(self, lower=None, upper=None, stepWidth=None, relativeAccuracy=None, absoluteAccuracy=None):
-        '''
+        """
         @param lower: The including lower bound of the range. A value as float or integer, can be None
         @param upper: The including upper bound of the range. A value as float or integer, can be None
         @param stepWidth: The numerical distance between two values in the range of the given upper and lower bound. A value as float or integer, can be None
         @param relativeAccuracy: Maximum relative error in relation to the correct value within the given range. A value as float or integer, can be None
         @param absoluteAccuracy: Maximum absolute error in relation to the correct value within the given range. A value as float or integer, can be None
-        '''
+        """
         self.Lower = lower
         self.Upper = upper
         self.StepWidth = stepWidth
@@ -512,14 +495,14 @@ class Range(PropertyBasedPMType):
 class Measurement(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
     MeasurementUnit = cp.SubElementProperty([namespaces.domTag('MeasurementUnit')], valueClass=CodedValue) # mandatory
-    MeasuredValue = cp.DecimalAttributeProperty('MeasuredValue')
+    MeasuredValue = cp.DecimalAttributeProperty('MeasuredValue', isOptional=False)
     _props = ['ext_Extension', 'MeasurementUnit', 'MeasuredValue']
     
     def __init__(self, value, unit):
-        '''
+        """
         @param value: a value as string, float or integer
         @param unit: a CodedValue instance
-        '''
+        """
         self.MeasuredValue = value
         self.MeasurementUnit = unit
     
@@ -549,11 +532,11 @@ class AllowedValue(PropertyBasedPMType):
     value = Value
     
     def __init__(self, valueString, typeCoding=None):
-        '''One AllowedValue of a EnumStringMetricDescriptor. It has up to two sub elements "Value" and "Type"(optional).
+        """One AllowedValue of a EnumStringMetricDescriptor. It has up to two sub elements "Value" and "Type"(optional).
         A StringEnumMetricDescriptor has a list of AllowedValues.
         @param valueString: a string
         @param typeCoding: an optional CodedValue instance
-        '''
+        """
         self.Value = valueString
         self.Type = typeCoding
 
@@ -568,30 +551,55 @@ class AllowedValue(PropertyBasedPMType):
             typeCoding = CodedValue.fromNode(typeNode)
         return cls(valueString, typeCoding)
 
-    
+
+class MeasurementValidity(StringEnum):
+    """Level of validity of a measured value.
+    Used in BICEPS Final"""
+    VALID = 'Vld'
+    VALIDATED_DATA = 'Vldated'
+    MEASUREMENT_ONGOING = 'Ong'
+    QUESTIONABLE = 'Qst'
+    CALIBRATION_ONGOING = 'Calib'
+    INVALID = 'Inv'
+    OVERFLOW = 'Oflw'
+    UNDERFLOW = 'Uflw'
+    NA = 'NA'
+
+class GenerationMode(StringEnum):
+    """Describes whether METRIC data is generated by real measurements or under unreal settings (demo or test data)."""
+    REAL = 'Real'                  # Real Data. A value that is generated under real conditions
+    TEST = 'Test'                  # Test Data. A value that is arbitrary and is for testing purposes only
+    DEMO = 'Demo'                  # Demo Data. A value that is arbitrary and is for demonstration purposes only
+
+
+class T_MetricQuality(PropertyBasedPMType):
+    Validity = cp.EnumAttributeProperty('Validity', enum_cls=MeasurementValidity)
+    Mode = cp.EnumAttributeProperty('Mode', impliedPyValue='Real', enum_cls=GenerationMode) # pm:GenerationMode
+    Qi = cp.DecimalAttributeProperty('Qi', impliedPyValue=1) # pm:QualityIndicator
+    _props = ('Validity', 'Mode', 'Qi')
+
+    def __init__(self):
+        super().__init__()
 
 class AbstractMetricValue(PropertyBasedPMType):
-    ''' This is the base class for metric values inside metric states'''
+    """ This is the base class for metric values inside metric states"""
     ext_Extension = cp.ExtensionNodeProperty()
-    StartTime = cp.TimestampAttributeProperty('StartTime') # time.time() value (float)
-    StopTime = cp.TimestampAttributeProperty('StopTime') # time.time() value (float)
-    DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime') # time.time() value (float)
-    MQ_Extension = cp.ExtensionNodeProperty([namespaces.domTag('MetricQuality')])
-    Validity = cp.NodeAttributeProperty('Validity', [namespaces.domTag('MetricQuality')]) # pm:MeasurementValidity
-    Mode = cp.NodeAttributeProperty('Mode', [namespaces.domTag('MetricQuality')], impliedPyValue='Real') # pm:GenerationMode
-    Qi = cp.DecimalAttributeProperty('Qi', [namespaces.domTag('MetricQuality')], impliedPyValue=1) # pm:QualityIndicator
+    StartTime = cp.TimestampAttributeProperty('StartTime')
+    StopTime = cp.TimestampAttributeProperty('StopTime')
+    DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime')
+    MetricQuality = cp.SubElementProperty([namespaces.domTag('MetricQuality')], valueClass=T_MetricQuality)
     Annotation = cp.SubElementListProperty([namespaces.domTag('Annotation')], Annotation)
-    _props = ('ext_Extension', 'StartTime', 'StopTime', 'DeterminationTime', 'MQ_Extension', 'Validity', 'Mode', 'Qi', 'Annotation')
-    
-    Annotations = Annotation
-    def __init__(self, nsmapper, node=None):
-        self._nsmapper = nsmapper
+    _props = ('ext_Extension', 'StartTime', 'StopTime', 'DeterminationTime', 'MetricQuality', 'Annotation')
+    Annotations = Annotation  # alternative name that makes it clearer that this is a list
+
+    def __init__(self, node=None):
         # attributes of root node
         self.node = node
+        self.MetricQuality = T_MetricQuality()
         if node is not None:
             self.updateFromNode(node)
         else:
-            self.Validity = 'Vld' # mandatory value, for convenience it is preset to Vld
+            self.MetricQuality.Validity = 'Vld' # mandatory value, for convenience it is preset to Vld
 
 
     def updateFromNode(self, node):
@@ -608,7 +616,7 @@ class AbstractMetricValue(PropertyBasedPMType):
 
     @classmethod
     def fromNode(cls, node):
-        obj = cls(node.nsmap, node)
+        obj = cls(node)
         return obj
 
 
@@ -621,12 +629,12 @@ class NumericMetricValue(AbstractMetricValue):
 
     def __repr__(self):
         return '{} Validity={} Value={} DeterminationTime={}'.format(self.__class__.__name__,
-                                                                     self.Validity,
+                                                                     self.MetricQuality.Validity,
                                                                      self.Value,
                                                                      self.DeterminationTime)
 
     def __eq__(self, other):
-        ''' compares all properties, special handling of Value member'''
+        """ compares all properties, special handling of Value member"""
         try:
             for name, dummy in self._sortedContainerProperties():
                 if name == 'Value':
@@ -658,24 +666,24 @@ class NumericMetricValue(AbstractMetricValue):
 
 class StringMetricValue(AbstractMetricValue):
     QType = namespaces.domTag('StringMetricValue')
-    Value = cp.NodeAttributeProperty('Value') # a string
+    Value = cp.StringAttributeProperty('Value') # a string
     _props = ('Value',)    
     
 
     def __repr__(self):
         return '{} Validity={} Value={} DeterminationTime={}'.format(self.__class__.__name__,
-                                                                     self.Validity,
+                                                                     self.MetricQuality.Validity,
                                                                      self.Value,
                                                                      self.DeterminationTime)
 
 
 
 class ApplyAnnotation(PropertyBasedPMType):
-    AnnotationIndex = cp.IntegerAttributeProperty('AnnotationIndex')
-    SampleIndex = cp.IntegerAttributeProperty('SampleIndex')
+    AnnotationIndex = cp.IntegerAttributeProperty('AnnotationIndex', isOptional=False)
+    SampleIndex = cp.IntegerAttributeProperty('SampleIndex', isOptional=False)
     _props = ['AnnotationIndex', 'SampleIndex']
 
-    def __init__(self, annotationIndex, sampleIndex):
+    def __init__(self, annotationIndex=None, sampleIndex=None):
         self.AnnotationIndex = annotationIndex
         self.SampleIndex = sampleIndex   
 
@@ -687,15 +695,16 @@ class ApplyAnnotation(PropertyBasedPMType):
         return obj
 
     def __repr__(self):
-        return '{} AnnotationIndex={} SampleIndex={}'.format(self.__class__.__name__, self.AnnotationIndex, self.SampleIndex)
+        return '{}(AnnotationIndex={}, SampleIndex={})'.format(self.__class__.__name__, self.AnnotationIndex, self.SampleIndex)
 
 
 
 class SampleArrayValue(AbstractMetricValue):
     QType = namespaces.domTag('SampleArrayValue')
     Samples = cp.DecimalListAttributeProperty('Samples') # list of xs:decimal types 
-    ApplyAnnotations = cp.SubElementListProperty([namespaces.domTag('ApplyAnnotation')], ApplyAnnotation)
-    _props = ('Samples', 'ApplyAnnotations')    
+    ApplyAnnotation = cp.SubElementListProperty([namespaces.domTag('ApplyAnnotation')], ApplyAnnotation)
+    ApplyAnnotations = ApplyAnnotation  # alternative name that makes it clearer that this is a list
+    _props = ('Samples', 'ApplyAnnotation')
 
 
     def __repr__(self):
@@ -703,7 +712,7 @@ class SampleArrayValue(AbstractMetricValue):
 
 
     def __eq__(self, other):
-        ''' compares all properties, special handling of Value member'''
+        """ compares all properties, special handling of Value member"""
         try:
             for name, dummy in self._sortedContainerProperties():
                 if name == 'Samples':
@@ -732,37 +741,37 @@ class SampleArrayValue(AbstractMetricValue):
 
 
 class RemedyInfo(PropertyBasedPMType):
-    '''An Element that has
+    """An Element that has
          0..1 Subelement "Extension" (not handled here)
-         0..n SubElements "Description" type=pm:LocalizedText.'''
+         0..n SubElements "Description" type=pm:LocalizedText."""
     ext_Extension = cp.ExtensionNodeProperty()
     Description = cp.SubElementListProperty([namespaces.domTag('Description')], cls = LocalizedText)
     _props = ['ext_Extension', 'Description']
 
     def __init__(self, descriptions=None):
-        '''
-        @param descriptions : a list of LocalizedText objects or None 
-        '''
+        """
+        @param descriptions : a list of LocalizedText objects or None
+        """
         if descriptions:
             self.Description = descriptions
         
 
 
 class CauseInfo(PropertyBasedPMType):
-    '''An Element that has
+    """An Element that has
          0..1 Subelement "RemedyInfo", type = pm:RemedyInfo
-         0..n SubElements "Description" type=pm:LocalizedText.'''
+         0..n SubElements "Description" type=pm:LocalizedText."""
     ext_Extension = cp.ExtensionNodeProperty()
     RemedyInfo = cp.SubElementProperty([namespaces.domTag('RemedyInfo')], valueClass=RemedyInfo)
     Description = cp.SubElementListProperty([namespaces.domTag('Description')], cls = LocalizedText)
     _props = ['ext_Extension', 'RemedyInfo', 'Description']
-    def __init__(self, remedyInfo, descriptions):
-        '''
+    def __init__(self, remedyInfo=None, descriptions=None):
+        """
         @param remedyInfo: a RemedyInfo instance or None
-        @param descriptions : a list of LocalizedText objects or None 
-        '''
+        @param descriptions : a list of LocalizedText objects or None
+        """
         self.RemedyInfo = remedyInfo
-        self.Description = descriptions
+        self.Description = descriptions or []
 
 
     @classmethod
@@ -780,18 +789,18 @@ class CauseInfo(PropertyBasedPMType):
 
 
 
-class Argument(PropertyBasedPMType):
-    '''An Element that has
+class  ActivateOperationDescriptorArgument(PropertyBasedPMType):
+    """Argument for ActivateOperationDescriptor.
          1 Subelement "ArgName", type = pm:CodedValue
-         1 SubElement "Arg" type=QName.'''
-    ArgName = cp.SubElementProperty([namespaces.domTag('ArgName')], valueClass=CodedValue)
-    Arg = cp.NodeTextQNameProperty([namespaces.domTag('Arg')])
+         1 SubElement "Arg" type=QName."""
+    ArgName = cp.SubElementProperty([namespaces.domTag('ArgName')], valueClass=CodedValue, isOptional=False)
+    Arg = cp.NodeTextQNameProperty([namespaces.domTag('Arg')], isOptional=False)
     _props = ['ArgName', 'Arg']
-    def __init__(self, argName, arg):
-        '''
+    def __init__(self, argName=None, arg=None):
+        """
         @param argName: a CodedValue instance
-        @param arg : etree_.QName instance 
-        '''
+        @param arg : etree_.QName instance
+        """
         self.ArgName = argName
         self.Arg = arg
         
@@ -806,25 +815,25 @@ class Argument(PropertyBasedPMType):
 
 
     def __repr__(self):
-        return 'Argument(argName={}, arg={})'.format(self.ArgName, self.Arg)
+        return 'ActivateOperationDescriptorArgument(argName={}, arg={})'.format(self.ArgName, self.Arg)
 
 
 
 class PhysicalConnectorInfo(PropertyBasedPMType):
-    '''PhysicalConnectorInfo defines a number in order to allow to guide the clinical user for a failure,
+    """PhysicalConnectorInfo defines a number in order to allow to guide the clinical user for a failure,
     e.g., in case of a disconnection of a sensor or an ultrasonic handpiece.
-    Only in BICEPS final!'''
+    Only in BICEPS final!"""
     ext_Extension = cp.ExtensionNodeProperty()
     Label = cp.SubElementListProperty([namespaces.domTag('Label')], cls = LocalizedText) # A human-readable label that describes the physical connector.
     Number = cp.IntegerAttributeProperty('Number')# Number designates the connector number of the physical connector.
     _props = ['ext_Extension', 'Label', 'Number']
 
-    def __init__(self, labels, number):
-        '''
+    def __init__(self, labels=None, number=None):
+        """
         @param labels: a  list of LocalizedText
         @param number : an integer
-        '''
-        self.Label = labels
+        """
+        self.Label = labels or []
         self.Number = number
 
     @classmethod
@@ -838,16 +847,31 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
         return 'PhysicalConnectorInfo(label={}, number={})'.format(self.Label, self.Number)
 
 
+class AlertSignalManifestation(StringEnum):
+    AUD = 'Aud' # Aud = Audible. The ALERT SIGNAL manifests in an audible manner, i.e., the alert can be heard. Example: an alarm sound.
+    VIS = 'Vis' # Vis = Visible. The ALERT SIGNAL manifests in a visible manner, i.e., the alert can be seen. Example: a red flashing light.
+    TAN = 'Tan' # Tan = Tangible. The ALERT SIGNAL manifests in a tangible manner, i.e., the alert can be felt. Example: vibration.
+    OTH = 'Oth' # Oth = Other. The ALERT SIGNAL manifests in a manner not further specified.
+
+
+class AlertActivation(StringEnum):
+    ON = 'On'
+    OFF = 'Off'
+    PAUSED = 'Psd'
+
+
 class SystemSignalActivation(PropertyBasedPMType):
-    Manifestation = cp.NodeAttributeProperty('Manifestation', defaultPyValue='Oth') # required, pmtypes.AlertSignalManifestation
-    State = cp.NodeAttributeProperty('State', defaultPyValue='On')                 # required,  pmtypes.AlertActivation
+    Manifestation = cp.EnumAttributeProperty('Manifestation', defaultPyValue=AlertSignalManifestation.OTH,
+                                             enum_cls=AlertSignalManifestation, isOptional=False)
+    State = cp.EnumAttributeProperty('State', defaultPyValue=AlertActivation.ON,
+                                     enum_cls=AlertActivation, isOptional=False)
     _props = ['Manifestation', 'State']
 
-    def __init__(self, manifestation, state):
-        '''
+    def __init__(self, manifestation=None, state=None):
+        """
         @param manifestation: a pmtypes.AlertSignalManifestation value
         @param state : a pmtypes.AlertActivation value
-        '''
+        """
         self.Manifestation = manifestation
         self.State = state
 
@@ -863,16 +887,17 @@ class SystemSignalActivation(PropertyBasedPMType):
 
 class ProductionSpecification(PropertyBasedPMType):
     SpecType = cp.SubElementProperty([namespaces.domTag('SpecType')], valueClass=CodedValue)
-    ProductionSpec = cp.NodeTextProperty([namespaces.domTag('ProductionSpec')], isOptional=False)
-    ComponentId = cp.SubElementProperty([namespaces.domTag('ComponentId')], valueClass=InstanceIdentifier) # optional
+    ProductionSpec = cp.NodeTextProperty([namespaces.domTag('ProductionSpec')])
+    ComponentId = cp.SubElementProperty([namespaces.domTag('ComponentId')],
+                                        valueClass=InstanceIdentifier, isOptional=True)
     _props = ['SpecType', 'ProductionSpec', 'ComponentId']
 
-    def __init__(self, spectype, productionspec, componentid=None):
-        '''
+    def __init__(self, spectype=None, productionspec=None, componentid=None):
+        """
         @param spectype: a pmtypes.CodedValue value
         @param productionspec: a string
         @param componentid : a pmtypes.InstanceIdentifier value
-        '''
+        """
         self.SpecType = spectype
         self.ProductionSpec = productionspec
         self.ComponentId = componentid
@@ -885,11 +910,12 @@ class ProductionSpecification(PropertyBasedPMType):
 
 
 class BaseDemographics(PropertyBasedPMType):
-    Givenname = cp.NodeTextProperty([namespaces.domTag('Givenname')])
-    Middlename = cp.SubElementListProperty([namespaces.domTag('Middlename')], cls=ElementWithTextOnly)  # 0...n Elements
-    Familyname = cp.NodeTextProperty([namespaces.domTag('Familyname')])
-    Birthname = cp.NodeTextProperty([namespaces.domTag('Birthname')])
-    Title = cp.NodeTextProperty([namespaces.domTag('Title')])
+    Givenname = cp.NodeTextProperty([namespaces.domTag('Givenname')], isOptional=True)
+    Middlename = cp.SubElementListProperty([namespaces.domTag('Middlename')],
+                                            cls=ElementWithTextOnly) # 0...n
+    Familyname = cp.NodeTextProperty([namespaces.domTag('Familyname')], isOptional=True)
+    Birthname = cp.NodeTextProperty([namespaces.domTag('Birthname')], isOptional=True)
+    Title = cp.NodeTextProperty([namespaces.domTag('Title')], isOptional=True)
     _props = ['Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title']
 
     def __init__(self, givenname=None, middlenames=None, familyname=None, birthname=None, title=None):
@@ -910,10 +936,10 @@ class PersonReference(PropertyBasedPMType):
     _props = ['ext_Extension', 'Identification', 'Name']
 
     def __init__(self, identifications=None, name=None):
-        '''
+        """
         :param identifications: a list of InstanceIdentifier objects
         :param name: a BaseDemographics object
-        '''
+        """
         if identifications:
             self.Identification = identifications
         self.Name = name
@@ -921,12 +947,12 @@ class PersonReference(PropertyBasedPMType):
 
 class LocationDetail(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
-    PoC = cp.NodeAttributeProperty('PoC')
-    Room = cp.NodeAttributeProperty('Room')
-    Bed = cp.NodeAttributeProperty('Bed')
-    Facility = cp.NodeAttributeProperty('Facility')
-    Building = cp.NodeAttributeProperty('Building')
-    Floor = cp.NodeAttributeProperty('Floor')
+    PoC = cp.StringAttributeProperty('PoC')
+    Room = cp.StringAttributeProperty('Room')
+    Bed = cp.StringAttributeProperty('Bed')
+    Facility = cp.StringAttributeProperty('Facility')
+    Building = cp.StringAttributeProperty('Building')
+    Floor = cp.StringAttributeProperty('Floor')
     _props = ('ext_Extension', 'PoC', 'Room', 'Bed', 'Facility', 'Building', 'Floor')
 
     def __init__(self, poc=None, room=None, bed=None, facility=None, building=None, floor=None):
@@ -959,18 +985,42 @@ class PersonParticipation(PersonReference):
             self.Role = roles
 
 
+class ReferenceRange(PropertyBasedPMType):
+    """Representation of the normal or abnormal reference range for the measurement"""
+    Range = cp.SubElementProperty([namespaces.domTag('Range')], valueClass=Range)
+    Meaning = cp.SubElementProperty([namespaces.domTag('Meaning')], valueClass=CodedValue, isOptional=True)
+    _props = ['Range', 'Meaning']
+
+    def __init__(self, range, meaning=None):
+        self.Range = range
+        if meaning is not None:
+            self.Meaning = meaning
+
+
+class RelatedMeasurement(PropertyBasedPMType):
+    """Related measurements for this clinical observation"""
+    Value = cp.SubElementProperty([namespaces.domTag('Value')], valueClass=Measurement)
+    ReferenceRange = cp.SubElementListProperty([namespaces.domTag('ReferenceRange')], cls=ReferenceRange)  # 0...n
+    _props = ['Value', 'ReferenceRange']
+
+    def __init__(self, value, reference_range=None):
+        self.Value = value
+        if reference_range is not None:
+            self.ReferenceRange = reference_range
+
+
 class ClinicalInfo(PropertyBasedPMType):
-    Type = cp.SubElementProperty([namespaces.domTag('Type')], valueClass=CodedValue) # optional
-    Description = cp.SubElementListProperty([namespaces.domTag('Description')], cls=LocalizedText) #0...n
-    RelatedMeasurement = cp.SubElementListProperty([namespaces.domTag('RelatedMeasurement')], cls=Measurement) #0...n
+    Type = cp.SubElementProperty([namespaces.domTag('Type')], valueClass=CodedValue)  # optional
+    Description = cp.SubElementListProperty([namespaces.domTag('Description')], cls=LocalizedText)  # 0...n
+    RelatedMeasurement = cp.SubElementListProperty([namespaces.domTag('RelatedMeasurement')], cls=Measurement)  # 0...n
     _props = ['Type', 'Description', 'RelatedMeasurement']
 
     def __init__(self, typecode=None, descriptions=None, relatedmeasurements=None):
-        '''
+        """
         :param typecode: a CodedValue Instance
         :param descriptions: a list of LocalizedText objects
         :param relatedmeasurements: a list of Measurement objects
-        '''
+        """
         self.Type = typecode
         if descriptions:
             self.Description = descriptions
@@ -1005,21 +1055,21 @@ class ImagingProcedure(PropertyBasedPMType):
 
 
 class OrderDetail(PropertyBasedPMType):
-    Start = cp.NodeTextProperty([namespaces.domTag('Start')]) # optional, xsd:dateTime
-    End = cp.NodeTextProperty([namespaces.domTag('End')]) # optional, xsd:dateTime
-    Performer = cp.SubElementListProperty([namespaces.domTag('Performer')], cls=PersonParticipation) #0...n)
-    Service = cp.SubElementListProperty([namespaces.domTag('Service')], cls=CodedValue) #0...n)
+    Start = cp.NodeTextProperty([namespaces.domTag('Start')], isOptional=True)  # xsd:dateTime
+    End = cp.NodeTextProperty([namespaces.domTag('End')], isOptional=True)  # xsd:dateTime
+    Performer = cp.SubElementListProperty([namespaces.domTag('Performer')], cls=PersonParticipation)  # 0...n
+    Service = cp.SubElementListProperty([namespaces.domTag('Service')], cls=CodedValue)  # 0...n
     ImagingProcedure = cp.SubElementListProperty([namespaces.domTag('ImagingProcedure')], cls=ImagingProcedure)
     _props = ['Start', 'End', 'Performer', 'Service', 'ImagingProcedure']
 
     def __init__(self, start=None, end=None, performer=None, service=None, imagingprocedure=None):
-        '''
+        """
         :param start: a xsd:DateTime string
         :param end: a xsd:DateTime string
         :param performer: a list of PersonParticipation objects
         :param service: a list of CodedValue objects
         @param imagingprocedure: a list of ImagingProcedure objects
-        '''
+        """
         self.Start = start
         self.End = end
         if performer:
@@ -1039,11 +1089,11 @@ class RequestedOrderDetail(OrderDetail):
 
     def __init__(self, start=None, end=None, performer=None, service=None, imagingprocedure=None,
                  referringphysician=None, requestingphysician=None, placerordernumber=None):
-        '''
+        """
         :param referringphysician:  a PersonReference
         :param requestingphysician: a PersonReference
         :param placerordernumber:   an InstanceIdentifier
-        '''
+        """
         super(RequestedOrderDetail, self).__init__(start, end, performer, service, imagingprocedure)
         self.ReferringPhysician = referringphysician
         self.RequestingPhysician = requestingphysician
@@ -1065,13 +1115,17 @@ class PerformedOrderDetail(OrderDetail):
 
 
 class WorkflowDetail(PropertyBasedPMType):
-    Patient = cp.SubElementProperty([namespaces.domTag('Patient')], valueClass=PersonReference) # optional
-    AssignedLocation = cp.SubElementProperty([namespaces.domTag('AssignedLocation')], valueClass=LocationReference) # optional
-    VisitNumber = cp.SubElementProperty([namespaces.domTag('VisitNumber')], valueClass=InstanceIdentifier) # optional
+    Patient = cp.SubElementProperty([namespaces.domTag('Patient')], valueClass=PersonReference)
+    AssignedLocation = cp.SubElementProperty([namespaces.domTag('AssignedLocation')],
+                                             valueClass=LocationReference, isOptional=True)
+    VisitNumber = cp.SubElementProperty([namespaces.domTag('VisitNumber')],
+                                        valueClass=InstanceIdentifier, isOptional=True)
     DangerCode = cp.SubElementListProperty([namespaces.domTag('Reason')], cls=CodedValue)
     RelevantClinicalInfo = cp.SubElementListProperty([namespaces.domTag('RelevantClinicalInfo')], cls=ClinicalInfo)
-    RequestedOrderDetail = cp.SubElementProperty([namespaces.domTag('RequestedOrderDetail')], valueClass=RequestedOrderDetail) # optional
-    PerformedOrderDetail = cp.SubElementProperty([namespaces.domTag('PerformedOrderDetail')], valueClass=PerformedOrderDetail) # optional
+    RequestedOrderDetail = cp.SubElementProperty([namespaces.domTag('RequestedOrderDetail')],
+                                                 valueClass=RequestedOrderDetail, isOptional=True)
+    PerformedOrderDetail = cp.SubElementProperty([namespaces.domTag('PerformedOrderDetail')],
+                                                 valueClass=PerformedOrderDetail, isOptional=True)
     _props = ['Patient', 'AssignedLocation', 'VisitNumber', 'DangerCode',
               'RelevantClinicalInfo', 'RequestedOrderDetail', 'PerformedOrderDetail']
 
@@ -1089,26 +1143,101 @@ class WorkflowDetail(PropertyBasedPMType):
         self.PerformedOrderDetail = performedorderdetail
 
 
+class AbstractMetricDescriptorRelationKindEnum(StringEnum):
+    RECOMMENDATION = 'Rcm'
+    PRE_SETTING = 'PS'
+    SET_OF_SUMMARY_STATISTICS = 'SST'
+    EFFECT_ON_CONTAINMENT_TREE_ENTRIES = 'ECE'
+    DERIVED_FROM_CONTAINMENT_TREE_ENTRIES = 'DCE'
+    OTHER = 'Oth'
 
-class Relation(PropertyBasedPMType):
-    """Relation allows the modelling of relationships between a metric and other containtment tree entries."""
-    Code = cp.SubElementProperty([namespaces.domTag('Code')], valueClass=CodedValue) #optional
-    Identification = cp.SubElementProperty([namespaces.domTag('Identification')], valueClass=InstanceIdentifier) # optional
-    Kind = cp.NodeAttributeProperty('Kind') # required, Rcm, PS, SST, ECE, DCE, Oth
+
+class AbstractMetricDescriptorRelation(PropertyBasedPMType):
+    """ Relation allows the modelling of relationships between a metric and other containment tree entries.
+    """
+    Code = cp.SubElementProperty([namespaces.domTag('Code')], valueClass=CodedValue, isOptional=True)
+    Identification = cp.SubElementProperty([namespaces.domTag('Identification')], valueClass=InstanceIdentifier,
+                                           isOptional=True)
+    Kind = cp.EnumAttributeProperty('Kind',enum_cls=AbstractMetricDescriptorRelationKindEnum, isOptional=False)
     Entries = cp.NodeAttributeListProperty('Entries')
     _props = ['Code', 'Identification', 'Kind', 'Entries']
+
+    def __init__(self):
+        super().__init__()
+Relation = AbstractMetricDescriptorRelation
+
+class BaseDemographics(PropertyBasedPMType):
+    Givenname = cp.NodeTextProperty([namespaces.domTag('Givenname')], isOptional=True)
+    Middlename = cp.SubElementTextListProperty([namespaces.domTag('Middlename')])
+    Familyname = cp.NodeTextProperty([namespaces.domTag('Familyname')], isOptional=True)
+    Birthname = cp.NodeTextProperty([namespaces.domTag('Birthname')], isOptional=True)
+    Title = cp.NodeTextProperty([namespaces.domTag('Title')], isOptional=True)
+    _props = ('Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title')
+
+    def __init__(self, given_name=None, middle_names=None, family_name=None, birth_name = None, title=None):
+        super().__init__()
+        self.Givenname = given_name
+        self.Middlename = middle_names or []
+        self.Familyname = family_name
+        self.Birthname = birth_name
+        self.Title = title
+
+
+class PatientType(StringEnum):
+    UNSPECIFIED = 'Unspec'
+    ADULT = 'Ad'
+    ADOLESCENT = 'Ado'
+    PEDIATRIC = 'Ped'
+    INFANT = 'Inf'
+    NEONATAL = 'Neo'
+    OTHER = 'Oth'
+
+class T_Sex(StringEnum):
+    UNSPEC = 'Unspec'
+    MALE = 'M'
+    FEMALE = 'F'
+    UNKNOWN = 'Unkn'
+
+
+class PatientDemographicsCoreData(BaseDemographics):
+    Sex = cp.NodeEnumTextProperty(T_Sex, [namespaces.domTag('Sex')], isOptional=True)
+    PatientType = cp.NodeEnumTextProperty(PatientType,[namespaces.domTag('PatientType')], isOptional=True)
+    DateOfBirth = cp.DateOfBirthProperty([namespaces.domTag('DateOfBirth')], isOptional=True)
+    Height = cp.SubElementProperty([namespaces.domTag('Height')], valueClass=Measurement, isOptional=True)
+    Weight = cp.SubElementProperty([namespaces.domTag('Weight')], valueClass=Measurement, isOptional=True)
+    Race = cp.SubElementProperty([namespaces.domTag('Race')], valueClass=CodedValue, isOptional=True)
+    _props = ('Sex', 'PatientType', 'DateOfBirth', 'Height', 'Weight', 'Race')
+
+    def setBirthdate(self, dateTimeOfBirth_string):
+        """ this method accepts a string, format acc. to XML Schema: xsd:dateTime, xsd:date, xsd:gYearMonth or xsd:gYear
+        Internally it holds it as a datetime object, so specific formatting of the dateTimeOfBirth_string will be lost."""
+        if not dateTimeOfBirth_string:
+            self.DateOfBirth = None
+        else:
+            datetime = cp.DateOfBirthProperty.mk_value_object(dateTimeOfBirth_string)
+            self.DateOfBirth = datetime
+
+
+class NeonatalPatientDemographicsCoreData(PatientDemographicsCoreData):
+    GestationalAge = cp.SubElementProperty([namespaces.domTag('GestationalAge')], valueClass=Measurement,
+                                           isOptional=True)
+    BirthLength = cp.SubElementProperty([namespaces.domTag('BirthLength')], valueClass=Measurement)
+    BirthWeight = cp.SubElementProperty([namespaces.domTag('BirthWeight')], valueClass=Measurement)
+    HeadCircumference = cp.SubElementProperty([namespaces.domTag('HeadCircumference')], valueClass=Measurement)
+    Mother = cp.SubElementProperty([namespaces.domTag('GestationalAge')], valueClass=PersonReference)
+    _props = ('GestationalAge', 'BirthLength', 'BirthWeight', 'HeadCircumference', 'Mother')
 
 
 # SafetyReq definitions
 class T_Selector(PropertyBasedPMType):
-    Id = cp.NodeAttributeProperty('Id')
+    Id = cp.StringAttributeProperty('Id')
     text = cp.NodeTextProperty()
     _props = ['Id', 'text']
     def __init__(self, id_, text):
-        '''
+        """
         @param id: a string
-        @param text : a string 
-        '''
+        @param text : a string
+        """
         self.Id = id_
         self.text = text
         
@@ -1124,16 +1253,16 @@ class T_Selector(PropertyBasedPMType):
     
 class T_DualChannelDef(PropertyBasedPMType):
     Selector = cp.SubElementListProperty([namespaces.mdpwsTag('Selector')], cls=T_Selector)
-    Algorithm = cp.NodeAttributeProperty('Algorithm')
-    Transform = cp.NodeAttributeProperty('Transform')
+    Algorithm = cp.StringAttributeProperty('Algorithm')
+    Transform = cp.StringAttributeProperty('Transform')
     _props = ['Selector', 'Algorithm', 'Transform']
     
     def __init__(self, selectors, algorithm=None, transform=None):
-        '''
+        """
         @param selectors: a list of Selector objects
-        @param algorithm : a string 
-        @param transform : a string 
-        '''
+        @param algorithm : a string
+        @param transform : a string
+        """
         self.Selector = selectors
         self.Algorithm = algorithm
         self.Transform = transform
@@ -1154,11 +1283,11 @@ class T_SafetyContextDef(PropertyBasedPMType):
     _props = ['Selector',]
     
     def __init__(self, selectors):
-        '''
+        """
         @param selectors: a list of Selector objects
-        @param algorithm : a string 
-        @param transform : a string 
-        '''
+        @param algorithm : a string
+        @param transform : a string
+        """
         self.Selector = selectors
         
 
@@ -1189,35 +1318,45 @@ class T_SafetyReq(PropertyBasedPMType):
 
 
 class T_Udi(PropertyBasedPMType):
-    DeviceIdentifier = cp.NodeTextProperty([namespaces.domTag('DeviceIdentifier')], isOptional=False)
-    HumanReadableForm = cp.NodeTextProperty([namespaces.domTag('HumanReadableForm')], isOptional=False)
+    """Part of Meta data"""
+    DeviceIdentifier = cp.NodeTextProperty([namespaces.domTag('DeviceIdentifier')])
+    HumanReadableForm = cp.NodeTextProperty([namespaces.domTag('HumanReadableForm')])
     Issuer = cp.SubElementProperty([namespaces.domTag('Issuer')], valueClass=InstanceIdentifier)
-    Jurisdiction = cp.SubElementProperty([namespaces.domTag('Jurisdiction')], valueClass=InstanceIdentifier)
+    Jurisdiction = cp.SubElementProperty([namespaces.domTag('Jurisdiction')],
+                                         valueClass=InstanceIdentifier, isOptional=True)
     _props = ['DeviceIdentifier', 'HumanReadableForm', 'Issuer', 'Jurisdiction']
 
     def __init__(self, device_identifier=None, humanreadable_form=None, issuer=None, jurisdiction=None):
-        '''
+        """
         UDI fragments as defined by the FDA. (Only used in BICEPS Final)
         :param device_identifier: a string
         :param humanreadable_form: a string
         :param issuer: an InstanceIdentifier
         :param jurisdiction: an InstanceIdentifier (optional)
-        '''
+        """
         self.DeviceIdentifier = device_identifier
         self.HumanReadableForm = humanreadable_form
         self.Issuer = issuer
         self.Jurisdiction = jurisdiction
 
-        
+
+class MetaData(PropertyBasedPMType):
+    Udi = cp.SubElementListProperty([namespaces.domTag('Udi')], cls=T_Udi)
+    LotNumber = cp.NodeTextProperty([namespaces.domTag('LotNumber')], isOptional=True)
+    Manufacturer = cp.SubElementListProperty([namespaces.domTag('Manufacturer')], cls=LocalizedText)
+    ManufactureDate = cp.NodeTextProperty([namespaces.domTag('ManufactureDate')], isOptional=True)
+    ExpirationDate = cp.NodeTextProperty([namespaces.domTag('ExpirationDate')], isOptional=True)
+    ModelName = cp.SubElementListProperty([namespaces.domTag('ModelName')], cls=LocalizedText)
+    ModelNumber = cp.NodeTextProperty([namespaces.domTag('ModelNumber')], isOptional=True)
+    SerialNumber = cp.SubElementTextListProperty([namespaces.domTag('SerialNumber')])
+    _props = ['Udi', 'LotNumber', 'Manufacturer', 'ManufactureDate', 'ExpirationDate',
+              'ModelName', 'ModelNumber', 'SerialNumber']
+
+    def __init__(self):
+        super().__init__()
+
 ###################################################################################
 # following : classes that serve only as name spaces
-
-
-class StringEnum(str, enum.Enum):
-
-    def __str__(self):
-        return self.value
-
 
 class SafetyClassification(StringEnum):
     INF = 'Inf'
@@ -1233,10 +1372,6 @@ class MdsOperatingMode(StringEnum):
     MAINTENANCE = 'Mtn'
     
 
-class OperatingMode(StringEnum):
-    DISABLED = 'Dis'
-    ENABLED = 'En'
-    NA = 'NA'
 
     
 class ComponentActivation(StringEnum):
@@ -1275,10 +1410,16 @@ class AlertConditionKind(StringEnum):
     OTHER = 'Oth'
 
 
-class AlertActivation(StringEnum):
-    ON = 'On'
-    OFF = 'Off'
-    PAUSED = 'Psd'
+class CanEscalateAlertConditionPriority(StringEnum):
+    LOW = 'Lo'
+    MEDIUM = 'Me'
+    HIGH = 'Hi'
+
+
+class CanDeEscalateAlertConditionPriority(StringEnum):
+    MEDIUM = 'Me'
+    LOW = 'Lo'
+    NONE = 'None'
 
 
 class AlertSignalPresence(StringEnum):
@@ -1288,11 +1429,6 @@ class AlertSignalPresence(StringEnum):
     ACK = 'Ack'
 
 
-class AlertSignalManifestation(StringEnum):
-    AUD = 'Aud' # Aud = Audible. The ALERT SIGNAL manifests in an audible manner, i.e., the alert can be heard. Example: an alarm sound.
-    VIS = 'Vis' # Vis = Visible. The ALERT SIGNAL manifests in a visible manner, i.e., the alert can be seen. Example: a red flashing light.
-    TAN = 'Tan' # Tan = Tangible. The ALERT SIGNAL manifests in a tangible manner, i.e., the alert can be felt. Example: vibration.
-    OTH = 'Oth' # Oth = Other. The ALERT SIGNAL manifests in a manner not further specified.
 
 
 class MetricAvailability(StringEnum):
@@ -1309,18 +1445,6 @@ class MetricCategory(StringEnum):
     RECOMMENDATION = 'Rcmm'
 
 
-class MeasurementValidity(StringEnum):
-    '''Level of validity of a measured value.
-    Used in BICEPS Final'''
-    VALID = 'Vld'
-    VALIDATED_DATA = 'Vldated'
-    MEASUREMENT_ONGOING = 'Ong'
-    QUESTIONABLE = 'Qst'
-    CALIBRATION_ONGOING = 'Calib'
-    INVALID = 'Inv'
-    OVERFLOW = 'Oflw'
-    UNDERFLOW = 'Uflw'
-    NA = 'NA'
 
     
 class InvocationState(StringEnum): # a namespace class
@@ -1340,13 +1464,6 @@ class InvocationError(StringEnum):
     OTHER = 'Oth'                  # Another type of error has occurred. More information on the error MAY be available.
 
 
-class GenerationMode(StringEnum):
-    '''Describes whether METRIC data is generated by real measurements or under unreal settings (demo or test data).'''
-    REAL = 'Real'                  # Real Data. A value that is generated under real conditions
-    TEST = 'Test'                  # Test Data. A value that is arbitrary and is for testing purposes only
-    DEMO = 'Demo'                  # Demo Data. A value that is arbitrary and is for demonstration purposes only
-
-
 class Units(object):
     UnitLess = CodedValue('262656') # used if a metric has no unit
 
@@ -1357,11 +1474,19 @@ class DescriptionModificationTypes(StringEnum):
     DELETE = 'Del'
 
 
-class PatientType(StringEnum):
-    UNSPECIFIED = 'Unspec'
-    ADULT = 'Ad'
-    ADOLESCENT = 'Ado'
-    PEDIATRIC = 'Ped'
-    INFANT = 'Inf'
-    NEONATAL = 'Neo'
+class DerivationMethod(StringEnum):
+    AUTOMATIC = 'Auto'
+    MANUAL = 'Man'
+
+class T_AccessLevel(StringEnum):
+    USER = 'Usr'
+    CLINICAL_SUPER_USER = 'CSUsr'
+    RESPONSIBLE_ORGANIZATION = 'RO'
+    SERVICE_PERSONNEL = 'SP'
     OTHER = 'Oth'
+
+
+class AlertSignalPrimaryLocation(StringEnum):
+    LOCAL = 'Loc'
+    REMOTE = 'Rem'
+

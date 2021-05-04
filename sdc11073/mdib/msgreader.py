@@ -121,7 +121,6 @@ class MessageReader(object):
         cls = self._mdib.getDescriptorContainerClass(nodeType)
         return cls.fromNode(self._mdib.nsmapper, node, parentHandle)
 
-
     def mkStateContainerFromNode(self, node, forcedType=None, additionalDescriptorContainers = None):
         '''
         @param node: a etree node
@@ -147,11 +146,23 @@ class MessageReader(object):
                                                                                        descriptorHandle))
             else:
                 descriptorContainer = correspondingDescriptors[0]
-        cls = self._mdib.getStateContainerClass(nodeType)
+        st_cls = self._mdib.getStateContainerClass(nodeType)
         if node.tag != namespaces.domTag('State'):
             node = copy.copy(node)  # make a copy, do not modify the original report
             node.tag = namespaces.domTag('State')
-        return cls(self._mdib.nsmapper, descriptorContainer, node)
+        state = st_cls(self._mdib.nsmapper, descriptorContainer)
+        self._init_state_from_node(state, node)
+        state.node = node
+        return state
+
+    @staticmethod
+    def _init_state_from_node(container, node):
+        ''' update members.
+        '''
+        # update all ContainerProperties
+        for dummy_name, cprop in container._sortedContainerProperties():
+            cprop.updateFromNode(container, node)
+
 
 
     def _mkStateContainersFromReportPart(self, reportPartNode):

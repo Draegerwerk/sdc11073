@@ -120,7 +120,8 @@ class ClientRtBuffer(object):
                             annot = annotations[aIndex] # index is zero-based
                             appliedAnnotations.append(annot)
                 t = observationTime + i * self.sample_period
-                rtSampleContainers.append(mdibbase.RtSampleContainer(sample, t, metricValue.Validity, appliedAnnotations))
+                rtSampleContainers.append(mdibbase.RtSampleContainer(sample, t, metricValue.MetricQuality.Validity,
+                                                                     appliedAnnotations))
         return rtSampleContainers
 
     def addRtSampleContainers(self, sc):
@@ -742,7 +743,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     if container is None:
                         pass
                     else:
-                        container.updateDescrFromNode(dc.node)
+                        container.update_from_other_container(dc)
                     updatedDescriptorByHandle[dc.handle] = dc
                     # if this is a context descriptor, delete all associated states that are not in
                     # state_containers list
