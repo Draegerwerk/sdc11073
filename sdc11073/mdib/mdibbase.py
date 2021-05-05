@@ -8,38 +8,38 @@ from .. import pmtypes
 from .. import multikey
 from ..xmlparsing import BicepsSchema
 
+
 class RtSampleContainer(object):
-    '''Contains a single Value'''
-    def __init__(self, valueString, timestamp, validity, annotations = None):
+    """Contains a single Value"""
+
+    def __init__(self, valueString, timestamp, validity, annotations=None):
         self.valueString = valueString
         self.value = float(valueString)
         self.observationTime = timestamp
         self.validity = validity
         self.annotations = [] if annotations is None else annotations
-    
+
     @property
     def age(self):
         return time.time() - self.observationTime
-    
+
     def __repr__(self):
         return 'RtSample value="{}" validity="{}" time={}'.format(self.valueString, self.validity, self.observationTime)
 
 
-
 class _MultikeyWithVersionLookup(multikey.MultiKeyLookup):
-    '''
+    """
     This class keeps track of versions of removed objects
-    '''
+    """
+
     def __init__(self):
         multikey.MultiKeyLookup.__init__(self)
         self.handle_version_lookup = dict()
-
 
     def removeObject(self, obj):
         if obj is not None:
             self._saveVersion(obj)
         multikey.MultiKeyLookup.removeObject(self, obj)
-
 
     def removeObjectNoLock(self, obj):
         if obj is not None:
@@ -54,23 +54,24 @@ class _MultikeyWithVersionLookup(multikey.MultiKeyLookup):
 
 
 class DescriptorsLookup(_MultikeyWithVersionLookup):
-    ''' This class knows about the hierarchy of descriptors and keeps the order of objects '''
+    """ This class knows about the hierarchy of descriptors and keeps the order of objects """
 
     def __init__(self):
         _MultikeyWithVersionLookup.__init__(self)
         self.addIndex('handle', multikey.UIndexDefinition(lambda obj: obj.handle))
         self.addIndex('parentHandle', multikey.IndexDefinition(lambda obj: obj.parentHandle))
         self.addIndex('NODETYPE', multikey.IndexDefinition(lambda obj: obj.NODETYPE))
-        self.addIndex('ConditionSignaled', multikey.IndexDefinition(lambda obj: obj.ConditionSignaled, indexNoneValues=False))
+        self.addIndex('ConditionSignaled',
+                      multikey.IndexDefinition(lambda obj: obj.ConditionSignaled, indexNoneValues=False))
         # an index to find all alert conditions for a metric (AlertCondition is the only class that has a
         # "Source" attribute, therefore this simple approach without type testing is sufficient):
-        self.addIndex('Source', multikey.IndexDefinition1n(lambda obj: [s.text for s in obj.Source], indexNoneValues=False))
+        self.addIndex('Source',
+                      multikey.IndexDefinition1n(lambda obj: [s.text for s in obj.Source], indexNoneValues=False))
 
         # ToDo: really 3 indices for coding needed?
         self.addIndex('codingSystem', multikey.IndexDefinition(lambda obj: obj.codingSystem))
         self.addIndex('codeId', multikey.IndexDefinition(lambda obj: obj.codeId))
         self.addIndex('coding', multikey.IndexDefinition(lambda obj: obj.coding))
-
 
     def _saveVersion(self, obj):
         self.handle_version_lookup[obj.handle] = obj.DescriptorVersion
@@ -79,7 +80,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
         version = self.handle_version_lookup.get(obj.handle)
         if version is not None:
             if increment:
-                version +=1
+                version += 1
             obj.DescriptorVersion = version
 
     def addObject(self, obj):
@@ -87,7 +88,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
             self.addObjectNoLock(obj)
 
     def addObjectNoLock(self, obj):
-        ''' appends obj to parent'''
+        """ appends obj to parent"""
         _MultikeyWithVersionLookup.addObjectNoLock(self, obj)
         parent = None if obj.parentHandle is None else self.handle.getOne(obj.parentHandle, allowNone=True)
         if parent is not None:
@@ -127,7 +128,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
             self.replaceObjectNoLock(newObj)
 
     def replaceObjectNoLock(self, newObj):
-        ''' remove existing descriptorContainer and add new one, but do not touch childlist of parent (that keeps order)'''
+        """ remove existing descriptorContainer and add new one, but do not touch childlist of parent (that keeps order)"""
         origObj = self.handle.getOne(newObj.handle)
         self.removeObjectNoLock(origObj)
         self.addObjectNoLock(newObj)
@@ -141,7 +142,7 @@ class StatesLookup(_MultikeyWithVersionLookup):
         version = self.handle_version_lookup.get(obj.descriptorHandle)
         if version is not None:
             if increment:
-                version +=1
+                version += 1
             obj.StateVersion = version
 
 
@@ -153,12 +154,11 @@ class MultiStatesLookup(_MultikeyWithVersionLookup):
         version = self.handle_version_lookup.get(obj.Handle)
         if version is not None:
             if increment:
-                version +=1
+                version += 1
             obj.StateVersion = version
 
 
 class MdibContainer(object):
-
     # these observables can be used to watch any change of data in the mdib. They contain lists of containers that were changed.
     # every transaction (devicemdib) or notification (client mdib) will report their changes here.
     metricsByHandle = properties.ObservableProperty(fireOnlyOnChangedValue=False)
@@ -170,37 +170,38 @@ class MdibContainer(object):
     updatedDescriptorByHandle = properties.ObservableProperty(fireOnlyOnChangedValue=False)
     deletedDescriptorByHandle = properties.ObservableProperty(fireOnlyOnChangedValue=False)
     operationByHandle = properties.ObservableProperty(fireOnlyOnChangedValue=False)
-    deletedStatesByHandle = properties.ObservableProperty(fireOnlyOnChangedValue=False) # is a result of deleted descriptors
+    deletedStatesByHandle = properties.ObservableProperty(
+        fireOnlyOnChangedValue=False)  # is a result of deleted descriptors
     sequenceId = properties.ObservableProperty()
 
     def __init__(self, sdc_definitions):
-        '''
+        """
         @param sdc_definitions: a class derived from Definitions_Base
-        '''
+        """
         self.sdc_definitions = sdc_definitions
-        self.bicepsSchema = BicepsSchema(sdc_definitions) # used for validation
-        self._logger = None # must to be instantiated by derived class
+        self.bicepsSchema = BicepsSchema(sdc_definitions)  # used for validation
+        self._logger = None  # must to be instantiated by derived class
         self.nsmapper = DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file
         self.mdibVersion = 0
         self.sequenceId = ''  # needs to be set to a reasonable value by derived class 
         self.log_prefix = ''
-        
+
         self.descriptions = DescriptorsLookup()
 
-        self.states = StatesLookup() #multikey.MultiKeyLookup()
+        self.states = StatesLookup()  # multikey.MultiKeyLookup()
         self.states.addIndex('descriptorHandle', multikey.UIndexDefinition(lambda obj: obj.descriptorHandle))
         self.states.addIndex('NODETYPE', multikey.IndexDefinition(lambda obj: obj.NODETYPE, indexNoneValues=False))
 
-        self.contextStates = MultiStatesLookup() #multikey.MultiKeyLookup()
+        self.contextStates = MultiStatesLookup()  # multikey.MultiKeyLookup()
 
         # descriptorHandle index is NOT unique!
         # => multiple ContextStates refer to the same descriptor( history of locations)
         # 'handle' index can be unique, because we ignore None values 
         self.contextStates.addIndex('descriptorHandle', multikey.IndexDefinition(lambda obj: obj.descriptorHandle))
         self.contextStates.addIndex('handle', multikey.UIndexDefinition(lambda obj: obj.Handle, indexNoneValues=False))
-        self.contextStates.addIndex('NODETYPE', multikey.IndexDefinition(lambda obj: obj.NODETYPE, indexNoneValues=False))
+        self.contextStates.addIndex('NODETYPE',
+                                    multikey.IndexDefinition(lambda obj: obj.NODETYPE, indexNoneValues=False))
         self.mdibLock = Lock()
-        
 
         self.mdStateVersion = 0
         self.mdDescriptionVersion = 0
@@ -209,13 +210,12 @@ class MdibContainer(object):
     def logger(self):
         return self._logger
 
-
     def addDescriptionContainers(self, descriptionContainers):
-        ''' init self.descriptions with provided descriptors
+        """ init self.descriptions with provided descriptors
         @param descriptionContainers: a list od DescriptionStateContainer objects
-        '''
+        """
         newDescriptorByHandle = {}
-        with self.descriptions._lock: #pylint: disable=protected-access
+        with self.descriptions._lock:  # pylint: disable=protected-access
             for d in descriptionContainers:
                 self.descriptions.addObjectNoLock(d)
                 newDescriptorByHandle[d.handle] = d
@@ -224,10 +224,9 @@ class MdibContainer(object):
         if newDescriptorByHandle:
             self.newDescriptorByHandle = newDescriptorByHandle
 
-
     def clearStates(self):
-        '''removes all states and context states. '''
-        with self.states._lock: #pylint: disable=protected-access
+        """removes all states and context states. """
+        with self.states._lock:  # pylint: disable=protected-access
             self.states.clear()
             self.contextStates.clear()
 
@@ -238,7 +237,6 @@ class MdibContainer(object):
         self.contextByHandle = None
         self.componentByHandle = None
         self.operationByHandle = None
-
 
     def _updateStateObservables(self, statecontainer_list):
         metricsByHandle = {}
@@ -262,13 +260,13 @@ class MdibContainer(object):
             elif sc.isContextState:
                 contextByHandle[sc.descriptorHandle] = sc
             elif sc.isSystemContextState or sc.isMultiState:
-                pass   # ignoring for now
-            elif sc.NODETYPE == domTag('ScoState'): # special case Draft6 ScoState (is not a component state)
+                pass  # ignoring for now
+            elif sc.NODETYPE == domTag('ScoState'):  # special case Draft6 ScoState (is not a component state)
                 pass  # this cannot be updated anyway over the network, but handle it here to avoid runtime error
             else:
                 raise RuntimeError('handling of {} has been forgotten to implement!'.format(sc.__class__.__name__))
 
-        #finally update observable properties
+        # finally update observable properties
         if alertByHandle:
             self.alertByHandle = alertByHandle
         if waveformByHandle:
@@ -282,11 +280,10 @@ class MdibContainer(object):
         if contextByHandle:
             self.contextByHandle = contextByHandle
 
-
     def addStateContainers(self, stateContainers):
-        '''Adds states to self.states and self.contextStates.
+        """Adds states to self.states and self.contextStates.
         @param stateContainers: a list of StateContainer objects.
-        '''
+        """
         for sc in stateContainers:
             if sc.descriptorContainer is not None:
                 self._logger.debug('addStateContainers: new state {}', sc)
@@ -303,65 +300,28 @@ class MdibContainer(object):
         # finally update observable properties
         self._updateStateObservables(stateContainers)
 
-    setMdStates = addStateContainers # backwards compatibility
-
-
-    # ToDo: refactor reconstruct mdib
-    @staticmethod
-    def _connectChildNodes(parentContainer, node, child_containers):
-        ret = []
-        # add all child container nodes
-        child_decls = parentContainer._sorted_child_declarations()
-        for c in child_containers:
-            child_def = []
-            child_def.extend([ ch for ch in child_decls if (hasattr(ch, 'node_types') and c.NODETYPE in ch.node_types)])
-            if len(child_def) != 1:
-                raise ValueError(f'{parentContainer.__class__.__name__} has no child definition for {c.NODETYPE}')
-            ch_node = c.mkDescriptorNode(tag=child_def[0].child_qname)
-            node.append(ch_node)
-            ret.append((c, ch_node))
-        return ret
+    setMdStates = addStateContainers  # backwards compatibility
 
     def _reconstructMdDescription(self):
-        '''build dom tree from current data
+        """build dom tree from current data
         @return: an etree_ node
-        '''
+        """
         doc_nsmap = self.nsmapper.docNssmap
         rootContainers = self.descriptions.parentHandle.get(None) or []
         mdDescriptionNode = etree_.Element(domTag('MdDescription'),
-                                           attrib={'DescriptionVersion':str(self.mdDescriptionVersion)},
+                                           attrib={'DescriptionVersion': str(self.mdDescriptionVersion)},
                                            nsmap=doc_nsmap)
 
-        def connectDescriptors(parentContainer, parentNode):
-            # childContainers = parentContainer.getOrderedChildContainers()
-            childContainers = []
-            child_decls = parentContainer._sorted_child_declarations()
-            for child_decl in child_decls:
-               if hasattr(child_decl, 'node_types'):  # _ChildConts
-                   for t in child_decl.node_types:
-                       childContainers.extend(parentContainer._child_containers_by_type[t])
-
-            # ret = parentContainer.connectChildContainers(parentNode, childContainers)
-            # ret = parentContainer._connectChildNodes(parentNode, childContainers)
-            ret = self._connectChildNodes(parentContainer, parentNode, childContainers)
-            parentContainer.sortChildNodes(parentNode)
-
-            # recursive call for children
-            for childContainer, node in ret:
-                connectDescriptors(childContainer, node)
-
         for rootContainer in rootContainers:
-            n = rootContainer.mkDescriptorNode(tag=domTag('Mds'))
+            n = rootContainer.mkDescriptorNode(tag=domTag('Mds'), connect_child_descriptors=True)
             mdDescriptionNode.append(n)
-            connectDescriptors(rootContainer, n)
         return mdDescriptionNode
 
-
     def _reconstructMdib(self, addContextStates):
-        '''build dom tree from current data
+        """build dom tree from current data
         @param addContextStates: bool
         @return: an etree_ node
-        '''
+        """
         doc_nsmap = self.nsmapper.docNssmap
         mdibNode = etree_.Element(msgTag('Mdib'), nsmap=doc_nsmap)
         mdibNode.set('MdibVersion', str(self.mdibVersion))
@@ -371,7 +331,7 @@ class MdibContainer(object):
 
         # add a list of states
         mdStateNode = etree_.SubElement(mdibNode, domTag('MdState'),
-                                        attrib={'StateVersion':str(self.mdStateVersion)},
+                                        attrib={'StateVersion': str(self.mdStateVersion)},
                                         nsmap=doc_nsmap)
         tag = domTag('State')
         for stateContainer in self.states.objects:
@@ -388,96 +348,94 @@ class MdibContainer(object):
         return mdibNode
 
     def reconstructMdDescription(self):
-        '''build dom tree from current data
+        """build dom tree from current data
         @return: a tuple etree_ node, mdibVersion
-        '''
+        """
         with self.mdibLock:
             node = self._reconstructMdDescription()
             return (node, self.mdibVersion)
 
     def reconstructMdib(self):
-        '''build dom tree from current data
+        """build dom tree from current data
         This method does not include context states!
         @return: an etree_ node
-        '''
+        """
         with self.mdibLock:
             return self._reconstructMdib(addContextStates=False)
 
-
     def reconstructMdibWithContextStates(self):
-        ''' this method includes the context states in mdib tree.
-        '''
+        """ this method includes the context states in mdib tree.
+        """
         with self.mdibLock:
             return self._reconstructMdib(addContextStates=True)
 
-
     def nodeToString(self, etree_node, pretty_print=False, xml_declaration=True, encoding='utf-8'):
-        '''Special toString converter that replaces the internal normalized namespaces with the correct external namespaces.
+        """Special toString converter that replaces the internal normalized namespaces with the correct external namespaces.
         @return: a string
-        '''
-        mdibString = etree_.tostring(etree_node, pretty_print=pretty_print, xml_declaration=xml_declaration, encoding=encoding)
+        """
+        mdibString = etree_.tostring(etree_node, pretty_print=pretty_print, xml_declaration=xml_declaration,
+                                     encoding=encoding)
         return self.sdc_definitions.denormalizeXMLText(mdibString)
 
-
     def getMetricDescriptorByCode(self, vmdCode, channelCode, metricCode):
-        ''' This is the "correct" way to find an descriptor. 
+        """ This is the "correct" way to find an descriptor.
         Using well known handles is shaky, because they have no meaning and can change over time!
         @param vmdCode: a pmtypes.CodedValue or a pmtypes.Coding instance
         @param channelCode: a pmtypes.CodedValue or a pmtypes.Coding instance
         @param metricCode: a pmtypes.CodedValue or a pmtypes.Coding instance
-        '''
-        vmdCoding = vmdCode.coding if hasattr(vmdCode, 'coding') else vmdCode 
-        channelCoding = channelCode.coding if hasattr(channelCode, 'coding') else channelCode 
-        metricCoding = metricCode.coding if hasattr(metricCode, 'coding') else metricCode 
-        
+        """
+        vmdCoding = vmdCode.coding if hasattr(vmdCode, 'coding') else vmdCode
+        channelCoding = channelCode.coding if hasattr(channelCode, 'coding') else channelCode
+        metricCoding = metricCode.coding if hasattr(metricCode, 'coding') else metricCode
+
         vmd = self.descriptions.coding.getOne(vmdCoding)
-        _allChannels = self.descriptions.coding.get(channelCoding, list()) 
+        _allChannels = self.descriptions.coding.get(channelCoding, list())
         allChannels = [c for c in _allChannels if c.parentHandle == vmd.handle]
         if len(allChannels) == 0:
             return
         if len(allChannels) > 1:
-            raise RuntimeError('found multiple channel descriptors for vmd={} channel={}'.format(vmdCoding, channelCoding))
+            raise RuntimeError(
+                'found multiple channel descriptors for vmd={} channel={}'.format(vmdCoding, channelCoding))
         channel = allChannels[0]
-        _allMetrics = self.descriptions.coding.get(metricCoding, list()) 
+        _allMetrics = self.descriptions.coding.get(metricCoding, list())
         allMetrics = [m for m in _allMetrics if m.parentHandle == channel.handle]
         if len(allMetrics) == 0:
             return
         if len(allMetrics) > 1:
-            raise RuntimeError('found multiple channel descriptors for vmd={} channel={} metric={}'.format(vmdCoding, channelCoding, metricCoding))
+            raise RuntimeError(
+                'found multiple channel descriptors for vmd={} channel={} metric={}'.format(vmdCoding, channelCoding,
+                                                                                            metricCoding))
         return allMetrics[0]
 
-         
     def getOperationsForMetric(self, vmdCode, channelCode, metricCode):
-        ''' This is the "correct" way to find an operation. 
+        """ This is the "correct" way to find an operation.
         Using well known handles is shaky, because they have no meaning and can change over time!
         @param vmdCode: a pmtypes.CodedValue or a pmtypes.Coding instance
         @param channelCode: a pmtypes.CodedValue or a pmtypes.Coding instance
         @param metricCode: a pmtypes.CodedValue or a pmtypes.Coding instance
         @return: a list of matching Operation Containers
-        '''
+        """
         descriptorContainer = self.getMetricDescriptorByCode(vmdCode, channelCode, metricCode)
         return self.getOperationDescriptorsForDescriptorHandle(descriptorContainer.handle)
 
-
     def getOperationDescriptorsForDescriptorHandle(self, descriptorHandle, **additionalFilters):
-        '''
+        """
         :param descriptorHandle: the handle for that operations shall be found
         :return: a list with operation descriptors that have descriptorHandle as OperationTarget. List can be empty
         :additionalFilters: optional filters for the key = name of member attribute, value = expected value
             example: NODETYPE=domTag('SetContextStateOperationDescriptor') filters for SetContextStateOperation descriptors
-        '''
+        """
         allOperationContainers = self.getOperationDescriptors()
         myOperations = [opC for opC in allOperationContainers if opC.OperationTarget == descriptorHandle]
         for k, v in additionalFilters.items():
             myOperations = [op for op in myOperations if getattr(op, k) == v]
         return myOperations
 
-
     def getStateContainerClass(self, qNameType):
-        '''
+        """
         @param qNameType: a QName instance
-        '''
-        #cls = self.bicepsSchema.getStateContainerClass(qNameType)
+        """
+        # cls = self.bicepsSchema.getStateContainerClass(qNameType)
         cls = self.sdc_definitions.sc.getContainerClass(qNameType)
         if cls is None:
             self._logger.warn('No class for type={}; using AbstractStateContainer', str(qNameType))
@@ -490,18 +448,19 @@ class MdibContainer(object):
             raise TypeError('No state association for {}'.format(descriptorContainer.__class__.__name__))
         return self.getStateContainerClass(stateClassQType)
 
-
     def mkStateContainerFromDescriptor(self, descriptorContainer):
         cls = self.getStateClsForDescriptor(descriptorContainer)
         if cls is None:
-            raise TypeError('No state container class for descr={}, name={}, type={}'.format(descriptorContainer.__class__.__name__, descriptorContainer.NODETYPE, descriptorContainer.nodeType))
+            raise TypeError(
+                'No state container class for descr={}, name={}, type={}'.format(descriptorContainer.__class__.__name__,
+                                                                                 descriptorContainer.NODETYPE,
+                                                                                 descriptorContainer.nodeType))
         return cls(self.nsmapper, descriptorContainer)
 
-
     def getOperationDescriptors(self):
-        '''
+        """
         :return: a list of all operation descriptors
-        '''
+        """
         result = []
         for nodeType in ('SetValueOperationDescriptor',
                          'SetStringOperationDescriptor',
@@ -513,11 +472,10 @@ class MdibContainer(object):
             result.extend(self.descriptions.NODETYPE.get(domTag(nodeType), []))
         return result
 
-
     def getDescriptorContainerClass(self, qNameType):
-        '''
+        """
         @param qNameType: a QName instance
-        '''
+        """
         cls = self.sdc_definitions.dc.getContainerClass(qNameType)
         if cls is None:
             self._logger.warn('No class for type={}; using AbstractDescriptorContainer',
@@ -525,48 +483,47 @@ class MdibContainer(object):
             raise RuntimeError('No class for type={}; using AbstractDescriptorContainer'.format(str(qNameType)))
         return cls
 
-
     def selectDescriptors(self, *codings):
-        ''' Returns all descriptor containers that match a path defined by list of codings.
-        example: 
+        """ Returns all descriptor containers that match a path defined by list of codings.
+        example:
         ['70041'] returns all containers that have CodedValue = 70041
         ['70041', '69650'] : returns all descriptors with CodedValue= 69650 and parent descriptor CodedValue = 70041
         ['70041', '69650', '69651'] : returns all descriptors with CodedValue= 69651 and parent descriptor CodedValue = 69650 and parent's parent descriptor CodedValue = 70041
-        It is not necessary that path starts at the top of an mds, it can start anywhere.  
-        '''
+        It is not necessary that path starts at the top of an mds, it can start anywhere.
+        """
         selectedObjects = None
         for coding in codings:
-            
+
             if selectedObjects is None:
-                selectedObjects = self.descriptions.objects # initially all objects
+                selectedObjects = self.descriptions.objects  # initially all objects
             else:
                 # get all children of selected objects
                 allhandles = [o.handle for o in selectedObjects]
                 selectedObjects = []
                 for h in allhandles:
                     selectedObjects.extend(self.descriptions.parentHandle.get(h, []))
-                
+
             # normalize coding
             if isinstance(coding, str):
                 coding = pmtypes.CodedValue(coding, pmtypes.DefaultCodingSystem).coding
             elif hasattr(coding, 'coding'):
-                coding=coding.coding
-                
+                coding = coding.coding
+
             if coding is not None:
                 # apply filter
-                tmpObjects = [o for o in selectedObjects if o.coding == coding ]
+                tmpObjects = [o for o in selectedObjects if o.coding == coding]
                 selectedObjects = tmpObjects
-        return selectedObjects                    
-
+        return selectedObjects
 
     def getAllDescriptorsInSubTree(self, descriptorContainer, depthFirst=True, includeRoot=True):
-        ''' walks the tree below descriptorContainer.
+        """ walks the tree below descriptorContainer.
         :param descriptorContainer:
         :param depthFirst: determines order of returned list. DepthFirst=True has all leaves on top, otherwise at the end.
         :param includeRoot: if True descriptorContainer itself is also part of returned list
         :return: a list of DescriptorContainer objects
-        '''
+        """
         result = []
+
         def _getchildren(parent):
             childContainers = self.descriptions.parentHandle.get(parent.handle, list())
             if not depthFirst:
@@ -575,6 +532,7 @@ class MdibContainer(object):
                 _getchildren(ch)
             if depthFirst:
                 result.extend(childContainers)
+
         if includeRoot and not depthFirst:
             result.append(descriptorContainer)
         _getchildren(descriptorContainer)
@@ -582,9 +540,8 @@ class MdibContainer(object):
             result.append(descriptorContainer)
         return result
 
-
     def _rmDescriptorsAndStates(self, descriptorContainers):
-        ''' recursive delete of a descriptor and all children and all related states'''
+        """ recursive delete of a descriptor and all children and all related states"""
         deletedDescriptorByHandle = {}
         deletedStatesByHandle = {}
         for descriptorContainer in descriptorContainers:
@@ -598,7 +555,7 @@ class MdibContainer(object):
                     # make a copy, otherwise removeObjects will manipulate same list in place
                     stateContainers = stateContainers[:]
                     self._logger.debug('rm {} states(s) associated to descriptor {} ',
-                                      len(stateContainers), descriptorContainer.handle)
+                                       len(stateContainers), descriptorContainer.handle)
                     m_key.removeObjects(stateContainers)
                     deletedStatesByHandle[descriptorContainer.handle] = stateContainers
 
@@ -607,12 +564,12 @@ class MdibContainer(object):
         if deletedStatesByHandle:
             self.deletedStatesByHandle = deletedStatesByHandle
 
-
     def rmDescriptorHandleAll(self, handle):
         descriptorContainer = self.descriptions.handle.getOne(handle, allowNone=True)
         if descriptorContainer is not None:
             allDescriptors = self.getAllDescriptorsInSubTree(descriptorContainer)
             self._rmDescriptorsAndStates(allDescriptors)
+
 
 _tagname_lookup = {
     (None, domTag('MdsDescriptor')): domTag('Mds')

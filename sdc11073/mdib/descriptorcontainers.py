@@ -13,7 +13,12 @@ _ChildElem = namedtuple('_ChildElem', 'child_qname')  # this child is own proper
 # _ChildConts stands for different containers that are children
 # child_qname is the name of the SubElement,
 # node_types is a list of NODETYPE values of matching descriptor containers
-_ChildConts = namedtuple('_ChildConts', 'child_qname node_types')
+_ChildContsTuple = namedtuple('_ChildConts', 'child_qname node_types')
+
+class _ChildConts(_ChildContsTuple):
+    def __repr__(self):
+        types = ', '.join([t.localname for t in self.node_types])
+        return f'{self.__class__.__name__} name={self.child_qname.localname} types={types}'
 
 
 class AbstractDescriptorContainer(ContainerBase):
@@ -144,24 +149,39 @@ class AbstractDescriptorContainer(ContainerBase):
                 continue
         return ret
 
-    def mkDescriptorNode(self, tag, setXsiType=True):
+    def mkDescriptorNode(self, tag, setXsiType=True, connect_child_descriptors=False):
         """
         Creates a lxml etree node from instance data.
         :param setXsiType:
         :param tag: tag of node, defaults to self.nodeName
+        :param connect_child_descriptors: if True, the whole sub-tree is included
         :return: an etree node
         """
-        if tag is None:
-            raise Exception('no tag name!')
         node = etree_.Element(tag, attrib={'Handle': self.handle}, nsmap=self.nsmapper.docNssmap)
-        self._updateNode(node, setXsiType)
-        self.sortChildNodes(node)
+        self._updateNode(node, setXsiType)# create all
+        if connect_child_descriptors:
+            # append all children, then bring them in correct order
+            for node_type, child_list in self._child_containers_by_type.items():
+                child_tag = self._tag_name_for_child_descriptor(node_type)
+                for child in child_list:
+                    child_node = child.mkDescriptorNode(child_tag, connect_child_descriptors=True)
+                    node.append(child_node)
+        self._sort_child_nodes(node)
         return node
 
-    def sortChildNodes(self, node):
+    def _tag_name_for_child_descriptor(self, node_type):
+        for ch in self._sorted_child_declarations():
+            try:
+                if node_type in ch.node_types:
+                    return ch.child_qname
+            except AttributeError:
+                pass
+        raise ValueError(f'{node_type} not known in child declarations of {self.__class__.__name__}')
+
+    def _sort_child_nodes(self, node):
         """
         raises an ValueError if a child node exist that is not listed in ordered_tags
-        @param ordered_tags: a list of QNames
+        @param node: a list of QNames
         """
         child_decls = self._sorted_child_declarations()
         qnames = [o.child_qname for o in child_decls]
