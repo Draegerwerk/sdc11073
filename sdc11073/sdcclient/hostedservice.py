@@ -7,7 +7,6 @@ from .. import loghelper
 from ..namespaces import msgTag, domTag, QN_TYPE, nsmap, DocNamespaceHelper
 from ..namespaces import Prefix_Namespace as Prefix
 from ..pysoap.soapenvelope import Soap12Envelope, WsAddress, GenericNode, ExtendedDocumentInvalid
-from ..safety import SafetyInfoHeader
 
 class HostedServiceClient(object):
     """ Base class of clients that call hosted services of a dpws device."""
@@ -90,14 +89,9 @@ class HostedServiceClient(object):
         else:
             my_ns = Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG)
 
-        sih = self._mkOptionalSafetyHeader(soapBodyNode, operationHandle) # a header or None
-
         soapEnvelope = Soap12Envelope(my_ns)
         action = self._getActionString(methodName)
         soapEnvelope.setAddress(WsAddress(action=action, to=self.endpoint_reference.address))
-        if sih is not None:
-            soapEnvelope.addHeaderObject(sih)
-
         soapEnvelope.addBodyElement(soapBodyNode)
         soapEnvelope.validateBody(self._bmmSchema)
         return soapEnvelope
@@ -160,66 +154,6 @@ class HostedServiceClient(object):
     def _callMethodWithEtreeNodeArgument(self, portTypeName, methodName, etreeNodeArgument=None, additionalHeaders=None):
         tmp = etree_.tostring(etreeNodeArgument)
         return self._callMethodWithXMLStringArgument(portTypeName, methodName, tmp, additionalHeaders)
-
-
-    def _mkOptionalSafetyHeader(self, soapBodyNode, operationHandle):
-
-        if self._mdib_wref is not None:
-            op_descriptor = self._mdib_wref().descriptions.handle.getOne(operationHandle, allowNone=True)
-            if op_descriptor is not None and op_descriptor.SafetyReq is not None:
-                mdib_node = self._mdib_wref().reconstructMdibWithContextStates()
-                return self._mkSoapSafetyHeader(soapBodyNode, op_descriptor.SafetyReq, mdib_node)
-        return None
-
-
-    def _mkSoapSafetyHeader(self, soapBodyNode, t_SafetyReq, mdibNode):
-        dualChannelSelectors = {}
-        safetyContextSelectors = {}
-
-        if not t_SafetyReq.DualChannelDef:
-            self._logger.info('no DualChannel selectors specified')
-        else:
-            for sel in  t_SafetyReq.DualChannelDef.Selector:
-                selectorId = sel.Id
-                selectorPath = sel.text
-                values = soapBodyNode.xpath(selectorPath, namespaces=mdibNode.nsmap)
-                if len(values) == 1:
-                    self._logger.debug('DualChannel selector "{}": value = "{}", path= "{}"', selectorId, values[0], selectorPath)
-                    dualChannelSelectors[selectorId] = str(values[0]).strip()
-                elif len(values) == 0:
-                    self._logger.error('DualChannel selector "{}": no value found! path= "{}"', selectorId, selectorPath)
-                else:
-                    self._logger.error('DualChannel selector "{}": path= "{}", multiple values found: {}', selectorId, selectorPath, values)
-
-        if not t_SafetyReq.SafetyContextDef:
-            self._logger.info('no Safety selectors specified')
-        else:
-            for sel in  t_SafetyReq.SafetyContextDef.Selector:
-                selectorId = sel.Id
-                selectorPath = sel.text
-                # check the selector, there is a potential problem with the starting point of the xpath search path:
-                if selectorPath.startswith('//'):
-                    # double slashes means that the matching pattern can be located anywhere in the dom tree.
-                    # No problem.
-                    pass #
-                elif selectorPath.startswith('/'):
-                    # Problem! if the selector starts with a single slash, this is a xpath search that starts at the document root.
-                    # But the convention is that the xpath search shall start from the top level element (=> without the toplevel element in the path)
-                    # In order to follow this convention, remove the leading slash and start the search relative to the lop level node.
-                    selectorPath = selectorPath[1:]
-                values =  mdibNode.xpath(selectorPath, namespaces=mdibNode.nsmap)
-                if len(values) == 1:
-                    self._logger.debug('Safety selector "{}": value = "{}"  path= "{}"', selectorId, values[0], selectorPath)
-                    safetyContextSelectors[selectorId] = str(values[0]).strip()
-                elif len(values) == 0:
-                    self._logger.error('Safety selector "{}":  no value found! path= "{}"', selectorId, selectorPath)
-                else:
-                    self._logger.error('Safety selector "{}": path= "{}", multiple values found: {}', selectorId, selectorPath, values)
-
-        if dualChannelSelectors or safetyContextSelectors:
-            return SafetyInfoHeader(dualChannelSelectors, safetyContextSelectors)
-        else:
-            return None
 
 
 class GetServiceClient(HostedServiceClient):
@@ -336,12 +270,7 @@ class SetServiceClient(HostedServiceClient):
             argVal = etree_.SubElement(argNode, msgTag('ArgValue'))
             argVal.text = value
 
-        # look for safety context in mdib
-        sih = self._mkOptionalSafetyHeader(soapBodyNode, operationHandle)
-        if sih is not None:
-            sih = [sih]
-
-        soapEnvelope = self._mkSoapEnvelopeWithEtreeBody('Activate', soapBodyNode, additionalHeaders=sih)
+        soapEnvelope = self._mkSoapEnvelopeWithEtreeBody('Activate', soapBodyNode)
         soapEnvelope.validateBody(self._bmmSchema)
         futureObject = self._callOperation(soapEnvelope, request_manipulator=request_manipulator)
         return futureObject

@@ -1,8 +1,6 @@
-from ..namespaces import Prefix_Namespace as Prefix
-from ..namespaces import domTag, siTag, nsmap
+from ..namespaces import domTag
 from .. import sdcdevice
 from .. import pmtypes
-from .. import safety
 from ..nomenclature import NomenclatureCodes as nc
 
 from . import providerbase
@@ -17,8 +15,6 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
     It guarantees that there are operations with codes "MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE"
     and "MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE".
     """
-    USE_SAFETYCONTEXT = False # using safetycontext can be enabled with this switch
-
     def __init__(self, log_prefix):
         super(GenericSDCAudioPauseProvider, self).__init__(log_prefix)
         self._setGlobalAudioPauseOperations = []
@@ -29,8 +25,6 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
             self._logger.info('instantiating "set audio pause" operation from existing descriptor handle={}'.format(operationDescriptorContainer.handle))
             set_ap_operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
                                                                         currentRequestHandler=self._setGlobalAudioPause)
-
-            set_ap_operation.safetyReq = operationDescriptorContainer.SafetyReq
             self._setGlobalAudioPauseOperations.append(set_ap_operation)
             return set_ap_operation
 
@@ -56,9 +50,6 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                                                  operationTargetHandle=operationTargetContainer.handle,
                                                  codedValue=MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE,
                                                  currentRequestHandler=self._setGlobalAudioPause)
-            if self.USE_SAFETYCONTEXT:
-                self._setAudioPauseSafetyRequirement(set_ap_operation)
-
             self._setGlobalAudioPauseOperations.append(set_ap_operation)
             ops.append(set_ap_operation)
         if not self._cancelGlobalAudioPauseOperations:
@@ -70,64 +61,9 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                                                     operationTargetHandle=operationTargetContainer.handle,
                                                     codedValue=MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE,
                                                     currentRequestHandler=self._cancelGlobalAudioPause)
-            if self.USE_SAFETYCONTEXT:
-                self._setAudioPauseSafetyRequirement(
-                    cancel_ap_operation)  # risk wise not really needed, but S31 has also sefety context here.
             ops.append(cancel_ap_operation)
             self._setGlobalAudioPauseOperations.append(cancel_ap_operation)
         return ops
-
-    def _checkSafetyContext(self, request):
-        safetyInfoNode = request.headerNode.find(siTag('SafetyInfo'))
-        if safetyInfoNode is None:
-            raise Exception('No SafetyInfo in Header found')
-        safetyContextNode = safetyInfoNode.find(siTag('SafetyContext'))
-        if safetyContextNode is None:
-            raise Exception('No SafetyContext in SafetyInfo Header found')
-        locContextDescrContainer = self._mdib.descriptions.NODETYPE.getOne(domTag('LocationContextDescriptor'),
-                                                                           allowNone=True)
-        if locContextDescrContainer is None:
-            raise Exception('Device has no LocationContext Descriptor instance')
-        locationContextStateContainers = self._mdib.contextStates.NODETYPE.get(
-            domTag('LocationContextState'))
-        assoc = [l for l in locationContextStateContainers if
-                 l.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
-        if len(assoc) != 1:
-            raise Exception('Expected one associated Location, got {}'.format(len(assoc)))
-        extension = safetyContextNode.xpath('si:CtxtValue[@ReferencedSelector="LocationIIExt"]/text()',
-                                            namespaces=nsmap)
-        if assoc[0].Identification[0].Extension != extension[0]:
-            raise Exception(
-                'wrong SafetyContext Extension, expect "{}", got "{}"'.format(assoc[0].Identification.Extension,
-                                                                              extension[0]))
-        root = safetyContextNode.xpath('si:CtxtValue[@ReferencedSelector="LocationIIRoot"]/text()',
-                                       namespaces=nsmap)
-        if assoc[0].Identification[0].Root != root[0]:
-            raise Exception(
-                'wrong SafetyContext Root, expect "{}", got "{}"'.format(assoc[0].Identification.Root, root[0]))
-
-
-    def _setAudioPauseSafetyRequirement(self, ap_operation):
-        # create SafetyReq Definition
-        dom_prefix = self._mdib.nsmapper.domPrefix()
-
-        dualChannelDef = None
-
-        locContextDescrContainer = self._mdib.descriptions.NODETYPE.getOne(domTag('LocationContextDescriptor'),
-                                                                     allowNone=True)
-        if locContextDescrContainer is not None:
-            desc_h = locContextDescrContainer.handle
-            safetyContextDef = pmtypes.T_SafetyContextDef([
-                pmtypes.T_Selector('LocationIIExt',
-                                   '/{pm}:MdState/{pm}:State[@DescriptorHandle="{dh}"][@ContextAssociation="Assoc"]/{pm}:Identification[1]/@Extension'.format(
-                                       pm=dom_prefix, dh=desc_h)),
-                pmtypes.T_Selector('LocationIIRoot',
-                                   '/{pm}:MdState/{pm}:State[@DescriptorHandle="{dh}"][@ContextAssociation="Assoc"]/{pm}:Identification[1]/@Root'.format(
-                                       pm=dom_prefix, dh=desc_h)),
-            ])
-        else:
-            safetyContextDef = pmtypes.T_SafetyContextDef([])
-        ap_operation.safetyReq = pmtypes.T_SafetyReq(dualChannelDef=dualChannelDef, safetyContextDef=safetyContextDef)
 
 
     def _setGlobalAudioPause(self, operationInstance, request):  # pylint: disable=unused-argument
@@ -145,9 +81,6 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
         if alertSystemDescriptors is None:
             self._logger.error('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
             return
-        if self.USE_SAFETYCONTEXT:
-            self._checkSafetyContext(request)
-
         with self._mdib.mdibUpdateTransaction() as tr:
             for alertSystemDescriptor in alertSystemDescriptors:
                 alertSystemState = tr.getAlertState(alertSystemDescriptor.handle)
@@ -193,8 +126,6 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
         SystemSignalActivation/Manifestation evaluating to 'Aud' shall be set to 'Psd'.
          '''
         alertSystemDescriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSystemDescriptor'))
-        if self.USE_SAFETYCONTEXT:
-            self._checkSafetyContext(request)
         with self._mdib.mdibUpdateTransaction() as tr:
             for alertSystemDescriptor in alertSystemDescriptors:
                 alertSystemState = tr.getAlertState(alertSystemDescriptor.handle)

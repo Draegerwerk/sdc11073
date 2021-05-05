@@ -165,14 +165,12 @@ class OperationDefinition(object):
     def __init__(self, handle, operationTarget,
                  safetyClassification=SafetyClassification.INF,
                  codedValue=None,
-                 safetyReq=None,
                  log_prefix=None):  # pylint:disable=too-many-arguments
         """
         @param handle: the handle of the operation itself.
         @param operationTarget: the handle of the modified data (MdDescription)
         @param safetyClassification: one of pmtypes.SafetyClassification values
         @param codedValue: a pmtypes.CodedValue instance
-        @param safetyReq: a pmtypes.T_SafetyReq instance or None
         """
         self._logger = loghelper.getLoggerAdapter('sdc.device.op.{}'.format(self.__class__.__name__), log_prefix)
         self._mdib = None
@@ -190,7 +188,6 @@ class OperationDefinition(object):
 
         self._safetyClassification = safetyClassification
         self._codedValue = codedValue
-        self.safetyReq = safetyReq  # can become a pmtypes.T_SafetyReq instance
         self.calls = []  # record when operation was called
 
     @property
@@ -245,7 +242,6 @@ class OperationDefinition(object):
         self._initOperationTargetContainer()
 
     def _initOperationDescriptorContainer(self):
-        self._descriptorContainer.SafetyReq = self.safetyReq
         self._descriptorContainer.OperationTarget = self._operationTargetHandle
         if self._codedValue is not None:
             self._descriptorContainer.Type = self._codedValue
@@ -349,11 +345,10 @@ class ActivateOperation(OperationDefinition):
     OP_DESCR_QNAME = domTag('ActivateOperationDescriptor')
     OP_STATE_QNAME = domTag('ActivateOperationState')
 
-    def __init__(self, handle, operationTarget, codedValue=None, safetyReq=None):
+    def __init__(self, handle, operationTarget, codedValue=None):
         super().__init__(handle=handle,
                          operationTarget=operationTarget,
-                         codedValue=codedValue,
-                         safetyReq=safetyReq)
+                         codedValue=codedValue)
 
 
 class SetAlertStateOperation(OperationDefinition):
@@ -362,11 +357,10 @@ class SetAlertStateOperation(OperationDefinition):
     OP_DESCR_QNAME = domTag('SetAlertStateOperationDescriptor')
     OP_STATE_QNAME = domTag('SetAlertStateOperationState')
 
-    def __init__(self, handle, operationTarget, codedValue=None, safetyReq=None, log_prefix=None):
+    def __init__(self, handle, operationTarget, codedValue=None, log_prefix=None):
         super().__init__(handle=handle,
                          operationTarget=operationTarget,
                          codedValue=codedValue,
-                         safetyReq=safetyReq,
                          log_prefix=log_prefix)
 
 
@@ -376,11 +370,10 @@ class SetComponentStateOperation(OperationDefinition):
     OP_DESCR_QNAME = domTag('SetComponentStateOperationDescriptor')
     OP_STATE_QNAME = domTag('SetComponentStateOperationState')
 
-    def __init__(self, handle, operationTarget, codedValue=None, safetyReq=None, log_prefix=None):
+    def __init__(self, handle, operationTarget, codedValue=None, log_prefix=None):
         super().__init__(handle=handle,
                          operationTarget=operationTarget,
                          codedValue=codedValue,
-                         safetyReq=safetyReq,
                          log_prefix=log_prefix)
 
 
@@ -390,11 +383,10 @@ class SetMetricStateOperation(OperationDefinition):
     OP_DESCR_QNAME = domTag('SetMetricStateOperationDescriptor')
     OP_STATE_QNAME = domTag('SetMetricStateOperationState')
 
-    def __init__(self, handle, operationTarget, codedValue=None, safetyReq=None, log_prefix=None):
+    def __init__(self, handle, operationTarget, codedValue=None, log_prefix=None):
         super().__init__(handle=handle,
                          operationTarget=operationTarget,
                          codedValue=codedValue,
-                         safetyReq=safetyReq,
                          log_prefix=log_prefix)
 
 

@@ -1,5 +1,4 @@
 from . import pysoap
-from . import safety
 from . import namespaces
 from . import wsdiscovery
 from . import mdib
