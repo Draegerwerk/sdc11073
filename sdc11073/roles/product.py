@@ -66,8 +66,8 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
                 state = mgr.getComponentState(proposedComponentState.descriptorHandle)
                 if state.isComponentState:
                     self._logger.info('updating {} with proposed component state', state)
-                    state.updateFromOtherContainer(proposedComponentState,
-                                                   skipped_properties=['StateVersion', 'DescriptorVersion'])
+                    state.update_from_other_container(proposedComponentState,
+                                                      skipped_properties=['StateVersion', 'DescriptorVersion'])
                 else:
                     self._logger.warn('_setComponentState operation: ignore invalid referenced type {} in operation', state.NODETYPE)
 

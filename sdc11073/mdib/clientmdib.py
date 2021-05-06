@@ -405,7 +405,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     metricsByHandle[desc_h] = sc  # metric
                     if oldStateContainer is not None:
                         if self._hasNewStateUsableStateVersion(oldStateContainer, sc, 'EpisodicMetricReport', is_buffered_report):
-                            oldStateContainer.updateFromOtherContainer(sc)
+                            oldStateContainer.update_from_other_container(sc)
                             self.states.updateObject(oldStateContainer)
                     else:
                         self.states.addObject(sc)
@@ -466,7 +466,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
                     if oldStateContainer is not None:
                         if self._hasNewStateUsableStateVersion(oldStateContainer, sc, 'EpisodicAlertReport', is_buffered_report):
-                            oldStateContainer.updateFromOtherContainer(sc)
+                            oldStateContainer.update_from_other_container(sc)
                             self.states.updateObject(oldStateContainer)
                             alertByHandle[oldStateContainer.descriptorHandle] = oldStateContainer
                     else:
@@ -502,7 +502,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
                     if oldStateContainer is not None:
                         if self._hasNewStateUsableStateVersion(oldStateContainer, sc, 'OperationalStateReport', is_buffered_report):
-                            oldStateContainer.updateFromOtherContainer(sc)
+                            oldStateContainer.update_from_other_container(sc)
                             self.states.updateObject(oldStateContainer)
                             operationByHandle[oldStateContainer.descriptorHandle] = oldStateContainer
                     else:
@@ -557,7 +557,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     else:
                         if self._hasNewStateUsableStateVersion(oldStateContainer, new_sac, 'WaveformReport', is_buffered_report):
                             # update old state container from new one
-                            oldStateContainer.updateFromOtherContainer(new_sac)
+                            oldStateContainer.update_from_other_container(new_sac)
                             self.states.updateObject(oldStateContainer)
                         current_sc = oldStateContainer  # we will need it later
                     waveformByHandle[d_handle] = current_sc
@@ -642,7 +642,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             self._logger.info(
                                 '_onEpisodicContextReport: updated context state handle = {} Descriptor Handle={} Assoc={}, Validators={}',
                                 sc.Handle, sc.descriptorHandle, sc.ContextAssociation, sc.Validator)
-                            oldStateContainer.updateFromOtherContainer(sc)
+                            oldStateContainer.update_from_other_container(sc)
                             self.contextStates.updateObject(oldStateContainer)
                             contextByHandle[oldStateContainer.Handle] = oldStateContainer
         finally:
@@ -688,7 +688,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                 self._logger.info(
                                     '_onEpisodicComponentReport: updated component state, handle="{}" DescriptorVersion={}',
                                     desc_h, sc.DescriptorVersion)
-                                oldStateContainer.updateFromOtherContainer(sc)
+                                oldStateContainer.update_from_other_container(sc)
                                 self.states.updateObject(oldStateContainer)
                                 componentByHandle[oldStateContainer.descriptorHandle] = oldStateContainer
         finally:
@@ -763,7 +763,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         multikey = self.states
                         oldstateContainer = multikey.descriptorHandle.getOne(sc.descriptorHandle, allowNone=True)
                     if oldstateContainer is not None:
-                        oldstateContainer.updateFromOtherContainer(sc)
+                        oldstateContainer.update_from_other_container(sc)
                         multikey.updateObject(oldstateContainer)
 
                 # write observables for every report part separately
@@ -860,7 +860,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     old_state = lookup.handle.getOne(handle)
             else:
                 old_state = lookup.descriptorHandle.getOne(descriptorHandle)
-            new_state.updateFromOtherContainer(old_state)
+            new_state.update_from_other_container(old_state)
         return new_state
 
     def get_wf_age_stdev(self):

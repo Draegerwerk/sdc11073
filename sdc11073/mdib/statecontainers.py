@@ -48,15 +48,11 @@ class AbstractStateContainer(ContainerBase):
         node.set('DescriptorHandle', self.descriptorHandle)
         return node
 
-
     def update_from_other_container(self, other, skipped_properties=None):
         if other.descriptorHandle != self.descriptorHandle:
             raise RuntimeError('Update from a node with different descriptor handle is not possible! Have "{}", got "{}"'.format(self.descriptorHandle, other.descriptorHandle))
         self._update_from_other(other, skipped_properties)
         self.node = other.node
-
-    updateFromOtherContainer = update_from_other_container  #
-
 
     def incrementState(self):
         if self.StateVersion is None:

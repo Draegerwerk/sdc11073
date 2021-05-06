@@ -10,26 +10,25 @@ import http.client
 from lxml import etree as etree_
 from ..namespaces import xmlTag, wseTag, wsaTag, msgTag, nsmap, DocNamespaceHelper
 from ..namespaces import Prefix_Namespace as Prefix
-from .. import pysoap
 from .. import isoduration
 from .. import xmlparsing
 from .. import observableproperties
 from .. import multikey
 from .. import loghelper
 from ..compression import CompressionHandler
-
-WsAddress = pysoap.soapenvelope.WsAddress
-Soap12Envelope = pysoap.soapenvelope.Soap12Envelope
+from ..pysoap.soapenvelope import Soap12Envelope, SoapFault, WsAddress, WsaEndpointReferenceType
+from ..pysoap.soapclient import SoapClient, HTTPReturnCodeError
 
 MAX_ROUNDTRIP_VALUES = 20
+
 
 class _RoundTripData(object):
     def __init__(self, values, abs_max):
         if values:
-            self.values = list(values) # make a copy
+            self.values = list(values)  # make a copy
             self.min = min(values)
             self.max = max(values)
-            self.avg = sum(values)/len(values)
+            self.avg = sum(values) / len(values)
             self.abs_max = abs_max
         else:
             self.values = None
@@ -49,12 +48,12 @@ class _DevSubscription(object):
     def __init__(self, mode, base_urls, notifyToAddress, notifyRefNode, endToAddress, endToRefNode, expires,
                  max_subscription_duration, filter_, sslContext, bicepsSchema,
                  acceptedEncodings):  # pylint:disable=too-many-arguments
-        '''
+        """
         @param notifyToAddress: dom node of Subscribe Request
         @param endToAddress: dom node of Subscribe Request
         @param expires: seconds as float
         @param filter: a space separated list of actions, or only one action
-        '''
+        """
         self.mode = mode
         self.base_urls = base_urls
         self.notifyToAddress = notifyToAddress
@@ -134,12 +133,12 @@ class _DevSubscription(object):
         return False
 
     def _mkNotificationReport(self, soapEnvelope, action):
-        addr = pysoap.soapenvelope.WsAddress(to=self.notifyToAddress,
-                                             action=action,
-                                             from_=None,
-                                             replyTo=None,
-                                             faultTo=None,
-                                             referenceParametersNode=None)
+        addr = WsAddress(to=self.notifyToAddress,
+                         action=action,
+                         from_=None,
+                         replyTo=None,
+                         faultTo=None,
+                         referenceParametersNode=None)
         soapEnvelope.setAddress(addr)
         for identNode in self.notifyRefNodes:
             soapEnvelope.addHeaderElement(identNode)
@@ -148,12 +147,12 @@ class _DevSubscription(object):
 
     def _mkEndReport(self, soapEnvelope, action):
         to_addr = self.endToAddress or self.notifyToAddress
-        addr = pysoap.soapenvelope.WsAddress(to=to_addr,
-                                             action=action,
-                                             from_=None,
-                                             replyTo=None,
-                                             faultTo=None,
-                                             referenceParametersNode=None)
+        addr = WsAddress(to=to_addr,
+                         action=action,
+                         from_=None,
+                         replyTo=None,
+                         faultTo=None,
+                         referenceParametersNode=None)
         soapEnvelope.setAddress(addr)
         ref_nodes = self.endToRefNodes or self.notifyRefNodes
         for identNode in ref_nodes:
@@ -166,7 +165,7 @@ class _DevSubscription(object):
     def sendNotificationReport(self, bodyNode, action, doc_nsmap):
         if not self.isValid:
             return
-        soapEnvelope = pysoap.soapenvelope.Soap12Envelope(doc_nsmap)
+        soapEnvelope = Soap12Envelope(doc_nsmap)
         soapEnvelope.addBodyElement(bodyNode)
         rep = self._mkNotificationReport(soapEnvelope, action)
         try:
@@ -182,7 +181,7 @@ class _DevSubscription(object):
                 pass
             self._notifyErrors = 0
             self._isConnectionError = False
-        except pysoap.soapclient.HTTPReturnCodeError:
+        except HTTPReturnCodeError:
             self._notifyErrors += 1
             raise
         except Exception:  # any other exception is handled as an unreachable location (disconnected)
@@ -198,7 +197,7 @@ class _DevSubscription(object):
             return
         if self._soapClient is None:
             return
-        soapEnvelope = pysoap.soapenvelope.Soap12Envelope(doc_nsmap)
+        soapEnvelope = Soap12Envelope(doc_nsmap)
 
         subscriptionEndNode = etree_.Element(wseTag('SubscriptionEnd'),
                                              nsmap=Prefix.partialMap(Prefix.WSE, Prefix.WSA, Prefix.XML))
@@ -206,8 +205,7 @@ class _DevSubscription(object):
         # child of Subscriptionmanager is the endpoint reference of the subscription manager (wsa:EndpointReferenceType)
         referenceParametersNode = etree_.Element(wsaTag('ReferenceParameters'))
         referenceParametersNode.append(copy.copy(self.my_identifier))
-        epr = pysoap.soapenvelope.WsaEndpointReferenceType(address=my_addr,
-                                                           referenceParametersNode=referenceParametersNode)
+        epr = WsaEndpointReferenceType(address=my_addr, referenceParametersNode=referenceParametersNode)
         epr.asEtreeSubNode(subscriptionManagerNode)
 
         # remark: optionally one could add own address and identifier here ...
@@ -289,7 +287,7 @@ class _DevSubscription(object):
 
 class SubscriptionsManager(object):
     BodyNodePrefixes = [Prefix.PM, Prefix.MSG, Prefix.XSI, Prefix.EXT, Prefix.XML]
-    NotificationPrefixes = [Prefix.S12, Prefix.WSA, Prefix.WSE]
+    NotificationPrefixes = [Prefix.PM, Prefix.S12, Prefix.WSA, Prefix.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
     def __init__(self, sslContext, sdc_definitions, bicepsParser, supportedEncodings,
@@ -320,11 +318,11 @@ class SubscriptionsManager(object):
         key = s._url.netloc  # pylint:disable=protected-access
         soapClient = self.soapClients.get(key)
         if soapClient is None:
-            soapClient = pysoap.soapclient.SoapClient(key, loghelper.getLoggerAdapter('sdc.device.soap', self.log_prefix),
-                                                      sslContext=self._sslContext, sdc_definitions=self.sdc_definitions,
-                                                      supportedEncodings=self._supportedEncodings,
-                                                      requestEncodings=acceptedEncodings,
-                                                      chunked_requests=self._chunked_messages)
+            soapClient = SoapClient(key, loghelper.getLoggerAdapter('sdc.device.soap', self.log_prefix),
+                                    sslContext=self._sslContext, sdc_definitions=self.sdc_definitions,
+                                    supportedEncodings=self._supportedEncodings,
+                                    requestEncodings=acceptedEncodings,
+                                    chunked_requests=self._chunked_messages)
             self.soapClients[key] = soapClient
         s.setSoapClient(soapClient)
         with self._subscriptions.lock:
@@ -343,8 +341,7 @@ class SubscriptionsManager(object):
         if epr_path.startswith('/'):
             epr_path = epr_path[1:]
         my_addr = '{}://{}/{}'.format(self.base_urls[0].scheme, self.base_urls[0].netloc, epr_path)
-        epr = pysoap.soapenvelope.WsaEndpointReferenceType(address=my_addr,
-                                                           referenceParametersNode=referenceParametersNode)
+        epr = WsaEndpointReferenceType(address=my_addr, referenceParametersNode=referenceParametersNode)
         epr.asEtreeSubNode(subscriptionManagerNode)
         expiresNode = etree_.SubElement(subscribeResponseNode, wseTag('Expires'))
         expiresNode.text = s.expireString  # simply confirm request
@@ -383,11 +380,12 @@ class SubscriptionsManager(object):
         # response has empty body
         return response
 
-    def notifyOperation(self, sequenceId, mdibVersion, transactionId, operationHandleRef, operationState, error=None,
+    def notifyOperation(self, sequenceId, mdibVersion, transactionId, operation, invocation_state, error=None,
                         errorMessage=None):
+        operationHandleRef = operation.handle
         self._logger.info(
             'notifyOperation transaction={} operationHandleRef={}, operationState={}, error={}, errorMessage={}',
-            transactionId, operationHandleRef, operationState, error, errorMessage)
+            transactionId, operationHandleRef, invocation_state, error, errorMessage)
         action = self.sdc_definitions.Actions.OperationInvokedReport
         subscribers = self._getSubscriptionsForAction(action)
 
@@ -410,7 +408,7 @@ class SubscriptionsManager(object):
         transactionIdNode = etree_.SubElement(invocationInfoNode, msgTag('TransactionId'))
         transactionIdNode.text = str(transactionId)
         operationStateNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationState'))
-        operationStateNode.text = str(operationState)
+        operationStateNode.text = str(invocation_state)
         if error is not None:
             errorNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationError'))
             errorNode.text = str(error)
@@ -427,11 +425,11 @@ class SubscriptionsManager(object):
         self._logger.debug('onGetStatusRequest {}', lambda: soapEnvelope.as_xml(pretty=True))
         subscr = self._getSubscriptionforRequest(soapEnvelope)
         if subscr is None:
-            response = pysoap.soapenvelope.SoapFault(soapEnvelope,
-                                                     code='Receiver',
-                                                     reason='unknown Subscription identifier',
-                                                     subCode=wseTag('InvalidMessage')
-                                                     )
+            response = SoapFault(soapEnvelope,
+                                 code='Receiver',
+                                 reason='unknown Subscription identifier',
+                                 subCode=wseTag('InvalidMessage')
+                                 )
 
         else:
             response = Soap12Envelope(Prefix.partialMap(*self.NotificationPrefixes))
@@ -457,11 +455,11 @@ class SubscriptionsManager(object):
 
         subscr = self._getSubscriptionforRequest(soapEnvelope)
         if subscr is None:
-            response = pysoap.soapenvelope.SoapFault(soapEnvelope,
-                                                     code='Receiver',
-                                                     reason='unknown Subscription identifier',
-                                                     subCode=wseTag('UnableToRenew')
-                                                     )
+            response = SoapFault(soapEnvelope,
+                                 code='Receiver',
+                                 reason='unknown Subscription identifier',
+                                 subCode=wseTag('UnableToRenew')
+                                 )
 
         else:
             subscr.renew(expires)
@@ -502,7 +500,8 @@ class SubscriptionsManager(object):
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
-        self._logger.debug('sending periodic metric report, contains last {} episodic updates', len(updatedMetricStatesList))
+        self._logger.debug('sending periodic metric report, contains last {} episodic updates',
+                           len(updatedMetricStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicMetricReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(updatedMetricStatesList[-1].mdib_version)},
@@ -544,7 +543,8 @@ class SubscriptionsManager(object):
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
-        self._logger.debug('sending periodic operational state report, contains last {} episodic updates', len(updatedStatesList))
+        self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
+                           len(updatedStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicOperationalStateReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(updatedStatesList[-1].mdib_version)},
@@ -628,7 +628,8 @@ class SubscriptionsManager(object):
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
-        self._logger.debug('sending periodic component report, contains last {} episodic updates', len(updatedStatesList))
+        self._logger.debug('sending periodic component report, contains last {} episodic updates',
+                           len(updatedStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicComponentReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(updatedStatesList[-1].mdib_version)},
@@ -701,6 +702,7 @@ class SubscriptionsManager(object):
         for s in updatedRealTimeSampleStates:
             stateNode = s.mkStateNode(msgTag('State'))
             bodyNode.append(stateNode)
+
         for s in subscribers:
             self._logger.debug('sendRealtimeSamplesReport: sending report to {}', s.notifyToAddress)
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
@@ -715,7 +717,7 @@ class SubscriptionsManager(object):
             self._subscriptions.clear()
 
     def _mkDescriptorUpdatesReportPart(self, parentNode, modificationtype, descriptors, updated_states):
-        ''' Helper that creates ReportPart.'''
+        """ Helper that creates ReportPart."""
         # This method creates one ReportPart for every descriptor.
         # An optimization is possible by grouping all descriptors with the same parent handle into one ReportPart.
         # This is not implemented, and I think it is not needed.
@@ -740,7 +742,7 @@ class SubscriptionsManager(object):
         bodyNode = etree_.Element(msgTag('DescriptionModificationReport'),
                                   attrib={'SequenceId': sequenceId,
                                           'MdibVersion': str(mdibVersion)},
-                                  nsmap=nsmapper.partialMap(Prefix.MSG, Prefix.PM))
+                                  nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
         self._mkDescriptorUpdatesReportPart(bodyNode, 'Upt', updated, updated_states)
         self._mkDescriptorUpdatesReportPart(bodyNode, 'Crt', created, updated_states)
         self._mkDescriptorUpdatesReportPart(bodyNode, 'Del', deleted, updated_states)
@@ -753,7 +755,7 @@ class SubscriptionsManager(object):
     def _sendNotificationReport(self, subscription, bodyNode, action, doc_nsmap):
         try:
             subscription.sendNotificationReport(bodyNode, action, doc_nsmap)
-        except pysoap.soapclient.HTTPReturnCodeError as ex:
+        except HTTPReturnCodeError as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report: HTTP status= {}, reason={}, {}', ex.status,
                                ex.reason, subscription)
@@ -792,7 +794,7 @@ class SubscriptionsManager(object):
         return subscr[0]
 
     def _doHousekeeping(self):
-        ''' remove expired or invalid subscriptions'''
+        """ remove expired or invalid subscriptions"""
         with self._subscriptions._lock:  # pylint: disable=protected-access
             crap = [s for s in self._subscriptions.objects if not s.isValid]
         unreachable_netlocs = []
@@ -821,10 +823,10 @@ class SubscriptionsManager(object):
                 self._subscriptions.removeObject(s)
 
     def getSubScriptionRoundtripTimes(self):
-        '''Calculates roundtrip times based on last MAX_ROUNDTRIP_VALUES values.
+        """Calculates roundtrip times based on last MAX_ROUNDTRIP_VALUES values.
 
         @return: a dictionary with key=(<notifyToAddress>, (subscriptionnames)), value = _RoundTripData with members min, max, avg, abs_max, values
-        '''
+        """
         ret = {}
         with self._subscriptions.lock:
             for s in self._subscriptions.objects:
@@ -833,10 +835,10 @@ class SubscriptionsManager(object):
         return ret
 
     def getClientRoundtripTimes(self):
-        '''Calculates roundtrip times based on last MAX_ROUNDTRIP_VALUES values.
+        """Calculates roundtrip times based on last MAX_ROUNDTRIP_VALUES values.
 
         @return: a dictionary with key=<notifyToAddress>, value = _RoundTripData with members min, max, avg, abs_max, values
-        '''
+        """
         # first step: collect all roundtrip times of subscriptions, group them by notifyToAddress
         tmp = defaultdict(list)
         ret = {}
@@ -850,4 +852,3 @@ class SubscriptionsManager(object):
                 allvalues.extend(s.values)
             ret[k] = _RoundTripData(allvalues, max([s.max for s in stats]), )
         return ret
-

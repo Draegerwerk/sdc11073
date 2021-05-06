@@ -74,8 +74,8 @@ class GenericMetricProvider(providerbase.ProviderRole):
                 state = mgr.getMetricState(proposedMetricState.descriptorHandle)
                 if state.isMetricState:
                     self._logger.info('updating {} with proposed metric state', state)
-                    state.updateFromOtherContainer(proposedMetricState,
-                                                   skipped_properties=['StateVersion', 'DescriptorVersion'])
+                    state.update_from_other_container(proposedMetricState,
+                                                      skipped_properties=['StateVersion', 'DescriptorVersion'])
                 else:
                     self._logger.warn('_setMetricState operation: ignore invalid referenced type {} in operation', state.NODETYPE)
 
