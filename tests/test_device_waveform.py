@@ -3,12 +3,10 @@ import time
 import logging
 import sdc11073
 from sdc11073.sdcdevice import waveforms
-from lxml import etree as etree_
 from tests import mockstuff
 from sdc11073 import pmtypes
 from sdc11073.mdib import descriptorcontainers as dc
 from sdc11073.definitions_sdc import SDC_v1_Definitions
-#pylint: disable=protected-access
 
 CLIENT_VALIDATE = True
 
@@ -29,14 +27,12 @@ class TestDeviceWaveform(unittest.TestCase):
 
         # this structure is not realistic, but sufficient for what we need here.
         desc = dc.MdsDescriptorContainer(self.mdib.nsmapper,
-                                         nodeName=sdc11073.namespaces.domTag('Mds'),
                                          handle='42',
                                          parentHandle=None,
                                          )
         self.mdib.descriptions.addObject(desc)
         for h in HANDLES:
             desc = dc.RealTimeSampleArrayMetricDescriptorContainer(self.mdib.nsmapper,
-                                                                   sdc11073.namespaces.domTag('Metric'),
                                                                    handle=h,
                                                                    parentHandle='42',
                                                                    )

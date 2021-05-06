@@ -1,12 +1,12 @@
 import unittest
 from itertools import product
 from sdc11073.sdcdevice import localizationservice
-from sdc11073.pmtypes import LocalizedText
+from sdc11073.pmtypes import LocalizedText, T_TextWidth
 
 
 class TestLocationService(unittest.TestCase):
     def setUp(self):
-        self.widthList = ['xs', 's', 'm', 'xl', 'xxl', None] # 'l' is missing
+        self.widthList = [T_TextWidth.XS, T_TextWidth.S, T_TextWidth.M, T_TextWidth.XL, T_TextWidth.XXL, None] # 'l' is missing
         self.linesList = [1,2,3,4, None]
         self.versionsList = [1,2, None]
         self.langList = ['en-en', 'de-de', 'ru-ru', None]

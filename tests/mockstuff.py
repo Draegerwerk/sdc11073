@@ -45,7 +45,7 @@ class MockWsDiscovery(object):
 
 
 class TestDevSubscription(_DevSubscription):
-    ''' Can be used instead of real Subscription objects'''
+    """ Can be used instead of real Subscription objects"""
     mode = 'SomeMode'
     notifyTo = 'http://self.com:123'
     identifier = '0815'
@@ -105,16 +105,15 @@ class SomeDevice(SdcDevice):
         deviceMdibContainer = DeviceMdibContainer.fromString(mdib_xml_string, log_prefix=log_prefix)
         # set Metadata
         mdsDescriptor = deviceMdibContainer.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
-        mdsDescriptor.Manufacturer.append(pmtypes.LocalizedText(u'Dräger'))
-        mdsDescriptor.ModelName.append(pmtypes.LocalizedText(model.modelName[None]))
-        mdsDescriptor.SerialNumber.append(pmtypes.ElementWithTextOnly('ABCD-1234'))
-        mdsDescriptor.ModelNumber = '0.99'
-        mdsDescriptor.updateNode()
+        mdsDescriptor.MetaData.Manufacturer.append(pmtypes.LocalizedText(u'Dräger'))
+        mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(model.modelName[None]))
+        mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')
+        mdsDescriptor.MetaData.ModelNumber = '0.99'
         super(SomeDevice, self).__init__(wsdiscovery, my_uuid, model, device, deviceMdibContainer, validate,
                                          # registerDefaultOperations=True,
                                          sslContext=sslContext, logLevel=logLevel, log_prefix=log_prefix,
                                          chunked_messages=chunked_messages)
-        #self._handler.mkDefaultRoleHandlers()
+
     @classmethod
     def fromMdibFile(cls, wsdiscovery, my_uuid, mdib_xml_path,
                  validate=True, sslContext=None, logLevel=logging.INFO, log_prefix='', chunked_messages=False):

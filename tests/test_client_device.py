@@ -180,24 +180,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.assertAlmostEqual(remainingSeconds, 60, delta=5.0) # huge diff allowed due to jenkins
 
 
-    def test_childOrdering(self):
-        ''' verify that sockets get closed'''
-        for sdcClient, sdcDevice in self._all_cl_dev:
-            cl_mdib = ClientMdibContainer(sdcClient)
-            cl_mdib.initMdib()
-            
-            for cl_obj in cl_mdib.descriptions.objects:
-                print ('checking cl{}: \n'.format(cl_obj, cl_obj.orderedChildHandles))
-                dev_obj = sdcDevice.mdib.descriptions.handle.getOne(cl_obj.handle)
-                print (dev_obj.orderedChildHandles)
-                self.assertEqual(cl_obj.orderedChildHandles, dev_obj.orderedChildHandles)
-                
-            for dev_obj in sdcDevice.mdib.descriptions.objects:
-                print ('checking dev {}:\n{}'.format(dev_obj, dev_obj.orderedChildHandles))
-                cl_obj = cl_mdib.descriptions.handle.getOne(dev_obj.handle)
-                print (cl_obj.orderedChildHandles)
-                self.assertEqual(cl_obj.orderedChildHandles, dev_obj.orderedChildHandles)
-
     def test_clientStop(self):
         ''' verify that sockets get closed'''
         for sdcClient, sdcDevice in self._all_cl_dev:
@@ -307,7 +289,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 if st.metricValue is None:
                     st.mkMetricValue()
                 st.metricValue.Value = firstValue
-                st.metricValue.Validity = 'Vld'
+                st.metricValue.MetricQuality.Validity = pmtypes.MeasurementValidity.VALID
                 st.metricValue.DeterminationTime = now
                 st.PhysiologicalRange = [pmtypes.Range(1, 2, 3, 4, 5), pmtypes.Range(10, 20, 30, 40, 50)]
                 if sdcDevice is self.sdcDevice_Final:
@@ -318,7 +300,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             cl_state1 = cl_mdib.states.descriptorHandle.getOne(descriptorHandle)
             self.assertEqual(cl_state1.metricValue.Value, firstValue)
             self.assertAlmostEqual(cl_state1.metricValue.DeterminationTime, now, delta=0.01)
-            self.assertEqual(cl_state1.metricValue.Validity, 'Vld')
+            self.assertEqual(cl_state1.metricValue.MetricQuality.Validity, pmtypes.MeasurementValidity.VALID)
             self.assertEqual(cl_state1.StateVersion, 1)  # this is the first state update after init
             if sdcDevice is self.sdcDevice_Final:
                 self.assertEqual(cl_state1.PhysicalConnector, myPhysicalConnector)
@@ -358,7 +340,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll2 = observableproperties.SingleValueCollector(sdcClient, 'periodicComponentReport')
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 st = mgr.getComponentState(descriptorHandle)
-                st.ActivationState = 'On' if st.ActivationState != 'On' else 'Off'
+                st.ActivationState = pmtypes.ComponentActivation.ON \
+                    if st.ActivationState != pmtypes.ComponentActivation.ON \
+                    else pmtypes.ComponentActivation.OFF
                 st.OperatingHours = 43
                 st.OperatingCycles = 11
     
@@ -384,7 +368,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
             alertConditionDescr = sdcDevice.mdib.states.NODETYPE[namespaces.domTag('AlertConditionState')][0]
             descriptorHandle = alertConditionDescr.descriptorHandle
 
-            for _activationState, _actualPriority, _presence in product(('On', 'Off', 'Psd'), ('Lo', 'Hi','Me', 'None'), (True, False)): # test every possible combination
+            for _activationState, _actualPriority, _presence in product(list(pmtypes.AlertActivation),
+                                                                        list(pmtypes.AlertConditionPriority),
+                                                                        (True, False)):  # test every possible combination
                 coll = observableproperties.SingleValueCollector(sdcClient, 'episodicAlertReport')  # wait for the next EpisodicAlertReport
                 with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                     st = mgr.getAlertState(descriptorHandle)
@@ -399,7 +385,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
             alertConditionDescr = sdcDevice.mdib.states.NODETYPE[namespaces.domTag('AlertSignalState')][0]
             descriptorHandle = alertConditionDescr.descriptorHandle
 
-            for _activationState, _presence, _location, _slot in product(('On', 'Off', 'Psd'), ('On', 'Off', 'Latch', 'Ack'), ('Loc', 'Rem'), (0, 1, 2)): # test every possible combination
+            for _activationState, _presence, _location, _slot in product(list(pmtypes.AlertActivation),
+                                                                         list(pmtypes.AlertSignalPresence),
+                                                                         list(pmtypes.AlertSignalPrimaryLocation),
+                                                                         (0, 1, 2)):
                 coll = observableproperties.SingleValueCollector(sdcClient, 'episodicAlertReport')  # wait for the next EpisodicAlertReport
                 with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                     st = mgr.getAlertState(descriptorHandle)
@@ -440,17 +429,17 @@ class Test_Client_SomeDevice(unittest.TestCase):
             # insert a new patient with wrong handle, this shall fail
             proposedContext = context.mkProposedContextObject(patientDescriptorContainer.handle)
             proposedContext.Handle = 'some_nonexisting_handle'
-            proposedContext.Givenname = 'Karl'
-            proposedContext.Middlename = 'M.'
-            proposedContext.Familyname = 'Klammer'
-            proposedContext.Birthname = 'Bourne'
-            proposedContext.Title = 'Dr.'
-            proposedContext.Sex = 'M'
-            proposedContext.PatientType = pmtypes.PatientType.ADULT
-            proposedContext.setBirthdate('2000-12-12')
-            proposedContext.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
-            proposedContext.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
-            proposedContext.Race = pmtypes.CodedValue('somerace')
+            proposedContext.CoreData.Givenname = 'Karl'
+            proposedContext.CoreData.Middlename = ['M.']
+            proposedContext.CoreData.Familyname = 'Klammer'
+            proposedContext.CoreData.Birthname = 'Bourne'
+            proposedContext.CoreData.Title = 'Dr.'
+            proposedContext.CoreData.Sex = 'M'
+            proposedContext.CoreData.PatientType = pmtypes.PatientType.ADULT
+            proposedContext.CoreData.setBirthdate('2000-12-12')
+            proposedContext.CoreData.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
+            proposedContext.CoreData.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
+            proposedContext.CoreData.Race = pmtypes.CodedValue('somerace')
             future = context.setContextState(operationHandle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
             state = result.state
@@ -467,45 +456,44 @@ class Test_Client_SomeDevice(unittest.TestCase):
     
             # check client side patient context, this shall have been set via notification
             patientContextStateContainer = clientMdib.contextStates.NODETYPE.getOne(namespaces.domTag('PatientContextState'), allowNone=False)
-            self.assertEqual(patientContextStateContainer.Givenname, 'Karl')
-            self.assertEqual(patientContextStateContainer.Middlename, 'M.')
-            self.assertEqual(patientContextStateContainer.Familyname, 'Klammer')
-            self.assertEqual(patientContextStateContainer.Birthname, 'Bourne')
-            self.assertEqual(patientContextStateContainer.Title, 'Dr.')
-            self.assertEqual(patientContextStateContainer.Sex, 'M')
-            self.assertEqual(patientContextStateContainer.PatientType, pmtypes.PatientType.ADULT)
-#            self.assertEqual(patientContextStateContainer.DateOfBirth, datetime.datetime(2000, 12,12,14,55, tzinfo = containerproperties.UTC(0)))
-            self.assertEqual(patientContextStateContainer.Height.MeasuredValue, 88.2)
-            self.assertEqual(patientContextStateContainer.Weight.MeasuredValue, 68.2)
-            self.assertEqual(patientContextStateContainer.Race, pmtypes.CodedValue('somerace'))
+            self.assertEqual(patientContextStateContainer.CoreData.Givenname, 'Karl')
+            self.assertEqual(patientContextStateContainer.CoreData.Middlename, ['M.'])
+            self.assertEqual(patientContextStateContainer.CoreData.Familyname, 'Klammer')
+            self.assertEqual(patientContextStateContainer.CoreData.Birthname, 'Bourne')
+            self.assertEqual(patientContextStateContainer.CoreData.Title, 'Dr.')
+            self.assertEqual(patientContextStateContainer.CoreData.Sex, 'M')
+            self.assertEqual(patientContextStateContainer.CoreData.PatientType, pmtypes.PatientType.ADULT)
+            self.assertEqual(patientContextStateContainer.CoreData.Height.MeasuredValue, 88.2)
+            self.assertEqual(patientContextStateContainer.CoreData.Weight.MeasuredValue, 68.2)
+            self.assertEqual(patientContextStateContainer.CoreData.Race, pmtypes.CodedValue('somerace'))
             self.assertNotEqual(patientContextStateContainer.Handle, patientDescriptorContainer.handle) # device replaced it with its own handle
             self.assertEqual(patientContextStateContainer.ContextAssociation, pmtypes.ContextAssociation.ASSOCIATED)
     
             # test update of the patient
             proposedContext = context.mkProposedContextObject(patientDescriptorContainer.handle,
                                                               handle=patientContextStateContainer.Handle)
-            proposedContext.Givenname = 'Karla'
+            proposedContext.CoreData.Givenname = 'Karla'
             future = context.setContextState(operationHandle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
             state = result.state
             self.assertEqual(state, pmtypes.InvocationState.FINISHED)
             patientContextStateContainer = clientMdib.contextStates.handle.getOne(patientContextStateContainer.Handle, allowNone=False)
-            self.assertEqual(patientContextStateContainer.Givenname, 'Karla')
-            self.assertEqual(patientContextStateContainer.Familyname, 'Klammer')
+            self.assertEqual(patientContextStateContainer.CoreData.Givenname, 'Karla')
+            self.assertEqual(patientContextStateContainer.CoreData.Familyname, 'Klammer')
 
             # set new patient, check binding mdib versions and context association
             proposedContext = context.mkProposedContextObject(patientDescriptorContainer.handle)
-            proposedContext.Givenname = 'Heidi'
-            proposedContext.Middlename = 'M.'
-            proposedContext.Familyname = 'Klammer'
-            proposedContext.Birthname = 'Bourne'
-            proposedContext.Title = 'Dr.'
-            proposedContext.Sex = 'F'
-            proposedContext.PatientType = pmtypes.PatientType.ADULT
-            proposedContext.setBirthdate('2000-12-12')
-            proposedContext.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
-            proposedContext.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
-            proposedContext.Race = pmtypes.CodedValue('somerace')
+            proposedContext.CoreData.Givenname = 'Heidi'
+            proposedContext.CoreData.Middlename = ['M.']
+            proposedContext.CoreData.Familyname = 'Klammer'
+            proposedContext.CoreData.Birthname = 'Bourne'
+            proposedContext.CoreData.Title = 'Dr.'
+            proposedContext.CoreData.Sex = 'F'
+            proposedContext.CoreData.PatientType = pmtypes.PatientType.ADULT
+            proposedContext.CoreData.setBirthdate('2000-12-12')
+            proposedContext.CoreData.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
+            proposedContext.CoreData.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
+            proposedContext.CoreData.Race = pmtypes.CodedValue('somerace')
             future = context.setContextState(operationHandle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
             state = result.state
@@ -525,30 +513,30 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(sdcClient, 'episodicContextReport')
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 st = mgr.getContextState(patientDescriptorContainer.handle)
-                st.Givenname = 'Max123'                         
-                st.Middlename = 'Willy'                         
-                st.Birthname = 'Mustermann'  
-                st.Familyname = 'Musterfrau'  
-                st.Title = 'Rex'  
-                st.Sex = 'M'
-                st.PatientType = pmtypes.PatientType.ADULT
-                st.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
-                st.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
-                st.Race = pmtypes.CodedValue('123', 'def')
-                st.DateOfBirth = datetime.datetime(2012, 3, 15, 13,12,11)
+                st.CoreData.Givenname = 'Max123'
+                st.CoreData.Middlename = ['Willy']
+                st.CoreData.Birthname = 'Mustermann'
+                st.CoreData.Familyname = 'Musterfrau'
+                st.CoreData.Title = 'Rex'
+                st.CoreData.Sex = 'M'
+                st.CoreData.PatientType = pmtypes.PatientType.ADULT
+                st.CoreData.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
+                st.CoreData.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
+                st.CoreData.Race = pmtypes.CodedValue('123', 'def')
+                st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13,12,11)
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             patientContextStateContainers = clientMdib.contextStates.NODETYPE.get(namespaces.domTag('PatientContextState'))
-            myPatient = [ p for p in patientContextStateContainers if p.Givenname == 'Max123']
+            myPatient = [ p for p in patientContextStateContainers if p.CoreData.Givenname == 'Max123']
             self.assertEqual(len(myPatient), 1)
             myPatient = myPatient[0]
             proposedContext = context.mkProposedContextObject(patientDescriptorContainer.handle, myPatient.Handle)
-            proposedContext.Givenname = 'Karl123'
+            proposedContext.CoreData.Givenname = 'Karl123'
             future = context.setContextState(operationHandle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
             state = result.state
             self.assertEqual(state, pmtypes.InvocationState.FINISHED)
             myPatient2 = sdcDevice.mdib.contextStates.handle.getOne(myPatient.Handle)
-            self.assertEqual(myPatient2.Givenname, 'Karl123')
+            self.assertEqual(myPatient2.CoreData.Givenname, 'Karl123')
 
 
     def test_setPatientContextOnDevice(self):
@@ -564,31 +552,31 @@ class Test_Client_SomeDevice(unittest.TestCase):
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 tr_MdibVersion = sdcDevice.mdib.mdibVersion
                 st = mgr.getContextState(patientDescriptorContainer.handle)
-                st.Givenname = 'Max'                         
-                st.Middlename = 'Willy'                         
-                st.Birthname = 'Mustermann'  
-                st.Familyname = 'Musterfrau'  
-                st.Title = 'Rex'  
-                st.Sex = 'M'
-                st.PatientType = pmtypes.PatientType.ADULT
-                st.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
-                st.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
-                st.Race = pmtypes.CodedValue('123', 'def')
-                st.DateOfBirth = datetime.datetime(2012, 3, 15, 13,12,11)
+                st.CoreData.Givenname = 'Max'
+                st.CoreData.Middlename = ['Willy']
+                st.CoreData.Birthname = 'Mustermann'
+                st.CoreData.Familyname = 'Musterfrau'
+                st.CoreData.Title = 'Rex'
+                st.CoreData.Sex = 'M'
+                st.CoreData.PatientType = pmtypes.PatientType.ADULT
+                st.CoreData.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
+                st.CoreData.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
+                st.CoreData.Race = pmtypes.CodedValue('123', 'def')
+                st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13,12,11)
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             patientContextStateContainer = clientMdib.contextStates.NODETYPE.getOne(namespaces.domTag('PatientContextState'), allowNone=True)
             self.assertTrue(patientContextStateContainer is not None)
-            self.assertEqual(patientContextStateContainer.Givenname, st.Givenname)
-            self.assertEqual(patientContextStateContainer.Middlename, st.Middlename)
-            self.assertEqual(patientContextStateContainer.Birthname, st.Birthname)
-            self.assertEqual(patientContextStateContainer.Familyname, st.Familyname)
-            self.assertEqual(patientContextStateContainer.Title, st.Title)
-            self.assertEqual(patientContextStateContainer.Sex, st.Sex)
-            self.assertEqual(patientContextStateContainer.PatientType, st.PatientType)
-            self.assertEqual(patientContextStateContainer.Height, st.Height)
-            self.assertEqual(patientContextStateContainer.Weight, st.Weight)
-            self.assertEqual(patientContextStateContainer.Race, st.Race)
-            self.assertEqual(patientContextStateContainer.DateOfBirth, st.DateOfBirth)
+            self.assertEqual(patientContextStateContainer.CoreData.Givenname, st.CoreData.Givenname)
+            self.assertEqual(patientContextStateContainer.CoreData.Middlename, st.CoreData.Middlename)
+            self.assertEqual(patientContextStateContainer.CoreData.Birthname, st.CoreData.Birthname)
+            self.assertEqual(patientContextStateContainer.CoreData.Familyname, st.CoreData.Familyname)
+            self.assertEqual(patientContextStateContainer.CoreData.Title, st.CoreData.Title)
+            self.assertEqual(patientContextStateContainer.CoreData.Sex, st.CoreData.Sex)
+            self.assertEqual(patientContextStateContainer.CoreData.PatientType, st.CoreData.PatientType)
+            self.assertEqual(patientContextStateContainer.CoreData.Height, st.CoreData.Height)
+            self.assertEqual(patientContextStateContainer.CoreData.Weight, st.CoreData.Weight)
+            self.assertEqual(patientContextStateContainer.CoreData.Race, st.CoreData.Race)
+            self.assertEqual(patientContextStateContainer.CoreData.DateOfBirth, st.CoreData.DateOfBirth)
             self.assertEqual(patientContextStateContainer.BindingMdibVersion, tr_MdibVersion) # created at the beginning
             self.assertEqual(patientContextStateContainer.UnbindingMdibVersion, None)
     
@@ -596,10 +584,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(sdcClient, 'episodicContextReport')
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 st = mgr.getContextState(patientDescriptorContainer.handle, patientContextStateContainer.Handle)
-                st.Givenname = 'Moritz'
+                st.CoreData.Givenname = 'Moritz'
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             patientContextStateContainer = clientMdib.contextStates.NODETYPE.getOne(namespaces.domTag('PatientContextState'), allowNone=True)
-            self.assertEqual(patientContextStateContainer.Givenname, 'Moritz')
+            self.assertEqual(patientContextStateContainer.CoreData.Givenname, 'Moritz')
             self.assertEqual(patientContextStateContainer.BindingMdibVersion, tr_MdibVersion) # created at the beginning
             self.assertEqual(patientContextStateContainer.UnbindingMdibVersion, None)
 
@@ -635,10 +623,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 dev_locations.sort(key=lambda a: a.BindingMdibVersion)
                 cl_locations.sort(key=lambda a: a.BindingMdibVersion)
                 # Plausibility check that the new location has expected data
-                self.assertEqual(dev_locations[-1].PoC, new_location.poc)
-                self.assertEqual(cl_locations[-1].PoC, new_location.poc)
-                self.assertEqual(dev_locations[-1].Bed, new_location.bed)
-                self.assertEqual(cl_locations[-1].Bed, new_location.bed)
+                self.assertEqual(dev_locations[-1].LocationDetail.PoC, new_location.poc)
+                self.assertEqual(cl_locations[-1].LocationDetail.PoC, new_location.poc)
+                self.assertEqual(dev_locations[-1].LocationDetail.Bed, new_location.bed)
+                self.assertEqual(cl_locations[-1].LocationDetail.Bed, new_location.bed)
                 self.assertEqual(dev_locations[-1].ContextAssociation, pmtypes.ContextAssociation.ASSOCIATED)
                 self.assertEqual(cl_locations[-1].ContextAssociation, pmtypes.ContextAssociation.ASSOCIATED)
                 self.assertEqual(dev_locations[-1].UnbindingMdibVersion, None)
@@ -778,15 +766,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
         scoDescriptors = sdcDevice.mdib.descriptions.NODETYPE.get(namespaces.domTag('ScoDescriptor'))
         cls = sdcDevice.mdib.getDescriptorContainerClass(namespaces.domTag('SetMetricStateOperationDescriptor'))
         myCode = pmtypes.CodedValue(99999)
-        setMetricStateOperationDescriptorContainer = sdcDevice.mdib._createDescriptorContainer(cls,
-                                                                                               namespaces.domTag('Operation'),
-                                                                                              'HANDLE_FOR_MY_TEST',
-                                                                                              scoDescriptors[0].handle,
-                                                                                              myCode,
-                                                                                              'Inf')
+        setMetricStateOperationDescriptorContainer = sdcDevice.mdib._createDescriptorContainer(
+            cls, 'HANDLE_FOR_MY_TEST', scoDescriptors[0].handle, myCode, pmtypes.SafetyClassification.INF)
         setMetricStateOperationDescriptorContainer.OperationTarget = '0x34F001D5'
         setMetricStateOperationDescriptorContainer.Type = pmtypes.CodedValue(999998)
-        setMetricStateOperationDescriptorContainer.updateNode()
         sdcDevice.mdib.descriptions.addObject(setMetricStateOperationDescriptorContainer)
         op = sdcDevice.product_roles.metric_provider.makeOperationInstance(setMetricStateOperationDescriptorContainer)
         sdcDevice.scoOperationsRegistry.registerOperation(op)
@@ -823,11 +806,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
         cls = sdcDevice.mdib.getDescriptorContainerClass(namespaces.domTag('SetComponentStateOperationDescriptor'))
         myCode = pmtypes.CodedValue(99999)
         setComponentStateOperationDescriptorContainer = sdcDevice.mdib._createDescriptorContainer(cls,
-                                                                                namespaces.domTag('Operation'),
                                                                                 'HANDLE_FOR_MY_TEST',
                                                                                 scoDescriptors[0].handle,
                                                                                 myCode,
-                                                                                'Inf')
+                                                                                pmtypes.SafetyClassification.INF)
         setComponentStateOperationDescriptorContainer.OperationTarget = operationtarget_handle
         setComponentStateOperationDescriptorContainer.Type = pmtypes.CodedValue(999998)
         sdcDevice.mdib.descriptions.addObject(setComponentStateOperationDescriptorContainer)
@@ -873,8 +855,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         sdcDevice = self.sdcDevice_Final
         sdcClient = self.sdcClient_Final
         storage = sdcDevice._handler._LocalizationDispatcher.localizationStorage
-        storage.add(pmtypes.LocalizedText('bla', lang='de-de', ref='a', version=1, textWidth='xs'),
-                    pmtypes.LocalizedText('foo', lang='en-en', ref='a', version=1, textWidth='xs')
+        storage.add(pmtypes.LocalizedText('bla', lang='de-de', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS),
+                    pmtypes.LocalizedText('foo', lang='en-en', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS)
                     )
 
         languages = sdcClient.LocalizationService_client.getSupportedLanguages()
@@ -886,14 +868,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
         sdcDevice = self.sdcDevice_Final
         sdcClient = self.sdcClient_Final
         storage = sdcDevice._handler._LocalizationDispatcher.localizationStorage
-        storage.add(pmtypes.LocalizedText('bla_a', lang='de-de', ref='a', version=1, textWidth='xs'))
-        storage.add(pmtypes.LocalizedText('foo_a', lang='en-en', ref='a', version=1, textWidth='xs'))
-        storage.add(pmtypes.LocalizedText('bla_b', lang='de-de', ref='b', version=1, textWidth='xs'))
-        storage.add(pmtypes.LocalizedText('foo_b', lang='en-en', ref='b', version=1, textWidth='xs'))
-        storage.add(pmtypes.LocalizedText('bla_aa', lang='de-de', ref='a', version=2, textWidth='s'))
-        storage.add(pmtypes.LocalizedText('foo_aa', lang='en-en', ref='a', version=2, textWidth='s'))
-        storage.add(pmtypes.LocalizedText('bla_bb', lang='de-de', ref='b', version=2, textWidth='s'))
-        storage.add(pmtypes.LocalizedText('foo_bb', lang='en-en', ref='b', version=2, textWidth='s'))
+        storage.add(pmtypes.LocalizedText('bla_a', lang='de-de', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS))
+        storage.add(pmtypes.LocalizedText('foo_a', lang='en-en', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS))
+        storage.add(pmtypes.LocalizedText('bla_b', lang='de-de', ref='b', version=1, textWidth=pmtypes.T_TextWidth.XS))
+        storage.add(pmtypes.LocalizedText('foo_b', lang='en-en', ref='b', version=1, textWidth=pmtypes.T_TextWidth.XS))
+        storage.add(pmtypes.LocalizedText('bla_aa', lang='de-de', ref='a', version=2, textWidth=pmtypes.T_TextWidth.S))
+        storage.add(pmtypes.LocalizedText('foo_aa', lang='en-en', ref='a', version=2, textWidth=pmtypes.T_TextWidth.S))
+        storage.add(pmtypes.LocalizedText('bla_bb', lang='de-de', ref='b', version=2, textWidth=pmtypes.T_TextWidth.S))
+        storage.add(pmtypes.LocalizedText('foo_bb', lang='en-en', ref='b', version=2, textWidth=pmtypes.T_TextWidth.S))
 
         texts = sdcClient.LocalizationService_client.getLocalizedTexts()
         self.assertEqual(len(texts), 4)
@@ -1056,14 +1038,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(stateContainer.DescriptorVersion, expectedDescriptorVersion)
 
             #test creating a descriptor
-            coll = observableproperties.SingleValueCollector(sdcClient, 'descriptionModificationReport')  # wait for the next DescriptionModificationReport
+            # coll: wait for the next DescriptionModificationReport
+            coll = observableproperties.SingleValueCollector(sdcClient, 'descriptionModificationReport')
             new_handle = 'a_generated_descriptor'
             node_name = namespaces.domTag('NumericMetricDescriptor')
             cls = sdcDevice.mdib.getDescriptorContainerClass(node_name)
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 newDescriptorContainer = cls(nsmapper=sdcDevice.mdib.nsmapper, 
-                                             nodeName=node_name, 
-                                             handle=new_handle, 
+                                             handle=new_handle,
                                              parentHandle=descriptorContainer.parentHandle,
                                              )
                 newDescriptorContainer.Type = pmtypes.CodedValue('12345')
@@ -1149,17 +1131,17 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 # set Metadata
                 mdsDescriptorHandle = sdcDevice.mdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor')).handle
                 mdsDescriptor = mgr.getDescriptor(mdsDescriptorHandle)
-                mdsDescriptor.Manufacturer.append(pmtypes.LocalizedText(u'Draeger GmbH'))
-                mdsDescriptor.ModelName.append(pmtypes.LocalizedText(u'pySDC'))
-                mdsDescriptor.SerialNumber.append(pmtypes.ElementWithTextOnly('DCBA-4321'))
-                mdsDescriptor.ModelNumber = '1.09'
+                mdsDescriptor.MetaData.Manufacturer.append(pmtypes.LocalizedText(u'Draeger GmbH'))
+                mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(u'pySDC'))
+                mdsDescriptor.MetaData.SerialNumber.append('pmDCBA-4321')
+                mdsDescriptor.MetaData.ModelNumber = '1.09'
     
             clientMdib = ClientMdibContainer(sdcClient)
             clientMdib.initMdib()
             
             cl_mdsDescriptor = clientMdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
-            self.assertEqual( cl_mdsDescriptor.ModelNumber, '1.09')
-            self.assertEqual( cl_mdsDescriptor.Manufacturer[-1].text, u'Draeger GmbH')
+            self.assertEqual( cl_mdsDescriptor.MetaData.ModelNumber, '1.09')
+            self.assertEqual( cl_mdsDescriptor.MetaData.Manufacturer[-1].text, u'Draeger GmbH')
 
     def test_remove_add_mds(self):
         for sdcClient, sdcDevice in self._all_cl_dev:

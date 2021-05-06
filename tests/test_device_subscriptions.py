@@ -204,7 +204,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             descriptorHandle = patientContextDescriptor.handle
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 st = mgr.getContextState(descriptorHandle)
-                st.PatientType = pmtypes.PatientType.ADULT
+                st.CoreData.PatientType = pmtypes.PatientType.ADULT
             self.assertEqual(len(testSubscr.reports), 1)
             response = testSubscr.reports[0]
             self._verify_proper_namespaces(response)
@@ -215,11 +215,15 @@ class TestDeviceSubscriptions(unittest.TestCase):
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.OperationInvokedReport, sdcDevice.mdib.bicepsSchema)
             sdcDevice.subscriptionsManager._subscriptions.addObject(testSubscr)
+            class DummyOperation:
+                pass
+            dummy_operation = DummyOperation()
+            dummy_operation.handle = 'something'
             sdcDevice.subscriptionsManager.notifyOperation('urn:uuid:abc', 1234,
                                                             transactionId=123, 
-                                                            operationHandleRef='something', 
-                                                            operationState='Fin', 
-                                                            error='Unspec', 
+                                                            operation= dummy_operation,
+                                                            invocation_state=pmtypes.InvocationState.FINISHED,
+                                                            error=pmtypes.InvocationError.UNSPECIFIED,
                                                             errorMessage='')
             self.assertEqual(len(testSubscr.reports), 1)
 

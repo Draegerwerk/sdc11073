@@ -3,6 +3,7 @@ import sdc11073
 import logging
 from sdc11073.pysoap.soapenvelope import DPWSHosted, WsaEndpointReferenceType
 from sdc11073 import definitions_sdc
+from sdc11073.pmtypes import AlertActivation, ComponentActivation
 
 #pylint: disable=protected-access
 DEV_ADDRESS = '169.254.0.200:10000'
@@ -51,7 +52,6 @@ class TestClientProxies(unittest.TestCase):
         for sdcClient in self._allclients:
             descriptorClass = sdcClient.sdc_definitions.dc.getContainerClass(sdc11073.namespaces.domTag('AlertSignalDescriptor'))
             descr = descriptorClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
-                                    nodeName='Helga',
                                     handle='123',
                                     parentHandle='456',
                                     )
@@ -60,7 +60,7 @@ class TestClientProxies(unittest.TestCase):
                                     descriptorContainer=descr)
 
             setServiceClient = sdcClient._mkHostedServiceClient(porttype='Set', soapClient=None, hosted=self.hosted)
-            for state in 'On', 'Off', 'Psd':
+            for state in list(AlertActivation):
                 alertState.ActivationState = state
                 soapEnvelope = setServiceClient._mkSetAlertEnvelope( operationHandle='op123',
                                                                            proposedAlertStates=[alertState])
@@ -71,7 +71,6 @@ class TestClientProxies(unittest.TestCase):
         for sdcClient in self._allclients:
             descriptorClass = sdcClient.sdc_definitions.dc.getContainerClass(sdc11073.namespaces.domTag('NumericMetricDescriptor'))
             descr = descriptorClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
-                                    nodeName='Helga',
                                     handle='123',
                                     parentHandle='456',
                                     )
@@ -79,7 +78,7 @@ class TestClientProxies(unittest.TestCase):
             metricState = stateClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
                                      descriptorContainer=descr)
             setServiceClient = sdcClient._mkHostedServiceClient(porttype='Set', soapClient=None, hosted=self.hosted)
-            for state in 'On', 'Off', 'Shtdn', 'Fail':
+            for state in list(ComponentActivation):
                 metricState.ActivationState = state
                 metricState.BodySite = [sdc11073.pmtypes.CodedValue('abc', 'def')]
                 soapEnvelope = setServiceClient._mkSetMetricStateEnvelope( operationHandle='op123',

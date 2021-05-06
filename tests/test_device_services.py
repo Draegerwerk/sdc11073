@@ -11,6 +11,7 @@ from sdc11073.namespaces import msgTag, domTag, nsmap
 from sdc11073.namespaces import Prefix_Namespace as Prefix
 from sdc11073.pysoap.soapenvelope import GenericNode, WsAddress, Soap12Envelope, ReceivedSoap12Envelope
 from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.pmtypes import AlertConditionPriority
 from tests import mockstuff
 _msg_ns = Prefix.MSG.namespace
 _sdc_ns = Prefix.SDC.namespace
@@ -119,7 +120,7 @@ class TestDeviceServices(unittest.TestCase):
             endpoint_reference = '123'
             with sdcDevice.mdib.mdibUpdateTransaction() as tr:
                 alarmConditionDescriptor = tr.getDescriptor('0xD3C00109')
-                alarmConditionDescriptor.Priority='Lo'
+                alarmConditionDescriptor.Priority = AlertConditionPriority.LOW
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdDescription', endpoint_reference)
             receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
