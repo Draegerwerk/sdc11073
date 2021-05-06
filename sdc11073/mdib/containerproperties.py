@@ -13,6 +13,9 @@ from sdc11073.dataconverters import TimestampConverter, DecimalConverter, Intege
 import sdc11073.namespaces as namespaces
 from sdc11073 import isoduration
 
+# if STRICT_ENUM_ATTRIBUTE is True, EnumAttributeProperty instances will only accept enum values of correct type
+# ( Or None if allowed). Otherwise every value is accepted.
+STRICT_ENUM_ATTRIBUTE = False
 
 class ElementNotFoundException(Exception):
     pass
@@ -207,7 +210,6 @@ class StringAttributeProperty(_NodeAttributeProperty):
     def __init__(self, attrname, subElementNames=None, defaultPyValue=None, impliedPyValue=None, isOptional=True):
         super().__init__(attrname, subElementNames, NullConverter, defaultPyValue, impliedPyValue, isOptional)
 
-
 class EnumAttributeProperty(_NodeAttributeProperty):
     """ XML Representation is a string, Python representation is a enum."""
 
@@ -215,6 +217,16 @@ class EnumAttributeProperty(_NodeAttributeProperty):
                  impliedPyValue=None, isOptional=True):
         super().__init__(attrname, subElementNames, None, defaultPyValue, impliedPyValue, isOptional)
         self.enum_cls = enum_cls
+
+    def __set__(self, instance, pyValue):
+        """value is the representation on the program side, e.g a float. """
+        if STRICT_ENUM_ATTRIBUTE:
+            if not self.isOptional and pyValue is None and self._defaultPyValue is None:
+                raise ValueError(f'None value is not allowed, only {self.enum_cls}')
+            elif pyValue is not None and not isinstance(pyValue, self.enum_cls):
+                raise ValueError(f'value {pyValue} is not of type {self.enum_cls}')
+        super().__set__(instance, pyValue)
+        setattr(instance, self._localVarName, pyValue)
 
     def getPyValueFromNode(self, node):
         value = self._defaultPyValue
