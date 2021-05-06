@@ -151,8 +151,9 @@ class LocalizedText(PropertyBasedPMType):
         version = node.get('Version')
         if version is not None:
             version = int(version)
-        textWidth = node.get('TextWidth')
-        return cls(text, lang, ref, version, textWidth)
+        text_width = node.get('TextWidth')
+        enum_text_width = T_TextWidth(text_width) if text_width is not None else None
+        return cls(text, lang, ref, version, enum_text_width)
 
 
         
@@ -599,7 +600,7 @@ class AbstractMetricValue(PropertyBasedPMType):
         if node is not None:
             self.updateFromNode(node)
         else:
-            self.MetricQuality.Validity = 'Vld' # mandatory value, for convenience it is preset to Vld
+            self.MetricQuality.Validity = MeasurementValidity.VALID # mandatory value, for convenience it is preset
 
 
     def updateFromNode(self, node):
