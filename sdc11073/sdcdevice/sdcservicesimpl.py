@@ -156,6 +156,7 @@ class EventService(_SOAPActionDispatcherWithSubDispatchers):
         return returnedSoapEnvelope
 
     def _onUnsubscribe(self, httpHeader, soapEnvelope): #pylint:disable=unused-argument
+
         returnedSoapEnvelope = self._subscriptionsManager.onUnsubscribeRequest(soapEnvelope)
         self._validateEventingResponse(returnedSoapEnvelope)
         return returnedSoapEnvelope
@@ -489,10 +490,9 @@ class GetService(DPWSPortTypeImpl):
         self.register_soapActionCallback(actions.GetMdib, self._onGetMdib)
         self.register_soapActionCallback(actions.GetMdDescription, self._onGetMdDescription)
 
-
     def _onGetMdState(self, httpHeader, request):  # pylint:disable=unused-argument
         self._logger.debug('_onGetMdState')
-        requestedHandles = request.bodyNode.xpath('*/msg:HandleRef/text()', namespaces=nsmap)
+        requestedHandles = self._sdcDevice.msg_reader.read_getMdState_request(request)
         if len(requestedHandles) > 0:
             self._logger.info('_onGetMdState requested Handles:{}', requestedHandles)
 
@@ -523,53 +523,22 @@ class GetService(DPWSPortTypeImpl):
                 self._logger.info('_onGetMdState requested Handles:{} found {} states', requestedHandles,
                                   len(stateContainers))
 
-            # build response
-            nsmapper = self._mdib.nsmapper
-            responseSoapEnvelope = pysoap.soapenvelope.Soap12Envelope(
-                nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
-            replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdStateResponse'))
-            responseSoapEnvelope.addHeaderObject(replyAddress)
-            getMdStateResponseNode = etree_.Element(msgTag('GetMdStateResponse'), nsmap=nsmap)
-            getMdStateResponseNode.set('MdibVersion', str(self._mdib.mdibVersion))
-            getMdStateResponseNode.set('SequenceId', self._mdib.sequenceId)
-
-            mdStateNode = etree_.Element(msgTag('MdState'), attrib=None, nsmap=self._mdib.nsmapper.docNssmap)
-            tag = domTag('State')
-            for stateContainer in stateContainers:
-                mdStateNode.append(stateContainer.mkStateNode(tag))
-
-            getMdStateResponseNode.append(mdStateNode)
-            responseSoapEnvelope.addBodyElement(getMdStateResponseNode)
+            responseSoapEnvelope = self._sdcDevice.msg_factory.mk_getmdstate_response_envelope(
+                request, self._mdib, stateContainers)
         self._logger.debug('_onGetMdState returns {}', lambda: responseSoapEnvelope.as_xml(pretty=False))
         responseSoapEnvelope.validateBody(self._bmmSchema)
         return responseSoapEnvelope
 
     def _onGetMdib(self, httpHeader, request):  # pylint:disable=unused-argument
         self._logger.debug('_onGetMdib')
-        nsmapper = self._mdib.nsmapper
-        responseSoapEnvelope = pysoap.soapenvelope.Soap12Envelope(
-            nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
-        replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdibResponse'))
-        responseSoapEnvelope.addHeaderObject(replyAddress)
-        if self._sdcDevice.contextstates_in_getmdib:
-            mdibNode = self._mdib.reconstructMdibWithContextStates()
-        else:
-            mdibNode = self._mdib.reconstructMdib()
-        mdibVersionString = mdibNode.get('MdibVersion') # use same version a in mdib node for response
-        sequenceIdString = mdibNode.get('SequenceId')
+        responseSoapEnvelope = self._sdcDevice.msg_factory.mk_getmdib_response_envelope(
+            request, self._mdib, self._sdcDevice.contextstates_in_getmdib)
 
-        getMdibResponseNode = etree_.Element(msgTag('GetMdibResponse'), nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
-        if mdibVersionString:
-            getMdibResponseNode.set('MdibVersion', mdibVersionString)
-        getMdibResponseNode.set('SequenceId', sequenceIdString)
-        getMdibResponseNode.append(mdibNode)
-        responseSoapEnvelope.addBodyElement(getMdibResponseNode)
         self._logger.debug('_onGetMdib returns {}', lambda: responseSoapEnvelope.as_xml(pretty=False))
         try:
             responseSoapEnvelope.validateBody(self._bmmSchema)
         except Exception as ex:
-            self._logger.error('_onGetMdib: invalid body:{}\n{}', traceback.format_exc(),
-                               lambda: etree_.tostring(mdibNode))
+            self._logger.error('_onGetMdib: invalid body:{}', traceback.format_exc())
             raise
         return responseSoapEnvelope
 
@@ -584,36 +553,12 @@ class GetService(DPWSPortTypeImpl):
         # => if at least one handle matches any descriptor, the one mds is returned, otherwise empty payload
 
         self._logger.debug('_onGetMdDescription')
-        requestedHandles = request.bodyNode.xpath('*/msg:HandleRef/text()', namespaces=nsmap)
+        requestedHandles = self._sdcDevice.msg_reader.read_getMdDescription_request(request)
         if len(requestedHandles) > 0:
             self._logger.info('_onGetMdDescription requested Handles:{}', requestedHandles)
-        includeMds = True if len(requestedHandles) == 0 else False  # if we have handles, we need to check them
-        for h in requestedHandles:
-            if self._sdcDevice.mdib.descriptions.handle.getOne(h, allowNone=True) is not None:
-                includeMds = True
-                break
-        my_namespaces = self._sdcDevice.mdib.nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.MSG, Prefix.PM)
-        responseSoapEnvelope = pysoap.soapenvelope.Soap12Envelope(my_namespaces)
-        replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdDescriptionResponse'))
-        responseSoapEnvelope.addHeaderObject(replyAddress)
-
-        getMdDescriptionResponseNode = etree_.Element(msgTag('GetMdDescriptionResponse'),
-                                                      nsmap=nsmap)
-
-        if includeMds:
-            mdDescriptionNode, mdibVersion = self._mdib.reconstructMdDescription()
-            mdDescriptionNode.tag = msgTag('MdDescription')  # rename according to message
-            mdibVersionString = str(mdibVersion)
-        else:
-            mdDescriptionNode = etree_.Element(msgTag('MdDescription'))
-            mdibVersionString = None
-        sequenceIdString = self._mdib.sequenceId
-        if mdibVersionString:
-            getMdDescriptionResponseNode.set('MdibVersion', mdibVersionString)
-        getMdDescriptionResponseNode.set('SequenceId', sequenceIdString)
-
-        getMdDescriptionResponseNode.append(mdDescriptionNode)
-        responseSoapEnvelope.addBodyElement(getMdDescriptionResponseNode)
+        responseSoapEnvelope = self._sdcDevice.msg_factory.mk_getmddescription_response_envelope(
+            request, self._sdcDevice.mdib, requestedHandles
+        )
         self._logger.debug('_onGetMdDescription returns {}', lambda: responseSoapEnvelope.as_xml(pretty=False))
         responseSoapEnvelope.validateBody(self._bmmSchema)
         return responseSoapEnvelope
@@ -754,7 +699,7 @@ class SetService(DPWSPortTypeImpl):
         self._logger.debug('_onSetMetricState')
         proposedMetricStateNodes = request.bodyNode.xpath('*/msg:ProposedMetricState', namespaces=nsmap)
         msg_reader = self._mdib._msg_reader
-        argument = [msg_reader.mkStateContainerFromNode(m) for m in proposedMetricStateNodes]
+        argument = [msg_reader.mkStateContainerFromNode(m, self._mdib) for m in proposedMetricStateNodes]
         return self._handleOperationRequest(request, 'SetMetricStateResponse', argument)
 
     def _onSetAlertState(self, httpHeader, request):  # pylint:disable=unused-argument
@@ -767,7 +712,7 @@ class SetService(DPWSPortTypeImpl):
         if len(proposedAlertStateNodes) == 0:
             raise ValueError('no ProposedAlertState argument found')
         msg_reader = self._mdib._msg_reader
-        argument = msg_reader.mkStateContainerFromNode(proposedAlertStateNodes[0])
+        argument = msg_reader.mkStateContainerFromNode(proposedAlertStateNodes[0], self._mdib)
 
         return self._handleOperationRequest(request, 'SetAlertStateResponse', argument)
 
@@ -777,7 +722,7 @@ class SetService(DPWSPortTypeImpl):
         self._logger.debug('_onSetComponentState')
         proposedComponentStateNodes = request.bodyNode.xpath('*/msg:ProposedComponentState', namespaces=nsmap)
         msg_reader = self._mdib._msg_reader
-        argument = [ msg_reader.mkStateContainerFromNode(p) for p in proposedComponentStateNodes]
+        argument = [ msg_reader.mkStateContainerFromNode(p, self._mdib) for p in proposedComponentStateNodes]
         return self._handleOperationRequest(request, 'SetComponentStateResponse', argument)
 
 
@@ -960,7 +905,7 @@ class ContextService(DPWSPortTypeImpl):
             proposedContextStateNodes = request.bodyNode.xpath('*/msg:ProposedContextState',
                                                                namespaces=nsmap)
             msg_reader = self._mdib._msg_reader
-            argument = [msg_reader.mkStateContainerFromNode(p) for p in proposedContextStateNodes]
+            argument = [msg_reader.mkStateContainerFromNode(p, self._mdib) for p in proposedContextStateNodes]
             transactionId = self._sdcDevice.enqueueOperation(operation, request, argument)
             transactionIdNode.text = str(transactionId)
             invocationStateNode.text = pmtypes.InvocationState.WAIT

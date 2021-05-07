@@ -17,35 +17,12 @@ class LocalizationServiceClient(HostedServiceClient):
         :param request_manipulator:
         :return: a list of LocalizedText objects
         '''
-        requestparams = []
-        if refs is not None:
-            for r in refs:
-                node = etree_.Element(msgTag('Ref'))
-                node.text = r
-                requestparams.append(node)
-        if version is not None:
-            node = etree_.Element(msgTag('Version'))
-            node.text = str(version)
-            requestparams.append(node)
-        if langs is not None:
-            for l in langs:
-                node = etree_.Element(msgTag('Lang'))
-                node.text = l
-                requestparams.append(node)
-        if textWidths is not None:
-            for tw in textWidths:
-                node = etree_.Element(msgTag('TextWidth'))
-                node.text = tw
-                requestparams.append(node)
-        if numberOfLines is not None:
-            for nol in numberOfLines:
-                node = etree_.Element(msgTag('NumberOfLines'))
-                node.text = nol
-                requestparams.append(node)
-
-        resultSoapEnvelope = self._callGetMethod('GetLocalizedText', params=requestparams,
+        envelope = self._msg_factory.mk_getlocalizedtext_envelope(self.endpoint_reference.address, self.porttype,
+                                                                 refs, version, langs, textWidths, numberOfLines)
+        resultSoapEnvelope = self._callGetMethod(envelope, 'GetLocalizedText',
                                                  request_manipulator=request_manipulator)
         return resultSoapEnvelope
+
 
     def getLocalizedTextNode(self, refs=None, version=None, langs=None, textWidths=None, numberOfLines=None, request_manipulator=None):
         return self._getLocalizedTextResponse(refs, version, langs, textWidths, numberOfLines, request_manipulator).msgNode
@@ -59,14 +36,19 @@ class LocalizationServiceClient(HostedServiceClient):
                 result.append(lt)
         return result
 
+    def _get_supported_languages(self, request_manipulator=None):
+        envelope = self._msg_factory.mk_getsupportedlanguages_envelope(
+            self.endpoint_reference.address, self.porttype)
+        return self._callGetMethod(envelope, 'GetSupportedLanguages', request_manipulator=request_manipulator)
+
     def getSupportedLanguages(self, request_manipulator=None):
-        resultSoapEnvelope = self._callGetMethod('GetSupportedLanguages', request_manipulator=request_manipulator)
+        resultSoapEnvelope = self._get_supported_languages(request_manipulator)
         result = []
         for element in resultSoapEnvelope.msgNode:
             result.append(str(element.text))
         return result
 
     def getSupportedLanguagesNodes(self, request_manipulator=None):
-        resultSoapEnvelope = self._callGetMethod('GetSupportedLanguages', request_manipulator=request_manipulator)
+        resultSoapEnvelope = self._get_supported_languages(request_manipulator)
         return resultSoapEnvelope.msgNode
 

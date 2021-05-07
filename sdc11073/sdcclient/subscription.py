@@ -77,12 +77,13 @@ class _ClSubscription(object):
     notification = properties.ObservableProperty()
     IDENT_TAG = etree_.QName('http.local.com', 'MyClIdentifier')
 
-    def __init__(self, dpwsHosted, actions, notification_url, endTo_url, ident):
+    def __init__(self, msg_factory, dpwsHosted, actions, notification_url, endTo_url, ident):
         '''
         @param serviceClient:
         @param filter_:
         @param notification_url: e.g. http://1.2.3.4:9999, or https://1.2.3.4:9999
         '''
+        self._msg_factory = msg_factory
         self.dpwsHosted = dpwsHosted
         self._actions = actions
         self._filter = ' '.join(actions)
@@ -105,18 +106,9 @@ class _ClSubscription(object):
         self._device_epr = urllib.parse.urlparse(self.dpwsHosted.endpointReferences[0].address).path
 
     def _mkSubscribeEnvelope(self, subscribe_epr, expire_minutes):
-        soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
-        soapEnvelope.setAddress(WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Subscribe',
-                                          to=subscribe_epr))
-
-        body = WsSubscribe(notifyTo=WsaEndpointReferenceType(self._notification_url,
-                                                             referenceParametersNode=[self.notifyTo_identifier]),
-                           endTo=WsaEndpointReferenceType(self._endTo_url,
-                                                          referenceParametersNode=[self._endTo_identifier]),
-                           expires=expire_minutes * 60,
-                           filter_=self._filter)
-        soapEnvelope.addBodyObject(body)
-        return soapEnvelope
+        return self._msg_factory.mk_subscribe_envelope(
+            subscribe_epr, self._notification_url, self.notifyTo_identifier,
+            self._endTo_url, self._endTo_identifier, expire_minutes, self._filter)
 
     def _handleSubscribeResponse(self, soapEnvelope):
         # Check content of response; raise Error if subscription was not successful
@@ -172,15 +164,9 @@ class _ClSubscription(object):
                 soapEnvelope.addHeaderElement(e_)
 
     def _mkRenewEnvelope(self, expire_minutes):
-        soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
-        soapEnvelope.setAddress(WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Renew',
-                                          to=urllib.parse.urlunparse(self._subscriptionManagerAddress)))
-        self._add_device_references(soapEnvelope)
-        renewNode = etree_.Element(wseTag('Renew'), nsmap=Prefix.partialMap(Prefix.WSE))
-        expiresNode = etree_.SubElement(renewNode, wseTag('Expires'), nsmap=Prefix.partialMap(Prefix.WSE))
-        expiresNode.text = isoduration.durationString(expire_minutes * 60)
-        soapEnvelope.addBodyElement(renewNode)
-        return soapEnvelope
+        return self._msg_factory.mk_renew_envelope(
+            to=urllib.parse.urlunparse(self._subscriptionManagerAddress),
+            dev_reference_param=self.dev_reference_param, expire_minutes=expire_minutes)
 
     def _handleRenewResponse(self, soapEnvelope):
         # Check content of response; raise Error if subscription was not successful
@@ -221,31 +207,24 @@ class _ClSubscription(object):
     def unsubscribe(self):
         if not self.isSubscribed:
             return
+        soap_envelope = self._msg_factory.mk_unsubscribe_envelope(
+            to=urllib.parse.urlunparse(self._subscriptionManagerAddress),
+            dev_reference_param=self.dev_reference_param)
 
-        soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
-        soapEnvelope.setAddress(WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Unsubscribe',
-                                          to=urllib.parse.urlunparse(self._subscriptionManagerAddress)))
-        self._add_device_references(soapEnvelope)
-        soapEnvelope.addBodyElement(etree_.Element(wseTag('Unsubscribe')))
         resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
-                                                                           soapEnvelope, msg='unsubscribe')
+                                                                           soap_envelope, msg='unsubscribe')
         responseAction = resultSoapEnvelope.address.action
-        # check response: response does not contain explicit status. If action== UnsubscribeResponse all is fine.  
+        # check response: response does not contain explicit status. If action== UnsubscribeResponse all is fine.
         if responseAction == 'http://schemas.xmlsoap.org/ws/2004/08/eventing/UnsubscribeResponse':
             self._logger.info('unsubscribe: end of subscription {} was confirmed.', self._filter)
         else:
             self._logger.error('unsubscribe: unexpected response action: {}', resultSoapEnvelope.as_xml(pretty=True))
-            raise RuntimeError(
-                'unsubscribe: unexpected response action: {}'.format(resultSoapEnvelope.as_xml(pretty=True)))
+            raise RuntimeError('unsubscribe: unexpected response action: {}'.format(resultSoapEnvelope.as_xml(pretty=True)))
 
     def _mkGetStatusEnvelope(self):
-        soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
-        soapEnvelope.setAddress(WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/GetStatus',
-                                          to=urllib.parse.urlunparse(self._subscriptionManagerAddress)))
-        self._add_device_references(soapEnvelope)
-        bodyNode = etree_.Element(wseTag('GetStatus'))
-        soapEnvelope.addBodyElement(bodyNode)
-        return soapEnvelope
+        return self._msg_factory.mk_getstatus_envelope(
+            to=urllib.parse.urlunparse(self._subscriptionManagerAddress),
+            dev_reference_param=self.dev_reference_param)
 
     def getStatus(self):
         ''' Sends a GetStatus Request to the device.
@@ -340,9 +319,10 @@ class SubscriptionManager(threading.Thread):
     allSubscriptionsOkay = properties.ObservableProperty(True)  # a boolean
     keepAlive_with_renew = True  # enable as workaround if checkstatus is not supported
 
-    def __init__(self, notification_url, endTo_url=None, checkInterval=None, log_prefix=''):
+    def __init__(self, msg_factory, notification_url, endTo_url=None, checkInterval=None, log_prefix=''):
         super(SubscriptionManager, self).__init__(name='Cl_SubscriptionManager{}'.format(log_prefix))
         self.daemon = True
+        self._msg_factory = msg_factory
         self._checkInterval = checkInterval or SUBSCRIPTION_CHECK_INTERVAL
         self.subscriptions = {}
         self._subscriptionsLock = threading.Lock()
@@ -389,7 +369,8 @@ class SubscriptionManager(threading.Thread):
             self._logger.info('terminating subscriptions check loop! self._run={}', self._run)
 
     def mkSubscription(self, dpwsHosted, filters):
-        s = _ClSubscription(dpwsHosted, filters, self._notification_url, self._endTo_url, self.log_prefix)
+        s = _ClSubscription(self._msg_factory, dpwsHosted, filters, self._notification_url, self._endTo_url,
+                            self.log_prefix)
         filter_ = ' '.join(filters)
         with self._subscriptionsLock:
             self.subscriptions[filter_] = s

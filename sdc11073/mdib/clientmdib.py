@@ -5,10 +5,8 @@ from collections import deque
 from collections import namedtuple
 from statistics import mean, stdev
 import copy
-from lxml import etree as etree_
 from .. import observableproperties as properties
 from . import mdibbase
-from . import msgreader
 from .. import namespaces
 from .. import pmtypes
 from concurrent import futures
@@ -180,7 +178,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             self.pr = cProfile.Profile()
         
         self._contextMdibVersion = None
-        self._msgReader = msgreader.MessageReader(self)
+        self._msgReader = sdcClient.msg_reader
         # a buffer for notifications that are received before initial getmdib is done
         self._bufferedNotifications = list()
         self._bufferedNotificationsLock = Lock()
@@ -199,13 +197,13 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         mdibNode = getService.getMdibNode()
         self.nsmapper.useDocPrefixes(mdibNode.nsmap)
         self._logger.info('creating description containers...')
-        descriptorContainers = self._msgReader.readMdDescription(mdibNode)
+        descriptorContainers = self._msgReader.readMdDescription(mdibNode, self)
         with self.descriptions._lock: #pylint: disable=protected-access
             self.descriptions.clear()
         self.addDescriptionContainers(descriptorContainers)
         self._logger.info('creating state containers...')
         self.clearStates()
-        stateContainers = self._msgReader.readMdState(mdibNode)
+        stateContainers = self._msgReader.readMdState(mdibNode, self)
         self.addStateContainers(stateContainers)
 
         mdibVersion = mdibNode.get('MdibVersion')
@@ -303,13 +301,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             oldStateContainer.updateFromNode(stateContainer.node)
                             self.contextStates.updateObjectNoLock(oldStateContainer)
                         else:
-                            old = etree_.tostring(oldStateContainer.node)
-                            new = etree_.tostring(stateContainer.node)
-                            if old == new:
-                                self._logger.debug('no update {}', oldStateContainer.node)
-                            else:
-                                self._logger.error('no update but different!\n{ \n{}',
-                                    lambda:etree_.tostring(oldStateContainer.node), lambda:etree_.tostring(stateContainer.node)) #pylint: disable=cell-var-from-loop 
+                            difference = stateContainer.diff(oldStateContainers)
+                            if difference:
+                                self._logger.error('no state version update but different!\n{ \n{}',difference)
                     else:
                         txt = ', '.join([str(x) for x in oldStateContainers])
                         self._logger.error('found {} objects: {}', len(oldStateContainers), txt)
@@ -385,7 +379,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         metricsByHandle = {}
         maxAge = 0
         minAge = 0
-        statecontainers = self._msgReader.readEpisodicMetricReport(reportNode)
+        statecontainers = self._msgReader.readEpisodicMetricReport(reportNode, self)
         try:
             with self.mdibLock:
                 self.mdibVersion = newMdibVersion
@@ -445,7 +439,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             return
 
         alertByHandle = {}
-        allAlertContainers = self._msgReader.readEpisodicAlertReport(reportNode)
+        allAlertContainers = self._msgReader.readEpisodicAlertReport(reportNode, self)
         self._logger.debug('_onEpisodicAlertReport: received {} alerts', len(allAlertContainers))
         try:
             with self.mdibLock:
@@ -482,8 +476,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not self._canAcceptMdibVersion('_onOperationalStateReport', newMdibVersion):
             return
         operationByHandle = {}
-        self._logger.info('_onOperationalStateReport: report={}', lambda:etree_.tostring(reportNode))
-        allOperationStateContainers = self._msgReader.readOperationalStateReport(reportNode)
+        allOperationStateContainers = self._msgReader.readOperationalStateReport(reportNode, self)
+        self._logger.info('_onOperationalStateReport: received {} containers', len(allOperationStateContainers))
         try:
             with self.mdibLock:
                 self.mdibVersion = newMdibVersion
@@ -538,7 +532,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             return
         waveformByHandle = {}
         waveformAge = {} # collect age of all waveforms in this report, and make one report if age is above warn limit (instead of multiple)
-        allRtSampleArrayContainers = self._msgReader.readWaveformReport(reportNode)
+        allRtSampleArrayContainers = self._msgReader.readWaveformReport(reportNode, self)
         self._logger.debug('_onWaveformReport: {} waveforms received', len(allRtSampleArrayContainers))
         try:
             with self.mdibLock:
@@ -619,7 +613,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not self._canAcceptMdibVersion('_onEpisodicContextReport', newMdibVersion):
             return
         contextByHandle = {}
-        stateContainers = self._msgReader.readEpisodicContextReport(reportNode)
+        stateContainers = self._msgReader.readEpisodicContextReport(reportNode, self)
         try:
             with self.mdibLock:
                 self.mdibVersion = newMdibVersion
@@ -660,37 +654,33 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not self._canAcceptMdibVersion('_onEpisodicComponentReport', newMdibVersion):
             return
         componentByHandle = {}
-        statecontainers = self._msgReader.readEpisodicComponentReport(reportNode)
+        statecontainers = self._msgReader.readEpisodicComponentReport(reportNode, self)
         try:
             with self.mdibLock:
                 self.mdibVersion = newMdibVersion
                 self._updateSequenceId(reportNode)
                 for sc in statecontainers:
                     desc_h = sc.descriptorHandle
-                    if desc_h is None:
-                        self._logger.error('_onEpisodicComponentReport: missing descriptor handle in {}!',
-                                           lambda: etree_.tostring(sc.node))  # pylint: disable=cell-var-from-loop
-                    else:
-                        try:
-                            oldStateContainer = self.states.descriptorHandle.getOne(desc_h, allowNone=True)
-                        except RuntimeError  as ex:
-                            self._logger.error('_onEpisodicComponentReport, getOne on states: {}', ex)
-                            continue
+                    try:
+                        oldStateContainer = self.states.descriptorHandle.getOne(desc_h, allowNone=True)
+                    except RuntimeError  as ex:
+                        self._logger.error('_onEpisodicComponentReport, getOne on states: {}', ex)
+                        continue
 
-                        if oldStateContainer is None:
-                            self.states.addObject(sc)
+                    if oldStateContainer is None:
+                        self.states.addObject(sc)
+                        self._logger.info(
+                            '_onEpisodicComponentReport: new component state handle = {} DescriptorVersion={}',
+                            desc_h, sc.DescriptorVersion)
+                        componentByHandle[sc.descriptorHandle] = sc
+                    else:
+                        if self._hasNewStateUsableStateVersion(oldStateContainer, sc, 'EpisodicComponentReport', is_buffered_report):
                             self._logger.info(
-                                '_onEpisodicComponentReport: new component state handle = {} DescriptorVersion={}',
+                                '_onEpisodicComponentReport: updated component state, handle="{}" DescriptorVersion={}',
                                 desc_h, sc.DescriptorVersion)
-                            componentByHandle[sc.descriptorHandle] = sc
-                        else:
-                            if self._hasNewStateUsableStateVersion(oldStateContainer, sc, 'EpisodicComponentReport', is_buffered_report):
-                                self._logger.info(
-                                    '_onEpisodicComponentReport: updated component state, handle="{}" DescriptorVersion={}',
-                                    desc_h, sc.DescriptorVersion)
-                                oldStateContainer.update_from_other_container(sc)
-                                self.states.updateObject(oldStateContainer)
-                                componentByHandle[oldStateContainer.descriptorHandle] = oldStateContainer
+                            oldStateContainer.update_from_other_container(sc)
+                            self.states.updateObject(oldStateContainer)
+                            componentByHandle[oldStateContainer.descriptorHandle] = oldStateContainer
         finally:
             self.componentByHandle = componentByHandle
 
@@ -704,7 +694,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         newMdibVersion = int(reportNode.get('MdibVersion', '1'))
         if not self._canAcceptMdibVersion('_onDescriptionModificationReport', newMdibVersion):
             return
-        descriptions_lookup_list = self._msgReader.readDescriptionModificationReport(reportNode)
+        descriptions_lookup_list = self._msgReader.readDescriptionModificationReport(reportNode, self)
         with self.mdibLock:
             self.mdibVersion = newMdibVersion
             self._updateSequenceId(reportNode)

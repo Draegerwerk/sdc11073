@@ -26,27 +26,28 @@ class TestClientProxies(unittest.TestCase):
     def test_Get_GetMdib(self):
         for sdcClient in self._allclients:
             getServiceClient = sdcClient._mkHostedServiceClient(porttype='Get', soapClient=None, hosted=self.hosted)
-            soapEnvelope = getServiceClient._mkGetMethodEnvelope(method='GetMdib')
-            print (soapEnvelope.as_xml(pretty=True))
-            
+            soapEnvelope = getServiceClient._msg_factory.mk_getmdib_envelope(
+                getServiceClient.endpoint_reference.address, getServiceClient.porttype)
+
+            print(soapEnvelope.as_xml(pretty=True))
+
             soapEnvelope.validateBody(sdcClient._bicepsSchema.bmmSchema)
-            
-        
+
     def test_Set_setNumericValue(self):
         for sdcClient in self._allclients:
             setServiceClient = sdcClient._mkHostedServiceClient(porttype='Set', soapClient=None, hosted=self.hosted)
-            soapEnvelope = setServiceClient._mkRequestedNumericValueEnvelope(operationHandle='123', requestedNumericValue=42.42)
-            print (soapEnvelope.as_xml(pretty=True))
+            soapEnvelope = setServiceClient._mkRequestedNumericValueEnvelope(operationHandle='123',
+                                                                             requestedNumericValue=42.42)
+            print(soapEnvelope.as_xml(pretty=True))
             soapEnvelope.validateBody(sdcClient._bicepsSchema.bmmSchema)
-
 
     def test_Set_setString(self):
         for sdcClient in self._allclients:
             setServiceClient = sdcClient._mkHostedServiceClient(porttype='Set', soapClient=None, hosted=self.hosted)
-            soapEnvelope = setServiceClient._mkRequestedStringEnvelope( operationHandle='123', requestedString ='aaa42.42')
-            print (soapEnvelope.as_xml(pretty=True))
+            soapEnvelope = setServiceClient._mkRequestedStringEnvelope(operationHandle='123',
+                                                                       requestedString='aaa42.42')
+            print(soapEnvelope.as_xml(pretty=True))
             soapEnvelope.validateBody(sdcClient._bicepsSchema.bmmSchema)
-
 
     def test_Set_setAlertState(self):
         for sdcClient in self._allclients:

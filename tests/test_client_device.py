@@ -1305,7 +1305,12 @@ class Test_Client_SomeDevice(unittest.TestCase):
         for sdcClient, sdcDevice in self._all_cl_dev:
             sdcClient.GetService_client._validate = False # want to send an invalid request
             try:
-                sdcClient.GetService_client._callGetMethod('Nonsense')
+                method = 'Nonsense'
+                envelope = sdcClient.GetService_client._msg_factory._mk_get_method_envelope(
+                    sdcClient.GetService_client.endpoint_reference.address,
+                    sdcClient.GetService_client.porttype,
+                    method)
+                sdcClient.GetService_client._callGetMethod(envelope, 'Nonsense')
             except HTTPReturnCodeError as ex:
                 self.assertEqual(ex.status, 400)
                 fault_xml = ex.reason

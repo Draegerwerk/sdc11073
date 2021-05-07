@@ -314,6 +314,7 @@ class SubscriptionsManager(object):
         acceptedEncodings = CompressionHandler.parseHeader(httpHeader.get('Accept-Encoding'))
         s = _DevSubscription.fromSoapEnvelope(soapEnvelope, self._sslContext, self.bicepsParser, acceptedEncodings,
                                               self._max_subscription_duration, self.base_urls)
+
         # assign a soap client
         key = s._url.netloc  # pylint:disable=protected-access
         soapClient = self.soapClients.get(key)

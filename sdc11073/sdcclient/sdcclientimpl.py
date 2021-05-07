@@ -25,6 +25,8 @@ from ..namespaces import nsmap
 from ..namespaces import Prefix_Namespace as Prefix
 from ..definitions_base import ProtocolsRegistry
 from ..definitions_sdc import SDC_v1_Definitions
+from ..transport.soap import msgreader
+from ..transport.soap.msgfactory import SoapMessageFactory
 # shortcuts
 GenericNode = sdc11073.pysoap.soapenvelope.GenericNode
 WsAddress = sdc11073.pysoap.soapenvelope.WsAddress
@@ -88,19 +90,15 @@ class HostedServiceDescription(object):
         return None if not self._validate else self._bicepsSchema.mexSchema
 
     def readMetadata(self, soap_client):
-        soapEnvelope = Soap12Envelope(nsmap)
-        self._logger.debug('calling GetMetadata on {}', self._endpoint_address)
-        soapEnvelope.setAddress(WsAddress(action='http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Request',
-                                          to=self._endpoint_address))
-        soapEnvelope.addBodyObject(GenericNode(etree_.Element('{http://schemas.xmlsoap.org/ws/2004/09/mex}GetMetadata')))
+        soap_envelope = SoapMessageFactory.mk_getmetadata_envelope(self._endpoint_address)
         if self.VALIDATE_MEX:
-            soapEnvelope.validateBody(self._mexSchema)
-        endpointEnvelope = soap_client.postSoapEnvelopeTo(self._url.path,
-                                                          soapEnvelope,
+            soap_envelope.validateBody(self._mexSchema)
+        endpoint_envelope = soap_client.postSoapEnvelopeTo(self._url.path,
+                                                          soap_envelope,
                                                           msg='<{}> readMetadata'.format(self.service_id))
         if self.VALIDATE_MEX:
-            endpointEnvelope.validateBody(self._mexSchema)
-        self.metaData = MetaDataSection.fromEtreeNode(endpointEnvelope.bodyNode)
+            endpoint_envelope.validateBody(self._mexSchema)
+        self.metaData = MetaDataSection.fromEtreeNode(endpoint_envelope.bodyNode)
         self.readwsdl(soap_client, self.metaData.wsdl_location)
         return
 
@@ -254,6 +252,8 @@ class SdcClient(object):
         self._soapClients = {} # all http connections that this client holds
         self.peerCertificate = None
         self.all_subscribed = False
+        self.msg_reader = msgreader.MessageReader(self._logger, 'msg_reader')
+        self._msg_factory = SoapMessageFactory(self.sdc_definitions, self._logger)
 
     def _register_mdib(self, mdib):
         ''' SdcClient sometimes must know the mdib data (e.g. Set service, activate method).'''
@@ -266,6 +266,7 @@ class SdcClient(object):
             self.client('Set').register_mdib(mdib)
         if self.client('Context') is not None:
             self.client('Context').register_mdib(mdib)
+        self._msg_factory.register_mdib(mdib)
 
     @property
     def mdib(self):
@@ -363,7 +364,8 @@ class SdcClient(object):
                              self.sdc_definitions.Actions.PeriodicContextReport,
                              self.sdc_definitions.Actions.PeriodicOperationalStateReport])
         # start subscription manager
-        self._subscriptionMgr = subscription.SubscriptionManager(self._notificationsDispatcherThread.base_url,
+        self._subscriptionMgr = subscription.SubscriptionManager(self._msg_factory,
+                                                                 self._notificationsDispatcherThread.base_url,
                                                                  log_prefix=self.log_prefix,
                                                                  checkInterval=subscriptionsCheckInterval)
         self._subscriptionMgr.start()
@@ -519,7 +521,8 @@ class SdcClient(object):
 
     def _mkHostedServiceClient(self, porttype, soapClient, hosted):
         cls = self._servicesLookup.get(porttype, HostedServiceClient)
-        return cls(soapClient, hosted, porttype, self._validate, self.sdc_definitions, self._bicepsSchema, self.log_prefix)
+        return cls(soapClient, self._msg_factory, hosted, porttype, self._validate,
+                   self.sdc_definitions, self._bicepsSchema, self.log_prefix)
 
     def _startEventSink(self, async_dispatch):
         if self._sslEvents == 'auto':

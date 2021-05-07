@@ -16,6 +16,8 @@ from .. import wsdiscovery
 from ..location import SdcLocation
 from .. import namespaces
 from .. import pysoap
+from ..transport.soap.msgreader import MessageReader
+from ..transport.soap.msgfactory import SoapMessageFactory
 
 from .sdcservicesimpl import SOAPActionDispatcher, DPWSHostedService
 from .sdcservicesimpl import GetService, SetService, StateEventService,  ContainmentTreeService, ContextService, WaveformService, DescriptionEventService
@@ -94,6 +96,11 @@ class SdcHandler_Base(object):
 
         self.chunked_messages = chunked_messages
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
+
+        self.msg_reader = MessageReader(self._logger)
+        self.msg_factory = SoapMessageFactory(sdc_definitions=deviceMdibContainer.sdc_definitions,
+                                              logger=self._logger)
+
         # hostDispatcher provides data of the sdc device itself
         self._hostDispatcher = self._mkHostDispatcher()
 
@@ -246,6 +253,7 @@ class SdcHandler_Base(object):
         return self._scoOperationsRegistry.getOperationByHandle(operationHandle)
 
     def enqueueOperation(self, operation, request, argument):
+
         return self._scoOperationsRegistry.enqueueOperation(operation, request, argument)
 
     def dispatchGetRequest(self, parseResult, headers):
