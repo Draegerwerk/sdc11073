@@ -2,7 +2,7 @@ from functools import partial
 from .. import observableproperties as properties
 from .. import loghelper
 from .. import pmtypes
-from .. import sdcdevice
+#from .. import sdcdevice
 
 
 
@@ -18,13 +18,13 @@ class ProviderRole(object):
     def initOperations(self, mdib):
         self._mdib = mdib
 
-    def makeOperationInstance(self, operationDescriptorContainer): #pylint: disable=unused-argument
+    def makeOperationInstance(self, operationDescriptorContainer, operations_factory): #pylint: disable=unused-argument
         '''returns a callable for this operation or None.
         If a mdib already has operations defined, this method can connect a handler to a given operation descriptor.
         Use case: initialization from an existing mdib'''
         return None
 
-    def makeMissingOperations(self):
+    def makeMissingOperations(self, operations_factory):
         '''
         This method is called after all existing operations from mdib have been registered.
         If a role provider needs to add operations beyond that, it can do it here.
@@ -81,14 +81,17 @@ class ProviderRole(object):
                 state.metricValue.Validity = pmtypes.MeasurementValidity.VALID
 
 
-    def _mkOperationFromOperationDescriptor(self, operationDescriptorContainer, currentArgumentHandler=None, currentRequestHandler=None):
+    def _mkOperationFromOperationDescriptor(self, operationDescriptorContainer,
+                                            operations_factory,
+                                            currentArgumentHandler=None,
+                                            currentRequestHandler=None):
         '''
         :param operationDescriptorContainer: the operation container for which this operation Handler shall be created
         :param currentArgumentHandler: the handler that shall be called by operation
         :param currentRequestHandler: the handler that shall be called by operation
         :return: instance of cls
         '''
-        cls = sdcdevice.sco.getOperationClass(operationDescriptorContainer.NODETYPE)
+        cls = operations_factory(operationDescriptorContainer.NODETYPE)
         op = self._mkOperation(cls,
                                operationDescriptorContainer.handle,
                                operationDescriptorContainer.OperationTarget,

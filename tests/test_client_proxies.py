@@ -13,7 +13,8 @@ class TestClientProxies(unittest.TestCase):
     
     def setUp(self):
         self.sdcClient_final =  sdc11073.sdcclient.SdcClient(DEV_ADDRESS,
-                                                             deviceType=definitions_sdc.SDC_v1_Definitions.MedicalDeviceType,
+                                                             sdc_definitions=definitions_sdc.SDC_v1_Definitions,
+                                                             # deviceType=definitions_sdc.SDC_v1_Definitions.MedicalDeviceType,
                                                              validate=CLIENT_VALIDATE,
                                                              my_ipaddress='169.254.0.3',
                                                              logLevel=logging.DEBUG)
@@ -25,7 +26,7 @@ class TestClientProxies(unittest.TestCase):
 
     def test_Get_GetMdib(self):
         for sdcClient in self._allclients:
-            getServiceClient = sdcClient._mkHostedServiceClient(porttype='Get', soapClient=None, hosted=self.hosted)
+            getServiceClient = sdcClient._mkHostedServiceClient(port_type='GetService', soapClient=None, hosted=self.hosted)
             soapEnvelope = getServiceClient._msg_factory.mk_getmdib_envelope(
                 getServiceClient.endpoint_reference.address, getServiceClient.porttype)
 
@@ -35,7 +36,7 @@ class TestClientProxies(unittest.TestCase):
 
     def test_Set_setNumericValue(self):
         for sdcClient in self._allclients:
-            setServiceClient = sdcClient._mkHostedServiceClient(porttype='Set', soapClient=None, hosted=self.hosted)
+            setServiceClient = sdcClient._mkHostedServiceClient(port_type='SetService', soapClient=None, hosted=self.hosted)
             soapEnvelope = setServiceClient._mkRequestedNumericValueEnvelope(operationHandle='123',
                                                                              requestedNumericValue=42.42)
             print(soapEnvelope.as_xml(pretty=True))
@@ -43,7 +44,7 @@ class TestClientProxies(unittest.TestCase):
 
     def test_Set_setString(self):
         for sdcClient in self._allclients:
-            setServiceClient = sdcClient._mkHostedServiceClient(porttype='Set', soapClient=None, hosted=self.hosted)
+            setServiceClient = sdcClient._mkHostedServiceClient(port_type='SetService', soapClient=None, hosted=self.hosted)
             soapEnvelope = setServiceClient._mkRequestedStringEnvelope(operationHandle='123',
                                                                        requestedString='aaa42.42')
             print(soapEnvelope.as_xml(pretty=True))
@@ -60,7 +61,7 @@ class TestClientProxies(unittest.TestCase):
             alertState = stateClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
                                     descriptorContainer=descr)
 
-            setServiceClient = sdcClient._mkHostedServiceClient(porttype='Set', soapClient=None, hosted=self.hosted)
+            setServiceClient = sdcClient._mkHostedServiceClient(port_type='SetService', soapClient=None, hosted=self.hosted)
             for state in list(AlertActivation):
                 alertState.ActivationState = state
                 soapEnvelope = setServiceClient._mkSetAlertEnvelope( operationHandle='op123',
@@ -78,7 +79,7 @@ class TestClientProxies(unittest.TestCase):
             stateClass = sdcClient.sdc_definitions.sc.getContainerClass(sdc11073.namespaces.domTag('NumericMetricState'))
             metricState = stateClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
                                      descriptorContainer=descr)
-            setServiceClient = sdcClient._mkHostedServiceClient(porttype='Set', soapClient=None, hosted=self.hosted)
+            setServiceClient = sdcClient._mkHostedServiceClient(port_type='SetService', soapClient=None, hosted=self.hosted)
             for state in list(ComponentActivation):
                 metricState.ActivationState = state
                 metricState.BodySite = [sdc11073.pmtypes.CodedValue('abc', 'def')]

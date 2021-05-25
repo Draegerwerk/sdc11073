@@ -6,7 +6,7 @@ class HTTPRequestHandlingError(Exception):
         @param status: integer, e.g. 404
         param reason: the provided human readable text
         '''
-        super(HTTPRequestHandlingError, self).__init__()
+        super().__init__()
         self.status = status
         self.reason = reason
         self.soapfault = soapfault

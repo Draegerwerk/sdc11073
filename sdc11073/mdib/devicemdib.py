@@ -5,7 +5,6 @@ from collections import OrderedDict, namedtuple
 from threading import Lock
 from functools import wraps
 from . import mdibbase
-from ..transport.soap import msgreader
 from ..namespaces import domTag
 from .. import loghelper
 from .. import pmtypes
@@ -362,7 +361,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         """
         if sdc_definitions is None:
             sdc_definitions = SDC_v1_Definitions
-        super(DeviceMdibContainer, self).__init__(sdc_definitions)
+        super().__init__(sdc_definitions)
         self._logger = loghelper.getLoggerAdapter('sdc.device.mdib', log_prefix)
         self._sdcDevice = None
         self._trLock = Lock() # transaction lock
@@ -761,7 +760,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         """
         qNameTag = domTag('Vmd')
         cls = self.getDescriptorContainerClass(qNameTag)
-        obj = self._createDescriptorContainer(cls, qNameTag, handle, parentHandle, codedValue, safetyClassification)
+        obj = self._createDescriptorContainer(cls, handle, parentHandle, codedValue, safetyClassification)
         if self._current_transaction is not None:
             self._current_transaction.createDescriptor(obj)
         else:
@@ -781,7 +780,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         """
         qNameTag = domTag('Channel')
         cls = self.getDescriptorContainerClass(qNameTag)
-        obj = self._createDescriptorContainer(cls, qNameTag, handle, parentHandle, codedValue, safetyClassification)
+        obj = self._createDescriptorContainer(cls, handle, parentHandle, codedValue, safetyClassification)
         if self._current_transaction is not None:
             self._current_transaction.createDescriptor(obj)
         else:
@@ -807,7 +806,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         qNameTag = domTag('Metric')
         qNameType = domTag('StringMetricDescriptor')
         cls = self.getDescriptorContainerClass(qNameType)
-        obj = self._createDescriptorContainer(cls, qNameTag, handle, parentHandle, codedValue, safetyClassification)
+        obj = self._createDescriptorContainer(cls, handle, parentHandle, codedValue, safetyClassification)
         obj.Unit = unit
         obj.MetricAvailability = metricAvailability
         obj.MetricCategory = metricCategory
@@ -839,7 +838,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         qNameTag = domTag('Metric')
         qNameType = domTag('EnumStringMetricDescriptor')
         cls = self.getDescriptorContainerClass(qNameType)
-        obj = self._createDescriptorContainer(cls, qNameTag, handle, parentHandle, codedValue, safetyClassification)
+        obj = self._createDescriptorContainer(cls, handle, parentHandle, codedValue, safetyClassification)
         obj.Unit = unit
         obj.MetricAvailability = metricAvailability
         obj.MetricCategory = metricCategory
@@ -984,13 +983,13 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     break
         if protocol_definition is None:
             raise ValueError('cannot create instance, no known BICEPS schema version identified')
-
+        MsgReaderCls = protocol_definition.DefaultSdcDeviceComponents['MsgReaderClass']
         mdib = cls(protocol_definition, log_prefix=log_prefix)
-        root =  msgreader.MessageReader.getMdibRootNode(mdib.sdc_definitions, xml_text)
+        root =  MsgReaderCls.getMdibRootNode(mdib.sdc_definitions, xml_text)
         mdib.bicepsSchema.bmmSchema.assertValid(root)
 
         mdib.nsmapper.useDocPrefixes(root.nsmap)
-        msg_reader = msgreader.MessageReader(mdib._logger)
+        msg_reader = MsgReaderCls(mdib._logger)
         # first make descriptions and add them to mdib, and then make states (they need already existing descriptions)
         descriptorContainers = msg_reader.readMdDescription(root, mdib)
         mdib.addDescriptionContainers(descriptorContainers)
@@ -1007,7 +1006,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 if qn not in childdrenNodeNames:
                     mdib._logger.info('creating a LocationContextDescriptor')
                     descr_cls = mdib.getDescriptorContainerClass(qn)
-                    lc = descr_cls(mdib.nsmapper, nodeName=domTag('LocationContext'),
+                    lc = descr_cls(mdib.nsmapper,
                                    handle=uuid.uuid4().hex, parentHandle=systemContextContainer.handle)
                     lc.SafetyClassification = pmtypes.SafetyClassification.INF
                     mdib.descriptions.addObject(lc)
@@ -1016,7 +1015,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 if qn not in childdrenNodeNames:
                     mdib._logger.info('creating a PatientContextDescriptor')
                     descr_cls = mdib.getDescriptorContainerClass(qn)
-                    pc = descr_cls(mdib.nsmapper, nodeName=domTag('PatientContext'),
+                    pc = descr_cls(mdib.nsmapper,
                                    handle=uuid.uuid4().hex, parentHandle=systemContextContainer.handle)
                     pc.SafetyClassification = pmtypes.SafetyClassification.INF
                     mdib.descriptions.addObject(pc)

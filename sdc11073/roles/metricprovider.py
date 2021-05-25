@@ -1,10 +1,9 @@
-from .. import namespaces
-from .. import sdcdevice
+from ..namespaces import domTag
 from .. pmtypes import ComponentActivation
-from . import providerbase
+from .providerbase import ProviderRole
 
 
-class GenericMetricProvider(providerbase.ProviderRole):
+class GenericMetricProvider(ProviderRole):
     """ Always added operations: None
     This is a generic Handler for
     - SetValueOperation on numeric metrics
@@ -19,7 +18,7 @@ class GenericMetricProvider(providerbase.ProviderRole):
         super().__init__(log_prefix)
         self.activationStateCanRemoveMetricValue = activationStateCanRemoveMetricValue
 
-    def makeOperationInstance(self, operationDescriptorContainer):
+    def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
         ''' Can handle following cases:
         SetValueOperation, target = NumericMetricDescriptor: => handler = _setNumericValue
         SetStringOperation, target = (Enum)StringMetricDescriptor: => handler = _setString
@@ -28,31 +27,34 @@ class GenericMetricProvider(providerbase.ProviderRole):
         operationTargetHandle = operationDescriptorContainer.OperationTarget
         operationTargetDescriptorContainer = self._mdib.descriptions.handle.getOne(operationTargetHandle)
 
-        if operationTargetDescriptorContainer.NODETYPE not in (namespaces.domTag('StringMetricDescriptor'),
-                                                               namespaces.domTag('EnumStringMetricDescriptor'),
-                                                               namespaces.domTag('NumericMetricDescriptor'),
-                                                               namespaces.domTag('RealTimeSampleArrayMetricDescriptor')):
+        if operationTargetDescriptorContainer.NODETYPE not in (domTag('StringMetricDescriptor'),
+                                                               domTag('EnumStringMetricDescriptor'),
+                                                               domTag('NumericMetricDescriptor'),
+                                                               domTag('RealTimeSampleArrayMetricDescriptor')):
             return None # this is not metric provider role
 
-        if operationDescriptorContainer.NODETYPE == namespaces.domTag('SetValueOperationDescriptor'):
-            if operationTargetDescriptorContainer.NODETYPE == namespaces.domTag('NumericMetricDescriptor'):
-                return self._mkOperation(sdcdevice.sco.SetValueOperation,
+        if operationDescriptorContainer.NODETYPE == domTag('SetValueOperationDescriptor'):
+            if operationTargetDescriptorContainer.NODETYPE == domTag('NumericMetricDescriptor'):
+                op_cls = operations_factory(domTag('SetValueOperationDescriptor'))
+                return self._mkOperation(op_cls,
                                          handle=operationDescriptorContainer.handle,
                                          operationTargetHandle=operationTargetHandle,
                                          codedValue=operationDescriptorContainer.Type,
                                          currentArgumentHandler=self._setNumericValue)
             return None
-        elif operationDescriptorContainer.NODETYPE == namespaces.domTag('SetStringOperationDescriptor'):
-            if operationTargetDescriptorContainer.NODETYPE in (namespaces.domTag('StringMetricDescriptor'),
-                                                               namespaces.domTag('EnumStringMetricDescriptor')):
-                return self._mkOperation(sdcdevice.sco.SetStringOperation,
+        elif operationDescriptorContainer.NODETYPE == domTag('SetStringOperationDescriptor'):
+            if operationTargetDescriptorContainer.NODETYPE in (domTag('StringMetricDescriptor'),
+                                                               domTag('EnumStringMetricDescriptor')):
+                op_cls = operations_factory(domTag('SetStringOperationDescriptor'))
+                return self._mkOperation(op_cls,
                                          handle=operationDescriptorContainer.handle,
                                          operationTargetHandle=operationTargetHandle,
                                          codedValue=operationDescriptorContainer.Type,
                                          currentArgumentHandler=self._setString)
             return None
-        elif operationDescriptorContainer.NODETYPE == namespaces.domTag('SetMetricStateOperationDescriptor'):
-            operation = self._mkOperation(sdcdevice.sco.SetMetricStateOperation,
+        elif operationDescriptorContainer.NODETYPE == domTag('SetMetricStateOperationDescriptor'):
+            op_cls = operations_factory(domTag('SetMetricStateOperationDescriptor'))
+            operation = self._mkOperation(op_cls,
                                           handle=operationDescriptorContainer.handle,
                                           operationTargetHandle=operationTargetHandle,
                                           codedValue=operationDescriptorContainer.Type,

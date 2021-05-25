@@ -162,7 +162,8 @@ class TestClientWaveform(unittest.TestCase):
     
     def setUp(self):
         self.sdcClient_final =  sdc11073.sdcclient.SdcClient(DEV_ADDRESS,
-                                                             deviceType=definitions_sdc.SDC_v1_Definitions.MedicalDeviceType,
+                                                             sdc_definitions=definitions_sdc.SDC_v1_Definitions,
+                                                             #deviceType=definitions_sdc.SDC_v1_Definitions.MedicalDeviceType,
                                                              validate=CLIENT_VALIDATE,
                                                              my_ipaddress='169.254.0.3',
                                                              logLevel=logging.DEBUG)

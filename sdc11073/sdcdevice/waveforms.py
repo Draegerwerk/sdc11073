@@ -44,16 +44,16 @@ class _WaveformGeneratorBase(object):
 
 class TriangleGenerator(_WaveformGeneratorBase):
     def __init__(self, min_value, max_value, waveformperiod, sampleperiod):
-        super(TriangleGenerator, self).__init__(triangle, min_value, max_value, waveformperiod, sampleperiod)
+        super().__init__(triangle, min_value, max_value, waveformperiod, sampleperiod)
 
 
 
 class SawtoothGenerator(_WaveformGeneratorBase):
     def __init__(self,  min_value, max_value, waveformperiod, sampleperiod):
-        super(SawtoothGenerator, self).__init__(sawtooth,  min_value, max_value, waveformperiod, sampleperiod)
+        super().__init__(sawtooth,  min_value, max_value, waveformperiod, sampleperiod)
 
 
 
 class SinusGenerator(_WaveformGeneratorBase):
     def __init__(self,  min_value, max_value, waveformperiod, sampleperiod):
-        super(SinusGenerator, self).__init__(sinus, min_value, max_value, waveformperiod, sampleperiod)
+        super().__init__(sinus, min_value, max_value, waveformperiod, sampleperiod)

@@ -309,7 +309,7 @@ class _ClSubscription(object):
             self.eventCounter)
 
 
-class SubscriptionManager(threading.Thread):
+class SubscriptionClient(threading.Thread):
     ''' Factory for Subscription objects, thread that automatically renews expiring subscriptions.
     @param notification_url: the destination url for notifications.
     @param endTo_url: if given the destination url for end subscription notifications; if not given, the notification_url is used.
@@ -320,7 +320,7 @@ class SubscriptionManager(threading.Thread):
     keepAlive_with_renew = True  # enable as workaround if checkstatus is not supported
 
     def __init__(self, msg_factory, notification_url, endTo_url=None, checkInterval=None, log_prefix=''):
-        super(SubscriptionManager, self).__init__(name='Cl_SubscriptionManager{}'.format(log_prefix))
+        super().__init__(name='SubscriptionClient{}'.format(log_prefix))
         self.daemon = True
         self._msg_factory = msg_factory
         self._checkInterval = checkInterval or SUBSCRIPTION_CHECK_INTERVAL
@@ -416,7 +416,7 @@ class SubscriptionManager(threading.Thread):
 
 class _DispatchError(Exception):
     def __init__(self, httpErrorcode, errorText):
-        super(_DispatchError, self).__init__()
+        super().__init__()
         self.httpErrorcode = httpErrorcode
         self.errorText = errorText
 
@@ -459,7 +459,7 @@ class SOAPNotificationsDispatcher(object):
 class SOAPNotificationsDispatcherThreaded(SOAPNotificationsDispatcher):
 
     def __init__(self, ident, bicepsSchema):
-        super(SOAPNotificationsDispatcherThreaded, self).__init__(ident, bicepsSchema)
+        super().__init__(ident, bicepsSchema)
         self._queue = queue.Queue(1000)
         self._worker = threading.Thread(target=self._readqueue)
         self._worker.daemon = True
@@ -556,7 +556,7 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
         :param async_dispatch: if True, incoming requests are queued and response is sent (processing is done later).
                                 if False, response is sent after the complete processing is done.
         '''
-        super(NotificationsReceiverDispatcherThread, self).__init__(
+        super().__init__(
             name='Cl_NotificationsReceiver_{}'.format(log_prefix))
         self._sslContext = sslContext
         self._soap_notifications_handler_class = soap_notifications_handler_class

@@ -33,7 +33,7 @@ WSDLOperationBinding = namedtuple('WSDLOperationBinding', 'name input output')
 
 
 def etreeFromFile(path):
-    parser = etree_.ETCompatXMLParser()
+    parser = etree_.ETCompatXMLParser(resolve_entities=False)
     with open(path, 'rb') as f:
         xml_text = f.read()
     return etree_.fromstring(xml_text, parser=parser, base_url=path)
@@ -95,7 +95,7 @@ class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
     """ receiver of all messages"""
 
     def __init__(self, subDispatchers=None):
-        super(_SOAPActionDispatcherWithSubDispatchers, self).__init__()
+        super().__init__()
         self.subDispatchers = subDispatchers or [] # chained SOAPActionDispatcher
 
 
@@ -126,7 +126,7 @@ class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
 class EventService(_SOAPActionDispatcherWithSubDispatchers):
     """ A service that offers subscriptions"""
     def __init__(self, sdcDevice, subDispatchers, offeredSubscriptions):
-        super(EventService, self).__init__(subDispatchers)
+        super().__init__(subDispatchers)
 
         self._sdcDevice = sdcDevice
         self._subscriptionsManager = sdcDevice.subscriptionsManager
@@ -198,7 +198,7 @@ class DPWSHostedService(EventService):
         """
         @param base_urls: urlparse.SplitResult instances. They define the base addresses of this service
         """
-        super(DPWSHostedService, self).__init__(sdcDevice, subDispatchers, offeredSubscriptions)
+        super().__init__(sdcDevice, subDispatchers, offeredSubscriptions)
 
         self._base_urls = base_urls
         self._mdib = sdcDevice.mdib
@@ -334,7 +334,7 @@ class DPWSPortTypeImpl(SOAPActionDispatcher):
         :param port_type_string: port type without namespace, e.g 'Get'
         :param sdcDevice:
         """
-        super(DPWSPortTypeImpl, self).__init__()
+        super().__init__()
         self.port_type_string = port_type_string
         self._sdcDevice = sdcDevice
         self._mdib = sdcDevice.mdib
@@ -484,7 +484,7 @@ class GetService(DPWSPortTypeImpl):
                              WSDLOperationBinding('GetMdDescription', 'literal', 'literal'),)
 
     def __init__(self, port_type_string, sdcDevice):
-        super(GetService, self).__init__(port_type_string, sdcDevice )
+        super().__init__(port_type_string, sdcDevice )
         actions = self._mdib.sdc_definitions.Actions
         self.register_soapActionCallback(actions.GetMdState, self._onGetMdState)
         self.register_soapActionCallback(actions.GetMdib, self._onGetMdib)
@@ -604,7 +604,7 @@ class ContainmentTreeService(DPWSPortTypeImpl):
 
 
     def __init__(self, port_type_string, sdcDevice):
-        super(ContainmentTreeService, self).__init__(port_type_string, sdcDevice)
+        super().__init__(port_type_string, sdcDevice)
         actions = self._mdib.sdc_definitions.Actions
         self.register_soapActionCallback(actions.GetContainmentTree, self._onGetContainmentTree)
         self.register_soapActionCallback(actions.GetDescriptor, self._onGetDescriptor)
@@ -653,7 +653,7 @@ class SetService(DPWSPortTypeImpl):
                              )
 
     def __init__(self, port_type_string, sdcDevice):
-        super(SetService, self).__init__(port_type_string, sdcDevice)
+        super().__init__(port_type_string, sdcDevice)
         actions = self._mdib.sdc_definitions.Actions
         self.register_soapActionCallback(actions.Activate, self._onActivate)
         self.register_soapActionCallback(actions.SetValue, self._onSetValue)
@@ -859,7 +859,7 @@ class ContextService(DPWSPortTypeImpl):
 
 
     def __init__(self, port_type_string, sdcDevice):
-        super(ContextService, self).__init__(port_type_string, sdcDevice)
+        super().__init__(port_type_string, sdcDevice)
         actions = self._mdib.sdc_definitions.Actions
         self.register_soapActionCallback(actions.SetContextState, self._onSetContextState)
         self.register_soapActionCallback(actions.GetContextStates, self._onGetContextStates)

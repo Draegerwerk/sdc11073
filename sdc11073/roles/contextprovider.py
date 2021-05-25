@@ -7,11 +7,11 @@ from . import providerbase
 class GenericContextProvider(providerbase.ProviderRole):
     """ Handles SetContextState operations"""
     def __init__(self, opTargetDescriptorTypes=None, forcedNewStateType=None, log_prefix=None):
-        super(GenericContextProvider, self).__init__(log_prefix)
+        super().__init__(log_prefix)
         self._opTargetDescrTypes = opTargetDescriptorTypes
         self._forcedNewStateType = forcedNewStateType
 
-    def makeOperationInstance(self, operationDescriptorContainer):
+    def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
         """Create a handler for SetContextStateOperationDescriptor if type of operation target
         matches opTargetDescriptorTypes"""
         if operationDescriptorContainer.NODETYPE == namespaces.domTag('SetContextStateOperationDescriptor'):
@@ -20,6 +20,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                 return # we do not handle this target type
             else:
                 pc_operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
+                                                                        operations_factory,
                                                                         currentArgumentHandler=self._setContextState)
                 return pc_operation
 
@@ -72,9 +73,9 @@ class GenericContextProvider(providerbase.ProviderRole):
 
 class EnsembleContextProvider(GenericContextProvider):
     def __init__(self, log_prefix):
-        super(EnsembleContextProvider, self).__init__(opTargetDescriptorTypes=[namespaces.domTag('EnsembleContextDescriptor')], log_prefix=log_prefix)
+        super().__init__(opTargetDescriptorTypes=[namespaces.domTag('EnsembleContextDescriptor')], log_prefix=log_prefix)
 
 
 class LocationContextProvider(GenericContextProvider):
     def __init__(self, log_prefix):
-        super(LocationContextProvider, self).__init__(opTargetDescriptorTypes=[namespaces.domTag('LocationContextDescriptor')], log_prefix=log_prefix)
+        super().__init__(opTargetDescriptorTypes=[namespaces.domTag('LocationContextDescriptor')], log_prefix=log_prefix)

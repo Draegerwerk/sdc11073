@@ -52,7 +52,10 @@ class Test_Compression(unittest.TestCase):
 
         # Connect a new client to the divece
         xAddr = self.sdcDevice_Final.getXAddrs()
-        self.sdcClient_Final = SdcClient(xAddr[0], deviceType=self.sdcDevice_Final.mdib.sdc_definitions.MedicalDeviceType)
+        self.sdcClient_Final = SdcClient(xAddr[0],
+                                         sdc_definitions=self.sdcDevice_Final.mdib.sdc_definitions,
+                                         #deviceType=self.sdcDevice_Final.mdib.sdc_definitions.MedicalDeviceType
+                                         )
         if compressionFlag is None:
             self.sdcClient_Final.setUsedCompression()
         else:

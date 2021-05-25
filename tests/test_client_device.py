@@ -108,7 +108,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         
         xAddr = self.sdcDevice_Final.getXAddrs()
         self.sdcClient_Final = SdcClient(xAddr[0],
-                                         deviceType=self.sdcDevice_Final.mdib.sdc_definitions.MedicalDeviceType,
+                                         sdc_definitions=self.sdcDevice_Final.mdib.sdc_definitions,
+#                                         deviceType=self.sdcDevice_Final.mdib.sdc_definitions.MedicalDeviceType,
                                          validate=CLIENT_VALIDATE)
         self.sdcClient_Final.startAll(subscribe_periodic_reports=True)
         
@@ -771,7 +772,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         setMetricStateOperationDescriptorContainer.OperationTarget = '0x34F001D5'
         setMetricStateOperationDescriptorContainer.Type = pmtypes.CodedValue(999998)
         sdcDevice.mdib.descriptions.addObject(setMetricStateOperationDescriptorContainer)
-        op = sdcDevice.product_roles.metric_provider.makeOperationInstance(setMetricStateOperationDescriptorContainer)
+        op = sdcDevice.product_roles.metric_provider.makeOperationInstance(
+            setMetricStateOperationDescriptorContainer, sdcDevice.scoOperationsRegistry.operations_factory)
         sdcDevice.scoOperationsRegistry.registerOperation(op)
         sdcDevice.mdib.mkStateContainersforAllDescriptors()
         setService = sdcClient.client('Set')
@@ -813,7 +815,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         setComponentStateOperationDescriptorContainer.OperationTarget = operationtarget_handle
         setComponentStateOperationDescriptorContainer.Type = pmtypes.CodedValue(999998)
         sdcDevice.mdib.descriptions.addObject(setComponentStateOperationDescriptorContainer)
-        op = sdcDevice.product_roles.makeOperationInstance(setComponentStateOperationDescriptorContainer)
+        op = sdcDevice.product_roles.makeOperationInstance(setComponentStateOperationDescriptorContainer,
+                                                           sdcDevice.scoOperationsRegistry.operations_factory)
         sdcDevice.scoOperationsRegistry.registerOperation(op)
         sdcDevice.mdib.mkStateContainersforAllDescriptors()
         setService = sdcClient.client('Set')
@@ -1359,16 +1362,18 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
 
         xAddr = self.sdcDevice_1.getXAddrs()
         self.sdcClient_1 = SdcClient(xAddr[0],
-                                          deviceType=self.sdcDevice_1.mdib.sdc_definitions.MedicalDeviceType,
-                                          validate=CLIENT_VALIDATE,
-                                          ident='<Draft6> ')
+                                     sdc_definitions=self.sdcDevice_1.mdib.sdc_definitions,
+                                     # deviceType=self.sdcDevice_1.mdib.sdc_definitions.MedicalDeviceType,
+                                     validate=CLIENT_VALIDATE,
+                                     ident='<Draft6> ')
         self.sdcClient_1.startAll()
 
         xAddr = self.sdcDevice_2.getXAddrs()
         self.sdcClient_2 = SdcClient(xAddr[0],
-                                         deviceType=self.sdcDevice_2.mdib.sdc_definitions.MedicalDeviceType,
-                                         validate=CLIENT_VALIDATE,
-                                         ident='<Final> ')
+                                     sdc_definitions=self.sdcDevice_2.mdib.sdc_definitions,
+#                                     deviceType=self.sdcDevice_2.mdib.sdc_definitions.MedicalDeviceType,
+                                     validate=CLIENT_VALIDATE,
+                                     ident='<Final> ')
         self.sdcClient_2.startAll()
 
         self._all_cl_dev = ((self.sdcClient_1, self.sdcDevice_1),
@@ -1454,7 +1459,8 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
 
         xAddr = self.sdcDevice_Final.getXAddrs()
         self.sdcClient_Final = SdcClient(xAddr[0],
-                                         deviceType=self.sdcDevice_Final.mdib.sdc_definitions.MedicalDeviceType,
+                                         sdc_definitions=self.sdcDevice_Final.mdib.sdc_definitions,
+                                         # deviceType=self.sdcDevice_Final.mdib.sdc_definitions.MedicalDeviceType,
                                          validate=CLIENT_VALIDATE,
                                          ident='<Final> ',
                                          chunked_requests=True)

@@ -10,7 +10,7 @@ from . import providerbase
 class GenericAlarmProvider(providerbase.ProviderRole):
     WORKERTHREAD_INTERVAL = 1.0 # seconds
     def __init__(self, log_prefix):
-        super(GenericAlarmProvider, self).__init__(log_prefix)
+        super().__init__(log_prefix)
 
         # some time stamps for handling of delegable alert signals
         self._lastActivateAllDelegableAlerts = 0 # time when _activateAllDelegableAlertSignals has been called last time
@@ -20,14 +20,14 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         self._workerThread = None
 
     def initOperations(self, mdib):
-        super(GenericAlarmProvider, self).initOperations(mdib)
+        super().initOperations(mdib)
         self._setAlertSystemStatesInitialValues()
         self._setAlertStatesInitialValues()
         self._workerThread = Thread(target=self._workerThreadLoop)
         self._workerThread.daemon = True
         self._workerThread.start()
 
-    def makeMissingOperations(self):
+    def makeMissingOperations(self, operations_factory):
         return []
 
     def stop(self):
@@ -35,7 +35,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         self._workerThread.join()
 
 
-    def makeOperationInstance(self, operationDescriptorContainer):
+    def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
         operationTargetHandle = operationDescriptorContainer.OperationTarget
         operationTargetDescr = self._mdib.descriptions.handle.getOne(operationTargetHandle) # descriptor container
         if operationDescriptorContainer.NODETYPE == namespaces.domTag('SetValueOperationDescriptor'):
@@ -48,6 +48,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 # ActivationState, Presence and ActualSignalGenerationDelay
                 # if stricter checking needed, one might add it
                 operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
+                                                                     operations_factory,
                                                                      currentArgumentHandler=self._setAlertSignalState)
 
                 self._logger.info(

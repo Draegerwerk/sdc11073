@@ -165,7 +165,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     INITIAL_NOTIFICATION_BUFFERING = True # if False, the response for the first incoming notification is answered after the getmdib is done.
                                           # if True, first notifications are buffered and the responses are sent immediately.
     def __init__(self, sdcClient, maxRealtimeSamples=100):
-        super(ClientMdibContainer, self).__init__(sdcClient.sdc_definitions)
+        super().__init__(sdcClient.sdc_definitions)
         self._logger = loghelper.getLoggerAdapter('sdc.client.mdib', sdcClient.log_prefix)
         self._sdcClient = sdcClient
         if self.bicepsSchema is None:

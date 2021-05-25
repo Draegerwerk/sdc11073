@@ -20,7 +20,7 @@ HOST_TYPE = '{}/host'.format(Prefix.DPWS.namespace)
 class SoapResponseException(Exception):
     
     def __init__(self, soapResponseEnvelope):
-        super(SoapResponseException, self).__init__()
+        super().__init__()
         self.soapResponseEnvelope = soapResponseEnvelope
 
 
@@ -537,7 +537,7 @@ class Soap12EnvelopeBase(object):
 class Soap12Envelope(Soap12EnvelopeBase):
     __slots__ = ('_nsmap', 'address')
     def __init__(self, nsmap):
-        super(Soap12Envelope, self).__init__()
+        super().__init__()
         self._nsmap = nsmap
         self.address = None
 
@@ -641,7 +641,7 @@ class Soap12Envelope(Soap12EnvelopeBase):
 class ReceivedSoap12Envelope(Soap12EnvelopeBase):
     __slots__ = ('msgNode', 'rawdata', 'address')
     def __init__(self, doc=None, rawdata=None):
-        super(ReceivedSoap12Envelope, self).__init__()
+        super().__init__()
         self._docRoot = doc
         self.rawdata = rawdata
         self._headerNode = None
@@ -670,7 +670,7 @@ class ReceivedSoap12Envelope(Soap12EnvelopeBase):
 
     @classmethod
     def fromXMLString(cls, xmlString, schema=None, **kwargs):
-        parser = etree_.ETCompatXMLParser()
+        parser = etree_.ETCompatXMLParser(resolve_entities=False)
         
         try:    
             doc = etree_.fromstring(xmlString, parser=parser, **kwargs)
@@ -690,7 +690,7 @@ class DPWSEnvelope(ReceivedSoap12Envelope):
     __slots__ = ('address', 'thisModel', 'thisDevice', 'hosted', 'host', 'metaData')
 
     def __init__(self, doc, rawdata):
-        super(DPWSEnvelope, self).__init__(doc, rawdata)
+        super().__init__(doc, rawdata)
         self.address = None
         self.thisModel = None
         self.thisDevice = None
@@ -742,7 +742,7 @@ class _SoapFaultBase(Soap12Envelope):
 
     '''
     def __init__(self, requestEnvelope, fault_action, code, reason, subCode, details):
-        super(_SoapFaultBase, self).__init__(Prefix.partialMap(Prefix.S12, Prefix.WSA,Prefix.WSE))
+        super().__init__(Prefix.partialMap(Prefix.S12, Prefix.WSA,Prefix.WSE))
         replyAddress = requestEnvelope.address.mkReplyAddress(fault_action)
         self.addHeaderObject(replyAddress)
         faultNode = etree_.Element(s12Tag('Fault'))
@@ -771,18 +771,18 @@ class _SoapFaultBase(Soap12Envelope):
 class SoapFault(_SoapFaultBase):
     SOAP_FAULT_ACTION = '{}/soap/fault'.format(Prefix.WSA.namespace)
     def __init__(self, requestEnvelope, code, reason, subCode=None, details=None):
-        super(SoapFault, self).__init__(requestEnvelope, self.SOAP_FAULT_ACTION, code, reason, subCode, details)
+        super().__init__(requestEnvelope, self.SOAP_FAULT_ACTION, code, reason, subCode, details)
 
 
 class AdressingFault(_SoapFaultBase):
     ADDRESSING_FAULT_ACTION = '{}/fault'.format(Prefix.WSA.namespace)
     def __init__(self, requestEnvelope, code, reason, subCode=None, details=None):
-        super(AdressingFault, self).__init__(requestEnvelope, self.ADDRESSING_FAULT_ACTION, code, reason, subCode, details)
+        super().__init__(requestEnvelope, self.ADDRESSING_FAULT_ACTION, code, reason, subCode, details)
 
 
 class ReceivedSoapFault(ReceivedSoap12Envelope):
     def __init__(self, doc=None, rawdata=None):
-        super(ReceivedSoapFault, self).__init__(doc, rawdata)
+        super().__init__(doc, rawdata)
         self.code = ', '.join(self._bodyNode.xpath('s12:Fault/s12:Code/s12:Value/text()', namespaces=nsmap))
         self.subcode = ', '.join(self._bodyNode.xpath('s12:Fault/s12:Code/s12:Subcode/s12:Value/text()', namespaces=nsmap))
         self.reason = ', '.join(self._bodyNode.xpath('s12:Fault/s12:Reason/s12:Text/text()', namespaces=nsmap))

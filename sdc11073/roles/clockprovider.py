@@ -1,5 +1,4 @@
 from .. import namespaces
-from .. import sdcdevice
 from .. import pmtypes
 from ..nomenclature import NomenclatureCodes as nc
 from . import providerbase
@@ -17,12 +16,12 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
     ReferenceSource and Timezone of clock state."""
 
     def __init__(self, log_prefix):
-        super(GenericSDCClockProvider, self).__init__(log_prefix)
+        super().__init__(log_prefix)
         self._set_ntp_operations = []
         self._set_tz_operations = []
 
     def initOperations(self, mdib):
-        super(GenericSDCClockProvider, self).initOperations(mdib)
+        super().initOperations(mdib)
         # create a clock descriptor and state if they do not exist in mdib
         clockDescriptor = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('ClockDescriptor'), allowNone=True)
         if clockDescriptor is None:
@@ -40,11 +39,12 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             self._mdib.addState(clockState)
 
 
-    def makeOperationInstance(self, operationDescriptorContainer):
+    def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
         if operationDescriptorContainer.coding in (MDC_OP_SET_TIME_SYNC_REF_SRC.coding, OP_SET_NTP.coding):
             self._logger.info('instantiating "set ntp server" operation from existing descriptor handle={}'.format(
                 operationDescriptorContainer.handle))
             set_ntp_operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
+                                                                         operations_factory,
                                                                          currentArgumentHandler=self._setNTPString)
             self._set_ntp_operations.append(set_ntp_operation)
             return set_ntp_operation
@@ -52,18 +52,21 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             self._logger.info('instantiating "set time zone" operation from existing descriptor handle={}'.format(
                 operationDescriptorContainer.handle))
             set_tz_operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
+                                                                        operations_factory,
                                                                         currentArgumentHandler=self._setTZString)
             self._set_tz_operations.append(set_tz_operation)
             return set_tz_operation
         return None  # ?
 
-    def makeMissingOperations(self):
+    def makeMissingOperations(self, operations_factory):
         ops = []
         mdsContainer = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
         clockDescriptor = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('ClockDescriptor'), allowNone=True)
+        set_string_op_cls = operations_factory(namespaces.domTag('SetStringOperationDescriptor'))
+
         if not self._set_ntp_operations:
             self._logger.info('adding "set ntp server" operation, code = {}'.format(nc.MDC_OP_SET_TIME_SYNC_REF_SRC))
-            set_ntp_operation = self._mkOperation(sdcdevice.sco.SetStringOperation,
+            set_ntp_operation = self._mkOperation(set_string_op_cls,
                                                  handle='SET_NTP_SRV_'+ mdsContainer.handle,
                                                  operationTargetHandle=clockDescriptor.handle,
                                                  codedValue=MDC_OP_SET_TIME_SYNC_REF_SRC,
@@ -72,7 +75,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             ops.append(set_ntp_operation)
         if not self._set_tz_operations:
             self._logger.info('adding "set time zone" operation, code = {}'.format(nc.MDC_ACT_SET_TIME_ZONE))
-            set_tz_operation = self._mkOperation(sdcdevice.sco.SetStringOperation,
+            set_tz_operation = self._mkOperation(set_string_op_cls,
                                                  handle='SET_TZONE_'+ mdsContainer.handle,
                                                  operationTargetHandle=clockDescriptor.handle,
                                                  codedValue=MDC_ACT_SET_TIME_ZONE,

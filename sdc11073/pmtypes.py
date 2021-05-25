@@ -7,7 +7,6 @@ import enum
 from lxml import etree as etree_
 from sdc11073 import namespaces
 from .mdib import containerproperties  as cp
-from decimal import Decimal
 from math import isclose
 '''
 Interface of  pmTypes:
@@ -610,7 +609,7 @@ class AbstractMetricValue(PropertyBasedPMType):
 
 
     def asEtreeNode(self, qname, nsmap):
-        node = super(AbstractMetricValue, self).asEtreeNode(qname, nsmap)
+        node = super().asEtreeNode(qname, nsmap)
         node.set(namespaces.QN_TYPE, namespaces.docNameFromQName(self.QType, nsmap))
         return node
 
@@ -912,21 +911,18 @@ class ProductionSpecification(PropertyBasedPMType):
 
 class BaseDemographics(PropertyBasedPMType):
     Givenname = cp.NodeTextProperty([namespaces.domTag('Givenname')], isOptional=True)
-    Middlename = cp.SubElementListProperty([namespaces.domTag('Middlename')],
-                                            cls=ElementWithTextOnly) # 0...n
+    Middlename = cp.SubElementTextListProperty([namespaces.domTag('Middlename')])
     Familyname = cp.NodeTextProperty([namespaces.domTag('Familyname')], isOptional=True)
     Birthname = cp.NodeTextProperty([namespaces.domTag('Birthname')], isOptional=True)
     Title = cp.NodeTextProperty([namespaces.domTag('Title')], isOptional=True)
-    _props = ['Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title']
+    _props = ('Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title')
 
-    def __init__(self, givenname=None, middlenames=None, familyname=None, birthname=None, title=None):
-        self.Givenname = givenname
-        if isinstance(middlenames, str):
-            self.Middlename = [middlenames]
-        else:
-            self.Middlename = middlenames or []
-        self.Familyname = familyname
-        self.Birthname = birthname
+    def __init__(self, given_name=None, middle_names=None, family_name=None, birth_name = None, title=None):
+        super().__init__()
+        self.Givenname = given_name
+        self.Middlename = middle_names or []
+        self.Familyname = family_name
+        self.Birthname = birth_name
         self.Title = title
 
 
@@ -981,7 +977,7 @@ class PersonParticipation(PersonReference):
     _props = ['Role',]
 
     def __init__(self, identifications=None, name=None, roles=None):
-        super(PersonParticipation, self).__init__(identifications, name)
+        super().__init__(identifications, name)
         if roles:
             self.Role = roles
 
@@ -1095,7 +1091,7 @@ class RequestedOrderDetail(OrderDetail):
         :param requestingphysician: a PersonReference
         :param placerordernumber:   an InstanceIdentifier
         """
-        super(RequestedOrderDetail, self).__init__(start, end, performer, service, imagingprocedure)
+        super().__init__(start, end, performer, service, imagingprocedure)
         self.ReferringPhysician = referringphysician
         self.RequestingPhysician = requestingphysician
         self.PlacerOrderNumber = placerordernumber
@@ -1108,7 +1104,7 @@ class PerformedOrderDetail(OrderDetail):
 
     def __init__(self, start=None, end=None, performer=None, service=None, imagingprocedure=None,
                  fillerordernumber=None, resultingclinicalinfos=None):
-        super(PerformedOrderDetail, self).__init__(start, end, performer, service, imagingprocedure)
+        super().__init__(start, end, performer, service, imagingprocedure)
         self.FillerOrderNumber = fillerordernumber
         if resultingclinicalinfos:
             self.ResultingClinicalInfo = resultingclinicalinfos
@@ -1166,22 +1162,6 @@ class AbstractMetricDescriptorRelation(PropertyBasedPMType):
     def __init__(self):
         super().__init__()
 Relation = AbstractMetricDescriptorRelation
-
-class BaseDemographics(PropertyBasedPMType):
-    Givenname = cp.NodeTextProperty([namespaces.domTag('Givenname')], isOptional=True)
-    Middlename = cp.SubElementTextListProperty([namespaces.domTag('Middlename')])
-    Familyname = cp.NodeTextProperty([namespaces.domTag('Familyname')], isOptional=True)
-    Birthname = cp.NodeTextProperty([namespaces.domTag('Birthname')], isOptional=True)
-    Title = cp.NodeTextProperty([namespaces.domTag('Title')], isOptional=True)
-    _props = ('Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title')
-
-    def __init__(self, given_name=None, middle_names=None, family_name=None, birth_name = None, title=None):
-        super().__init__()
-        self.Givenname = given_name
-        self.Middlename = middle_names or []
-        self.Familyname = family_name
-        self.Birthname = birth_name
-        self.Title = title
 
 
 class PatientType(StringEnum):

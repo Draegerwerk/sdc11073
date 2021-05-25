@@ -495,7 +495,7 @@ def _parseReplyTo(headerNode, env):
         env.setReplyTo(replyTo.text)
 
 def parseEnvelope(data, ipAddr, logger):
-    parser = ETCompatXMLParser()
+    parser = ETCompatXMLParser(resolve_entities=False)
     try:
         dom = fromstring(data, parser=parser)
     except Exception as ex:

@@ -16,14 +16,8 @@ from .. import wsdiscovery
 from ..location import SdcLocation
 from .. import namespaces
 from .. import pysoap
-from ..transport.soap.msgreader import MessageReader
-from ..transport.soap.msgfactory import SoapMessageFactory
 
 from .sdcservicesimpl import SOAPActionDispatcher, DPWSHostedService
-from .sdcservicesimpl import GetService, SetService, StateEventService,  ContainmentTreeService, ContextService, WaveformService, DescriptionEventService
-from .localizationservice import LocalizationService
-from . import subscriptionmgr
-from . import sco
 from . import httpserver
 from . import intervaltimer
 
@@ -37,18 +31,18 @@ if PROFILING:
     import pstats
     from io import StringIO
 
-
 # default ssl context data
 here = os.path.dirname(__file__)
 caFolder = os.path.join(os.path.dirname(here), 'ca')
-_ssl_certfile = os.path.join(caFolder, 'sdccert.pem') # this is the certification chain ( contains root ca and signed public key
-_ssl_keyfile = os.path.join(caFolder, 'userkey.pem')     # this is the private key of own certificate
-_ssl_cacert = os.path.join(caFolder, 'cacert.pem')    # this is the common root ca that signed all sdc devices
-_ssl_passwd = 'dummypass' #'Phase1' #dummypass
-_ssl_cypherfile = os.path.join(caFolder, 'cyphers.json') # Json file that determines ciphers to be used
-
+_ssl_certfile = os.path.join(caFolder,
+                             'sdccert.pem')  # this is the certification chain ( contains root ca and signed public key
+_ssl_keyfile = os.path.join(caFolder, 'userkey.pem')  # this is the private key of own certificate
+_ssl_cacert = os.path.join(caFolder, 'cacert.pem')  # this is the common root ca that signed all sdc devices
+_ssl_passwd = 'dummypass'  # 'Phase1' #dummypass
+_ssl_cypherfile = os.path.join(caFolder, 'cyphers.json')  # Json file that determines ciphers to be used
 
 PeriodicStates = namedtuple('PeriodicStates', 'mdib_version states')
+
 
 class SdcHandler_Base(object):
     ''' This is the base class for the sdc device handler. It contains all functionality of a device except the definition of the hosted services.
@@ -64,9 +58,11 @@ class SdcHandler_Base(object):
     # member "contextstates_in_getmdib".
     defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extensionString='System'),)
 
-    def __init__(self, my_uuid, ws_discovery, model, device, deviceMdibContainer, validate=True,
-                 roleProvider=None, sslContext=None,
-                 logLevel=None, max_subscription_duration=7200, log_prefix='', chunked_messages=False):  # pylint:disable=too-many-arguments
+    def __init__(self, my_uuid, ws_discovery, model, device, deviceMdibContainer, validate,
+                 roleProvider, sslContext,
+                 logLevel, max_subscription_duration,
+                 components,
+                 log_prefix='', chunked_messages=False):  # pylint:disable=too-many-arguments
         """
         @param uuid: a string that becomes part of the devices url (no spaces, no special characters please. This could cause an invalid url!).
                      Parameter can be None, in this case a random uuid string is generated.
@@ -89,6 +85,7 @@ class SdcHandler_Base(object):
         self._mdib.log_prefix = log_prefix
         self._validate = validate
         self._sslContext = sslContext
+        self._components = components
         self._compression_methods = compression.encodings[:]
         self._httpServerThread = None
         self._setupLogging(logLevel)
@@ -97,9 +94,11 @@ class SdcHandler_Base(object):
         self.chunked_messages = chunked_messages
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
 
-        self.msg_reader = MessageReader(self._logger)
-        self.msg_factory = SoapMessageFactory(sdc_definitions=deviceMdibContainer.sdc_definitions,
-                                              logger=self._logger)
+        MessageReaderCls = self._components['MsgReaderClass']
+        self.msg_reader = MessageReaderCls(self._logger)
+        SoapMessageFactoryCls = self._components['MsgFactoryClass']
+        self.msg_factory = SoapMessageFactoryCls(sdc_definitions=deviceMdibContainer.sdc_definitions,
+                                                 logger=self._logger)
 
         # hostDispatcher provides data of the sdc device itself
         self._hostDispatcher = self._mkHostDispatcher()
@@ -125,8 +124,23 @@ class SdcHandler_Base(object):
             self._urlschema = 'http'
 
         self.dpwsHost = None
-        self._subscriptionsManager = self._mkSubscriptionManager(max_subscription_duration)
-        self._scoOperationsRegistry = self._mkScoOperationsRegistry(handle='_sco')
+
+        cls = self._components['SubscriptionsManagerClass']
+        self._subscriptionsManager = cls(self._sslContext,
+                                         self._mdib.sdc_definitions,
+                                         self._mdib.bicepsSchema,
+                                         self._compression_methods,
+                                         max_subscription_duration,
+                                         log_prefix=self._log_prefix,
+                                         chunked_messages=self.chunked_messages)
+
+        # self._subscriptionsManager = self._mkSubscriptionManager(max_subscription_duration)
+
+        cls = self._components['ScoOperationsRegistryClass']
+        operations_factory = self._components['OperationsFactory']
+        handle = '_sco'
+        self._scoOperationsRegistry = cls(self._subscriptionsManager, operations_factory, self._mdib, handle,
+                                          log_prefix=self._log_prefix)
 
         deviceMdibContainer.setSdcDevice(self)
 
@@ -200,18 +214,6 @@ class SdcHandler_Base(object):
         hostDispatcher.register_soapActionCallback('{}/Probe'.format(Prefix.WSD.namespace), self._onProbeRequest)
         hostDispatcher.epr = '/' + str(self._my_uuid.hex)
         return hostDispatcher
-
-    def _mkSubscriptionManager(self, max_subscription_duration):
-        return subscriptionmgr.SubscriptionsManager(self._sslContext,
-                                                    self._mdib.sdc_definitions,
-                                                    self._mdib.bicepsSchema,
-                                                    self._compression_methods,
-                                                    max_subscription_duration,
-                                                    log_prefix=self._log_prefix,
-                                                    chunked_messages=self.chunked_messages)
-
-    def _mkScoOperationsRegistry(self, handle):
-        return sco.ScoOperationsRegistry(self._subscriptionsManager, self._mdib, handle, log_prefix=self._log_prefix)
 
     def mkDefaultRoleHandlers(self):
         from .. import roles
@@ -323,7 +325,8 @@ class SdcHandler_Base(object):
         if periodic_reports_interval:
             self._run_periodic_reports_thread = True
             self._periodic_reports_interval = periodic_reports_interval
-            self._periodic_reports_thread = threading.Thread(target=self._periodic_reports_send_loop, name='DevPeriodicSendLoop')
+            self._periodic_reports_thread = threading.Thread(target=self._periodic_reports_send_loop,
+                                                             name='DevPeriodicSendLoop')
             self._periodic_reports_thread.daemon = True
             self._periodic_reports_thread.start()
 
@@ -490,7 +493,7 @@ class SdcHandler_Base(object):
         while self._runRtSampleThread:
             behindScheduleSeconds = timer.waitForNextIntervalBegin()
             try:
-                self._mdib.update_all_rt_samples() # update from waveform generators
+                self._mdib.update_all_rt_samples()  # update from waveform generators
                 self._logWaveformTiming(behindScheduleSeconds)
             except Exception:
                 self._logger.warn(' could not update real time samples: {}', traceback.format_exc())
@@ -508,9 +511,12 @@ class SdcHandler_Base(object):
             for reports_list, send_func, msg in [
                 (self._periodic_metric_reports, self._subscriptionsManager.sendPeriodicMetricReport, 'metric'),
                 (self._periodic_alert_reports, self._subscriptionsManager.sendPeriodicAlertReport, 'alert'),
-                (self._periodic_component_state_reports, self._subscriptionsManager.sendPeriodicComponentStateReport, 'component'),
+                (self._periodic_component_state_reports, self._subscriptionsManager.sendPeriodicComponentStateReport,
+                 'component'),
                 (self._periodic_context_state_reports, self._subscriptionsManager.sendPeriodicContextReport, 'context'),
-                (self._periodic_operational_state_reports, self._subscriptionsManager.sendPeriodicOperationalStateReport, 'operational'),
+                (
+                self._periodic_operational_state_reports, self._subscriptionsManager.sendPeriodicOperationalStateReport,
+                'operational'),
             ]:
                 tmp = None
                 with self._periodic_reports_lock:
@@ -561,15 +567,18 @@ class SdcHandler_Base(object):
         self._compression_methods.extend(compression_methods)
 
 
-
 class SdcHandler_Full(SdcHandler_Base):
     """ This class instantiates all port types."""
+
     def _register_hosted_services(self, base_urls):
         # register all services with their endpoint references acc. to sdc standard
         actions = self._mdib.sdc_definitions.Actions
+        service_handlers_lookup = self._components['ServiceHandlers']
 
-        self._GetDispatcher = GetService('GetService', self)
-        self._LocalizationDispatcher = LocalizationService('LocalizationService', self)
+        GetServiceCls = service_handlers_lookup['GetService']
+        self._GetDispatcher = GetServiceCls('GetService', self)
+        LocalizationServiceCls = service_handlers_lookup['LocalizationService']
+        self._LocalizationDispatcher = LocalizationServiceCls('LocalizationService', self)
         offeredSubscriptions = []
         self._GetServiceHosted = DPWSHostedService(self, base_urls, 'Get',
                                                    [self._GetDispatcher, self._LocalizationDispatcher],
@@ -577,10 +586,14 @@ class SdcHandler_Full(SdcHandler_Base):
         self._url_dispatcher.register_hosted_service(self._GetServiceHosted)
 
         # grouped acc to sdc REQ 0035
-        self._ContextDispatcher = ContextService('ContextService', self)
-        self._DescriptionEventDispatcher = DescriptionEventService('DescriptionEventService', self)
-        self._StateEventDispatcher = StateEventService('StateEventService', self)
-        self._WaveformDispatcher = WaveformService('WaveformService', self)
+        ContextServiceCls = service_handlers_lookup['ContextService']
+        self._ContextDispatcher = ContextServiceCls('ContextService', self)
+        DescriptionEventServiceCls = service_handlers_lookup['DescriptionEventService']
+        self._DescriptionEventDispatcher = DescriptionEventServiceCls('DescriptionEventService', self)
+        StateEventServiceCls = service_handlers_lookup['StateEventService']
+        self._StateEventDispatcher = StateEventServiceCls('StateEventService', self)
+        WaveformServiceCls = service_handlers_lookup['WaveformService']
+        self._WaveformDispatcher = WaveformServiceCls('WaveformService', self)
 
         offeredSubscriptions = [actions.EpisodicContextReport,
                                 actions.DescriptionModificationReport,
@@ -605,13 +618,15 @@ class SdcHandler_Full(SdcHandler_Base):
                                                    offeredSubscriptions)
         self._url_dispatcher.register_hosted_service(self._SdcServiceHosted)
 
-        self.__SetDispatcher = SetService('SetService', self)
+        SetServiceCls = service_handlers_lookup['SetService']
+        self.__SetDispatcher = SetServiceCls('SetService', self)
         offeredSubscriptions = [actions.OperationInvokedReport]
 
         self._SetServiceHosted = DPWSHostedService(self, base_urls, 'Set', [self.__SetDispatcher], offeredSubscriptions)
         self._url_dispatcher.register_hosted_service(self._SetServiceHosted)
 
-        self._ContainmentTreeDispatcher = ContainmentTreeService('ContainmentTreeService', self)
+        ContainmentTreeServiceCls = service_handlers_lookup['ContainmentTreeService']
+        self._ContainmentTreeDispatcher = ContainmentTreeServiceCls('ContainmentTreeService', self)
         offeredSubscriptions = []
         self._ContainmentTreeServiceHosted = DPWSHostedService(self, base_urls, 'ContainmentTree',
                                                                [self._ContainmentTreeDispatcher], offeredSubscriptions)
@@ -624,9 +639,13 @@ class SdcHandler_Full(SdcHandler_Base):
 
 class SdcHandler_Minimal(SdcHandler_Base):
     """This class instantiates only GetService and LocalizationService"""
+
     def _register_hosted_services(self, base_urls):
-        self._GetDispatcher = GetService('GetService', self)
-        self._LocalizationDispatcher = LocalizationService('LocalizationService', self)
+        service_handlers_lookup = self._components['ServiceHandlers']
+        GetServiceCls = service_handlers_lookup['GetService']
+        self._GetDispatcher = GetServiceCls('GetService', self)
+        LocalizationServiceCls = service_handlers_lookup['LocalizationService']
+        self._LocalizationDispatcher = LocalizationServiceCls('LocalizationService', self)
         offeredSubscriptions = []
         self._GetServiceHosted = DPWSHostedService(self, base_urls, 'Get',
                                                    [self._GetDispatcher, self._LocalizationDispatcher],

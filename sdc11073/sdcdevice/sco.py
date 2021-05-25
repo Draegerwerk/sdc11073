@@ -8,7 +8,8 @@ The progress of the transaction is reported with an OperationInvokedReport.
 A client must subscribe to the OperationInvokeReport Event of the 'Set' service, otherwise it would not get informed about progress.
 """
 import threading
-from collections import namedtuple
+import inspect
+import sys
 import traceback
 import time
 import queue
@@ -96,9 +97,10 @@ class ScoOperationsRegistry(object):
     Such VMDs potentially have their own SCO. In every other case, SCO operations are modeled in pm:MdsDescriptor/pm:Sco.
     """
 
-    def __init__(self, subscriptionsmgr, mdib, handle='_sco', log_prefix=None):
+    def __init__(self, subscriptionsmgr, operations_factory, mdib, handle='_sco', log_prefix=None):
         self._worker = None
         self._subscriptionsmgr = subscriptionsmgr
+        self.operations_factory = operations_factory
         self._mdib = mdib
         self._log_prefix = log_prefix
         self._logger = loghelper.getLoggerAdapter('sdc.device.op_reg', log_prefix)
@@ -284,7 +286,7 @@ class OperationDefinition(object):
                                                         self._operationTargetHandle)
 
 
-class SetStringOperation(OperationDefinition):
+class _SetStringOperation(OperationDefinition):
     OP_DESCR_QNAME = domTag('SetStringOperationDescriptor')
     OP_STATE_QNAME = domTag('SetStringOperationState')
 
@@ -301,7 +303,7 @@ class SetStringOperation(OperationDefinition):
                    initialValue=None, codedValue=None)
 
 
-class SetValueOperation(OperationDefinition):
+class _SetValueOperation(OperationDefinition):
     OP_DESCR_QNAME = domTag('SetValueOperationDescriptor')
     OP_STATE_QNAME = domTag('SetValueOperationState')
 
@@ -312,7 +314,7 @@ class SetValueOperation(OperationDefinition):
         self.currentValue = initialValue
 
 
-class SetContextStateOperation(OperationDefinition):
+class _SetContextStateOperation(OperationDefinition):
     """Default implementation of SetContextOperation."""
     OP_DESCR_QNAME = domTag('SetContextStateOperationDescriptor')
     OP_STATE_QNAME = domTag('SetContextStateOperationState')
@@ -336,10 +338,7 @@ class SetContextStateOperation(OperationDefinition):
                    operationTarget=operationContainer.OperationTarget)
 
 
-RecordedCall = namedtuple('RecordedCall', 'timestamp args')
-
-
-class ActivateOperation(OperationDefinition):
+class _ActivateOperation(OperationDefinition):
     """ This default implementation only registers calls, no manipulation of operation target
     """
     OP_DESCR_QNAME = domTag('ActivateOperationDescriptor')
@@ -351,7 +350,7 @@ class ActivateOperation(OperationDefinition):
                          codedValue=codedValue)
 
 
-class SetAlertStateOperation(OperationDefinition):
+class _SetAlertStateOperation(OperationDefinition):
     """ This default implementation only registers calls, no manipulation of operation target
     """
     OP_DESCR_QNAME = domTag('SetAlertStateOperationDescriptor')
@@ -364,7 +363,7 @@ class SetAlertStateOperation(OperationDefinition):
                          log_prefix=log_prefix)
 
 
-class SetComponentStateOperation(OperationDefinition):
+class _SetComponentStateOperation(OperationDefinition):
     """ This default implementation only registers calls, no manipulation of operation target
     """
     OP_DESCR_QNAME = domTag('SetComponentStateOperationDescriptor')
@@ -377,7 +376,7 @@ class SetComponentStateOperation(OperationDefinition):
                          log_prefix=log_prefix)
 
 
-class SetMetricStateOperation(OperationDefinition):
+class _SetMetricStateOperation(OperationDefinition):
     """ This default implementation only registers calls, no manipulation of operation target
     """
     OP_DESCR_QNAME = domTag('SetMetricStateOperationDescriptor')
@@ -390,20 +389,19 @@ class SetMetricStateOperation(OperationDefinition):
                          log_prefix=log_prefix)
 
 
-def getOperationClass(qname):
-    if qname == domTag('SetStringOperationDescriptor'):
-        return SetStringOperation
-    elif qname == domTag('SetValueOperationDescriptor'):
-        return SetValueOperation
-    elif qname == domTag('SetContextStateOperationDescriptor'):
-        return SetContextStateOperation
-    elif qname == domTag('ActivateOperationDescriptor'):
-        return ActivateOperation
-    elif qname == domTag('SetAlertStateOperationDescriptor'):
-        return SetAlertStateOperation
-    elif qname == domTag('SetMetricStateOperationDescriptor'):
-        return SetMetricStateOperation
-    elif qname == domTag('SetComponentStateOperationDescriptor'):
-        return SetComponentStateOperation
-    elif qname == domTag('SetComponentStateOperationDescriptor'):
-        return SetComponentStateOperation
+
+# mapping of states: xsi:type information to classes
+# find all classes in this module that have a member "OP_DESCR_QNAME"
+_classes = inspect.getmembers(sys.modules[__name__],
+                             lambda member: inspect.isclass(member) and member.__module__ == __name__)
+_classes_with_QNAME = [c[1] for c in _classes if hasattr(c[1], 'OP_DESCR_QNAME') and c[1].OP_DESCR_QNAME is not None]
+# make a dictionary from found classes: (Key is OP_DESCR_QNAME, value is the class itself
+_operation_lookup_by_type = dict([(c.OP_DESCR_QNAME, c) for c in _classes_with_QNAME])
+
+
+def getOperationClass(qNameType):
+    """
+    @param qNameType: a QName instance
+    """
+    return _operation_lookup_by_type.get(qNameType)
+

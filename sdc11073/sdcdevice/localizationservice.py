@@ -191,7 +191,7 @@ class LocalizationService(DPWSPortTypeImpl):
                              WSDLOperationBinding('GetSupportedLanguages', 'literal', 'literal'),)
 
     def __init__(self, port_type_string, sdcDevice):
-        super(LocalizationService, self).__init__(port_type_string, sdcDevice )
+        super().__init__(port_type_string, sdcDevice )
         self.register_soapActionCallback(self._mdib.sdc_definitions.Actions.GetLocalizedText, self._onGetLocalizedText)
         self.register_soapActionCallback(self._mdib.sdc_definitions.Actions.GetSupportedLanguages, self._onGetSupportedLanguages)
         self.localizationStorage = LocalizationStorage()

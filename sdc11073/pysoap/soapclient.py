@@ -37,7 +37,7 @@ class HTTPReturnCodeError(httplib.HTTPException):
         @param status: integer, e.g. 404
         param reason: the provided human readable text
         '''
-        super(HTTPReturnCodeError, self).__init__()
+        super().__init__()
         self.status = status
         self.reason = reason
         self.soapfault = soapfault

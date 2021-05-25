@@ -42,6 +42,8 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     ExtensionPointNamespace = None
     MedicalDeviceType = None
     ActionsNamespace = None
+    DefaultSdcDeviceComponents = None
+    DefaultSdcClientComponents = None
 
     @classmethod
     def ns_matches(cls, ns):
@@ -80,7 +82,7 @@ class SchemaResolverBase(etree_.Resolver):
               'http://www.w3.org/2001/xml.xsd': 'XMLSchemaFile',}
     lookup_ext = {} # to be overridden by derived classes
     def __init__(self, baseDefinitions, log_prefix=None):
-        super(SchemaResolverBase, self).__init__()
+        super().__init__()
         self._baseDefinitions = baseDefinitions
         self._logger = loghelper.getLoggerAdapter('sdc.schema_resolver', log_prefix)
 

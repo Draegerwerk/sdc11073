@@ -40,7 +40,7 @@ class IndexDefinition(dict):
         :param indexNoneValues: if True, a None key is handled like every other value.
                                 if False,a None key is not added to index.
         '''
-        super(IndexDefinition, self).__init__()
+        super().__init__()
         self._getKeyFunc = getKeyFunc
         self._indexNoneValues = indexNoneValues
 

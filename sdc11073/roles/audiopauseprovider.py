@@ -1,8 +1,6 @@
 from ..namespaces import domTag
-from .. import sdcdevice
 from .. import pmtypes
 from ..nomenclature import NomenclatureCodes as nc
-
 from . import providerbase
 
 
@@ -16,14 +14,15 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
     and "MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE".
     """
     def __init__(self, log_prefix):
-        super(GenericSDCAudioPauseProvider, self).__init__(log_prefix)
+        super().__init__(log_prefix)
         self._setGlobalAudioPauseOperations = []
         self._cancelGlobalAudioPauseOperations = []
 
-    def makeOperationInstance(self, operationDescriptorContainer):
+    def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
         if operationDescriptorContainer.coding == MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE.coding:
             self._logger.info('instantiating "set audio pause" operation from existing descriptor handle={}'.format(operationDescriptorContainer.handle))
             set_ap_operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
+                                                                        operations_factory,
                                                                         currentRequestHandler=self._setGlobalAudioPause)
             self._setGlobalAudioPauseOperations.append(set_ap_operation)
             return set_ap_operation
@@ -31,6 +30,7 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
         elif operationDescriptorContainer.coding == MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE.coding:
             self._logger.info('instantiating "cancel audio pause" operation from existing descriptor handle={}'.format(operationDescriptorContainer.handle))
             cancel_ap_operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
+                                                                           operations_factory,
                                                                            currentRequestHandler=self._cancelGlobalAudioPause)
 
             self._cancelGlobalAudioPauseOperations.append(cancel_ap_operation)
@@ -38,14 +38,16 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
         return None
 
 
-    def makeMissingOperations(self):
+    def makeMissingOperations(self, operations_factory):
         ops = []
         operationTargetContainer = self._mdib.descriptions.NODETYPE.getOne(
             domTag('MdsDescriptor'))  # the operation target is the mds itself
+        activate_op_cls = operations_factory(domTag('ActivateOperationDescriptor'))
         if not self._setGlobalAudioPauseOperations:
             self._logger.info('adding "set audio pause" operation, no descriptor in mdib (looked for code = {})'.format(
                 nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE))
-            set_ap_operation = self._mkOperation(sdcdevice.sco.ActivateOperation,
+            cls = operations_factory(domTag('ActivateOperationDescriptor'))
+            set_ap_operation = self._mkOperation(activate_op_cls,
                                                  handle='AP__ON',
                                                  operationTargetHandle=operationTargetContainer.handle,
                                                  codedValue=MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE,
@@ -56,7 +58,7 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
             self._logger.info(
                 'adding "cancel audio pause" operation, no descriptor in mdib (looked for code = {})'.format(
                     nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE))
-            cancel_ap_operation = self._mkOperation(sdcdevice.sco.ActivateOperation,
+            cancel_ap_operation = self._mkOperation(activate_op_cls,
                                                     handle='AP__CANCEL',
                                                     operationTargetHandle=operationTargetContainer.handle,
                                                     codedValue=MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE,

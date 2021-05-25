@@ -111,7 +111,7 @@ def getLoggerAdapter(name, prefix=None):
 
 class LogWatchException(Exception):
     def __init__(self, issues):
-        super(LogWatchException, self).__init__()
+        super().__init__()
         self.issues = issues
 
     def __repr__(self):
@@ -142,7 +142,7 @@ class LogWatcherHandler(logging.Handler):
         :param logger: the logger that shall be handled
         :param level: all records with log level >= level will be recorded
         '''
-        super(LogWatcherHandler, self).__init__(level=level)
+        super().__init__(level=level)
         self._logger = logger
         self.records = []
         self._logger.addHandler(self)

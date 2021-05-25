@@ -84,8 +84,8 @@ class ContainerBase(object):
         all_classes = inspect.getmro(self.__class__)
         for cls in reversed(all_classes):
             try:
-                names = cls._props  # pylint:disable=protected-access
-            except:
+                names = cls.__dict__['_props']
+            except KeyError:
                 continue
             for name in names:
                 obj = getattr(cls, name)
@@ -125,7 +125,4 @@ class ContainerBase(object):
 
     def is_equal(self, other):
         return len(self.diff(other)) == 0
-
-    def __repr__(self):
-        return '{} name="{}" type={}'.format(self.__class__.__name__, self.NODENAME, self.NODETYPE)
 

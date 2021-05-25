@@ -167,7 +167,7 @@ class _ListPropertyBase(_PropertyBase):
         setattr(instance, self._localVarName, [])
 
 
-class _NodeAttributeProperty(_PropertyBase):
+class NodeAttributeProperty(_PropertyBase):
     """ XML Representation is a string, Python representation is determined by valueConverter."""
 
     def __init__(self, attrname, subElementNames=None, valueConverter=None,
@@ -206,11 +206,11 @@ class _NodeAttributeProperty(_PropertyBase):
             subNode.set(self._attrname, xmlValue)
 
 
-class StringAttributeProperty(_NodeAttributeProperty):
+class StringAttributeProperty(NodeAttributeProperty):
     def __init__(self, attrname, subElementNames=None, defaultPyValue=None, impliedPyValue=None, isOptional=True):
         super().__init__(attrname, subElementNames, NullConverter, defaultPyValue, impliedPyValue, isOptional)
 
-class EnumAttributeProperty(_NodeAttributeProperty):
+class EnumAttributeProperty(NodeAttributeProperty):
     """ XML Representation is a string, Python representation is a enum."""
 
     def __init__(self, attrname, subElementNames=None, enum_cls=None, defaultPyValue=None,
@@ -262,7 +262,7 @@ class EnumAttributeProperty(_NodeAttributeProperty):
             subNode.set(self._attrname, xmlValue)
 
 
-class TimestampAttributeProperty(_NodeAttributeProperty):
+class TimestampAttributeProperty(NodeAttributeProperty):
     """ XML notation is integer in milliseconds.
     Python is a float in seconds."""
 
@@ -271,7 +271,7 @@ class TimestampAttributeProperty(_NodeAttributeProperty):
                          defaultPyValue=defaultPyValue, impliedPyValue=impliedPyValue, isOptional=isOptional)
 
 
-class CurrentTimestampAttributeProperty(_NodeAttributeProperty):
+class CurrentTimestampAttributeProperty(NodeAttributeProperty):
     """ used for ClockState, it always writes current time to node. Setting value from python is possible, but makes no sense.
     """
 
@@ -284,7 +284,7 @@ class CurrentTimestampAttributeProperty(_NodeAttributeProperty):
         super().updateXMLValue(instance, node)
 
 
-class DecimalAttributeProperty(_NodeAttributeProperty):
+class DecimalAttributeProperty(NodeAttributeProperty):
     """ XML notation is integer in milliseconds.
     Python is a float in seconds."""
 
@@ -293,7 +293,7 @@ class DecimalAttributeProperty(_NodeAttributeProperty):
                          defaultPyValue=defaultPyValue, impliedPyValue=impliedPyValue, isOptional=isOptional)
 
 
-class DurationAttributeProperty(_NodeAttributeProperty):
+class DurationAttributeProperty(NodeAttributeProperty):
     """ XML notation is integer in milliseconds.
     Python is a float in seconds."""
 
@@ -302,7 +302,7 @@ class DurationAttributeProperty(_NodeAttributeProperty):
                          defaultPyValue=defaultPyValue, impliedPyValue=impliedPyValue, isOptional=isOptional)
 
 
-class IntegerAttributeProperty(_NodeAttributeProperty):
+class IntegerAttributeProperty(NodeAttributeProperty):
     """ XML notation is integer in milliseconds.
     Python is a float in seconds."""
 
@@ -311,7 +311,7 @@ class IntegerAttributeProperty(_NodeAttributeProperty):
                          defaultPyValue=defaultPyValue, impliedPyValue=impliedPyValue, isOptional=isOptional)
 
 
-class BooleanAttributeProperty(_NodeAttributeProperty):
+class BooleanAttributeProperty(NodeAttributeProperty):
     """ XML notation is integer in milliseconds.
     Python is a float in seconds."""
 
@@ -712,7 +712,11 @@ class SubElementTextListProperty(_ListPropertyBase):
         # ... and create new ones
         for v in pyValue:
             child = etree_.SubElement(pNode, self._subElementNames[-1])
-            child.text = v
+            try:
+                child.text = v
+            except TypeError as ex:
+                # re-raise with better info about data
+                raise TypeError(f'{ex} in {self}')
 
     def __str__(self):
         if self._subElementNames:

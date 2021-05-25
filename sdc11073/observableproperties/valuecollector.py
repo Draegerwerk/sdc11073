@@ -95,7 +95,7 @@ class ValuesCollector(SingleValueCollector):
     => now call of  collector.result() returns, result = [42, 43]
     '''
     def __init__(self, obj, propName, n):
-        super(ValuesCollector, self).__init__(obj, propName)
+        super().__init__(obj, propName)
         self._n = n
         self._result = []
 

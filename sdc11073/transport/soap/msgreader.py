@@ -24,7 +24,7 @@ class MessageReader(object):
         :return: elementtree node of the root element
         '''
         xml_text = sdc_definitions.normalizeXMLText(xml_text)
-        parser = etree_.ETCompatXMLParser(remove_comments=True, remove_blank_text=True)
+        parser = etree_.ETCompatXMLParser(remove_comments=True, remove_blank_text=True, resolve_entities=False)
         root = etree_.fromstring(xml_text, parser=parser, base_url=None)
         if root.tag != namespaces.msgTag('GetMdibResponse'):
             getmdibResponseNodes = root.xpath('//msg:GetMdibResponse', namespaces=namespaces.nsmap)

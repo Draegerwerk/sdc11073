@@ -6,35 +6,23 @@ import os
 import traceback
 import ssl
 import urllib
+import copy
 from lxml import etree as etree_
 from cryptography import x509
 from cryptography.hazmat import backends
 from cryptography.x509 import extensions
 
-import sdc11073
 from .. import observableproperties as properties
 from .. import commlog
 from .. import loghelper
 from .. import xmlparsing
-from . import subscription
-from .operations import OperationsManager
-from .hostedservice import HostedServiceClient, GetServiceClient, SetServiceClient, StateEventClient
-from .hostedservice import CTreeServiceClient, DescriptionEventClient, ContextServiceClient, WaveformClient
-from .localizationservice import LocalizationServiceClient
 from ..namespaces import nsmap
 from ..namespaces import Prefix_Namespace as Prefix
 from ..definitions_base import ProtocolsRegistry
-from ..definitions_sdc import SDC_v1_Definitions
-from ..transport.soap import msgreader
-from ..transport.soap.msgfactory import SoapMessageFactory
-# shortcuts
-GenericNode = sdc11073.pysoap.soapenvelope.GenericNode
-WsAddress = sdc11073.pysoap.soapenvelope.WsAddress
-Soap12Envelope = sdc11073.pysoap.soapenvelope.Soap12Envelope
-DPWSEnvelope = sdc11073.pysoap.soapenvelope.DPWSEnvelope
-MetaDataSection = sdc11073.pysoap.soapenvelope.MetaDataSection
-SoapResponseException = sdc11073.pysoap.soapenvelope.SoapResponseException
-
+from ..pysoap.soapenvelope import  WsAddress, Soap12Envelope, DPWSEnvelope, MetaDataSection
+from ..pysoap.soapclient import SoapClient
+from .. import compression
+from .. import netconn
 
 def _mkSoapClient(scheme, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
                   requestEncodings=None, chunked_requests=False):
@@ -42,11 +30,11 @@ def _mkSoapClient(scheme, netloc, logger, sslContext, sdc_definitions, supported
         _sslContext = sslContext
     else:
         _sslContext = None
-    return  sdc11073.pysoap.soapclient.SoapClient(netloc, logger, sslContext=_sslContext,
-                                                  sdc_definitions=sdc_definitions,
-                                                  supportedEncodings=supportedEncodings,
-                                                  requestEncodings=requestEncodings,
-                                                  chunked_requests=chunked_requests)
+    return  SoapClient(netloc, logger, sslContext=_sslContext,
+                       sdc_definitions=sdc_definitions,
+                       supportedEncodings=supportedEncodings,
+                       requestEncodings=requestEncodings,
+                       chunked_requests=chunked_requests)
 
 
 # default ssl context data
@@ -72,11 +60,12 @@ class HostDescription(object):
 
 class HostedServiceDescription(object):
     VALIDATE_MEX = False # workaraound as long as validation error due to missing dpws schema is not solved
-    def __init__(self, service_id, endpoint_address, validate, bicepsSchema, log_prefix=''):
+    def __init__(self, service_id, endpoint_address, validate, bicepsSchema, msg_factory, log_prefix=''):
         self._endpoint_address = endpoint_address
         self.service_id = service_id
         self._validate = validate
         self._bicepsSchema = bicepsSchema
+        self._msg_factory = msg_factory
         self.log_prefix = log_prefix
         self.metaData = None
         self.wsdl_string = None
@@ -90,7 +79,7 @@ class HostedServiceDescription(object):
         return None if not self._validate else self._bicepsSchema.mexSchema
 
     def readMetadata(self, soap_client):
-        soap_envelope = SoapMessageFactory.mk_getmetadata_envelope(self._endpoint_address)
+        soap_envelope = self._msg_factory.mk_getmetadata_envelope(self._endpoint_address)
         if self.VALIDATE_MEX:
             soap_envelope.validateBody(self._mexSchema)
         endpoint_envelope = soap_client.postSoapEnvelopeTo(self._url.path,
@@ -108,7 +97,7 @@ class HostedServiceDescription(object):
         self.wsdl_string = soap_client.getUrl(actual_path, msg='{}:getwsdl'.format(self.log_prefix))
         commlog.defaultLogger.logWsdl(self.wsdl_string, self.service_id)
         try:
-            self.wsdl = etree_.fromstring(self.wsdl_string, parser=etree_.ETCompatXMLParser()) # make am ElementTree instance
+            self.wsdl = etree_.fromstring(self.wsdl_string, parser=etree_.ETCompatXMLParser(resolve_entities=False)) # make am ElementTree instance
         except etree_.XMLSyntaxError as ex:
             self._logger.error('could not read wsdl from {}: error={}, data=\n{}'.format(actual_path, ex, self.wsdl_string))
     def __repr__(self):
@@ -169,31 +158,14 @@ class SdcClient(object):
     descriptionModificationReport = properties.ObservableProperty()
     operationInvokedReport = properties.ObservableProperty()
 
-    _servicesLookup = {'ContainmentTree': CTreeServiceClient,     # wpf naming
-                       'ContainmentTreeService': CTreeServiceClient, # sdc naming
-                       'Get': GetServiceClient,
-                       'GetService': GetServiceClient,
-                       'StateEvent': StateEventClient,
-                       'StateEventService': StateEventClient,
-                       'Context': ContextServiceClient,
-                       'ContextService': ContextServiceClient,
-                       'Waveform': WaveformClient,
-                       'WaveformService': WaveformClient,
-                       'Set': SetServiceClient,
-                       'SetService': SetServiceClient,
-                       'DescriptionEvent': DescriptionEventClient,
-                       'DescriptionEventService': DescriptionEventClient,
-                       'LocalizationService': LocalizationServiceClient,
-                       }
-
     SSL_CIPHERS = None  # None : use SSL default
-    def __init__(self, devicelocation, deviceType, validate=True, sslEvents='auto', sslContext=None,
+    def __init__(self, devicelocation, sdc_definitions, validate=True, sslEvents='auto', sslContext=None,
                  my_ipaddress=None, logLevel=None, ident='',
-                 soap_notifications_handler_class=None,
+                 specific_components=None,
                  chunked_requests=False):  # pylint:disable=too-many-arguments
         '''
         @param devicelocation: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
-        @param deviceType: a QName that defines the device type, e.g. '{http://standards.ieee.org/downloads/11073/11073-20702-2016}MedicalDevice'
+        @param sdc_definition: a QName that defines the device type, e.g. '{http://standards.ieee.org/downloads/11073/11073-20702-2016}MedicalDevice'
                           can be None, in that case value from pysdc.xmlparsing.Final is used
         @param sslEvents: define if HTTP server of client uses https
              sslEvents='auto': use https if Xaddress of device is https
@@ -204,18 +176,12 @@ class SdcClient(object):
              If value is None, best own address is determined automatically (recommended).  
         '''
         self._devicelocation = devicelocation
-        self._soap_notifications_handler_class = soap_notifications_handler_class
-        if deviceType is None:
-            self.sdc_definitions = SDC_v1_Definitions
-        else:
-            self.sdc_definitions = None
-            for definition_cls in ProtocolsRegistry.protocols:
-                if definition_cls.ns_matches(deviceType.namespace):
-                    self.sdc_definitions = definition_cls
-                    break
-            if self.sdc_definitions is None:
-                raise ValueError('cannot create instance, no known BICEPS schema version identified')
-
+        self.sdc_definitions = sdc_definitions
+        self._components = copy.deepcopy(sdc_definitions.DefaultSdcClientComponents)
+        if specific_components is not None:
+            # merge specific stuff into _components
+            for key, value in  specific_components.items():
+                self._components[key] = value
         self._bicepsSchema = xmlparsing.BicepsSchema(self.sdc_definitions)
         splitted = urllib.parse.urlsplit(self._devicelocation)
         self._device_uses_https = splitted.scheme.lower() == 'https'
@@ -244,7 +210,7 @@ class SdcClient(object):
         
         self._logger.info('created {} for {}', self.__class__.__name__, self._devicelocation)
 
-        self._compression_methods = sdc11073.compression.encodings[:]
+        self._compression_methods = compression.encodings[:]
         self._subscriptionMgr = None
         self._operationsManager = None
         self._serviceClients = {}
@@ -252,8 +218,10 @@ class SdcClient(object):
         self._soapClients = {} # all http connections that this client holds
         self.peerCertificate = None
         self.all_subscribed = False
-        self.msg_reader = msgreader.MessageReader(self._logger, 'msg_reader')
-        self._msg_factory = SoapMessageFactory(self.sdc_definitions, self._logger)
+        msg_reader_cls = self._components['MsgReaderClass']
+        self.msg_reader = msg_reader_cls(self._logger, 'msg_reader')
+        msg_factory_cls = self._components['MsgFactoryClass']
+        self._msg_factory = msg_factory_cls(self.sdc_definitions, self._logger)
 
     def _register_mdib(self, mdib):
         ''' SdcClient sometimes must know the mdib data (e.g. Set service, activate method).'''
@@ -277,7 +245,7 @@ class SdcClient(object):
         return self._my_ipaddress
 
     def _findBestOwnIpAddress(self):
-        myIpAddresses = [conn.ip for conn in sdc11073.netconn.getNetworkAdapterConfigs() if conn.ip not in (None, '0.0.0.0')]
+        myIpAddresses = [conn.ip for conn in netconn.getNetworkAdapterConfigs() if conn.ip not in (None, '0.0.0.0')]
         splitted = urllib.parse.urlsplit(self._devicelocation)
         sortIPAddresses(myIpAddresses, splitted.hostname)
         return myIpAddresses[0]
@@ -363,11 +331,13 @@ class SdcClient(object):
                              self.sdc_definitions.Actions.PeriodicComponentReport,
                              self.sdc_definitions.Actions.PeriodicContextReport,
                              self.sdc_definitions.Actions.PeriodicOperationalStateReport])
+
         # start subscription manager
-        self._subscriptionMgr = subscription.SubscriptionManager(self._msg_factory,
-                                                                 self._notificationsDispatcherThread.base_url,
-                                                                 log_prefix=self.log_prefix,
-                                                                 checkInterval=subscriptionsCheckInterval)
+        subscription_manager_class = self._components['SubscriptionManagerClass']
+        self._subscriptionMgr = subscription_manager_class(self._msg_factory,
+                                                           self._notificationsDispatcherThread.base_url,
+                                                           log_prefix=self.log_prefix,
+                                                           checkInterval=subscriptionsCheckInterval)
         self._subscriptionMgr.start()
 
         # flag 'self.all_subscribed' tells mdib that mdib state versions shall not have any gaps
@@ -381,7 +351,8 @@ class SdcClient(object):
                 notSubscribedActionsSet = set(notSubscribedActions)
 
         # start operationInvoked subscription and tell all
-        self._operationsManager = OperationsManager(self.log_prefix)
+        operations_manager_class = self._components['OperationsManagerClass']
+        self._operationsManager = operations_manager_class(self.log_prefix)
 
         for client in self._serviceClients.values():
             client.setOperationsManager(self._operationsManager)
@@ -510,8 +481,9 @@ class SdcClient(object):
             soapClient = self._getSoapClient(endpoint_reference)
             hosted.soapClient = soapClient
             ns_types = [t.split(':') for t in hosted.types]
-            h_descr = HostedServiceDescription(hosted.serviceId, endpoint_reference,
-                                               self._validate, self._bicepsSchema, self.log_prefix)
+            h_descr = HostedServiceDescription(
+                hosted.serviceId, endpoint_reference,
+                self._validate, self._bicepsSchema, self._msg_factory, self.log_prefix)
             self._hostedServices[hosted.serviceId] = h_descr
             h_descr.readMetadata(soapClient)
             for _, porttype in ns_types:
@@ -519,9 +491,9 @@ class SdcClient(object):
                 self._serviceClients[porttype] = h
                 h_descr.services[porttype] = h
 
-    def _mkHostedServiceClient(self, porttype, soapClient, hosted):
-        cls = self._servicesLookup.get(porttype, HostedServiceClient)
-        return cls(soapClient, self._msg_factory, hosted, porttype, self._validate,
+    def _mkHostedServiceClient(self, port_type, soapClient, hosted):
+        cls = self._components['ServiceHandlers'][port_type]
+        return cls(soapClient, self._msg_factory, hosted, port_type, self._validate,
                    self.sdc_definitions, self._bicepsSchema, self.log_prefix)
 
     def _startEventSink(self, async_dispatch):
@@ -533,13 +505,15 @@ class SdcClient(object):
             sslContext = None
 
         # create Event Server
-        self._notificationsDispatcherThread = subscription.NotificationsReceiverDispatcherThread(
+        notifications_receiver_class = self._components['NotificationsReceiverClass'] # tread
+        notifications_handler_class = self._components['NotificationsHandlerClass']
+        self._notificationsDispatcherThread = notifications_receiver_class(
             self._my_ipaddress,
             sslContext,
             log_prefix=self.log_prefix,
             sdc_definitions=self.sdc_definitions,
             supportedEncodings=self._compression_methods,
-            soap_notifications_handler_class=self._soap_notifications_handler_class,
+            soap_notifications_handler_class=notifications_handler_class,
             async_dispatch = async_dispatch)
 
         self._notificationsDispatcherThread.start()
@@ -688,18 +662,17 @@ class SdcClient(object):
     @classmethod
     def fromWsdService(cls, wsdService, validate=True, sslEvents='auto',
                      sslContext=None, my_ipaddress=None, logLevel=logging.INFO,
-                     ident='', soap_notifications_handler_class=None):
+                     ident='', specific_components=None):
         device_locations = wsdService.getXAddrs()
         if not device_locations:
             raise RuntimeError('discovered Service has no address!{}'.format(wsdService))
         device_location = device_locations[0]
         deviceType = None
-        for _qname in wsdService.getTypes():
-            qname = etree_.QName(_qname.namespace, _qname.localname)
+        for _q_name in wsdService.getTypes():
+            q_name = etree_.QName(_q_name.namespace, _q_name.localname)
             for protocol in ProtocolsRegistry.protocols:
-                if protocol.ns_matches(qname):
-                    deviceType = protocol.MedicalDeviceType
-                    break
-        return cls(device_location, deviceType=deviceType, validate=validate, sslEvents=sslEvents,
-                   sslContext=sslContext, my_ipaddress=my_ipaddress, logLevel=logLevel, ident=ident,
-                   soap_notifications_handler_class=soap_notifications_handler_class)
+                if protocol.ns_matches(q_name):
+                    return cls(device_location, sdc_definitions=protocol, validate=validate, sslEvents=sslEvents,
+                               sslContext=sslContext, my_ipaddress=my_ipaddress, logLevel=logLevel, ident=ident,
+                               specific_components=specific_components)
+        raise RuntimeError('no matching protocol definition found for this service!')

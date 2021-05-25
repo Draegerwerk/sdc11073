@@ -5,6 +5,22 @@ from .definitions_base import SchemaResolverBase
 from .definitions_base import BaseDefinitions
 from .mdib import descriptorcontainers as dc_final
 from .mdib import statecontainers as sc_final
+from .transport.soap.msgfactory import SoapMessageFactory
+from .transport.soap.msgreader import MessageReader
+from .sdcdevice.sdcservicesimpl import GetService, SetService, StateEventService,  ContainmentTreeService
+from .sdcdevice.sdcservicesimpl import ContextService, WaveformService, DescriptionEventService
+from .sdcdevice.localizationservice import LocalizationService
+from .sdcdevice.sdc_handlers import SdcHandler_Full
+from .sdcdevice.sco import getOperationClass, ScoOperationsRegistry
+from .sdcdevice.subscriptionmgr import SubscriptionsManager
+
+from .sdcclient.subscription import SOAPNotificationsHandler
+from .sdcclient.hostedservice import GetServiceClient, SetServiceClient, StateEventClient
+from .sdcclient.hostedservice import CTreeServiceClient, DescriptionEventClient, ContextServiceClient, WaveformClient
+from .sdcclient.localizationservice import LocalizationServiceClient
+from .sdcclient.subscription import SubscriptionClient, NotificationsReceiverDispatcherThread
+from .sdcclient.operations import OperationsManager
+
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
@@ -75,6 +91,46 @@ class _SDC_v1_Actions(object):
     SubscriptionEnd = Prefix.WSE.namespace + '/SubscriptionEnd'
 
 
+"""This dictionary centrally defines which component implementations the sdc client will use. """
+DefaultSdcClientComponents = {
+    'MsgFactoryClass':  SoapMessageFactory,
+    'MsgReaderClass': MessageReader,
+    'SdcClientHandlerClass': None,
+    'NotificationsReceiverClass': NotificationsReceiverDispatcherThread,
+    'NotificationsHandlerClass': SOAPNotificationsHandler,
+    'SubscriptionManagerClass': SubscriptionClient,
+    'OperationsManagerClass': OperationsManager,
+    'ServiceHandlers': {'ContainmentTreeService': CTreeServiceClient,
+                         'GetService': GetServiceClient,
+                         'StateEventService': StateEventClient,
+                         'ContextService': ContextServiceClient,
+                         'WaveformService': WaveformClient,
+                         'SetService': SetServiceClient,
+                         'DescriptionEventService': DescriptionEventClient,
+                         'LocalizationService': LocalizationServiceClient,
+                         }
+}
+
+
+"""This dictionary centrally defines which component implementations the sdc device will use. """
+DefaultSdcDeviceComponents = {
+    'MsgFactoryClass': SoapMessageFactory,
+    'MsgReaderClass': MessageReader,
+    'SdcDeviceHandlerClass': SdcHandler_Full,
+    'OperationsFactory': getOperationClass,
+    'ScoOperationsRegistryClass': ScoOperationsRegistry,
+    'SubscriptionsManagerClass': SubscriptionsManager,
+    'ServiceHandlers': {'ContainmentTreeService': ContainmentTreeService,
+                        'GetService': GetService,
+                        'StateEventService': StateEventService,
+                        'ContextService': ContextService,
+                        'WaveformService': WaveformService,
+                        'SetService': SetService,
+                        'DescriptionEventService': DescriptionEventService,
+                        'LocalizationService': LocalizationService,
+                        }
+}
+
 
 class SDC_v1_Definitions(BaseDefinitions):
     BICEPSNamespace_base = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/'
@@ -97,4 +153,8 @@ class SDC_v1_Definitions(BaseDefinitions):
     sc = sc_final
     dc = dc_final
     Actions = _SDC_v1_Actions
+    DefaultSdcDeviceComponents = DefaultSdcDeviceComponents
+    DefaultSdcClientComponents = DefaultSdcClientComponents
+
+
 SDC_v1_Definitions.schemaResolver = _SchemaResolver(SDC_v1_Definitions)

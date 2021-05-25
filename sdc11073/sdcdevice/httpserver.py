@@ -241,7 +241,7 @@ class HttpServerThread(threading.Thread):
         :param sslContext:
         :param supportedEncodings: a list od strings
         '''
-        super(HttpServerThread, self).__init__(name='Dev_SdcHttpServerThread')
+        super().__init__(name='Dev_SdcHttpServerThread')
         self.daemon = True
 
         self._my_ipaddress = my_ipaddress
