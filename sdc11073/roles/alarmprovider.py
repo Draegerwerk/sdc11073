@@ -121,7 +121,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                     alertSystemStateContainer = tmp_st.new
                     alertSystemStates.add(alertSystemStateContainer)
             else:
-                alertSystemStateContainer = transaction.getAlertState(alertSystemDescriptor.handle)
+                alertSystemStateContainer = transaction.get_state(alertSystemDescriptor.handle)
                 alertSystemStates.add(alertSystemStateContainer)
         return alertSystemStates
 
@@ -203,7 +203,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             if tr_item is None:
                 isDelegated = a.Manifestation in active_delegate_manifestations  # is this local signal delegated?
                 activation, presence = lookup[(changedAlertCondition.Presence, isDelegated)]
-                alertSignalState = transaction.getAlertState(a.handle)
+                alertSignalState = transaction.get_state(a.handle)
 
                 if alertSignalState.ActivationState != activation or alertSignalState.Presence != presence:
                     alertSignalState.ActivationState = activation
@@ -218,7 +218,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         with self._mdib.mdibUpdateTransaction() as mgr:
             operationStateContainer = mgr._deviceMdibContainer.states.descriptorHandle.getOne(operationDescriptorContainer.handle)
             self._inAllowedRange(operationStateContainer, value)
-            state = mgr.getAlertState(operationTargetHandle)
+            state = mgr.get_state(operationTargetHandle)
             self._logger.info('set upper limit handle="{}" from {} to {}', operationTargetHandle, state.Limits.Upper, value)
             state.Limits.Upper = value
 
@@ -228,7 +228,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         with self._mdib.mdibUpdateTransaction() as mgr:
             operationStateContainer = mgr._deviceMdibContainer.states.descriptorHandle.getOne(operationDescriptorContainer.handle)
             self._inAllowedRange(operationStateContainer, value)
-            state = mgr.getAlertState(operationTargetHandle)
+            state = mgr.get_state(operationTargetHandle)
             self._logger.info('set lower limit handle={} from {} to {}', operationTargetHandle, state.Limits.Lower, value)
             state.Limits.Lower = value
 
@@ -292,7 +292,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 signalDescriptors = self._mdib.descriptions.ConditionSignaled.get(acd.handle, [])
                 for sd in signalDescriptors:
                     if sd.SignalDelegationSupported:
-                        ss = mgr.getAlertState(sd.handle)
+                        ss = mgr.get_state(sd.handle)
                         if ss.ActivationState == AlertActivation.OFF:
                             ss.ActivationState = AlertActivation.ON
                             self._pauseFallbackAlertSignals(sd, signalDescriptors, mgr)
@@ -307,7 +307,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         fallbacks = [tmp for tmp in allSignalDescriptors if
                      not tmp.SignalDelegationSupported and tmp.Manifestation == delegableSignalDescriptor.Manifestation]
         for f in fallbacks:
-            ss_fallback = transaction.getAlertState(f.handle)
+            ss_fallback = transaction.get_state(f.handle)
             if ss_fallback.ActivationState != AlertActivation.PAUSED:
                 ss_fallback.ActivationState = AlertActivation.PAUSED
             else:
@@ -321,7 +321,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         fallbacks = [tmp for tmp in allSignalDescriptors if
                      not tmp.SignalDelegationSupported and tmp.Manifestation == delegableSignalDescriptor.Manifestation]
         for f in fallbacks:
-            ss_fallback = transaction.getAlertState(f.handle)
+            ss_fallback = transaction.get_state(f.handle)
             if ss_fallback.ActivationState == AlertActivation.PAUSED:
                 ss_fallback.ActivationState = AlertActivation.ON
             else:
@@ -346,7 +346,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 alertConditions.append(child.handle)
 
         with self._mdib.mdibUpdateTransaction() as mgr:
-            state = mgr.getAlertState(handle)
+            state = mgr.get_state(handle)
             state.ActivationState = alertActivationState
             for alertConditionHandle in alertConditions:
                 self._setAlertConditionActivationState(mgr, alertConditionHandle, alertActivationState)
@@ -362,7 +362,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             self._setAlertConditionActivationState(mgr, operationDescriptorContainer.operationTarget, AlertActivation.OFF)
 
     def _setAlertConditionActivationState(self, mgr, handle, alertActivationState):
-        state = mgr.getAlertState(handle)
+        state = mgr.get_state(handle)
         state.ActivationState = alertActivationState
 
     def _activateAlertSignal(self, operationDescriptorContainer, _):
@@ -377,7 +377,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
 
     def _setAlertSignalActivationState(self, mgr, handle, alertActivationState):
         self._lastSetAlertSignalState[handle] = time.time()
-        state = mgr.getAlertState(handle)
+        state = mgr.get_state(handle)
         state.ActivationState = alertActivationState
         descr = self._mdib.descriptions.handle.getOne(handle)
         if descr.SignalDelegationSupported:
@@ -390,7 +390,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         operationTargetHandle = operationDescriptorContainer.operationTarget
         self._lastSetAlertSignalState[operationTargetHandle] = time.time()
         with self._mdib.mdibUpdateTransaction() as mgr:
-            state = mgr.getAlertState(operationTargetHandle)
+            state = mgr.get_state(operationTargetHandle)
             self._logger.info('set alert state {} of {} from {} to {}', operationTargetHandle, state, state.ActivationState, value.ActivationState)
             state.ActivationState = value.ActivationState
             state.Presence = value.Presence
@@ -441,7 +441,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         if len(alertStatesNeedingUpdate) > 0:
             try:
                 with self._mdib.mdibUpdateTransaction() as tr:
-                    tr_states = [tr.getAlertState(s.descriptorHandle) for s in alertStatesNeedingUpdate]
+                    tr_states = [tr.get_state(s.descriptorHandle) for s in alertStatesNeedingUpdate]
                     self._updateAlertSystemStates(self._mdib, tr, tr_states)
             except:
                 exc = traceback.format_exc()
@@ -462,7 +462,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                     for op in all_op_descrs:
                         signalDescr = self._mdib.descriptions.handle.getOne(op.OperationTarget)
                         allSignalDescriptors = self._mdib.descriptions.ConditionSignaled.get(signalDescr.ConditionSignaled, [])
-                        ss = mgr.getAlertState(signalDescr.handle)
+                        ss = mgr.get_state(signalDescr.handle)
                         if ss.ActivationState == AlertActivation.ON:
                             ss.ActivationState = AlertActivation.OFF
                             self._activateFallbackAlertSignals(signalDescr, allSignalDescriptors, mgr)

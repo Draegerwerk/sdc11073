@@ -46,7 +46,7 @@ class _PropertyBase(object):
         else:
             self._subElementNames = subElementNames
         if len(self._subElementNames) > 1:
-            print(f'will ich nicht! {self._subElementNames}')
+            print(f'will ich nicht! in {self.__class__.__name__}: {[e.localname for e in self._subElementNames]}')
             # raise RuntimeError(f'will ich nicht! {self._subElementNames}')
         if subElementNames is not None:
             localVarName = '_' + '_'.join([s.localname.lower() for s in subElementNames])

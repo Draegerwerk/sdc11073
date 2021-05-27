@@ -91,11 +91,10 @@ class _SDC_v1_Actions(object):
     SubscriptionEnd = Prefix.WSE.namespace + '/SubscriptionEnd'
 
 
-"""This dictionary centrally defines which component implementations the sdc client will use. """
+"""Dependency injection: This dictionary defines which component implementations the sdc client will use. """
 DefaultSdcClientComponents = {
     'MsgFactoryClass':  SoapMessageFactory,
     'MsgReaderClass': MessageReader,
-    'SdcClientHandlerClass': None,
     'NotificationsReceiverClass': NotificationsReceiverDispatcherThread,
     'NotificationsHandlerClass': SOAPNotificationsHandler,
     'SubscriptionManagerClass': SubscriptionClient,
@@ -112,7 +111,7 @@ DefaultSdcClientComponents = {
 }
 
 
-"""This dictionary centrally defines which component implementations the sdc device will use. """
+"""Dependency injection: This dictionary defines which component implementations the sdc device will use. """
 DefaultSdcDeviceComponents = {
     'MsgFactoryClass': SoapMessageFactory,
     'MsgReaderClass': MessageReader,

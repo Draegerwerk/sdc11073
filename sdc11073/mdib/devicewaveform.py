@@ -151,7 +151,7 @@ class DefaultWaveformSource(AbstractWaveformSource):
         """
         self._waveform_generators[descriptorHandle].set_activation_state(componentActivation)
         with mdib.mdibUpdateTransaction() as tr:
-            st = tr.getRealTimeSampleArrayMetricState(descriptorHandle)
+            st = tr.get_state(descriptorHandle)
             st.ActivationState = componentActivation
 
     def register_annotation_generator(self, annotator, triggerHandle, annotatedHandles):

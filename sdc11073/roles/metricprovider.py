@@ -73,7 +73,8 @@ class GenericMetricProvider(ProviderRole):
         operationInstance.currentValue = value
         with self._mdib.mdibUpdateTransaction() as mgr:
             for proposedMetricState in value:
-                state = mgr.getMetricState(proposedMetricState.descriptorHandle)
+                # state = mgr.getMetricState(proposedMetricState.descriptorHandle)
+                state = mgr.get_state(proposedMetricState.descriptorHandle)
                 if state.isMetricState:
                     self._logger.info('updating {} with proposed metric state', state)
                     state.update_from_other_container(proposedMetricState,

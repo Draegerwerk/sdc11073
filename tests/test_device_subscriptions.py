@@ -177,7 +177,8 @@ class TestDeviceSubscriptions(unittest.TestCase):
             descriptorHandle = '0x34F00100'#'0x34F04380'
             firstValue = 12
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                st = mgr.getMetricState(descriptorHandle)
+                #st = mgr.getMetricState(descriptorHandle)
+                st = mgr.get_state(descriptorHandle)
                 if st.metricValue is None:
                     st.mkMetricValue()
                 st.metricValue.Value = firstValue
@@ -204,7 +205,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             patientContextDescriptor = sdcDevice.mdib.descriptions.NODETYPE.getOne(namespaces.domTag('PatientContextDescriptor'))
             descriptorHandle = patientContextDescriptor.handle
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                st = mgr.getContextState(descriptorHandle)
+                st = mgr.get_state(descriptorHandle)
                 st.CoreData.PatientType = pmtypes.PatientType.ADULT
             self.assertEqual(len(testSubscr.reports), 1)
             response = testSubscr.reports[0]
@@ -357,13 +358,15 @@ class TestDeviceSubscriptions(unittest.TestCase):
             descriptorHandle = '0x34F00100'  # '0x34F04380'
             firstValue = 12
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                st = mgr.getMetricState(descriptorHandle)
+                # st = mgr.getMetricState(descriptorHandle)
+                st = mgr.get_state(descriptorHandle)
                 if st.metricValue is None:
                     st.mkMetricValue()
                 st.metricValue.Value = firstValue
                 st.metricValue.Validity = 'Vld'
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                st = mgr.getMetricState(descriptorHandle)
+                # st = mgr.getMetricState(descriptorHandle)
+                st = mgr.get_state(descriptorHandle)
                 if st.metricValue is None:
                     st.mkMetricValue()
                 st.metricValue.Value = firstValue + 1

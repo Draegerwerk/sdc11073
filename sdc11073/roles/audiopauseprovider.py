@@ -85,7 +85,7 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
             return
         with self._mdib.mdibUpdateTransaction() as tr:
             for alertSystemDescriptor in alertSystemDescriptors:
-                alertSystemState = tr.getAlertState(alertSystemDescriptor.handle)
+                alertSystemState = tr.get_state(alertSystemDescriptor.handle)
                 if alertSystemState.ActivationState != pmtypes.AlertActivation.ON:
                     self._logger.info('SDC_SetAudioPauseOperation: nothing to do')
                     tr.ungetState(alertSystemState)
@@ -105,7 +105,7 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                         childAlertSignalDescriptors = [ d for d in allAlertSignalDescriptors if d.parentHandle == alertSystemDescriptor.handle]
                         audibleChildAlertSignalDescriptors = [ d for d in childAlertSignalDescriptors if d.Manifestation == pmtypes.AlertSignalManifestation.AUD]
                         for sd in audibleChildAlertSignalDescriptors:
-                            alertSignalState = tr.getAlertState(sd.handle)
+                            alertSignalState = tr.get_state(sd.handle)
                             if sd.AcknowledgementSupported: #SF959
                                 if alertSignalState.ActivationState != pmtypes.AlertActivation.PAUSED \
                                     or alertSignalState.Presence != pmtypes.AlertSignalPresence.ACK:
@@ -130,7 +130,7 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
         alertSystemDescriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSystemDescriptor'))
         with self._mdib.mdibUpdateTransaction() as tr:
             for alertSystemDescriptor in alertSystemDescriptors:
-                alertSystemState = tr.getAlertState(alertSystemDescriptor.handle)
+                alertSystemState = tr.get_state(alertSystemDescriptor.handle)
                 if alertSystemState.ActivationState != pmtypes.AlertActivation.ON:
                     self._logger.info('SDC_CancelAudioPauseOperation: nothing to do')
                     tr.ungetState(alertSystemState)
@@ -149,7 +149,7 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                         childAlertSignalDescriptors = [ d for d in allAlertSignalDescriptors if d.parentHandle == alertSystemDescriptor.handle]
                         audibleChildAlertSignalDescriptors = [ d for d in childAlertSignalDescriptors if d.Manifestation == pmtypes.AlertSignalManifestation.AUD]
                         for sd in audibleChildAlertSignalDescriptors:
-                            alertSignalState = tr.getAlertState(sd.handle)
+                            alertSignalState = tr.get_state(sd.handle)
                             alertConditionState = self._mdib.states.descriptorHandle.getOne(sd.ConditionSignaled)
                             if alertConditionState.Presence:
                                 # set signal back to 'ON'

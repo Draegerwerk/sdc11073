@@ -63,7 +63,8 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
         operationInstance.currentValue = value
         with self._mdib.mdibUpdateTransaction() as mgr:
             for proposedComponentState in value:
-                state = mgr.getComponentState(proposedComponentState.descriptorHandle)
+                #state = mgr.getComponentState(proposedComponentState.descriptorHandle)
+                state = mgr.get_state(proposedComponentState.descriptorHandle)
                 if state.isComponentState:
                     self._logger.info('updating {} with proposed component state', state)
                     state.update_from_other_container(proposedComponentState,
@@ -212,7 +213,7 @@ class BaseProduct(object):
                     if not transaction.hasState(tr_item.new.handle):
                         st = state_cls(mdib.nsmapper, tr_item.new)
                         st.updateNode()
-                        transaction.addState(st)
+                        transaction.add_state(st)
 
 
 class GenericProduct(BaseProduct):

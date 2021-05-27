@@ -268,7 +268,7 @@ class OperationDefinition(object):
     def setOperatingMode(self, mode):
         """ Mode is one of En, Dis, NA"""
         with self._mdib.mdibUpdateTransaction() as tr:
-            st = tr.getOperationalState(self._handle)
+            st = tr.get_state(self._handle)
             st.OperatingMode = mode
 
     def collectValues(self, numberOfValues=None):

@@ -94,7 +94,8 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
         self._logger.info('set value {} from {} to {}', operationTargetHandle, operationInstance.currentValue,
                           value)
         with self._mdib.mdibUpdateTransaction() as mgr:
-            state = mgr.getComponentState(operationTargetHandle)
+            #state = mgr.getComponentState(operationTargetHandle)
+            state = mgr.get_state(operationTargetHandle)
             if state.NODETYPE == namespaces.domTag('MdsState'):
                 mdsHandle = state.descriptorHandle
                 mgr.ungetState(state)
@@ -102,7 +103,8 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                 clockDescriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'),[])
                 clockDescriptors = [ c for c in clockDescriptors if c.parentHandle == mdsHandle]
                 if len(clockDescriptors) == 1:
-                    state = mgr.getComponentState(clockDescriptors[0].handle)
+                    # state = mgr.getComponentState(clockDescriptors[0].handle)
+                    state = mgr.get_state(clockDescriptors[0].handle)
             if state.NODETYPE != namespaces.domTag('ClockState'):
                 raise RuntimeError('_setNTPString: expected ClockState, got {}'.format(state.NODETYPE.localname))
             state.ReferenceSource = [pmtypes.ElementWithTextOnly(value)]
@@ -117,7 +119,8 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
         self._logger.info('set value {} from {} to {}', operationTargetHandle, operationInstance.currentValue,
                           value)
         with self._mdib.mdibUpdateTransaction() as mgr:
-            state = mgr.getComponentState(operationTargetHandle)
+            #state = mgr.getComponentState(operationTargetHandle)
+            state = mgr.get_state(operationTargetHandle)
             if state.NODETYPE == namespaces.domTag('MdsState'):
                 mdsHandle = state.descriptorHandle
                 mgr.ungetState(state)
@@ -125,7 +128,8 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                 clockDescriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'),[])
                 clockDescriptors = [ c for c in clockDescriptors if c.parentHandle == mdsHandle]
                 if len(clockDescriptors) == 1:
-                    state = mgr.getComponentState(clockDescriptors[0].handle)
+                    #state = mgr.getComponentState(clockDescriptors[0].handle)
+                    state = mgr.get_state(clockDescriptors[0].handle)
 
             if state.NODETYPE != namespaces.domTag('ClockState'):
                 raise RuntimeError('_setNTPString: expected Clockstate, got {}'.format(state.NODETYPE.localname))

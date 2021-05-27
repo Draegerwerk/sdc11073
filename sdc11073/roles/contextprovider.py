@@ -46,13 +46,14 @@ class GenericContextProvider(providerbase.ProviderRole):
                     proposed_st.ContextAssociation = ContextAssociation.ASSOCIATED
                     proposed_st.updateNode()
                     self._logger.info('new {}, handle={}', proposed_st.NODETYPE.localname, proposed_st.Handle)
-                    tr.addContextState(proposed_st)
+                    #tr.addContextState(proposed_st)
+                    tr.add_state(proposed_st)
 
                     # find all associated context states, disassociate them, set unbinding info, and add them to updates
                     oldContextStateContainers = operationInstance.operationTargetStorage.descriptorHandle.get(proposed_st.descriptorHandle, [])
                     for old_st in oldContextStateContainers:
                         if old_st.ContextAssociation != ContextAssociation.DISASSOCIATED or old_st.UnbindingMdibVersion is None:
-                            new_st = tr.getContextState(old_st.descriptorHandle, old_st.Handle)
+                            new_st = tr.get_state(old_st.descriptorHandle, old_st.Handle)
                             new_st.ContextAssociation = ContextAssociation.DISASSOCIATED
                             if new_st.UnbindingMdibVersion is None:
                                 new_st.UnbindingMdibVersion = self._mdib.mdibVersion
@@ -61,8 +62,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                     # this is an update to an existing patient
                     # use "regular" way to update via transaction manager
                     self._logger.info('update {}, handle={}', proposed_st.NODETYPE.localname, proposed_st.Handle)
-                    tmp = tr.getContextState(proposed_st.descriptorHandle,
-                                             contextStateHandle=proposed_st.Handle)
+                    tmp = tr.get_state(proposed_st.descriptorHandle, proposed_st.Handle)
                     tmp.update_from_other_container(proposed_st, skipped_properties=['ContextAssociation',
                                                                                      'BindingMdibVersion',
                                                                                      'UnbindingMdibVersion',

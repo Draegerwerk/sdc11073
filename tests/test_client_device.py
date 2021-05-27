@@ -286,7 +286,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             myPhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('ABC')], 1)
             now = time.time()
             with sdcDevice.mdib.mdibUpdateTransaction(setDeterminationTime=False) as mgr:
-                st = mgr.getMetricState(descriptorHandle)
+                #st = mgr.getMetricState(descriptorHandle)
+                st = mgr.get_state(descriptorHandle)
                 if st.metricValue is None:
                     st.mkMetricValue()
                 st.metricValue.Value = firstValue
@@ -311,7 +312,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(sdcClient, 'episodicMetricReport')  # wait for the next EpisodicMetricReport
             oldstate = sdcDevice.mdib.states.descriptorHandle.getOne(descriptorHandle)
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                st = mgr.getMetricState(descriptorHandle)
+                # st = mgr.getMetricState(descriptorHandle)
+                st = mgr.get_state(descriptorHandle)
                 st.metricValue.Value = newValue
     
             # verify that client automatically got the state (via EpisodicMetricReport )
@@ -340,7 +342,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             # wait for the next PeriodicComponentReport
             coll2 = observableproperties.SingleValueCollector(sdcClient, 'periodicComponentReport')
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                st = mgr.getComponentState(descriptorHandle)
+                #st = mgr.getComponentState(descriptorHandle)
+                st = mgr.get_state(descriptorHandle)
                 st.ActivationState = pmtypes.ComponentActivation.ON \
                     if st.ActivationState != pmtypes.ComponentActivation.ON \
                     else pmtypes.ComponentActivation.OFF
@@ -374,7 +377,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                                                         (True, False)):  # test every possible combination
                 coll = observableproperties.SingleValueCollector(sdcClient, 'episodicAlertReport')  # wait for the next EpisodicAlertReport
                 with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                    st = mgr.getAlertState(descriptorHandle)
+                    st = mgr.get_state(descriptorHandle)
                     st.ActivationState = _activationState
                     st.ActualPriority =_actualPriority
                     st.Presence = _presence
@@ -392,7 +395,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                                                          (0, 1, 2)):
                 coll = observableproperties.SingleValueCollector(sdcClient, 'episodicAlertReport')  # wait for the next EpisodicAlertReport
                 with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                    st = mgr.getAlertState(descriptorHandle)
+                    st = mgr.get_state(descriptorHandle)
                     st.ActivationState = _activationState
                     st.Presence = _presence
                     st.Location =_location
@@ -513,7 +516,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             # create a patient locally on device, then test update from client
             coll = observableproperties.SingleValueCollector(sdcClient, 'episodicContextReport')
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                st = mgr.getContextState(patientDescriptorContainer.handle)
+                st = mgr.get_state(patientDescriptorContainer.handle)
                 st.CoreData.Givenname = 'Max123'
                 st.CoreData.Middlename = ['Willy']
                 st.CoreData.Birthname = 'Mustermann'
@@ -552,7 +555,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(sdcClient, 'episodicContextReport')
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 tr_MdibVersion = sdcDevice.mdib.mdibVersion
-                st = mgr.getContextState(patientDescriptorContainer.handle)
+                st = mgr.get_state(patientDescriptorContainer.handle)
                 st.CoreData.Givenname = 'Max'
                 st.CoreData.Middlename = ['Willy']
                 st.CoreData.Birthname = 'Mustermann'
@@ -584,7 +587,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             #test update of same patient
             coll = observableproperties.SingleValueCollector(sdcClient, 'episodicContextReport')
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                st = mgr.getContextState(patientDescriptorContainer.handle, patientContextStateContainer.Handle)
+                st = mgr.get_state(patientDescriptorContainer.handle, patientContextStateContainer.Handle)
                 st.CoreData.Givenname = 'Moritz'
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             patientContextStateContainer = clientMdib.contextStates.NODETYPE.getOne(namespaces.domTag('PatientContextState'), allowNone=True)
@@ -1001,7 +1004,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             firstValue = 12
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 # mgr automatically increases the StateVersion
-                st = mgr.getMetricState(descriptorHandle)
+                # st = mgr.getMetricState(descriptorHandle)
+                st = mgr.get_state(descriptorHandle)
                 if st.metricValue is None:
                     st.mkMetricValue()
                 st.metricValue.Value = firstValue
@@ -1100,9 +1104,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
         # set alert state presence to true
         coll = observableproperties.SingleValueCollector(sdcClient, 'episodicAlertReport')
         with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-            alertState = mgr.getAlertState(alertDescriptorHandle)
+            alertState = mgr.get_state(alertDescriptorHandle)
 
-            limitAlertState = mgr.getAlertState(limitAlertDescriptorHandle)
+            limitAlertState = mgr.get_state(limitAlertDescriptorHandle)
 
             alertState.Presence = True
             alertState.ActualPriority = pmtypes.AlertConditionPriority.HIGH
@@ -1226,7 +1230,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             descriptorHandle = '0x34F00100'
             firstValue = 12
             with sdcDevice.mdib.mdibUpdateTransaction(setDeterminationTime=False) as mgr:
-                st = mgr.getMetricState(descriptorHandle)
+                #st = mgr.getMetricState(descriptorHandle)
+                st = mgr.get_state(descriptorHandle)
                 if st.metricValue is None:
                     st.mkMetricValue()
                 st.metricValue.Value = firstValue
@@ -1240,7 +1245,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(clientMdib, 'alertByHandle')  # wait for the next EpisodicAlertReport
             descriptorHandle = '0xD3C00108' # an AlertConditionDescriptorHandle
             with sdcDevice.mdib.mdibUpdateTransaction(setDeterminationTime=False) as mgr:
-                st = mgr.getAlertState(descriptorHandle)
+                st = mgr.get_state(descriptorHandle)
                 st.Presence = True
                 st.Rank = 3
                 st.DeterminationTime = time.time()

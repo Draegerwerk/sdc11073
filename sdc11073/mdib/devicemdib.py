@@ -161,10 +161,12 @@ class _MdibUpdateTransaction(_TransactionBase):
                 return lookup[descriptorHandle]
 
     @tr_method_wrapper
-    def addState(self, stateContainer, adjustStateVersion=True):
+    def add_state(self, stateContainer, adjustStateVersion=True):
         my_multi_key = self._deviceMdibContainer.states
         my_updates = []
-        if stateContainer.isMetricState:
+        if stateContainer.isRealtimeSampleArrayMetricState:
+            my_updates = self.rtSampleStateUpdates
+        elif stateContainer.isMetricState:
             my_updates = self.metricStateUpdates
         elif stateContainer.isSystemContextState:
             my_updates = self.metricStateUpdates
@@ -177,8 +179,6 @@ class _MdibUpdateTransaction(_TransactionBase):
         elif stateContainer.isContextState:
             my_updates = self.contextStateUpdates
             my_multi_key = self._deviceMdibContainer.contextStates
-        elif stateContainer.isRealtimeSampleArrayMetricState:
-            my_updates = self.rtSampleStateUpdates
         elif stateContainer.NODETYPE == domTag('ScoState'):
             #special case ScoState Draft6: cannot notify updates, it is a category of its own that does not fit anywhere
             # This is a bug in the spec, not in this implementation!
@@ -201,62 +201,31 @@ class _MdibUpdateTransaction(_TransactionBase):
                 del lookup[stateContainer.descriptorHandle]
 
     @tr_method_wrapper
-    def getMetricState(self, descriptorHandle, adjustStateVersion=True):
-        """ Update a MetricState.
-        When the transaction is committed, the modifications to the copy will be applied to the original version,
-        and notification messages will be sent to clients.
-        :param descriptorHandle: the descriptorHandle of the object that shall be read
-        :param adjustStateVersion: if True, and a state with this handle does not exist, but was already present in this mdib before,
-          the StateVersion of descriptorContainer is set to last known version for this handle +1
-        @return: a copy of the state.
-        """
-        if descriptorHandle in self.metricStateUpdates:
+    def get_state(self, descriptorHandle, handle=None, adjustStateVersion=True):
+        descriptor_container = self._deviceMdibContainer.descriptions.handle.getOne(descriptorHandle)
+        if descriptor_container.isContextDescriptor:
+            return self._getContextState(descriptorHandle, handle, adjustStateVersion)
+        if descriptor_container.isRealtimeSampleArrayMetricDescriptor:
+            return self._getRealTimeSampleArrayMetricState(descriptorHandle)
+
+        if descriptor_container.isMetricDescriptor:
+            updates = self.metricStateUpdates
+        elif descriptor_container.isOperationalDescriptor:
+            updates = self.operationalStateUpdates
+        elif descriptor_container.isComponentDescriptor:
+            updates = self.componentStateUpdates
+        elif descriptor_container.isAlertDescriptor:
+            updates =  self.alertStateUpdates
+        else:
+            raise RuntimeError(f'unhandled case {descriptor_container}')
+        if descriptorHandle in updates:
             raise ValueError('descriptorHandle {} already in updated set!'.format(descriptorHandle))
         old_state, new_state = self._get_or_mk_StateContainer(descriptorHandle, adjustStateVersion)
-        if not new_state.isMetricState:
-            raise ValueError('descriptorHandle {} does not reference a metric state'.format(descriptorHandle))
-        self.metricStateUpdates[descriptorHandle] = _TrItem(old_state, new_state)
+        updates[descriptorHandle] = _TrItem(old_state, new_state)
         return new_state
 
-    @tr_method_wrapper
-    def getComponentState(self, descriptorHandle, adjustStateVersion=True):
-        """ Update a ComponentState.
-        When the transaction is committed, the modifications to the copy will be applied to the original version,
-        and notification messages will be sent to clients.
-        :param descriptorHandle: the descriptorHandle of the object that shall be read
-        :param adjustStateVersion: if True, and a state with this handle does not exist, but was already present in this mdib before,
-          the StateVersion of descriptorContainer is set to last known version for this handle +1
-        @return: a copy of the state.
-        """
-        if descriptorHandle in self.componentStateUpdates:
-            raise ValueError('descriptorHandle {} already in updated set!'.format(descriptorHandle))
-        old_state, new_state = self._get_or_mk_StateContainer(descriptorHandle, adjustStateVersion)
-        if not new_state.isComponentState:
-            raise ValueError('descriptorHandle {} does not reference a component state'.format(descriptorHandle))
-        self.componentStateUpdates[descriptorHandle] = _TrItem(old_state, new_state)
-        return new_state
-
-    @tr_method_wrapper
-    def getAlertState(self, descriptorHandle, adjustStateVersion=True):
-        """ Update AlertConditionState or AlertSignalState node
-        When the transaction is committed, the modifications to the copy will be applied to the original version,
-        and notification messages will be sent to clients.
-        :param descriptorHandle: the descriptorHandle of the object that shall be read
-        :param adjustStateVersion: if True, and a state with this handle does not exist, but was already present
-          in this mdib before,
-          the StateVersion of descriptorContainer is set to last known version for this handle +1
-        @return: a copy of the state.
-        """
-        if descriptorHandle in self.alertStateUpdates:
-            raise ValueError('descriptorHandle {} already in updated set!'.format(descriptorHandle))
-        old_state, new_state = self._get_or_mk_StateContainer(descriptorHandle, adjustStateVersion)
-        if not new_state.isAlertState:
-            raise ValueError('descriptorHandle {} does not reference an alert state'.format(descriptorHandle))
-        self.alertStateUpdates[descriptorHandle] = _TrItem(old_state, new_state)
-        return new_state
-
-    @tr_method_wrapper
-    def getContextState(self, descriptorHandle, contextStateHandle=None, adjustStateVersion=True):
+    # @tr_method_wrapper
+    def _getContextState(self, descriptorHandle, contextStateHandle=None, adjustStateVersion=True):
         """ Create or Update a ContextState.
         If contextStateHandle is None, a new Context State will be created and returned.
         Otherwise an the existing contextState with that handle will be returned or a new one created.
@@ -308,27 +277,9 @@ class _MdibUpdateTransaction(_TransactionBase):
             self._deviceMdibContainer.contextStates.setVersion(contextStateContainer)
         self.contextStateUpdates[lookup_key] = _TrItem(None, contextStateContainer)
 
-    @tr_method_wrapper
-    def getOperationalState(self, descriptorHandle, adjustStateVersion=True):
-        """ Update an OperationalState.
-        When the transaction is committed, the modifications to the copy will be applied to the original version,
-        and notification messages will be sent to clients.
-        :param descriptorHandle: the descriptorHandle of the object that shall be read
-        :param adjustStateVersion: if True, and a state with this handle does not exist, but was already present in this mdib before,
-          the StateVersion of descriptorContainer is set to last known version for this handle +1
-        @return: a copy of the state.
-        """
-        if descriptorHandle in self.operationalStateUpdates:
-            raise ValueError('descriptorHandle {} already in updated set!'.format(descriptorHandle))
-        old_state, new_state = self._get_or_mk_StateContainer(descriptorHandle, adjustStateVersion)
-        if not new_state.isOperationalState:
-            raise ValueError('descriptorHandle {} does not reference an operational state ({})'.format(descriptorHandle,
-                                                                                                       new_state.__class__.__name__))
-        self.operationalStateUpdates[descriptorHandle] = _TrItem(old_state, new_state)
-        return new_state
 
-    @tr_method_wrapper
-    def getRealTimeSampleArrayMetricState(self, descriptorHandle):
+    # @tr_method_wrapper
+    def _getRealTimeSampleArrayMetricState(self, descriptorHandle):
         if descriptorHandle in self.rtSampleStateUpdates:
             raise ValueError('descriptorHandle {} already in updated set!'.format(descriptorHandle))
         state_container = self._deviceMdibContainer.states.descriptorHandle.getOne(descriptorHandle, allowNone=True)
@@ -727,13 +678,13 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             # set all to currently associated Locations to Disassociated
             associatedLocations = [l for l in allLocationContexts if l.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
             for l in associatedLocations:
-                locationContext = mgr.getContextState(l.descriptorHandle, l.Handle)
+                locationContext = mgr.get_state(l.descriptorHandle, l.Handle)
                 locationContext.ContextAssociation = pmtypes.ContextAssociation.DISASSOCIATED
                 # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
                 locationContext.UnbindingMdibVersion = self.mdibVersion
             descriptorContainer = self.descriptions.NODETYPE.getOne(domTag('LocationContextDescriptor'))
                     
-            self._currentLocation = mgr.getContextState(descriptorContainer.handle) # this creates a new location state
+            self._currentLocation = mgr.get_state(descriptorContainer.handle) # this creates a new location state
             self._currentLocation.updateFromSdcLocation(sdcLocation, self.bicepsSchema)
             if validators is not None:
                 self._currentLocation.Validator = validators
@@ -869,19 +820,27 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         return obj
 
     def addState(self, stateContainer, adjustStateVersion=True):
+        """Add state to mdib.
+        If method is called within an transaction, the created object is added to transaction and clients will be
+        notified. Otherwise the object is only added to mdib without sending notifications to clients!
+        :param stateContainer: a state container instance
+        :param adjustStateVersion: if True, and an object with the same handle was already in this mdib,
+           the state version is set to last version + 1.
+        """
         if self._current_transaction is not None:
-            self._current_transaction.addState(stateContainer, adjustStateVersion)
+            self._current_transaction.add_state(stateContainer, adjustStateVersion)
         else:
             if stateContainer.isContextState:
                 if stateContainer.Handle in self.contextStates.handle:
                     raise ValueError('context state Handle {} already in mdib!'.format(stateContainer.Handle))
-                if adjustStateVersion:
-                    self.contextStates.setVersion(stateContainer)
+                table = self.contextStates
             else:
                 if stateContainer.descriptorHandle in self.states.descriptorHandle:
                     raise ValueError('state descriptorHandle {} already in mdib!'.format(stateContainer.descriptorHandle))
-                if adjustStateVersion:
-                    self.states.setVersion(stateContainer)
+                table = self.states
+            if adjustStateVersion:
+                table.setVersion(stateContainer)
+            table.addObject(stateContainer)
 
     def addMdsNode(self, mdsNode):
         """
@@ -940,7 +899,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                         st.LastSet = time.time()
                     st.updateNode()
                     if self._current_transaction is not None:
-                        self._current_transaction.addState(st)
+                        self._current_transaction.add_state(st)
                     else:
                         self.states.addObject(st)
 

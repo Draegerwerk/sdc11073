@@ -48,7 +48,8 @@ class ProviderRole(object):
                           operationInstance.currentValue, value)
         operationInstance.currentValue = value
         with self._mdib.mdibUpdateTransaction() as mgr:
-            state = mgr.getMetricState(operationTargetHandle)
+            #state = mgr.getMetricState(operationTargetHandle)
+            state = mgr.get_state(operationTargetHandle)
             if state.metricValue is None:
                 state.mkMetricValue()
             state.metricValue.Value = value
@@ -69,7 +70,8 @@ class ProviderRole(object):
                           value)
         operationInstance.currentValue = value
         with self._mdib.mdibUpdateTransaction() as mgr:
-            state = mgr.getMetricState(operationTargetHandle)
+            #state = mgr.getMetricState(operationTargetHandle)
+            state = mgr.get_state(operationTargetHandle)
             if state.metricValue is None:
                 state.mkMetricValue()
             state.metricValue.Value = value
