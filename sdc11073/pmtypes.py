@@ -718,6 +718,10 @@ class SampleArrayValue(AbstractMetricValue):
                 if name == 'Samples':
                     ownsample = getattr(self, name)
                     othersample = getattr(other, name)
+                    if ownsample is None:
+                        ownsample = []
+                    if othersample is None:
+                        othersample = []
                     if len(ownsample) != len(othersample):
                         return False
                     for pair in zip(ownsample, othersample):
