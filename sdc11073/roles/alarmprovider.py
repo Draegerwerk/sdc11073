@@ -143,7 +143,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         '''
         def _getAlertState(descriptorHandle):
             alertState = None
-            tr_item = transaction.getStateTransactionItem(descriptorHandle)
+            tr_item = transaction.get_state_transaction_item(descriptorHandle)
             if tr_item is not None:
                 alertState = tr_item.new
             if alertState is None:
@@ -199,7 +199,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                   (False, False): (AlertActivation.ON, AlertSignalPresence.OFF)
                   }
         for a in localAlertSignalDescriptors:
-            tr_item = transaction.getStateTransactionItem(a.handle)
+            tr_item = transaction.get_state_transaction_item(a.handle)
             if tr_item is None:
                 isDelegated = a.Manifestation in active_delegate_manifestations  # is this local signal delegated?
                 activation, presence = lookup[(changedAlertCondition.Presence, isDelegated)]
@@ -210,7 +210,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                     alertSignalState.Presence = presence
                 else:
                     # don't change
-                    transaction.ungetState(alertSignalState)
+                    transaction.unget_state(alertSignalState)
 
     def _setUpperLimit(self, operationDescriptorContainer, value):
         ''' set upper limit of an LimitAlertConditionStateContainer'''
@@ -297,7 +297,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                             ss.ActivationState = AlertActivation.ON
                             self._pauseFallbackAlertSignals(sd, signalDescriptors, mgr)
                         else:
-                            mgr.ungetState(ss)
+                            mgr.unget_state(ss)
 
     def _pauseFallbackAlertSignals(self, delegableSignalDescriptor, allSignalDescriptors, transaction):
         if allSignalDescriptors is None:
@@ -311,7 +311,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             if ss_fallback.ActivationState != AlertActivation.PAUSED:
                 ss_fallback.ActivationState = AlertActivation.PAUSED
             else:
-                transaction.ungetState(ss_fallback)
+                transaction.unget_state(ss_fallback)
 
     def _activateFallbackAlertSignals(self, delegableSignalDescriptor, allSignalDescriptors, transaction):
         if allSignalDescriptors is None:
@@ -325,7 +325,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             if ss_fallback.ActivationState == AlertActivation.PAUSED:
                 ss_fallback.ActivationState = AlertActivation.ON
             else:
-                transaction.ungetState(ss_fallback)
+                transaction.unget_state(ss_fallback)
 
     def _activateAlertSystem(self, operationDescriptorContainer, _):
         self._setAlertSystemActivationState(operationDescriptorContainer.operationTarget, AlertActivation.ON)
@@ -467,5 +467,5 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                             ss.ActivationState = AlertActivation.OFF
                             self._activateFallbackAlertSignals(signalDescr, allSignalDescriptors, mgr)
                         else:
-                            mgr.ungetState(ss)
+                            mgr.unget_state(ss)
                 self._lastActivateAllDelegableAlerts = 0

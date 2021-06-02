@@ -20,7 +20,7 @@ ca_folder = os.getenv('ref_ca')  # or None
 My_UUID_str = '12345678-6f55-11ea-9697-123456789abc'
 
 # these variables define how the device is published on the network:
-adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
+adapter_ip = os.getenv('ref_ip') or '192.168.30.103' #'127.0.0.1'
 ref_fac = os.getenv('ref_fac') or 'r_fac'
 ref_poc = os.getenv('ref_poc') or 'r_poc'
 ref_bed = os.getenv('ref_bed') or 'r_bed'
@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     validators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extensionString='System')]
     sdcDevice.setLocation(loc, validators)
-    patientDescriptorHandle = my_mdib.descriptions.nodeName.get(domTag('PatientContext'))[0].handle
+    patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get(domTag('PatientContextDescriptor'))[0].handle
     with my_mdib.mdibUpdateTransaction() as mgr:
         patientContainer = mgr.getContextState(patientDescriptorHandle)
         patientContainer.Givenname = "Given"

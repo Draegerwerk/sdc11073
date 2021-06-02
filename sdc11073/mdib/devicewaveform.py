@@ -121,7 +121,7 @@ class DefaultWaveformSource(AbstractWaveformSource):
         """ update all realtime sample states that have a waveform generator registered.
         On transaction commit the mdib will call the corresponding send method of the sdc device."""
         for descriptor_handle in self._waveform_generators.keys():
-            st = transaction.getRealTimeSampleArrayMetricState(descriptor_handle)
+            st = transaction.get_real_time_sample_array_metric_state(descriptor_handle)
             self._update_rt_samples(st)
         self._add_all_annotations()
 
@@ -136,7 +136,7 @@ class DefaultWaveformSource(AbstractWaveformSource):
         if descriptor_container.SamplePeriod != sample_period:
             # we must inform subscribers
             with mdib.mdibUpdateTransaction() as tr:
-                descr = tr.getDescriptor(descriptor_handle)
+                descr = tr.get_descriptor(descriptor_handle)
                 descr.SamplePeriod = sample_period
         if descriptor_handle in self._waveform_generators:
             self._waveform_generators[descriptor_handle].setWfGenerator(wf_generator)

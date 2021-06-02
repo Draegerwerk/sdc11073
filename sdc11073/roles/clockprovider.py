@@ -98,7 +98,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             state = mgr.get_state(operationTargetHandle)
             if state.NODETYPE == namespaces.domTag('MdsState'):
                 mdsHandle = state.descriptorHandle
-                mgr.ungetState(state)
+                mgr.unget_state(state)
                 # look for the ClockState child
                 clockDescriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'),[])
                 clockDescriptors = [ c for c in clockDescriptors if c.parentHandle == mdsHandle]
@@ -123,7 +123,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             state = mgr.get_state(operationTargetHandle)
             if state.NODETYPE == namespaces.domTag('MdsState'):
                 mdsHandle = state.descriptorHandle
-                mgr.ungetState(state)
+                mgr.unget_state(state)
                 # look for the ClockState child
                 clockDescriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'),[])
                 clockDescriptors = [ c for c in clockDescriptors if c.parentHandle == mdsHandle]

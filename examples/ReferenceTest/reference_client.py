@@ -10,12 +10,12 @@ from concurrent import futures
 from sdc11073.certloader import mk_ssl_context_from_folder
 
 
-adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
+adapter_ip = os.getenv('ref_ip') or '192.168.30.103' #'127.0.0.1'
 ca_folder = os.getenv('ref_ca')
 ssl_passwd = os.getenv('ref_ssl_passwd') or None
-search_epr = os.getenv('ref_search_epr')  or 'abc' # abc is fixed ending in reference_device uuid.
+search_epr = os.getenv('ref_search_epr') or '1111' #'abc' # abc is fixed ending in reference_device uuid.
 
-
+ssl_passwd = 'dummypass'
 def run_ref_test():
     results = []
     print('Test step 1: discover device which endpoint ends with "{}"'.format(search_epr))
@@ -102,7 +102,7 @@ def run_ref_test():
 
     sleep_timer = 20
     min_updates = sleep_timer // 5 - 1
-    print('will wait for {} seconds now, expecting at least {} updates per handle'.format(sleep_timer, metric_updates))
+    print('will wait for {} seconds now, expecting at least {} updates per handle'.format(sleep_timer, min_updates))
     time.sleep(sleep_timer)
     print(metric_updates)
     print(alert_updates)

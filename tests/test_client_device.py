@@ -1024,7 +1024,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(sdcClient, 'descriptionModificationReport')  # wait for the next DescriptionModificationReport
             newDeterminationPeriod = 3.14159
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                descr = mgr.getDescriptor(descriptorHandle)
+                descr = mgr.get_descriptor(descriptorHandle)
                 descr.DeterminationPeriod = newDeterminationPeriod
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             deviceMdib = sdcDevice.mdib
@@ -1058,7 +1058,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 newDescriptorContainer.Type = pmtypes.CodedValue('12345')
                 newDescriptorContainer.Unit = pmtypes.CodedValue('hector')
                 newDescriptorContainer.Resolution = 0.42
-                mgr.createDescriptor(newDescriptorContainer)
+                mgr.add_descriptor(newDescriptorContainer)
             coll.result(timeout=NOTIFICATION_TIMEOUT)  # long timeout, sometimes high load on jenkins makes these tests fail
             cl_descriptorContainer = clientMdib.descriptions.handle.getOne(new_handle, allowNone=True)
             self.assertEqual(cl_descriptorContainer.handle, new_handle) 
@@ -1066,7 +1066,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             #test deleting a descriptor
             coll = observableproperties.SingleValueCollector(sdcClient, 'descriptionModificationReport')  # wait for the next DescriptionModificationReport
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                mgr.removeDescriptor(new_handle)
+                mgr.remove_descriptor(new_handle)
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             cl_descriptorContainer = clientMdib.descriptions.handle.getOne(new_handle, allowNone=True)
             self.assertIsNone(cl_descriptorContainer) 
@@ -1085,8 +1085,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         coll = observableproperties.SingleValueCollector(sdcClient, 'descriptionModificationReport')
         # update descriptors
         with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-            alertDescriptor = mgr.getDescriptor(alertDescriptorHandle)
-            limitAlertDescriptor = mgr.getDescriptor(limitAlertDescriptorHandle)
+            alertDescriptor = mgr.get_descriptor(alertDescriptorHandle)
+            limitAlertDescriptor = mgr.get_descriptor(limitAlertDescriptorHandle)
 
             # update descriptors
             alertDescriptor.SafetyClassification = pmtypes.SafetyClassification.MED_C
@@ -1137,7 +1137,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 # set Metadata
                 mdsDescriptorHandle = sdcDevice.mdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor')).handle
-                mdsDescriptor = mgr.getDescriptor(mdsDescriptorHandle)
+                mdsDescriptor = mgr.get_descriptor(mdsDescriptorHandle)
                 mdsDescriptor.MetaData.Manufacturer.append(pmtypes.LocalizedText(u'Draeger GmbH'))
                 mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(u'pySDC'))
                 mdsDescriptor.MetaData.SerialNumber.append('pmDCBA-4321')
@@ -1166,7 +1166,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(sdcClient, 'descriptionModificationReport')
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 mdsDescriptor = sdcDevice.mdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
-                mgr.removeDescriptor(mdsDescriptor.handle)
+                mgr.remove_descriptor(mdsDescriptor.handle)
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             #verify that all state versions were saved
             descr_handles_lookup1 = copy.copy(sdcDevice.mdib.descriptions.handle_version_lookup)
@@ -1256,7 +1256,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(clientMdib, 'updatedDescriptorByHandle')
             descriptorHandle = '0x34F00100'
             with sdcDevice.mdib.mdibUpdateTransaction(setDeterminationTime=False) as mgr:
-                descr = mgr.getDescriptor(descriptorHandle)
+                descr = mgr.get_descriptor(descriptorHandle)
                 descr.DeterminationPeriod = 42
             data = coll.result(timeout=NOTIFICATION_TIMEOUT)
             self.assertTrue(descriptorHandle in data.keys())

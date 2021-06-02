@@ -79,7 +79,7 @@ class _RtDataMdibUpdateTransaction(_TransactionBase):
         super().__init__(device_mdib_container)
 
     @tr_method_wrapper
-    def getRealTimeSampleArrayMetricState(self, descriptorHandle):
+    def get_real_time_sample_array_metric_state(self, descriptorHandle):
         # for performance reasons, this method does not return a copy of the original object.
         # This means no rollback possible.
         if descriptorHandle in self.rtSampleStateUpdates:
@@ -105,7 +105,7 @@ class _MdibUpdateTransaction(_TransactionBase):
         super().__init__(device_mdib_container)
 
     @tr_method_wrapper
-    def addDescriptor(self, descriptorContainer, adjustDescriptorVersion=True):
+    def add_descriptor(self, descriptorContainer, adjustDescriptorVersion=True):
         """
         :param descriptorContainer: the object that shall be added to mdib
         :param adjustDescriptorVersion: if True, and a descriptor with this handle does not exist, but was already present in this mdib before,
@@ -121,17 +121,17 @@ class _MdibUpdateTransaction(_TransactionBase):
             raise ValueError('cannot create descriptorHandle {}, it already exists!'.format(descriptorHandle))
         self.descriptorUpdates[descriptorHandle] = _TrItem(None, descriptorContainer)
 
-    createDescriptor = addDescriptor
+    createDescriptor = add_descriptor
 
     @tr_method_wrapper
-    def removeDescriptor(self, descriptorHandle):
+    def remove_descriptor(self, descriptorHandle):
         if descriptorHandle in self.descriptorUpdates:
             raise ValueError('descriptorHandle {} already in updated set!'.format(descriptorHandle))
         origDescriptorContainer = self._deviceMdibContainer.descriptions.handle.getOne(descriptorHandle)
         self.descriptorUpdates[descriptorHandle] = _TrItem(origDescriptorContainer, None)
 
     @tr_method_wrapper
-    def getDescriptor(self, descriptorHandle):
+    def get_descriptor(self, descriptorHandle):
         """ Update a descriptor.
         When the transaction is committed, the modifications to the copy will be applied to the original version,
         and notification messages will be sent to clients.
@@ -144,12 +144,13 @@ class _MdibUpdateTransaction(_TransactionBase):
         descriptorContainer.incrementDescriptorVersion()
         self.descriptorUpdates[descriptorHandle] = _TrItem(origDescriptorContainer, descriptorContainer)
         return descriptorContainer
+    # getDescriptor = get_descriptor
 
-    def hasState(self, descriptorHandle):
+    def has_state(self, descriptorHandle):
         """ check if transaction has a state with given handle """
-        return self.getStateTransactionItem(descriptorHandle) is not None
+        return self.get_state_transaction_item(descriptorHandle) is not None
 
-    def getStateTransactionItem(self, descriptorHandle):
+    def get_state_transaction_item(self, descriptorHandle):
         """ if transaction has a state with given handle, return the transaction-item, otherwise None.  """
         for lookup in (self.metricStateUpdates,
                        self.alertStateUpdates,
@@ -193,7 +194,7 @@ class _MdibUpdateTransaction(_TransactionBase):
             my_multi_key.setVersion(stateContainer)
         my_updates[descriptorHandle] = _TrItem(None, stateContainer) # old, new
 
-    def ungetState(self, stateContainer):
+    def unget_state(self, stateContainer):
         """ forget a state that was provided before by a getXXXState call"""
         for lookup in (self.alertStateUpdates, self.componentStateUpdates, self.contextStateUpdates,
                        self.metricStateUpdates, self.operationalStateUpdates, self.rtSampleStateUpdates):
@@ -204,9 +205,9 @@ class _MdibUpdateTransaction(_TransactionBase):
     def get_state(self, descriptorHandle, handle=None, adjustStateVersion=True):
         descriptor_container = self._deviceMdibContainer.descriptions.handle.getOne(descriptorHandle)
         if descriptor_container.isContextDescriptor:
-            return self._getContextState(descriptorHandle, handle, adjustStateVersion)
+            return self._get_context_state(descriptorHandle, handle, adjustStateVersion)
         if descriptor_container.isRealtimeSampleArrayMetricDescriptor:
-            return self._getRealTimeSampleArrayMetricState(descriptorHandle)
+            return self._get_real_time_sample_array_metric_state(descriptorHandle)
 
         if descriptor_container.isMetricDescriptor:
             updates = self.metricStateUpdates
@@ -224,8 +225,7 @@ class _MdibUpdateTransaction(_TransactionBase):
         updates[descriptorHandle] = _TrItem(old_state, new_state)
         return new_state
 
-    # @tr_method_wrapper
-    def _getContextState(self, descriptorHandle, contextStateHandle=None, adjustStateVersion=True):
+    def _get_context_state(self, descriptorHandle, contextStateHandle=None, adjustStateVersion=True):
         """ Create or Update a ContextState.
         If contextStateHandle is None, a new Context State will be created and returned.
         Otherwise an the existing contextState with that handle will be returned or a new one created.
@@ -262,24 +262,7 @@ class _MdibUpdateTransaction(_TransactionBase):
         self.contextStateUpdates[lookup_key] = _TrItem(oldStateContainer, newStateContainer)
         return newStateContainer
 
-    @tr_method_wrapper
-    def addContextState(self, contextStateContainer, adjustStateVersion=True):
-        """ Add a new ContextState.
-        :param contextStateContainer: a ContextStateContainer instance
-        :param adjustStateVersion: if True, and a state with this handle does not exist,
-          but was already present in this mdib before,
-          the StateVersion of descriptorContainer is set to last known version for this handle +1
-        """
-        lookup_key = (contextStateContainer.descriptorHandle, contextStateContainer.Handle)
-        if lookup_key in self.contextStateUpdates:
-            raise ValueError('descriptorHandle {} already in updated set!'.format(lookup_key))
-        if adjustStateVersion:
-            self._deviceMdibContainer.contextStates.setVersion(contextStateContainer)
-        self.contextStateUpdates[lookup_key] = _TrItem(None, contextStateContainer)
-
-
-    # @tr_method_wrapper
-    def _getRealTimeSampleArrayMetricState(self, descriptorHandle):
+    def _get_real_time_sample_array_metric_state(self, descriptorHandle):
         if descriptorHandle in self.rtSampleStateUpdates:
             raise ValueError('descriptorHandle {} already in updated set!'.format(descriptorHandle))
         state_container = self._deviceMdibContainer.states.descriptorHandle.getOne(descriptorHandle, allowNone=True)
@@ -713,7 +696,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         cls = self.getDescriptorContainerClass(qNameTag)
         obj = self._createDescriptorContainer(cls, handle, parentHandle, codedValue, safetyClassification)
         if self._current_transaction is not None:
-            self._current_transaction.createDescriptor(obj)
+            self._current_transaction.add_descriptor(obj)
         else:
             self.descriptions.addObject(obj)
         return obj
@@ -733,7 +716,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         cls = self.getDescriptorContainerClass(qNameTag)
         obj = self._createDescriptorContainer(cls, handle, parentHandle, codedValue, safetyClassification)
         if self._current_transaction is not None:
-            self._current_transaction.createDescriptor(obj)
+            self._current_transaction.add_descriptor(obj)
         else:
             self.descriptions.addObject(obj)
         return obj
@@ -762,7 +745,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         obj.MetricAvailability = metricAvailability
         obj.MetricCategory = metricCategory
         if self._current_transaction is not None:
-            self._current_transaction.createDescriptor(obj)
+            self._current_transaction.add_descriptor(obj)
         else:
             self.descriptions.addObject(obj)
         return obj
@@ -795,7 +778,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         obj.MetricCategory = metricCategory
         obj.AllowedValue = allowedValues
         if self._current_transaction is not None:
-            self._current_transaction.createDescriptor(obj)
+            self._current_transaction.add_descriptor(obj)
         else:
             self.descriptions.addObject(obj)
         return obj
@@ -814,7 +797,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         cls = self.getDescriptorContainerClass(domTag('ClockDescriptor'))
         obj = self._createDescriptorContainer(cls, handle, parentHandle, codedValue, safetyClassification)
         if self._current_transaction is not None:
-            self._current_transaction.createDescriptor(obj)
+            self._current_transaction.add_descriptor(obj)
         else:
             self.descriptions.addObject(obj)
         return obj
@@ -853,7 +836,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         descriptorContainers = self._msg_reader.readMdDescription(mdsNode, self)
         if self._current_transaction is not None:
             for descr in descriptorContainers:
-                self._current_transaction.createDescriptor(descr)
+                self._current_transaction.add_descriptor(descr)
         else:
             for descr in descriptorContainers:
                 self.descriptions.addObject(descr)

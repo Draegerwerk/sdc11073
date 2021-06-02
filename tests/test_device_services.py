@@ -119,7 +119,7 @@ class TestDeviceServices(unittest.TestCase):
             getService = sdcDevice._handler._GetDispatcher
             endpoint_reference = '123'
             with sdcDevice.mdib.mdibUpdateTransaction() as tr:
-                alarmConditionDescriptor = tr.getDescriptor('0xD3C00109')
+                alarmConditionDescriptor = tr.get_descriptor('0xD3C00109')
                 alarmConditionDescriptor.Priority = AlertConditionPriority.LOW
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdDescription', endpoint_reference)
             receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())

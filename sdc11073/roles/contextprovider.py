@@ -46,7 +46,6 @@ class GenericContextProvider(providerbase.ProviderRole):
                     proposed_st.ContextAssociation = ContextAssociation.ASSOCIATED
                     proposed_st.updateNode()
                     self._logger.info('new {}, handle={}', proposed_st.NODETYPE.localname, proposed_st.Handle)
-                    #tr.addContextState(proposed_st)
                     tr.add_state(proposed_st)
 
                     # find all associated context states, disassociate them, set unbinding info, and add them to updates

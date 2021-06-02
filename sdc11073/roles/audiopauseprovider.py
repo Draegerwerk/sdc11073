@@ -88,13 +88,13 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                 alertSystemState = tr.get_state(alertSystemDescriptor.handle)
                 if alertSystemState.ActivationState != pmtypes.AlertActivation.ON:
                     self._logger.info('SDC_SetAudioPauseOperation: nothing to do')
-                    tr.ungetState(alertSystemState)
+                    tr.unget_state(alertSystemState)
                 else:
                     audible_signals = [ ssa for ssa in alertSystemState.SystemSignalActivation if ssa.Manifestation == pmtypes.AlertSignalManifestation.AUD]
                     active_audible_signals = [ ssa for ssa in audible_signals if ssa.State != pmtypes.AlertActivation.PAUSED]
                     if not active_audible_signals:
                         # Alert System has no audible SystemSignalActivations, no action required
-                        tr.ungetState(alertSystemState)
+                        tr.unget_state(alertSystemState)
                     else:
                         for ssa in active_audible_signals:
                             ssa.State = pmtypes.AlertActivation.PAUSED # SF1132
@@ -112,14 +112,14 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                                     alertSignalState.ActivationState = pmtypes.AlertActivation.PAUSED
                                     alertSignalState.Presence = pmtypes.AlertSignalPresence.ACK
                                 else:
-                                    tr.ungetState(alertSignalState)
+                                    tr.unget_state(alertSignalState)
                             else: #SF958
                                 if alertSignalState.ActivationState != pmtypes.AlertActivation.PAUSED \
                                     or alertSignalState.Presence != pmtypes.AlertSignalPresence.OFF:
                                     alertSignalState.ActivationState = pmtypes.AlertActivation.PAUSED
                                     alertSignalState.Presence = pmtypes.AlertSignalPresence.OFF
                                 else:
-                                    tr.ungetState(alertSignalState)
+                                    tr.unget_state(alertSignalState)
 
 
     def _cancelGlobalAudioPause(self, operationInstance, request): #pylint: disable=unused-argument
@@ -133,12 +133,12 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                 alertSystemState = tr.get_state(alertSystemDescriptor.handle)
                 if alertSystemState.ActivationState != pmtypes.AlertActivation.ON:
                     self._logger.info('SDC_CancelAudioPauseOperation: nothing to do')
-                    tr.ungetState(alertSystemState)
+                    tr.unget_state(alertSystemState)
                 else:
                     audible_signals = [ ssa for ssa in alertSystemState.SystemSignalActivation if ssa.Manifestation == pmtypes.AlertSignalManifestation.AUD]
                     paused_audible_signals = [ ssa for ssa in audible_signals if ssa.State == pmtypes.AlertActivation.PAUSED]
                     if not paused_audible_signals:
-                        tr.ungetState(alertSystemState)
+                        tr.unget_state(alertSystemState)
                     else:
                         for ssa in paused_audible_signals:
                             ssa.State = pmtypes.AlertActivation.ON
@@ -157,4 +157,4 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                                     alertSignalState.ActivationState = pmtypes.AlertActivation.ON
                                     alertSignalState.Presence = pmtypes.AlertSignalPresence.ON
                                 else:
-                                    tr.ungetState(alertSignalState)
+                                    tr.unget_state(alertSignalState)

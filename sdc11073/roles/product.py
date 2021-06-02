@@ -210,7 +210,7 @@ class BaseProduct(object):
                 # new descriptor
                 state_cls = mdib.getStateClsForDescriptor(tr_item.new)
                 if not state_cls.isMultiState:
-                    if not transaction.hasState(tr_item.new.handle):
+                    if not transaction.has_state(tr_item.new.handle):
                         st = state_cls(mdib.nsmapper, tr_item.new)
                         st.updateNode()
                         transaction.add_state(st)

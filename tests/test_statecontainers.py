@@ -372,8 +372,8 @@ class TestStateContainers(unittest.TestCase):
     def test_SetStringOperationStateContainer_Final(self):
         sc = statecontainers.SetStringOperationStateContainer(nsmapper=self.nsmapper,
                                                               descriptorContainer=self.dc)
-        # verify that initial pyValue is an empty list, and that no AllowedValues node is created
-        self.assertEqual(sc.AllowedValues, [])
+        # verify that initial pyValue is empty, and that no AllowedValues node is created
+        self.assertEqual(sc.AllowedValues.Value, [])
         node = sc.mkStateNode(_my_tag)
         allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
         self.assertEqual(len(allowedValuesNodes), 0)
@@ -381,16 +381,16 @@ class TestStateContainers(unittest.TestCase):
         sc2 = statecontainers.SetStringOperationStateContainer(nsmapper=self.nsmapper,
                                                                descriptorContainer=self.dc)
         sc2.update_from_other_container(sc)
-        self.assertEqual(sc2.AllowedValues, [])
+        self.assertEqual(sc2.AllowedValues.Value, [])
 
         # verify that setting to None is identical to empty list
-        sc.AllowedValues = None
+        sc.AllowedValues.Value = []
         node = sc.mkStateNode(_my_tag)
         allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
         self.assertEqual(len(allowedValuesNodes), 0)
 
         # verify that non-empty list creates values in xml and that same list appears in container created from that xml
-        sc.AllowedValues = ['a', 'b', 'c']
+        sc.AllowedValues.Value = ['a', 'b', 'c']
         node = sc.mkStateNode(_my_tag)
         allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
         self.assertEqual(len(allowedValuesNodes), 1)
@@ -399,16 +399,16 @@ class TestStateContainers(unittest.TestCase):
         sc2 = statecontainers.SetStringOperationStateContainer(nsmapper=self.nsmapper,
                                                                descriptorContainer=self.dc)
         sc2.update_from_other_container(sc)
-        self.assertEqual(sc2.AllowedValues, ['a', 'b', 'c'])
+        self.assertEqual(sc2.AllowedValues.Value, ['a', 'b', 'c'])
 
         # verify that setting it back to None clears all data
-        sc.AllowedValues = None
+        sc.AllowedValues.Value = None
         node = sc.mkStateNode(_my_tag)
         allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
         self.assertEqual(len(allowedValuesNodes), 0)
         sc2 = statecontainers.SetStringOperationStateContainer(nsmapper=self.nsmapper,
                                                                descriptorContainer=self.dc)
-        self.assertEqual(sc2.AllowedValues, [])
+        self.assertEqual(sc2.AllowedValues.Value, [])
 
     def test_AbstractMultiStateContainer(self):
         pass

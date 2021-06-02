@@ -47,7 +47,7 @@ class _PropertyBase(object):
             self._subElementNames = subElementNames
         if len(self._subElementNames) > 1:
             print(f'will ich nicht! in {self.__class__.__name__}: {[e.localname for e in self._subElementNames]}')
-            # raise RuntimeError(f'will ich nicht! {self._subElementNames}')
+            #raise RuntimeError(f'will ich nicht! {self._subElementNames}')
         if subElementNames is not None:
             localVarName = '_' + '_'.join([s.localname.lower() for s in subElementNames])
         else:
@@ -226,7 +226,7 @@ class EnumAttributeProperty(NodeAttributeProperty):
             elif pyValue is not None and not isinstance(pyValue, self.enum_cls):
                 raise ValueError(f'value {pyValue} is not of type {self.enum_cls}')
         super().__set__(instance, pyValue)
-        setattr(instance, self._localVarName, pyValue)
+        #setattr(instance, self._localVarName, pyValue)
 
     def getPyValueFromNode(self, node):
         value = self._defaultPyValue
@@ -617,7 +617,10 @@ class SubElementProperty(_PropertyBase):
             parentElement.append(pyValue.asEtreeNode(self._subElementNames[-1], parentElement.nsmap))
 
 
-class SubElementListProperty(_ListPropertyBase):
+class _ElementListProperty(_ListPropertyBase):
+    pass
+
+class SubElementListProperty(_ElementListProperty):
     """ a list of values that have an "asEtreeNode" method. Used if maxOccurs="Unbounded" in BICEPS_ParticipantModel"""
 
     def __init__(self, subElementNames, cls):
@@ -664,7 +667,7 @@ class SubElementListProperty(_ListPropertyBase):
             return '{} datatype {}'.format(self.__class__.__name__, self._cls.__name__)
 
 
-class SubElementTextListProperty(_ListPropertyBase):
+class SubElementTextListProperty(_ElementListProperty):
     """ represents a list of strings."""
 
     def __init__(self, subElementNames, noEmptySubNode=True):
@@ -724,6 +727,37 @@ class SubElementTextListProperty(_ListPropertyBase):
             return '{} in subelement {}'.format(self.__class__.__name__, path_string)
         else:
             return '{}'.format(self.__class__.__name__)
+
+
+class SubElementWithSubElementListProperty(SubElementProperty):
+    """This Represents an Element that is optional and only present if its value class is not empty.
+    valueClass must have an is_empty method
+    """
+    def __init__(self, subElementNames, defaultPyValue, valueClass):
+        assert hasattr(valueClass, 'is_empty')
+        super().__init__(subElementNames,
+                         defaultPyValue=defaultPyValue,
+                         valueClass=valueClass)
+
+    def updateXMLValue(self, instance, node):
+        try:
+            pyValue = getattr(instance, self._localVarName)
+        except AttributeError:
+            pyValue = self._defaultPyValue
+
+        if pyValue is None or pyValue.is_empty():
+            return
+        else:
+            parentElement = self._getElementbyChildNamesList(node, self._subElementNames[:-1], createMissingNodes=True)
+            self.rmLastSubElement(node)
+            parentElement.append(pyValue.asEtreeNode(self._subElementNames[-1], parentElement.nsmap))
+
+    def __set__(self, instance, pyValue):
+        _pyValue = getattr(instance, self._localVarName)
+        if isinstance(pyValue, self.valueClass):
+            super().__set__(instance, pyValue)
+        else:
+            raise RuntimeError(f'do not set {self._subElementNames[-1]} directly, use child member!')
 
 
 class DateOfBirthProperty(_PropertyBase):

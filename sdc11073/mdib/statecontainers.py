@@ -85,9 +85,19 @@ class SetValueOperationStateContainer(AbstractOperationStateContainer):
     _props = ('AllowedRange',)
 
 
+class T_AllowedValues(pmtypes.PropertyBasedPMType):
+    Value = cp.SubElementTextListProperty([domTag('Value')])
+    _props = ['Value']
+
+    def is_empty(self):
+        return self.Value is None or len(self.Value) == 0
+
+
 class SetStringOperationStateContainer(AbstractOperationStateContainer):
-    NODETYPE = domTag('SetStringOperationState')  # a QName
-    AllowedValues = cp.SubElementTextListProperty([domTag('AllowedValues'), domTag('Value')])
+    NODETYPE = domTag('SetStringOperationState')
+    AllowedValues = cp.SubElementWithSubElementListProperty([domTag('AllowedValues')],
+                                                            defaultPyValue=T_AllowedValues(),
+                                                            valueClass=T_AllowedValues)
     _props = ('AllowedValues',)
 
 
