@@ -5,8 +5,8 @@ from .definitions_base import SchemaResolverBase
 from .definitions_base import BaseDefinitions
 from .mdib import descriptorcontainers as dc_final
 from .mdib import statecontainers as sc_final
-from .transport.soap.msgfactory import SoapMessageFactory
-from .transport.soap.msgreader import MessageReader
+from .pysoap.msgfactory import SoapMessageFactory
+from .pysoap.msgreader import MessageReader
 from .sdcdevice.sdcservicesimpl import GetService, SetService, StateEventService,  ContainmentTreeService
 from .sdcdevice.sdcservicesimpl import ContextService, WaveformService, DescriptionEventService
 from .sdcdevice.localizationservice import LocalizationService

@@ -1,10 +1,10 @@
 from lxml import etree as etree_
 import weakref
 import copy
-from ...namespaces import msgTag, wseTag, QN_TYPE, DocNamespaceHelper
-from ...namespaces import Prefix_Namespace as Prefix
-from ...namespaces import nsmap, domTag
-from ... import isoduration
+from ..namespaces import msgTag, wseTag, QN_TYPE, DocNamespaceHelper
+from ..namespaces import Prefix_Namespace as Prefix
+from ..namespaces import nsmap, domTag
+from .. import isoduration
 from . import soapenvelope
 
 

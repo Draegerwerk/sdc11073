@@ -9,7 +9,7 @@ import sdc11073
 from sdc11073.sdcdevice import waveforms
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
-from sdc11073.transport.soap.msgfactory import SoapMessageFactory
+from sdc11073.pysoap.msgfactory import SoapMessageFactory
 
 mdibFolder = os.path.dirname(__file__)
 
