@@ -6,7 +6,7 @@ from ...namespaces import Prefix_Namespace as Prefix
 from ...namespaces import nsmap, domTag
 from ... import isoduration
 from . import soapenvelope
-from .safety import SafetyInfoHeader
+
 
 class SoapMessageFactory:
 
@@ -455,78 +455,8 @@ class SoapMessageFactory:
         soap_envelope = soapenvelope.Soap12Envelope(my_ns)
         action_string = self.get_action_string(port_type, method_name)
         soap_envelope.setAddress(soapenvelope.WsAddress(action=action_string, to=to))
-#        if sih is not None:
-#            soap_envelope.addHeaderObject(sih)
-
         soap_envelope.addBodyElement(body_node)
-#         soap_envelope.validateBody(self._bmmSchema)
         return soap_envelope
-
-    def _mk_optional_safetyheader(self, body_node, operation_handle):
-
-        if self._mdib_wref is not None:
-            op_descriptor = self._mdib_wref().descriptions.handle.getOne(operation_handle, allowNone=True)
-            if op_descriptor is not None and op_descriptor.SafetyReq is not None:
-                mdib_node = self._mdib_wref().reconstructMdibWithContextStates()
-                return self._mk_safetyheader(body_node, op_descriptor.SafetyReq, mdib_node)
-        return None
-
-    def _mk_safetyheader(self, body_node, t_safety_req, mdib_node):
-        dualchannel_selectors = {}
-        safetycontext_selectors = {}
-
-        if not t_safety_req.DualChannelDef:
-            self._logger.info('no DualChannel selectors specified')
-        else:
-            for sel in t_safety_req.DualChannelDef.Selector:
-                selector_id = sel.Id
-                selector_path = sel.text
-                values = body_node.xpath(selector_path, namespaces=mdib_node.nsmap)
-                if len(values) == 1:
-                    self._logger.debug('DualChannel selector "{}": value = "{}", path= "{}"',
-                                       selector_id, values[0], selector_path)
-                    dualchannel_selectors[selector_id] = str(values[0]).strip()
-                elif len(values) == 0:
-                    self._logger.error('DualChannel selector "{}": no value found! path= "{}"',
-                                       selector_id, selector_path)
-                else:
-                    self._logger.error('DualChannel selector "{}": path= "{}", multiple values found: {}',
-                                       selector_id, selector_path, values)
-
-        if not t_safety_req.SafetyContextDef:
-            self._logger.info('no Safety selectors specified')
-        else:
-            for sel in t_safety_req.SafetyContextDef.Selector:
-                selector_id = sel.Id
-                selector_path = sel.text
-                # check the selector, there is a potential problem with the starting point of the xpath search path:
-                if selector_path.startswith('//'):
-                    # double slashes means that the matching pattern can be located anywhere in the dom tree.
-                    # No problem.
-                    pass
-                elif selector_path.startswith('/'):
-                    # Problem! if the selector starts with a single slash, this is a xpath search that starts
-                    # at the document root.
-                    # But the convention is that the xpath search shall start from the top level element
-                    # (=> without the toplevel element in the path)
-                    # In order to follow this convention, remove the leading slash and start the search
-                    # relative to the lop level node.
-                    selector_path = selector_path[1:]
-                values = mdib_node.xpath(selector_path, namespaces=mdib_node.nsmap)
-                if len(values) == 1:
-                    self._logger.debug('Safety selector "{}": value = "{}"  path= "{}"',
-                                       selector_id, values[0], selector_path)
-                    safetycontext_selectors[selector_id] = str(values[0]).strip()
-                elif len(values) == 0:
-                    self._logger.error('Safety selector "{}":  no value found! path= "{}"', selector_id, selector_path)
-                else:
-                    self._logger.error('Safety selector "{}": path= "{}", multiple values found: {}',
-                                       selector_id, selector_path, values)
-
-        if dualchannel_selectors or safetycontext_selectors:
-            return SafetyInfoHeader(dualchannel_selectors, safetycontext_selectors)
-        else:
-            return None
 
     def get_action_string(self, port_type, method_name):
         actions_lookup = self._sdc_definitions.Actions

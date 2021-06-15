@@ -81,12 +81,12 @@ class AbstractOperationStateContainer(AbstractStateContainer):
 
 class SetValueOperationStateContainer(AbstractOperationStateContainer):
     NODETYPE = domTag('SetValueOperationState')  # a QName
-    AllowedRange = cp.SubElementListProperty([domTag('AllowedRange')], cls=pmtypes.Range)
+    AllowedRange = cp.SubElementListProperty(domTag('AllowedRange'), valueClass=pmtypes.Range)
     _props = ('AllowedRange',)
 
 
 class T_AllowedValues(pmtypes.PropertyBasedPMType):
-    Value = cp.SubElementTextListProperty([domTag('Value')])
+    Value = cp.SubElementTextListProperty(domTag('Value'))
     _props = ['Value']
 
     def is_empty(self):
@@ -95,7 +95,7 @@ class T_AllowedValues(pmtypes.PropertyBasedPMType):
 
 class SetStringOperationStateContainer(AbstractOperationStateContainer):
     NODETYPE = domTag('SetStringOperationState')
-    AllowedValues = cp.SubElementWithSubElementListProperty([domTag('AllowedValues')],
+    AllowedValues = cp.SubElementWithSubElementListProperty(domTag('AllowedValues'),
                                                             defaultPyValue=T_AllowedValues(),
                                                             valueClass=T_AllowedValues)
     _props = ('AllowedValues',)
@@ -152,8 +152,8 @@ class AbstractMetricStateContainer_Base(AbstractStateContainer):
 
 
 class AbstractMetricStateContainer(AbstractMetricStateContainer_Base):
-    BodySite = cp.SubElementListProperty([domTag('BodySite')], cls=pmtypes.CodedValue)
-    PhysicalConnector = cp.SubElementProperty([domTag('PhysicalConnector')],
+    BodySite = cp.SubElementListProperty(domTag('BodySite'), valueClass=pmtypes.CodedValue)
+    PhysicalConnector = cp.SubElementProperty(domTag('PhysicalConnector'),
                                               valueClass=pmtypes.PhysicalConnectorInfo, isOptional=True)
     ActivationState = cp.EnumAttributeProperty('ActivationState', impliedPyValue=pmtypes.ComponentActivation.ON,
                                                enum_cls=pmtypes.ComponentActivation)
@@ -164,29 +164,29 @@ class AbstractMetricStateContainer(AbstractMetricStateContainer_Base):
 
 class NumericMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = domTag('NumericMetricState')
-    _MetricValue = cp.SubElementProperty([domTag('MetricValue')], valueClass=pmtypes.NumericMetricValue)
-    PhysiologicalRange = cp.SubElementListProperty([domTag('PhysiologicalRange')], cls=pmtypes.Range)
+    _MetricValue = cp.SubElementProperty(domTag('MetricValue'), valueClass=pmtypes.NumericMetricValue)
+    PhysiologicalRange = cp.SubElementListProperty(domTag('PhysiologicalRange'), valueClass=pmtypes.Range)
     ActiveAveragingPeriod = cp.DurationAttributeProperty('ActiveAveragingPeriod')  # xsd:duration
     _props = ('_MetricValue', 'PhysiologicalRange', 'ActiveAveragingPeriod')
 
 
 class StringMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = domTag('StringMetricState')
-    _MetricValue = cp.SubElementProperty([domTag('MetricValue')], valueClass=pmtypes.StringMetricValue)
+    _MetricValue = cp.SubElementProperty(domTag('MetricValue'), valueClass=pmtypes.StringMetricValue)
     _props = ('_MetricValue',)
 
 
 class EnumStringMetricStateContainer(StringMetricStateContainer):
     NODETYPE = domTag('EnumStringMetricState')
-    _MetricValue = cp.SubElementProperty([domTag('MetricValue')], valueClass=pmtypes.StringMetricValue)
+    _MetricValue = cp.SubElementProperty(domTag('MetricValue'), valueClass=pmtypes.StringMetricValue)
     _props = tuple()
 
 
 class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = domTag('RealTimeSampleArrayMetricState')
     isRealtimeSampleArrayMetricState = True
-    _MetricValue = cp.SubElementProperty([domTag('MetricValue')], valueClass=pmtypes.SampleArrayValue)
-    PhysiologicalRange = cp.SubElementListProperty([domTag('PhysiologicalRange')], cls=pmtypes.Range)
+    _MetricValue = cp.SubElementProperty(domTag('MetricValue'), valueClass=pmtypes.SampleArrayValue)
+    PhysiologicalRange = cp.SubElementListProperty(domTag('PhysiologicalRange'), valueClass=pmtypes.Range)
     _props = ('_MetricValue', 'PhysiologicalRange')
     MetricValue = _MetricValue
 
@@ -201,16 +201,16 @@ class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
 
 class DistributionSampleArrayMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = domTag('DistributionSampleArrayMetricState')
-    _MetricValue = cp.SubElementProperty([domTag('MetricValue')], valueClass=pmtypes.SampleArrayValue)
-    PhysiologicalRange = cp.SubElementListProperty([domTag('PhysiologicalRange')], cls=pmtypes.Range)
+    _MetricValue = cp.SubElementProperty(domTag('MetricValue'), valueClass=pmtypes.SampleArrayValue)
+    PhysiologicalRange = cp.SubElementListProperty(domTag('PhysiologicalRange'), valueClass=pmtypes.Range)
     _props = ('_MetricValue', 'PhysiologicalRange')
 
 
 class AbstractDeviceComponentStateContainer(AbstractStateContainer):
     isComponentState = True
-    CalibrationInfo = cp.NotImplementedProperty('CalibrationInfo', None)  # optional, CalibrationInfo type
-    NextCalibration = cp.NotImplementedProperty('NextCalibration', None)  # optional, CalibrationInfo type
-    PhysicalConnector = cp.SubElementProperty([domTag('PhysicalConnector')],
+    CalibrationInfo = cp.NotImplementedProperty('CalibrationInfo')  # optional, CalibrationInfo type
+    NextCalibration = cp.NotImplementedProperty('NextCalibration')  # optional, CalibrationInfo type
+    PhysicalConnector = cp.SubElementProperty(domTag('PhysicalConnector'),
                                               valueClass=pmtypes.PhysicalConnectorInfo)  # optional
 
     ActivationState = cp.EnumAttributeProperty('ActivationState', enum_cls=pmtypes.ComponentActivation)
@@ -236,7 +236,7 @@ class MdsStateContainer(AbstractComplexDeviceComponentStateContainer):
 
 class ScoStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = domTag('ScoState')
-    OperationGroup = cp.SubElementListProperty([domTag('OperationGroup')], cls=pmtypes.OperationGroup)
+    OperationGroup = cp.SubElementListProperty(domTag('OperationGroup'), valueClass=pmtypes.OperationGroup)
     InvocationRequested = cp.OperationRefListAttributeProperty('InvocationRequested')
     InvocationRequired = cp.OperationRefListAttributeProperty('InvocationRequired')
     _props = ('OperationGroup', 'InvocationRequested', 'InvocationRequired')
@@ -254,8 +254,8 @@ class ChannelStateContainer(AbstractDeviceComponentStateContainer):
 
 class ClockStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = domTag('ClockState')
-    ActiveSyncProtocol = cp.SubElementProperty([domTag('ActiveSyncProtocol')], valueClass=pmtypes.CodedValue)
-    ReferenceSource = cp.SubElementListProperty([domTag('ReferenceSource')], cls=pmtypes.ElementWithTextOnly)
+    ActiveSyncProtocol = cp.SubElementProperty(domTag('ActiveSyncProtocol'), valueClass=pmtypes.CodedValue)
+    ReferenceSource = cp.SubElementListProperty(domTag('ReferenceSource'), valueClass=pmtypes.ElementWithTextOnly)
     DateAndTime = cp.CurrentTimestampAttributeProperty('DateAndTime')
     RemoteSync = cp.BooleanAttributeProperty('RemoteSync', defaultPyValue=True, isOptional=False)
     Accuracy = cp.DecimalAttributeProperty('Accuracy')
@@ -279,13 +279,13 @@ class BatteryStateContainer(AbstractDeviceComponentStateContainer):
         EMPTY = 'DEB'
 
     NODETYPE = domTag('BatteryState')
-    CapacityRemaining = cp.SubElementProperty([domTag('CapacityRemaining')],
+    CapacityRemaining = cp.SubElementProperty(domTag('CapacityRemaining'),
                                               valueClass=pmtypes.Measurement,
                                               isOptional=True)
-    Voltage = cp.SubElementProperty([domTag('Voltage')], valueClass=pmtypes.Measurement, isOptional=True)
-    Current = cp.SubElementProperty([domTag('Current')], valueClass=pmtypes.Measurement, isOptional=True)
-    Temperature = cp.SubElementProperty([domTag('Temperature')], valueClass=pmtypes.Measurement, isOptional=True)
-    RemainingBatteryTime = cp.SubElementProperty([domTag('RemainingBatteryTime')],
+    Voltage = cp.SubElementProperty(domTag('Voltage'), valueClass=pmtypes.Measurement, isOptional=True)
+    Current = cp.SubElementProperty(domTag('Current'), valueClass=pmtypes.Measurement, isOptional=True)
+    Temperature = cp.SubElementProperty(domTag('Temperature'), valueClass=pmtypes.Measurement, isOptional=True)
+    RemainingBatteryTime = cp.SubElementProperty(domTag('RemainingBatteryTime'),
                                                  valueClass=pmtypes.Measurement,
                                                  isOptional=True)
     ChargeStatus = cp.EnumAttributeProperty('ChargeStatus', enum_cls=T_ChargeStatus)
@@ -305,8 +305,8 @@ class AbstractAlertStateContainer(AbstractStateContainer):
 
 class AlertSystemStateContainer(AbstractAlertStateContainer):
     NODETYPE = domTag('AlertSystemState')
-    SystemSignalActivation = cp.SubElementListProperty([domTag('SystemSignalActivation')],
-                                                       cls=pmtypes.SystemSignalActivation)
+    SystemSignalActivation = cp.SubElementListProperty(domTag('SystemSignalActivation'),
+                                                       valueClass=pmtypes.SystemSignalActivation)
     LastSelfCheck = cp.TimestampAttributeProperty('LastSelfCheck')
     SelfCheckCount = cp.IntegerAttributeProperty('SelfCheckCount')
     PresentPhysiologicalAlarmConditions = cp.AlertConditionRefListAttributeProperty(
@@ -353,7 +353,7 @@ class AlertConditionStateContainer(AbstractAlertStateContainer):
 
 class LimitAlertConditionStateContainer(AlertConditionStateContainer):
     NODETYPE = domTag('LimitAlertConditionState')  # a QName
-    Limits = cp.SubElementProperty([domTag('Limits')], valueClass=pmtypes.Range,
+    Limits = cp.SubElementProperty(domTag('Limits'), valueClass=pmtypes.Range,
                                    defaultPyValue=pmtypes.Range())  # required, pm:Range
     MonitoredAlertLimits = cp.EnumAttributeProperty('MonitoredAlertLimits',
                                                     defaultPyValue=pmtypes.AlertConditionMonitoredLimits.ALL_OFF,
@@ -397,8 +397,8 @@ class AbstractMultiStateContainer(AbstractStateContainer):
 
 class AbstractContextStateContainer(AbstractMultiStateContainer):
     isContextState = True
-    Validator = cp.SubElementListProperty([domTag('Validator')], cls=pmtypes.InstanceIdentifier)
-    Identification = cp.SubElementListProperty([domTag('Identification')], cls=pmtypes.InstanceIdentifier)
+    Validator = cp.SubElementListProperty(domTag('Validator'), valueClass=pmtypes.InstanceIdentifier)
+    Identification = cp.SubElementListProperty(domTag('Identification'), valueClass=pmtypes.InstanceIdentifier)
     ContextAssociation = cp.EnumAttributeProperty('ContextAssociation',
                                                   enum_cls=pmtypes.ContextAssociation,
                                                   impliedPyValue=pmtypes.ContextAssociation.NO_ASSOCIATION)
@@ -421,7 +421,7 @@ class LocationContextStateContainer(AbstractContextStateContainer):
         _props = ('PoC', 'Room', 'Bed', 'Facility', 'Building', 'Floor')
 
     NODETYPE = domTag('LocationContextState')
-    LocationDetail = cp.SubElementProperty([domTag('LocationDetail')],
+    LocationDetail = cp.SubElementProperty(domTag('LocationDetail'),
                                            valueClass=T_Location_Detail,
                                            defaultPyValue=T_Location_Detail(),
                                            isOptional=True)
@@ -456,7 +456,7 @@ class LocationContextStateContainer(AbstractContextStateContainer):
 
 class PatientContextStateContainer(AbstractContextStateContainer):
     NODETYPE = domTag('PatientContextState')
-    CoreData = cp.SubElementProperty([domTag('CoreData')],
+    CoreData = cp.SubElementProperty(domTag('CoreData'),
                                      valueClass=pmtypes.PatientDemographicsCoreData,
                                      defaultPyValue=pmtypes.PatientDemographicsCoreData(),
                                      isOptional=True)
@@ -465,13 +465,13 @@ class PatientContextStateContainer(AbstractContextStateContainer):
 
 class WorkflowContextStateContainer(AbstractContextStateContainer):
     NODETYPE = domTag('WorkflowContextState')
-    WorkflowDetail = cp.SubElementProperty([domTag('WorkflowDetail')], valueClass=pmtypes.WorkflowDetail)
+    WorkflowDetail = cp.SubElementProperty(domTag('WorkflowDetail'), valueClass=pmtypes.WorkflowDetail)
     _props = ('WorkflowDetail',)
 
 
 class OperatorContextStateContainer(AbstractContextStateContainer):
     NODETYPE = domTag('OperatorContextState')
-    OperatorDetails = cp.SubElementProperty([domTag('OperatorDetails')],
+    OperatorDetails = cp.SubElementProperty(domTag('OperatorDetails'),
                                             valueClass=pmtypes.BaseDemographics)  # optional
     _props = ('OperatorDetails',)
 

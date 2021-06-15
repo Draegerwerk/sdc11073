@@ -5,9 +5,9 @@ import inspect
 import itertools
 import enum
 from lxml import etree as etree_
-from sdc11073 import namespaces
-from .mdib import containerproperties  as cp
 from math import isclose
+from .namespaces import domTag, QN_TYPE, docNameFromQName, txt2QName
+from .mdib import containerproperties  as cp
 '''
 Interface of  pmTypes:
 
@@ -279,9 +279,9 @@ class T_Translation(PropertyBasedPMType):
 
 class CodedValue(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
-    CodingSystemName = cp.SubElementListProperty([namespaces.domTag('CodingSystemName')], cls = LocalizedText)
-    ConceptDescription = cp.SubElementListProperty([namespaces.domTag('ConceptDescription')], cls = LocalizedText)
-    Translation = cp.SubElementListProperty([namespaces.domTag('Translation')], cls = T_Translation)
+    CodingSystemName = cp.SubElementListProperty(domTag('CodingSystemName'), valueClass = LocalizedText)
+    ConceptDescription = cp.SubElementListProperty(domTag('ConceptDescription'), valueClass = LocalizedText)
+    Translation = cp.SubElementListProperty(domTag('Translation'), valueClass = T_Translation)
     Code = cp.StringAttributeProperty('Code', isOptional=False)
     CodingSystem = cp.StringAttributeProperty('CodingSystem', impliedPyValue=DefaultCodingSystem)
     CodingSystemVersion = cp.StringAttributeProperty('CodingSystemVersion')
@@ -368,7 +368,7 @@ class CodedValue(PropertyBasedPMType):
 
 class Annotation(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
-    Type = cp.SubElementProperty([namespaces.domTag('Type')], valueClass=CodedValue)
+    Type = cp.SubElementProperty(domTag('Type'), valueClass=CodedValue)
     _props = ['ext_Extension', 'Type']
     
     codedValue = Type
@@ -381,7 +381,7 @@ class Annotation(PropertyBasedPMType):
  
     @classmethod
     def fromNode(cls, node):
-        typeNode = node.find(namespaces.domTag('Type'))
+        typeNode = node.find(domTag('Type'))
         codedValue = CodedValue.fromNode(typeNode)
         return cls(codedValue)
 
@@ -394,7 +394,7 @@ class OperatingMode(StringEnum):
 
 class OperationGroup(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
-    Type = cp.SubElementProperty([namespaces.domTag('Type')], valueClass=CodedValue)
+    Type = cp.SubElementProperty(domTag('Type'), valueClass=CodedValue)
     OperatingMode = cp.EnumAttributeProperty('OperatingMode', enum_cls=OperatingMode)
     Operations = cp.OperationRefListAttributeProperty('Operations')
     _props = ['ext_Extension', 'Type', 'OperatingMode', 'Operations']
@@ -411,10 +411,10 @@ class OperationGroup(PropertyBasedPMType):
 
     @classmethod
     def fromNode(cls, node):
-        typeNode = node.find(namespaces.domTag('Type'))
+        typeNode = node.find(domTag('Type'))
         codedValue = CodedValue.fromNode(typeNode)
-        operatingMode = cls.OperatingMode.getPyValueFromNode(node)
-        operations = cls.Operations.getPyValueFromNode(node)
+        operatingMode = cls.OperatingMode.getPyValueFromNode(None, node)
+        operations = cls.Operations.getPyValueFromNode(None, node)
         ret = cls(codedValue=codedValue, operatingMode=operatingMode, operations=operations)
         ret.node = node
         return ret
@@ -423,8 +423,8 @@ class OperationGroup(PropertyBasedPMType):
 
 class InstanceIdentifier(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
-    Type = cp.SubElementProperty([namespaces.domTag('Type')], valueClass=CodedValue)
-    IdentifierName = cp.SubElementListProperty([namespaces.domTag('IdentifierName')], cls = LocalizedText)
+    Type = cp.SubElementProperty(domTag('Type'), valueClass=CodedValue)
+    IdentifierName = cp.SubElementListProperty(domTag('IdentifierName'), valueClass=LocalizedText)
     Root = cp.StringAttributeProperty('Root', defaultPyValue='biceps.uri.unk') # xsd:anyURI string, default is defined in R0135
     Extension = cp.StringAttributeProperty('Extension') # a xsd:string
     _props=('ext_Extension', 'Type', 'IdentifierName', 'Root', 'Extension')
@@ -494,7 +494,7 @@ class Range(PropertyBasedPMType):
 
 class Measurement(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
-    MeasurementUnit = cp.SubElementProperty([namespaces.domTag('MeasurementUnit')], valueClass=CodedValue) # mandatory
+    MeasurementUnit = cp.SubElementProperty(domTag('MeasurementUnit'), valueClass=CodedValue) # mandatory
     MeasuredValue = cp.DecimalAttributeProperty('MeasuredValue', isOptional=False)
     _props = ['ext_Extension', 'MeasurementUnit', 'MeasuredValue']
     
@@ -513,7 +513,7 @@ class Measurement(PropertyBasedPMType):
         if value is not None:
             value = float(value)
         unit = None
-        unitNode = node.find(namespaces.domTag('MeasurementUnit'))
+        unitNode = node.find(domTag('MeasurementUnit'))
         if unitNode is not None:
             unit = CodedValue.fromNode(unitNode)
         return cls(value, unit)
@@ -525,8 +525,8 @@ class Measurement(PropertyBasedPMType):
 
 
 class AllowedValue(PropertyBasedPMType):
-    Value = cp.NodeTextProperty([namespaces.domTag('Value')])
-    Type = cp.SubElementProperty([namespaces.domTag('Type')], valueClass=CodedValue)
+    Value = cp.NodeTextProperty(domTag('Value'))
+    Type = cp.SubElementProperty(domTag('Type'), valueClass=CodedValue)
     _props=['Value', 'Type']
     typeCoding = Type
     value = Value
@@ -543,8 +543,8 @@ class AllowedValue(PropertyBasedPMType):
 
     @classmethod
     def fromNode(cls, node):
-        valueString = node.find(namespaces.domTag('Value')).text
-        typeNode = node.find(namespaces.domTag('Type'))
+        valueString = node.find(domTag('Value')).text
+        typeNode = node.find(domTag('Type'))
         if typeNode is None:
             typeCoding = None
         else:
@@ -587,8 +587,8 @@ class AbstractMetricValue(PropertyBasedPMType):
     StartTime = cp.TimestampAttributeProperty('StartTime')
     StopTime = cp.TimestampAttributeProperty('StopTime')
     DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime')
-    MetricQuality = cp.SubElementProperty([namespaces.domTag('MetricQuality')], valueClass=T_MetricQuality)
-    Annotation = cp.SubElementListProperty([namespaces.domTag('Annotation')], Annotation)
+    MetricQuality = cp.SubElementProperty(domTag('MetricQuality'), valueClass=T_MetricQuality)
+    Annotation = cp.SubElementListProperty(domTag('Annotation'), Annotation)
     _props = ('ext_Extension', 'StartTime', 'StopTime', 'DeterminationTime', 'MetricQuality', 'Annotation')
     Annotations = Annotation  # alternative name that makes it clearer that this is a list
 
@@ -610,7 +610,7 @@ class AbstractMetricValue(PropertyBasedPMType):
 
     def asEtreeNode(self, qname, nsmap):
         node = super().asEtreeNode(qname, nsmap)
-        node.set(namespaces.QN_TYPE, namespaces.docNameFromQName(self.QType, nsmap))
+        node.set(QN_TYPE, docNameFromQName(self.QType, nsmap))
         return node
 
 
@@ -622,7 +622,7 @@ class AbstractMetricValue(PropertyBasedPMType):
 
 
 class NumericMetricValue(AbstractMetricValue):
-    QType = namespaces.domTag('NumericMetricValue')
+    QType = domTag('NumericMetricValue')
     Value = cp.DecimalAttributeProperty('Value') # an integer or float
     _props = ('Value',)    
 
@@ -665,7 +665,7 @@ class NumericMetricValue(AbstractMetricValue):
 
 
 class StringMetricValue(AbstractMetricValue):
-    QType = namespaces.domTag('StringMetricValue')
+    QType = domTag('StringMetricValue')
     Value = cp.StringAttributeProperty('Value') # a string
     _props = ('Value',)    
     
@@ -700,9 +700,9 @@ class ApplyAnnotation(PropertyBasedPMType):
 
 
 class SampleArrayValue(AbstractMetricValue):
-    QType = namespaces.domTag('SampleArrayValue')
+    QType = domTag('SampleArrayValue')
     Samples = cp.DecimalListAttributeProperty('Samples') # list of xs:decimal types 
-    ApplyAnnotation = cp.SubElementListProperty([namespaces.domTag('ApplyAnnotation')], ApplyAnnotation)
+    ApplyAnnotation = cp.SubElementListProperty(domTag('ApplyAnnotation'), ApplyAnnotation)
     ApplyAnnotations = ApplyAnnotation  # alternative name that makes it clearer that this is a list
     _props = ('Samples', 'ApplyAnnotation')
 
@@ -749,7 +749,7 @@ class RemedyInfo(PropertyBasedPMType):
          0..1 Subelement "Extension" (not handled here)
          0..n SubElements "Description" type=pm:LocalizedText."""
     ext_Extension = cp.ExtensionNodeProperty()
-    Description = cp.SubElementListProperty([namespaces.domTag('Description')], cls = LocalizedText)
+    Description = cp.SubElementListProperty(domTag('Description'), valueClass=LocalizedText)
     _props = ['ext_Extension', 'Description']
 
     def __init__(self, descriptions=None):
@@ -766,8 +766,8 @@ class CauseInfo(PropertyBasedPMType):
          0..1 Subelement "RemedyInfo", type = pm:RemedyInfo
          0..n SubElements "Description" type=pm:LocalizedText."""
     ext_Extension = cp.ExtensionNodeProperty()
-    RemedyInfo = cp.SubElementProperty([namespaces.domTag('RemedyInfo')], valueClass=RemedyInfo)
-    Description = cp.SubElementListProperty([namespaces.domTag('Description')], cls = LocalizedText)
+    RemedyInfo = cp.SubElementProperty(domTag('RemedyInfo'), valueClass=RemedyInfo)
+    Description = cp.SubElementListProperty(domTag('Description'), valueClass=LocalizedText)
     _props = ['ext_Extension', 'RemedyInfo', 'Description']
     def __init__(self, remedyInfo=None, descriptions=None):
         """
@@ -780,13 +780,13 @@ class CauseInfo(PropertyBasedPMType):
 
     @classmethod
     def fromNode(cls, node):
-        remedyInfoNode = node.find(namespaces.domTag('RemedyInfo'))
+        remedyInfoNode = node.find(domTag('RemedyInfo'))
         if remedyInfoNode is not None:
             remedyInfo = RemedyInfo.fromNode(remedyInfoNode)
         else:
             remedyInfo = None
         descriptions = []
-        descriptionNodes = node.findall(namespaces.domTag('Description'))
+        descriptionNodes = node.findall(domTag('Description'))
         for d in descriptionNodes:
             descriptions.append(LocalizedText.fromNode(d))
         return cls(remedyInfo, descriptions)    
@@ -797,8 +797,8 @@ class  ActivateOperationDescriptorArgument(PropertyBasedPMType):
     """Argument for ActivateOperationDescriptor.
          1 Subelement "ArgName", type = pm:CodedValue
          1 SubElement "Arg" type=QName."""
-    ArgName = cp.SubElementProperty([namespaces.domTag('ArgName')], valueClass=CodedValue, isOptional=False)
-    Arg = cp.NodeTextQNameProperty([namespaces.domTag('Arg')], isOptional=False)
+    ArgName = cp.SubElementProperty(domTag('ArgName'), valueClass=CodedValue, isOptional=False)
+    Arg = cp.NodeTextQNameProperty(domTag('Arg'), isOptional=False)
     _props = ['ArgName', 'Arg']
     def __init__(self, argName=None, arg=None):
         """
@@ -811,10 +811,10 @@ class  ActivateOperationDescriptorArgument(PropertyBasedPMType):
 
     @classmethod
     def fromNode(cls, node):
-        argNameNode = node.find(namespaces.domTag('ArgName'))
+        argNameNode = node.find(domTag('ArgName'))
         argName = CodedValue.fromNode(argNameNode)
-        argNode = node.find(namespaces.domTag('Arg'))
-        arg_QName = namespaces.txt2QName(argNode.text, node.nsmap)
+        argNode = node.find(domTag('Arg'))
+        arg_QName = txt2QName(argNode.text, node.nsmap)
         return cls(argName, arg_QName)    
 
 
@@ -828,7 +828,7 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
     e.g., in case of a disconnection of a sensor or an ultrasonic handpiece.
     Only in BICEPS final!"""
     ext_Extension = cp.ExtensionNodeProperty()
-    Label = cp.SubElementListProperty([namespaces.domTag('Label')], cls = LocalizedText) # A human-readable label that describes the physical connector.
+    Label = cp.SubElementListProperty(domTag('Label'), valueClass=LocalizedText) # A human-readable label that describes the physical connector.
     Number = cp.IntegerAttributeProperty('Number')# Number designates the connector number of the physical connector.
     _props = ['ext_Extension', 'Label', 'Number']
 
@@ -890,9 +890,9 @@ class SystemSignalActivation(PropertyBasedPMType):
 
 
 class ProductionSpecification(PropertyBasedPMType):
-    SpecType = cp.SubElementProperty([namespaces.domTag('SpecType')], valueClass=CodedValue)
-    ProductionSpec = cp.NodeTextProperty([namespaces.domTag('ProductionSpec')])
-    ComponentId = cp.SubElementProperty([namespaces.domTag('ComponentId')],
+    SpecType = cp.SubElementProperty(domTag('SpecType'), valueClass=CodedValue)
+    ProductionSpec = cp.NodeTextProperty(domTag('ProductionSpec'))
+    ComponentId = cp.SubElementProperty(domTag('ComponentId'),
                                         valueClass=InstanceIdentifier, isOptional=True)
     _props = ['SpecType', 'ProductionSpec', 'ComponentId']
 
@@ -914,11 +914,11 @@ class ProductionSpecification(PropertyBasedPMType):
 
 
 class BaseDemographics(PropertyBasedPMType):
-    Givenname = cp.NodeTextProperty([namespaces.domTag('Givenname')], isOptional=True)
-    Middlename = cp.SubElementTextListProperty([namespaces.domTag('Middlename')])
-    Familyname = cp.NodeTextProperty([namespaces.domTag('Familyname')], isOptional=True)
-    Birthname = cp.NodeTextProperty([namespaces.domTag('Birthname')], isOptional=True)
-    Title = cp.NodeTextProperty([namespaces.domTag('Title')], isOptional=True)
+    Givenname = cp.NodeTextProperty(domTag('Givenname'), isOptional=True)
+    Middlename = cp.SubElementTextListProperty(domTag('Middlename'))
+    Familyname = cp.NodeTextProperty(domTag('Familyname'), isOptional=True)
+    Birthname = cp.NodeTextProperty(domTag('Birthname'), isOptional=True)
+    Title = cp.NodeTextProperty(domTag('Title'), isOptional=True)
     _props = ('Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title')
 
     def __init__(self, given_name=None, middle_names=None, family_name=None, birth_name = None, title=None):
@@ -932,8 +932,8 @@ class BaseDemographics(PropertyBasedPMType):
 
 class PersonReference(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
-    Identification = cp.SubElementListProperty([namespaces.domTag('Identification')], cls=InstanceIdentifier) # 1...n
-    Name = cp.SubElementProperty([namespaces.domTag('Name')], valueClass=BaseDemographics) # optional
+    Identification = cp.SubElementListProperty(domTag('Identification'), valueClass=InstanceIdentifier) # 1...n
+    Name = cp.SubElementProperty(domTag('Name'), valueClass=BaseDemographics) # optional
     _props = ['ext_Extension', 'Identification', 'Name']
 
     def __init__(self, identifications=None, name=None):
@@ -966,8 +966,8 @@ class LocationDetail(PropertyBasedPMType):
 
 
 class LocationReference(PropertyBasedPMType): # BICEPS Final
-    Identification = cp.SubElementListProperty([namespaces.domTag('Identification')], cls=InstanceIdentifier) # 1...n
-    LocationDetail = cp.SubElementProperty([namespaces.domTag('LocationDetail')], valueClass=LocationDetail) # optional
+    Identification = cp.SubElementListProperty(domTag('Identification'), valueClass=InstanceIdentifier) # 1...n
+    LocationDetail = cp.SubElementProperty(domTag('LocationDetail'), valueClass=LocationDetail) # optional
     _props = ['Identification', 'LocationDetail']
 
     def __init__(self, identifications=None, locationdetail=None):
@@ -977,7 +977,7 @@ class LocationReference(PropertyBasedPMType): # BICEPS Final
 
 
 class PersonParticipation(PersonReference):
-    Role = cp.SubElementListProperty([namespaces.domTag('Role')], cls=CodedValue) #0...n
+    Role = cp.SubElementListProperty(domTag('Role'), valueClass=CodedValue) #0...n
     _props = ['Role',]
 
     def __init__(self, identifications=None, name=None, roles=None):
@@ -988,8 +988,8 @@ class PersonParticipation(PersonReference):
 
 class ReferenceRange(PropertyBasedPMType):
     """Representation of the normal or abnormal reference range for the measurement"""
-    Range = cp.SubElementProperty([namespaces.domTag('Range')], valueClass=Range)
-    Meaning = cp.SubElementProperty([namespaces.domTag('Meaning')], valueClass=CodedValue, isOptional=True)
+    Range = cp.SubElementProperty(domTag('Range'), valueClass=Range)
+    Meaning = cp.SubElementProperty(domTag('Meaning'), valueClass=CodedValue, isOptional=True)
     _props = ['Range', 'Meaning']
 
     def __init__(self, range, meaning=None):
@@ -1000,8 +1000,8 @@ class ReferenceRange(PropertyBasedPMType):
 
 class RelatedMeasurement(PropertyBasedPMType):
     """Related measurements for this clinical observation"""
-    Value = cp.SubElementProperty([namespaces.domTag('Value')], valueClass=Measurement)
-    ReferenceRange = cp.SubElementListProperty([namespaces.domTag('ReferenceRange')], cls=ReferenceRange)  # 0...n
+    Value = cp.SubElementProperty(domTag('Value'), valueClass=Measurement)
+    ReferenceRange = cp.SubElementListProperty(domTag('ReferenceRange'), valueClass=ReferenceRange)  # 0...n
     _props = ['Value', 'ReferenceRange']
 
     def __init__(self, value, reference_range=None):
@@ -1011,9 +1011,9 @@ class RelatedMeasurement(PropertyBasedPMType):
 
 
 class ClinicalInfo(PropertyBasedPMType):
-    Type = cp.SubElementProperty([namespaces.domTag('Type')], valueClass=CodedValue)  # optional
-    Description = cp.SubElementListProperty([namespaces.domTag('Description')], cls=LocalizedText)  # 0...n
-    RelatedMeasurement = cp.SubElementListProperty([namespaces.domTag('RelatedMeasurement')], cls=Measurement)  # 0...n
+    Type = cp.SubElementProperty(domTag('Type'), valueClass=CodedValue)  # optional
+    Description = cp.SubElementListProperty(domTag('Description'), valueClass=LocalizedText)  # 0...n
+    RelatedMeasurement = cp.SubElementListProperty(domTag('RelatedMeasurement'), valueClass=Measurement)  # 0...n
     _props = ['Type', 'Description', 'RelatedMeasurement']
 
     def __init__(self, typecode=None, descriptions=None, relatedmeasurements=None):
@@ -1030,12 +1030,12 @@ class ClinicalInfo(PropertyBasedPMType):
 
 
 class ImagingProcedure(PropertyBasedPMType):
-    AccessionIdentifier = cp.SubElementProperty([namespaces.domTag('AccessionIdentifier')], valueClass=InstanceIdentifier) # mandatory
-    RequestedProcedureId = cp.SubElementProperty([namespaces.domTag('RequestedProcedureId')], valueClass=InstanceIdentifier) # mandatory
-    StudyInstanceUid = cp.SubElementProperty([namespaces.domTag('StudyInstanceUid')], valueClass=InstanceIdentifier) # mandatory
-    ScheduledProcedureStepId = cp.SubElementProperty([namespaces.domTag('ScheduledProcedureStepId')], valueClass=InstanceIdentifier) # mandatory
-    Modality = cp.SubElementProperty([namespaces.domTag('Modality')], valueClass=CodedValue) # optional
-    ProtocolCode = cp.SubElementProperty([namespaces.domTag('ProtocolCode')], valueClass=CodedValue) # optional
+    AccessionIdentifier = cp.SubElementProperty(domTag('AccessionIdentifier'), valueClass=InstanceIdentifier) # mandatory
+    RequestedProcedureId = cp.SubElementProperty(domTag('RequestedProcedureId'), valueClass=InstanceIdentifier) # mandatory
+    StudyInstanceUid = cp.SubElementProperty(domTag('StudyInstanceUid'), valueClass=InstanceIdentifier) # mandatory
+    ScheduledProcedureStepId = cp.SubElementProperty(domTag('ScheduledProcedureStepId'), valueClass=InstanceIdentifier) # mandatory
+    Modality = cp.SubElementProperty(domTag('Modality'), valueClass=CodedValue) # optional
+    ProtocolCode = cp.SubElementProperty(domTag('ProtocolCode'), valueClass=CodedValue) # optional
     _props = ['AccessionIdentifier', 'RequestedProcedureId', 'StudyInstanceUid', 'ScheduledProcedureStepId',
               'Modality', 'ProtocolCode']
 
@@ -1056,11 +1056,11 @@ class ImagingProcedure(PropertyBasedPMType):
 
 
 class OrderDetail(PropertyBasedPMType):
-    Start = cp.NodeTextProperty([namespaces.domTag('Start')], isOptional=True)  # xsd:dateTime
-    End = cp.NodeTextProperty([namespaces.domTag('End')], isOptional=True)  # xsd:dateTime
-    Performer = cp.SubElementListProperty([namespaces.domTag('Performer')], cls=PersonParticipation)  # 0...n
-    Service = cp.SubElementListProperty([namespaces.domTag('Service')], cls=CodedValue)  # 0...n
-    ImagingProcedure = cp.SubElementListProperty([namespaces.domTag('ImagingProcedure')], cls=ImagingProcedure)
+    Start = cp.NodeTextProperty(domTag('Start'), isOptional=True)  # xsd:dateTime
+    End = cp.NodeTextProperty(domTag('End'), isOptional=True)  # xsd:dateTime
+    Performer = cp.SubElementListProperty(domTag('Performer'), valueClass=PersonParticipation)  # 0...n
+    Service = cp.SubElementListProperty(domTag('Service'), valueClass=CodedValue)  # 0...n
+    ImagingProcedure = cp.SubElementListProperty(domTag('ImagingProcedure'), valueClass=ImagingProcedure)
     _props = ['Start', 'End', 'Performer', 'Service', 'ImagingProcedure']
 
     def __init__(self, start=None, end=None, performer=None, service=None, imagingprocedure=None):
@@ -1082,9 +1082,9 @@ class OrderDetail(PropertyBasedPMType):
 
 
 class RequestedOrderDetail(OrderDetail):
-    ReferringPhysician = cp.SubElementProperty([namespaces.domTag('ReferringPhysician')], valueClass=PersonReference) # optional
-    RequestingPhysician = cp.SubElementProperty([namespaces.domTag('RequestingPhysician')], valueClass=PersonReference) # optional
-    PlacerOrderNumber = cp.SubElementProperty([namespaces.domTag('PlacerOrderNumber')], valueClass=InstanceIdentifier) # mandatory
+    ReferringPhysician = cp.SubElementProperty(domTag('ReferringPhysician'), valueClass=PersonReference) # optional
+    RequestingPhysician = cp.SubElementProperty(domTag('RequestingPhysician'), valueClass=PersonReference) # optional
+    PlacerOrderNumber = cp.SubElementProperty(domTag('PlacerOrderNumber'), valueClass=InstanceIdentifier) # mandatory
     _props = ['ReferringPhysician', 'RequestingPhysician', 'PlacerOrderNumber']
 
 
@@ -1102,8 +1102,8 @@ class RequestedOrderDetail(OrderDetail):
 
 
 class PerformedOrderDetail(OrderDetail):
-    FillerOrderNumber = cp.SubElementProperty([namespaces.domTag('FillerOrderNumber')], valueClass=InstanceIdentifier) # optional
-    ResultingClinicalInfo = cp.SubElementListProperty([namespaces.domTag('RelevantClinicalInfo')], cls=ClinicalInfo)
+    FillerOrderNumber = cp.SubElementProperty(domTag('FillerOrderNumber'), valueClass=InstanceIdentifier) # optional
+    ResultingClinicalInfo = cp.SubElementListProperty(domTag('RelevantClinicalInfo'), valueClass=ClinicalInfo)
     _props = ['FillerOrderNumber', 'ResultingClinicalInfo']
 
     def __init__(self, start=None, end=None, performer=None, service=None, imagingprocedure=None,
@@ -1116,16 +1116,16 @@ class PerformedOrderDetail(OrderDetail):
 
 
 class WorkflowDetail(PropertyBasedPMType):
-    Patient = cp.SubElementProperty([namespaces.domTag('Patient')], valueClass=PersonReference)
-    AssignedLocation = cp.SubElementProperty([namespaces.domTag('AssignedLocation')],
+    Patient = cp.SubElementProperty(domTag('Patient'), valueClass=PersonReference)
+    AssignedLocation = cp.SubElementProperty(domTag('AssignedLocation'),
                                              valueClass=LocationReference, isOptional=True)
-    VisitNumber = cp.SubElementProperty([namespaces.domTag('VisitNumber')],
+    VisitNumber = cp.SubElementProperty(domTag('VisitNumber'),
                                         valueClass=InstanceIdentifier, isOptional=True)
-    DangerCode = cp.SubElementListProperty([namespaces.domTag('Reason')], cls=CodedValue)
-    RelevantClinicalInfo = cp.SubElementListProperty([namespaces.domTag('RelevantClinicalInfo')], cls=ClinicalInfo)
-    RequestedOrderDetail = cp.SubElementProperty([namespaces.domTag('RequestedOrderDetail')],
+    DangerCode = cp.SubElementListProperty(domTag('Reason'), valueClass=CodedValue)
+    RelevantClinicalInfo = cp.SubElementListProperty(domTag('RelevantClinicalInfo'), valueClass=ClinicalInfo)
+    RequestedOrderDetail = cp.SubElementProperty(domTag('RequestedOrderDetail'),
                                                  valueClass=RequestedOrderDetail, isOptional=True)
-    PerformedOrderDetail = cp.SubElementProperty([namespaces.domTag('PerformedOrderDetail')],
+    PerformedOrderDetail = cp.SubElementProperty(domTag('PerformedOrderDetail'),
                                                  valueClass=PerformedOrderDetail, isOptional=True)
     _props = ['Patient', 'AssignedLocation', 'VisitNumber', 'DangerCode',
               'RelevantClinicalInfo', 'RequestedOrderDetail', 'PerformedOrderDetail']
@@ -1156,8 +1156,8 @@ class AbstractMetricDescriptorRelationKindEnum(StringEnum):
 class AbstractMetricDescriptorRelation(PropertyBasedPMType):
     """ Relation allows the modelling of relationships between a metric and other containment tree entries.
     """
-    Code = cp.SubElementProperty([namespaces.domTag('Code')], valueClass=CodedValue, isOptional=True)
-    Identification = cp.SubElementProperty([namespaces.domTag('Identification')], valueClass=InstanceIdentifier,
+    Code = cp.SubElementProperty(domTag('Code'), valueClass=CodedValue, isOptional=True)
+    Identification = cp.SubElementProperty(domTag('Identification'), valueClass=InstanceIdentifier,
                                            isOptional=True)
     Kind = cp.EnumAttributeProperty('Kind',enum_cls=AbstractMetricDescriptorRelationKindEnum, isOptional=False)
     Entries = cp.NodeAttributeListProperty('Entries')
@@ -1185,12 +1185,12 @@ class T_Sex(StringEnum):
 
 
 class PatientDemographicsCoreData(BaseDemographics):
-    Sex = cp.NodeEnumTextProperty(T_Sex, [namespaces.domTag('Sex')], isOptional=True)
-    PatientType = cp.NodeEnumTextProperty(PatientType,[namespaces.domTag('PatientType')], isOptional=True)
-    DateOfBirth = cp.DateOfBirthProperty([namespaces.domTag('DateOfBirth')], isOptional=True)
-    Height = cp.SubElementProperty([namespaces.domTag('Height')], valueClass=Measurement, isOptional=True)
-    Weight = cp.SubElementProperty([namespaces.domTag('Weight')], valueClass=Measurement, isOptional=True)
-    Race = cp.SubElementProperty([namespaces.domTag('Race')], valueClass=CodedValue, isOptional=True)
+    Sex = cp.NodeEnumTextProperty(T_Sex, domTag('Sex'), isOptional=True)
+    PatientType = cp.NodeEnumTextProperty(PatientType,domTag('PatientType'), isOptional=True)
+    DateOfBirth = cp.DateOfBirthProperty(domTag('DateOfBirth'), isOptional=True)
+    Height = cp.SubElementProperty(domTag('Height'), valueClass=Measurement, isOptional=True)
+    Weight = cp.SubElementProperty(domTag('Weight'), valueClass=Measurement, isOptional=True)
+    Race = cp.SubElementProperty(domTag('Race'), valueClass=CodedValue, isOptional=True)
     _props = ('Sex', 'PatientType', 'DateOfBirth', 'Height', 'Weight', 'Race')
 
     def setBirthdate(self, dateTimeOfBirth_string):
@@ -1204,22 +1204,22 @@ class PatientDemographicsCoreData(BaseDemographics):
 
 
 class NeonatalPatientDemographicsCoreData(PatientDemographicsCoreData):
-    GestationalAge = cp.SubElementProperty([namespaces.domTag('GestationalAge')], valueClass=Measurement,
+    GestationalAge = cp.SubElementProperty(domTag('GestationalAge'), valueClass=Measurement,
                                            isOptional=True)
-    BirthLength = cp.SubElementProperty([namespaces.domTag('BirthLength')], valueClass=Measurement)
-    BirthWeight = cp.SubElementProperty([namespaces.domTag('BirthWeight')], valueClass=Measurement)
-    HeadCircumference = cp.SubElementProperty([namespaces.domTag('HeadCircumference')], valueClass=Measurement)
-    Mother = cp.SubElementProperty([namespaces.domTag('GestationalAge')], valueClass=PersonReference)
+    BirthLength = cp.SubElementProperty(domTag('BirthLength'), valueClass=Measurement)
+    BirthWeight = cp.SubElementProperty(domTag('BirthWeight'), valueClass=Measurement)
+    HeadCircumference = cp.SubElementProperty(domTag('HeadCircumference'), valueClass=Measurement)
+    Mother = cp.SubElementProperty(domTag('GestationalAge'), valueClass=PersonReference)
     _props = ('GestationalAge', 'BirthLength', 'BirthWeight', 'HeadCircumference', 'Mother')
 
 
 
 class T_Udi(PropertyBasedPMType):
     """Part of Meta data"""
-    DeviceIdentifier = cp.NodeTextProperty([namespaces.domTag('DeviceIdentifier')])
-    HumanReadableForm = cp.NodeTextProperty([namespaces.domTag('HumanReadableForm')])
-    Issuer = cp.SubElementProperty([namespaces.domTag('Issuer')], valueClass=InstanceIdentifier)
-    Jurisdiction = cp.SubElementProperty([namespaces.domTag('Jurisdiction')],
+    DeviceIdentifier = cp.NodeTextProperty(domTag('DeviceIdentifier'))
+    HumanReadableForm = cp.NodeTextProperty(domTag('HumanReadableForm'))
+    Issuer = cp.SubElementProperty(domTag('Issuer'), valueClass=InstanceIdentifier)
+    Jurisdiction = cp.SubElementProperty(domTag('Jurisdiction'),
                                          valueClass=InstanceIdentifier, isOptional=True)
     _props = ['DeviceIdentifier', 'HumanReadableForm', 'Issuer', 'Jurisdiction']
 
@@ -1238,14 +1238,14 @@ class T_Udi(PropertyBasedPMType):
 
 
 class MetaData(PropertyBasedPMType):
-    Udi = cp.SubElementListProperty([namespaces.domTag('Udi')], cls=T_Udi)
-    LotNumber = cp.NodeTextProperty([namespaces.domTag('LotNumber')], isOptional=True)
-    Manufacturer = cp.SubElementListProperty([namespaces.domTag('Manufacturer')], cls=LocalizedText)
-    ManufactureDate = cp.NodeTextProperty([namespaces.domTag('ManufactureDate')], isOptional=True)
-    ExpirationDate = cp.NodeTextProperty([namespaces.domTag('ExpirationDate')], isOptional=True)
-    ModelName = cp.SubElementListProperty([namespaces.domTag('ModelName')], cls=LocalizedText)
-    ModelNumber = cp.NodeTextProperty([namespaces.domTag('ModelNumber')], isOptional=True)
-    SerialNumber = cp.SubElementTextListProperty([namespaces.domTag('SerialNumber')])
+    Udi = cp.SubElementListProperty(domTag('Udi'), valueClass=T_Udi)
+    LotNumber = cp.NodeTextProperty(domTag('LotNumber'), isOptional=True)
+    Manufacturer = cp.SubElementListProperty(domTag('Manufacturer'), valueClass=LocalizedText)
+    ManufactureDate = cp.NodeTextProperty(domTag('ManufactureDate'), isOptional=True)
+    ExpirationDate = cp.NodeTextProperty(domTag('ExpirationDate'), isOptional=True)
+    ModelName = cp.SubElementListProperty(domTag('ModelName'), valueClass=LocalizedText)
+    ModelNumber = cp.NodeTextProperty(domTag('ModelNumber'), isOptional=True)
+    SerialNumber = cp.SubElementTextListProperty(domTag('SerialNumber'))
     _props = ['Udi', 'LotNumber', 'Manufacturer', 'ManufactureDate', 'ExpirationDate',
               'ModelName', 'ModelNumber', 'SerialNumber']
 

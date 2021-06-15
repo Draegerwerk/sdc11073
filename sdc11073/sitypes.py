@@ -24,7 +24,7 @@ class T_Selector(PropertyBasedPMType):
 
 
 class T_DualChannelDef(PropertyBasedPMType):
-    Selector = cp.SubElementListProperty([mdpwsTag('Selector')], cls=T_Selector)
+    Selector = cp.SubElementListProperty([mdpwsTag('Selector')], valueClass=T_Selector)
     Algorithm = cp.StringAttributeProperty('Algorithm')
     Transform = cp.StringAttributeProperty('Transform')
     _props = ['Selector', 'Algorithm', 'Transform']
@@ -49,7 +49,7 @@ class T_DualChannelDef(PropertyBasedPMType):
 
 
 class T_SafetyContextDef(PropertyBasedPMType):
-    Selector = cp.SubElementListProperty([siTag('Selector')], cls=T_Selector)
+    Selector = cp.SubElementListProperty([siTag('Selector')], valueClass=T_Selector)
     _props = ['Selector', ]
 
     def __init__(self, selectors):

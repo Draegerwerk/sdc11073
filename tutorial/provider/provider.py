@@ -33,7 +33,7 @@ def setLocalEnsembleContext(mdib, ensemble):
             ensembleContext.ContextAssociation = pmtypes.ContextAssociation.DISASSOCIATED
             ensembleContext.UnbindingMdibVersion = mdib.mdibVersion  # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
 
-        newEnsState = mgr.getContextState(descriptorContainer.handle)  # this creates a new location state
+        newEnsState = mgr.get_state(descriptorContainer.handle)  # this creates a new location state
         newEnsState.ContextAssociation = 'Assoc'
         newEnsState.Identification = [pmtypes.InstanceIdentifier(root="1.2.3", extensionString=ensemble)]
 
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     with my_mdib.mdibUpdateTransaction() as mgr:
         for metricDescr in allMetricDescrs:
             # get the metric state of this specific metric
-            st = mgr.getMetricState(metricDescr.handle)
+            st = mgr.get_state(metricDescr.handle)
             # create a value in case it is not there yet
             st.mkMetricValue()
             # set the value and some other fields to a fixed value
@@ -92,6 +92,6 @@ if __name__ == '__main__':
         metricValue += 1
         with my_mdib.mdibUpdateTransaction() as mgr:
             for metricDescr in allMetricDescrs:
-                st = mgr.getMetricState(metricDescr.handle)
+                st = mgr.get_state(metricDescr.handle)
                 st.metricValue.Value = metricValue
         time.sleep(5)

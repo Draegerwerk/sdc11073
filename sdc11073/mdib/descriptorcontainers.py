@@ -91,7 +91,7 @@ class AbstractDescriptorContainer(ContainerBase):
     SafetyClassification = cp.EnumAttributeProperty('SafetyClassification',
                                                     impliedPyValue=pmtypes.SafetyClassification.INF,
                                                     enum_cls=pmtypes.SafetyClassification)  # optional
-    Type = cp.SubElementProperty([domTag('Type')], valueClass=pmtypes.CodedValue)
+    Type = cp.SubElementProperty(domTag('Type'), valueClass=pmtypes.CodedValue)
     _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'ext_Extension', 'Type')
     _children = (ChildElem(extTag('Extension')),
                  ChildElem(domTag('Type'))
@@ -213,8 +213,8 @@ class AbstractDescriptorContainer(ContainerBase):
 
 class AbstractDeviceComponentDescriptorContainer(AbstractDescriptorContainer):
     isComponentDescriptor = True
-    ProductionSpecification = cp.SubElementListProperty([domTag('ProductionSpecification')],
-                                                        cls=pmtypes.ProductionSpecification)
+    ProductionSpecification = cp.SubElementListProperty(domTag('ProductionSpecification'),
+                                                        valueClass=pmtypes.ProductionSpecification)
     _props = ('ProductionSpecification',)
     _children = (ChildElem(domTag('ProductionSpecification')),
                  )
@@ -231,7 +231,7 @@ class AbstractComplexDeviceComponentDescriptorContainer(AbstractDeviceComponentD
 class MdsDescriptorContainer(AbstractComplexDeviceComponentDescriptorContainer):
     NODETYPE = domTag('MdsDescriptor')
     STATE_QNAME = domTag('MdsState')
-    MetaData = cp.SubElementProperty([domTag('MetaData')], valueClass=pmtypes.MetaData, isOptional=True)
+    MetaData = cp.SubElementProperty(domTag('MetaData'), valueClass=pmtypes.MetaData, isOptional=True)
     _props = ('MetaData',)
     _children = (ChildElem(domTag('MetaData')),
                  ChildConts(domTag('SystemContext'), (domTag('SystemContextDescriptor'),)),
@@ -271,7 +271,7 @@ class ChannelDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
 class ClockDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     NODETYPE = domTag('ClockDescriptor')
     STATE_QNAME = domTag('ClockState')
-    TimeProtocol = cp.SubElementListProperty([domTag('TimeProtocol')], cls=pmtypes.CodedValue)
+    TimeProtocol = cp.SubElementListProperty(domTag('TimeProtocol'), valueClass=pmtypes.CodedValue)
     Resolution = cp.DurationAttributeProperty('Resolution')  # optional,  xsd:duration
     _props = ('TimeProtocol', 'Resolution')
     _children = (ChildElem(domTag('TimeProtocol')),
@@ -281,10 +281,10 @@ class ClockDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
 class BatteryDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     NODETYPE = domTag('BatteryDescriptor')
     STATE_QNAME = domTag('BatteryState')
-    CapacityFullCharge = cp.SubElementProperty([domTag('CapacityFullCharge')],
+    CapacityFullCharge = cp.SubElementProperty(domTag('CapacityFullCharge'),
                                                valueClass=pmtypes.Measurement)  # optional
-    CapacitySpecified = cp.SubElementProperty([domTag('CapacitySpecified')], valueClass=pmtypes.Measurement)  # optional
-    VoltageSpecified = cp.SubElementProperty([domTag('VoltageSpecified')], valueClass=pmtypes.Measurement)  # optional
+    CapacitySpecified = cp.SubElementProperty(domTag('CapacitySpecified'), valueClass=pmtypes.Measurement)  # optional
+    VoltageSpecified = cp.SubElementProperty(domTag('VoltageSpecified'), valueClass=pmtypes.Measurement)  # optional
     _props = ('CapacityFullCharge', 'CapacitySpecified', 'VoltageSpecified')
     _children = (ChildElem(domTag('CapacityFullCharge')),
                  ChildElem(domTag('CapacitySpecified')),
@@ -311,9 +311,9 @@ class ScoDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
 
 class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
     isMetricDescriptor = True
-    Unit = cp.SubElementProperty([domTag('Unit')], valueClass=pmtypes.CodedValue)
-    BodySite = cp.SubElementListProperty([domTag('BodySite')], cls=pmtypes.CodedValue)
-    Relation = cp.SubElementListProperty([domTag('Relation')], cls=pmtypes.Relation) # o...n
+    Unit = cp.SubElementProperty(domTag('Unit'), valueClass=pmtypes.CodedValue)
+    BodySite = cp.SubElementListProperty(domTag('BodySite'), valueClass=pmtypes.CodedValue)
+    Relation = cp.SubElementListProperty(domTag('Relation'), valueClass=pmtypes.Relation) # o...n
     MetricCategory = cp.EnumAttributeProperty('MetricCategory',
                                               enum_cls=pmtypes.MetricCategory,
                                               defaultPyValue=pmtypes.MetricCategory.UNSPECIFIED)  # required
@@ -347,7 +347,7 @@ class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
 class NumericMetricDescriptorContainer(AbstractMetricDescriptorContainer):
     NODETYPE = domTag('NumericMetricDescriptor')
     STATE_QNAME = domTag('NumericMetricState')
-    TechnicalRange = cp.SubElementListProperty([domTag('TechnicalRange')], cls=pmtypes.Range)
+    TechnicalRange = cp.SubElementListProperty(domTag('TechnicalRange'), valueClass=pmtypes.Range)
     Resolution = cp.DecimalAttributeProperty('Resolution', isOptional=False)
     AveragingPeriod = cp.DurationAttributeProperty('AveragingPeriod')  # optional
     _props = ('TechnicalRange', 'Resolution', 'AveragingPeriod')
@@ -364,7 +364,7 @@ class StringMetricDescriptorContainer(AbstractMetricDescriptorContainer):
 class EnumStringMetricDescriptorContainer(StringMetricDescriptorContainer):
     NODETYPE = domTag('EnumStringMetricDescriptor')
     STATE_QNAME = domTag('EnumStringMetricState')
-    AllowedValue = cp.SubElementListProperty([domTag('AllowedValue')], cls=pmtypes.AllowedValue)
+    AllowedValue = cp.SubElementListProperty(domTag('AllowedValue'), valueClass=pmtypes.AllowedValue)
     _props = ('AllowedValue',)
     _children = (ChildElem(domTag('AllowedValue')),
                  )
@@ -374,7 +374,7 @@ class RealTimeSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorConta
     isRealtimeSampleArrayMetricDescriptor = True
     NODETYPE = domTag('RealTimeSampleArrayMetricDescriptor')
     STATE_QNAME = domTag('RealTimeSampleArrayMetricState')
-    TechnicalRange = cp.SubElementListProperty([domTag('TechnicalRange')], cls=pmtypes.Range)
+    TechnicalRange = cp.SubElementListProperty(domTag('TechnicalRange'), valueClass=pmtypes.Range)
     Resolution = cp.DecimalAttributeProperty('Resolution', isOptional=False)
     SamplePeriod = cp.DurationAttributeProperty('SamplePeriod', isOptional=False)
     _props = ('TechnicalRange', 'Resolution', 'SamplePeriod')
@@ -385,9 +385,9 @@ class RealTimeSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorConta
 class DistributionSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorContainer):
     NODETYPE = domTag('DistributionSampleArrayMetricDescriptor')
     STATE_QNAME = domTag('DistributionSampleArrayMetricState')
-    TechnicalRange = cp.SubElementListProperty([domTag('TechnicalRange')], cls=pmtypes.Range)
-    DomainUnit = cp.SubElementProperty([domTag('DomainUnit')], valueClass=pmtypes.CodedValue)
-    DistributionRange = cp.SubElementProperty([domTag('DistributionRange')], valueClass=pmtypes.Range)
+    TechnicalRange = cp.SubElementListProperty(domTag('TechnicalRange'), valueClass=pmtypes.Range)
+    DomainUnit = cp.SubElementProperty(domTag('DomainUnit'), valueClass=pmtypes.CodedValue)
+    DistributionRange = cp.SubElementProperty(domTag('DistributionRange'), valueClass=pmtypes.Range)
     Resolution = cp.DecimalAttributeProperty('Resolution', isOptional=False)
     _props = ('TechnicalRange', 'DomainUnit', 'DistributionRange', 'Resolution')
     _children = (ChildElem(domTag('TechnicalRange')),
@@ -399,7 +399,6 @@ class DistributionSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorC
 class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
     isOperationalDescriptor = True
     OperationTarget = cp.StringAttributeProperty('OperationTarget', isOptional=False)
-#    SafetyReq = cp.SubElementProperty([extTag('Extension'), siTag('SafetyReq')], valueClass=pmtypes.T_SafetyReq)
     MaxTimeToFinish = cp.DurationAttributeProperty('MaxTimeToFinish') # optional  xsd:duration
     InvocationEffectiveTimeout = cp.DurationAttributeProperty('InvocationEffectiveTimeout') # optional  xsd:duration
     Retriggerable = cp.BooleanAttributeProperty('Retriggerable', impliedPyValue=True) # optional
@@ -423,7 +422,7 @@ class SetStringOperationDescriptorContainer(AbstractOperationDescriptorContainer
 
 
 class AbstractSetStateOperationDescriptor(AbstractOperationDescriptorContainer):
-    ModifiableData = cp.SubElementTextListProperty([domTag('ModifiableData')])
+    ModifiableData = cp.SubElementTextListProperty(domTag('ModifiableData'))
     _props = ('ModifiableData',)
     _children = (ChildElem(domTag('ModifiableData')),
                  )
@@ -456,7 +455,7 @@ class SetAlertStateOperationDescriptorContainer(AbstractSetStateOperationDescrip
 class ActivateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
     NODETYPE = domTag('ActivateOperationDescriptor')
     STATE_QNAME = domTag('ActivateOperationState')
-    Argument = cp.SubElementListProperty([domTag('Argument')], cls = pmtypes.ActivateOperationDescriptorArgument)
+    Argument = cp.SubElementListProperty(domTag('Argument'), valueClass=pmtypes.ActivateOperationDescriptorArgument)
     _props = ('Argument',)
     _children = (ChildElem(domTag('Argument')),
                  )
@@ -495,8 +494,8 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
     isAlertConditionDescriptor = True
     NODETYPE = domTag('AlertConditionDescriptor')
     STATE_QNAME = domTag('AlertConditionState')
-    Source = cp.SubElementTextListProperty([domTag('Source')]) # a list of 0...n pm:HandleRef elements
-    CauseInfo = cp.SubElementListProperty([domTag('CauseInfo')], cls = pmtypes.CauseInfo) # a list of 0...n pm:CauseInfo elements
+    Source = cp.SubElementTextListProperty(domTag('Source')) # a list of 0...n pm:HandleRef elements
+    CauseInfo = cp.SubElementListProperty(domTag('CauseInfo'), valueClass = pmtypes.CauseInfo) # a list of 0...n pm:CauseInfo elements
     Kind = cp.EnumAttributeProperty('Kind', defaultPyValue=pmtypes.AlertConditionKind.OTHER,
                                     enum_cls=pmtypes.AlertConditionKind, isOptional=False)
     Priority = cp.EnumAttributeProperty('Priority', defaultPyValue=pmtypes.AlertConditionPriority.NONE,
@@ -513,7 +512,7 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
 class LimitAlertConditionDescriptorContainer(AlertConditionDescriptorContainer):
     NODETYPE = domTag('LimitAlertConditionDescriptor')
     STATE_QNAME = domTag('LimitAlertConditionState')
-    MaxLimits = cp.SubElementProperty([domTag('MaxLimits')], valueClass=pmtypes.Range, defaultPyValue=pmtypes.Range())
+    MaxLimits = cp.SubElementProperty(domTag('MaxLimits'), valueClass=pmtypes.Range, defaultPyValue=pmtypes.Range())
     AutoLimitSupported = cp.BooleanAttributeProperty('AutoLimitSupported', impliedPyValue=False)
     _props = ('MaxLimits', 'AutoLimitSupported',)
     _children = (ChildElem(domTag('MaxLimits')),

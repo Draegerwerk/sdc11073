@@ -4,7 +4,6 @@ from lxml import etree as etree_
 from sdc11073.namespaces import Prefix_Namespace as Prefix
 from sdc11073.namespaces import mdpwsTag
 
-
 def B64Sha1(valueString):
     """Gets standard base64 coded sha1 sum of input file."""
     # pylint: disable=E1101

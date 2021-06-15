@@ -48,10 +48,10 @@ class DeviceActivity(threading.Thread):
             if oneContainer.handle == "enumstring.ch0.vmd1_sco_0":
                 stringOperation = oneContainer
         with self.device.mdib.mdibUpdateTransaction() as mgr:
-            state = mgr.getMetricState(valueOperation.OperationTarget)
+            state = mgr.get_state(valueOperation.OperationTarget)
             if not state.metricValue:
                 state.mkMetricValue()
-            state = mgr.getMetricState(stringOperation.OperationTarget)
+            state = mgr.get_state(stringOperation.OperationTarget)
             if not state.metricValue:
                 state.mkMetricValue()
         print("DeviceActivity running...")
@@ -60,7 +60,7 @@ class DeviceActivity(threading.Thread):
             while True:
                 if metric:
                     with self.device.mdib.mdibUpdateTransaction() as mgr:
-                        state = mgr.getMetricState(metric.handle)
+                        state = mgr.get_state(metric.handle)
                         if not state.metricValue:
                             state.mkMetricValue()
                         state.metricValue.Value = currentValue
@@ -70,7 +70,7 @@ class DeviceActivity(threading.Thread):
                     print("Metric not found in MDIB!")
                 if alertCondition:
                     with self.device.mdib.mdibUpdateTransaction() as mgr:
-                        state = mgr.getAlertState(alertCondition.handle)
+                        state = mgr.get_state(alertCondition.handle)
                         state.Presence = not state.Presence
                         print ('set alertstate presence to {}'.format(state.Presence))
                 else:
@@ -110,14 +110,14 @@ def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
     validators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extensionString='System')]
     sdcDevice.setLocation(location, validators)
 
-    patientDescriptorHandle = my_mdib.descriptions.nodeName.get(sdc11073.namespaces.domTag('PatientContext'))[0].handle
+    patientDescriptorHandle = my_mdib.descriptions.NODETYPE.getOne(sdc11073.namespaces.domTag('PatientContextDescriptor')).handle
     with my_mdib.mdibUpdateTransaction() as mgr:
-        patientContainer = mgr.getContextState(patientDescriptorHandle)
-        patientContainer.Givenname = "Given"
-        patientContainer.Middlename = "Middle"
-        patientContainer.Familyname = "Familiy"
-        patientContainer.Birthname = "Birthname"
-        patientContainer.Title = "Title"
+        patientContainer = mgr.get_state(patientDescriptorHandle)
+        patientContainer.CoreData.Givenname = "Given"
+        patientContainer.CoreData.Middlename = ["Middle"]
+        patientContainer.CoreData.Familyname = "Familiy"
+        patientContainer.CoreData.Birthname = "Birthname"
+        patientContainer.CoreData.Title = "Title"
         patientContainer.ContextAssociation = "Assoc"
         identifiers = []
         patientContainer.Identification = identifiers

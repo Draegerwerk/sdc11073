@@ -10,12 +10,11 @@ from concurrent import futures
 from sdc11073.certloader import mk_ssl_context_from_folder
 
 
-adapter_ip = os.getenv('ref_ip') or '192.168.30.103' #'127.0.0.1'
+adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
 ca_folder = os.getenv('ref_ca')
 ssl_passwd = os.getenv('ref_ssl_passwd') or None
-search_epr = os.getenv('ref_search_epr') or '1111' #'abc' # abc is fixed ending in reference_device uuid.
+search_epr = os.getenv('ref_search_epr') or 'abc' # abc is fixed ending in reference_device uuid.
 
-ssl_passwd = 'dummypass'
 def run_ref_test():
     results = []
     print('Test step 1: discover device which endpoint ends with "{}"'.format(search_epr))

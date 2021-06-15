@@ -20,7 +20,7 @@ ca_folder = os.getenv('ref_ca')  # or None
 My_UUID_str = '12345678-6f55-11ea-9697-123456789abc'
 
 # these variables define how the device is published on the network:
-adapter_ip = os.getenv('ref_ip') or '192.168.30.103' #'127.0.0.1'
+adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
 ref_fac = os.getenv('ref_fac') or 'r_fac'
 ref_poc = os.getenv('ref_poc') or 'r_poc'
 ref_bed = os.getenv('ref_bed') or 'r_bed'
@@ -68,12 +68,12 @@ if __name__ == '__main__':
     sdcDevice.setLocation(loc, validators)
     patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get(domTag('PatientContextDescriptor'))[0].handle
     with my_mdib.mdibUpdateTransaction() as mgr:
-        patientContainer = mgr.getContextState(patientDescriptorHandle)
-        patientContainer.Givenname = "Given"
-        patientContainer.Middlename = "Middle"
-        patientContainer.Familyname = "Familiy"
-        patientContainer.Birthname = "Birthname"
-        patientContainer.Title = "Title"
+        patientContainer = mgr.get_state(patientDescriptorHandle)
+        patientContainer.CoreData.Givenname = "Given"
+        patientContainer.CoreData.Middlename = ["Middle"]
+        patientContainer.CoreData.Familyname = "Familiy"
+        patientContainer.CoreData.Birthname = "Birthname"
+        patientContainer.CoreData.Title = "Title"
         patientContainer.ContextAssociation = "Assoc"
         identifiers = []
         patientContainer.Identification = identifiers
@@ -96,10 +96,10 @@ if __name__ == '__main__':
         if oneContainer.handle == "enumstring.ch0.vmd1_sco_0":
             stringOperation = oneContainer
     with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-        state = mgr.getMetricState(valueOperation.OperationTarget)
+        state = mgr.get_state(valueOperation.OperationTarget)
         if not state.metricValue:
             state.mkMetricValue()
-        state = mgr.getMetricState(stringOperation.OperationTarget)
+        state = mgr.get_state(stringOperation.OperationTarget)
         if not state.metricValue:
             state.mkMetricValue()
     print("Running forever, CTRL-C to  exit")
@@ -108,7 +108,7 @@ if __name__ == '__main__':
         while True:
             if metric:
                 with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                    state = mgr.getMetricState(metric.handle)
+                    state = mgr.get_state(metric.handle)
                     if not state.metricValue:
                         state.mkMetricValue()
                     state.metricValue.Value = currentValue
@@ -117,7 +117,7 @@ if __name__ == '__main__':
                 print("Metric not found in MDIB!")
             if alertCondition:
                 with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                    state = mgr.getAlertState(alertCondition.handle)
+                    state = mgr.get_state(alertCondition.handle)
                     state.Presence = not state.Presence
             else:
                 print("Alert not found in MDIB")
