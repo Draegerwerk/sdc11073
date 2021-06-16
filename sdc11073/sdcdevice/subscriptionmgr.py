@@ -727,7 +727,7 @@ class SubscriptionsManager(object):
                                            attrib={'ModificationType': modificationtype})
             if descrContainer.parentHandle is not None:  # only Mds can have None
                 reportPart.set('ParentDescriptor', descrContainer.parentHandle)
-            node = descrContainer.mkDescriptorNode(tag=msgTag('Descriptor'))
+            node = descrContainer.mk_descriptor_node(tag=msgTag('Descriptor'))
             reportPart.append(node)
             relatedStateContainers = [s for s in updated_states if s.descriptorHandle == descrContainer.handle]
             for stateContainer in relatedStateContainers:

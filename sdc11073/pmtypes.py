@@ -91,8 +91,8 @@ class PropertyBasedPMType(object):
         return f'{self.__class__.__name__}({self._sortedContainerProperties()})'
 
     @classmethod
-    def fromNode(cls, node):
-        """ default fromNode Constructor that provides no arguments for class __init__"""
+    def from_node(cls, node):
+        """ default from_node Constructor that provides no arguments for class __init__"""
         obj = cls()
         obj.updateFromNode(node)
         return obj
@@ -107,7 +107,7 @@ class ElementWithTextOnly(PropertyBasedPMType):
 
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         text = node.text
         return cls(text)    
 
@@ -143,7 +143,7 @@ class LocalizedText(PropertyBasedPMType):
         self.TextWidth = textWidth
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         text = node.text
         lang = node.get('Lang')
         ref = node.get('Ref')
@@ -212,7 +212,7 @@ class Coding(_CodingBase):
                 return False
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         """ Read Code and CodingSystem attributes of a node (CodedValue). """
         code = node.get('Code')
         codingSystem = node.get('CodingSystem', DefaultCodingSystem)
@@ -270,7 +270,7 @@ class T_Translation(PropertyBasedPMType):
             return self.coding.equals(other)
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         obj = cls(None)
         obj.updateFromNode(node)
         obj.mkCoding()
@@ -359,7 +359,7 @@ class CodedValue(PropertyBasedPMType):
             return self.coding.equals(other, raiseNotComparableException)
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         obj = cls(None)
         obj.updateFromNode(node)
         obj.mkCoding()
@@ -380,9 +380,9 @@ class Annotation(PropertyBasedPMType):
  
  
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         typeNode = node.find(domTag('Type'))
-        codedValue = CodedValue.fromNode(typeNode)
+        codedValue = CodedValue.from_node(typeNode)
         return cls(codedValue)
 
 
@@ -410,9 +410,9 @@ class OperationGroup(PropertyBasedPMType):
         self.Operations = operations
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         typeNode = node.find(domTag('Type'))
-        codedValue = CodedValue.fromNode(typeNode)
+        codedValue = CodedValue.from_node(typeNode)
         operatingMode = cls.OperatingMode.getPyValueFromNode(None, node)
         operations = cls.Operations.getPyValueFromNode(None, node)
         ret = cls(codedValue=codedValue, operatingMode=operatingMode, operations=operations)
@@ -444,7 +444,7 @@ class InstanceIdentifier(PropertyBasedPMType):
 
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         root = None
         extensionString = None
         type_codedValue = None
@@ -508,14 +508,14 @@ class Measurement(PropertyBasedPMType):
     
     
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         value = node.get('MeasuredValue')
         if value is not None:
             value = float(value)
         unit = None
         unitNode = node.find(domTag('MeasurementUnit'))
         if unitNode is not None:
-            unit = CodedValue.fromNode(unitNode)
+            unit = CodedValue.from_node(unitNode)
         return cls(value, unit)
 
 
@@ -542,13 +542,13 @@ class AllowedValue(PropertyBasedPMType):
 
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         valueString = node.find(domTag('Value')).text
         typeNode = node.find(domTag('Type'))
         if typeNode is None:
             typeCoding = None
         else:
-            typeCoding = CodedValue.fromNode(typeNode)
+            typeCoding = CodedValue.from_node(typeNode)
         return cls(valueString, typeCoding)
 
 
@@ -615,7 +615,7 @@ class AbstractMetricValue(PropertyBasedPMType):
 
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         obj = cls(node)
         return obj
 
@@ -688,7 +688,7 @@ class ApplyAnnotation(PropertyBasedPMType):
         self.SampleIndex = sampleIndex   
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         obj = cls(None, None)
         cls.AnnotationIndex.updateFromNode(obj, node)
         cls.SampleIndex.updateFromNode(obj, node)
@@ -779,16 +779,16 @@ class CauseInfo(PropertyBasedPMType):
 
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         remedyInfoNode = node.find(domTag('RemedyInfo'))
         if remedyInfoNode is not None:
-            remedyInfo = RemedyInfo.fromNode(remedyInfoNode)
+            remedyInfo = RemedyInfo.from_node(remedyInfoNode)
         else:
             remedyInfo = None
         descriptions = []
         descriptionNodes = node.findall(domTag('Description'))
         for d in descriptionNodes:
-            descriptions.append(LocalizedText.fromNode(d))
+            descriptions.append(LocalizedText.from_node(d))
         return cls(remedyInfo, descriptions)    
 
 
@@ -810,9 +810,9 @@ class  ActivateOperationDescriptorArgument(PropertyBasedPMType):
         
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         argNameNode = node.find(domTag('ArgName'))
-        argName = CodedValue.fromNode(argNameNode)
+        argName = CodedValue.from_node(argNameNode)
         argNode = node.find(domTag('Arg'))
         arg_QName = txt2QName(argNode.text, node.nsmap)
         return cls(argName, arg_QName)    
@@ -841,7 +841,7 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
         self.Number = number
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         obj = cls(None, None)
         cls.Label.updateFromNode(obj, node)
         cls.Number.updateFromNode(obj, node)
@@ -880,7 +880,7 @@ class SystemSignalActivation(PropertyBasedPMType):
         self.State = state
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         obj = cls(None, None)
         obj.updateFromNode(node)
         return obj
@@ -907,7 +907,7 @@ class ProductionSpecification(PropertyBasedPMType):
         self.ComponentId = componentid
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         obj = cls(None, None)
         obj.updateFromNode(node)
         return obj
@@ -1049,7 +1049,7 @@ class ImagingProcedure(PropertyBasedPMType):
         self.ProtocolCode = protocolcode
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         obj = cls(None, None, None, None)
         obj.updateFromNode(node)
         return obj

@@ -141,7 +141,7 @@ class _MdibUpdateTransaction(_TransactionBase):
             raise ValueError('descriptorHandle {} already in updated set!'.format(descriptorHandle))
         origDescriptorContainer = self._deviceMdibContainer.descriptions.handle.getOne(descriptorHandle)
         descriptorContainer = origDescriptorContainer.mkCopy()
-        descriptorContainer.incrementDescriptorVersion()
+        descriptorContainer.increment_descriptor_version()
         self.descriptorUpdates[descriptorHandle] = _TrItem(origDescriptorContainer, descriptorContainer)
         return descriptorContainer
     # getDescriptor = get_descriptor
@@ -449,7 +449,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
                 def _incrementParentDescriptorVersion(descriptorContainer):
                     parentDescriptorContainer = self.descriptions.handle.getOne(descriptorContainer.parentHandle)
-                    parentDescriptorContainer.incrementDescriptorVersion()
+                    parentDescriptorContainer.increment_descriptor_version()
                     descr_updated.append(parentDescriptorContainer)
                     _updateCorrespondingState(parentDescriptorContainer)
 

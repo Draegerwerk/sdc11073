@@ -92,7 +92,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
         _MultikeyWithVersionLookup.addObjectNoLock(self, obj)
         parent = None if obj.parentHandle is None else self.handle.getOne(obj.parentHandle, allowNone=True)
         if parent is not None:
-            parent.addChild(obj)
+            parent.add_child(obj)
 
     def addObjects(self, objs):
         with self._lock:
@@ -113,7 +113,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
         _MultikeyWithVersionLookup.removeObjectNoLock(self, obj)
         parent = self.handle.getOne(obj.parentHandle, allowNone=True)
         if parent is not None:
-            parent.rmChild(obj)
+            parent.rm_child(obj)
 
     def removeObjects(self, objs):
         with self._lock:
@@ -313,7 +313,7 @@ class MdibContainer(object):
                                            nsmap=doc_nsmap)
 
         for rootContainer in rootContainers:
-            n = rootContainer.mkDescriptorNode(tag=domTag('Mds'), connect_child_descriptors=True)
+            n = rootContainer.mk_descriptor_node(tag=domTag('Mds'), connect_child_descriptors=True)
             mdDescriptionNode.append(n)
         return mdDescriptionNode
 

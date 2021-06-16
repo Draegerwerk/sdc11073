@@ -130,7 +130,7 @@ class MessageReader(object):
         else:
             nodeType = etree_.QName(node.tag)
         cls = mdib.getDescriptorContainerClass(nodeType)
-        return cls.fromNode(mdib.nsmapper, node, parentHandle)
+        return cls.from_node(mdib.nsmapper, node, parentHandle)
 
     @classmethod
     def mkStateContainerFromNode(cls, node, mdib, forcedType=None, additionalDescriptorContainers = None):

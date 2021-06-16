@@ -196,7 +196,7 @@ class TestClientWaveform(unittest.TestCase):
                               etree_.QName(sdc11073.namespaces.nsmap['xsi'], 'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
                               'Handle':handle}
                 element = etree_.Element('Metric', attrib=attributes, nsmap=sdc11073.namespaces.nsmap)
-                clientmdib.descriptions.addObject(sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.fromNode(clientmdib.nsmapper, element, None)) # None = no parent handle
+                clientmdib.descriptions.addObject(sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.from_node(clientmdib.nsmapper, element, None)) # None = no parent handle
             soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
             cl._onWaveFormReport(soapenvelope)
             

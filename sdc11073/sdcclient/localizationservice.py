@@ -32,7 +32,7 @@ class LocalizationServiceClient(HostedServiceClient):
         responseNode = self._getLocalizedTextResponse(refs, version, langs, textWidths, numberOfLines, request_manipulator).msgNode
         if responseNode is not None:
             for element in responseNode:
-                lt = LocalizedText.fromNode(element)
+                lt = LocalizedText.from_node(element)
                 result.append(lt)
         return result
 

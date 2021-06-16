@@ -2,6 +2,8 @@
 from .pmtypes import PropertyBasedPMType
 from .namespaces import mdpwsTag, siTag
 from .mdib import containerproperties as cp
+
+
 class T_Selector(PropertyBasedPMType):
     Id = cp.StringAttributeProperty('Id')
     text = cp.NodeTextProperty()
@@ -16,7 +18,7 @@ class T_Selector(PropertyBasedPMType):
         self.text = text
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         obj = cls(None, None)
         cls.Id.updateFromNode(obj, node)
         cls.text.updateFromNode(obj, node)
@@ -40,7 +42,7 @@ class T_DualChannelDef(PropertyBasedPMType):
         self.Transform = transform
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         obj = cls(None, None, None)
         cls.Selector.updateFromNode(obj, node)
         cls.Algorithm.updateFromNode(obj, node)
@@ -61,7 +63,7 @@ class T_SafetyContextDef(PropertyBasedPMType):
         self.Selector = selectors
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         obj = cls(None)
         cls.Selector.updateFromNode(obj, node)
         return obj
@@ -79,7 +81,7 @@ class T_SafetyReq(PropertyBasedPMType):
         self.SafetyContextDef = safetyContextDef
 
     @classmethod
-    def fromNode(cls, node):
+    def from_node(cls, node):
         obj = cls(None, None)
         cls.DualChannelDef.updateFromNode(obj, node)
         cls.SafetyContextDef.updateFromNode(obj, node)

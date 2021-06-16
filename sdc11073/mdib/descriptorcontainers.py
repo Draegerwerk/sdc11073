@@ -3,17 +3,20 @@ from collections import defaultdict, namedtuple
 from lxml import etree as etree_
 from .containerbase import ContainerBase
 from .. import observableproperties as properties
-from ..namespaces import domTag, extTag, siTag
+from ..namespaces import domTag, extTag, msgTag
 from .. import pmtypes
+from .. import msgtypes
 from . import containerproperties as cp
 
 # some Helper classes for AbstractDescriptorContainer, they help to declare the kind and order of
 # sub elements.
-ChildElem = namedtuple('ChildElem', 'child_qname')  # this child is own property. child_qname is the tag name of the child
+ChildElem = namedtuple('ChildElem',
+                       'child_qname')  # this child is own property. child_qname is the tag name of the child
 # ChildConts stands for different containers that are children
 # child_qname is the name of the SubElement,
 # node_types is a list of NODETYPE values of matching descriptor containers
 _ChildContsTuple = namedtuple('ChildConts', 'child_qname node_types')
+
 
 class ChildConts(_ChildContsTuple):
     def __repr__(self):
@@ -35,6 +38,7 @@ def sorted_child_declarations(obj):
             continue
     return ret
 
+
 def mk_descriptor_node(descriptor_container, tag, setXsiType=True, connect_child_descriptors=False):
     """
     Creates a lxml etree node from instance data.
@@ -46,7 +50,7 @@ def mk_descriptor_node(descriptor_container, tag, setXsiType=True, connect_child
     node = etree_.Element(tag,
                           attrib={'Handle': descriptor_container.handle},
                           nsmap=descriptor_container.nsmapper.docNssmap)
-    descriptor_container._updateNode(node, setXsiType)# create all
+    descriptor_container._updateNode(node, setXsiType)  # create all
     if connect_child_descriptors:
         # append all children, then bring them in correct order
         for node_type, child_list in descriptor_container._child_containers_by_type.items():
@@ -56,6 +60,7 @@ def mk_descriptor_node(descriptor_container, tag, setXsiType=True, connect_child
                 node.append(child_node)
     descriptor_container._sort_child_nodes(node)
     return node
+
 
 class AbstractDescriptorContainer(ContainerBase):
     """
@@ -80,23 +85,23 @@ class AbstractDescriptorContainer(ContainerBase):
     isAlertConditionDescriptor = False
     isContextDescriptor = False
 
-
     node = properties.ObservableProperty()  # the etree node
 
     Handle = cp.StringAttributeProperty('Handle', isOptional=False)
     handle = Handle
-    ext_Extension = cp.ExtensionNodeProperty()
+    Extension = cp.ExtensionNodeProperty()
     DescriptorVersion = cp.IntegerAttributeProperty('DescriptorVersion',
                                                     defaultPyValue=0)  # optional, integer, defaults to 0
     SafetyClassification = cp.EnumAttributeProperty('SafetyClassification',
                                                     impliedPyValue=pmtypes.SafetyClassification.INF,
                                                     enum_cls=pmtypes.SafetyClassification)  # optional
     Type = cp.SubElementProperty(domTag('Type'), valueClass=pmtypes.CodedValue)
-    _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'ext_Extension', 'Type')
+    _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'Extension', 'Type')
     _children = (ChildElem(extTag('Extension')),
                  ChildElem(domTag('Type'))
                  )
     STATE_QNAME = None
+    extension_class_lookup = {msgTag('Retrievability'): msgtypes.Retrievability}
 
     def __init__(self, nsmapper, handle, parentHandle):
         super().__init__(nsmapper)
@@ -116,7 +121,19 @@ class AbstractDescriptorContainer(ContainerBase):
     def codingSystem(self):
         return self.Type.coding.codingSystem if self.Type is not None else None  # pylint:disable=no-member
 
-    def incrementDescriptorVersion(self):
+    @property
+    def retrievability(self) -> [msgtypes.Retrievability, None]:
+        if self.Extension is None:
+            return None
+        else:
+            return self.Extension.value.get(msgTag('Retrievability'))
+
+    @retrievability.setter
+    def retrievability(self, retrievability_instance: msgtypes.Retrievability):
+        value = self.Extension.value
+        value[msgTag('Retrievability')] = retrievability_instance
+
+    def increment_descriptor_version(self):
         if self.DescriptorVersion is None:
             self.DescriptorVersion = 1
         else:
@@ -124,13 +141,15 @@ class AbstractDescriptorContainer(ContainerBase):
 
     def update_from_other_container(self, other, skipped_properties=None):
         if other.Handle != self.Handle:
-            raise RuntimeError('Update from a container with different handle is not possible! Have "{}", got "{}"'.format(self.Handle, other.Handle))
+            raise RuntimeError(
+                'Update from a container with different handle is not possible! ' + \
+                'Have "{}", got "{}"'.format(self.Handle, other.Handle))
         self._update_from_other(other, skipped_properties)
 
-    def addChild(self, childDescriptorContainer):
+    def add_child(self, childDescriptorContainer):
         self._child_containers_by_type[childDescriptorContainer.NODETYPE].append(childDescriptorContainer)
 
-    def rmChild(self, childDescriptorContainer):
+    def rm_child(self, childDescriptorContainer):
         tag_specific_list = self._child_containers_by_type[childDescriptorContainer.NODETYPE]
         for container in tag_specific_list:
             if container.handle == childDescriptorContainer.handle:
@@ -153,7 +172,7 @@ class AbstractDescriptorContainer(ContainerBase):
                     ret.append('{}={}, other={}'.format('parentHandle', my_value, other_value))
         return None if len(ret) == 0 else ret
 
-    def mkDescriptorNode(self, tag, setXsiType=True, connect_child_descriptors=False):
+    def mk_descriptor_node(self, tag, setXsiType=True, connect_child_descriptors=False):
         """
         Creates a lxml etree node from instance data.
         :param setXsiType:
@@ -203,7 +222,7 @@ class AbstractDescriptorContainer(ContainerBase):
                                                                              self.DescriptorVersion, self.parentHandle)
 
     @classmethod
-    def fromNode(cls, nsmapper, node, parentHandle):
+    def from_node(cls, nsmapper, node, parentHandle):
         obj = cls(nsmapper,
                   handle=None,  # will be determined in constructor from node value
                   parentHandle=parentHandle)
@@ -218,7 +237,6 @@ class AbstractDeviceComponentDescriptorContainer(AbstractDescriptorContainer):
     _props = ('ProductionSpecification',)
     _children = (ChildElem(domTag('ProductionSpecification')),
                  )
-
 
 
 class AbstractComplexDeviceComponentDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
@@ -237,12 +255,12 @@ class MdsDescriptorContainer(AbstractComplexDeviceComponentDescriptorContainer):
                  ChildConts(domTag('SystemContext'), (domTag('SystemContextDescriptor'),)),
                  ChildConts(domTag('Clock'), (domTag('ClockDescriptor'),)),
                  ChildConts(domTag('Battery'), (domTag('BatteryDescriptor'),)),
-                 ChildElem(domTag('ApprovedJurisdictions')),  #Todo: implement
+                 ChildElem(domTag('ApprovedJurisdictions')),  # Todo: implement
                  ChildConts(domTag('Vmd'), (domTag('VmdDescriptor'),)),
                  )
 
     def mk_meta_data(self):
-        if  self.MetaData is None:
+        if self.MetaData is None:
             self.MetaData = self.__class__.MetaData.valueClass()
 
 
@@ -259,10 +277,10 @@ class ChannelDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     STATE_QNAME = domTag('ChannelState')
     _props = tuple()
     _children = (ChildConts(domTag('Metric'), (domTag('NumericMetricDescriptor'),
-                                                domTag('StringMetricDescriptor'),
-                                                domTag('EnumStringMetricDescriptor'),
-                                                domTag('RealTimeSampleArrayMetricDescriptor'),
-                                                domTag('DistributionSampleArrayMetricDescriptor'),
+                                               domTag('StringMetricDescriptor'),
+                                               domTag('EnumStringMetricDescriptor'),
+                                               domTag('RealTimeSampleArrayMetricDescriptor'),
+                                               domTag('DistributionSampleArrayMetricDescriptor'),
                                                )
                             ),
                  )
@@ -298,14 +316,14 @@ class ScoDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     _props = tuple()
     # This has AbstractOperationDescriptor children. Not modeled here
     _children = (ChildConts(domTag('Operation'), (domTag('SetValueOperationDescriptor'),
-                                                   domTag('SetStringOperationDescriptor'),
-                                                   domTag('SetContextStateOperationDescriptor'),
-                                                   domTag('SetMetricStateOperationDescriptor'),
-                                                   domTag('SetComponentStateOperationDescriptor'),
-                                                   domTag('SetAlertStateOperationDescriptor'),
-                                                   domTag('ActivateOperationDescriptor')
-                                                   )
-                             ),
+                                                  domTag('SetStringOperationDescriptor'),
+                                                  domTag('SetContextStateOperationDescriptor'),
+                                                  domTag('SetMetricStateOperationDescriptor'),
+                                                  domTag('SetComponentStateOperationDescriptor'),
+                                                  domTag('SetAlertStateOperationDescriptor'),
+                                                  domTag('ActivateOperationDescriptor')
+                                                  )
+                            ),
                  )
 
 
@@ -313,7 +331,7 @@ class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
     isMetricDescriptor = True
     Unit = cp.SubElementProperty(domTag('Unit'), valueClass=pmtypes.CodedValue)
     BodySite = cp.SubElementListProperty(domTag('BodySite'), valueClass=pmtypes.CodedValue)
-    Relation = cp.SubElementListProperty(domTag('Relation'), valueClass=pmtypes.Relation) # o...n
+    Relation = cp.SubElementListProperty(domTag('Relation'), valueClass=pmtypes.Relation)  # o...n
     MetricCategory = cp.EnumAttributeProperty('MetricCategory',
                                               enum_cls=pmtypes.MetricCategory,
                                               defaultPyValue=pmtypes.MetricCategory.UNSPECIFIED)  # required
@@ -330,17 +348,18 @@ class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
     DeterminationPeriod = cp.DurationAttributeProperty('DeterminationPeriod')  # optional,  xsd:duration
     LifeTimePeriod = cp.DurationAttributeProperty('LifeTimePeriod')  # optional,  xsd:duration
     ActivationDuration = cp.DurationAttributeProperty('ActivationDuration')  # optional,  xsd:duration
-    _props = ('Unit', 'BodySite', 'Relation', 'MetricCategory', 'DerivationMethod', 'MetricAvailability', 'MaxMeasurementTime',
-              'MaxDelayTime', 'DeterminationPeriod', 'LifeTimePeriod', 'ActivationDuration')
+    _props = (
+    'Unit', 'BodySite', 'Relation', 'MetricCategory', 'DerivationMethod', 'MetricAvailability', 'MaxMeasurementTime',
+    'MaxDelayTime', 'DeterminationPeriod', 'LifeTimePeriod', 'ActivationDuration')
     _children = (ChildElem(domTag('Unit')),
                  ChildElem(domTag('BodySite')),
                  ChildElem(domTag('Relation')),
                  )
 
-    def addChild(self, childDescriptorContainer):
+    def add_child(self, childDescriptorContainer):
         raise ValueError('Metric can not have children')
 
-    def rmChild(self, childDescriptorContainer):
+    def rm_child(self, childDescriptorContainer):
         raise ValueError('Metric can not have children')
 
 
@@ -399,9 +418,9 @@ class DistributionSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorC
 class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
     isOperationalDescriptor = True
     OperationTarget = cp.StringAttributeProperty('OperationTarget', isOptional=False)
-    MaxTimeToFinish = cp.DurationAttributeProperty('MaxTimeToFinish') # optional  xsd:duration
-    InvocationEffectiveTimeout = cp.DurationAttributeProperty('InvocationEffectiveTimeout') # optional  xsd:duration
-    Retriggerable = cp.BooleanAttributeProperty('Retriggerable', impliedPyValue=True) # optional
+    MaxTimeToFinish = cp.DurationAttributeProperty('MaxTimeToFinish')  # optional  xsd:duration
+    InvocationEffectiveTimeout = cp.DurationAttributeProperty('InvocationEffectiveTimeout')  # optional  xsd:duration
+    Retriggerable = cp.BooleanAttributeProperty('Retriggerable', impliedPyValue=True)  # optional
     AccessLevel = cp.EnumAttributeProperty('AccessLevel', impliedPyValue=pmtypes.T_AccessLevel.USER,
                                            enum_cls=pmtypes.T_AccessLevel)
     _props = ('OperationTarget', 'MaxTimeToFinish', 'InvocationEffectiveTimeout', 'Retriggerable')
@@ -411,7 +430,6 @@ class SetValueOperationDescriptorContainer(AbstractOperationDescriptorContainer)
     NODETYPE = domTag('SetValueOperationDescriptor')
     STATE_QNAME = domTag('SetValueOperationState')
     _props = tuple()
-
 
 
 class SetStringOperationDescriptorContainer(AbstractOperationDescriptorContainer):
@@ -481,9 +499,9 @@ class AlertSystemDescriptorContainer(AbstractAlertDescriptorContainer):
     SelfCheckPeriod = cp.DurationAttributeProperty('SelfCheckPeriod')
     _props = ('MaxPhysiologicalParallelAlarms', 'MaxTechnicalParallelAlarms', 'SelfCheckPeriod')
     _children = (ChildConts(domTag('AlertCondition'), (domTag('AlertConditionDescriptor'),
-                                                        domTag('LimitAlertConditionDescriptor')
-                                                        )
-                             ),
+                                                       domTag('LimitAlertConditionDescriptor')
+                                                       )
+                            ),
                  ChildConts(domTag('AlertSignal'), (domTag('AlertSignalDescriptor'),)),
                  )
 
@@ -494,16 +512,17 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
     isAlertConditionDescriptor = True
     NODETYPE = domTag('AlertConditionDescriptor')
     STATE_QNAME = domTag('AlertConditionState')
-    Source = cp.SubElementTextListProperty(domTag('Source')) # a list of 0...n pm:HandleRef elements
-    CauseInfo = cp.SubElementListProperty(domTag('CauseInfo'), valueClass = pmtypes.CauseInfo) # a list of 0...n pm:CauseInfo elements
+    Source = cp.SubElementTextListProperty(domTag('Source'))  # a list of 0...n pm:HandleRef elements
+    CauseInfo = cp.SubElementListProperty(domTag('CauseInfo'), valueClass=pmtypes.CauseInfo)
     Kind = cp.EnumAttributeProperty('Kind', defaultPyValue=pmtypes.AlertConditionKind.OTHER,
                                     enum_cls=pmtypes.AlertConditionKind, isOptional=False)
     Priority = cp.EnumAttributeProperty('Priority', defaultPyValue=pmtypes.AlertConditionPriority.NONE,
                                         enum_cls=pmtypes.AlertConditionPriority, isOptional=False)
-    DefaultConditionGenerationDelay = cp.DurationAttributeProperty('DefaultConditionGenerationDelay', impliedPyValue=0) # optional
+    DefaultConditionGenerationDelay = cp.DurationAttributeProperty('DefaultConditionGenerationDelay', impliedPyValue=0)
     CanEscalate = cp.EnumAttributeProperty('CanEscalate', enum_cls=pmtypes.CanEscalateAlertConditionPriority)
     CanDeescalate = cp.EnumAttributeProperty('CanDeescalate', enum_cls=pmtypes.CanDeEscalateAlertConditionPriority)
-    _props = ('Source', 'CauseInfo', 'Kind', 'Priority', 'DefaultConditionGenerationDelay', 'CanEscalate', 'CanDeescalate')
+    _props = ('Source', 'CauseInfo', 'Kind', 'Priority', 'DefaultConditionGenerationDelay',
+              'CanEscalate', 'CanDeescalate')
     _children = (ChildElem(domTag('Source')),
                  ChildElem(domTag('CauseInfo')),
                  )
@@ -524,12 +543,13 @@ class AlertSignalDescriptorContainer(AbstractAlertDescriptorContainer):
     NODETYPE = domTag('AlertSignalDescriptor')
     STATE_QNAME = domTag('AlertSignalState')
     ConditionSignaled = cp.StringAttributeProperty('ConditionSignaled')
-    Manifestation = cp.EnumAttributeProperty('Manifestation', enum_cls=pmtypes.AlertSignalManifestation, isOptional=False)
+    Manifestation = cp.EnumAttributeProperty('Manifestation', enum_cls=pmtypes.AlertSignalManifestation,
+                                             isOptional=False)
     Latching = cp.BooleanAttributeProperty('Latching', defaultPyValue=False, isOptional=False)
     DefaultSignalGenerationDelay = cp.DurationAttributeProperty('DefaultSignalGenerationDelay', impliedPyValue=0)
     SignalDelegationSupported = cp.BooleanAttributeProperty('SignalDelegationSupported', impliedPyValue=False)
     AcknowledgementSupported = cp.BooleanAttributeProperty('AcknowledgementSupported', impliedPyValue=False)
-    AcknowledgeTimeout = cp.DurationAttributeProperty('AcknowledgeTimeout') # optional
+    AcknowledgeTimeout = cp.DurationAttributeProperty('AcknowledgeTimeout')  # optional
     _props = ('ConditionSignaled', 'Manifestation', 'Latching', 'DefaultSignalGenerationDelay',
               'SignalDelegationSupported', 'AcknowledgementSupported', 'AcknowledgeTimeout')
 
@@ -576,10 +596,12 @@ class OperatorContextDescriptorContainer(AbstractContextDescriptorContainer):
     STATE_QNAME = domTag('OperatorContextState')
     _props = tuple()
 
+
 class MeansContextDescriptorContainer(AbstractContextDescriptorContainer):
     NODETYPE = domTag('MeansContextDescriptor')
     STATE_QNAME = domTag('MeansContextState')
     _props = tuple()
+
 
 class EnsembleContextDescriptorContainer(AbstractContextDescriptorContainer):
     NODETYPE = domTag('EnsembleContextDescriptor')
@@ -633,7 +655,8 @@ _name_class_lookup = {
     domTag('SetMetricStateOperationDescriptor'): SetMetricStateOperationDescriptorContainer,
     domTag('SetComponentStateOperationDescriptor'): SetComponentStateOperationDescriptorContainer,
     domTag('SetAlertStateOperationDescriptor'): SetAlertStateOperationDescriptorContainer,
-    }
+}
+
 
 def getContainerClass(qNameType):
     """

@@ -538,7 +538,7 @@ class ExtensionNodeProperty(_NodeProperty):
             except AttributeError:
                 cls = None
             if cls:
-                values[n.tag] = cls.fromNode(n)
+                values[n.tag] = cls.from_node(n)
             else:
                 values[n.tag] = n
         return  _ExtensionLocalValue(values)
@@ -578,7 +578,7 @@ class SubElementProperty(_NodeProperty):
         value = self._defaultPyValue
         try:
             subNode = self._get_element_by_child_name(node, self._sub_element_name, createMissingNodes=False)
-            value = self.valueClass.fromNode(subNode)
+            value = self.valueClass.from_node(subNode)
         except ElementNotFoundException:
             pass
         return value
@@ -622,7 +622,7 @@ class SubElementListProperty(_ElementListProperty):
         try:
             nodes = node.findall(self._sub_element_name)
             for n in nodes:
-                objects.append(self.valueClass.fromNode(n))
+                objects.append(self.valueClass.from_node(n))
             return objects
         except ElementNotFoundException:
             return objects
