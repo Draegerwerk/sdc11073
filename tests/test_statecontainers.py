@@ -36,13 +36,13 @@ class TestStateContainers(unittest.TestCase):
 
         # verify that mkStateNode() also updates changed descriptor version
         self.dc.DescriptorVersion += 1
-        sc.mkStateNode(_my_tag)
+        sc.mk_state_node(_my_tag)
         self.assertEqual(sc.DescriptorVersion, self.dc.DescriptorVersion)
 
         # verify incrementState works as expected
-        sc.incrementState()
+        sc.increment_state_version()
         self.assertEqual(sc.StateVersion, 1)
-        node = sc.mkStateNode(_my_tag)
+        node = sc.mk_state_node(_my_tag)
         self.assertEqual(node.get('StateVersion'), '1')
 
         # test creation from other container
@@ -54,7 +54,7 @@ class TestStateContainers(unittest.TestCase):
 
         # test update from other container
         sc.DescriptorVersion += 1
-        sc.incrementState()
+        sc.increment_state_version()
         sc2.update_from_other_container(sc)
         self._verifyAbstractStateContainerDataEqual(sc, sc2)
 
@@ -67,8 +67,6 @@ class TestStateContainers(unittest.TestCase):
                                                              descriptorContainer=self.dc)
         self.assertIsNotNone(sc.OperatingMode)  # this is a required attribute
 
-        # test creation from node
-        node = sc.mkStateNode(_my_tag)
         sc2 = statecontainers.AbstractOperationStateContainer(nsmapper=self.nsmapper,
                                                               descriptorContainer=self.dc)
         self.assertIsNotNone(sc2.OperatingMode)
@@ -91,14 +89,14 @@ class TestStateContainers(unittest.TestCase):
         for value in list(pmtypes.ComponentActivation):
             sc.ActivationState = value
             self.assertEqual(sc.ActivationState, value)
-            node = sc.mkStateNode(_my_tag)
+            node = sc.mk_state_node(_my_tag)
             self.assertEqual(node.get('ActivationState'), value)
 
         self.assertEqual(sc.ActiveDeterminationPeriod, None)
         for value in (21, 42):
             sc.ActiveDeterminationPeriod = value
             self.assertEqual(sc.ActiveDeterminationPeriod, value)
-            node = sc.mkStateNode(_my_tag)
+            node = sc.mk_state_node(_my_tag)
             self.assertEqual(node.get('ActiveDeterminationPeriod'),
                              containerproperties.DurationConverter.toXML(value))
         sc.BodySite = [pmtypes.CodedValue('ABC')]
@@ -119,7 +117,7 @@ class TestStateContainers(unittest.TestCase):
         sc.ActiveDeterminationPeriod += 1
         sc.BodySite = [pmtypes.CodedValue('DEF')]
         sc.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('DEF')], 2)
-        sc.incrementState()
+        sc.increment_state_version()
         sc2.update_from_other_container(sc)
         self.assertEqual(sc.ActivationState, sc2.ActivationState)
         self.assertEqual(sc.BodySite, sc2.BodySite)
@@ -157,10 +155,10 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(sc.PhysiologicalRange, sc2.PhysiologicalRange)
 
             self._verifyAbstractStateContainerDataEqual(sc, sc2)
-            sc.mkStateNode(_my_tag)
+            sc.mk_state_node(_my_tag)
 
         sc.metricValue.Value += 1
-        sc.incrementState()
+        sc.increment_state_version()
         sc.ActiveAveragingPeriod = 24
         sc.PhysiologicalRange[1].Lower = 100
         sc2.update_from_other_container(sc)
@@ -224,7 +222,7 @@ class TestStateContainers(unittest.TestCase):
         sc.metricValue.Annotations = [pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))]
         sc.metricValue.ApplyAnnotations = [pmtypes.ApplyAnnotation(1, 2)]
 
-        sc.incrementState()
+        sc.increment_state_version()
         sc2.update_from_other_container(sc)
         verifyEqual(sc, sc2)
 
@@ -302,7 +300,7 @@ class TestStateContainers(unittest.TestCase):
         sc.LastSelfCheck = 1234567
         sc.SelfCheckCount = 3
         sc.PresentPhysiologicalAlarmConditions = ["handle1", "handle2", "handle3"]
-        sc.incrementState()
+        sc.increment_state_version()
         sc2 = statecontainers.AlertSystemStateContainer(nsmapper=self.nsmapper,
                                                         descriptorContainer=self.dc)
         sc2.update_from_other_container(sc)
@@ -312,7 +310,7 @@ class TestStateContainers(unittest.TestCase):
         sc.LastSelfCheck = 12345678
         sc.SelfCheckCount = 4
         sc.PresentPhysiologicalAlarmConditions = ["handle2", "handle3", "handle4"]
-        sc.incrementState()
+        sc.increment_state_version()
         sc2.update_from_other_container(sc)
         verifyEqual(sc, sc2)
 
@@ -340,7 +338,7 @@ class TestStateContainers(unittest.TestCase):
         sc.Rank = 3
         sc.DeterminationTime = 1234567
         sc.Presence = True
-        sc.incrementState()
+        sc.increment_state_version()
         sc2.update_from_other_container(sc)
         verifyEqual(sc, sc2)
 
@@ -365,7 +363,7 @@ class TestStateContainers(unittest.TestCase):
         sc.Rank = 3
         sc.DeterminationTime = 1234567
         sc.Presence = True
-        sc.incrementState()
+        sc.increment_state_version()
         sc2.update_from_other_container(sc)
         verifyEqual(sc, sc2)
 
@@ -374,7 +372,7 @@ class TestStateContainers(unittest.TestCase):
                                                               descriptorContainer=self.dc)
         # verify that initial pyValue is empty, and that no AllowedValues node is created
         self.assertEqual(sc.AllowedValues.Value, [])
-        node = sc.mkStateNode(_my_tag)
+        node = sc.mk_state_node(_my_tag)
         allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
         self.assertEqual(len(allowedValuesNodes), 0)
 
@@ -385,13 +383,13 @@ class TestStateContainers(unittest.TestCase):
 
         # verify that setting to None is identical to empty list
         sc.AllowedValues.Value = []
-        node = sc.mkStateNode(_my_tag)
+        node = sc.mk_state_node(_my_tag)
         allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
         self.assertEqual(len(allowedValuesNodes), 0)
 
         # verify that non-empty list creates values in xml and that same list appears in container created from that xml
         sc.AllowedValues.Value = ['a', 'b', 'c']
-        node = sc.mkStateNode(_my_tag)
+        node = sc.mk_state_node(_my_tag)
         allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
         self.assertEqual(len(allowedValuesNodes), 1)
         valuesNodes = node.xpath('//dom:Value', namespaces=namespaces.nsmap)
@@ -403,7 +401,7 @@ class TestStateContainers(unittest.TestCase):
 
         # verify that setting it back to None clears all data
         sc.AllowedValues.Value = None
-        node = sc.mkStateNode(_my_tag)
+        node = sc.mk_state_node(_my_tag)
         allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
         self.assertEqual(len(allowedValuesNodes), 0)
         sc2 = statecontainers.SetStringOperationStateContainer(nsmapper=self.nsmapper,
@@ -450,20 +448,20 @@ class TestStateContainers(unittest.TestCase):
 
         for value in list(pmtypes.ContextAssociation):
             sc.ContextAssociation = value
-            node = sc.mkStateNode(_my_tag)
+            node = sc.mk_state_node(_my_tag)
             self.assertEqual(node.get('ContextAssociation'), value)
 
         for value in (12345.123, 67890.987):
             sc.BindingStartTime = value
             sc.BindingEndTime = value + 1
-            node = sc.mkStateNode(_my_tag)
+            node = sc.mk_state_node(_my_tag)
             self.assertEqual(node.get('BindingStartTime'), containerproperties.TimestampConverter.toXML(value))
             self.assertEqual(node.get('BindingEndTime'), containerproperties.TimestampConverter.toXML(value + 1))
 
         for value in (0, 42, 123):
             sc.BindingMdibVersion = value
             sc.UnbindingMdibVersion = value + 1
-            node = sc.mkStateNode(_my_tag)
+            node = sc.mk_state_node(_my_tag)
             self.assertEqual(node.get('BindingMdibVersion'), containerproperties.IntegerConverter.toXML(value))
             self.assertEqual(node.get('UnbindingMdibVersion'), containerproperties.IntegerConverter.toXML(value + 1))
 
@@ -497,7 +495,7 @@ class TestStateContainers(unittest.TestCase):
         self.assertEqual(sc.LocationDetail.Floor, None)
 
         # test creation from empty node
-        node = sc.mkStateNode(_my_tag)
+        node = sc.mk_state_node(_my_tag)
         self.assertEqual(node.get('Handle'), sc.Handle)
         print(etree_.tostring(node, pretty_print=True))
         sc2 = statecontainers.LocationContextStateContainer(nsmapper=self.nsmapper,
@@ -587,7 +585,7 @@ class TestStateContainers(unittest.TestCase):
 
         sc.CoreData.DateOfBirth = datetime.date(2001, 3, 12)
 
-        node = sc.mkStateNode(_my_tag)
+        node = sc.mk_state_node(_my_tag)
         print(etree_.tostring(node, pretty_print=True).decode('utf-8'))
         sc2 = statecontainers.PatientContextStateContainer(nsmapper=self.nsmapper,
                                                            descriptorContainer=self.dc)
@@ -596,7 +594,7 @@ class TestStateContainers(unittest.TestCase):
 
         sc.CoreData.Middlename = ['K.']
         sc.CoreData.DateOfBirth = datetime.datetime(2001, 3, 12, 14, 30, 1)
-        sc.incrementState()
+        sc.increment_state_version()
         sc.CoreData.Height._value = 42
         sc.CoreData.Weight._value = 420
         sc2.update_from_other_container(sc)
@@ -636,7 +634,7 @@ class TestStateContainers(unittest.TestCase):
                                                                           pmtypes.LocalizedText('Jim'),
                                                                           pmtypes.LocalizedText('Jane')]))
 
-        node = sc.mkStateNode(_my_tag)
+        node = sc.mk_state_node(_my_tag)
         print(etree_.tostring(node, pretty_print=True))
         sc2 = statecontainers.PatientContextStateContainer(nsmapper=self.nsmapper,
                                                            descriptorContainer=self.dc)
@@ -645,7 +643,7 @@ class TestStateContainers(unittest.TestCase):
 
         sc.CoreData.Middlename = ['K.']
         sc.CoreData.DateOfBirth = datetime.datetime(2001, 3, 12, 14, 30, 1)
-        sc.incrementState()
+        sc.increment_state_version()
         sc.CoreData.Height._value = 42
         sc.CoreData.Weight._value = 420
         sc2.update_from_other_container(sc)

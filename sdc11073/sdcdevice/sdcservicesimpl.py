@@ -957,7 +957,7 @@ class ContextService(DPWSPortTypeImpl):
             tag = msgTag('ContextState')
             if contextStateContainers:
                 for contextStateContainer in contextStateContainers:
-                    node = contextStateContainer.mkStateNode(tag)
+                    node = contextStateContainer.mk_state_node(tag)
                     getContextStatesResponseNode.append(node)
                     node.tag = msgTag('ContextState')
         response.addBodyElement(getContextStatesResponseNode)

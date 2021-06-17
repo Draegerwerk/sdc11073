@@ -1,6 +1,6 @@
 from ..namespaces import domTag
 from .. import pmtypes
-from ..nomenclature import NomenclatureCodes as nc
+from .nomenclature import NomenclatureCodes as nc
 from . import providerbase
 
 

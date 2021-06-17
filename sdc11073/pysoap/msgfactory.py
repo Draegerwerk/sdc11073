@@ -142,7 +142,7 @@ class SoapMessageFactory:
 
         mdStateNode = etree_.Element(msgTag('MdState'), attrib=None, nsmap=nsmapper.docNssmap)
         for stateContainer in stateContainers:
-            mdStateNode.append(stateContainer.mkStateNode(domTag('State')))
+            mdStateNode.append(stateContainer.mk_state_node(domTag('State')))
 
         getMdStateResponseNode.append(mdStateNode)
         responseSoapEnvelope.addBodyElement(getMdStateResponseNode)
@@ -233,7 +233,7 @@ class SoapMessageFactory:
         _proposed_states = [p.mkCopy() for p in proposed_alert_states]
         for p in _proposed_states:
             p.nsmapper = DocNamespaceHelper()  # use my namespaces
-        _proposed_state_nodes = [p.mkStateNode(msgTag('ProposedAlertState')) for p in _proposed_states]
+        _proposed_state_nodes = [p.mk_state_node(msgTag('ProposedAlertState')) for p in _proposed_states]
         method = 'SetAlertState'
         return self._mk_setmethod_envelope(to, port_type, method, operation_handle, _proposed_state_nodes)
 
@@ -249,7 +249,7 @@ class SoapMessageFactory:
         nsmapper = DocNamespaceHelper()
         for p in _proposed_states:
             p.nsmapper = nsmapper  # use my namespaces
-        _proposed_state_nodes = [p.mkStateNode(msgTag('ProposedMetricState')) for p in _proposed_states]
+        _proposed_state_nodes = [p.mk_state_node(msgTag('ProposedMetricState')) for p in _proposed_states]
         return self._mk_setmethod_envelope(to, port_type, 'SetMetricState', operation_handle, _proposed_state_nodes)
 
     def mk_setcomponentstate_envelope(self, to, port_type, operation_handle, proposed_component_states):
@@ -264,7 +264,7 @@ class SoapMessageFactory:
         nsmapper = DocNamespaceHelper()
         for p in _proposed_states:
             p.nsmapper = nsmapper  # use my namespaces
-        _proposed_state_nodes = [p.mkStateNode(msgTag('ProposedComponentState')) for p in _proposed_states]
+        _proposed_state_nodes = [p.mk_state_node(msgTag('ProposedComponentState')) for p in _proposed_states]
         return self._mk_setmethod_envelope(to, port_type, 'SetComponentState', operation_handle, _proposed_state_nodes)
 
     def mk_setcontextstate_envelope(self, to, port_type, operation_handle, proposed_context_states):
@@ -281,7 +281,7 @@ class SoapMessageFactory:
             if p.Handle is None:
                 p.Handle = p.DescriptorHandle
             p.nsmapper = DocNamespaceHelper()  # use my namespaces
-        _proposed_state_nodes = [p.mkStateNode(msgTag('ProposedContextState')) for p in _proposed_states]
+        _proposed_state_nodes = [p.mk_state_node(msgTag('ProposedContextState')) for p in _proposed_states]
 
         return self._mk_setmethod_envelope(to, port_type, 'SetContextState', operation_handle, _proposed_state_nodes)
 

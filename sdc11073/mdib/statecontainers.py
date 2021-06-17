@@ -24,8 +24,8 @@ class AbstractStateContainer(ContainerBase):
     ext_Extension = cp.ExtensionNodeProperty()
     DescriptorHandle = cp.StringAttributeProperty('DescriptorHandle', isOptional=False)
     descriptorHandle = DescriptorHandle
-    DescriptorVersion = cp.IntegerAttributeProperty('DescriptorVersion', defaultPyValue=0)  # an integer
-    StateVersion = cp.IntegerAttributeProperty('StateVersion', defaultPyValue=0)  # an integer
+    DescriptorVersion = cp.IntegerAttributeProperty('DescriptorVersion', defaultPyValue=0)
+    StateVersion = cp.IntegerAttributeProperty('StateVersion', defaultPyValue=0)
     _props = ('ext_Extension', 'DescriptorHandle', 'DescriptorVersion', 'StateVersion')
 
     stateVersion = StateVersion  # lower case for backwards compatibility
@@ -37,11 +37,11 @@ class AbstractStateContainer(ContainerBase):
         self.DescriptorVersion = descriptorContainer.DescriptorVersion
 
     def updateNode(self):
-        self.node = self.mkStateNode(domTag('State'))
+        self.node = self.mk_state_node(domTag('State'))
 
-    def mkStateNode(self, tag, updateDescriptorVersion=True):
-        if updateDescriptorVersion:
-            self.updateDescriptorVersion()
+    def mk_state_node(self, tag, update_descriptor_version=True):
+        if update_descriptor_version:
+            self.update_descriptor_version()
         node = super().mkNode(tag, setXsiType=True)
         node.set('DescriptorHandle', self.descriptorHandle)
         return node
@@ -54,13 +54,13 @@ class AbstractStateContainer(ContainerBase):
         self._update_from_other(other, skipped_properties)
         self.node = other.node
 
-    def incrementState(self):
+    def increment_state_version(self):
         if self.StateVersion is None:
             self.StateVersion = 1
         else:
             self.StateVersion += 1
 
-    def updateDescriptorVersion(self):
+    def update_descriptor_version(self):
         if self.descriptorContainer is None:
             raise RuntimeError('State {} has no descriptorContainer'.format(self))
         if self.descriptorContainer.DescriptorVersion != self.DescriptorVersion:
@@ -385,10 +385,10 @@ class AbstractMultiStateContainer(AbstractStateContainer):
                     self.Handle, other.Handle))
         super().update_from_other_container(other, skipped_properties)
 
-    def mkStateNode(self, tag, updateDescriptorVersion=True):
+    def mk_state_node(self, tag, update_descriptor_version=True):
         if self.Handle is None:
             self.Handle = uuid.uuid4().hex
-        return super().mkStateNode(tag, updateDescriptorVersion)
+        return super().mk_state_node(tag, update_descriptor_version)
 
     def __repr__(self):
         return '{} descriptorHandle="{}" handle="{}" type={}'.format(self.__class__.__name__, self.descriptorHandle,

@@ -1,6 +1,6 @@
 from .. import namespaces
 from .. import pmtypes
-from ..nomenclature import NomenclatureCodes as nc
+from .nomenclature import NomenclatureCodes as nc
 from . import providerbase
 
 # coded values for SDC ntp and time zone

@@ -336,13 +336,13 @@ class MdibContainer(object):
         tag = domTag('State')
         for stateContainer in self.states.objects:
             try:
-                tmpNode = stateContainer.mkStateNode(tag)
+                tmpNode = stateContainer.mk_state_node(tag)
                 mdStateNode.append(tmpNode)
             except RuntimeError:
                 self._logger.error('State {} has no descriptorContainer', stateContainer.descriptorHandle)
         if addContextStates:
             for stateContainer in self.contextStates.objects:
-                tmpNode = stateContainer.mkStateNode(tag)
+                tmpNode = stateContainer.mk_state_node(tag)
                 mdStateNode.append(tmpNode)
 
         return mdibNode

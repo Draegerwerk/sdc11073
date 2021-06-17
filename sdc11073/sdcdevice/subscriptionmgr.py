@@ -488,7 +488,7 @@ class SubscriptionsManager(object):
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedMetricStates:
-            stateNode = s.mkStateNode(msgTag('MetricState'))
+            stateNode = s.mk_state_node(msgTag('MetricState'))
             reportPartNode.append(stateNode)
 
         for s in subscribers:
@@ -510,7 +510,7 @@ class SubscriptionsManager(object):
         for part in updatedMetricStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
-                stateNode = s.mkStateNode(msgTag('MetricState'))
+                stateNode = s.mk_state_node(msgTag('MetricState'))
                 reportPartNode.append(stateNode)
 
         for s in subscribers:
@@ -531,7 +531,7 @@ class SubscriptionsManager(object):
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedStates:
-            stateNode = s.mkStateNode(msgTag('OperationState'))
+            stateNode = s.mk_state_node(msgTag('OperationState'))
             reportPartNode.append(stateNode)
 
         for s in subscribers:
@@ -553,7 +553,7 @@ class SubscriptionsManager(object):
         for part in updatedStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
-                stateNode = s.mkStateNode(msgTag('OperationState'))
+                stateNode = s.mk_state_node(msgTag('OperationState'))
                 reportPartNode.append(stateNode)
 
         for s in subscribers:
@@ -574,7 +574,7 @@ class SubscriptionsManager(object):
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedAlertStates:
-            stateNode = s.mkStateNode(msgTag('AlertState'))
+            stateNode = s.mk_state_node(msgTag('AlertState'))
             reportPartNode.append(stateNode)
 
         for s in subscribers:
@@ -595,7 +595,7 @@ class SubscriptionsManager(object):
         for part in updatedStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
-                stateNode = s.mkStateNode(msgTag('AlertState'))
+                stateNode = s.mk_state_node(msgTag('AlertState'))
                 reportPartNode.append(stateNode)
 
         for s in subscribers:
@@ -616,7 +616,7 @@ class SubscriptionsManager(object):
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedComponentStates:
-            stateNode = s.mkStateNode(msgTag('ComponentState'))
+            stateNode = s.mk_state_node(msgTag('ComponentState'))
             reportPartNode.append(stateNode)
 
         for s in subscribers:
@@ -638,7 +638,7 @@ class SubscriptionsManager(object):
         for part in updatedStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
-                stateNode = s.mkStateNode(msgTag('ComponentState'))
+                stateNode = s.mk_state_node(msgTag('ComponentState'))
                 reportPartNode.append(stateNode)
 
         for s in subscribers:
@@ -660,7 +660,7 @@ class SubscriptionsManager(object):
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedContextStates:
-            stateNode = s.mkStateNode(msgTag('ContextState'))
+            stateNode = s.mk_state_node(msgTag('ContextState'))
             reportPartNode.append(stateNode)
 
         for s in subscribers:
@@ -681,7 +681,7 @@ class SubscriptionsManager(object):
         for part in updatedStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
-                stateNode = s.mkStateNode(msgTag('ContextState'))
+                stateNode = s.mk_state_node(msgTag('ContextState'))
                 reportPartNode.append(stateNode)
 
         for s in subscribers:
@@ -701,7 +701,7 @@ class SubscriptionsManager(object):
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
 
         for s in updatedRealTimeSampleStates:
-            stateNode = s.mkStateNode(msgTag('State'))
+            stateNode = s.mk_state_node(msgTag('State'))
             bodyNode.append(stateNode)
 
         for s in subscribers:
@@ -731,7 +731,7 @@ class SubscriptionsManager(object):
             reportPart.append(node)
             relatedStateContainers = [s for s in updated_states if s.descriptorHandle == descrContainer.handle]
             for stateContainer in relatedStateContainers:
-                node = stateContainer.mkStateNode(msgTag('State'))
+                node = stateContainer.mk_state_node(msgTag('State'))
                 reportPart.append(node)
 
     def sendDescriptorUpdates(self, updated, created, deleted, updated_states, nsmapper, mdibVersion, sequenceId):

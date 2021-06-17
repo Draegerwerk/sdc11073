@@ -52,7 +52,7 @@ class _TransactionBase(object):
                 self._deviceMdibContainer.states.setVersion(new_stateContainer)
         else:
             new_stateContainer = old_stateContainer.mkCopy()
-            new_stateContainer.incrementState()
+            new_stateContainer.increment_state_version()
         return old_stateContainer, new_stateContainer
 
 
@@ -91,7 +91,7 @@ class _RtDataMdibUpdateTransaction(_TransactionBase):
         if not stateContainer.isRealtimeSampleArrayMetricState:
             raise ValueError('descriptorHandle {} does not reference a RealTimeSampleArrayMetricState'.format(
                 descriptorHandle))
-        stateContainer.incrementState()
+        stateContainer.increment_state_version()
         new_state = stateContainer  # supply old and new state; although identical, just do not break interface
         self.rtSampleStateUpdates[descriptorHandle] = _TrItem(stateContainer, new_state)
         return new_state
@@ -251,7 +251,7 @@ class _MdibUpdateTransaction(_TransactionBase):
             oldStateContainer = self._deviceMdibContainer.contextStates.handle.getOne(contextStateHandle, allowNone=True)
             if oldStateContainer is not None:
                 newStateContainer = oldStateContainer.mkCopy()
-                newStateContainer.incrementState()
+                newStateContainer.increment_state_version()
             else:
                 newStateContainer = self._deviceMdibContainer.mkStateContainerFromDescriptor(descriptorContainer)
                 newStateContainer.BindingMdibVersion = self._deviceMdibContainer.mdibVersion  # auto-set this Attribute
@@ -278,7 +278,7 @@ class _MdibUpdateTransaction(_TransactionBase):
                 raise ValueError(
                     'descriptorHandle {} does not reference a RealTimeSampleArrayMetricState'.format(descriptorHandle))
             new_state = state_container.mkCopy(copy_node=False)
-            new_state.incrementState()
+            new_state.increment_state_version()
         self.rtSampleStateUpdates[descriptorHandle] = _TrItem(state_container, new_state)
         return new_state
 
@@ -421,8 +421,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                                 new_state = old_state.mkCopy()
                                 update_dict[key] = _TrItem(old_state, new_state)
                             new_state.descriptorContainer = descriptorContainer
-                            new_state.incrementState()
-                            new_state.updateDescriptorVersion()
+                            new_state.increment_state_version()
+                            new_state.update_descriptor_version()
                             descr_updated_states.append(new_state)
                     else:
                         # check if state is already present in this transaction
@@ -435,14 +435,14 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                             if new_state is None:
                                 raise ValueError(f'state deleted? that should not be possible! handle = {descriptorContainer.handle}')
                             new_state.descriptorContainer = descriptorContainer
-                            new_state.updateDescriptorVersion()
+                            new_state.update_descriptor_version()
                         else:
                             old_state = self.states.descriptorHandle.getOne(descriptorContainer.handle, allowNone=True)
                             if old_state is not None:
                                 new_state = old_state.mkCopy()
                                 new_state.descriptorContainer = descriptorContainer
-                                new_state.incrementState()
-                                new_state.updateDescriptorVersion()
+                                new_state.increment_state_version()
+                                new_state.update_descriptor_version()
                                 update_dict[descriptorContainer.handle] = _TrItem(old_state, new_state)
                         if new_state is not None:
                             descr_updated_states.append(new_state)
