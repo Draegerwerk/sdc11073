@@ -14,7 +14,7 @@ class RetrievabilityMethod(enum.Enum):
 
 class RetrievabilityInfo(PropertyBasedPMType):
     Method = cp.EnumAttributeProperty('Method', enum_cls=RetrievabilityMethod, isOptional=False)
-    UpdatePeriod = cp.DurationAttributeProperty('UpdatePeriod')
+    UpdatePeriod = cp.DurationAttributeProperty('UpdatePeriod', impliedPyValue=1.0)
     _props = ['Method', 'UpdatePeriod']
 
     def __init__(self, method: RetrievabilityMethod, update_period: [float, None] = None):

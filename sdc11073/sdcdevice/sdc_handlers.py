@@ -6,6 +6,7 @@ import logging
 import threading
 import traceback
 from collections import namedtuple
+from functools import reduce
 
 from lxml import etree as etree_
 
@@ -323,6 +324,15 @@ class SdcHandler_Base(object):
             self._rtSampleSendThread.daemon = True
             self._rtSampleSendThread.start()
         if periodic_reports_interval:
+            # This setting activates the simple periodic send loop, retrievability settings are ignored
+            self._run_periodic_reports_thread = True
+            self._periodic_reports_interval = periodic_reports_interval
+            self._periodic_reports_thread = threading.Thread(target=self._simple_periodic_reports_send_loop,
+                                                             name='DevPeriodicSendLoop')
+            self._periodic_reports_thread.daemon = True
+            self._periodic_reports_thread.start()
+        elif self._mdib._retrievability_periodic:
+            # Periodic Retrievalility is set at least once, start handler loop
             self._run_periodic_reports_thread = True
             self._periodic_reports_interval = periodic_reports_interval
             self._periodic_reports_thread = threading.Thread(target=self._periodic_reports_send_loop,
@@ -498,16 +508,16 @@ class SdcHandler_Base(object):
             except Exception:
                 self._logger.warn(' could not update real time samples: {}', traceback.format_exc())
 
-    def _periodic_reports_send_loop(self):
+    def _simple_periodic_reports_send_loop(self):
         """This is a very basic implementation of periodic reports, it only supports fixed interval.
         It does not care about retrievability settings in the mdib.
         """
-        self._logger.debug('_periodic_reports_send_loop start')
+        self._logger.debug('_simple_periodic_reports_send_loop start')
         time.sleep(0.1)  # start delayed
         timer = intervaltimer.IntervalTimer(periodInSeconds=self._periodic_reports_interval)
         while self._run_periodic_reports_thread:
             timer.waitForNextIntervalBegin()
-            self._logger.debug('_periodic_reports_send_loop')
+            self._logger.debug('_simple_periodic_reports_send_loop')
             for reports_list, send_func, msg in [
                 (self._periodic_metric_reports, self._subscriptionsManager.sendPeriodicMetricReport, 'metric'),
                 (self._periodic_alert_reports, self._subscriptionsManager.sendPeriodicAlertReport, 'alert'),
@@ -526,6 +536,75 @@ class SdcHandler_Base(object):
                 if tmp:
                     self._logger.debug('send periodic %s report', msg)
                     send_func(tmp, self._mdib.nsmapper, self.mdib.sequenceId)
+
+
+    def _periodic_reports_send_loop(self):
+        """This implementation of periodic reports send loop considers retrievability settings in the mdib.
+        """
+        def _next(x, y): # helper for reduce
+            return x if x[1].remaining_time() < y[1].remaining_time() else y
+
+        self._logger.debug('_periodic_reports_send_loop start')
+        time.sleep(0.1)  # start delayed
+        # create an interval timer for each period
+        timers = {}
+        for period_ms in self._mdib._retrievability_periodic.keys():
+            timers[period_ms] = intervaltimer.IntervalTimer(periodInSeconds=period_ms/1000)
+        while self._run_periodic_reports_thread:
+            # find timer with shortest remaining time
+            period_ms, timer = reduce(lambda x,y:_next(x, y) , timers.items())
+            timer.waitForNextIntervalBegin()
+            self._logger.debug('_periodic_reports_send_loop {} msec timer', period_ms)
+            all_handles = self._mdib._retrievability_periodic.get(period_ms, [])
+            # separate them by notification types
+            metrics = []
+            components = []
+            alerts = []
+            operationals = []
+            contexts = []
+            for h in all_handles:
+                descr = self._mdib.descriptions.handle.getOne(h)
+                if descr.isMetricDescriptor and not descr.isRealtimeSampleArrayMetricDescriptor:
+                    metrics.append(h)
+                elif descr.isSystemContextDescriptor or descr.isComponentDescriptor:
+                    components.append(h)
+                elif descr.isAlertDescriptor:
+                    alerts.append(h)
+                elif descr.isOperationalDescriptor:
+                    operationals.append(h)
+                elif descr.isContextDescriptor:
+                    contexts.append(h)
+
+            with self._mdib.mdibLock:
+                mdib_version = self._mdib.mdibVersion
+                sequence_id = self._mdib.sequenceId
+                metric_states = [self._mdib.states.descriptorHandle.getOne(h).mkCopy() for h in metrics]
+                component_states = [self._mdib.states.descriptorHandle.getOne(h).mkCopy() for h in components]
+                alert_states = [self._mdib.states.descriptorHandle.getOne(h).mkCopy() for h in alerts]
+                operational_states = [self._mdib.states.descriptorHandle.getOne(h).mkCopy() for h in operationals]
+                context_states = []
+                for c in contexts:
+                    context_states.extend([st.mkCopy() for st in self._mdib.contextStates.descriptorHandle.get(c, [])])
+            self._logger.debug('   _periodic_reports_send_loop {} metric_states', len(metric_states))
+            self._logger.debug('   _periodic_reports_send_loop {} component_states', len(component_states))
+            self._logger.debug('   _periodic_reports_send_loop {} alert_states', len(alert_states))
+            self._logger.debug('   _periodic_reports_send_loop {} alert_states', len(alert_states))
+            self._logger.debug('   _periodic_reports_send_loop {} context_states', len(context_states))
+            if metric_states:
+                p = PeriodicStates(mdib_version, metric_states)
+                self._subscriptionsManager.sendPeriodicMetricReport([p], self._mdib.nsmapper, sequence_id)
+            if component_states:
+                p = PeriodicStates(mdib_version, component_states)
+                self._subscriptionsManager.sendPeriodicComponentStateReport([p], self._mdib.nsmapper, sequence_id)
+            if alert_states:
+                p = PeriodicStates(mdib_version, alert_states)
+                self._subscriptionsManager.sendPeriodicAlertReport([p], self._mdib.nsmapper, sequence_id)
+            if operational_states:
+                p = PeriodicStates(mdib_version, operational_states)
+                self._subscriptionsManager.sendPeriodicOperationalStateReport([p], self._mdib.nsmapper, sequence_id)
+            if context_states:
+                p = PeriodicStates(mdib_version, context_states)
+                self._subscriptionsManager.sendPeriodicContextReport([p], self._mdib.nsmapper, sequence_id)
 
     def _setupLogging(self, logLevel):
         loghelper.ensureLogStream()

@@ -496,18 +496,18 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendPeriodicMetricReport(self, updatedMetricStatesList, nsmapper, sequenceId):
+    def sendPeriodicMetricReport(self, periodic_states_list, nsmapper, sequenceId):
         action = self.sdc_definitions.Actions.PeriodicMetricReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending periodic metric report, contains last {} episodic updates',
-                           len(updatedMetricStatesList))
+                           len(periodic_states_list))
         bodyNode = etree_.Element(msgTag('PeriodicMetricReport'),
                                   attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(updatedMetricStatesList[-1].mdib_version)},
+                                          'MdibVersion': str(periodic_states_list[-1].mdib_version)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
-        for part in updatedMetricStatesList:
+        for part in periodic_states_list:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
                 stateNode = s.mk_state_node(msgTag('MetricState'))
@@ -539,18 +539,18 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendPeriodicOperationalStateReport(self, updatedStatesList, nsmapper, sequenceId):
+    def sendPeriodicOperationalStateReport(self, periodic_states_list, nsmapper, sequenceId):
         action = self.sdc_definitions.Actions.PeriodicOperationalStateReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
-                           len(updatedStatesList))
+                           len(periodic_states_list))
         bodyNode = etree_.Element(msgTag('PeriodicOperationalStateReport'),
                                   attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(updatedStatesList[-1].mdib_version)},
+                                          'MdibVersion': str(periodic_states_list[-1].mdib_version)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
-        for part in updatedStatesList:
+        for part in periodic_states_list:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
                 stateNode = s.mk_state_node(msgTag('OperationState'))
@@ -582,17 +582,17 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendPeriodicAlertReport(self, updatedStatesList, nsmapper, sequenceId):
+    def sendPeriodicAlertReport(self, periodic_states_list, nsmapper, sequenceId):
         action = self.sdc_definitions.Actions.PeriodicAlertReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
-        self._logger.debug('sending periodic alert report, contains last {} episodic updates', len(updatedStatesList))
+        self._logger.debug('sending periodic alert report, contains last {} episodic updates', len(periodic_states_list))
         bodyNode = etree_.Element(msgTag('PeriodicAlertReport'),
                                   attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(updatedStatesList[-1].mdib_version)},
+                                          'MdibVersion': str(periodic_states_list[-1].mdib_version)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
-        for part in updatedStatesList:
+        for part in periodic_states_list:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
                 stateNode = s.mk_state_node(msgTag('AlertState'))
@@ -624,18 +624,18 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendPeriodicComponentStateReport(self, updatedStatesList, nsmapper, sequenceId):
+    def sendPeriodicComponentStateReport(self, periodic_states_list, nsmapper, sequenceId):
         action = self.sdc_definitions.Actions.PeriodicComponentReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending periodic component report, contains last {} episodic updates',
-                           len(updatedStatesList))
+                           len(periodic_states_list))
         bodyNode = etree_.Element(msgTag('PeriodicComponentReport'),
                                   attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(updatedStatesList[-1].mdib_version)},
+                                          'MdibVersion': str(periodic_states_list[-1].mdib_version)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
-        for part in updatedStatesList:
+        for part in periodic_states_list:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
                 stateNode = s.mk_state_node(msgTag('ComponentState'))
@@ -668,17 +668,17 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendPeriodicContextReport(self, updatedStatesList, nsmapper, sequenceId):
+    def sendPeriodicContextReport(self, periodic_states_list, nsmapper, sequenceId):
         action = self.sdc_definitions.Actions.PeriodicContextReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
-        self._logger.debug('sending periodic context report, contains last {} episodic updates', len(updatedStatesList))
+        self._logger.debug('sending periodic context report, contains last {} episodic updates', len(periodic_states_list))
         bodyNode = etree_.Element(msgTag('PeriodicContextReport'),
                                   attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(updatedStatesList[-1].mdib_version)},
+                                          'MdibVersion': str(periodic_states_list[-1].mdib_version)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
-        for part in updatedStatesList:
+        for part in periodic_states_list:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
                 stateNode = s.mk_state_node(msgTag('ContextState'))
