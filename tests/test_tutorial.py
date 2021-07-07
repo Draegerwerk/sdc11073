@@ -242,7 +242,7 @@ class Test_Tutorial(unittest.TestCase):
                 self.operation2_called = 0
                 self.operation2_args = None
 
-            def makeOperationInstance(self, operationDescriptorContainer):
+            def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
                 """ if the role provider is responsible for handling of calls to this operationDescriptorContainer,
                  it creates an operation instance and returns it. Otherwise it returns None"""
                 if operationDescriptorContainer.coding == MY_CODE_1.coding:
@@ -253,10 +253,12 @@ class Test_Tutorial(unittest.TestCase):
                     # The following line shows how to provide your callback (in this case self._handle_operation_1).
                     # This callback is called when a consumer calls the operation.
                     operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
+                                                                         operations_factory,
                                                                          currentArgumentHandler=self._handle_operation_1)
                     return operation
                 elif operationDescriptorContainer.coding == MY_CODE_2.coding:
                     operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
+                                                                         operations_factory,
                                                                          currentArgumentHandler=self._handle_operation_2)
                     return operation
                 else:
@@ -274,7 +276,7 @@ class Test_Tutorial(unittest.TestCase):
                 self.operation2_args = argument
                 self._logger.info('_handle_operation_2 called')
                 with self._mdib.mdibUpdateTransaction() as mgr:
-                    my_state = mgr.getMetricState(operationInstance.operationTarget)
+                    my_state = mgr.get_state(operationInstance.operationTarget)
                     if my_state.metricValue is None:
                         my_state.mkMetricValue()
                     my_state.metricValue.Value = argument
@@ -288,12 +290,13 @@ class Test_Tutorial(unittest.TestCase):
                 self.operation3_args = None
                 self.operation3_called = 0
 
-            def makeOperationInstance(self, operationDescriptorContainer):
+            def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
                 if operationDescriptorContainer.coding == MY_CODE_3.coding:
                     self._logger.info(
                         'instantiating operation 3 from existing descriptor handle={}'.format(
                             operationDescriptorContainer.handle))
                     operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
+                                                                         operations_factory,
                                                                          currentArgumentHandler=self._handle_operation_3)
                     return operation
                 else:
@@ -305,7 +308,7 @@ class Test_Tutorial(unittest.TestCase):
                 self.operation3_args = argument
                 self._logger.info('_handle_operation_3 called')
                 with self._mdib.mdibUpdateTransaction() as mgr:
-                    my_state = mgr.getMetricState(operationInstance.operationTarget)
+                    my_state = mgr.get_state(operationInstance.operationTarget)
                     if my_state.metricValue is None:
                         my_state.mkMetricValue()
                     my_state.metricValue.Value = argument
