@@ -241,7 +241,6 @@ class Test_Tutorial(unittest.TestCase):
                 self.operation1_args = None
                 self.operation2_called = 0
                 self.operation2_args = None
-                self.operation2_called = 0
 
             def makeOperationInstance(self, operationDescriptorContainer):
                 """ if the role provider is responsible for handling of calls to this operationDescriptorContainer,

@@ -1,2 +1,2 @@
 More tutorial examples can be found in ../tests/test_tutorial.
-THe other tests in the tests folder also provide a lot of examples how to do things.
+The other tests in the tests folder also provide a lot of examples how to do things.
