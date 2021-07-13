@@ -505,7 +505,8 @@ class Range(PropertyBasedPMType):
         
         
     def __repr__(self):
-        return 'Range (Lower={!r}, Upper={!r})'.format(self.Lower, self.Upper)
+        return 'Range (Lower={!r}, Upper={!r}, StepWidth={!r}, RelativeAccuracy={!r}, AbsoluteAccuracy={!r})'\
+            .format(self.Lower, self.Upper, self.StepWidth, self.RelativeAccuracy, self.AbsoluteAccuracy)
 
 
 
