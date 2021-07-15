@@ -244,7 +244,7 @@ class MdsStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = domTag('MdsState')
     OperatingMode = cp.NodeAttributeProperty('OperatingMode',
                                              defaultPyValue=pmtypes.MdsOperatingMode.NORMAL)  # pmtypes.MdsOperatingMode
-    Lang = cp.NodeAttributeProperty('Lang', defaultPyValue='en')
+    Lang = cp.NodeAttributeProperty('Lang', impliedPyValue='en')
     _props = ('OperatingMode', 'Lang')
 
 
