@@ -36,7 +36,7 @@ class _OperationsWorker(threading.Thread):
         self._operationsQ = queue.Queue(10)  # spooled operations
         self._transactionId = 1
         self._transactionIdLock = threading.Lock()
-        self._logger = loghelper.getLoggerAdapter('sdc.device.op_worker', log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.device.op_worker', log_prefix)
 
     def enqueueOperation(self, operation, request, argument):
         """ enqueues operation "operation".
@@ -62,23 +62,23 @@ class _OperationsWorker(threading.Thread):
                 time.sleep(0.001)
                 self._logger.info('{}: starting operation "{}"', operation.__class__.__name__, operation.handle)
                 # duplicate the WAIT response to the operation request as notification. Standard requires this.
-                self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id, operation,
+                self._subscriptionsmgr.notifyOperation(self._mdib.sequence_id, self._mdib.mdib_version, tr_id, operation,
                                                        InvocationState.WAIT)
                 time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
-                self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id, operation,
+                self._subscriptionsmgr.notifyOperation(self._mdib.sequence_id, self._mdib.mdib_version, tr_id, operation,
                                                        InvocationState.START)
                 try:
                     operation.executeOperation(request, argument)
                     self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
                                       operation.handle)
-                    self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
+                    self._subscriptionsmgr.notifyOperation(self._mdib.sequence_id, self._mdib.mdib_version, tr_id,
                                                            operation, InvocationState.FINISHED)
                 except Exception as ex:
                     self._logger.info('{}: error executing operation "{}": {}', operation.__class__.__name__,
                                       operation.handle, traceback.format_exc())
-                    self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
+                    self._subscriptionsmgr.notifyOperation(self._mdib.sequence_id, self._mdib.mdib_version, tr_id,
                                                            operation, InvocationState.FAILED, error='Oth',
-                                                           errorMessage=repr(ex))
+                                                           error_message=repr(ex))
             except Exception as ex:
                 self._logger.error('{}: unexpected error while handling operation "{}": {}',
                                    operation.__class__.__name__, operation.handle, traceback.format_exc())
@@ -88,7 +88,7 @@ class _OperationsWorker(threading.Thread):
         self.join(timeout=1)
 
 
-class ScoOperationsRegistry(object):
+class ScoOperationsRegistry:
     """ Registry for Sco operations.
     from BICEPS:
     A service control object to define remote control operations. Any pm:AbstractOperationDescriptor/@OperationTarget
@@ -103,13 +103,13 @@ class ScoOperationsRegistry(object):
         self.operations_factory = operations_factory
         self._mdib = mdib
         self._log_prefix = log_prefix
-        self._logger = loghelper.getLoggerAdapter('sdc.device.op_reg', log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.device.op_reg', log_prefix)
         self._registeredOperations = {}  # lookup by handle
         self._handle = handle
 
         # find the Sco of the Mds, this will be the default sco for new operations
         mdsDescriptorContainer = mdib.descriptions.NODETYPE.getOne(domTag('MdsDescriptor'))
-        scos = mdib.descriptions.find(parentHandle=mdsDescriptorContainer.handle).find(
+        scos = mdib.descriptions.find(parent_handle=mdsDescriptorContainer.handle).find(
             NODETYPE=domTag('ScoDescriptor')).objects
         if len(scos) == 1:
             self._logger.info('found Sco node in mds, using it')
@@ -119,7 +119,7 @@ class ScoOperationsRegistry(object):
             # create sco and add to mdib
             self._mds_sco_descriptorContainer = mdib_.descriptorcontainers.ScoDescriptorContainer(
                 mdib.nsmapper, self._handle, mdsDescriptorContainer.handle)
-            mdib.descriptions.addObject(self._mds_sco_descriptorContainer)
+            mdib.descriptions.add_object(self._mds_sco_descriptorContainer)
 
     def registerOperation(self, operation, scoDescriptorContainer=None):
         self._logger.info('register operation "{}"', operation)
@@ -155,12 +155,12 @@ class ScoOperationsRegistry(object):
             self._worker = None
 
 
-class OperationDefinition(object):
+class OperationDefinition:
     """ This is the base class of all provided operations.
     An operation is a point for remote control over the network."""
-    currentValue = properties.ObservableProperty(fireOnlyOnChangedValue=False)
-    currentRequest = properties.ObservableProperty(fireOnlyOnChangedValue=False)
-    currentArgument = properties.ObservableProperty(fireOnlyOnChangedValue=False)
+    currentValue = properties.ObservableProperty(fire_only_on_changed_value=False)
+    currentRequest = properties.ObservableProperty(fire_only_on_changed_value=False)
+    currentArgument = properties.ObservableProperty(fire_only_on_changed_value=False)
     OP_DESCR_QNAME = None
     OP_STATE_QNAME = None
 
@@ -174,7 +174,7 @@ class OperationDefinition(object):
         @param safetyClassification: one of pmtypes.SafetyClassification values
         @param codedValue: a pmtypes.CodedValue instance
         """
-        self._logger = loghelper.getLoggerAdapter('sdc.device.op.{}'.format(self.__class__.__name__), log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.device.op.{}'.format(self.__class__.__name__), log_prefix)
         self._mdib = None
         self._descriptorContainer = None
         self._operationStateContainer = None
@@ -224,21 +224,21 @@ class OperationDefinition(object):
             # there is already a descriptor
             self._logger.info('descriptor for operation "{}" is already present, re-using it'.format(self._handle))
         else:
-            operationDescriptorClass = mdib.getDescriptorContainerClass(self.OP_DESCR_QNAME)
+            operationDescriptorClass = mdib.get_descriptor_container_class(self.OP_DESCR_QNAME)
             self._descriptorContainer = operationDescriptorClass(
                 mdib.nsmapper, self._handle, parentDescriptorContainer.handle)
             self._initOperationDescriptorContainer()
-            mdib.descriptions.addObject(self._descriptorContainer)
+            mdib.descriptions.add_object(self._descriptorContainer)
 
         self._operationStateContainer = self._mdib.states.descriptorHandle.getOne(self._handle, allowNone=True)
         if self._operationStateContainer is not None:
             self._logger.info('operation state for operation "{}" is already present, re-using it'.format(self._handle))
-            self._operationStateContainer.updateNode()
+            self._operationStateContainer.set_node_member()
         else:
-            operationStateClass = mdib.getStateContainerClass(self.OP_STATE_QNAME)
+            operationStateClass = mdib.get_state_container_class(self.OP_STATE_QNAME)
             self._operationStateContainer = operationStateClass(mdib.nsmapper, self._descriptorContainer)
-            self._operationStateContainer.updateNode()
-            mdib.states.addObject(self._operationStateContainer)
+            self._operationStateContainer.set_node_member()
+            mdib.states.add_object(self._operationStateContainer)
 
         # now add the object that is target of operation
         self._initOperationTargetContainer()
@@ -257,13 +257,13 @@ class OperationDefinition(object):
             self._logger.info('operation target state for operation "{}" is already present, re-using it'.format(
                 self._operationTargetHandle))
         else:
-            self._operationTargetContainer = self._mdib.mkStateContainerFromDescriptor(
-                operationTargetDescriptor)  # pylint:disable=protected-access
-            self._operationTargetContainer.updateNode()
+            self._operationTargetContainer = self._mdib.mk_state_container_from_descriptor(
+                operationTargetDescriptor)
+            self._operationTargetContainer.set_node_member()
             self._logger.info('creating {} DescriptorHandle = {}', self._operationTargetContainer.__class__.__name__,
                               self._operationTargetHandle)
             if self._operationTargetContainer is not None:
-                self.operationTargetStorage.addObject(self._operationTargetContainer)
+                self.operationTargetStorage.add_object(self._operationTargetContainer)
 
     def setOperatingMode(self, mode):
         """ Mode is one of En, Dis, NA"""
@@ -326,7 +326,7 @@ class _SetContextStateOperation(OperationDefinition):
 
     @property
     def operationTargetStorage(self):
-        return self._mdib.contextStates
+        return self._mdib.context_states
 
     def _initOperationTargetContainer(self):
         """ initially no patient context is created."""

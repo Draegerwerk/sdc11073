@@ -1,82 +1,80 @@
 import base64
 import hashlib
+
 from lxml import etree as etree_
-from sdc11073.namespaces import Prefix_Namespace as Prefix
+
+from sdc11073.namespaces import Prefixes
 from sdc11073.namespaces import mdpwsTag
 
-def B64Sha1(valueString):
+def base64_sha1(value_string):
     """Gets standard base64 coded sha1 sum of input file."""
     # pylint: disable=E1101
-    if isinstance(valueString, str):
-        valueString = valueString.encode('utf-8')
-    return base64.standard_b64encode(hashlib.sha1(valueString).digest()).decode()
+    if isinstance(value_string, str):
+        value_string = value_string.encode('utf-8')
+    return base64.standard_b64encode(hashlib.sha1(value_string).digest()).decode()
 
-def Sha1(valueString):
+
+def sha1(value_string):
     """Gets standard base64 coded sha1 sum of input file."""
     # pylint: disable=E1101
-    if isinstance(valueString, str):
-        valueString = valueString.encode('utf-8')
-    return hashlib.sha1(valueString).hexdigest()
+    if isinstance(value_string, str):
+        value_string = value_string.encode('utf-8')
+    return hashlib.sha1(value_string).hexdigest()
 
 
-class SafetyInfoHeader(object):
-    def __init__(self, dualChannelValues, safetyContextValues, algorithm=None):
-        self.dualChannelValues = dualChannelValues
-        self.safetyContextValues = safetyContextValues
+class SafetyInfoHeader:
+    def __init__(self, dual_channel_values, safety_context_values, algorithm=None):
+        self.dual_channel_values = dual_channel_values
+        self.safety_context_values = safety_context_values
         self._algorithm = algorithm
 
+    def _as_etree_node(self):
+        safety_info = etree_.Element(mdpwsTag('SafetyInfo'), nsmap=Prefixes.partial_map(Prefixes.MDPWS))
+        if self.dual_channel_values:
+            dual_channel = etree_.SubElement(safety_info, mdpwsTag('DualChannel'))
+            for ref, value in self.dual_channel_values.items():
+                dc_value = etree_.SubElement(dual_channel, mdpwsTag('DcValue'))
+                dc_value.set('ReferencedSelector', ref)
+                algorithm = self._algorithm or sha1
+                dc_value.text = algorithm(value)
 
-    def _asEtreeNode(self):
-        safetyInfo = etree_.Element(mdpwsTag('SafetyInfo'), nsmap=Prefix.partialMap(Prefix.MDPWS))
-        if self.dualChannelValues:
-            dualChannel = etree_.SubElement(safetyInfo, mdpwsTag('DualChannel'))
-            for ref, value in self.dualChannelValues.items():
-                dcValue = etree_.SubElement(dualChannel, mdpwsTag('DcValue'))
-                dcValue.set('ReferencedSelector', ref)
-                algorithm = self._algorithm or Sha1
-                dcValue.text = algorithm(value)
-        
-        if self.safetyContextValues:
-            safetyContext = etree_.SubElement(safetyInfo, mdpwsTag('SafetyContext'))
-            for ref, value in self.safetyContextValues.items():
-                ctxtValue = etree_.SubElement(safetyContext, mdpwsTag('CtxtValue'))
-                ctxtValue.set('ReferencedSelector', ref)
-                ctxtValue.text = value
-        return safetyInfo
+        if self.safety_context_values:
+            safety_context = etree_.SubElement(safety_info, mdpwsTag('SafetyContext'))
+            for ref, value in self.safety_context_values.items():
+                ctxt_value = etree_.SubElement(safety_context, mdpwsTag('CtxtValue'))
+                ctxt_value.set('ReferencedSelector', ref)
+                ctxt_value.text = value
+        return safety_info
 
-
-    def asEtreeSubNode(self, rootNode):
-        rootNode.append(self._asEtreeNode())
+    def as_etree_subnode(self, root_node):
+        root_node.append(self._as_etree_node())
 
     @classmethod
-    def fromEtreeNode(cls, rootNode): #pylint: disable=unused-argument
+    def from_etree_node(cls, root_node):  # pylint: disable=unused-argument
         raise NotImplementedError
 
 
-
-class _Selector(object):
-    def __init__(self, xpathString):
-        self.xpathString = xpathString
-
+class _Selector:
+    def __init__(self, xpath_string):
+        self.xpath_string = xpath_string
 
 
-class DualChannelDef(object):
+class DualChannelDef:
     ''' Definition is located in MdDescription'''
-    def __init__(self, algorithm, transform, selectorDict):
+
+    def __init__(self, algorithm, transform, selector_dict):
         self.algorithm = algorithm
         self.transform = transform
-        self.selectorDict = selectorDict
-    
-    
+        self.selector_dict = selector_dict
+
     @classmethod
-    def fromEtreeNode(cls, node):
+    def from_etree_node(cls, node):
         algorithm = node.get('Algorithm')
         transform = node.get('Transform')
-        selectorDict = {}
-        for s in node.findall(mdpwsTag('Selector')):
-            id_ = s.get('Id')
-            text = s.text
-            selectorDict[id_] = _Selector(text)
-        
-        return cls(algorithm, transform, selectorDict)
-        
+        selector_dict = {}
+        for selector in node.findall(mdpwsTag('Selector')):
+            id_ = selector.get('Id')
+            text = selector.text
+            selector_dict[id_] = _Selector(text)
+
+        return cls(algorithm, transform, selector_dict)

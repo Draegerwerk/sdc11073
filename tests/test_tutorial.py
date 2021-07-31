@@ -48,7 +48,7 @@ def createGenericDevice(wsdiscovery_instance, location, mdibPath, role_provider=
     for desc in sdcDevice.mdib.descriptions.objects:
         desc.SafetyClassification = pmtypes.SafetyClassification.MED_A
     sdcDevice.startAll(startRealtimeSampleLoop=False)
-    validators = [pmtypes.InstanceIdentifier('Validator', extensionString='System')]
+    validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
     sdcDevice.setLocation(location, validators)
     return sdcDevice
 
@@ -114,22 +114,22 @@ class Test_Tutorial(unittest.TestCase):
         # there a different methods to detect devices:
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
-        services = my_client_wsDiscovery.searchServices(timeout=SEARCH_TIMEOUT)
+        services = my_client_wsDiscovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 2)  # both devices found
 
         # now search only for devices in my_location2
-        services = my_client_wsDiscovery.searchServices(scopes=[Scope(self.my_location2.scopeStringSdc)],
+        services = my_client_wsDiscovery.search_services(scopes=[Scope(self.my_location2.scope_string_sdc)],
                                                         timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
 
         # search for medical devices only (BICEPS FInal version only)
-        services = my_client_wsDiscovery.searchServices(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
+        services = my_client_wsDiscovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
                                                         timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 2)
 
         # search for medical devices only all known protocol versions
         all_types = [p.MedicalDeviceTypesFilter for p in ProtocolsRegistry.protocols]
-        services = my_client_wsDiscovery.searchMultipleTypes(typesList=all_types,
+        services = my_client_wsDiscovery.search_multiple_types(types_list=all_types,
                                                              timeout=SEARCH_TIMEOUT)
 
         self.assertEqual(len(services), 2)
@@ -150,7 +150,7 @@ class Test_Tutorial(unittest.TestCase):
         # there a different methods to detect devices:
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
-        services = my_client_wsDiscovery.searchServices(timeout=SEARCH_TIMEOUT)
+        services = my_client_wsDiscovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)  # both devices found
 
         my_client = SdcClient.fromWsdService(services[0])
@@ -162,16 +162,16 @@ class Test_Tutorial(unittest.TestCase):
         # The MdibContainer wraps data in "container" objects.
         # The basic idea is that every node that has a handle becomes directly accessible via its handle.
         myMdib = ClientMdibContainer(my_client)
-        myMdib.initMdib()  # myMdib keeps itself now updated
+        myMdib.init_mdib()  # myMdib keeps itself now updated
 
         # now query some data
-        # mdib has three lookups: descriptions, states and contextStates
+        # mdib has three lookups: descriptions, states and context_states
         # each lookup can be searched by different keeys,
         # e.g looking for a descriptor by type looks like this:
         locationContextDescriptorContainers = myMdib.descriptions.NODETYPE.get(domTag('LocationContextDescriptor'))
         self.assertEqual(len(locationContextDescriptorContainers), 1)
         # we can look for the corresponding state by handle:
-        locationContextStateContainers = myMdib.contextStates.descriptorHandle.get(
+        locationContextStateContainers = myMdib.context_states.descriptorHandle.get(
             locationContextDescriptorContainers[0].handle)
         self.assertEqual(len(locationContextStateContainers), 1)
 
@@ -191,14 +191,14 @@ class Test_Tutorial(unittest.TestCase):
         # there a different methods to detect devices:
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
-        services = my_client_wsDiscovery.searchServices(timeout=SEARCH_TIMEOUT)
+        services = my_client_wsDiscovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)  # both devices found
 
         my_client = SdcClient.fromWsdService(services[0])
         self.my_clients.append(my_client)
         my_client.startAll()
         myMdib = ClientMdibContainer(my_client)
-        myMdib.initMdib()
+        myMdib.init_mdib()
 
         # we want to set a patient.
         # first we must find the operation that has PatientContextDescriptor as operation target
@@ -278,7 +278,7 @@ class Test_Tutorial(unittest.TestCase):
                 with self._mdib.mdibUpdateTransaction() as mgr:
                     my_state = mgr.get_state(operationInstance.operationTarget)
                     if my_state.metricValue is None:
-                        my_state.mkMetricValue()
+                        my_state.mk_metric_value()
                     my_state.metricValue.Value = argument
 
         class MyProvider2(ProviderRole):
@@ -310,7 +310,7 @@ class Test_Tutorial(unittest.TestCase):
                 with self._mdib.mdibUpdateTransaction() as mgr:
                     my_state = mgr.get_state(operationInstance.operationTarget)
                     if my_state.metricValue is None:
-                        my_state.mkMetricValue()
+                        my_state.mk_metric_value()
                     my_state.metricValue.Value = argument
 
         class MyProductImpl(BaseProduct):
@@ -349,14 +349,14 @@ class Test_Tutorial(unittest.TestCase):
         self.my_wsdiscoveries.append(my_client_wsDiscovery)
         my_client_wsDiscovery.start()
 
-        services = my_client_wsDiscovery.searchServices(timeout=SEARCH_TIMEOUT)
+        services = my_client_wsDiscovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
 
         my_client = SdcClient.fromWsdService(services[0])
         self.my_clients.append(my_client)
         my_client.startAll()
         myMdib = ClientMdibContainer(my_client)
-        myMdib.initMdib()
+        myMdib.init_mdib()
 
         # call activate operation:
         # As a client NEVER! use the handle of the operation directly, always use the code(s) to identify things.
@@ -387,7 +387,7 @@ class Test_Tutorial(unittest.TestCase):
 
         # call setValue operation
         state_descr = myMdib.descriptions.coding.getOne(MY_CODE_3_TARGET.coding)
-        operations = myMdib.getOperationDescriptorsForDescriptorHandle(state_descr.Handle)
+        operations = myMdib.get_operation_descriptors_for_descriptor_handle(state_descr.Handle)
         op = operations[0]
         future = my_client.SetService_client.setNumericValue(op.handle, 42)
         result = future.result()

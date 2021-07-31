@@ -8,13 +8,13 @@ import logging.handlers
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.location import SdcLocation
 from sdc11073.namespaces import msgTag, domTag, nsmap
-from sdc11073.namespaces import Prefix_Namespace as Prefix
+from sdc11073.namespaces import Prefixes
 from sdc11073.pysoap.soapenvelope import GenericNode, WsAddress, Soap12Envelope, ReceivedSoap12Envelope
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.pmtypes import AlertConditionPriority
 from tests import mockstuff
-_msg_ns = Prefix.MSG.namespace
-_sdc_ns = Prefix.SDC.namespace
+
+_sdc_ns = Prefixes.SDC.namespace
 
 
 class TestDeviceServices(unittest.TestCase):
@@ -47,14 +47,14 @@ class TestDeviceServices(unittest.TestCase):
             ns = sdcDevice.mdib.sdc_definitions.MessageModelNamespace
         action = '{}/{}/{}'.format(ns, porttype, method)
         bodyNode = etree_.Element(msgTag(method))
-        soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.MSG))
+        soapEnvelope = Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.MSG))
         identifier = uuid.uuid4().urn
         soapEnvelope.addHeaderObject(WsAddress(messageId=identifier, 
                                                action=action, 
                                                to=endpoint_reference))
         soapEnvelope.addBodyObject(GenericNode(bodyNode))
                 
-        soapEnvelope.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
+        soapEnvelope.validateBody(sdcDevice.mdib.biceps_schema.message_schema)
         return soapEnvelope
 
 
@@ -87,7 +87,7 @@ class TestDeviceServices(unittest.TestCase):
             receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
             response = getService._onGetMdib(httpHeader, receivedEnv)
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
+            response.validateBody(sdcDevice.mdib.biceps_schema.message_schema)
 
     def test_getMdState(self):
         for sdcDevice in self._alldevices:
@@ -97,7 +97,7 @@ class TestDeviceServices(unittest.TestCase):
             receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
             response = getService.dispatchSoapRequest(None, httpHeader, receivedEnv)
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
+            response.validateBody(sdcDevice.mdib.biceps_schema.message_schema)
    
 
     def test_getMdDescription(self):
@@ -109,7 +109,7 @@ class TestDeviceServices(unittest.TestCase):
             httpHeader = {}
             response = getService.dispatchSoapRequest(None, httpHeader, receivedEnv)
             
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
+            response.validateBody(sdcDevice.mdib.biceps_schema.message_schema)
 
 
     def test_changeAlarmPrio(self):
@@ -125,7 +125,7 @@ class TestDeviceServices(unittest.TestCase):
             receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
             response = getService.dispatchSoapRequest(None, httpHeader, receivedEnv)
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
+            response.validateBody(sdcDevice.mdib.biceps_schema.message_schema)
 
 
     def test_getContextStates(self):
@@ -142,12 +142,12 @@ class TestDeviceServices(unittest.TestCase):
             httpHeader = {}
             response = contextService.dispatchSoapRequest(None, httpHeader, receivedEnv)
             print (response.as_xml(pretty=True))
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
+            response.validateBody(sdcDevice.mdib.biceps_schema.message_schema)
             _ns = sdcDevice.mdib.nsmapper # shortcut
-            query = '*/{}[@{}="{}"]'.format(_ns.docName(Prefix.MSG, 'ContextState'),
-                                          _ns.docName(Prefix.XSI,'type'),
-                                          _ns.docName(Prefix.PM,'LocationContextState'))
-            locationContextNodes = response.bodyNode.xpath(query, namespaces=_ns.docNssmap)
+            query = '*/{}[@{}="{}"]'.format(_ns.doc_name(Prefixes.MSG, 'ContextState'),
+                                          _ns.doc_name(Prefixes.XSI,'type'),
+                                          _ns.doc_name(Prefixes.PM,'LocationContextState'))
+            locationContextNodes = response.bodyNode.xpath(query, namespaces=_ns.doc_ns_map)
             self.assertEqual(len(locationContextNodes), 1)
             identificationNode = locationContextNodes[0].find(domTag('Identification'))
             if sdcDevice is self.sdcDevice_final:

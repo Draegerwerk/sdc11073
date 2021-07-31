@@ -11,8 +11,6 @@ import urllib
 from lxml import etree as etree_
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, ReceivedSoap12Envelope, WsAddress, WsSubscribe, \
     SoapResponseException
-from sdc11073.pysoap.soapenvelope import WsaEndpointReferenceType
-from ..namespaces import Prefix_Namespace as Prefix
 from ..namespaces import nsmap as _global_nsmap
 from ..namespaces import wseTag, wsaTag
 from .. import xmlparsing, isoduration
@@ -26,7 +24,7 @@ MULTITHREADED = True
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 
 
-class MyThreadingMixIn(object):
+class MyThreadingMixIn:
 
     def process_request_thread(self, request, client_address):
         """Same as in BaseServer but as a thread.
@@ -71,7 +69,7 @@ else:
     MyHTTPServer = HTTPServer  # single threaded, sequential operation
 
 
-class _ClSubscription(object):
+class _ClSubscription:
     ''' This class handles a subscription to an event source. 
     It stores all key data of the subscription and can renew and unsubscribe this subscription.'''
     notification = properties.ObservableProperty()
@@ -100,7 +98,7 @@ class _ClSubscription(object):
         self._endTo_identifier.text = uuid.uuid4().urn
 
         self._subscriptionManagerAddress = None
-        self._logger = loghelper.getLoggerAdapter('sdc.client.subscr', ident)
+        self._logger = loghelper.get_logger_adapter('sdc.client.subscr', ident)
         self.eventCounter = 0  # for display purpose, we count notifications
         self.cl_ident = ident
         self._device_epr = urllib.parse.urlparse(self.dpwsHosted.endpointReferences[0].address).path
@@ -298,12 +296,12 @@ class _ClSubscription(object):
         self.notification = soapEnvelope
 
     @property
-    def shortFilterString(self):
-        return xmlparsing.shortFilterString(self._actions)
+    def short_filter_string(self):
+        return xmlparsing.short_filter_string(self._actions)
 
     def __str__(self):
         return 'Subscription of "{}", isSubscribed={}, remaining time = {} sec., count={}'.format(
-            self.shortFilterString,
+            self.short_filter_string,
             self.isSubscribed,
             int(self.remainingSubscriptionSeconds),
             self.eventCounter)
@@ -330,7 +328,7 @@ class SubscriptionClient(threading.Thread):
         self._run = False
         self._notification_url = notification_url
         self._endTo_url = endTo_url or notification_url
-        self._logger = loghelper.getLoggerAdapter('sdc.client.subscrMgr', log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.client.subscrMgr', log_prefix)
         self.log_prefix = log_prefix
 
     def stop(self):
@@ -396,7 +394,7 @@ class SubscriptionClient(threading.Thread):
         for s in self.subscriptions.values():
             if subscr_ident.text == s._endTo_identifier.text:
                 self._logger.info('onSubScriptionEnd: received Subscription End for {} {}',
-                                  s.shortFilterString,
+                                  s.short_filter_string,
                                   info)
                 s.isSubscribed = False
                 return
@@ -421,11 +419,11 @@ class _DispatchError(Exception):
         self.errorText = errorText
 
 
-class SOAPNotificationsDispatcher(object):
+class SOAPNotificationsDispatcher:
     ''' receiver of all notifications'''
 
     def __init__(self, log_prefix, sdc_definitions):
-        self._logger = loghelper.getLoggerAdapter('sdc.client.notif_dispatch', log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', log_prefix)
         self.log_prefix = log_prefix
         self._sdc_definitions = sdc_definitions
         self.methods = {}
@@ -435,7 +433,7 @@ class SOAPNotificationsDispatcher(object):
 
     def dispatch(self, path, xml):
         start = time.time()
-        normalized_xml = self._sdc_definitions.normalizeXMLText(xml)
+        normalized_xml = self._sdc_definitions.normalize_xml_text(xml)
         request = ReceivedSoap12Envelope.fromXMLString(normalized_xml)
         try:
             action = request.address.action
@@ -458,15 +456,15 @@ class SOAPNotificationsDispatcher(object):
 
 class SOAPNotificationsDispatcherThreaded(SOAPNotificationsDispatcher):
 
-    def __init__(self, ident, bicepsSchema):
-        super().__init__(ident, bicepsSchema)
+    def __init__(self, ident, biceps_schema):
+        super().__init__(ident, biceps_schema)
         self._queue = queue.Queue(1000)
         self._worker = threading.Thread(target=self._readqueue)
         self._worker.daemon = True
         self._worker.start()
 
     def dispatch(self, path, xml):
-        normalized_xml = self._sdc_definitions.normalizeXMLText(xml)
+        normalized_xml = self._sdc_definitions.normalize_xml_text(xml)
         request = ReceivedSoap12Envelope.fromXMLString(normalized_xml)
         try:
             action = request.address.action
@@ -515,7 +513,7 @@ class SOAPNotificationsHandler(HTTPRequestHandler):
             self.server.threadObj._logger.debug('notification {} bytes',
                                                 request_bytes)  # pylint: disable=protected-access
             # execute the method
-            commlog.defaultLogger.logSoapSubscrMsgIn(request_bytes)
+            commlog.get_communication_logger().log_soap_subscription_msg_in(request_bytes)
             try:
                 response_string = self.server.dispatcher.dispatch(self.path, request_bytes)
                 if response_string is None:
@@ -532,7 +530,7 @@ class SOAPNotificationsHandler(HTTPRequestHandler):
                 self.send_response(500, b'server error in dispatch')
         response_bytes = response_string.encode('utf-8')
         if len(response_bytes) > self.RESPONSE_COMPRESS_MINSIZE:
-            response_bytes = self._compressIfRequired(response_bytes)
+            response_bytes = self._compress_if_required(response_bytes)
 
         self.send_header("Content-Type", "application/soap+xml; charset=utf-8")
         self.send_header("Content-Length", len(response_bytes))  # this is necessary for correct keep-alive handling!
@@ -542,7 +540,7 @@ class SOAPNotificationsHandler(HTTPRequestHandler):
 
 class NotificationsReceiverDispatcherThread(threading.Thread):
 
-    def __init__(self, my_ipaddress, sslContext, log_prefix, sdc_definitions, supportedEncodings,
+    def __init__(self, my_ipaddress, sslContext, log_prefix, sdc_definitions, supported_encodings,
                  soap_notifications_handler_class=None, async_dispatch=True):
         '''
 
@@ -550,7 +548,7 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
         :param sslContext: http server uses this ssl context
         :param ident: used for logging
         :param sdc_definitions: namespaces etc
-        :param supportedEncodings: a list of strings
+        :param supported_encodings: a list of strings
         :param soap_notifications_handler_class: if None, SOAPNotificationsHandler is used,
                 otherwise the provided class ( a HTTPRequestHandler).
         :param async_dispatch: if True, incoming requests are queued and response is sent (processing is done later).
@@ -558,16 +556,16 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
         '''
         super().__init__(
             name='Cl_NotificationsReceiver_{}'.format(log_prefix))
-        self._sslContext = sslContext
+        self._ssl_context = sslContext
         self._soap_notifications_handler_class = soap_notifications_handler_class
         self.daemon = True
-        self._logger = loghelper.getLoggerAdapter('sdc.client.notif_dispatch', log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', log_prefix)
 
         self._my_ipaddress = my_ipaddress
         self.my_port = None
         self.base_url = None
         self.httpd = None
-        self.supportedEncodings = supportedEncodings
+        self.supported_encodings = supported_encodings
         # create and set up the dispatcher for notifications
         if async_dispatch:
             self.dispatcher = SOAPNotificationsDispatcherThreaded(log_prefix, sdc_definitions)
@@ -581,11 +579,11 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
             self.httpd = MyHTTPServer((self._my_ipaddress, myport),
                                       self._soap_notifications_handler_class or SOAPNotificationsHandler)
             # add use compression flag to the server
-            setattr(self.httpd, 'supportedEncodings', self.supportedEncodings)
+            setattr(self.httpd, 'supported_encodings', self.supported_encodings)
             self.my_port = self.httpd.server_port
             self._logger.info('starting Notification receiver on {}:{}', self._my_ipaddress, self.my_port)
-            if self._sslContext:
-                self.httpd.socket = self._sslContext.wrap_socket(self.httpd.socket)
+            if self._ssl_context:
+                self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket)
                 self.base_url = 'https://{}:{}/'.format(self._my_ipaddress, self.my_port)
             else:
                 self.base_url = 'http://{}:{}/'.format(self._my_ipaddress, self.my_port)

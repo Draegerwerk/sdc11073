@@ -6,10 +6,10 @@ from .. import pmtypes
 
 
 
-class ProviderRole(object):
+class ProviderRole:
     def __init__(self, log_prefix):
         self._mdib = None
-        self._logger = loghelper.getLoggerAdapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
 
     def stop(self):
         ''' if provider uses worker threads, implement stop method'''
@@ -51,7 +51,7 @@ class ProviderRole(object):
             #state = mgr.getMetricState(operationTargetHandle)
             state = mgr.get_state(operationTargetHandle)
             if state.metricValue is None:
-                state.mkMetricValue()
+                state.mk_metric_value()
             state.metricValue.Value = value
             #SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
             # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
@@ -73,7 +73,7 @@ class ProviderRole(object):
             #state = mgr.getMetricState(operationTargetHandle)
             state = mgr.get_state(operationTargetHandle)
             if state.metricValue is None:
-                state.mkMetricValue()
+                state.mk_metric_value()
             state.metricValue.Value = value
             #SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
             # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.

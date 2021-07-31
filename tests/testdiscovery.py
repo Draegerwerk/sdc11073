@@ -58,10 +58,10 @@ class TestDiscovery(unittest.TestCase):
     def setUp(self):
         testlog.debug('setUp {}'.format(self._testMethodName))
         # give them different logger names so that output can be distinguished
-        self.wsdclient = wsdiscovery.WSDiscoveryWhitelist(acceptedAdapterIPAddresses=['127.0.0.1'], 
-                                                          logger=loghelper.getLoggerAdapter('wsdclient'))
-        self.wsdService = wsdiscovery.WSDiscoveryWhitelist(acceptedAdapterIPAddresses=['127.0.0.1'],
-                                                           logger=loghelper.getLoggerAdapter('wsdService'))
+        self.wsdclient = wsdiscovery.WSDiscoveryWhitelist(accepted_adapter_addresses=['127.0.0.1'],
+                                                          logger=loghelper.get_logger_adapter('wsdclient'))
+        self.wsdService = wsdiscovery.WSDiscoveryWhitelist(accepted_adapter_addresses=['127.0.0.1'],
+                                                           logger=loghelper.get_logger_adapter('wsdService'))
         testlog.debug('setUp done{}'.format(self._testMethodName))
 
 
@@ -85,54 +85,54 @@ class TestDiscovery(unittest.TestCase):
         
         xAddrs = ["localhost:8080/abc", '{ip}/device_service']
         epr = 'my_epr'
-        self.wsdService.publishService(epr, types=[ttype1], scopes=[scope1], xAddrs=xAddrs)
+        self.wsdService.publish_service(epr, types=[ttype1], scopes=[scope1], x_addrs=xAddrs)
         time.sleep(0.2)
         
         # test that unfiltered search delivers at least my service
         testlog.info('starting search no filter...') 
-        services = self.wsdclient.searchServices(timeout=self.SEARCH_TIMEOUT)
-        myServices = [s for s in services if s.getEPR() == epr]
+        services = self.wsdclient.search_services(timeout=self.SEARCH_TIMEOUT)
+        myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
 
         # test that filtered search (types) delivers only my service
         testlog.info('starting search types filter...') 
-        services = self.wsdclient.searchServices(types=[ttype1], timeout=self.SEARCH_TIMEOUT)
+        services = self.wsdclient.search_services(types=[ttype1], timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
-        myServices = [s for s in services if s.getEPR() == epr]
+        myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
 
         # test that filtered search (scopes) delivers only my service
         testlog.info('starting search scopes filter...') 
-        services = self.wsdclient.searchServices(scopes=[scope1], timeout=self.SEARCH_TIMEOUT)
+        services = self.wsdclient.search_services(scopes=[scope1], timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
-        myServices = [s for s in services if s.getEPR() == epr]
+        myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
 
         # test that filtered search (scopes+types) delivers only my service
         testlog.info('starting search scopes+types filter...') 
-        services = self.wsdclient.searchServices(types=[ttype1], scopes=[scope1], timeout=self.SEARCH_TIMEOUT)
+        services = self.wsdclient.search_services(types=[ttype1], scopes=[scope1], timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
-        myServices = [s for s in services if s.getEPR() == epr]
+        myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
 
         # test that filtered search (wrong type) finds no service
         testlog.info('starting search types filter...') 
-        services = self.wsdclient.searchServices(types=[ttype2], timeout=self.SEARCH_TIMEOUT)
+        services = self.wsdclient.search_services(types=[ttype2], timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 0)
 
         # test that filtered search (wrong scope) finds no service
         testlog.info('starting search wrong scopes filter...') 
-        services = self.wsdclient.searchServices(scopes=[scope2], timeout=self.SEARCH_TIMEOUT)
+        services = self.wsdclient.search_services(scopes=[scope2], timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 0)
 
         # test that filtered search (correct scopes+ wrong types) finds no service
         testlog.info('starting search scopes+types filter...') 
-        services = self.wsdclient.searchServices(types=[ttype2], scopes=[scope1], timeout=self.SEARCH_TIMEOUT)
+        services = self.wsdclient.search_services(types=[ttype2], scopes=[scope1], timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 0)
 
         # test that filtered search (wrong scopes + wrong types) finds no service
         testlog.info('starting search scopes+types filter...') 
-        services = self.wsdclient.searchServices(types=[ttype1], scopes=[scope2], timeout=self.SEARCH_TIMEOUT)
+        services = self.wsdclient.search_services(types=[ttype1], scopes=[scope2], timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 0)
 
 
@@ -145,24 +145,24 @@ class TestDiscovery(unittest.TestCase):
         
         xAddrs = ["localhost:8080/abc", ]
         epr = 'my_epr'
-        self.wsdService.publishService(epr, types=[ttype], scopes=[scope], xAddrs=xAddrs)
+        self.wsdService.publish_service(epr, types=[ttype], scopes=[scope], x_addrs=xAddrs)
         time.sleep(2)
         
         testlog.info('starting client...') 
         self.wsdclient.start()
         time.sleep(0.2)
         testlog.info('starting search...') 
-        services = self.wsdclient.searchServices(timeout=self.SEARCH_TIMEOUT)
+        services = self.wsdclient.search_services(timeout=self.SEARCH_TIMEOUT)
         testlog.info('search done.') 
         
         for service in services:
-            testlog.info('found service: {} : {}'.format(service.getEPR(), service.getXAddrs()))
-        myServices = [s for s in services if s.getEPR() == epr]
+            testlog.info('found service: {} : {}'.format(service.epr, service.getXAddrs()))
+        myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
 
 
     def test_discover_noEPR(self):
-        ''' if a service has no epr in ProbeMatches response, it shall be ignored.'''
+        """ if a service has no epr in ProbeMatches response, it shall be ignored."""
         self.wsdService.PROBEMATCH_EPR = False
         testlog.info('starting service...')
         self.wsdService.start()
@@ -172,21 +172,21 @@ class TestDiscovery(unittest.TestCase):
 
         xAddrs = ["localhost:8080/abc", ]
         epr = 'my_epr'
-        self.wsdService.publishService(epr, types=[ttype], scopes=[scope], xAddrs=xAddrs)
+        self.wsdService.publish_service(epr, types=[ttype], scopes=[scope], x_addrs=xAddrs)
         time.sleep(5) # make sure hello messages are all sent before client discovery starts
 
         testlog.info('starting client...')
         self.wsdclient.start()
         time.sleep(0.2)
         testlog.info('starting search...')
-        self.wsdclient.clearRemoteServices()
-        services = self.wsdclient.searchServices(timeout=self.SEARCH_TIMEOUT)
+        self.wsdclient.clear_remote_services()
+        services = self.wsdclient.search_services(timeout=self.SEARCH_TIMEOUT)
         testlog.info('search done.')
         self.assertEqual(len(services), 0)
 
 
     def test_discover_noTYPES(self):
-        ''' if a service has no types in ProbeMatches response, the client shall send a resolve and add that result.'''
+        """ if a service has no types in ProbeMatches response, the client shall send a resolve and add that result."""
         self.wsdService.PROBEMATCH_TYPES = False
         testlog.info('starting service...')
         self.wsdService.start()
@@ -196,24 +196,24 @@ class TestDiscovery(unittest.TestCase):
 
         xAddrs = ["localhost:8080/abc", ]
         epr = 'my_epr'
-        self.wsdService.publishService(epr, types=[ttype], scopes=[scope], xAddrs=xAddrs)
+        self.wsdService.publish_service(epr, types=[ttype], scopes=[scope], x_addrs=xAddrs)
         time.sleep(2)
 
         testlog.info('starting client...')
         self.wsdclient.start()
         time.sleep(0.2)
         testlog.info('starting search...')
-        services = self.wsdclient.searchServices(timeout=self.SEARCH_TIMEOUT)
+        services = self.wsdclient.search_services(timeout=self.SEARCH_TIMEOUT)
         testlog.info('search done.')
 
         for service in services:
-            testlog.info('found service: {} : {}'.format(service.getEPR(), service.getXAddrs()))
-        myServices = [s for s in services if s.getEPR() == epr]
+            testlog.info('found service: {} : {}'.format(service.epr, service.getXAddrs()))
+        myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
-        self.assertEqual(myServices[0].getTypes(), [ttype])
+        self.assertEqual(myServices[0].types, [ttype])
 
     def test_discover_noScopes(self):
-        ''' if a service has no scopes in ProbeMatches response, the client shall send a resolve and add that result.'''
+        """ if a service has no scopes in ProbeMatches response, the client shall send a resolve and add that result."""
         self.wsdService.PROBEMATCH_SCOPES = False
         testlog.info('starting service...')
         self.wsdService.start()
@@ -223,24 +223,24 @@ class TestDiscovery(unittest.TestCase):
 
         xAddrs = ["localhost:8080/abc", ]
         epr = 'my_epr'
-        self.wsdService.publishService(epr, types=[ttype], scopes=[scope], xAddrs=xAddrs)
+        self.wsdService.publish_service(epr, types=[ttype], scopes=[scope], x_addrs=xAddrs)
         time.sleep(2)
 
         testlog.info('starting client...')
         self.wsdclient.start()
         time.sleep(0.2)
         testlog.info('starting search...')
-        services = self.wsdclient.searchServices(timeout=self.SEARCH_TIMEOUT)
+        services = self.wsdclient.search_services(timeout=self.SEARCH_TIMEOUT)
         testlog.info('search done.')
 
         for service in services:
-            testlog.info('found service: {} : {}'.format(service.getEPR(), service.getXAddrs()))
-        myServices = [s for s in services if s.getEPR() == epr]
+            testlog.info('found service: {} : {}'.format(service.epr, service.getXAddrs()))
+        myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
-        self.assertEqual(myServices[0].getTypes(), [ttype])
+        self.assertEqual(myServices[0].types, [ttype])
 
     def test_discover_noXaddrs(self):
-        ''' if a service has no x-addresses in ProbeMatches response, the client shall send a resolve and add that result.'''
+        """ if a service has no x-addresses in ProbeMatches response, the client shall send a resolve and add that result."""
         self.wsdService.PROBEMATCH_XADDRS = False
         testlog.info('starting service...')
         self.wsdService.start()
@@ -250,21 +250,21 @@ class TestDiscovery(unittest.TestCase):
 
         xAddrs = ["localhost:8080/abc", ]
         epr = 'my_epr'
-        self.wsdService.publishService(epr, types=[ttype], scopes=[scope], xAddrs=xAddrs)
+        self.wsdService.publish_service(epr, types=[ttype], scopes=[scope], x_addrs=xAddrs)
         time.sleep(2)
 
         testlog.info('starting client...')
         self.wsdclient.start()
         time.sleep(0.2)
         testlog.info('starting search...')
-        services = self.wsdclient.searchServices(timeout=self.SEARCH_TIMEOUT)
+        services = self.wsdclient.search_services(timeout=self.SEARCH_TIMEOUT)
         testlog.info('search done.')
 
         for service in services:
-            testlog.info('found service: {} : {}'.format(service.getEPR(), service.getXAddrs()))
-        myServices = [s for s in services if s.getEPR() == epr]
+            testlog.info('found service: {} : {}'.format(service.epr, service.getXAddrs()))
+        myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
-        self.assertEqual(myServices[0].getTypes(), [ttype])
+        self.assertEqual(myServices[0].types, [ttype])
 
 
     def test_ScopeMatch(self):
@@ -284,12 +284,12 @@ class TestDiscovery(unittest.TestCase):
             parsed = urllib.parse.urlparse(otherScope)
             testlog.info('checking otherscope {}'.format(parsed))
             testlog.info('urlsplit {} = {}'.format(parsed.path, urllib.parse.urlsplit(parsed.path)))
-            result = wsdiscovery.matchScope(myScope, otherScope, matchBy)
+            result = wsdiscovery.match_scope(myScope, otherScope, matchBy)
             self.assertEqual(expectedmatchResult, result, msg = remark)
         # Longer matches myScope, but not the other way round
         longer = otherScopes[4][0]
-        self.assertTrue(wsdiscovery.matchScope(myScope, longer, matchBy), msg = 'short scope matches longer scope')
-        self.assertFalse(wsdiscovery.matchScope(longer, myScope, matchBy), msg = 'long scope shall not match short scope')
+        self.assertTrue(wsdiscovery.match_scope(myScope, longer, matchBy), msg = 'short scope matches longer scope')
+        self.assertFalse(wsdiscovery.match_scope(longer, myScope, matchBy), msg = 'long scope shall not match short scope')
 
         
     def test_publishManyServices_lateStartedClient(self):
@@ -302,17 +302,17 @@ class TestDiscovery(unittest.TestCase):
         
             epr = 'my_epr{}'.format(i)
             xAddrs = ["localhost:{}/{}".format(8080+i, epr)]
-            self.wsdService.publishService(epr, types=[ttype1], scopes=[scope1], xAddrs=xAddrs)
+            self.wsdService.publish_service(epr, types=[ttype1], scopes=[scope1], x_addrs=xAddrs)
             
         time.sleep(3.02)
         testlog.info('starting client...') 
         self.wsdclient.start()
-        services = self.wsdclient.searchServices(timeout=1)
+        services = self.wsdclient.search_services(timeout=1)
         testlog.info('search done.') 
         
         for service in services:
-            testlog.info('found service: {} : {}'.format(service.getEPR(), service.getXAddrs()))
-        myServices = [s for s in services if 'my_epr' in s.getEPR()] # there might be other devices in the network
+            testlog.info('found service: {} : {}'.format(service.epr, service.getXAddrs()))
+        myServices = [s for s in services if 'my_epr' in s.epr] # there might be other devices in the network
         self.assertEqual(len(myServices), deviceCount)
 
 
@@ -330,14 +330,14 @@ class TestDiscovery(unittest.TestCase):
         
             epr = 'my_epr{}'.format(i)
             xAddrs = ["localhost:{}/{}".format(8080+i, epr)]
-            self.wsdService.publishService(epr, types=[ttype1], scopes=[scope1], xAddrs=xAddrs)
+            self.wsdService.publish_service(epr, types=[ttype1], scopes=[scope1], x_addrs=xAddrs)
             
         time.sleep(2.02)
-        self.assertEqual(len(self.wsdclient._remoteServices), deviceCount)
+        self.assertEqual(len(self.wsdclient._remote_services), deviceCount)
         testlog.info('stopping service...') 
-        self.wsdService.clearLocalServices()
+        self.wsdService.clear_local_services()
         time.sleep(2.02)
-        self.assertEqual(len(self.wsdclient._remoteServices), 0)
+        self.assertEqual(len(self.wsdclient._remote_services), 0)
 
         
         

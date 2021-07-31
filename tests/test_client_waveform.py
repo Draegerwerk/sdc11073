@@ -176,7 +176,7 @@ class TestClientWaveform(unittest.TestCase):
         # same test for draft10 version
         cl = self.sdcClient_final
         soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(WfReport_draft10.encode('utf-8'),
-                                                                                          schema=cl._bicepsSchema.bmmSchema)
+                                                                                          schema=cl._bicepsSchema.message_schema)
         cl._onWaveFormReport(soapenvelope)
         self.assertEqual(cl.waveFormReport.tag, namespaces.msgTag('WaveformStream'))
 
@@ -186,17 +186,16 @@ class TestClientWaveform(unittest.TestCase):
         my_handles = ('0x34F05506', '0x34F05501', '0x34F05500')
         for cl, wfReport in ((self.sdcClient_final, WfReport_draft10),):
             clientmdib = sdc11073.mdib.ClientMdibContainer(cl)
-            clientmdib._bindToObservables()
-            clientmdib._isInitialized = True # fake it, because we do not call initMdib()
+            clientmdib._bind_to_observables()
+            clientmdib._is_initialized = True # fake it, because we do not call init_mdib()
             clientmdib.MDIB_VERSION_CHECK_DISABLED = True # we have no mdib version incrementing in this test, therefore disable check
-            
             # create dummy descriptors
             for handle in my_handles:
                 attributes = {'SamplePeriod': 'P0Y0M0DT0H0M0.0157S',  # use a unique sample period
                               etree_.QName(sdc11073.namespaces.nsmap['xsi'], 'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
                               'Handle':handle}
                 element = etree_.Element('Metric', attrib=attributes, nsmap=sdc11073.namespaces.nsmap)
-                clientmdib.descriptions.addObject(sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.from_node(clientmdib.nsmapper, element, None)) # None = no parent handle
+                clientmdib.descriptions.add_object(sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.from_node(clientmdib.nsmapper, element, None)) # None = no parent handle
             soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
             cl._onWaveFormReport(soapenvelope)
             
@@ -204,22 +203,22 @@ class TestClientWaveform(unittest.TestCase):
             for handle in my_handles:
                 current_samples = SAMPLES[handle]
                 s_count = len(current_samples)
-                rtBuffer = clientmdib.rtBuffers[handle]
+                rtBuffer = clientmdib.rt_buffers[handle]
                 self.assertEqual(len(rtBuffer.rt_data), s_count)
                 self.assertAlmostEqual(rtBuffer.sample_period, 0.0157)
-                self.assertAlmostEqual(rtBuffer.rt_data[0].observationTime, OBSERVATIONTIME)
-                self.assertAlmostEqual(rtBuffer.rt_data[-1].observationTime - OBSERVATIONTIME, rtBuffer.sample_period*(s_count-1), places=4)
-                self.assertAlmostEqual(rtBuffer.rt_data[-2].observationTime - OBSERVATIONTIME, rtBuffer.sample_period*(s_count-2), places=4)
+                self.assertAlmostEqual(rtBuffer.rt_data[0].determination_time, OBSERVATIONTIME)
+                self.assertAlmostEqual(rtBuffer.rt_data[-1].determination_time - OBSERVATIONTIME, rtBuffer.sample_period*(s_count-1), places=4)
+                self.assertAlmostEqual(rtBuffer.rt_data[-2].determination_time - OBSERVATIONTIME, rtBuffer.sample_period*(s_count-2), places=4)
                 for i in range(s_count):
                     self.assertAlmostEqual(rtBuffer.rt_data[i].value, current_samples[i])
             
             # verify that only handle 0x34F05501 has an annotation
             for handle in [my_handles[0], my_handles[2]]:
-                rtBuffer = clientmdib.rtBuffers[handle]
+                rtBuffer = clientmdib.rt_buffers[handle]
                 for sample in rtBuffer.rt_data:
                     self.assertEqual(len(sample.annotations), 0)
     
-            rtBuffer = clientmdib.rtBuffers[my_handles[1]]
+            rtBuffer = clientmdib.rt_buffers[my_handles[1]]
             annotated = rtBuffer.rt_data[2] # this object should have the annotation (SampleIndex="2")
             self.assertEqual(len(annotated.annotations), 1)
             self.assertEqual(annotated.annotations[0].coding.code, '4711')
@@ -234,7 +233,7 @@ class TestClientWaveform(unittest.TestCase):
             for handle in my_handles:
                 current_samples = SAMPLES[handle]
                 s_count = len(current_samples)
-                rtBuffer = clientmdib.rtBuffers[handle]
+                rtBuffer = clientmdib.rt_buffers[handle]
                 self.assertEqual(len(rtBuffer.rt_data), s_count*2)
             
             #add a lot more data, verify that length limitation is working
@@ -245,7 +244,7 @@ class TestClientWaveform(unittest.TestCase):
             for handle in my_handles:
                 current_samples = SAMPLES[handle]
                 s_count = len(current_samples)
-                rtBuffer = clientmdib.rtBuffers[handle]
+                rtBuffer = clientmdib.rt_buffers[handle]
                 self.assertEqual(len(rtBuffer.rt_data), rtBuffer._max_samples)
 
 

@@ -2,8 +2,8 @@ import copy
 from .. import pmtypes
 
 
-class SdcDevice(object):
-    defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extensionString='System'),)
+class SdcDevice:
+    defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extension_string='System'),)
 
     def __init__(self, ws_discovery, my_uuid, model, device, deviceMdibContainer, validate=True, roleProvider=None, sslContext=None,
                  logLevel=None, max_subscription_duration=7200, log_prefix='', specific_components=None,
@@ -35,7 +35,7 @@ class SdcDevice(object):
             return
 
         if self._location is not None:
-            self._wsdiscovery.clearService(self.epr)
+            self._wsdiscovery.clear_service(self.epr)
 
         self._location = location
 
@@ -53,7 +53,7 @@ class SdcDevice(object):
         """
         scopes = self._handler.mkScopes()
         xAddrs = self.getXAddrs()
-        self._wsdiscovery.publishService(self.epr, self._mdib.sdc_definitions.MedicalDeviceTypesFilter, scopes, xAddrs)
+        self._wsdiscovery.publish_service(self.epr, self._mdib.sdc_definitions.MedicalDeviceTypesFilter, scopes, xAddrs)
 
 
     @property
@@ -111,30 +111,33 @@ class SdcDevice(object):
     def stopAll(self, closeAllConnections=True, sendSubscriptionEnd=True):
         return self._handler.stopAll(closeAllConnections, sendSubscriptionEnd)
 
+    def stop_realtime_sample_loop(self):
+        return self._handler.stop_realtime_sample_loop()
+
     def getXAddrs(self):
         return self._handler.getXAddrs()
 
 
-    def sendMetricStateUpdates(self, mdibVersion, stateUpdates):
-        return self._handler.sendMetricStateUpdates(mdibVersion, stateUpdates)
+    def sendMetricStateUpdates(self, mdib_version, stateUpdates):
+        return self._handler.sendMetricStateUpdates(mdib_version, stateUpdates)
 
-    def sendAlertStateUpdates(self, mdibVersion, stateUpdates):
-        return self._handler.sendAlertStateUpdates(mdibVersion, stateUpdates)
+    def sendAlertStateUpdates(self, mdib_version, stateUpdates):
+        return self._handler.sendAlertStateUpdates(mdib_version, stateUpdates)
 
-    def sendComponentStateUpdates(self, mdibVersion, stateUpdates):
-        return self._handler.sendComponentStateUpdates(mdibVersion, stateUpdates)
+    def sendComponentStateUpdates(self, mdib_version, stateUpdates):
+        return self._handler.sendComponentStateUpdates(mdib_version, stateUpdates)
 
-    def sendContextStateUpdates(self, mdibVersion, stateUpdates):
-        return self._handler.sendContextStateUpdates(mdibVersion, stateUpdates)
+    def sendContextStateUpdates(self, mdib_version, stateUpdates):
+        return self._handler.sendContextStateUpdates(mdib_version, stateUpdates)
 
-    def sendOperationalStateUpdates(self, mdibVersion, stateUpdates):
-        return self._handler.sendOperationalStateUpdates(mdibVersion, stateUpdates)
+    def sendOperationalStateUpdates(self, mdib_version, stateUpdates):
+        return self._handler.sendOperationalStateUpdates(mdib_version, stateUpdates)
 
-    def sendRealtimeSamplesStateUpdates (self, mdibVersion, stateUpdates):
-        return self._handler.sendRealtimeSamplesStateUpdates(mdibVersion, stateUpdates)
+    def sendRealtimeSamplesStateUpdates (self, mdib_version, stateUpdates):
+        return self._handler.sendRealtimeSamplesStateUpdates(mdib_version, stateUpdates)
 
-    def sendDescriptorUpdates(self, mdibVersion, updated, created, deleted, updated_states):
-        return self._handler.sendDescriptorUpdates(mdibVersion, updated, created, deleted, updated_states)
+    def sendDescriptorUpdates(self, mdib_version, updated, created, deleted, updated_states):
+        return self._handler.sendDescriptorUpdates(mdib_version, updated, created, deleted, updated_states)
 
     def sendWaveformUpdates(self, changedSamples):
         return self._handler.sendWaveformUpdates(changedSamples)

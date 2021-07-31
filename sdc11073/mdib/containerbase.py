@@ -3,10 +3,10 @@ import inspect
 from lxml import etree as etree_
 from .. import observableproperties as properties
 from ..namespaces import QN_TYPE
-from ..namespaces import Prefix_Namespace as Prefix
+from ..namespaces import Prefixes
 
 
-class ContainerBase(object):
+class ContainerBase:
     NODETYPE = None   # overwrite in derived classes! determines the value of xsi:Type attribute, must be a etree_.QName object
     node = properties.ObservableProperty()
 
@@ -20,63 +20,62 @@ class ContainerBase(object):
     def __init__(self, nsmapper):
         self.nsmapper = nsmapper
         self.node = None
-        for dummy_name, cprop in self._sortedContainerProperties():
-            cprop.initInstanceData(self)
+        for dummy_name, cprop in self._sorted_container_properties():
+            cprop.init_instance_data(self)
 
-    def getActualValue(self, attr_name):
+    def get_actual_value(self, attr_name):
         ''' ignores default value and implied value, e.g. returns None if value is not present in xml'''
-        return getattr(self.__class__, attr_name).getActualValue(self)
+        return getattr(self.__class__, attr_name).get_actual_value(self)
 
 
-    def mkNode(self, tag, setXsiType=False):
+    def mk_node(self, tag, set_xsi_type=False):
         '''
         create a etree node from instance data
         :param tag: tag of the newly created node
         :return: etree node
         '''
-        node = etree_.Element(tag, nsmap=self.nsmapper.partialMap(Prefix.PM, Prefix.MSG, Prefix.XSI))
-        self._updateNode(node, setXsiType)
+        node = etree_.Element(tag, nsmap=self.nsmapper.partial_map(Prefixes.PM, Prefixes.MSG, Prefixes.XSI))
+        self.update_node(node, set_xsi_type)
         return node
 
 
-    def _updateNode(self, node, setXsiType=False):
+    def update_node(self, node, set_xsi_type=False):
         '''
         create a etree node from instance data
         :param tag: tag of the newly created node, defaults to self.NODENAME
         :return: etree node
         '''
-        if setXsiType and self.NODETYPE is not None:
-            node.set(QN_TYPE, self.nsmapper.docNameFromQName(self.NODETYPE))
-        for dummy_name, prop in self._sortedContainerProperties():
-            prop.updateXMLValue(self, node)
+        if set_xsi_type and self.NODETYPE is not None:
+            node.set(QN_TYPE, self.nsmapper.docname_from_qname(self.NODETYPE))
+        for dummy_name, prop in self._sorted_container_properties():
+            prop.update_xml_value(self, node)
         return node
 
 
-    def _updateFromNode(self, node):
+    def _update_from_node(self, node):
         ''' update members.
         '''
         # update all ContainerProperties
-        for dummy_name, cprop in self._sortedContainerProperties():
-            cprop.updateFromNode(self, node)
+        for dummy_name, cprop in self._sorted_container_properties():
+            cprop.update_from_node(self, node)
 
     def _update_from_other(self, other_container, skipped_properties):
         # update all ContainerProperties
         if skipped_properties is None:
             skipped_properties = []
-        for prop_name, _ in self._sortedContainerProperties():
+        for prop_name, _ in self._sorted_container_properties():
             if prop_name not in skipped_properties:
                 new_value = getattr(other_container, prop_name)
                 setattr(self, prop_name, copy.copy(new_value))
 
-    def mkCopy(self, copy_node=True):
+    def mk_copy(self, copy_node=True):
         copied = copy.copy(self)
         if copy_node:
-            cpNode = copy.deepcopy(self.node)
-            copied.node = cpNode
+            copied.node = copy.deepcopy(self.node)
         return copied
 
 
-    def _sortedContainerProperties(self):
+    def _sorted_container_properties(self):
         '''
         @return: a list of (name, object) tuples of all GenericProperties ( and subclasses)
         '''
@@ -99,7 +98,7 @@ class ContainerBase(object):
         returns a list of strings that describe differences"""
         ret = []
         ignore_list = ignore_property_names or []
-        my_properties = self._sortedContainerProperties()
+        my_properties = self._sorted_container_properties()
         for name, dummy in my_properties:
             if name in ignore_list:
                 continue
@@ -116,8 +115,8 @@ class ContainerBase(object):
                 elif my_value != other_value:
                     ret.append('{}={}, other={}'.format(name, my_value, other_value))
         # check also if other has a different list of properties
-        my_property_names = set([p[0] for p in my_properties])
-        other_property_names = set([p[0] for p in other._sortedContainerProperties()])
+        my_property_names = {p[0] for p in my_properties}  #  set comprehension
+        other_property_names = {p[0] for p in other._sorted_container_properties()}
         surplus_names = other_property_names - my_property_names
         if surplus_names:
             ret.append(f'other has more data elements:{surplus_names}')

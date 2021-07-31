@@ -25,7 +25,7 @@ def triangle(min_value, max_value, samples):
 
 
     
-class _WaveformGeneratorBase(object):
+class _WaveformGeneratorBase:
     def __init__(self, values_generator, min_value, max_value, waveformperiod, sampleperiod):
         if sampleperiod >= waveformperiod:
             raise ValueError('please choose a waveformperiod >> sampleperiod. currently use have wp={}, sp={}'.format(waveformperiod, sampleperiod))

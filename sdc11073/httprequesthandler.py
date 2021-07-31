@@ -1,20 +1,17 @@
 from http.server import BaseHTTPRequestHandler
-from .compression import CompressionHandler
 from io import BytesIO
 
-class DechunkError(Exception):
+from .compression import CompressionHandler
 
+
+class DechunkError(Exception):
     """Raised when could not de-chunk stream.
     """
 
-    pass
 
 class DecompressError(Exception):
-
     """Raised when could not de-compress stream.
     """
-
-    pass
 
 
 def mkchunks(body, chunk_size=512):
@@ -34,6 +31,8 @@ def mkchunks(body, chunk_size=512):
         if not head:
             return data.getvalue()
 
+CR_LF = b'\r\n'
+
 
 class HTTPReader(CompressionHandler):
     ''' Base class that implements decoding of incoming http requests.
@@ -42,6 +41,7 @@ class HTTPReader(CompressionHandler):
     - handle chunk-encoding
     - handle compression
     '''
+
     @classmethod
     def _read_dechunk(cls, stream):
         """De-chunk HTTP body stream.
@@ -50,11 +50,10 @@ class HTTPReader(CompressionHandler):
         :raise: DechunkError
         """
         body = []
-        CRLF = b'\r\n'
         while True:
-            chunk_header = cls._read_until(stream, CRLF)
-            chunk_headers = chunk_header.split(b';') # length + optional chunk-extensions (name=value pairs)
-            chunk_len, chunk_extensions = chunk_headers[0], chunk_headers[1:] # we do nothing with chunk-extensions...
+            chunk_header = cls._read_until(stream, CR_LF)
+            chunk_headers = chunk_header.split(b';')  # length + optional chunk-extensions (name=value pairs)
+            chunk_len, _ = chunk_headers[0], chunk_headers[1:]  # we do nothing with chunk-extensions...
             if chunk_len is None:
                 raise DechunkError(
                     'Could not extract chunk size: unexpected end of data.')
@@ -71,10 +70,10 @@ class HTTPReader(CompressionHandler):
                 body.append(chunk)
 
             # chunk ends with \r\n
-            crlf = stream.read(2)
-            if crlf != CRLF:
+            cr_lf = stream.read(2)
+            if cr_lf != CR_LF:
                 raise DechunkError('No CR+LF at the end of chunk!')
-            if chunk_len == 0: # len == 0 indicates end of data
+            if chunk_len == 0:  # len == 0 indicates end of data
                 break
         return b''.join(body)
 
@@ -91,12 +90,12 @@ class HTTPReader(CompressionHandler):
         delim_len = len(delimiter)
 
         while len(buf) < max_bytes:
-            c = stream.read(1)
+            char = stream.read(1)
 
-            if not c:
+            if not char:
                 break
 
-            buf += c
+            buf += char
             if buf[-delim_len:] == delimiter:
                 return bytes(buf[:-delim_len])
 
@@ -111,8 +110,8 @@ class HTTPReader(CompressionHandler):
         cl_string = http_message.headers.get('content-length')
         if cl_string:
             try:
-                cl = int(cl_string)
-                http_body = http_message.rfile.read(cl)
+                content_length = int(cl_string)
+                http_body = http_message.rfile.read(content_length)
             except TypeError:
                 http_body = http_message.rfile.read()
         if http_body is None:
@@ -131,7 +130,7 @@ class HTTPReader(CompressionHandler):
             if actual_enc in supported_encs:
                 http_body = cls.decompress(http_body, actual_enc)
             else:
-                raise DecompressError('content-encoding "{}" is not supported',actual_enc )
+                raise DecompressError(f'content-encoding "{actual_enc}" is not supported', )
         return http_body
 
     @classmethod
@@ -145,8 +144,8 @@ class HTTPReader(CompressionHandler):
         cl_string = http_response.getheader('content-length')
         if cl_string:
             try:
-                cl = int(cl_string)
-                http_body = http_response.read(cl)
+                content_length = int(cl_string)
+                http_body = http_response.read(content_length)
             except TypeError:
                 http_body = http_response.read()
         if http_body is None:
@@ -171,7 +170,7 @@ class HTTPReader(CompressionHandler):
             if actual_enc in supported_encs:
                 http_body = cls.decompress(http_body, actual_enc)
             else:
-                raise DecompressError('content-encoding "{}" is not supported',actual_enc )
+                raise DecompressError(f'content-encoding "{actual_enc}" is not supported')
         return http_body
 
 
@@ -191,16 +190,16 @@ class HTTPRequestHandler(BaseHTTPRequestHandler, CompressionHandler):
         '''
         return HTTPReader.read_request_body(self)
 
-    def _compressIfRequired(self, response_bytes):
+    def _compress_if_required(self, response_bytes):
         '''Compress response if header of request indicates that other side
         accepts one of our supported compression encodings'''
-        accepted_enc = CompressionHandler.parseHeader(self.headers.get('accept-encoding'))
+        accepted_enc = CompressionHandler.parse_header(self.headers.get('accept-encoding'))
         for enc in accepted_enc:
-            if enc in self.server.supportedEncodings:
-                response_bytes = self.compressPayload(enc, response_bytes)
+            if enc in self.server.supported_encodings:
+                response_bytes = self.compress_payload(enc, response_bytes)
                 self.send_header('Content-Encoding', enc)
                 break
         return response_bytes
 
-    def log_request(self, *args, **kwargs):
-        pass   # supress printing of every request to stderr
+    def log_request(self, code='-', size='-'):
+        pass  # suppress printing of every request to stderr

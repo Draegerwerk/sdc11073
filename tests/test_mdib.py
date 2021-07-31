@@ -15,10 +15,10 @@ class TestMdib(unittest.TestCase):
                                     (('70041', '69650', '69651'), 1),  # Channels
                                     (('70041', '69650', '69651', '152464'), 4),  # Metrics
                                     ]:
-            found = deviceMdibContainer.selectDescriptors(*path)
+            found = deviceMdibContainer.select_descriptors(*path)
             self.assertEqual(len(found), expectedCount, msg='expect {} containers for path {}, found {}'.format(expectedCount, path, found))
             for f in found:
-                self.assertEqual(f.codeId, path[-1])
+                self.assertEqual(f.code_id, path[-1])
 
     def test_mdib_tns(self):
         # verify that a mdib with participant model as default namespace can be handled.

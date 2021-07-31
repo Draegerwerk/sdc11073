@@ -32,7 +32,7 @@ class TestClientProxies(unittest.TestCase):
 
             print(soapEnvelope.as_xml(pretty=True))
 
-            soapEnvelope.validateBody(sdcClient._bicepsSchema.bmmSchema)
+            soapEnvelope.validateBody(sdcClient._bicepsSchema.message_schema)
 
     def test_Set_setNumericValue(self):
         for sdcClient in self._allclients:
@@ -40,7 +40,7 @@ class TestClientProxies(unittest.TestCase):
             soapEnvelope = setServiceClient._mkRequestedNumericValueEnvelope(operationHandle='123',
                                                                              requestedNumericValue=42.42)
             print(soapEnvelope.as_xml(pretty=True))
-            soapEnvelope.validateBody(sdcClient._bicepsSchema.bmmSchema)
+            soapEnvelope.validateBody(sdcClient._bicepsSchema.message_schema)
 
     def test_Set_setString(self):
         for sdcClient in self._allclients:
@@ -48,18 +48,18 @@ class TestClientProxies(unittest.TestCase):
             soapEnvelope = setServiceClient._mkRequestedStringEnvelope(operationHandle='123',
                                                                        requestedString='aaa42.42')
             print(soapEnvelope.as_xml(pretty=True))
-            soapEnvelope.validateBody(sdcClient._bicepsSchema.bmmSchema)
+            soapEnvelope.validateBody(sdcClient._bicepsSchema.message_schema)
 
     def test_Set_setAlertState(self):
         for sdcClient in self._allclients:
-            descriptorClass = sdcClient.sdc_definitions.dc.getContainerClass(sdc11073.namespaces.domTag('AlertSignalDescriptor'))
+            descriptorClass = sdcClient.sdc_definitions.dc.get_container_class(sdc11073.namespaces.domTag('AlertSignalDescriptor'))
             descr = descriptorClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
                                     handle='123',
-                                    parentHandle='456',
+                                    parent_handle='456',
                                     )
-            stateClass = sdcClient.sdc_definitions.sc.getContainerClass(sdc11073.namespaces.domTag('AlertSignalState'))
+            stateClass = sdcClient.sdc_definitions.sc.get_container_class(sdc11073.namespaces.domTag('AlertSignalState'))
             alertState = stateClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
-                                    descriptorContainer=descr)
+                                    descriptor_container=descr)
 
             setServiceClient = sdcClient._mkHostedServiceClient(port_type='SetService', soapClient=None, hosted=self.hosted)
             for state in list(AlertActivation):
@@ -67,18 +67,18 @@ class TestClientProxies(unittest.TestCase):
                 soapEnvelope = setServiceClient._mkSetAlertEnvelope( operationHandle='op123',
                                                                            proposedAlertStates=[alertState])
                 print (soapEnvelope.as_xml(pretty=True))
-                soapEnvelope.validateBody(sdcClient._bicepsSchema.bmmSchema)
+                soapEnvelope.validateBody(sdcClient._bicepsSchema.message_schema)
 
     def test_Set_setMetricState(self):
         for sdcClient in self._allclients:
-            descriptorClass = sdcClient.sdc_definitions.dc.getContainerClass(sdc11073.namespaces.domTag('NumericMetricDescriptor'))
+            descriptorClass = sdcClient.sdc_definitions.dc.get_container_class(sdc11073.namespaces.domTag('NumericMetricDescriptor'))
             descr = descriptorClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
                                     handle='123',
-                                    parentHandle='456',
+                                    parent_handle='456',
                                     )
-            stateClass = sdcClient.sdc_definitions.sc.getContainerClass(sdc11073.namespaces.domTag('NumericMetricState'))
+            stateClass = sdcClient.sdc_definitions.sc.get_container_class(sdc11073.namespaces.domTag('NumericMetricState'))
             metricState = stateClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
-                                     descriptorContainer=descr)
+                                     descriptor_container=descr)
             setServiceClient = sdcClient._mkHostedServiceClient(port_type='SetService', soapClient=None, hosted=self.hosted)
             for state in list(ComponentActivation):
                 metricState.ActivationState = state
@@ -86,7 +86,7 @@ class TestClientProxies(unittest.TestCase):
                 soapEnvelope = setServiceClient._mkSetMetricStateEnvelope( operationHandle='op123',
                                                                                  proposedMetricStates=[metricState])
                 print (soapEnvelope.as_xml(pretty=True))
-                soapEnvelope.validateBody(sdcClient._bicepsSchema.bmmSchema)
+                soapEnvelope.validateBody(sdcClient._bicepsSchema.message_schema)
 
     def test_sortIpaddresses(self):
         #              to be sorted            refIp     expected result

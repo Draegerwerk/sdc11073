@@ -29,13 +29,13 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             clock_descr_handle = 'clock_' + mdsContainer.handle
             self._logger.info('creating a clock descriptor, handle={}'.format(clock_descr_handle))
             clockDescriptor = self._mdib.createClockDescriptorContainer(handle=clock_descr_handle,
-                                                                        parentHandle=mdsContainer.handle,
-                                                                        codedValue=pmtypes.CodedValue(123),
-                                                                        safetyClassification=pmtypes.SafetyClassification.INF)
+                                                                        parent_handle=mdsContainer.handle,
+                                                                        coded_value=pmtypes.CodedValue(123),
+                                                                        safety_classification=pmtypes.SafetyClassification.INF)
 
         clockState = self._mdib.states.descriptorHandle.getOne(clockDescriptor.handle, allowNone = True)
         if clockState is None:
-            clockState = self._mdib.mkStateContainerFromDescriptor(clockDescriptor)
+            clockState = self._mdib.mk_state_container_from_descriptor(clockDescriptor)
             self._mdib.addState(clockState)
 
 
@@ -101,7 +101,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                 mgr.unget_state(state)
                 # look for the ClockState child
                 clockDescriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'),[])
-                clockDescriptors = [ c for c in clockDescriptors if c.parentHandle == mdsHandle]
+                clockDescriptors = [ c for c in clockDescriptors if c.parent_handle == mdsHandle]
                 if len(clockDescriptors) == 1:
                     # state = mgr.getComponentState(clockDescriptors[0].handle)
                     state = mgr.get_state(clockDescriptors[0].handle)
@@ -126,7 +126,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                 mgr.unget_state(state)
                 # look for the ClockState child
                 clockDescriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'),[])
-                clockDescriptors = [ c for c in clockDescriptors if c.parentHandle == mdsHandle]
+                clockDescriptors = [ c for c in clockDescriptors if c.parent_handle == mdsHandle]
                 if len(clockDescriptors) == 1:
                     #state = mgr.getComponentState(clockDescriptors[0].handle)
                     state = mgr.get_state(clockDescriptors[0].handle)

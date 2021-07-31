@@ -36,11 +36,11 @@ class MockWsDiscovery(object):
     def __init__(self, ipaddresses):
         self._ipaddresses = ipaddresses
     
-    def getActiveAddresses(self):
+    def get_active_addresses(self):
         return self._ipaddresses
 
-    def clearService(self, epr):
-        _logger.info ('clearService "{}"'.format(epr))
+    def clear_service(self, epr):
+        _logger.info ('clear_service "{}"'.format(epr))
 
 
 
@@ -51,7 +51,7 @@ class TestDevSubscription(_DevSubscription):
     identifier = '0815'
     expires = 60
     notifyRef = 'a ref string'
-    def __init__(self, filter_, bicepsSchema):
+    def __init__(self, filter_, biceps_schema):
         notifyRefNode = etree_.Element(namespaces.wseTag('References'))
         identNode = etree_.SubElement(notifyRefNode, namespaces.wseTag('Identifier'))
         identNode.text = self.notifyRef
@@ -66,19 +66,19 @@ class TestDevSubscription(_DevSubscription):
                                                   max_subscription_duration=42,
                                                   filter_=filter_,
                                                   sslContext=None,
-                                                  bicepsSchema=bicepsSchema,
+                                                  biceps_schema=biceps_schema,
                                                   acceptedEncodings=None,
                                                   base_urls=base_urls)
         self.reports = []
-        self.bmmSchema = bicepsSchema.bmmSchema
+        self.message_schema = biceps_schema.message_schema
         
         
-    def sendNotificationReport(self, bodyNode, action, doc_nsmap):
+    def sendNotificationReport(self, msg_factory, bodyNode, action, doc_nsmap):
         soapEnvelope = Soap12Envelope(doc_nsmap)
         soapEnvelope.addBodyElement(bodyNode)
         rep = self._mkNotificationReport(soapEnvelope, action)
         try:
-            rep.validateBody(self.bmmSchema)
+            rep.validateBody(self.message_schema)
         except:
             print (rep.as_xml(pretty=True))
             raise

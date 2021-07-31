@@ -1,7 +1,7 @@
 from time import monotonic, sleep
 
 
-class IntervalTimer(object):
+class IntervalTimer:
     ''' this is a timer that does not drift (but is has jitter). '''
     VERBOSE = 0
 

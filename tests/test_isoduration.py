@@ -1,18 +1,18 @@
 import unittest
-from sdc11073.isoduration import parse_duration, durationString
+from sdc11073.isoduration import parse_duration, duration_string
 from sdc11073.isoduration import parse_date_time, date_time_string, GYearMonth, GYear, UTC
 from datetime import date, datetime
 
 class TestIsoDate(unittest.TestCase):
     
     def test_durationString(self):
-        self.assertEqual('PT0H0M1S', durationString(1))
-        self.assertEqual('PT0H1M0S', durationString(60))
-        self.assertEqual('PT0H1M1S', durationString(61))
-        self.assertEqual('P0Y0M3DT5H13M17S', durationString(3600*24*3 +3600*5 + 60*13 +17))
-        self.assertEqual('-P0Y0M3DT5H13M17S', durationString((3600*24*3 +3600*5 + 60*13 +17)*-1))
-        self.assertEqual('PT0H0M0.1S', durationString(0.1))
-        self.assertEqual('-PT0H0M0.000001S', durationString(-0.000001))
+        self.assertEqual('PT0H0M1S', duration_string(1))
+        self.assertEqual('PT0H1M0S', duration_string(60))
+        self.assertEqual('PT0H1M1S', duration_string(61))
+        self.assertEqual('P0Y0M3DT5H13M17S', duration_string(3600*24*3 +3600*5 + 60*13 +17))
+        self.assertEqual('-P0Y0M3DT5H13M17S', duration_string((3600*24*3 +3600*5 + 60*13 +17)*-1))
+        self.assertEqual('PT0H0M0.1S', duration_string(0.1))
+        self.assertEqual('-PT0H0M0.000001S', duration_string(-0.000001))
 
 
     def test_parseDuration(self):

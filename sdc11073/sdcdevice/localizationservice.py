@@ -1,14 +1,14 @@
 from collections import defaultdict
 from lxml import etree as etree_
 from .. import pysoap
-from ..namespaces import Prefix_Namespace as Prefix
+from ..namespaces import Prefixes
 from ..namespaces import msgTag, dpwsTag, nsmap
 
 from .sdcservicesimpl import DPWSPortTypeImpl
 from .sdcservicesimpl import WSDLMessageDescription, WSDLOperationBinding
 from .sdcservicesimpl import _wsdl_ns, _mkWsdlTwowayOperation
 
-_msg = Prefix.MSG.prefix
+_msg = Prefixes.MSG.prefix
 
 def _tw2i(textwidth_string):
     ''' text width to int'''
@@ -222,15 +222,15 @@ class LocalizationService(DPWSPortTypeImpl):
         # create the response
         nsmapper = self._mdib.nsmapper
         responseSoapEnvelope = pysoap.soapenvelope.Soap12Envelope(
-            nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
+            nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
         replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetLocalizedTextResponse'))
         responseSoapEnvelope.addHeaderObject(replyAddress)
         getLocalizedTextResponseNode = etree_.Element(msgTag('GetLocalizedTextResponse'))
-        getLocalizedTextResponseNode.set('MdibVersion', str(self._mdib.mdibVersion))
-        getLocalizedTextResponseNode.set('SequenceId', self._mdib.sequenceId)
+        getLocalizedTextResponseNode.set('MdibVersion', str(self._mdib.mdib_version))
+        getLocalizedTextResponseNode.set('SequenceId', self._mdib.sequence_id)
 
         for text in texts:
-            getLocalizedTextResponseNode.append(text.asEtreeNode(msgTag('Text'), nsmap=None))
+            getLocalizedTextResponseNode.append(text.as_etree_node(msgTag('Text'), nsmap=None))
         responseSoapEnvelope.addBodyElement((getLocalizedTextResponseNode))
         return responseSoapEnvelope
 
@@ -241,12 +241,12 @@ class LocalizationService(DPWSPortTypeImpl):
 
         nsmapper = self._mdib.nsmapper
         responseSoapEnvelope = pysoap.soapenvelope.Soap12Envelope(
-            nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
+            nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
         replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetSupportedLanguagesResponse'))
         responseSoapEnvelope.addHeaderObject(replyAddress)
         getSupportedLanguagesResponseNode = etree_.Element(msgTag('GetSupportedLanguagesResponse'))
-        getSupportedLanguagesResponseNode.set('MdibVersion', str(self._mdib.mdibVersion))
-        getSupportedLanguagesResponseNode.set('SequenceId', self._mdib.sequenceId)
+        getSupportedLanguagesResponseNode.set('MdibVersion', str(self._mdib.mdib_version))
+        getSupportedLanguagesResponseNode.set('SequenceId', self._mdib.sequence_id)
 
         for lang in languages:
             n = etree_.SubElement(getSupportedLanguagesResponseNode, msgTag('Lang'))
@@ -255,9 +255,9 @@ class LocalizationService(DPWSPortTypeImpl):
         return responseSoapEnvelope
 
 
-    def addWsdlPortType(self, parentNode):
+    def addWsdlPortType(self, parent_node):
         '''
-        add wsdl:portType node to parentNode.
+        add wsdl:portType node to parent_node.
         xml looks like this:
         <wsdl:portType name="GetService" dpws:DiscoveryType="dt:ServiceProvider">
           <wsdl:operation name="GetMdState">
@@ -269,15 +269,15 @@ class LocalizationService(DPWSPortTypeImpl):
           </wsp:Policy>
           ...
         </wsdl:portType>
-        :param parentNode:
+        :param parent_node:
         :return:
         '''
-        if 'dt' in parentNode.nsmap:
-            portType = etree_.SubElement(parentNode, etree_.QName(_wsdl_ns,'portType'),
+        if 'dt' in parent_node.nsmap:
+            portType = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns,'portType'),
                                          attrib={'name': self.port_type_string,
                                                  dpwsTag('DiscoveryType'):'dt:ServiceProvider'})
         else:
-            portType = etree_.SubElement(parentNode, etree_.QName(_wsdl_ns, 'portType'),
+            portType = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
                                          attrib={'name': self.port_type_string})
         _mkWsdlTwowayOperation(portType, operationName='GetLocalizedText')
         _mkWsdlTwowayOperation(portType, operationName='GetSupportedLanguages')

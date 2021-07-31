@@ -1,18 +1,19 @@
-from ..namespaces import domTag
-from .. import pmtypes
-from .nomenclature import NomenclatureCodes as nc
 from . import providerbase
-
+from .nomenclature import NomenclatureCodes as nc
+from .. import pmtypes
+from ..namespaces import domTag
 
 # coded values for SDC audio pause
 MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE = pmtypes.CodedValue(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
 MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE = pmtypes.CodedValue(nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
+
 
 class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
     """Handling of global audio pause.
     It guarantees that there are operations with codes "MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE"
     and "MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE".
     """
+
     def __init__(self, log_prefix):
         super().__init__(log_prefix)
         self._setGlobalAudioPauseOperations = []
@@ -20,7 +21,8 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
 
     def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
         if operationDescriptorContainer.coding == MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE.coding:
-            self._logger.info('instantiating "set audio pause" operation from existing descriptor handle={}'.format(operationDescriptorContainer.handle))
+            self._logger.info('instantiating "set audio pause" operation from existing descriptor handle={}'.format(
+                operationDescriptorContainer.handle))
             set_ap_operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
                                                                         operations_factory,
                                                                         currentRequestHandler=self._setGlobalAudioPause)
@@ -28,7 +30,8 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
             return set_ap_operation
 
         elif operationDescriptorContainer.coding == MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE.coding:
-            self._logger.info('instantiating "cancel audio pause" operation from existing descriptor handle={}'.format(operationDescriptorContainer.handle))
+            self._logger.info('instantiating "cancel audio pause" operation from existing descriptor handle={}'.format(
+                operationDescriptorContainer.handle))
             cancel_ap_operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
                                                                            operations_factory,
                                                                            currentRequestHandler=self._cancelGlobalAudioPause)
@@ -36,7 +39,6 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
             self._cancelGlobalAudioPauseOperations.append(cancel_ap_operation)
             return cancel_ap_operation
         return None
-
 
     def makeMissingOperations(self, operations_factory):
         ops = []
@@ -67,7 +69,6 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
             self._setGlobalAudioPauseOperations.append(cancel_ap_operation)
         return ops
 
-
     def _setGlobalAudioPause(self, operationInstance, request):  # pylint: disable=unused-argument
         ''' This is the code that executes the operation itself:
         SF1132: If global audio pause is initiated, all SystemSignalActivation/State for all alarm systems of the
@@ -90,39 +91,43 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                     self._logger.info('SDC_SetAudioPauseOperation: nothing to do')
                     tr.unget_state(alertSystemState)
                 else:
-                    audible_signals = [ ssa for ssa in alertSystemState.SystemSignalActivation if ssa.Manifestation == pmtypes.AlertSignalManifestation.AUD]
-                    active_audible_signals = [ ssa for ssa in audible_signals if ssa.State != pmtypes.AlertActivation.PAUSED]
+                    audible_signals = [ssa for ssa in alertSystemState.SystemSignalActivation if
+                                       ssa.Manifestation == pmtypes.AlertSignalManifestation.AUD]
+                    active_audible_signals = [ssa for ssa in audible_signals if
+                                              ssa.State != pmtypes.AlertActivation.PAUSED]
                     if not active_audible_signals:
                         # Alert System has no audible SystemSignalActivations, no action required
                         tr.unget_state(alertSystemState)
                     else:
                         for ssa in active_audible_signals:
-                            ssa.State = pmtypes.AlertActivation.PAUSED # SF1132
+                            ssa.State = pmtypes.AlertActivation.PAUSED  # SF1132
                         self._logger.info('SDC_SetAudioPauseOperation: set alertsystem "{}" to paused'.format(
                             alertSystemDescriptor.handle))
                         # handle all audible alert signals of this alert system
-                        allAlertSignalDescriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSignalDescriptor'), [])
-                        childAlertSignalDescriptors = [ d for d in allAlertSignalDescriptors if d.parentHandle == alertSystemDescriptor.handle]
-                        audibleChildAlertSignalDescriptors = [ d for d in childAlertSignalDescriptors if d.Manifestation == pmtypes.AlertSignalManifestation.AUD]
+                        allAlertSignalDescriptors = self._mdib.descriptions.NODETYPE.get(
+                            domTag('AlertSignalDescriptor'), [])
+                        childAlertSignalDescriptors = [d for d in allAlertSignalDescriptors if
+                                                       d.parent_handle == alertSystemDescriptor.handle]
+                        audibleChildAlertSignalDescriptors = [d for d in childAlertSignalDescriptors if
+                                                              d.Manifestation == pmtypes.AlertSignalManifestation.AUD]
                         for sd in audibleChildAlertSignalDescriptors:
                             alertSignalState = tr.get_state(sd.handle)
-                            if sd.AcknowledgementSupported: #SF959
+                            if sd.AcknowledgementSupported:  # SF959
                                 if alertSignalState.ActivationState != pmtypes.AlertActivation.PAUSED \
-                                    or alertSignalState.Presence != pmtypes.AlertSignalPresence.ACK:
+                                        or alertSignalState.Presence != pmtypes.AlertSignalPresence.ACK:
                                     alertSignalState.ActivationState = pmtypes.AlertActivation.PAUSED
                                     alertSignalState.Presence = pmtypes.AlertSignalPresence.ACK
                                 else:
                                     tr.unget_state(alertSignalState)
-                            else: #SF958
+                            else:  # SF958
                                 if alertSignalState.ActivationState != pmtypes.AlertActivation.PAUSED \
-                                    or alertSignalState.Presence != pmtypes.AlertSignalPresence.OFF:
+                                        or alertSignalState.Presence != pmtypes.AlertSignalPresence.OFF:
                                     alertSignalState.ActivationState = pmtypes.AlertActivation.PAUSED
                                     alertSignalState.Presence = pmtypes.AlertSignalPresence.OFF
                                 else:
                                     tr.unget_state(alertSignalState)
 
-
-    def _cancelGlobalAudioPause(self, operationInstance, request): #pylint: disable=unused-argument
+    def _cancelGlobalAudioPause(self, operationInstance, request):  # pylint: disable=unused-argument
         ''' This is the code that executes the operation itself:
         If global audio pause is initiated, all SystemSignalActivation/State for all alarm systems of the product with
         SystemSignalActivation/Manifestation evaluating to 'Aud' shall be set to 'Psd'.
@@ -135,8 +140,10 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                     self._logger.info('SDC_CancelAudioPauseOperation: nothing to do')
                     tr.unget_state(alertSystemState)
                 else:
-                    audible_signals = [ ssa for ssa in alertSystemState.SystemSignalActivation if ssa.Manifestation == pmtypes.AlertSignalManifestation.AUD]
-                    paused_audible_signals = [ ssa for ssa in audible_signals if ssa.State == pmtypes.AlertActivation.PAUSED]
+                    audible_signals = [ssa for ssa in alertSystemState.SystemSignalActivation if
+                                       ssa.Manifestation == pmtypes.AlertSignalManifestation.AUD]
+                    paused_audible_signals = [ssa for ssa in audible_signals if
+                                              ssa.State == pmtypes.AlertActivation.PAUSED]
                     if not paused_audible_signals:
                         tr.unget_state(alertSystemState)
                     else:
@@ -145,9 +152,12 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                         self._logger.info('SDC_SetAudioPauseOperation: set alertsystem "{}" to ON'.format(
                             alertSystemDescriptor.handle))
                         # handle all audible alert signals of this alert system
-                        allAlertSignalDescriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSignalDescriptor'), [])
-                        childAlertSignalDescriptors = [ d for d in allAlertSignalDescriptors if d.parentHandle == alertSystemDescriptor.handle]
-                        audibleChildAlertSignalDescriptors = [ d for d in childAlertSignalDescriptors if d.Manifestation == pmtypes.AlertSignalManifestation.AUD]
+                        allAlertSignalDescriptors = self._mdib.descriptions.NODETYPE.get(
+                            domTag('AlertSignalDescriptor'), [])
+                        childAlertSignalDescriptors = [d for d in allAlertSignalDescriptors if
+                                                       d.parent_handle == alertSystemDescriptor.handle]
+                        audibleChildAlertSignalDescriptors = [d for d in childAlertSignalDescriptors if
+                                                              d.Manifestation == pmtypes.AlertSignalManifestation.AUD]
                         for sd in audibleChildAlertSignalDescriptors:
                             alertSignalState = tr.get_state(sd.handle)
                             alertConditionState = self._mdib.states.descriptorHandle.getOne(sd.ConditionSignaled)

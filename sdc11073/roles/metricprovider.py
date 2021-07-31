@@ -85,14 +85,14 @@ class GenericMetricProvider(ProviderRole):
     def onPreCommit(self, mdib, transaction):
         if not self.activationStateCanRemoveMetricValue:
             return
-        if transaction.metricStateUpdates:
-            self._handleMetricsComponentActivation(transaction.metricStateUpdates.values())
-        if transaction.rtSampleStateUpdates:
-            self._handleMetricsComponentActivation(transaction.rtSampleStateUpdates.values())
+        if transaction.metric_state_updates:
+            self._handleMetricsComponentActivation(transaction.metric_state_updates.values())
+        if transaction.rt_sample_state_updates:
+            self._handleMetricsComponentActivation(transaction.rt_sample_state_updates.values())
 
-    def _handleMetricsComponentActivation(self, metricStateUpdates):
+    def _handleMetricsComponentActivation(self, metric_state_updates):
         # check if MetricValue shall be removed
-        for oldstate, newstate in metricStateUpdates:
+        for oldstate, newstate in metric_state_updates:
             if newstate is None or not newstate.isMetricState:
                 continue
             # SF717: check if MetricValue shall be automatically removed

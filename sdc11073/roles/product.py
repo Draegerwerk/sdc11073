@@ -74,7 +74,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
                                       state.NODETYPE)
 
 
-class BaseProduct(object):
+class BaseProduct:
     def __init__(self, log_prefix):
         # self.contextstate_provider = contextprovider.GenericContextProvider(log_prefix=log_prefix)  # default handler
         # self.componentstate_provider = GenericSetComponentStateOperationProvider(log_prefix=log_prefix) # default handler
@@ -90,7 +90,7 @@ class BaseProduct(object):
         self._mdib = None
         self._ordered_providers = []  # order matters, each provider can hide operations of later ones
         # start with most specific providers, end with most general ones
-        self._logger = loghelper.getLoggerAdapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
 
     def _all_providers_sorted(self):
         return self._ordered_providers
@@ -166,7 +166,7 @@ class BaseProduct(object):
         return None
 
     def _registerExistingMdibOperations(self, sco):
-        operationDescriptorContainers = self._mdib.getOperationDescriptors()
+        operationDescriptorContainers = self._mdib.get_operation_descriptors()
         for c in operationDescriptorContainers:
             registered_op = sco.getOperationByHandle(c.handle)
             if registered_op is None:
@@ -191,28 +191,28 @@ class BaseProduct(object):
         remove states from mdib for deleted descriptors
         :return:
         '''
-        for tr_item in transaction.descriptorUpdates.values():
+        for tr_item in transaction.descriptor_updates.values():
             if tr_item.new is None:
                 # deleted descriptor
                 objects = mdib.states.descriptorHandle.get(tr_item.old.handle)
                 if objects:
-                    mdib.states.removeObjects(objects)
-                objects = mdib.contextStates.descriptorHandle.get(tr_item.old.handle)
+                    mdib.states.remove_objects(objects)
+                objects = mdib.context_states.descriptorHandle.get(tr_item.old.handle)
                 if objects:
-                    mdib.contextStates.removeObjects(objects)
+                    mdib.context_states.remove_objects(objects)
 
     def _addMissingStatesToTransaction(self, mdib, transaction):
         '''
         add states to new descriptors if they are not part of this transaction
         '''
-        for tr_item in transaction.descriptorUpdates.values():
+        for tr_item in transaction.descriptor_updates.values():
             if tr_item.old is None:
                 # new descriptor
-                state_cls = mdib.getStateClsForDescriptor(tr_item.new)
+                state_cls = mdib.get_state_class_for_descriptor(tr_item.new)
                 if not state_cls.isMultiState:
                     if not transaction.has_state(tr_item.new.handle):
                         st = state_cls(mdib.nsmapper, tr_item.new)
-                        st.updateNode()
+                        st.set_node_member()
                         transaction.add_state(st)
 
 

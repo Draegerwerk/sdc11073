@@ -1,8 +1,8 @@
 import re
-from datetime import timedelta
-from datetime import datetime, date, tzinfo
-from decimal import Decimal
 from collections import namedtuple
+from datetime import datetime, date, tzinfo
+from datetime import timedelta
+from decimal import Decimal
 
 ISO8601_PERIOD_REGEX = re.compile(
     r"^(?P<sign>[+-])?"
@@ -14,22 +14,24 @@ ISO8601_PERIOD_REGEX = re.compile(
     r"((?P<separator>T)(?P<hours>[0-9]+([,.][0-9]+)?H)?"
     r"(?P<minutes>[0-9]+([,.][0-9]+)?M)?"
     r"(?P<seconds>[0-9]+([,.][0-9]+)?S)?)?$")
+
+
 # regular expression to parse ISO duration strings.
 
 
-def parse_duration(datestring):
+def parse_duration(date_string):
     """
     Parses an ISO 8601 durations into a float value containing seconds.
     The following duration formats are supported:
       -PnnW                  duration in weeks
       -PnnYnnMnnDTnnHnnMnnS  complete duration specification
-    Years and month are not supported, values must be zero! 
+    Years and month are not supported, values must be zero!
     """
-    if not isinstance(datestring, str):
-        raise TypeError("Expecting a string %r" % datestring)
-    match = ISO8601_PERIOD_REGEX.match(datestring)
+    if not isinstance(date_string, str):
+        raise TypeError("Expecting a string %r" % date_string)
+    match = ISO8601_PERIOD_REGEX.match(date_string)
     if not match:
-        raise ValueError("Unable to parse duration string %r" % datestring)
+        raise ValueError("Unable to parse duration string %r" % date_string)
     groups = match.groupdict()
     for key, val in groups.items():
         if key not in ('separator', 'sign'):
@@ -43,34 +45,32 @@ def parse_duration(datestring):
                 # which works with floats.
                 groups[key] = float(groups[key][:-1].replace(',', '.'))
     if groups["years"] != 0 or groups["months"] != 0:
-        raise ValueError("Unable to parse duration string %r (Non zero year or month)" % datestring)
-    else:
-        ret = timedelta(days=groups["days"], hours=groups["hours"],
-                        minutes=groups["minutes"], seconds=groups["seconds"],
-                        weeks=groups["weeks"])
-        if groups["sign"] == '-':
-            ret = timedelta(0) - ret
-        return ret.total_seconds()
+        raise ValueError("Unable to parse duration string %r (Non zero year or month)" % date_string)
+    ret = timedelta(days=groups["days"], hours=groups["hours"],
+                    minutes=groups["minutes"], seconds=groups["seconds"],
+                    weeks=groups["weeks"])
+    if groups["sign"] == '-':
+        ret = timedelta(0) - ret
+    return ret.total_seconds()
 
 
-def durationString(seconds):
+def duration_string(seconds):
     sign = '-' if seconds < 0 else ''
     fract = abs(seconds - int(seconds))
     seconds = abs(int(seconds))
-    minutes, sec = divmod(seconds,60)
-    hours, minutes= divmod(minutes,60)
+    minutes, sec = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
     days, hours = divmod(hours, 24)
-#    sec += fract
+    #    sec += fract
     if fract == 0:
         fract_string = ''
     else:
-        fract_string = f'{fract:.9f}'[1:] # starting from dot char
+        fract_string = f'{fract:.9f}'[1:]  # starting from dot char
         while fract_string[-1] == '0':
             fract_string = fract_string[:-1]
     if days == 0:
-        return '{}PT{}H{}M{}{}S'.format(sign, hours, minutes, sec, fract_string)
-    else:
-        return '{}P0Y0M{}DT{}H{}M{}{}S'.format(sign, days, hours, minutes, sec, fract_string)
+        return f'{sign}PT{hours}H{minutes}M{sec}{fract_string}S'
+    return f'{sign}P0Y0M{days}DT{hours}H{minutes}M{sec}{fract_string}S'
 
 
 ##### Date Time ######
@@ -78,42 +78,46 @@ GYearMonth = namedtuple('GYearMonth', 'year month')
 GYear = namedtuple('GYear', 'year')
 
 ZERO = timedelta(0)
+
+
 class UTC(tzinfo):
     """Fixed offset in minutes east from UTC."""
+
     def __init__(self, offset_minutes, tzname=None):
         self._offset = timedelta(minutes=offset_minutes)
         self._tzname = tzname
 
-    def utcoffset(self, dt): #pylint:disable=unused-argument
+    def utcoffset(self, dt):  # pylint:disable=unused-argument
         return self._offset
 
-    def tzname(self, dt): #pylint:disable=unused-argument
+    def tzname(self, dt):  # pylint:disable=unused-argument
         return self._tzname
 
-    def dst(self, dt): #pylint:disable=unused-argument
+    def dst(self, dt):  # pylint:disable=unused-argument
         return ZERO
 
 
 # regular expression to parse ISO 8601 date / datetime strings.
 
-_tz_regex_str = '(?P<tz>Z|((?P<tz_sign>[+-])(?P<tz_hours>[0-9]{1,2}):(?P<tz_minutes>[0-9]{1,2})))?'
-_date_regex_str = '(?P<year>[0-9]{4})-?(?P<month>1[0-2]|0[1-9])-?(?P<day>[0-9]{1,2})'
-_time_regex_str = '(?P<hour>2[0-3]|[01][0-9]):?(?P<minute>[0-5][0-9]):(?P<second>[0-5][0-9]([.][0-9]+)?)'
-_datetime_regex = re.compile('^'+_date_regex_str + '(T' + _time_regex_str + _tz_regex_str + ')?')
-_datetime_regex_relaxed = re.compile('^'+_date_regex_str + '([T, ]' + _time_regex_str + _tz_regex_str + ')?') # allows space between date and time
+_TZ_REGEX_STR = '(?P<tz>Z|((?P<tz_sign>[+-])(?P<tz_hours>[0-9]{1,2}):(?P<tz_minutes>[0-9]{1,2})))?'
+_DATE_REGEX_STR = '(?P<year>[0-9]{4})-?(?P<month>1[0-2]|0[1-9])-?(?P<day>[0-9]{1,2})'
+_TIME_REGEX_STR = '(?P<hour>2[0-3]|[01][0-9]):?(?P<minute>[0-5][0-9]):(?P<second>[0-5][0-9]([.][0-9]+)?)'
+_DATETIME_REGEX = re.compile('^' + _DATE_REGEX_STR + '(T' + _TIME_REGEX_STR + _TZ_REGEX_STR + ')?')
+_DATETIME_REGEX_RELAXED = re.compile(
+    '^' + _DATE_REGEX_STR + '([T, ]' + _TIME_REGEX_STR + _TZ_REGEX_STR + ')?')  # allows space between date and time
 _year_month_regex = re.compile('^(?P<year>[0-9]{4})(-(?P<month>1[0-2]|0[1-9]))?')
 
 
-def parse_date_time(date_time_string, strict=True):
+def parse_date_time(date_time_str, strict=True):
     try:
         if strict:
-            d = _datetime_regex.match(date_time_string)
+            d_t = _DATETIME_REGEX.match(date_time_str)
         else:
-            d = _datetime_regex_relaxed.match(date_time_string)
-        if d is not None:
-            groups = d.groupdict()
+            d_t = _DATETIME_REGEX_RELAXED.match(date_time_str)
+        if d_t is not None:
+            groups = d_t.groupdict()
             year, month, day = int(groups['year']), int(groups['month']), int(groups['day'])
-            if groups['hour'] is None: # only a date, no time
+            if groups['hour'] is None:  # only a date, no time
                 return date(year, month, day)
 
             tz_1st = groups['tz']
@@ -124,7 +128,7 @@ def parse_date_time(date_time_string, strict=True):
             elif tz_1st[0] in ('+', '-'):
                 tz_hours = int(groups['tz_hours'])
                 tz_minutes = int(groups['tz_minutes'])
-                offset = tz_hours*60+tz_minutes
+                offset = tz_hours * 60 + tz_minutes
                 if tz_1st[0] == '-':
                     offset *= -1
                 tz_info = UTC(offset, 'unknown')
@@ -132,13 +136,13 @@ def parse_date_time(date_time_string, strict=True):
             hour = int(groups['hour'])
             minute = int(groups.get('minute', '00'))
             second = float(groups.get('second', '0.0'))
-            sec, microsec = int(second), int((second - int(second))*1000000)
+            sec, microsec = int(second), int((second - int(second)) * 1000000)
             value = datetime(year, month, day, hour, minute, sec, microsec, tz_info)
             return value
 
-        d = _year_month_regex.match(date_time_string)
-        if d is not None:
-            groups = d.groupdict()
+        d_t = _year_month_regex.match(date_time_str)
+        if d_t is not None:
+            groups = d_t.groupdict()
             year, month = groups['year'], groups['month']
             if month is None:
                 value = GYear(int(year))
@@ -151,18 +155,19 @@ def parse_date_time(date_time_string, strict=True):
         return None
 
 
-def _mkSecondsString(date_object):
+def _mk_seconds_string(date_object):
     if date_object.microsecond > 0:
-        seconds = float(date_object.second) + float(date_object.microsecond)/1e6
-        secondsString = '{:02f}'.format(seconds)
-        #remove trailing zeros
-        while secondsString[-1] == '0':
-            secondsString = secondsString[:-1]
+        seconds = float(date_object.second) + float(date_object.microsecond) / 1e6
+        seconds_string = '{:02f}'.format(seconds)
+        # remove trailing zeros
+        while seconds_string[-1] == '0':
+            seconds_string = seconds_string[:-1]
     else:
-        secondsString = '{:02d}'.format(date_object.second)
-    return secondsString
+        seconds_string = '{:02d}'.format(date_object.second)
+    return seconds_string
 
-def _mkTzString(date_object):
+
+def _mk_tz_string(date_object):
     tz_string = ''
     if date_object.tzinfo:
         delta = date_object.tzinfo.utcoffset(0)
@@ -170,28 +175,29 @@ def _mkTzString(date_object):
         if tz_seconds == 0:
             tz_string = 'Z'
         if tz_seconds != 0:
-            minutes, sec = divmod(abs(tz_seconds), 60)
+            minutes, _ = divmod(abs(tz_seconds), 60)
             hours, minutes = divmod(minutes, 60)
             tz_string = '{}{:02d}:{:02d}'.format('+' if tz_seconds > 0 else '-', hours, minutes)
     return tz_string
 
+
 def date_time_string(date_object):
-    if hasattr(date_object, 'hour'): # datetime object
-        datestring = '{:4d}-{:02d}-{:02d}T{:02d}:{:02d}:{}{}'.format(date_object.year,
-                                                                     date_object.month,
-                                                                     date_object.day,
-                                                                     date_object.hour,
-                                                                     date_object.minute,
-                                                                     _mkSecondsString(date_object),
-                                                                     _mkTzString(date_object))
-    elif hasattr(date_object, 'day'): #date object
-        datestring = '{:4d}-{:02d}-{:02d}'.format(date_object.year,
-                                                  date_object.month,
-                                                  date_object.day)
-    elif hasattr(date_object, 'month'): #GYearMonth object
-        datestring = '{:4d}-{:02d}'.format(date_object.year, date_object.month)
-    elif hasattr(date_object, 'year'): #GYear object
-        datestring = '{:4d}'.format(date_object.year)
+    if hasattr(date_object, 'hour'):  # datetime object
+        date_string = '{:4d}-{:02d}-{:02d}T{:02d}:{:02d}:{}{}'.format(date_object.year,
+                                                                      date_object.month,
+                                                                      date_object.day,
+                                                                      date_object.hour,
+                                                                      date_object.minute,
+                                                                      _mk_seconds_string(date_object),
+                                                                      _mk_tz_string(date_object))
+    elif hasattr(date_object, 'day'):  # date object
+        date_string = '{:4d}-{:02d}-{:02d}'.format(date_object.year,
+                                                   date_object.month,
+                                                   date_object.day)
+    elif hasattr(date_object, 'month'):  # GYearMonth object
+        date_string = '{:4d}-{:02d}'.format(date_object.year, date_object.month)
+    elif hasattr(date_object, 'year'):  # GYear object
+        date_string = '{:4d}'.format(date_object.year)
     else:
         raise ValueError('cannot convert {} to ISO8601 datetime string'.format(date_object.__class__.__name__))
-    return datestring
+    return date_string

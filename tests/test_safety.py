@@ -1,7 +1,7 @@
 import unittest
 from lxml import etree as etree_
 from sdc11073 import safety
-from sdc11073.namespaces import Prefix_Namespace as Prefix
+from sdc11073.namespaces import Prefixes
 from sdc11073.namespaces import nsmap
 
 # a wsdl taken from safety example
@@ -50,7 +50,7 @@ safety_mdib_response = '''<?xml version="1.0" encoding="UTF-8"?>
         </dom:MdState>
     </msg:Mdib>
 </msg:GetMdibResponse>
-'''.format(msg=Prefix.MSG.prefix, ext=Prefix.EXT.prefix, dom=Prefix.PM.prefix, si=Prefix.MDPWS.prefix)
+'''.format(msg=Prefixes.MSG.prefix, ext=Prefixes.EXT.prefix, dom=Prefixes.PM.prefix, si=Prefixes.MDPWS.prefix)
 
 
 def parseXMLString(xmlString, **kwargs):
@@ -65,10 +65,10 @@ class TestSafety(unittest.TestCase):
         # verify that SafetyInfoHeader creates a correct safety info header node
         dualChannel = {'dcSel1':'TEST_VALUE', 'dcSel2': '4'}
         safetyContext = {'scSel1':'ORIGINAL_TEST_VALUE', 'scSel2': '3'}
-        for algo in safety.Sha1, safety.B64Sha1: # test with both encryption algorithms that are provided in module
+        for algo in safety.sha1, safety.base64_sha1: # test with both encryption algorithms that are provided in module
             si = safety.SafetyInfoHeader(dualChannel, safetyContext, algo)
             rootNode = etree_.Element('bla') # name of root does not matter
-            si.asEtreeSubNode(rootNode)
+            si.as_etree_subnode(rootNode)
             # read relevant values from node anv verify that they are sha1 encoded (default encoding) 
             # xpathes are same as in above xml
             # dcSel1 = rootNode.xpath("/bla/si:SafetyInfo/si:DualChannel/si:DcValue[@ReferencedSelector='dcSel1']", namespaces=namespaces.nsmap)
@@ -76,14 +76,14 @@ class TestSafety(unittest.TestCase):
             #
             # scSel1 = rootNode.xpath('/bla/si:SafetyInfo/si:SafetyContext/si:CtxtValue[@ReferencedSelector="scSel1"]', namespaces=namespaces.nsmap)
             # scSel2 = rootNode.xpath('/bla/si:SafetyInfo/si:SafetyContext/si:CtxtValue[@ReferencedSelector="scSel2"]', namespaces=namespaces.nsmap)
-            dcSel1 = rootNode.xpath("/bla/{si}:SafetyInfo/{si}:DualChannel/{si}:DcValue[@ReferencedSelector='dcSel1']".format(si=Prefix.MDPWS.prefix),
+            dcSel1 = rootNode.xpath("/bla/{si}:SafetyInfo/{si}:DualChannel/{si}:DcValue[@ReferencedSelector='dcSel1']".format(si=Prefixes.MDPWS.prefix),
                                     namespaces=nsmap)
-            dcSel2 = rootNode.xpath("/bla/{si}:SafetyInfo/{si}:DualChannel/{si}:DcValue[@ReferencedSelector='dcSel2']".format(si=Prefix.MDPWS.prefix),
+            dcSel2 = rootNode.xpath("/bla/{si}:SafetyInfo/{si}:DualChannel/{si}:DcValue[@ReferencedSelector='dcSel2']".format(si=Prefixes.MDPWS.prefix),
                                     namespaces=nsmap)
 
-            scSel1 = rootNode.xpath('/bla/{si}:SafetyInfo/{si}:SafetyContext/{si}:CtxtValue[@ReferencedSelector="scSel1"]'.format(si=Prefix.MDPWS.prefix),
+            scSel1 = rootNode.xpath('/bla/{si}:SafetyInfo/{si}:SafetyContext/{si}:CtxtValue[@ReferencedSelector="scSel1"]'.format(si=Prefixes.MDPWS.prefix),
                                     namespaces=nsmap)
-            scSel2 = rootNode.xpath('/bla/{si}:SafetyInfo/{si}:SafetyContext/{si}:CtxtValue[@ReferencedSelector="scSel2"]'.format(si=Prefix.MDPWS.prefix),
+            scSel2 = rootNode.xpath('/bla/{si}:SafetyInfo/{si}:SafetyContext/{si}:CtxtValue[@ReferencedSelector="scSel2"]'.format(si=Prefixes.MDPWS.prefix),
                                     namespaces=nsmap)
 
             self.assertEqual(dcSel1[0].text, algo('TEST_VALUE'))

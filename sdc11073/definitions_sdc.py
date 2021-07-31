@@ -1,46 +1,49 @@
 import os
+
 from lxml import etree as etree_
-from .namespaces import Prefix_Namespace as Prefix
-from .definitions_base import SchemaResolverBase
+
 from .definitions_base import BaseDefinitions
+from .definitions_base import SchemaResolverBase
 from .mdib import descriptorcontainers as dc_final
 from .mdib import statecontainers as sc_final
+from .namespaces import Prefixes
 from .pysoap.msgfactory import SoapMessageFactory
 from .pysoap.msgreader import MessageReader
-from .sdcdevice.sdcservicesimpl import GetService, SetService, StateEventService,  ContainmentTreeService
-from .sdcdevice.sdcservicesimpl import ContextService, WaveformService, DescriptionEventService
-from .sdcdevice.localizationservice import LocalizationService
-from .sdcdevice.sdc_handlers import SdcHandler_Full
-from .sdcdevice.sco import getOperationClass, ScoOperationsRegistry
-from .sdcdevice.subscriptionmgr import SubscriptionsManager
-
-from .sdcclient.subscription import SOAPNotificationsHandler
-from .sdcclient.hostedservice import GetServiceClient, SetServiceClient, StateEventClient
 from .sdcclient.hostedservice import CTreeServiceClient, DescriptionEventClient, ContextServiceClient, WaveformClient
+from .sdcclient.hostedservice import GetServiceClient, SetServiceClient, StateEventClient
 from .sdcclient.localizationservice import LocalizationServiceClient
-from .sdcclient.subscription import SubscriptionClient, NotificationsReceiverDispatcherThread
 from .sdcclient.operations import OperationsManager
-
+from .sdcclient.subscription import SOAPNotificationsHandler
+from .sdcclient.subscription import SubscriptionClient, NotificationsReceiverDispatcherThread
+from .sdcdevice.localizationservice import LocalizationService
+from .sdcdevice.sco import getOperationClass, ScoOperationsRegistry
+from .sdcdevice.sdc_handlers import SdcHandler_Full
+from .sdcdevice.sdcservicesimpl import ContextService, WaveformService, DescriptionEventService
+from .sdcdevice.sdcservicesimpl import GetService, SetService, StateEventService, ContainmentTreeService
+from .sdcdevice.subscriptionmgr import SubscriptionsManager
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
+
 class _SchemaResolver(SchemaResolverBase):
     lookup_ext = {
-            'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_ParticipantModel.xsd': 'ParticipantModelSchemaFile',
-            'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd': 'MessageModelSchemaFile',
-            'http://standards.ieee.org/downloads/11073/11073-10207-2017/ExtensionPoint.xsd': 'ExtensionPointSchemaFile', }
+        'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_ParticipantModel.xsd': 'ParticipantModelSchemaFile',
+        'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd': 'MessageModelSchemaFile',
+        'http://standards.ieee.org/downloads/11073/11073-10207-2017/ExtensionPoint.xsd': 'ExtensionPointSchemaFile', }
+
 
 # the following namespace definitions reflect the initial SDC standard.
 # There might be changes or additions in the future, who knows...
 #
 
-_DPWS_SDCNamespace = 'http://standards.ieee.org/downloads/11073/11073-20701-2018'
-_ActionsNamespace = _DPWS_SDCNamespace
+_DPWS_SDCNamespace = 'http://standards.ieee.org/downloads/11073/11073-20701-2018'  # pylint: disable=invalid-name
+_ActionsNamespace = _DPWS_SDCNamespace   # pylint: disable=invalid-name
 
-class _SDC_v1_Actions(object):
+
+class _SdcV1Actions:
     OperationInvokedReport = _ActionsNamespace + '/SetService/OperationInvokedReport'
     SetOperationInvokedReport = _ActionsNamespace + '/SetService/OperationInvokedReport'
-    ContextOperationInvokedReport =  _ActionsNamespace + '/ContextService/OperationInvokedReport'
+    ContextOperationInvokedReport = _ActionsNamespace + '/ContextService/OperationInvokedReport'
     EpisodicContextReport = _ActionsNamespace + '/ContextService/EpisodicContextReport'
     EpisodicMetricReport = _ActionsNamespace + '/StateEventService/EpisodicMetricReport'
     EpisodicOperationalStateReport = _ActionsNamespace + '/StateEventService/EpisodicOperationalStateReport'
@@ -88,30 +91,29 @@ class _SDC_v1_Actions(object):
     GetDescriptorResponse = _ActionsNamespace + '/ContainmentTreeService/GetDescriptorResponse'
     GetContainmentTree = _ActionsNamespace + '/ContainmentTreeService/GetContainmentTree'
     GetContainmentTreeResponse = _ActionsNamespace + '/ContainmentTreeService/GetContainmentTreeResponse'
-    SubscriptionEnd = Prefix.WSE.namespace + '/SubscriptionEnd'
+    SubscriptionEnd = Prefixes.WSE.namespace + '/SubscriptionEnd'
 
 
-"""Dependency injection: This dictionary defines which component implementations the sdc client will use. """
+# Dependency injection: This dictionary defines which component implementations the sdc client will use.
 DefaultSdcClientComponents = {
-    'MsgFactoryClass':  SoapMessageFactory,
+    'MsgFactoryClass': SoapMessageFactory,
     'MsgReaderClass': MessageReader,
     'NotificationsReceiverClass': NotificationsReceiverDispatcherThread,
     'NotificationsHandlerClass': SOAPNotificationsHandler,
     'SubscriptionManagerClass': SubscriptionClient,
     'OperationsManagerClass': OperationsManager,
     'ServiceHandlers': {'ContainmentTreeService': CTreeServiceClient,
-                         'GetService': GetServiceClient,
-                         'StateEventService': StateEventClient,
-                         'ContextService': ContextServiceClient,
-                         'WaveformService': WaveformClient,
-                         'SetService': SetServiceClient,
-                         'DescriptionEventService': DescriptionEventClient,
-                         'LocalizationService': LocalizationServiceClient,
-                         }
+                        'GetService': GetServiceClient,
+                        'StateEventService': StateEventClient,
+                        'ContextService': ContextServiceClient,
+                        'WaveformService': WaveformClient,
+                        'SetService': SetServiceClient,
+                        'DescriptionEventService': DescriptionEventClient,
+                        'LocalizationService': LocalizationServiceClient,
+                        }
 }
 
-
-"""Dependency injection: This dictionary defines which component implementations the sdc device will use. """
+# Dependency injection: This dictionary defines which component implementations the sdc device will use.
 DefaultSdcDeviceComponents = {
     'MsgFactoryClass': SoapMessageFactory,
     'MsgReaderClass': MessageReader,
@@ -131,15 +133,15 @@ DefaultSdcDeviceComponents = {
 }
 
 
-class SDC_v1_Definitions(BaseDefinitions):
+class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     BICEPSNamespace_base = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/'
     BICEPSNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/SP'
-    DPWS_SDCNamespace = _DPWS_SDCNamespace#'http://standards.ieee.org/downloads/11073/11073-20701-2018'
+    DPWS_SDCNamespace = _DPWS_SDCNamespace  # 'http://standards.ieee.org/downloads/11073/11073-20701-2018'
     MedicalDeviceTypeNamespace = 'http://standards.ieee.org/downloads/11073/11073-20702-2016'
     MessageModelNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/message'
     ParticipantModelNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/participant'
     ExtensionPointNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/extension'
-    MDPWSNameSpace = 'http://standards.ieee.org/downloads/11073/11073-20702-2016' # this name changed between WPF and SDC! IEEE correction
+    MDPWSNameSpace = 'http://standards.ieee.org/downloads/11073/11073-20702-2016'  # this name changed between WPF and SDC! IEEE correction
     MedicalDeviceType = etree_.QName(MedicalDeviceTypeNamespace, 'MedicalDevice')
     SDCDeviceType = etree_.QName(DPWS_SDCNamespace, 'SdcDevice')
     MessageModelSchemaFile = os.path.join(schemaFolder, 'BICEPS_MessageModel.xsd')
@@ -151,7 +153,7 @@ class SDC_v1_Definitions(BaseDefinitions):
     MedicalDeviceTypesFilter = [BaseDefinitions.DpwsDeviceType, MedicalDeviceType]
     sc = sc_final
     dc = dc_final
-    Actions = _SDC_v1_Actions
+    Actions = _SdcV1Actions
     DefaultSdcDeviceComponents = DefaultSdcDeviceComponents
     DefaultSdcClientComponents = DefaultSdcClientComponents
 

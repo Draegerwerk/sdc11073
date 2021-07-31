@@ -27,7 +27,7 @@ class Test_Compression(unittest.TestCase):
         # Create a new device
         self.location = sdc11073.location.SdcLocation(fac='tklx', poc='CU1', bed='Bed')
         self.sdcDevice_Final = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml')
-        self._locValidators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extensionString='System')]
+        self._locValidators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extension_string='System')]
 
     def tearDown(self):
         # close
@@ -102,7 +102,7 @@ class Test_Compression(unittest.TestCase):
         # Create a compressed getMetadata request
         self._start_with_compression(compression.GZIP)
 
-        self.xml = self.soapClient.compressPayload(compression.GZIP, self.xml)
+        self.xml = self.soapClient.compress_payload(compression.GZIP, self.xml)
         self.xml = bytearray(self.xml)  # cast to bytes, required to bypass httplib checks for is str
         headers = {
             'Content-type': 'application/soap+xml',
@@ -131,7 +131,7 @@ class Test_Compression(unittest.TestCase):
         # Create a compressed getMetadata request
         self._start_with_compression(compression.LZ4)
 
-        self.xml = self.soapClient.compressPayload(compression.LZ4, self.xml)
+        self.xml = self.soapClient.compress_payload(compression.LZ4, self.xml)
         self.xml = bytearray(self.xml)  # cast to bytes, required to bypass httplib checks for is str
         headers = {
             'Content-type': 'application/soap+xml',
@@ -158,19 +158,19 @@ class Test_Compression(unittest.TestCase):
 class Test_Compression_ParseHeader(unittest.TestCase):
 
     def test_parseHeader(self):
-        result = compression.CompressionHandler.parseHeader('gzip,lz4')
+        result = compression.CompressionHandler.parse_header('gzip,lz4')
         self.assertEqual(result, ['gzip', 'lz4'])
-        result = compression.CompressionHandler.parseHeader('lz4, gzip')
+        result = compression.CompressionHandler.parse_header('lz4, gzip')
         self.assertEqual(result, ['lz4', 'gzip'])
-        result = compression.CompressionHandler.parseHeader('lz4;q=1, gzip; q = 0.5')
+        result = compression.CompressionHandler.parse_header('lz4;q=1, gzip; q = 0.5')
         self.assertEqual(result, ['lz4', 'gzip'])
-        result = compression.CompressionHandler.parseHeader('lz4;q= 1, gzip; q=0.5')
+        result = compression.CompressionHandler.parse_header('lz4;q= 1, gzip; q=0.5')
         self.assertEqual(result, ['lz4', 'gzip'])
-        result = compression.CompressionHandler.parseHeader('lz4;q= 1, gzip')
+        result = compression.CompressionHandler.parse_header('lz4;q= 1, gzip')
         self.assertEqual(result, ['lz4', 'gzip'])
-        result = compression.CompressionHandler.parseHeader('gzip; q=0.9,lz4')
+        result = compression.CompressionHandler.parse_header('gzip; q=0.9,lz4')
         self.assertEqual(result, ['lz4', 'gzip'])
-        result = compression.CompressionHandler.parseHeader('gzip,lz4; q=0.9')
+        result = compression.CompressionHandler.parse_header('gzip,lz4; q=0.9')
         self.assertEqual(result, ['gzip', 'lz4'])
 
 

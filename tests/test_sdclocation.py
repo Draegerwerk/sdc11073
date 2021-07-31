@@ -4,7 +4,7 @@ from sdc11073.location import SdcLocation
 
 class TestSdcLocation(unittest.TestCase):
     scheme = SdcLocation.scheme  #'sdc.ctxt.loc'
-    default_root = SdcLocation.locationDetailRoot  #'sdc.ctxt.loc.detail'
+    default_root = SdcLocation.location_detail_root  #'sdc.ctxt.loc.detail'
     scope_prefix = scheme + ':/' + default_root #sdc.ctxt.loc:/sdc.ctxt.loc.detail'
     def test_scopeString(self):
         expectedScopeStringSdc = self.scope_prefix + '/HOSP1%2F%2F%2FCU1%2F%2FBedA500?fac=HOSP1&poc=CU1&bed=BedA500'
@@ -16,8 +16,8 @@ class TestSdcLocation(unittest.TestCase):
         self.assertEqual(loc.rm, None)
         self.assertEqual(loc.bld, None)
         self.assertEqual(loc.flr, None)
-        scopeString = loc.scopeStringSdc
-        self.assertEqual(loc.scopeStringSdc, expectedScopeStringSdc)
+        scopeString = loc.scope_string_sdc
+        self.assertEqual(loc.scope_string_sdc, expectedScopeStringSdc)
 
         # this is an unusual scope with bed only plus root
         expectedScopeString = self.scheme + ':/myroot/%2F%2F%2F%2F%2FBedA500?bed=BedA500'
@@ -29,7 +29,7 @@ class TestSdcLocation(unittest.TestCase):
         self.assertEqual(loc.rm, None)
         self.assertEqual(loc.bld, None)
         self.assertEqual(loc.flr, None)
-        scopeString = loc.scopeStringSdc
+        scopeString = loc.scope_string_sdc
         self.assertEqual(scopeString, expectedScopeString)
 
         # this is an unusual scope with all parameters and spaces in them
@@ -43,12 +43,12 @@ class TestSdcLocation(unittest.TestCase):
         self.assertEqual(loc.bld, 'abc 1')
         self.assertEqual(loc.flr, 'flr 1')
 
-        self.assertEqual(loc, SdcLocation.fromScopeString(loc.scopeStringSdc))
+        self.assertEqual(loc, SdcLocation.from_scope_string(loc.scope_string_sdc))
 
 
     def test_fromScopeString(self):
-        scopeStringSdc = self.scope_prefix + '/HOSP1%2F%2F%2FCU1%2F%2FBedA500?fac=HOSP1&poc=CU1&bed=BedA500'
-        loc = SdcLocation.fromScopeString(scopeStringSdc)
+        scope_string_sdc = self.scope_prefix + '/HOSP1%2F%2F%2FCU1%2F%2FBedA500?fac=HOSP1&poc=CU1&bed=BedA500'
+        loc = SdcLocation.from_scope_string(scope_string_sdc)
         self.assertEqual(loc.root, self.default_root)
         self.assertEqual(loc.fac, 'HOSP1')
         self.assertEqual(loc.poc, 'CU1')
@@ -56,11 +56,11 @@ class TestSdcLocation(unittest.TestCase):
         self.assertEqual(loc.rm, None)
         self.assertEqual(loc.bld, None)
         self.assertEqual(loc.flr, None)
-        self.assertEqual(loc.scopeStringSdc, scopeStringSdc)
+        self.assertEqual(loc.scope_string_sdc, scope_string_sdc)
 
         # correct handling of scope with %20 spaces and + char in query
         scopeString = self.scheme + ':/some%20where/HOSP%201%2Fabc%201%2FCU%201%2Fflr%201%2FrM%201%2FBed%20A500?rm=rM+1&flr=flr+1&bed=Bed+A500&bldng=abc+1&fac=HOSP+1&poc=CU+1'
-        loc = SdcLocation.fromScopeString(scopeString)
+        loc = SdcLocation.from_scope_string(scopeString)
         self.assertEqual(loc.root, 'some where')
         self.assertEqual(loc.fac, 'HOSP 1')
         self.assertEqual(loc.poc, 'CU 1')
@@ -70,12 +70,12 @@ class TestSdcLocation(unittest.TestCase):
         self.assertEqual(loc.flr, 'flr 1')
         
         #if we can create another identical  DraegerLocation from loc, then scopeString also seems okay.
-        self.assertEqual(loc, SdcLocation.fromScopeString(loc.scopeStringSdc))
+        self.assertEqual(loc, SdcLocation.from_scope_string(loc.scope_string_sdc))
 
         # correct handling of scope with %20 spaces also in query
         for scopeString in (self.scheme + ':/some%20where/HOSP%201%2Fabc%201%2FCU%201%2Fflr%201%2FrM%201%2FBed%20A500?rm=rM%201&flr=flr%201&bed=Bed+A500&bldng=abc+1&fac=HOSP+1&poc=CU+1',
                             self.scheme +':/some%20where/this_part_of string_does_not_matter?rm=rM%201&flr=flr%201&bed=Bed+A500&bldng=abc+1&fac=HOSP+1&poc=CU+1'):
-            loc = SdcLocation.fromScopeString(scopeString)
+            loc = SdcLocation.from_scope_string(scopeString)
             self.assertEqual(loc.root, 'some where')
             self.assertEqual(loc.fac, 'HOSP 1')
             self.assertEqual(loc.poc, 'CU 1')

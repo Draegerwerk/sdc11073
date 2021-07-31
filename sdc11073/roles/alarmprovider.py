@@ -76,7 +76,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         for alertSignalState in self._mdib.states.NODETYPE.get(namespaces.domTag('AlertSignalState'),[]):
             if alertSignalState.Location == 'Rem':
                 alertSignalState.ActivationState = AlertActivation.OFF
-                alertSignalState.updateNode()
+                alertSignalState.set_node_member()
             else:
                 alertSignalDescr = self._mdib.descriptions.handle.getOne(alertSignalState.descriptorHandle)
                 # ConditionSignaled can be None, in that case do nothing
@@ -84,12 +84,12 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                     alertConditionState = self._mdib.states.descriptorHandle.getOne(alertSignalDescr.ConditionSignaled, allowNone=True)
                     if alertConditionState and alertSignalState.ActivationState != alertConditionState.ActivationState:
                         alertSignalState.ActivationState = alertConditionState.ActivationState
-                        alertSignalState.updateNode()
+                        alertSignalState.set_node_member()
 
     def _getDescriptor(self, handle, mdib, transaction):
         ''' Helper that looks for descriptor first in current transaction, then in mdib. returns first found one or raises KeyError'''
         descriptor = None
-        tr_item = transaction.descriptorUpdates.get(handle)
+        tr_item = transaction.descriptor_updates.get(handle)
         if tr_item is not None:
             descriptor = tr_item.new
         if descriptor is None:
@@ -101,7 +101,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
 
     def _getChangedAlertConditionStates(self, transaction):
         result = []
-        for item in list(transaction.alertStateUpdates.values()):
+        for item in list(transaction.alert_state_updates.values()):
             tmp = item.old if item.new is None else item.new
             if tmp.NODETYPE in(namespaces.domTag('AlertConditionState'),
                                namespaces.domTag('LimitAlertConditionState')):
@@ -114,9 +114,9 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         changedAlertConditions = self._getChangedAlertConditionStates(transaction)
         for tmp in changedAlertConditions:
             alertDescriptor = self._getDescriptor(tmp.descriptorHandle, mdib, transaction)
-            alertSystemDescriptor = self._getDescriptor(alertDescriptor.parentHandle, mdib, transaction)
-            if alertSystemDescriptor.handle in transaction.alertStateUpdates:
-                tmp_st = transaction.alertStateUpdates[alertSystemDescriptor.handle]
+            alertSystemDescriptor = self._getDescriptor(alertDescriptor.parent_handle, mdib, transaction)
+            if alertSystemDescriptor.handle in transaction.alert_state_updates:
+                tmp_st = transaction.alert_state_updates[alertSystemDescriptor.handle]
                 if tmp_st.new is not None:
                     alertSystemStateContainer = tmp_st.new
                     alertSystemStates.add(alertSystemStateContainer)
@@ -126,7 +126,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         return alertSystemStates
 
     def onPreCommit(self, mdib, transaction):
-        if not transaction.alertStateUpdates:
+        if not transaction.alert_state_updates:
             return
         # find all alert systems with changed states
         alertSystemStates = self._findAlertSystemsWithModifications( mdib, transaction)
@@ -153,8 +153,8 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 raise RuntimeError('there is no alert state for {}'.format(descriptorHandle))
             return alertState
         for st in alertSystemStates:
-            all_child_descriptors = mdib.descriptions.parentHandle.get(st.descriptorHandle, list())
-            all_child_descriptors.extend([i.new for i in transaction.descriptorUpdates.values() if i.new.parentHandle == st.descriptorHandle])
+            all_child_descriptors = mdib.descriptions.parent_handle.get(st.descriptorHandle, list())
+            all_child_descriptors.extend([i.new for i in transaction.descriptor_updates.values() if i.new.parent_handle == st.descriptorHandle])
             all_alert_condition_descr = [d for d in all_child_descriptors if hasattr(d, 'Kind')]
             # select all state containers with technical alarms present
             all_tech_descr = [ d for d in all_alert_condition_descr if d.Kind == AlertConditionKind.TECHNICAL]
@@ -216,7 +216,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         ''' set upper limit of an LimitAlertConditionStateContainer'''
         operationTargetHandle = operationDescriptorContainer.operationTarget
         with self._mdib.mdibUpdateTransaction() as mgr:
-            operationStateContainer = mgr._deviceMdibContainer.states.descriptorHandle.getOne(operationDescriptorContainer.handle)
+            operationStateContainer = mgr._device_mdib_container.states.descriptorHandle.getOne(operationDescriptorContainer.handle)
             self._inAllowedRange(operationStateContainer, value)
             state = mgr.get_state(operationTargetHandle)
             self._logger.info('set upper limit handle="{}" from {} to {}', operationTargetHandle, state.Limits.Upper, value)
@@ -226,7 +226,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         ''' set lower limit of an LimitAlertConditionStateContainer'''
         operationTargetHandle = operationDescriptorContainer.operationTarget
         with self._mdib.mdibUpdateTransaction() as mgr:
-            operationStateContainer = mgr._deviceMdibContainer.states.descriptorHandle.getOne(operationDescriptorContainer.handle)
+            operationStateContainer = mgr._device_mdib_container.states.descriptorHandle.getOne(operationDescriptorContainer.handle)
             self._inAllowedRange(operationStateContainer, value)
             state = mgr.get_state(operationTargetHandle)
             self._logger.info('set lower limit handle={} from {} to {}', operationTargetHandle, state.Limits.Lower, value)
@@ -339,7 +339,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             pm:AlertConditionState and pm:AlertSignalState
         """
         alertConditions, alertSignals = [], []
-        for child in self._mdib.descriptions.parentHandle.get(handle, []):
+        for child in self._mdib.descriptions.parent_handle.get(handle, []):
             if child.isAlertSignalDescriptor:
                 alertSignals.append(child.handle)
             elif child.isAlertConditionDescriptor:

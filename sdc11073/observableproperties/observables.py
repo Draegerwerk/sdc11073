@@ -1,21 +1,21 @@
-''' This module defines an ObservableProperty class.
+""" This module defines an ObservableProperty class.
 An ObservablePropery must be declared as class attribute, similar to standard python properties.
 You can bind callables to an ObservableProperty. The callable is called when the property value is set.
 
 Example:
->>> class MyBaseClass(object):
+>>> class MyBaseClass:
 >>>     prop1 = ObservableProperty(21)
 >>>     prop2 = ObservableProperty(22)
->>>     
+>>>
 >>>     def __init__(self):
 >>>         do_something()
->>> 
->>> class Observer(object):
+>>>
+>>> class Observer:
 >>>     def onProp1Changed(value):
 >>>         print 'prop1=', value
 >>>     def onProp21Changed(value):
 >>>         print 'prop2=', value
->>> 
+>>>
 >>> actor = MyBaseClass()
 >>> observer = Observer()
 >>> bind(actor, prop1=observer.onProp1Changed, prop2=observer.onProp2Changed)
@@ -24,35 +24,33 @@ Example:
 < prop1= 42
 >>> actor.prop2='Hello World'
 < prop2= Hello World
-
-'''
-import weakref
+"""
 import inspect
+import weakref
 from contextlib import contextmanager
 
 
 class WeakRef:
-    ''' This Weaf Ref implementation allows to hold references to bound methods.
-    => see http://stackoverflow.com/questions/599430/why-doesnt-the-weakref-work-on-this-bound-method'''
-    def __init__ (self, item):
+    """ This Weaf Ref implementation allows to hold references to bound methods.
+    => see http://stackoverflow.com/questions/599430/why-doesnt-the-weakref-work-on-this-bound-method"""
+
+    def __init__(self, item):
         self.reference = None
         self.method = None
-        self.instance = None        
+        self.instance = None
         try:
-            self.method   = item.__func__.__name__
-            self.instance = weakref.ref (item.__self__)
+            self.method = item.__func__.__name__
+            self.instance = weakref.ref(item.__self__)
         except AttributeError:
-            self.reference = weakref.ref (item)
+            self.reference = weakref.ref(item)
 
-
-    def getRef(self):
+    def get_ref(self):
         if self.reference is not None:
-            return self.reference ()
-        instance = self.instance ()
-        if instance == None:
+            return self.reference()
+        instance = self.instance()
+        if instance is None:
             return None
-        return getattr (instance, self.method)
-
+        return getattr(instance, self.method)
 
     def __eq__(self, other):
         try:
@@ -60,183 +58,168 @@ class WeakRef:
                 return self.reference == other.reference
             return self.method == other.method and self.instance == other.instance
         except AttributeError:
-            # other is of an unknown class 
+            # other is of an unknown class
             return False
 
 
+class _ObservableValue:
+    """ Implements the basic mechanism for an observable value. """
 
-class _ObservableValue(object):
-    ''' Implements the basic mechanism for an observable value. '''
-    def __init__(self, value, fireOnlyOnChangedValue=True):
+    def __init__(self, value, fire_only_on_changed_value=True):
         self.value = value
-        self._fireOnlyOnChangedValue = fireOnlyOnChangedValue
+        self._fire_only_on_changed_value = fire_only_on_changed_value
         self._observers = []
 
-
-    def setValue(self, value):
-        if value == self.value and self._fireOnlyOnChangedValue:
+    def set_value(self, value):
+        if value == self.value and self._fire_only_on_changed_value:
             return
         self.value = value
-        obsoleteRefs=[]
+        obsolete_refs = []
         # now call all listeners. Keep track of obsolete weak refeences
-        for ref in self._observers[:]: # make a copy of list, content might change during iteration
+        for ref in self._observers[:]:  # make a copy of list, content might change during iteration
             try:
-                func = ref.getRef()
-            except AttributeError: # no Weakref instance => strong reference, use ref directly
+                func = ref.get_ref()
+            except AttributeError:  # no Weakref instance => strong reference, use ref directly
                 func = ref
             if func is None:
-                obsoleteRefs.append(ref)
+                obsolete_refs.append(ref)
             else:
-                self._callFunc(func)
-        for ref in obsoleteRefs:
+                func(self.value)  # call func
+        for ref in obsolete_refs:
             try:
                 self._observers.remove(ref)
-            except ValueError: # e.g. has been deleted by someone else in different thread.
+            except ValueError:  # e.g. has been deleted by someone else in different thread.
                 pass
-
-
-    def _callFunc(self, func):
-        func(self.value)
-
 
     def bind(self, func):
         self._observers.append(WeakRef(func))
 
-
     def strongbind(self, func):
         self._observers.append(func)
 
-
     def unbind(self, func):
-        funcRef = WeakRef(func)
+        func_ref = WeakRef(func)
         for ref in self._observers:
-            if ref == func or ref == funcRef:
+            if ref in (func, func_ref):
                 self._observers.remove(ref)
                 break
 
-
-    def unbindAll(self):
+    def unbind_all(self):
         del self._observers[:]
 
 
+class ObservableProperty:
+    """ stores data in parent obj """
 
-class ObservableProperty(object):
-    ''' stores data in parent obj '''
-    def __init__(self, defaultValue=None, fireOnlyOnChangedValue=True):
-        self._defaultValue = defaultValue
-        self._fireOnlyOnChangedValue = fireOnlyOnChangedValue
+    def __init__(self, default_value=None, fire_only_on_changed_value=True):
+        self._default_value = default_value
+        self._fire_only_on_changed_value = fire_only_on_changed_value
 
-
-    def _getInstanceData(self, obj):
-        # see if we already have a _PropertyInstanceData dictionary injected in obj
+    def _get_instance_data(self, obj):
+        # see if we already have a _property_instance_data dictionary injected in obj
         # otherwise inject it
+        # pylint: disable=protected-access
         try:
-            lookup =  obj._Property2InstanceData
+            lookup = obj._property_instance_data
         except AttributeError:
-            obj._Property2InstanceData = dict()
-            lookup = obj._Property2InstanceData
-        
+            obj._property_instance_data = dict()
+            lookup = obj._property_instance_data
+        # pylint: enable=protected-access
+
         # see if we already have a data instance for my property instance and class instance
         # otherwise create one
-        try:    
+        try:
             return lookup[self]
         except KeyError:
-            lookup[self] = _ObservableValue(self._defaultValue, self._fireOnlyOnChangedValue)
+            lookup[self] = _ObservableValue(self._default_value, self._fire_only_on_changed_value)
             return lookup[self]
 
-
-    def __get__(self,  obj, objtype):
-        return self if obj is None else self._getInstanceData(obj).value
-
+    def __get__(self, obj, objtype):
+        return self if obj is None else self._get_instance_data(obj).value
 
     def __set__(self, obj, value):
-        if obj is None: 
-            self._defaultvalue = value
+        if obj is None:
+            self._default_value = value
         else:
-            self._getInstanceData(obj).setValue(value)
-
+            self._get_instance_data(obj).set_value(value)
 
     def __delete__(self, obj):
         pass
 
-
     def bind(self, obj, func):
-        self._getInstanceData(obj).bind(func)
-
+        self._get_instance_data(obj).bind(func)
 
     def strongbind(self, obj, func):
-        self._getInstanceData(obj).strongbind(func)
-
+        self._get_instance_data(obj).strongbind(func)
 
     def unbind(self, obj, func):
-        self._getInstanceData(obj).unbind(func)
+        self._get_instance_data(obj).unbind(func)
 
-
-    def unbindAll(self, obj):
-        self._getInstanceData(obj).unbindAll()
-
+    def unbind_all(self, obj):
+        self._get_instance_data(obj).unbind_all()
 
     def __repr__(self):
-        return 'ObservableProperty at 0x{1:X}, default value= {0}'.format(self._defaultValue, id(self))
+        return 'ObservableProperty at 0x{1:X}, default value= {0}'.format(self._default_value, id(self))
 
 
-def _findProperty(obj, name):
-    ''' Helper that looks in class hierarchy for matching member
-    '''
-    classes = inspect.getmro(obj.__class__) # getmro returns a tuple of class base classes, including class, in method resolution order
-    
-    for cls in classes:   # find the first class that has the expected member
+def _find_property(obj, name):
+    """ Helper that looks in class hierarchy for matching member
+    """
+    classes = inspect.getmro(
+        obj.__class__)  # getmro returns a tuple of class base classes, including class, in method resolution order
+
+    for cls in classes:  # find the first class that has the expected member
         try:
             return cls.__dict__[name]
         except KeyError:
             pass
-    raise KeyError(name) # if no class matches, raise KeyError
-    
+    raise KeyError(name)  # if no class matches, raise KeyError
 
-def bind (obj, **kwargs):
-    ''' bind callables with a weak reference.
+
+def bind(obj, **kwargs):
+    """ bind callables with a weak reference.
     Use this bind method for all 'normal' callables like functions or methods.
     The advantage is that the garbage collector can remove objects even if they are referenced by ObservableProperty.
     ObservableProperty silently removes the callable if it no longer exists.
-    This method does not work with lambda expressions! 
+    This method does not work with lambda expressions!
     @param obj: an object with ObservableProperty member(s)
-    @param **kwargs: name of parameter must match the name of an ObservableProperty, value must be a callable.'''
+    @param **kwargs: name of parameter must match the name of an ObservableProperty, value must be a callable."""
     for name, func in kwargs.items():
-        p = _findProperty(obj, name)
-        p.bind(obj, func)
+        prop = _find_property(obj, name)
+        prop.bind(obj, func)
 
 
-def strongbind (obj, **kwargs):
-    ''' bind callables with a strong reference.
-     This method also works with lambda expressions, but you must unbind the callable before the garbage collector can delete it.'''
+def strongbind(obj, **kwargs):
+    """ bind callables with a strong reference.
+     This method also works with lambda expressions, but you must unbind the callable before the garbage collector can delete it."""
     for name, func in kwargs.items():
-        p = _findProperty(obj, name)
-        p.strongbind(obj, func)
+        prop = _find_property(obj, name)
+        prop.strongbind(obj, func)
 
 
-def unbind (obj, **kwargs):
-    ''' unbind callables that were bound before.
+def unbind(obj, **kwargs):
+    """ unbind callables that were bound before.
     @param obj: an object with ObservableProperty member(s)
     @param **kwargs: name of parameter must match the name of an ObservableProperty, value must be a callable.
-                    Unbinding an unknown callable is allowed, in this cases nothing changes. '''
+                    Unbinding an unknown callable is allowed, in this cases nothing changes. """
     for name, func in kwargs.items():
-        p = _findProperty(obj, name)
-        p.unbind(obj, func)
+        prop = _find_property(obj, name)
+        prop.unbind(obj, func)
 
 
-def unbindAll (obj, *propertyNames):
-    ''' unbind all callables that were bound before.
+def unbind_all(obj, *propertyNames):
+    """ unbind all callables that were bound before.
     @param obj: an object with ObservableProperty member(s)
     @param *propertyNames: list of strings , each string names an ObservableProperty.
-    '''
+    """
     for name in propertyNames:
-        p = _findProperty(obj, name)
-        p.unbindAll(obj)
+        prop = _findProperty(obj, name)
+        prop.unbind_all(obj)
 
 
 @contextmanager
-def boundContext(obj, **kwargs):
-    ''' context manager for bind / unbind sequence.'''
+def bound_context(obj, **kwargs):
+    """ context manager for bind / unbind sequence."""
     bind(obj, **kwargs)
     try:
         yield
@@ -245,11 +228,10 @@ def boundContext(obj, **kwargs):
 
 
 @contextmanager
-def strongboundContext(obj, **kwargs):
-    ''' context manager for strongbind / unbind sequence.'''
+def strong_bound_context(obj, **kwargs):
+    """ context manager for strongbind / unbind sequence."""
     strongbind(obj, **kwargs)
     try:
         yield
     finally:
         unbind(obj, **kwargs)
-

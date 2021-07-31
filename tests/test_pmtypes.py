@@ -14,7 +14,7 @@ class TestPmtypes(unittest.TestCase):
         # if CodedValue does not have default coding systen, this compare shall return False
         self.assertFalse(c2.equals(42))
         # it shall be possible to compare with a Coding instance
-        self.assertTrue(c1.equals(pmtypes.Coding('42', pmtypes.DefaultCodingSystem, None)))
+        self.assertTrue(c1.equals(pmtypes.Coding('42', pmtypes.DEFAULT_CODING_SYSTEM, None)))
 
         # if two CodedValue instances are compared, the translations shall also be handled
         c2.Translation.append(pmtypes.T_Translation(41))

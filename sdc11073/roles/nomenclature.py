@@ -2,7 +2,7 @@
 A minimal set of codes, used by role provider.
 """
 
-class NomenclatureCodes(object):
+class NomenclatureCodes:
     # only a small subset of all codes, these are used for tests
     MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE = 128284 # An operation to initiate global all audio pause
     MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE = 128285 # An operation to cancel global all audio pause

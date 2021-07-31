@@ -39,12 +39,12 @@ class GenericContextProvider(providerbase.ProviderRole):
                 if oldContextStateContainer is None:
                     # this is a new context state
                     # create a new unique handle
-                    handleString = '{}_{}'.format(proposed_st.descriptorHandle, self._mdib.mdibVersion)
+                    handleString = '{}_{}'.format(proposed_st.descriptorHandle, self._mdib.mdib_version)
                     proposed_st.Handle = handleString
-                    proposed_st.BindingMdibVersion = self._mdib.mdibVersion
+                    proposed_st.BindingMdibVersion = self._mdib.mdib_version
                     proposed_st.BindingStartTime = time.time()
                     proposed_st.ContextAssociation = ContextAssociation.ASSOCIATED
-                    proposed_st.updateNode()
+                    proposed_st.set_node_member()
                     self._logger.info('new {}, handle={}', proposed_st.NODETYPE.localname, proposed_st.Handle)
                     tr.add_state(proposed_st)
 
@@ -55,7 +55,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                             new_st = tr.get_state(old_st.descriptorHandle, old_st.Handle)
                             new_st.ContextAssociation = ContextAssociation.DISASSOCIATED
                             if new_st.UnbindingMdibVersion is None:
-                                new_st.UnbindingMdibVersion = self._mdib.mdibVersion
+                                new_st.UnbindingMdibVersion = self._mdib.mdib_version
                                 new_st.BindingEndTime = time.time()
                 else:
                     # this is an update to an existing patient

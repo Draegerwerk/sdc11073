@@ -56,13 +56,13 @@ class SoapClient(CompressionHandler):
 
     """SOAP Client"""
     roundtrip_time = observableproperties.ObservableProperty()
-    def __init__(self, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
+    def __init__(self, netloc, logger, sslContext, sdc_definitions, supported_encodings=None,
                  requestEncodings=None, chunked_requests=False):
         ''' Connects to one url
         @param netloc: the location of the service (domainname:port) ###url of the service
         @param sslContext: an optional sll.SSLContext instance
-        @param bicepsSchema:
-        @param supportedEncodings: configured set of encodings that can be used. If None, all available encodings are used.
+        @param biceps_schema:
+        @param supported_encodings: configured set of encodings that can be used. If None, all available encodings are used.
                                 This used for decompression of received responses.
                                 If this is an empty list, no compression is supported.
         @param requestEncodings: an optional list of encodings that the other side accepts. It is used to compress requests.
@@ -70,14 +70,14 @@ class SoapClient(CompressionHandler):
                                 If set, then the http request will be compressed using this method
         '''
         self._log = logger
-        self._sslContext = sslContext
+        self._ssl_context = sslContext
         self._sdc_definitions = sdc_definitions
         self._netloc = netloc
         self._httpConnection = None # connect later on demand
         self.__class__._usedSoapClients += 1   #pylint: disable=protected-access
         self._clientNo = self.__class__._usedSoapClients   #pylint: disable=protected-access
         self._log.info('created soapClient No. {} for {}', self._clientNo, netloc)
-        self.supportedEncodings = supportedEncodings if supportedEncodings is not None else self.available_encodings
+        self.supported_encodings = supported_encodings if supported_encodings is not None else self.available_encodings
         self.requestEncodings = requestEncodings  if requestEncodings is not None else [] # these compression alg's does the other side accept ( set at runtime)
         self._makeGetHeaders()
         self._lock = Lock()
@@ -97,8 +97,8 @@ class SoapClient(CompressionHandler):
          Therefore we can use TCP_NODELAY for a little faster transmission.
         (Otherwise there would be a chance that receivers windows size decreases, which would result in smaller
         packages and therefore higher network load.'''
-        if self._sslContext is not None:
-            conn = HTTPSConnection_NODELAY(self._netloc, context=self._sslContext, timeout=self.SOCKET_TIMEOUT)
+        if self._ssl_context is not None:
+            conn = HTTPSConnection_NODELAY(self._netloc, context=self._ssl_context, timeout=self.SOCKET_TIMEOUT)
         else:
             conn =  HTTPConnection_NODELAY(self._netloc, timeout=self.SOCKET_TIMEOUT)
         return conn
@@ -143,7 +143,7 @@ class SoapClient(CompressionHandler):
             if tmp:
                 soapEnvelopeRequest = tmp
         normalized_xml_request = soapEnvelopeRequest.as_xml(request_manipulator=request_manipulator)
-        xml_request = self._sdc_definitions.denormalizeXMLText(normalized_xml_request)
+        xml_request = self._sdc_definitions.denormalize_xml_text(normalized_xml_request)
 
         assert (b'utf-8' in xml_request[:100].lower())  # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
         if hasattr(request_manipulator, 'manipulate_string'):
@@ -156,7 +156,7 @@ class SoapClient(CompressionHandler):
             xml_response = self._sendSoapRequest(path, xml_request, msg)
         finally:
             self.roundtrip_time = time.perf_counter() - started # set roundtrip time even if method raises an exception
-        normalized_xml_response = self._sdc_definitions.normalizeXMLText(xml_response)
+        normalized_xml_response = self._sdc_definitions.normalize_xml_text(xml_response)
         my_responseFactory = responseFactory or soapenvelope.ReceivedSoap12Envelope.fromXMLString
         try:
             return my_responseFactory(normalized_xml_response, schema)
@@ -175,14 +175,14 @@ class SoapClient(CompressionHandler):
             'user_agent': 'pysoap',
             'Connection': 'keep-alive',
         }
-        commlog.defaultLogger.logSoapReqOut(xml, 'POST')
+        commlog.get_communication_logger().log_soap_request_out(xml, 'POST')
 
-        if self.supportedEncodings:
-            headers['Accept-Encoding'] = ','.join(self.supportedEncodings)
+        if self.supported_encodings:
+            headers['Accept-Encoding'] = ','.join(self.supported_encodings)
         if self.requestEncodings:
             for compr in self.requestEncodings:
-                if compr in self.supportedEncodings:
-                    xml = self.compressPayload(compr, xml)
+                if compr in self.supported_encodings:
+                    xml = self.compress_payload(compr, xml)
                     headers['Content-Encoding'] = compr
                     break
         if self._chunked_requests:
@@ -290,7 +290,7 @@ class SoapClient(CompressionHandler):
             responseHeaders = {k.lower(): v for k, v in response.getheaders()}
 
             self._log.debug('{}: response:{}; content has {} Bytes ', msg, responseHeaders, len(content))
-            commlog.defaultLogger.logSoapRespIn(content, 'POST')
+            commlog.get_communication_logger().log_soap_response_in(content, 'POST')
             return content
 
 
@@ -306,8 +306,8 @@ class SoapClient(CompressionHandler):
             # httplib in python3 do the same inside itself, don't need to convert it here
             self._getHeaders = dict((str(k), str(v)) for k, v in self._getHeaders.items())
 
-        if self.supportedEncodings:
-            self._getHeaders['Accept-Encoding'] = ', '.join(self.supportedEncodings)
+        if self.supported_encodings:
+            self._getHeaders['Accept-Encoding'] = ', '.join(self.supported_encodings)
 
     def getUrl(self, url, msg):
         if not url.startswith('/'):
@@ -320,7 +320,7 @@ class SoapClient(CompressionHandler):
             _content = response.read()
             if 'content-encoding' in headers:
                 enc = headers['content-encoding']
-                if enc in self.supportedEncodings:
+                if enc in self.supported_encodings:
                     content = self.decompress(_content, enc)
                 else:
                     self._log.warn("{}: unsupported compression ", headers['content-encoding'])

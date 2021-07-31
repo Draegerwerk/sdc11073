@@ -20,7 +20,7 @@ class Test_Device(unittest.TestCase):
 #        self.sdcDevice = CoCoDeviceAnesthesia(self.wsd, my_uuid=None, useSSL=False)
         self.sdcDevice = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml')
         self.sdcDevice.startAll()
-        self._locValidators = [pmtypes.InstanceIdentifier('Validator', extensionString='System')]
+        self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdcDevice.setLocation(location, self._locValidators)
 
         time.sleep(0.1) # allow full init of device

@@ -10,11 +10,11 @@ from concurrent.futures import Future
 OperationResult = namedtuple('OperationResult', 'state error errorMsg soapEnvelope')
 
 
-class OperationsManager(object):
+class OperationsManager:
     nonFinalOperationStates = (InvocationState.WAIT, InvocationState.START)
     def __init__(self, log_prefix):
         self.log_prefix = log_prefix
-        self._logger = loghelper.getLoggerAdapter('sdc.client.op_mgr', log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.client.op_mgr', log_prefix)
         self._transactions = {}
         self._transactionsLock = Lock()
 

@@ -1,145 +1,140 @@
-from collections import OrderedDict
 import urllib
+from collections import OrderedDict
+
 
 class UrlSchemeError(Exception):
     pass
 
-class SdcLocation(object):
-    scheme = 'sdc.ctxt.loc'
-    locationDetailRoot = 'sdc.ctxt.loc.detail'
-    _url_member_mapping = (('fac', 'fac'), ('bldng', 'bld'), ('flr', 'flr'), ('poc', 'poc'), ('rm', 'rm'), ('bed', 'bed')) # urlName, attrName
-    def __init__(self, fac=None, poc=None, bed=None, bld=None,  flr=None, rm=None, root=locationDetailRoot):
-        self.root = root
-        self.fac = fac   # facility
-        self.bld = bld   # building
-        self.poc = poc   # point of Care
-        self.flr = flr   # floor
-        self.rm = rm     # room
-        self.bed = bed   # Bed
-    
 
-    def mkExtensionStringSdc(self):
-        elements = self._getExtensionElementsSdc()
+class SdcLocation:
+    scheme = 'sdc.ctxt.loc'
+    location_detail_root = 'sdc.ctxt.loc.detail'
+    _url_member_mapping = (
+        ('fac', 'fac'), ('bldng', 'bld'), ('flr', 'flr'), ('poc', 'poc'), ('rm', 'rm'),
+        ('bed', 'bed'))  # urlName, attrName
+
+    def __init__(self, fac=None, poc=None, bed=None, bld=None, flr=None, rm=None, root=location_detail_root):
+        # pylint: disable=invalid-name
+        self.root = root
+        self.fac = fac  # facility
+        self.bld = bld  # building
+        self.poc = poc  # point of Care
+        self.flr = flr  # floor
+        self.rm = rm  # room
+        self.bed = bed  # Bed
+
+    def mk_sdc_extension_string(self):
+        elements = self._get_sdc_extension_elements()
         values = [e[1] for e in elements]
         return '/'.join(values)
 
-
-    def _getExtensionElementsSdc(self):
-        '''
+    def _get_sdc_extension_elements(self):
+        """
         :return: a list of (urlName, value) tuples
-        '''
+        """
         identifiers = []
-        for urlName, attrName in self._url_member_mapping:
-            value = getattr(self, attrName)
+        for url_name, attr_name in self._url_member_mapping:
+            value = getattr(self, attr_name)
             if value is None:
                 value = ''
-            identifiers.append((urlName, value))
+            identifiers.append((url_name, value))
         return identifiers
 
-
     @property
-    def scopeStringSdc(self):
-        return self._mkScopeString(self._getExtensionElementsSdc())
+    def scope_string_sdc(self):
+        return self._mk_scope_string(self._get_sdc_extension_elements())
 
-
-    def _mkScopeString(self, elements):
+    def _mk_scope_string(self, elements):
         identifiers = []
-        queryDict= OrderedDict() # technically an OrderedDict is not necessary here, but I like to keep the Query arguments sorted. Easier testing, simple string compare ;)
-        for urlName, value in elements:
+        query_dict = OrderedDict()  # technically an OrderedDict is not necessary here, but I like to keep the Query arguments sorted. Easier testing, simple string compare ;)
+        for url_name, value in elements:
             identifiers.append(value)
             if value:
-                queryDict[urlName] = value
+                query_dict[url_name] = value
         identifiers = [urllib.parse.quote(ident) for ident in identifiers]
         slash = urllib.parse.quote('/', safe='')
         loc = slash.join(identifiers)  # this is a bit ugly, but urllib.quote does not touch slashes;
-        query = urllib.parse.urlencode(queryDict)
+        query = urllib.parse.urlencode(query_dict)
         path = '/{}/{}'.format(urllib.parse.quote(self.root), loc)
-        scopeString = urllib.parse.urlunparse(urllib.parse.ParseResult(scheme=self.scheme, netloc=None, path=path, params=None, query=query, fragment=None))
-        return scopeString
+        scope_string = urllib.parse.urlunparse(
+            urllib.parse.ParseResult(scheme=self.scheme, netloc=None, path=path, params=None, query=query,
+                                     fragment=None))
+        return scope_string
 
+    def matching_services(self, services):
+        return [s for s in services if self._service_matches(s)]
 
-    def matchingServices(self, services):
-        return [s for s in services if self.serviceMatches(s)]
-        
+    def _service_matches(self, service):
+        return self._any_scope_string_matches(service.scopes)
 
-    def serviceMatches(self, service):
-        return self.anyScopeStringMatches(service.getScopes())
-
-
-    def anyScopeStringMatches(self, scopes):
-        for s in scopes:
-            if self.scopeStringMatches(s):
+    def _any_scope_string_matches(self, scopes):
+        for scope in scopes:
+            if self._scope_string_matches(scope):
                 return True
         return False
-    
-    
-    def scopeStringMatches(self, scope):
-        '''
+
+    def _scope_string_matches(self, scope):
+        """
         Check if location in scope is inside own location.
         :param scope: url string
         :return: boolean
-        '''
+        """
         try:
-            other =  self.__class__.fromScopeString(str(scope))
+            other = self.__class__.from_scope_string(str(scope))
             return other in self
         except UrlSchemeError:
             # Scope has different scheme, no match
             return False
 
-
     def __contains__(self, other):
         if self.root != other.root:
             return False
-        for my, notmy in ((self.fac, other.fac),
-                          (self.bld, other.bld),
-                          (self.poc, other.poc),
-                          (self.flr, other.flr),
-                          (self.rm, other.rm),
-                          (self.bed, other.bed)):
-            if my is not None:
-                if my != notmy:
+        for my_attr, other_attr in ((self.fac, other.fac),
+                           (self.bld, other.bld),
+                           (self.poc, other.poc),
+                           (self.flr, other.flr),
+                           (self.rm, other.rm),
+                           (self.bed, other.bed)):
+            if my_attr is not None:
+                if my_attr != other_attr:
                     return False
         return True
 
-
     @classmethod
-    def fromScopeString(cls, s):
-        '''
+    def from_scope_string(cls, scope_string):
+        """
         Construct a Location from a scope string. If url scheme is not 'sdc.ctxt.loc', an UrlSchemeError is raised
-        :param s: an url
+        :param scope_string: an url
         :return: a SdcLocation object
-        '''
-        src = urllib.parse.urlsplit(s)
-        
+        """
+        src = urllib.parse.urlsplit(scope_string)
+
         if src.scheme.lower() != cls.scheme:
             raise UrlSchemeError('scheme "{}" not excepted, must be "{}"'.format(src.scheme, cls.scheme))
-        dummy, root, path = src.path.split('/')
+        dummy, root, _ = src.path.split('/')
         root = urllib.parse.unquote(root)
-        path = urllib.parse.unquote(path)
-        queryDict = dict(urllib.parse.parse_qsl(src.query))
+        query_dict = dict(urllib.parse.parse_qsl(src.query))
         # make a new argumentsDict with well known keys. This allows to ignore unknown keys that might be present in querydict
-        argumentsDict = {}
-        for urlName, attrName in cls._url_member_mapping:
-            argumentsDict[attrName] = queryDict.get(urlName)
-        
-        argumentsDict['root'] = root
-        return cls(**argumentsDict)
-    
-    
+        arguments_dict = {}
+        for url_name, attr_name in cls._url_member_mapping:
+            arguments_dict[attr_name] = query_dict.get(url_name)
+
+        arguments_dict['root'] = root
+        return cls(**arguments_dict)
+
     def __eq__(self, other):
-        attrNames = [e[1] for e in self._url_member_mapping]
-        attrNames.append('root')
+        attr_names = [e[1] for e in self._url_member_mapping]
+        attr_names.append('root')
         try:
-            for attrName in attrNames:
-                if getattr(self, attrName) !=  getattr(other, attrName):
+            for attr_name in attr_names:
+                if getattr(self, attr_name) != getattr(other, attr_name):
                     return False
             return True
         except AttributeError:
             return False
 
     def __ne__(self, other):
-        return not self == other    
-    
+        return not self == other
+
     def __str__(self):
-        return '{} {}'.format(self.__class__.__name__, self.scopeStringSdc)
-        
+        return '{} {}'.format(self.__class__.__name__, self.scope_string_sdc)

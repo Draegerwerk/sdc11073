@@ -1,93 +1,96 @@
-from sdc11073 import isoduration
 from decimal import Decimal
 
-class NullConverter(object):
+from sdc11073 import isoduration
+
+
+class NullConverter:
     @staticmethod
-    def toPy(xmlValue):
-        return xmlValue
+    def to_py(xml_value):
+        return xml_value
+
     @staticmethod
-    def toXML(pyValue):
-        return pyValue
+    def to_xml(py_value):
+        return py_value
 
 
-
-class TimestampConverter(object):
-    ''' XML representation: integer, representing timestamp in milliseconds
+class TimestampConverter:
+    """ XML representation: integer, representing timestamp in milliseconds
      Python representation: float in seconds
-    '''
+    """
+
     @staticmethod
-    def toPy(xmlValue):
-        return float(xmlValue) / 1000.0
+    def to_py(xml_value):
+        return float(xml_value) / 1000.0
+
     @staticmethod
-    def toXML(pyValue):
-        ms_value = int(pyValue*1000)
+    def to_xml(py_value):
+        ms_value = int(py_value * 1000)
         return str(ms_value)
 
 
-class DecimalConverter(object):
+class DecimalConverter:
     USE_DECIMAL_TYPE = True
 
     @classmethod
-    def toPy(cls, xmlValue):
+    def to_py(cls, xml_value):
         if cls.USE_DECIMAL_TYPE:
-            return Decimal(xmlValue)
-        else:
-            if '.' in xmlValue:
-                return float(xmlValue)
-            else:
-                return int(xmlValue)
+            return Decimal(xml_value)
+        if '.' in xml_value:
+            return float(xml_value)
+        return int(xml_value)
 
     @staticmethod
-    def toXML(pyValue):
-        if isinstance(pyValue, float):
+    def to_xml(py_value):
+        if isinstance(py_value, float):
             # round value to handle float inaccuracies
-            if abs(pyValue) >= 100:
-                xmlValue = '{:.1f}'.format(round(pyValue, 1))
-            elif abs(pyValue) >= 10:
-                xmlValue = '{:.2f}'.format(round(pyValue, 2))
+            if abs(py_value) >= 100:
+                xml_value = '{:.1f}'.format(round(py_value, 1))
+            elif abs(py_value) >= 10:
+                xml_value = '{:.2f}'.format(round(py_value, 2))
             else:
-                xmlValue = '{:.3f}'.format(round(pyValue, 3))
-        elif isinstance(pyValue, Decimal):
+                xml_value = '{:.3f}'.format(round(py_value, 3))
+        elif isinstance(py_value, Decimal):
             # assume Decimal is exact, no rounding errors
             # Decimal has no method to force string representation without exponential notion.
             # => convert to float and use :f string formatting (6 digits after decimal point, which should be good enough)
-            xmlValue = f'{pyValue:f}'
+            xml_value = f'{py_value:f}'
         else:
-            xmlValue = str(pyValue)
+            xml_value = str(py_value)
         # remove trailing zeros after decimal point
-        while '.' in xmlValue and xmlValue[-1] in ('0', '.'):
-            xmlValue = xmlValue[:-1]
-        return xmlValue
+        while '.' in xml_value and xml_value[-1] in ('0', '.'):
+            xml_value = xml_value[:-1]
+        return xml_value
 
 
-class IntegerConverter(object):
+class IntegerConverter:
     @staticmethod
-    def toPy(xmlValue):
-        return int(xmlValue)
+    def to_py(xml_value):
+        return int(xml_value)
+
     @staticmethod
-    def toXML(pyValue):
-        return str(pyValue)
+    def to_xml(py_value):
+        return str(py_value)
 
 
+class BooleanConverter:
+    @staticmethod
+    def to_py(xml_value):
+        return xml_value == 'true'
 
-class BooleanConverter(object):
     @staticmethod
-    def toPy(xmlValue):
-        return xmlValue == 'true'
-    @staticmethod
-    def toXML(pyValue):
-        if pyValue:
+    def to_xml(py_value):
+        if py_value:
             return 'true'
-        else:
-            return 'false'
+        return 'false'
 
 
-class DurationConverter(object):
+class DurationConverter:
     @staticmethod
-    def toPy(xmlValue):
-        if xmlValue is None:
+    def to_py(xml_value):
+        if xml_value is None:
             return None
-        return isoduration.parse_duration(xmlValue)
+        return isoduration.parse_duration(xml_value)
+
     @staticmethod
-    def toXML(pyValue):
-        return isoduration.durationString(pyValue)
+    def to_xml(py_value):
+        return isoduration.duration_string(py_value)

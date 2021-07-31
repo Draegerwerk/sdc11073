@@ -3,29 +3,30 @@ from collections import OrderedDict
 import zlib
 try:
     import lz4.frame
+    _LZ4 = True
 except ImportError:
-    lz4 = None
+    _LZ4 = False
 
 GZIP = 'gzip'
 LZ4 = 'x-lz4'
 ANY = 'any'
 
 encodings = []
-if lz4 is not None:
+if _LZ4:
     encodings.append(LZ4)
 encodings.append(GZIP)
 
 class CompressionException(Exception):
     pass
 
-class CompressionHandler(object):
+class CompressionHandler:
     """Compression handler mixin.
     Should be used by servers and clients that are supposed to handle compression
     """
     available_encodings = encodings # initial default
 
     @classmethod
-    def compressPayload(cls, algorithm, payload):
+    def compress_payload(cls, algorithm, payload):
         """Compresses payload based on required algorithm.
         Raises CompressionException if algorithm is not supported.
 
@@ -35,15 +36,13 @@ class CompressionHandler(object):
         """
         if algorithm == GZIP:
             return cls._gzip_encode(payload)
-        elif algorithm == LZ4 and lz4 is not None:
+        if algorithm == LZ4 and lz4 is not None:
             return lz4.frame.compress(payload)
+        if _LZ4:
+            txt = f"{algorithm} compression is not supported. Only gzip and lz4 are supported."
         else:
-            if lz4 is not None:
-                raise CompressionException("{} compression is not supported. "
-                                           "Only gzip and lz4 are supported".format(algorithm))
-            else:
-                raise CompressionException("{} compression is not supported. "
-                                           "Only gzip is supported".format(algorithm))
+            txt = f"{algorithm} compression is not supported. Only gzip is supported."
+        raise CompressionException(txt)
 
     @staticmethod
     def decompress(payload, algorithm):
@@ -56,15 +55,13 @@ class CompressionHandler(object):
         """
         if algorithm == GZIP:
             return zlib.decompress(payload, 16 + zlib.MAX_WBITS)
-        elif algorithm == LZ4 and lz4 is not None:
+        if algorithm == LZ4 and lz4 is not None:
             return lz4.frame.decompress(payload)
+        if _LZ4:
+            txt = f"{algorithm} compression is not supported. Only gzip and lz4 are supported"
         else:
-            if lz4 is not None:
-                raise CompressionException("{} compression is not supported. "
-                                           "Only gzip and lz4 are supported".format(algorithm))
-            else:
-                raise CompressionException("{} compression is not supported. "
-                                           "Only gzip is supported".format(algorithm))
+            txt = f"{algorithm} compression is not supported. Only gzip is supported"
+        raise CompressionException(txt)
 
     @staticmethod
     def _gzip_encode(payload):
@@ -73,7 +70,7 @@ class CompressionHandler(object):
         return data
 
     @staticmethod
-    def parseHeader(header):
+    def parse_header(header):
         """
         Examples of headers are:  Examples of its use are:
 
@@ -87,13 +84,13 @@ class CompressionHandler(object):
         """
         # for now work with standard python containers
         # if performance becomes an issue could be done within one loop
-        parsedHeaders = OrderedDict()
+        parsed_headers = OrderedDict()
         if header:
             for alg in (x.split(";") for x in header.split(",")):
-                algName = alg[0].strip()
-                parsedHeaders[algName] = None
+                alg_name = alg[0].strip()
+                parsed_headers[alg_name] = None
                 try:
-                    parsedHeaders[algName] = float(alg[1].split("=")[1])
+                    parsed_headers[alg_name] = float(alg[1].split("=")[1])
                 except:
-                    parsedHeaders[algName] = 1 # default
-        return [pair[0] for pair in sorted(parsedHeaders.items(), key=lambda kv: kv[1], reverse=True)]
+                    parsed_headers[alg_name] = 1 # default
+        return [pair[0] for pair in sorted(parsed_headers.items(), key=lambda kv: kv[1], reverse=True)]

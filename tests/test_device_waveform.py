@@ -22,25 +22,25 @@ class TestDeviceWaveform(unittest.TestCase):
     
     def setUp(self):
         self.mdib = sdc11073.mdib.DeviceMdibContainer(SDC_v1_Definitions)
-        self.domSchema = self.mdib.bicepsSchema.pmSchema
-        self.msgSchema = self.mdib.bicepsSchema.bmmSchema
+        self.domSchema = self.mdib.biceps_schema.participant_schema
+        self.msgSchema = self.mdib.biceps_schema.message_schema
 
         # this structure is not realistic, but sufficient for what we need here.
         desc = dc.MdsDescriptorContainer(self.mdib.nsmapper,
                                          handle='42',
-                                         parentHandle=None,
+                                         parent_handle=None,
                                          )
-        self.mdib.descriptions.addObject(desc)
+        self.mdib.descriptions.add_object(desc)
         for h in HANDLES:
             desc = dc.RealTimeSampleArrayMetricDescriptorContainer(self.mdib.nsmapper,
                                                                    handle=h,
-                                                                   parentHandle='42',
+                                                                   parent_handle='42',
                                                                    )
             desc.SamplePeriod = 0.1
             desc.unit=pmtypes.CodedValue('abc')
             desc.MetricAvailability=pmtypes.MetricAvailability.CONTINUOUS
             desc.MetricCategory=pmtypes.MetricCategory.MEASUREMENT
-            self.mdib.descriptions.addObject(desc)
+            self.mdib.descriptions.add_object(desc)
         
         self.sdcDevice = None
         self.nsmapper = sdc11073.namespaces.DocNamespaceHelper()
@@ -55,14 +55,14 @@ class TestDeviceWaveform(unittest.TestCase):
         st = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.01)
         si = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=5.0, sampleperiod=0.05)
         
-        self.mdib.registerWaveformGenerator(HANDLES[0], tr)
-        self.mdib.registerWaveformGenerator(HANDLES[1], st)
-        self.mdib.registerWaveformGenerator(HANDLES[2], si)
+        self.mdib.register_waveform_generator(HANDLES[0], tr)
+        self.mdib.register_waveform_generator(HANDLES[1], st)
+        self.mdib.register_waveform_generator(HANDLES[2], si)
 
         waveform_generators = self.mdib._waveform_source._waveform_generators
         # first read shall always be empty
         for h in HANDLES:
-            rt_sample_array = waveform_generators[h].getNextSampleArray()
+            rt_sample_array = waveform_generators[h].get_next_sample_array()
             self.assertEqual(rt_sample_array.activation_state, pmtypes.ComponentActivation.ON)
             self.assertEqual(len(rt_sample_array.samples), 0)
         # collect some samples
@@ -71,7 +71,7 @@ class TestDeviceWaveform(unittest.TestCase):
         for h in HANDLES:
             period = waveform_generators[h]._generator.sampleperiod
             expectedCount = 1.0/period
-            rt_sample_array = waveform_generators[h].getNextSampleArray()
+            rt_sample_array = waveform_generators[h].get_next_sample_array()
             # sleep is not very precise, therefore verify that number of sample is in a certein range
             self.assertTrue(expectedCount-5 <= len(rt_sample_array.samples) <= expectedCount+5) #
             self.assertTrue(abs(now - rt_sample_array.determination_time) <= 0.02)
@@ -80,14 +80,14 @@ class TestDeviceWaveform(unittest.TestCase):
         h = HANDLES[0]
         for actState in (ca.OFF, ca.FAILURE, ca.NOT_READY, ca.SHUTDOWN, ca.STANDBY):    
             self.mdib.setWaveformGeneratorActivationState(h, actState)    
-            rt_sample_array = waveform_generators[h].getNextSampleArray()
+            rt_sample_array = waveform_generators[h].get_next_sample_array()
             self.assertEqual(rt_sample_array.activation_state, actState)
             self.assertEqual(len(rt_sample_array.samples), 0)
 
         self.mdib.setWaveformGeneratorActivationState(h, pmtypes.ComponentActivation.ON)
         now = time.time()
         time.sleep(0.1)    
-        rt_sample_array = waveform_generators[h].getNextSampleArray()
+        rt_sample_array = waveform_generators[h].get_next_sample_array()
         self.assertEqual(rt_sample_array.activation_state, pmtypes.ComponentActivation.ON)
         self.assertTrue(len(rt_sample_array.samples) > 0)
         self.assertTrue(abs(now - rt_sample_array.determination_time) <= 0.02)
@@ -107,9 +107,9 @@ class TestDeviceWaveform(unittest.TestCase):
         st = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.02)
         si = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=5.0, sampleperiod=0.02)
         
-        self.mdib.registerWaveformGenerator(HANDLES[0], tr)
-        self.mdib.registerWaveformGenerator(HANDLES[1], st)
-        self.mdib.registerWaveformGenerator(HANDLES[2], si)
+        self.mdib.register_waveform_generator(HANDLES[0], tr)
+        self.mdib.register_waveform_generator(HANDLES[1], st)
+        self.mdib.register_waveform_generator(HANDLES[2], si)
         
         annotation = pmtypes.Annotation(pmtypes.CodedValue('a','b'))
         self.mdib.registerAnnotationGenerator(annotation,
@@ -120,8 +120,8 @@ class TestDeviceWaveform(unittest.TestCase):
         uuid = None # let device create one
         self.sdcDevice = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, uuid, self._model, self._device, self.mdib, logLevel=logging.DEBUG)
         self.sdcDevice.startAll()
-        testSubscr = mockstuff.TestDevSubscription(self.sdcDevice.mdib.sdc_definitions.Actions.Waveform, self.sdcDevice.mdib.bicepsSchema)
-        self.sdcDevice.subscriptionsManager._subscriptions. addObject(testSubscr)
+        testSubscr = mockstuff.TestDevSubscription(self.sdcDevice.mdib.sdc_definitions.Actions.Waveform, self.sdcDevice.mdib.biceps_schema)
+        self.sdcDevice.subscriptionsManager._subscriptions. add_object(testSubscr)
 
         time.sleep(3)
         print (testSubscr.reports[-2].as_xml(pretty=True))

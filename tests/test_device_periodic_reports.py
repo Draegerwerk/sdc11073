@@ -35,7 +35,7 @@ class Test_Device_PeriodicReports(unittest.TestCase):
                 # change = not change
         self.sdc_device.mdib.update_retrievability_lists()
         self.sdc_device.startAll()
-        self._locValidators = [pmtypes.InstanceIdentifier('Validator', extensionString='System')]
+        self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.setLocation(location, self._locValidators)
 
         time.sleep(0.1) # allow full init of device

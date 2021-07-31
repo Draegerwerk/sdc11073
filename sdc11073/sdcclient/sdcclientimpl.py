@@ -17,22 +17,22 @@ from .. import commlog
 from .. import loghelper
 from .. import xmlparsing
 from ..namespaces import nsmap
-from ..namespaces import Prefix_Namespace as Prefix
+from ..namespaces import Prefixes
 from ..definitions_base import ProtocolsRegistry
 from ..pysoap.soapenvelope import  WsAddress, Soap12Envelope, DPWSEnvelope, MetaDataSection
 from ..pysoap.soapclient import SoapClient
 from .. import compression
 from .. import netconn
 
-def _mkSoapClient(scheme, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
+def _mkSoapClient(scheme, netloc, logger, sslContext, sdc_definitions, supported_encodings=None,
                   requestEncodings=None, chunked_requests=False):
     if scheme == 'https':
-        _sslContext = sslContext
+        _ssl_context = sslContext
     else:
-        _sslContext = None
-    return  SoapClient(netloc, logger, sslContext=_sslContext,
+        _ssl_context = None
+    return  SoapClient(netloc, logger, sslContext=_ssl_context,
                        sdc_definitions=sdc_definitions,
-                       supportedEncodings=supportedEncodings,
+                       supported_encodings=supported_encodings,
                        requestEncodings=requestEncodings,
                        chunked_requests=chunked_requests)
 
@@ -47,7 +47,7 @@ _ssl_passwd = 'dummypass' #'Phase1' #dummypass
 _ssl_cypherfile = os.path.join(caFolder, 'cyphers.json') # Json file that determines ciphers to be used
 
 
-class HostDescription(object):
+class HostDescription:
     def __init__(self, dpws_envelope):
         self._dpws_envelope = dpws_envelope
         self.thisModel = dpws_envelope.thisModel 
@@ -58,25 +58,25 @@ class HostDescription(object):
         return 'HostDescription: thisModel = {}, thisDevice = {}, host = {}'.format(self.thisModel, self.thisDevice, self.host)
 
 
-class HostedServiceDescription(object):
+class HostedServiceDescription:
     VALIDATE_MEX = False # workaraound as long as validation error due to missing dpws schema is not solved
-    def __init__(self, service_id, endpoint_address, validate, bicepsSchema, msg_factory, log_prefix=''):
+    def __init__(self, service_id, endpoint_address, validate, biceps_schema, msg_factory, log_prefix=''):
         self._endpoint_address = endpoint_address
         self.service_id = service_id
         self._validate = validate
-        self._bicepsSchema = bicepsSchema
+        self._bicepsSchema = biceps_schema
         self._msg_factory = msg_factory
         self.log_prefix = log_prefix
         self.metaData = None
         self.wsdl_string = None
         self.wsdl = None
-        self._logger = loghelper.getLoggerAdapter('sdc.client.{}'.format(service_id), log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.client.{}'.format(service_id), log_prefix)
         self._url = urllib.parse.urlparse(endpoint_address) 
         self.services = {}
 
     @property
     def _mexSchema(self):
-        return None if not self._validate else self._bicepsSchema.mexSchema
+        return None if not self._validate else self._bicepsSchema.mex_schema
 
     def readMetadata(self, soap_client):
         soap_envelope = self._msg_factory.mk_getmetadata_envelope(self._endpoint_address)
@@ -87,7 +87,7 @@ class HostedServiceDescription(object):
                                                           msg='<{}> readMetadata'.format(self.service_id))
         if self.VALIDATE_MEX:
             endpoint_envelope.validateBody(self._mexSchema)
-        self.metaData = MetaDataSection.fromEtreeNode(endpoint_envelope.bodyNode)
+        self.metaData = MetaDataSection.from_etree_node(endpoint_envelope.bodyNode)
         self.readwsdl(soap_client, self.metaData.wsdl_location)
         return
 
@@ -95,7 +95,7 @@ class HostedServiceDescription(object):
         p = urllib.parse.urlparse(wsdl_url)
         actual_path = p.path + '?{}'.format(p.query) if p.query else p.path
         self.wsdl_string = soap_client.getUrl(actual_path, msg='{}:getwsdl'.format(self.log_prefix))
-        commlog.defaultLogger.logWsdl(self.wsdl_string, self.service_id)
+        commlog.get_communication_logger().log_wsdl(self.wsdl_string, self.service_id)
         try:
             self.wsdl = etree_.fromstring(self.wsdl_string, parser=etree_.ETCompatXMLParser(resolve_entities=False)) # make am ElementTree instance
         except etree_.XMLSyntaxError as ex:
@@ -130,7 +130,7 @@ def sortIPAddresses(adresses, refIp):
     return adresses
 
 
-class SdcClient(object):
+class SdcClient:
     ''' The SdcClient can be used with a known device location.
     The location is typically the result of a wsdiscovery process.
     This class expects that the BICEPS services are available in the device.
@@ -190,8 +190,8 @@ class SdcClient(object):
         self.chunked_requests = chunked_requests
         self._sslEvents = sslEvents
         self._setupLogging(logLevel)
-        self._logger = loghelper.getLoggerAdapter('sdc.client', self.log_prefix)
-        self._logger_wf = loghelper.getLoggerAdapter('sdc.client.wf', self.log_prefix) # waveform logger
+        self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
+        self._logger_wf = loghelper.get_logger_adapter('sdc.client.wf', self.log_prefix) # waveform logger
         if my_ipaddress is None:
             self._my_ipaddress = self._findBestOwnIpAddress()
         else:
@@ -205,7 +205,7 @@ class SdcClient(object):
             self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)
         except AttributeError:
             self._logger.info('Using SSL is enabled. TLS 1.3 is not supported')
-        self._sslContext = sslContext
+        self._ssl_context = sslContext
         self._notificationsDispatcherThread = None
         
         self._logger.info('created {} for {}', self.__class__.__name__, self._devicelocation)
@@ -229,7 +229,7 @@ class SdcClient(object):
             raise RuntimeError('SdcClient has already an registered mdib')
         self._mdib = None if mdib is None else weakref.ref(mdib)
         if mdib is not None:
-            mdib.bicepsSchema = self._bicepsSchema
+            mdib.biceps_schema = self._bicepsSchema
         if self.client('Set') is not None:
             self.client('Set').register_mdib(mdib)
         if self.client('Context') is not None:
@@ -407,7 +407,7 @@ class SdcClient(object):
 
     def get_peer_cert_extended_key_usages(self):
         _url = urllib.parse.urlparse(self._devicelocation)
-        if self._sslContext is not None and _url.scheme == 'https':
+        if self._ssl_context is not None and _url.scheme == 'https':
             wsc = self._getSoapClient(self._devicelocation)
             if wsc.isClosed():
                 wsc.connect()
@@ -426,7 +426,7 @@ class SdcClient(object):
         _url = urllib.parse.urlparse(self._devicelocation)
         wsc = self._getSoapClient(self._devicelocation)
 
-        if self._sslContext is not None and _url.scheme == 'https':
+        if self._ssl_context is not None and _url.scheme == 'https':
             if wsc.isClosed():
                 wsc.connect()
             sock = wsc.sock
@@ -435,7 +435,7 @@ class SdcClient(object):
             self._logger.info('Peer Certificate Extended Key Usages: {}', self.get_peer_cert_extended_key_usages())
 
         soapEnvelope = Soap12Envelope(nsmap)
-        soapEnvelope.setAddress(WsAddress(action='{}/Get'.format(Prefix.WXF.namespace),
+        soapEnvelope.setAddress(WsAddress(action='{}/Get'.format(Prefixes.WXF.namespace),
                                           to=self._devicelocation))
         
         self.metaData = wsc.postSoapEnvelopeTo(_url.path, soapEnvelope, responseFactory=DPWSEnvelope.fromXMLString,
@@ -467,10 +467,10 @@ class SdcClient(object):
         soapClient = self._soapClients.get(key)
         if soapClient is None:
             soapClient = _mkSoapClient(_url.scheme, _url.netloc,
-                                       loghelper.getLoggerAdapter('sdc.client.soap', self.log_prefix),
-                                       sslContext=self._sslContext,
+                                       loghelper.get_logger_adapter('sdc.client.soap', self.log_prefix),
+                                       sslContext=self._ssl_context,
                                        sdc_definitions=self.sdc_definitions,
-                                       supportedEncodings=self._compression_methods,
+                                       supported_encodings=self._compression_methods,
                                        chunked_requests=self.chunked_requests)
             self._soapClients[key] = soapClient
         return soapClient
@@ -498,9 +498,9 @@ class SdcClient(object):
 
     def _startEventSink(self, async_dispatch):
         if self._sslEvents == 'auto':
-            sslContext = self._sslContext if self._device_uses_https else None
+            sslContext = self._ssl_context if self._device_uses_https else None
         elif self._sslEvents: # True
-            sslContext = self._sslContext
+            sslContext = self._ssl_context
         else:   # False
             sslContext = None
 
@@ -512,7 +512,7 @@ class SdcClient(object):
             sslContext,
             log_prefix=self.log_prefix,
             sdc_definitions=self.sdc_definitions,
-            supportedEncodings=self._compression_methods,
+            supported_encodings=self._compression_methods,
             soap_notifications_handler_class=notifications_handler_class,
             async_dispatch = async_dispatch)
 
@@ -529,21 +529,21 @@ class SdcClient(object):
         self.stateEventReportEnvelope = soapenvelope # update observable
         message = soapenvelope.bodyNode[0].tag
         if message.endswith('EpisodicMetricReport'):
-            return self._onEpisodicMetricReport(soapenvelope)
+            return self._on_episodic_metric_report(soapenvelope)
         elif message.endswith('EpisodicAlertReport'):
-            return self._onEpisodicAlertReport(soapenvelope)
+            return self._on_episodic_alert_report(soapenvelope)
         elif message.endswith('EpisodicComponentReport'):
-            return self._onEpisodicComponentReport(soapenvelope)
+            return self._on_episodic_component_report(soapenvelope)
         elif message.endswith('EpisodicOperationalStateReport'):
             return self._onEpisodicOperationalStateReport(soapenvelope)
         elif message.endswith('EpisodicContextReport'):
-            return self._onEpisodicContextReport(soapenvelope)
+            return self._on_episodic_context_report(soapenvelope)
         elif message.endswith('WaveformStream') or message.endswith('WaveformStreamReport'): # different names in Draft6 and Final
             return self._onWaveFormReport(soapenvelope)
         elif message.endswith('OperationInvokedReport'):
             return self._onOperationInvokedReport(soapenvelope)
         elif message.endswith('EpisodicContextReport'):
-            return self._onEpisodicContextReport(soapenvelope)
+            return self._on_episodic_context_report(soapenvelope)
         elif message.endswith('DescriptionModificationReport'):
             return self._onDescriptionReport(soapenvelope)
         elif message.endswith('PeriodicMetricReport'):
@@ -588,7 +588,7 @@ class SdcClient(object):
         else:
             self._logger.error('report does not contain msg:{}!', name)
 
-    def _onEpisodicMetricReport(self, soapenvelope):
+    def _on_episodic_metric_report(self, soapenvelope):
         report = self._get_report(soapenvelope, 'EpisodicMetricReport')
         if report is not None:
             self.episodicMetricReport = report
@@ -598,7 +598,7 @@ class SdcClient(object):
         if report is not None:
             self.periodicMetricReport = report
 
-    def _onEpisodicAlertReport(self, soapenvelope):
+    def _on_episodic_alert_report(self, soapenvelope):
         report = self._get_report(soapenvelope, 'EpisodicAlertReport')
         if report is not None:
             self.episodicAlertReport = report
@@ -608,7 +608,7 @@ class SdcClient(object):
         if report is not None:
             self.periodicAlertReport = report
 
-    def _onEpisodicComponentReport(self, soapenvelope):
+    def _on_episodic_component_report(self, soapenvelope):
         report = self._get_report(soapenvelope, 'EpisodicComponentReport')
         if report is not None:
             self.episodicComponentReport = report
@@ -628,7 +628,7 @@ class SdcClient(object):
         if report is not None:
             self.periodicOperationalStateReport = report
 
-    def _onEpisodicContextReport(self, soapenvelope):
+    def _on_episodic_context_report(self, soapenvelope):
         report = self._get_report(soapenvelope, 'EpisodicContextReport')
         if report is not None:
             self.episodicContextReport = report
@@ -648,7 +648,7 @@ class SdcClient(object):
         self._subscriptionMgr.onSubScriptionEnd(soapenvelope)
 
     def _setupLogging(self, logLevel):
-        loghelper.ensureLogStream()
+        loghelper.ensure_log_stream()
         if logLevel is None:
             return
         clientLog = logging.getLogger('sdc.client')
@@ -668,7 +668,7 @@ class SdcClient(object):
             raise RuntimeError('discovered Service has no address!{}'.format(wsdService))
         device_location = device_locations[0]
         deviceType = None
-        for _q_name in wsdService.getTypes():
+        for _q_name in wsdService.types:
             q_name = etree_.QName(_q_name.namespace, _q_name.localname)
             for protocol in ProtocolsRegistry.protocols:
                 if protocol.ns_matches(q_name):

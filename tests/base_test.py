@@ -17,7 +17,7 @@ class BaseTest(unittest.TestCase):
     def setUp(self):
         self.wsdiscovery = WSDiscoverySingleAdapter(loopback_adapter)
         self.wsdiscovery.start()
-        self._locValidators = [pmtypes.InstanceIdentifier('Validator', extensionString='System')]
+        self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
 
     def tearDown(self):
         self.wsdiscovery.stop()

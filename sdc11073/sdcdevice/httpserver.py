@@ -14,7 +14,7 @@ from ..httprequesthandler import HTTPRequestHandler, mkchunks
 MULTITHREADED = True
 
 
-class MyThreadingMixIn(object):
+class MyThreadingMixIn:
 
     def process_request_thread(self, request, client_address):
         """Same as in BaseServer but as a thread.
@@ -57,7 +57,7 @@ if MULTITHREADED:
 else:
     MyHTTPServer = HTTPServer # single threaded, sequential operation
 
-class DevicesDispatcher(object):
+class DevicesDispatcher:
     """ Dispatch to one of the registered devices, based on url"""
     def __init__(self, logger):
         self._logger = logger
@@ -86,7 +86,7 @@ class DevicesDispatcher(object):
         return self.get_device_dispather(path).on_get(path, headers)
 
 
-class HostedServiceDispatcher(object):
+class HostedServiceDispatcher:
     ''' receiver of all messages'''
 
     def __init__(self, sdc_definitions, logger):
@@ -107,13 +107,13 @@ class HostedServiceDispatcher(object):
     def on_post(self, path, headers, request):
         """Method converts the http request into a soap envelope and calls dispatchSoapRequest.
            Return of dispatchSoapRequest (soap envelope) is converted back to a string."""
-        commlog.defaultLogger.logSoapReqIn(request, 'POST')
-        normalizedRequest = self.sdc_definitions.normalizeXMLText(request)
+        commlog.get_communication_logger().log_soap_request_in(request, 'POST')
+        normalizedRequest = self.sdc_definitions.normalize_xml_text(request)
         # execute the method
         soapEnvelope = pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(normalizedRequest)
         response = self._dispatchSoapRequest(path, headers, soapEnvelope)
         normalized_response_xml_string = response.as_xml()
-        return self.sdc_definitions.denormalizeXMLText(normalized_response_xml_string)
+        return self.sdc_definitions.denormalize_xml_text(normalized_response_xml_string)
 
     def _dispatchSoapRequest(self, path, header, soapEnvelope):
         # path is a string like /0105a018-8f4c-4199-9b04-aff4835fd8e9/StateEvent, without http:/servername:port
@@ -135,7 +135,7 @@ class HostedServiceDispatcher(object):
     def on_get(self, path, httpHeaders):
         """ Get Requests are handled as they are, no soap envelopes"""
         response_string = self._dispatchGetRequest(path, httpHeaders)
-        return  self.sdc_definitions.denormalizeXMLText(response_string)
+        return  self.sdc_definitions.denormalize_xml_text(response_string)
 
     def _dispatchGetRequest(self, path, httpHeaders):
         parsedPath = urllib.parse.urlparse(path)
@@ -147,7 +147,7 @@ class HostedServiceDispatcher(object):
             raise KeyError(
                 'HostedServiceDispatcher.dispatchGetRequest: unknown path "{}", known = {}'.format(p, self.hostedServiceByUrl.keys()))
         response_string = dispatcher.dispatchGetRequest(parsedPath, httpHeaders)
-        return  self.sdc_definitions.denormalizeXMLText(response_string)
+        return  self.sdc_definitions.denormalize_xml_text(response_string)
 
 
 class _SdcServerRequestHandler(HTTPRequestHandler):
@@ -167,7 +167,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
                 self.send_response(404)  # not found
             else:
                 request = self._read_request()
-                commlog.defaultLogger.logSoapReqIn(request, 'POST')
+                commlog.get_communication_logger().log_soap_request_in(request, 'POST')
                 try:
                     #delegate handling to on_post method of dispatcher
                     response_xml_string = devices_dispatcher.on_post(self.path, self.headers, request)
@@ -180,9 +180,9 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
                     http_status = ex.status
                     http_reason = ex.reason
 
-                commlog.defaultLogger.logSoapRespOut(response_xml_string, 'POST')
+                commlog.get_communication_logger().log_soap_response_out(response_xml_string, 'POST')
                 self.send_response(http_status, http_reason)
-            response_xml_string = self._compressIfRequired(response_xml_string)
+            response_xml_string = self._compress_if_required(response_xml_string)
             self.send_header("Content-type", "application/soap+xml; charset=utf-8")
             if self.server.chunked_response:
                 self.send_header("transfer-encoding", "chunked")
@@ -197,13 +197,13 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             self.server.logger.error(traceback.format_exc())
             # we must create a soapEnvelope in order to generate a SoapFault
             dev_dispatcher = devices_dispatcher.get_device_dispather(self.path)
-            normalizedRequest = dev_dispatcher.sdc_definitions.normalizeXMLText(request)
+            normalizedRequest = dev_dispatcher.sdc_definitions.normalize_xml_text(request)
             soapEnvelope = pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(normalizedRequest)
 
             response = pysoap.soapenvelope.SoapFault(soapEnvelope, code=pysoap.soapenvelope.SoapFaultCode.SENDER,
                                                           reason=str(ex))
             normalized_response_xml_string = response.as_xml()
-            response_xml_string = dev_dispatcher.sdc_definitions.denormalizeXMLText(normalized_response_xml_string)
+            response_xml_string = dev_dispatcher.sdc_definitions.denormalize_xml_text(normalized_response_xml_string)
             self.send_response(500)
             self.send_header("Content-type", "application/soap+xml; charset=utf-8")
             self.send_header("Content-length", len(response_xml_string))
@@ -213,11 +213,11 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
     def do_GET(self):
         parsedPath = urllib.parse.urlparse(self.path)
         try:
-            commlog.defaultLogger.logSoapReqIn('', 'GET') # GET has no content, log it to document duration of processing
+            commlog.get_communication_logger().log_soap_request_in('', 'GET') # GET has no content, log it to document duration of processing
             response_string = self.server.dispatcher.on_get(self.path, self.headers)
             self.send_response(200, 'Ok')
-            response_string = self._compressIfRequired(response_string)
-            commlog.defaultLogger.logSoapRespOut(response_string, 'GET')
+            response_string = self._compress_if_required(response_string)
+            commlog.get_communication_logger().log_soap_response_out(response_string, 'GET')
             if parsedPath.query == 'wsdl':
                 content_type = "text/xml; charset=utf-8"
             else:
@@ -235,22 +235,22 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 
 class HttpServerThread(threading.Thread):
     
-    def __init__(self, my_ipaddress, sslContext, supportedEncodings, log_prefix=None, chunked_responses=False):
+    def __init__(self, my_ipaddress, sslContext, supported_encodings, log_prefix=None, chunked_responses=False):
         '''
         :param my_ipaddress:
         :param sslContext:
-        :param supportedEncodings: a list od strings
+        :param supported_encodings: a list od strings
         '''
         super().__init__(name='Dev_SdcHttpServerThread')
         self.daemon = True
 
         self._my_ipaddress = my_ipaddress
-        self._sslContext = sslContext
+        self._ssl_context = sslContext
         self.my_port = None
         self.httpd = None
-        self.supportedEncodings = supportedEncodings
+        self.supported_encodings = supported_encodings
 
-        self._logger = loghelper.getLoggerAdapter('sdc.device.httpsrv', log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.device.httpsrv', log_prefix)
         self.chunked_responses = chunked_responses
         # create and set up the dispatcher for all incoming requests
         self.devices_dispatcher = DevicesDispatcher(self._logger)
@@ -263,10 +263,10 @@ class HttpServerThread(threading.Thread):
             self.httpd = MyHTTPServer((self._my_ipaddress, myport), _SdcServerRequestHandler)
             self.httpd.chunked_response = self.chunked_responses # monkey-patching, value needed by _SdcServerRequestHandler
             # add use compression flag to the server
-            setattr(self.httpd, 'supportedEncodings', self.supportedEncodings)
+            setattr(self.httpd, 'supported_encodings', self.supported_encodings)
             self.httpd.logger = self._logger # add logger by monkey-pathing
-            if self._sslContext is not None:
-                self.httpd.socket = self._sslContext.wrap_socket(self.httpd.socket)
+            if self._ssl_context is not None:
+                self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket)
             self.my_port = self.httpd.server_port
             self.httpd.dispatcher = self.devices_dispatcher
 

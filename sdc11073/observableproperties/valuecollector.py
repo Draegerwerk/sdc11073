@@ -4,19 +4,15 @@ from .observables import bind, unbind
 
 class Error(Exception):
     """Base class for all ValuesCollector-related exceptions."""
-    pass
 
 class CancelledError(Error):
     """The ValuesCollector was cancelled."""
-    pass
 
-class TimeoutError(Error):
+class CollectTimeoutError(Error):
     """The operation exceeded the given deadline."""
-    pass
 
 
-
-class SingleValueCollector(object):
+class SingleValueCollector:
     ''' collects next data item from an observable.
     usage:
     assuming myObj has an ObservableProperty named 'myProperty':
@@ -29,30 +25,30 @@ class SingleValueCollector(object):
     PENDING = 'PENDING'
     FINISHED = 'FINISHED'
     CLOSED = 'CLOSED'
-    
+
     def __init__(self, obj, propName):
         self._obj = obj
-        self._propName = propName
+        self._prop_name = propName
         self._cond = threading.Condition()
-        bind(obj, **{propName:self._onData})
+        bind(obj, **{propName:self._on_data})
         self._state = self.PENDING
         self._exception = None
         self._result = None
-        
-    def _onData(self, data):
+
+    def _on_data(self, data):
         if self._state == self.CLOSED:
             return
         with self._cond:
             self._result = data
             self._state = self.FINISHED
-            unbind(self._obj, **{self._propName:self._onData})
+            unbind(self._obj, **{self._prop_name:self._on_data})
             self._cond.notify_all()
 
     def __get_result(self):
         if self._exception:
-            raise # re-raise
-        else:
-            return self._result
+            # re-raise
+            raise  # pylint: disable=misplaced-bare-raise
+        return self._result
 
     def result(self, timeout=None):
         if self._state == self.CLOSED:
@@ -67,17 +63,16 @@ class SingleValueCollector(object):
             if self._state == self.FINISHED:
                 self._state = self.CLOSED
                 return self.__get_result()
-            else:
-                unbind(self._obj, **{self._propName:self._onData})
-                self._state = self.CLOSED
-                raise TimeoutError()
+            unbind(self._obj, **{self._prop_name:self._on_data})
+            self._state = self.CLOSED
+            raise CollectTimeoutError()
 
     def restart(self):
         ''' Start to capture another value
         '''
         if self._state != self.CLOSED:
             raise RuntimeError('SingleValueCollector is still active')
-        bind(self._obj, **{self._propName:self._onData})
+        bind(self._obj, **{self._prop_name:self._on_data})
         self._state = self.PENDING
         self._exception = None
         self._result = None
@@ -100,7 +95,7 @@ class ValuesCollector(SingleValueCollector):
         self._result = []
 
 
-    def _onData(self, data):
+    def _on_data(self, data):
         if self._state == self.CLOSED:
             return
         with self._cond:
@@ -109,6 +104,5 @@ class ValuesCollector(SingleValueCollector):
             self._result.append(data)
             if len(self._result) >= self._n:
                 self._state = self.FINISHED
-                unbind(self._obj, **{self._propName:self._onData})
+                unbind(self._obj, **{self._prop_name:self._on_data})
                 self._cond.notify_all()
-

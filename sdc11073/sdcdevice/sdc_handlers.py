@@ -15,7 +15,8 @@ from .. import loghelper
 from .. import pmtypes
 from .. import wsdiscovery
 from ..location import SdcLocation
-from .. import namespaces
+from ..namespaces import Prefixes, WSA_ANONYMOUS, DocNamespaceHelper, nsmap
+from ..namespaces import domTag, wsdTag, wsxTag, dpwsTag
 from .. import pysoap
 
 from .sdcservicesimpl import SOAPActionDispatcher, DPWSHostedService
@@ -23,8 +24,6 @@ from . import httpserver
 from . import intervaltimer
 
 Soap12Envelope = pysoap.soapenvelope.Soap12Envelope
-
-Prefix = namespaces.Prefix_Namespace
 
 PROFILING = False
 if PROFILING:
@@ -45,7 +44,7 @@ _ssl_cypherfile = os.path.join(caFolder, 'cyphers.json')  # Json file that deter
 PeriodicStates = namedtuple('PeriodicStates', 'mdib_version states')
 
 
-class SdcHandler_Base(object):
+class SdcHandler_Base:
     ''' This is the base class for the sdc device handler. It contains all functionality of a device except the definition of the hosted services.
     These must be instantiated in a derived class.'''
 
@@ -57,7 +56,7 @@ class SdcHandler_Base(object):
     DEFAULT_CONTEXTSTATES_IN_GETMDIB = True  # defines if getMdib and getMdStates contain context states or not.
     # This is a default, it can be overidden per instande in
     # member "contextstates_in_getmdib".
-    defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extensionString='System'),)
+    defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extension_string='System'),)
 
     def __init__(self, my_uuid, ws_discovery, model, device, deviceMdibContainer, validate,
                  roleProvider, sslContext,
@@ -85,12 +84,12 @@ class SdcHandler_Base(object):
         self._log_prefix = log_prefix
         self._mdib.log_prefix = log_prefix
         self._validate = validate
-        self._sslContext = sslContext
+        self._ssl_context = sslContext
         self._components = components
         self._compression_methods = compression.encodings[:]
         self._httpServerThread = None
         self._setupLogging(logLevel)
-        self._logger = loghelper.getLoggerAdapter('sdc.device', log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.device', log_prefix)
 
         self.chunked_messages = chunked_messages
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
@@ -119,7 +118,7 @@ class SdcHandler_Base(object):
         self._rtSampleSendThread = None
         self._runRtSampleThread = False
         self.collectRtSamplesPeriod = 0.1  # in seconds
-        if self._sslContext is not None:
+        if self._ssl_context is not None:
             self._urlschema = 'https'
         else:
             self._urlschema = 'http'
@@ -127,9 +126,10 @@ class SdcHandler_Base(object):
         self.dpwsHost = None
 
         cls = self._components['SubscriptionsManagerClass']
-        self._subscriptionsManager = cls(self._sslContext,
+        self._subscriptionsManager = cls(self._ssl_context,
                                          self._mdib.sdc_definitions,
-                                         self._mdib.bicepsSchema,
+                                         self._mdib.biceps_schema,
+                                         self.msg_factory,
                                          self._compression_methods,
                                          max_subscription_duration,
                                          log_prefix=self._log_prefix,
@@ -162,13 +162,13 @@ class SdcHandler_Base(object):
 
     def mkScopes(self):
         scopes = []
-        locations = self._mdib.contextStates.NODETYPE.get(namespaces.domTag('LocationContextState'), [])
+        locations = self._mdib.context_states.NODETYPE.get(domTag('LocationContextState'), [])
         assoc_loc = [l for l in locations if l.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
         for loc in assoc_loc:
             det = loc.LocationDetail
             dr_loc = SdcLocation(fac=det.Facility, poc=det.PoC, bed=det.Bed, bld=det.Building,
                                  flr=det.Floor, rm=det.Room)
-            scopes.append(wsdiscovery.Scope(dr_loc.scopeStringSdc))
+            scopes.append(wsdiscovery.Scope(dr_loc.scope_string_sdc))
 
         for nodetype, scheme in (
                 ('OperatorContextDescriptor', 'sdc.ctxt.opr'),
@@ -176,9 +176,9 @@ class SdcHandler_Base(object):
                 ('WorkflowContextDescriptor', 'sdc.ctxt.wfl'),
                 ('MeansContextDescriptor', 'sdc.ctxt.mns'),
         ):
-            descriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag(nodetype), [])
+            descriptors = self._mdib.descriptions.NODETYPE.get(domTag(nodetype), [])
             for descriptor in descriptors:
-                states = self._mdib.contextStates.descriptorHandle.get(descriptor.Handle, [])
+                states = self._mdib.context_states.descriptorHandle.get(descriptor.Handle, [])
                 assoc_st = [s for s in states if s.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
                 for st in assoc_st:
                     for ident in st.Identification:
@@ -199,11 +199,11 @@ class SdcHandler_Base(object):
         :return: a set of scopes
         '''
         scopes = set()
-        for t in (namespaces.domTag('MdsDescriptor'),):
+        for t in (domTag('MdsDescriptor'),):
             descriptors = self._mdib.descriptions.NODETYPE.get(t)
             for d in descriptors:
                 if d.Type is not None:
-                    cs = '' if d.Type.CodingSystem == pmtypes.DefaultCodingSystem else d.Type.CodingSystem
+                    cs = '' if d.Type.CodingSystem == pmtypes.DEFAULT_CODING_SYSTEM else d.Type.CodingSystem
                     csv = d.Type.CodingSystemVersion or ''
                     sc = wsdiscovery.Scope('sdc.cdc.type:/{}/{}/{}'.format(cs, csv, d.Type.Code))
                     scopes.add(sc)
@@ -211,8 +211,8 @@ class SdcHandler_Base(object):
 
     def _mkHostDispatcher(self):
         hostDispatcher = SOAPActionDispatcher()
-        hostDispatcher.register_soapActionCallback('{}/Get'.format(Prefix.WXF.namespace), self._onGetMetaData)
-        hostDispatcher.register_soapActionCallback('{}/Probe'.format(Prefix.WSD.namespace), self._onProbeRequest)
+        hostDispatcher.register_soapActionCallback('{}/Get'.format(Prefixes.WXF.namespace), self._onGetMetaData)
+        hostDispatcher.register_soapActionCallback('{}/Probe'.format(Prefixes.WSD.namespace), self._onProbeRequest)
         hostDispatcher.epr = '/' + str(self._my_uuid.hex)
         return hostDispatcher
 
@@ -222,7 +222,7 @@ class SdcHandler_Base(object):
 
     @property
     def _bmmSchema(self):
-        return None if not self._validate else self._mdib.bicepsSchema.bmmSchema
+        return None if not self._validate else self._mdib.biceps_schema.message_schema
 
     @property
     def shallValidate(self):
@@ -265,15 +265,15 @@ class SdcHandler_Base(object):
 
     def _startServices(self, shared_http_server=None):
         ''' start the services'''
-        self._logger.info('starting services, addr = {}', self._wsdiscovery.getActiveAddresses())
+        self._logger.info('starting services, addr = {}', self._wsdiscovery.get_active_addresses())
 
         self._scoOperationsRegistry.startWorker()
         if shared_http_server:
             self._httpServerThread = shared_http_server
         else:
             self._httpServerThread = httpserver.HttpServerThread(my_ipaddress='0.0.0.0',
-                                                                 sslContext=self._sslContext,
-                                                                 supportedEncodings=self._compression_methods,
+                                                                 sslContext=self._ssl_context,
+                                                                 supported_encodings=self._compression_methods,
                                                                  log_prefix=self._log_prefix,
                                                                  chunked_responses=self.chunked_messages)
 
@@ -284,7 +284,7 @@ class SdcHandler_Base(object):
                 self._logger.error('Cannot start device, start event of http server not set.')
                 raise RuntimeError('Cannot start device, start event of http server not set.')
 
-        host_ips = self._wsdiscovery.getActiveAddresses()
+        host_ips = self._wsdiscovery.get_active_addresses()
         self._url_dispatcher = httpserver.HostedServiceDispatcher(self._mdib.sdc_definitions, self._logger)
         self._httpServerThread.devices_dispatcher.register_device_dispatcher(self.path_prefix, self._url_dispatcher)
         if len(host_ips) == 0:
@@ -341,27 +341,30 @@ class SdcHandler_Base(object):
             self._periodic_reports_thread.start()
 
     def stopAll(self, closeAllConnections, sendSubscriptionEnd):
-        if self._rtSampleSendThread is not None:
-            self._runRtSampleThread = False
-            self._rtSampleSendThread.join()
-            self._rtSampleSendThread = None
-            if self._run_periodic_reports_thread:
-                self._run_periodic_reports_thread = False
-                self._periodic_reports_thread.join()
+        self.stop_realtime_sample_loop()
+        if self._run_periodic_reports_thread:
+            self._run_periodic_reports_thread = False
+            self._periodic_reports_thread.join()
 
         self._subscriptionsManager.endAllSubscriptions(sendSubscriptionEnd)
         self._scoOperationsRegistry.stopWorker()
         self._httpServerThread.stop(closeAllConnections)
         try:
-            self._wsdiscovery.clearService(self.epr)
+            self._wsdiscovery.clear_service(self.epr)
         except KeyError:
             self._logger.info('epr "{}" not known in self._wsdiscovery'.format(self.epr))
 
         if self.product_roles is not None:
             self.product_roles.stop()
 
+    def stop_realtime_sample_loop(self):
+        if self._rtSampleSendThread is not None:
+            self._runRtSampleThread = False
+            self._rtSampleSendThread.join()
+            self._rtSampleSendThread = None
+
     def getXAddrs(self):
-        addresses = self._wsdiscovery.getActiveAddresses()  # these own IP addresses are currently used by discovery
+        addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery
         port = self._httpServerThread.my_port
         xaddrs = []
         for xa in addresses:
@@ -371,31 +374,31 @@ class SdcHandler_Base(object):
     def _onGetMetaData(self, httpHeader, request):
         self._logger.info('_onGetMetaData')
         _nsm = self._mdib.nsmapper
-        response = pysoap.soapenvelope.Soap12Envelope(_nsm.docNssmap)
-        replyAddress = request.address.mkReplyAddress('{}/GetResponse'.format(Prefix.WXF.namespace))
-        replyAddress.to = namespaces.WSA_ANONYMOUS
+        response = pysoap.soapenvelope.Soap12Envelope(_nsm.doc_ns_map)
+        replyAddress = request.address.mkReplyAddress('{}/GetResponse'.format(Prefixes.WXF.namespace))
+        replyAddress.to = WSA_ANONYMOUS
         replyAddress.messageId = uuid.uuid4().urn
         response.addHeaderObject(replyAddress)
         metaDataNode = self._mkMetaDataNode()
         response.addBodyElement(metaDataNode)
-        response.validateBody(self.mdib.bicepsSchema.mexSchema)
+        response.validateBody(self.mdib.biceps_schema.mex_schema)
         self._logger.debug('returned meta data = {}', response.as_xml(pretty=False))
         return response
 
     def _onProbeRequest(self, httpHeader, request):
-        _nsm = namespaces.DocNamespaceHelper()
-        response = pysoap.soapenvelope.Soap12Envelope(_nsm.docNssmap)
-        replyAddress = request.address.mkReplyAddress('{}/ProbeMatches'.format(Prefix.WSD.namespace))
-        replyAddress.to = namespaces.WSA_ANONYMOUS
+        _nsm = DocNamespaceHelper()
+        response = pysoap.soapenvelope.Soap12Envelope(_nsm.doc_ns_map)
+        replyAddress = request.address.mkReplyAddress('{}/ProbeMatches'.format(Prefixes.WSD.namespace))
+        replyAddress.to = WSA_ANONYMOUS
         replyAddress.messageId = uuid.uuid4().urn
         response.addHeaderObject(replyAddress)
-        probe_match_node = etree_.Element(namespaces.wsdTag('Probematch'),
-                                          nsmap=_nsm.docNssmap)
-        types = etree_.SubElement(probe_match_node, namespaces.wsdTag('Types'))
-        types.text = '{}:Device {}:MedicalDevice'.format(Prefix.DPWS.prefix, Prefix.MDPWS.prefix)
-        scopes = etree_.SubElement(probe_match_node, namespaces.wsdTag('Scopes'))
+        probe_match_node = etree_.Element(wsdTag('Probematch'),
+                                          nsmap=_nsm.doc_ns_map)
+        types = etree_.SubElement(probe_match_node, wsdTag('Types'))
+        types.text = '{}:Device {}:MedicalDevice'.format(Prefixes.DPWS.prefix, Prefixes.MDPWS.prefix)
+        scopes = etree_.SubElement(probe_match_node, wsdTag('Scopes'))
         scopes.text = ''
-        xaddrs = etree_.SubElement(probe_match_node, namespaces.wsdTag('XAddrs'))
+        xaddrs = etree_.SubElement(probe_match_node, wsdTag('XAddrs'))
         xaddrs.text = ' '.join(self.getXAddrs())
         response.addBodyElement(probe_match_node)
         return response
@@ -404,95 +407,95 @@ class SdcHandler_Base(object):
         if not self.shallValidate:
             return
         try:
-            self.mdib.bicepsSchema.dpwsSchema.assertValid(node)
+            self.mdib.biceps_schema.dpws_schema.assertValid(node)
         except etree_.DocumentInvalid as ex:
             tmp_str = etree_.tostring(node, pretty_print=True).decode('utf-8')
             self._logger.error('invalid dpws: {}\ndata = {}', ex, tmp_str)
             raise
 
     def _mkMetaDataNode(self):
-        metaDataNode = etree_.Element(namespaces.wsxTag('Metadata'),
-                                      nsmap=self._mdib.nsmapper.docNssmap)
+        metaDataNode = etree_.Element(wsxTag('Metadata'),
+                                      nsmap=self._mdib.nsmapper.doc_ns_map)
 
         # ThisModel
         metaDataSectionNode = etree_.SubElement(metaDataNode,
-                                                namespaces.wsxTag('MetadataSection'),
-                                                attrib={'Dialect': '{}/ThisModel'.format(namespaces.nsmap['dpws'])})
-        self.model.asEtreeSubNode(metaDataSectionNode)
+                                                wsxTag('MetadataSection'),
+                                                attrib={'Dialect': '{}/ThisModel'.format(nsmap['dpws'])})
+        self.model.as_etree_subnode(metaDataSectionNode)
         self._validateDPWS(metaDataSectionNode[-1])
 
         # ThisDevice
         metaDataSectionNode = etree_.SubElement(metaDataNode,
-                                                namespaces.wsxTag('MetadataSection'),
-                                                attrib={'Dialect': '{}/ThisDevice'.format(namespaces.nsmap['dpws'])})
-        self.device.asEtreeSubNode(metaDataSectionNode)
+                                                wsxTag('MetadataSection'),
+                                                attrib={'Dialect': '{}/ThisDevice'.format(nsmap['dpws'])})
+        self.device.as_etree_subnode(metaDataSectionNode)
 
         self._validateDPWS(metaDataSectionNode[-1])
 
         # Relationship
         metaDataSectionNode = etree_.SubElement(metaDataNode,
-                                                namespaces.wsxTag('MetadataSection'),
-                                                attrib={'Dialect': '{}/Relationship'.format(namespaces.nsmap['dpws'])})
+                                                wsxTag('MetadataSection'),
+                                                attrib={'Dialect': '{}/Relationship'.format(nsmap['dpws'])})
         relationshipNode = etree_.SubElement(metaDataSectionNode,
-                                             namespaces.dpwsTag('Relationship'),
-                                             attrib={'Type': '{}/host'.format(namespaces.nsmap['dpws'])})
+                                             dpwsTag('Relationship'),
+                                             attrib={'Type': '{}/host'.format(nsmap['dpws'])})
 
-        self.dpwsHost.asEtreeSubNode(relationshipNode)
+        self.dpwsHost.as_etree_subnode(relationshipNode)
         self._validateDPWS(relationshipNode[-1])
 
         # add all hosted services:
         for service in self._hostedServices:
-            service.hostedInf.asEtreeSubNode(relationshipNode)
+            service.hostedInf.as_etree_subnode(relationshipNode)
             self._validateDPWS(relationshipNode[-1])
         return metaDataNode
 
     def _store_for_periodic_report(self, mdib_version, state_updates, dest_list):
         if self._run_periodic_reports_thread:
-            copied_updates = [s.mkCopy() for s in state_updates]
+            copied_updates = [s.mk_copy() for s in state_updates]
             with self._periodic_reports_lock:
                 dest_list.append(PeriodicStates(mdib_version, copied_updates))
 
-    def sendMetricStateUpdates(self, mdibVersion, stateUpdates):
+    def sendMetricStateUpdates(self, mdib_version, stateUpdates):
         self._logger.debug('sending metric state updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicMetricReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                            self.mdib.sequenceId)
-        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_metric_reports)
+        self._subscriptionsManager.sendEpisodicMetricReport(stateUpdates, self._mdib.nsmapper, mdib_version,
+                                                            self.mdib.sequence_id)
+        self._store_for_periodic_report(mdib_version, stateUpdates, self._periodic_metric_reports)
 
-    def sendAlertStateUpdates(self, mdibVersion, stateUpdates):
+    def sendAlertStateUpdates(self, mdib_version, stateUpdates):
         self._logger.debug('sending alert updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicAlertReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                           self.mdib.sequenceId)
-        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_alert_reports)
+        self._subscriptionsManager.sendEpisodicAlertReport(stateUpdates, self._mdib.nsmapper, mdib_version,
+                                                           self.mdib.sequence_id)
+        self._store_for_periodic_report(mdib_version, stateUpdates, self._periodic_alert_reports)
 
-    def sendComponentStateUpdates(self, mdibVersion, stateUpdates):
+    def sendComponentStateUpdates(self, mdib_version, stateUpdates):
         self._logger.debug('sending component state updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicComponentStateReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                                    self.mdib.sequenceId)
-        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_component_state_reports)
+        self._subscriptionsManager.sendEpisodicComponentStateReport(stateUpdates, self._mdib.nsmapper, mdib_version,
+                                                                    self.mdib.sequence_id)
+        self._store_for_periodic_report(mdib_version, stateUpdates, self._periodic_component_state_reports)
 
-    def sendContextStateUpdates(self, mdibVersion, stateUpdates):
+    def sendContextStateUpdates(self, mdib_version, stateUpdates):
         self._logger.debug('sending context updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicContextReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                             self.mdib.sequenceId)
-        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_context_state_reports)
+        self._subscriptionsManager.sendEpisodicContextReport(stateUpdates, self._mdib.nsmapper, mdib_version,
+                                                             self.mdib.sequence_id)
+        self._store_for_periodic_report(mdib_version, stateUpdates, self._periodic_context_state_reports)
 
-    def sendOperationalStateUpdates(self, mdibVersion, stateUpdates):
+    def sendOperationalStateUpdates(self, mdib_version, stateUpdates):
         self._logger.debug('sending operational state updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicOperationalStateReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                                      self.mdib.sequenceId)
-        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_operational_state_reports)
+        self._subscriptionsManager.sendEpisodicOperationalStateReport(stateUpdates, self._mdib.nsmapper, mdib_version,
+                                                                      self.mdib.sequence_id)
+        self._store_for_periodic_report(mdib_version, stateUpdates, self._periodic_operational_state_reports)
 
-    def sendRealtimeSamplesStateUpdates(self, mdibVersion, stateUpdates):
+    def sendRealtimeSamplesStateUpdates(self, mdib_version, stateUpdates):
         self._logger.debug('sending real time sample state updates {}', stateUpdates)
-        self._subscriptionsManager.sendRealtimeSamplesReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                             self.mdib.sequenceId)
+        self._subscriptionsManager.sendRealtimeSamplesReport(stateUpdates, self._mdib.nsmapper, mdib_version,
+                                                             self.mdib.sequence_id)
 
-    def sendDescriptorUpdates(self, mdibVersion, updated, created, deleted, updated_states):
+    def sendDescriptorUpdates(self, mdib_version, updated, created, deleted, updated_states):
         self._logger.debug('sending descriptor updates updated={} created={} deleted={}', updated, created, deleted)
         self._subscriptionsManager.sendDescriptorUpdates(updated, created, deleted, updated_states,
                                                          self._mdib.nsmapper,
-                                                         mdibVersion,
-                                                         self.mdib.sequenceId)
+                                                         mdib_version,
+                                                         self.mdib.sequence_id)
 
     def _rt_sample_sendloop(self):
         """Periodically send waveform samples."""
@@ -500,13 +503,17 @@ class SdcHandler_Base(object):
         # (otherwise timing issues might happen)
         time.sleep(0.1)
         timer = intervaltimer.IntervalTimer(periodInSeconds=self.collectRtSamplesPeriod)
-        while self._runRtSampleThread:
-            behindScheduleSeconds = timer.waitForNextIntervalBegin()
-            try:
-                self._mdib.update_all_rt_samples()  # update from waveform generators
-                self._logWaveformTiming(behindScheduleSeconds)
-            except Exception:
-                self._logger.warn(' could not update real time samples: {}', traceback.format_exc())
+        try:
+            while self._runRtSampleThread:
+                behindScheduleSeconds = timer.waitForNextIntervalBegin()
+                try:
+                    self._mdib.update_all_rt_samples()  # update from waveform generators
+                    self._logWaveformTiming(behindScheduleSeconds)
+                except Exception:
+                    self._logger.warn(' could not update real time samples: {}', traceback.format_exc())
+            self._logger.info('_runRtSampleThread = False')
+        finally:
+            self._logger.info('rt_sample_sendloop end')
 
     def _simple_periodic_reports_send_loop(self):
         """This is a very basic implementation of periodic reports, it only supports fixed interval.
@@ -535,7 +542,7 @@ class SdcHandler_Base(object):
                         del reports_list[:]
                 if tmp:
                     self._logger.debug('send periodic %s report', msg)
-                    send_func(tmp, self._mdib.nsmapper, self.mdib.sequenceId)
+                    send_func(tmp, self._mdib.nsmapper, self.mdib.sequence_id)
 
 
     def _periodic_reports_send_loop(self):
@@ -575,16 +582,16 @@ class SdcHandler_Base(object):
                 elif descr.isContextDescriptor:
                     contexts.append(h)
 
-            with self._mdib.mdibLock:
-                mdib_version = self._mdib.mdibVersion
-                sequence_id = self._mdib.sequenceId
-                metric_states = [self._mdib.states.descriptorHandle.getOne(h).mkCopy() for h in metrics]
-                component_states = [self._mdib.states.descriptorHandle.getOne(h).mkCopy() for h in components]
-                alert_states = [self._mdib.states.descriptorHandle.getOne(h).mkCopy() for h in alerts]
-                operational_states = [self._mdib.states.descriptorHandle.getOne(h).mkCopy() for h in operationals]
+            with self._mdib.mdib_lock:
+                mdib_version = self._mdib.mdib_version
+                sequence_id = self._mdib.sequence_id
+                metric_states = [self._mdib.states.descriptorHandle.getOne(h).mk_copy() for h in metrics]
+                component_states = [self._mdib.states.descriptorHandle.getOne(h).mk_copy() for h in components]
+                alert_states = [self._mdib.states.descriptorHandle.getOne(h).mk_copy() for h in alerts]
+                operational_states = [self._mdib.states.descriptorHandle.getOne(h).mk_copy() for h in operationals]
                 context_states = []
                 for c in contexts:
-                    context_states.extend([st.mkCopy() for st in self._mdib.contextStates.descriptorHandle.get(c, [])])
+                    context_states.extend([st.mk_copy() for st in self._mdib.context_states.descriptorHandle.get(c, [])])
             self._logger.debug('   _periodic_reports_send_loop {} metric_states', len(metric_states))
             self._logger.debug('   _periodic_reports_send_loop {} component_states', len(component_states))
             self._logger.debug('   _periodic_reports_send_loop {} alert_states', len(alert_states))
@@ -607,7 +614,7 @@ class SdcHandler_Base(object):
                 self._subscriptionsManager.sendPeriodicContextReport([p], self._mdib.nsmapper, sequence_id)
 
     def _setupLogging(self, logLevel):
-        loghelper.ensureLogStream()
+        loghelper.ensure_log_stream()
         if logLevel is None:
             return
         deviceLog = logging.getLogger('sdc.device')
@@ -631,12 +638,12 @@ class SdcHandler_Base(object):
             return
         if lastLoggedDelay >= self.WARN_LIMIT_REALTIMESAMPLES_BEHIND_SCHEDULE and behindScheduleSeconds < self.WARN_LIMIT_REALTIMESAMPLES_BEHIND_SCHEDULE:
             self._logger.info('RealTimeSampleTimer delay is back inside limit of {:.2f} seconds (mdib version={}',
-                              self.WARN_LIMIT_REALTIMESAMPLES_BEHIND_SCHEDULE, self._mdib.mdibVersion)
+                              self.WARN_LIMIT_REALTIMESAMPLES_BEHIND_SCHEDULE, self._mdib.mdib_version)
             self._lastLoggedDelay = behindScheduleSeconds
             self._lastLogTime = now
         elif behindScheduleSeconds >= self.WARN_LIMIT_REALTIMESAMPLES_BEHIND_SCHEDULE:
             self._logger.warn('RealTimeSampleTimer is {:.4f} seconds behind schedule (mdib version={})',
-                              behindScheduleSeconds, self._mdib.mdibVersion)
+                              behindScheduleSeconds, self._mdib.mdib_version)
             self._lastLoggedDelay = behindScheduleSeconds
             self._lastLogTime = now
 

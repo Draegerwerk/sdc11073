@@ -1,14 +1,11 @@
 import weakref
-from lxml import etree as etree_
 import urllib
 
-from sdc11073 import namespaces
 from .. import loghelper
-from ..namespaces import msgTag, domTag, QN_TYPE, nsmap, DocNamespaceHelper
-from ..namespaces import Prefix_Namespace as Prefix
-from ..pysoap.soapenvelope import Soap12Envelope, WsAddress, GenericNode, ExtendedDocumentInvalid
+from ..namespaces import DocNamespaceHelper
+from ..pysoap.soapenvelope import ExtendedDocumentInvalid
 
-class HostedServiceClient(object):
+class HostedServiceClient:
     """ Base class of clients that call hosted services of a dpws device."""
     VALIDATE_MEX = False # workaraound as long as validation error due to missing dpws schema is not solved
     subscribeable_actions = tuple()
@@ -19,7 +16,7 @@ class HostedServiceClient(object):
         self.endpoint_reference = dpws_hosted.endpointReferences[0]
         self._url = urllib.parse.urlparse(self.endpoint_reference.address)
         self.porttype = porttype
-        self._logger = loghelper.getLoggerAdapter('sdc.client.{}'.format(porttype), log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.client.{}'.format(porttype), log_prefix)
         self._operationsManager = None
         self._validate = validate
         self._sdc_definitions = sdc_definitions
@@ -34,11 +31,11 @@ class HostedServiceClient(object):
 
     @property
     def _bmmSchema(self):
-        return None if not self._validate else self._bicepsParser.bmmSchema
+        return None if not self._validate else self._bicepsParser.message_schema
 
     @property
     def _mexSchema(self):
-        return None if not self._validate else self._bicepsParser.mexSchema
+        return None if not self._validate else self._bicepsParser.mex_schema
 
     def register_mdib(self, mdib):
         ''' Client sometimes must know the mdib data (e.g. Set service, activate method).'''
@@ -278,12 +275,12 @@ class ContextServiceClient(HostedServiceClient):
             raise RuntimeError('no mdib information')
         contextDescriptorContainer = mdib.descriptions.handle.getOne(descriptorHandle)
         if handle is None:
-            cls = self._sdc_definitions.sc.getContainerClass(contextDescriptorContainer.STATE_QNAME)
-            obj = cls(nsmapper=DocNamespaceHelper(), descriptorContainer=contextDescriptorContainer)
+            cls = self._sdc_definitions.sc.get_container_class(contextDescriptorContainer.STATE_QNAME)
+            obj = cls(nsmapper=DocNamespaceHelper(), descriptor_container=contextDescriptorContainer)
             obj.Handle = descriptorHandle # this indicates that this is a new context state
         else:
-            _obj = mdib.contextStates.handle.getOne(handle)
-            obj = _obj.mkCopy()
+            _obj = mdib.context_states.handle.getOne(handle)
+            obj = _obj.mk_copy()
         return obj
 
     def setContextState(self, operationHandle, proposedContextStates, request_manipulator=None):

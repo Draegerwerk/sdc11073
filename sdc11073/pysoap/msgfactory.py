@@ -1,11 +1,13 @@
-from lxml import etree as etree_
-import weakref
 import copy
-from ..namespaces import msgTag, wseTag, QN_TYPE, DocNamespaceHelper
-from ..namespaces import Prefix_Namespace as Prefix
-from ..namespaces import nsmap, domTag
-from .. import isoduration
+import weakref
+
+from lxml import etree as etree_
+
 from . import soapenvelope
+from .. import isoduration
+from ..namespaces import Prefixes
+from ..namespaces import msgTag, wseTag, QN_TYPE, DocNamespaceHelper
+from ..namespaces import nsmap, domTag
 
 
 class SoapMessageFactory:
@@ -14,7 +16,6 @@ class SoapMessageFactory:
         self._logger = logger
         self._sdc_definitions = sdc_definitions
         self._mdib_wref = None
-
 
     @staticmethod
     def mk_getmetadata_envelope(to):
@@ -56,17 +57,19 @@ class SoapMessageFactory:
     def mk_getmdib_response_envelope(self, request, mdib, include_contextstates):
         nsmapper = mdib.nsmapper
         responseSoapEnvelope = soapenvelope.Soap12Envelope(
-            nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
-        replyAddress = request.address.mkReplyAddress(action=self._getActionString(mdib.sdc_definitions, 'GetMdibResponse'))
+            nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
+        replyAddress = request.address.mkReplyAddress(
+            action=self._getActionString(mdib.sdc_definitions, 'GetMdibResponse'))
         responseSoapEnvelope.addHeaderObject(replyAddress)
         if include_contextstates:
-            mdibNode = mdib.reconstructMdibWithContextStates()
+            mdibNode = mdib.reconstruct_mdib_with_context_states()
         else:
-            mdibNode = mdib.reconstructMdib()
-        mdibVersionString = mdibNode.get('MdibVersion') # use same version a in mdib node for response
+            mdibNode = mdib.reconstruct_mdib()
+        mdibVersionString = mdibNode.get('MdibVersion')  # use same version a in mdib node for response
         sequenceIdString = mdibNode.get('SequenceId')
 
-        getMdibResponseNode = etree_.Element(msgTag('GetMdibResponse'), nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
+        getMdibResponseNode = etree_.Element(msgTag('GetMdibResponse'),
+                                             nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM))
         if mdibVersionString:
             getMdibResponseNode.set('MdibVersion', mdibVersionString)
         getMdibResponseNode.set('SequenceId', sequenceIdString)
@@ -84,29 +87,29 @@ class SoapMessageFactory:
         method = 'GetMdDescription'
         return self._mk_get_method_envelope(to, port_type, method, params=_handles2params(requested_handles))
 
-
     def mk_getmddescription_response_envelope(self, request, mdib, requestedHandles):
         includeMds = True if len(requestedHandles) == 0 else False  # if we have handles, we need to check them
         for h in requestedHandles:
             if mdib.descriptions.handle.getOne(h, allowNone=True) is not None:
                 includeMds = True
                 break
-        my_namespaces = mdib.nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.MSG, Prefix.PM)
+        my_namespaces = mdib.nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.MSG, Prefixes.PM)
         responseSoapEnvelope = soapenvelope.Soap12Envelope(my_namespaces)
-        replyAddress = request.address.mkReplyAddress(action=self._getActionString(mdib.sdc_definitions, 'GetMdDescriptionResponse'))
+        replyAddress = request.address.mkReplyAddress(
+            action=self._getActionString(mdib.sdc_definitions, 'GetMdDescriptionResponse'))
         responseSoapEnvelope.addHeaderObject(replyAddress)
 
         getMdDescriptionResponseNode = etree_.Element(msgTag('GetMdDescriptionResponse'),
                                                       nsmap=nsmap)
 
         if includeMds:
-            mdDescriptionNode, mdibVersion = mdib.reconstructMdDescription()
+            mdDescriptionNode, mdib_version = mdib.reconstruct_md_description()
             mdDescriptionNode.tag = msgTag('MdDescription')  # rename according to message
-            mdibVersionString = str(mdibVersion)
+            mdibVersionString = str(mdib_version)
         else:
             mdDescriptionNode = etree_.Element(msgTag('MdDescription'))
             mdibVersionString = None
-        sequenceIdString = mdib.sequenceId
+        sequenceIdString = mdib.sequence_id
         if mdibVersionString:
             getMdDescriptionResponseNode.set('MdibVersion', mdibVersionString)
         getMdDescriptionResponseNode.set('SequenceId', sequenceIdString)
@@ -133,14 +136,15 @@ class SoapMessageFactory:
     def mk_getmdstate_response_envelope(self, request, mdib, stateContainers):
         nsmapper = mdib.nsmapper
         responseSoapEnvelope = soapenvelope.Soap12Envelope(
-            nsmapper.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG))
-        replyAddress = request.address.mkReplyAddress(action=self._getActionString(mdib.sdc_definitions, 'GetMdStateResponse'))
+            nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
+        replyAddress = request.address.mkReplyAddress(
+            action=self._getActionString(mdib.sdc_definitions, 'GetMdStateResponse'))
         responseSoapEnvelope.addHeaderObject(replyAddress)
         getMdStateResponseNode = etree_.Element(msgTag('GetMdStateResponse'), nsmap=nsmap)
-        getMdStateResponseNode.set('MdibVersion', str(mdib.mdibVersion))
-        getMdStateResponseNode.set('SequenceId', mdib.sequenceId)
+        getMdStateResponseNode.set('MdibVersion', str(mdib.mdib_version))
+        getMdStateResponseNode.set('SequenceId', mdib.sequence_id)
 
-        mdStateNode = etree_.Element(msgTag('MdState'), attrib=None, nsmap=nsmapper.docNssmap)
+        mdStateNode = etree_.Element(msgTag('MdState'), attrib=None, nsmap=nsmapper.doc_ns_map)
         for stateContainer in stateContainers:
             mdStateNode.append(stateContainer.mk_state_node(domTag('State')))
 
@@ -169,8 +173,8 @@ class SoapMessageFactory:
         if requested_handles:
             for h in requested_handles:
                 requestparams.append(etree_.Element(msgTag('HandleRef'),
-                                                    attrib={QN_TYPE: '{}:HandleRef'.format(Prefix.MSG.prefix)},
-                                                    nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM)))
+                                                    attrib={QN_TYPE: '{}:HandleRef'.format(Prefixes.MSG.prefix)},
+                                                    nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM)))
                 requestparams[-1].text = h
         method = 'GetContextStates'
         return self._mk_get_method_envelope(to, port_type, method, params=requestparams)
@@ -185,8 +189,8 @@ class SoapMessageFactory:
         requestparams = []
         if identifications:
             for oneId in identifications:
-                requestparams.append(oneId.asEtreeNode(qname=msgTag('Identification'),
-                                                       nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM)))
+                requestparams.append(oneId.as_etree_node(qname=msgTag('Identification'),
+                                                         nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM)))
         method = 'GetContextStatesByIdentification'
         return self._mk_get_method_envelope(to, port_type, method, params=requestparams)
 
@@ -199,13 +203,13 @@ class SoapMessageFactory:
         :return: a SoapEnvelope
         """
         requested_value_node = etree_.Element(msgTag('RequestedNumericValue'),
-                                              attrib={QN_TYPE: '{}:decimal'.format(Prefix.XSD.prefix)})
+                                              attrib={QN_TYPE: '{}:decimal'.format(Prefixes.XSD.prefix)})
         requested_value_node.text = str(requested_numeric_value)
         method = 'SetValue'
         return self._mk_setmethod_envelope(to, port_type, method,
                                            operation_handle,
                                            [requested_value_node],
-                                           additional_namespaces=[Prefix.XSD])
+                                           additional_namespaces=[Prefixes.XSD])
 
     def mk_requestedstring_envelope(self, to, port_type, operation_handle, requested_string):
         """
@@ -216,11 +220,11 @@ class SoapMessageFactory:
         :return: a SoapEnvelope
         """
         requested_string_node = etree_.Element(msgTag('RequestedStringValue'),
-                                               attrib={QN_TYPE: '{}:string'.format(Prefix.XSD.prefix)})
+                                               attrib={QN_TYPE: '{}:string'.format(Prefixes.XSD.prefix)})
         requested_string_node.text = requested_string
         method = 'SetString'
         return self._mk_setmethod_envelope(to, port_type, method, operation_handle, [requested_string_node],
-                                           additional_namespaces=[Prefix.XSD])
+                                           additional_namespaces=[Prefixes.XSD])
 
     def mk_setalert_envelope(self, to, port_type, operation_handle, proposed_alert_states):
         """
@@ -230,7 +234,7 @@ class SoapMessageFactory:
         :param proposed_alert_states: a list of AbstractAlertStateContainer or derived class
         :return: a SoapEnvelope
         """
-        _proposed_states = [p.mkCopy() for p in proposed_alert_states]
+        _proposed_states = [p.mk_copy() for p in proposed_alert_states]
         for p in _proposed_states:
             p.nsmapper = DocNamespaceHelper()  # use my namespaces
         _proposed_state_nodes = [p.mk_state_node(msgTag('ProposedAlertState')) for p in _proposed_states]
@@ -245,7 +249,7 @@ class SoapMessageFactory:
         :param proposed_metric_states: a list of AbstractMetricStateContainer or derived class
         :return: a SoapEnvelope
         """
-        _proposed_states = [p.mkCopy() for p in proposed_metric_states]
+        _proposed_states = [p.mk_copy() for p in proposed_metric_states]
         nsmapper = DocNamespaceHelper()
         for p in _proposed_states:
             p.nsmapper = nsmapper  # use my namespaces
@@ -260,7 +264,7 @@ class SoapMessageFactory:
         :param proposed_component_states: a list of AbstractComponentStateContainers or derived class
         :return: a SoapEnvelope
         """
-        _proposed_states = [p.mkCopy() for p in proposed_component_states]
+        _proposed_states = [p.mk_copy() for p in proposed_component_states]
         nsmapper = DocNamespaceHelper()
         for p in _proposed_states:
             p.nsmapper = nsmapper  # use my namespaces
@@ -275,7 +279,7 @@ class SoapMessageFactory:
         :param proposed_context_states: a list of AbstractContextStateContainers or derived class
         :return: a SoapEnvelope
         """
-        _proposed_states = [p.mkCopy() for p in proposed_context_states]
+        _proposed_states = [p.mk_copy() for p in proposed_context_states]
         for p in _proposed_states:
             # BICEPS: if handle == descriptorHandle, it means insert.
             if p.Handle is None:
@@ -303,8 +307,8 @@ class SoapMessageFactory:
             arg_val.text = value
         # TODO: add argument_node to soap envelope somehow
         # look for safety context in mdib
-        #sih = self._mk_optional_safetyheader(body_node, operation_handle)
-        #if sih is not None:
+        # sih = self._mk_optional_safetyheader(body_node, operation_handle)
+        # if sih is not None:
         #    sih = [sih]
         sih = None
         tmp = etree_.tostring(body_node)
@@ -364,7 +368,7 @@ class SoapMessageFactory:
                               notifyto_url, notifyto_identifier,
                               endto_url, endto_identifier,
                               expire_minutes, subscribe_filter):
-        soap_envelope = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA,Prefix.WSE))
+        soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
         soap_envelope.setAddress(soapenvelope.WsAddress(
             action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Subscribe',
             to=to))
@@ -376,33 +380,34 @@ class SoapMessageFactory:
 
         body = soapenvelope.WsSubscribe(notifyTo=notify_to,
                                         endTo=end_to,
-                                        expires=expire_minutes*60,
+                                        expires=expire_minutes * 60,
                                         filter_=subscribe_filter)
         soap_envelope.addBodyObject(body)
         return soap_envelope
 
     def mk_renew_envelope(self, to, dev_reference_param, expire_minutes):
-        soap_envelope = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
+        soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
         soap_envelope.setAddress(soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Renew',
-                                          to=to))
+                                                        to=to))
         self._add_device_references(soap_envelope, dev_reference_param)
-        renew_node = etree_.Element(wseTag('Renew'), nsmap=Prefix.partialMap(Prefix.WSE))
-        expires_node = etree_.SubElement(renew_node, wseTag('Expires'), nsmap=Prefix.partialMap(Prefix.WSE))
-        expires_node.text = isoduration.durationString(expire_minutes * 60)
+        renew_node = etree_.Element(wseTag('Renew'), nsmap=Prefixes.partial_map(Prefixes.WSE))
+        expires_node = etree_.SubElement(renew_node, wseTag('Expires'), nsmap=Prefixes.partial_map(Prefixes.WSE))
+        expires_node.text = isoduration.duration_string(expire_minutes * 60)
         soap_envelope.addBodyElement(renew_node)
         return soap_envelope
 
     def mk_getstatus_envelope(self, to, dev_reference_param):
-        soap_envelope = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA,Prefix.WSE))
-        soap_envelope.setAddress(soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/GetStatus',
-                                                        to=to))
+        soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
+        soap_envelope.setAddress(
+            soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/GetStatus',
+                                   to=to))
         self._add_device_references(soap_envelope, dev_reference_param)
         body_node = etree_.Element(wseTag('GetStatus'))
         soap_envelope.addBodyElement(body_node)
         return soap_envelope
 
     def mk_unsubscribe_envelope(self, to, dev_reference_param):
-        soap_envelope = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA,Prefix.WSE))
+        soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
         soap_envelope.setAddress(soapenvelope.WsAddress(
             action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Unsubscribe', to=to))
         self._add_device_references(soap_envelope, dev_reference_param)
@@ -420,7 +425,7 @@ class SoapMessageFactory:
 
     def _mk_get_method_envelope(self, to, port_type, method_name, params=None):
         body_node = etree_.Element(msgTag(method_name))
-        soap_envelope = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.MSG))
+        soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.MSG))
         action_string = self.get_action_string(port_type, method_name)
         soap_envelope.setAddress(soapenvelope.WsAddress(action=action_string, to=to))
         if params:
@@ -440,17 +445,17 @@ class SoapMessageFactory:
         """
         body_node = etree_.Element(msgTag(method_name))
         ref = etree_.SubElement(body_node, msgTag('OperationHandleRef'),
-                                attrib={QN_TYPE: '{}:HandleRef'.format(Prefix.PM.prefix)},
-                                nsmap=Prefix.partialMap(Prefix.PM))
+                                attrib={QN_TYPE: '{}:HandleRef'.format(Prefixes.PM.prefix)},
+                                nsmap=Prefixes.partial_map(Prefixes.PM))
         ref.text = operation_handle
         for n in request_nodes:
             body_node.append(n)
         if additional_namespaces:
-            my_ns = Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG, *additional_namespaces)
+            my_ns = Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG, *additional_namespaces)
         else:
-            my_ns = Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.PM, Prefix.MSG)
+            my_ns = Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG)
 
-        #sih = self._mk_optional_safetyheader(body_node, operation_handle)  # a header or None
+        # sih = self._mk_optional_safetyheader(body_node, operation_handle)  # a header or None
 
         soap_envelope = soapenvelope.Soap12Envelope(my_ns)
         action_string = self.get_action_string(port_type, method_name)
@@ -465,9 +470,133 @@ class SoapMessageFactory:
         except AttributeError:  # fallback, if a definition is missing
             return '{}/{}/{}'.format(self._sdc_definitions.ActionsNamespace, port_type, method_name)
 
+    def mk_realtime_samples_report_body(self, realtime_sample_states, ns_map, mdib_version, sequence_id):
+        body_node = etree_.Element(msgTag('WaveformStream'),
+                                   attrib={'SequenceId': sequence_id,
+                                           'MdibVersion': str(mdib_version)},
+                                   nsmap=ns_map)
+
+        for s in realtime_sample_states:
+            stateNode = s.mk_state_node(msgTag('State'), set_xsi_type=False)
+            body_node.append(stateNode)
+        return body_node
+
+    def mk_episodic_metric_report_body(self, states, ns_map, mdib_version, sequence_id):
+        return self._mk_report_body(msgTag('EpisodicMetricReport'),
+                                    msgTag('MetricState'),
+                                    states, ns_map, mdib_version, sequence_id)
+
+    def mk_periodic_metric_report_body(self, report_parts, ns_map, mdib_version, sequence_id):
+        return self._mk__periodic_report_body(msgTag('PeriodicMetricReport'),
+                                              msgTag('MetricState'),
+                                              report_parts, ns_map, mdib_version, sequence_id)
+
+    def mk_episodic_operational_state_report_body(self, states, ns_map, mdib_version, sequence_id):
+        return self._mk_report_body(msgTag('EpisodicOperationalStateReport'),
+                                    msgTag('OperationState'),
+                                    states, ns_map, mdib_version, sequence_id)
+
+    def mk_periodic_operational_state_report_body(self, report_parts, ns_map, mdib_version, sequence_id):
+        return self._mk__periodic_report_body(msgTag('PeriodicOperationalStateReport'),
+                                              msgTag('OperationState'),
+                                              report_parts, ns_map, mdib_version, sequence_id)
+
+    def mk_episodic_alert_report_body(self, states, ns_map, mdib_version, sequence_id):
+        return self._mk_report_body(msgTag('EpisodicAlertReport'),
+                                    msgTag('AlertState'),
+                                    states, ns_map, mdib_version, sequence_id)
+
+    def mk_periodic_alert_report_body(self, report_parts, ns_map, mdib_version, sequence_id):
+        return self._mk__periodic_report_body(msgTag('PeriodicAlertReport'),
+                                              msgTag('AlertState'),
+                                              report_parts, ns_map, mdib_version, sequence_id)
+
+    def mk_episodic_component_state_report_body(self, states, ns_map, mdib_version, sequence_id):
+        return self._mk_report_body(msgTag('EpisodicComponentReport'),
+                                    msgTag('ComponentState'),
+                                    states, ns_map, mdib_version, sequence_id)
+
+    def mk_periodic_component_state_report_body(self, report_parts, ns_map, mdib_version, sequence_id):
+        return self._mk__periodic_report_body(msgTag('PeriodicComponentReport'),
+                                              msgTag('ComponentState'),
+                                              report_parts, ns_map, mdib_version, sequence_id)
+
+    def mk_episodic_context_report_body(self, states, ns_map, mdib_version, sequence_id):
+        return self._mk_report_body(msgTag('EpisodicContextReport'),
+                                    msgTag('ContextState'),
+                                    states, ns_map, mdib_version, sequence_id)
+
+    def mk_periodic_context_report_body(self, report_parts, ns_map, mdib_version, sequence_id):
+        return self._mk__periodic_report_body(msgTag('PeriodicContextReport'),
+                                              msgTag('ContextState'),
+                                              report_parts, ns_map, mdib_version, sequence_id)
+
+    def _mk_report_body(self, body_tag, state_tag, states, ns_map, mdib_version, sequence_id):
+        body_node = etree_.Element(body_tag,
+                                   attrib={'SequenceId': sequence_id,
+                                           'MdibVersion': str(mdib_version)},
+                                   nsmap=ns_map)
+        reportPartNode = etree_.SubElement(body_node, msgTag('ReportPart'))
+
+        for s in states:
+            stateNode = s.mk_state_node(state_tag)
+            reportPartNode.append(stateNode)
+        return body_node
+
+    def _mk__periodic_report_body(self, body_tag, state_tag, report_parts, ns_map, mdib_version, sequence_id):
+        body_node = etree_.Element(body_tag,
+                                   attrib={'SequenceId': sequence_id,
+                                           'MdibVersion': str(mdib_version)},
+                                   nsmap=ns_map)
+        for part in report_parts:
+            reportPartNode = etree_.SubElement(body_node, msgTag('ReportPart'))
+            for s in part.states:
+                stateNode = s.mk_state_node(state_tag)
+                reportPartNode.append(stateNode)
+        return body_node
+
+    def mk_operation_invoked_report_body(self, ns_map, mdib_version, sequence_id,
+                                         operation_handle_ref, transaction_id, invocation_state,
+                                         error=None, error_message=None):
+        body_node = etree_.Element(msgTag('OperationInvokedReport'),
+                                   attrib={'SequenceId': sequence_id,
+                                           'MdibVersion': str(mdib_version)},
+                                   nsmap=ns_map)
+        reportPartNode = etree_.SubElement(body_node,
+                                           msgTag('ReportPart'),
+                                           attrib={'OperationHandleRef': operation_handle_ref})
+        invocationInfoNode = etree_.SubElement(reportPartNode, msgTag('InvocationInfo'))
+        invocationSourceNode = etree_.SubElement(reportPartNode, msgTag('InvocationSource'),
+                                                 attrib={'Root': Prefixes.SDC.namespace,
+                                                         'Extension': 'AnonymousSdcParticipant'})
+        # implemented only SDC R0077 for value of invocationSourceNode:
+        # Root =  "http://standards.ieee.org/downloads/11073/11073-20701-2018"
+        # Extension = "AnonymousSdcParticipant".
+        # a known participant (R0078) is currently not supported
+        # ToDo: implement R0078
+        transactionIdNode = etree_.SubElement(invocationInfoNode, msgTag('TransactionId'))
+        transactionIdNode.text = str(transaction_id)
+        operationStateNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationState'))
+        operationStateNode.text = str(invocation_state)
+        if error is not None:
+            errorNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationError'))
+            errorNode.text = str(error)
+        if error_message is not None:
+            errorMessageNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationErrorMessage'))
+            errorMessageNode.text = str(error_message)
+        return body_node
+
+    def mk_notification_report(self, ws_addr, body_node, ident_nodes, doc_nsmap):
+        soapEnvelope = soapenvelope.Soap12Envelope(doc_nsmap)
+        soapEnvelope.addBodyElement(body_node)
+        soapEnvelope.setAddress(ws_addr)
+        for ident_node in ident_nodes:
+            soapEnvelope.addHeaderElement(ident_node)
+        return soapEnvelope
+
     def _mk_soapenvelope(self, to, port_type, method_name, xml_body_string=None, additional_headers=None):
         action = self.get_action_string(port_type, method_name)
-        envelope = soapenvelope.Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.MSG, Prefix.WSA))
+        envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.MSG, Prefixes.WSA))
         envelope.setAddress(soapenvelope.WsAddress(action=action, to=to))
         if additional_headers is not None:
             for h in additional_headers:

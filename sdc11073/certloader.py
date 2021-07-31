@@ -25,10 +25,10 @@ def mk_ssl_context_from_folder(ca_folder,
     else:
         cafile = None
     if cyphers_file:
-        with open(os.path.join(ca_folder, cyphers_file)) as f:
+        with open(os.path.join(ca_folder, cyphers_file)) as file:
             while True:
                 # allow comment lines, starting with #
-                cyphers = f.readline()
+                cyphers = file.readline()
                 if len(cyphers) == 0: # end of file reached without having found a valid line
                     cyphers = None
                     break
