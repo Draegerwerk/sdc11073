@@ -1,15 +1,15 @@
+import socket
 import threading
 import time
 import traceback
-import socket
 import urllib
 from http.server import HTTPServer
+
 from .exceptions import HTTPRequestHandlingError, InvalidPathError, InvalidActionError
-from .. import pysoap
 from .. import commlog
 from .. import loghelper
+from .. import pysoap
 from ..httprequesthandler import HTTPRequestHandler, mkchunks
-
 
 MULTITHREADED = True
 
@@ -30,18 +30,17 @@ class MyThreadingMixIn:
                 # only 
                 self.handle_error(request, client_address)
             else:
-                print ("don't care error:{}".format(ex)) 
+                print("don't care error:{}".format(ex))
             self.shutdown_request(request)
-
 
     def process_request(self, request, client_address):
         """Start a new thread to process the request."""
-        t = threading.Thread(target = self.process_request_thread,
-                             args = (request, client_address),
+        t = threading.Thread(target=self.process_request_thread,
+                             args=(request, client_address),
                              name='SubscrRecv{}'.format(client_address))
         t.daemon = True
         t.start()
-        self.threads.append((t,request, client_address))
+        self.threads.append((t, request, client_address))
 
 
 if MULTITHREADED:
@@ -49,32 +48,35 @@ if MULTITHREADED:
         ''' Each request is handled in a thread.
         Following receipe from https://pymotw.com/2/BaseHTTPServer/index.html#module-BaseHTTPServer 
         '''
+
         def __init__(self, *args, **kwargs):
-            HTTPServer. __init__(self, *args, **kwargs)
+            HTTPServer.__init__(self, *args, **kwargs)
             self.daemon_threads = True
             self.threads = []
             self.dispatcher = None
 else:
-    MyHTTPServer = HTTPServer # single threaded, sequential operation
+    MyHTTPServer = HTTPServer  # single threaded, sequential operation
+
 
 class DevicesDispatcher:
     """ Dispatch to one of the registered devices, based on url"""
+
     def __init__(self, logger):
         self._logger = logger
-        self.deviceByUrl = {}       # lookup for requests
+        self.device_by_url = {}  # lookup for requests
 
     def register_device_dispatcher(self, path, dispatcher):
         if path.startswith('/'):
             path = path[1:]
         if path.endswith('/'):
             path = path[:-1]
-        if path in self.deviceByUrl:
+        if path in self.device_by_url:
             raise RuntimeError('Path "{}" already registered'.format(path))
-        self.deviceByUrl[path] = dispatcher
+        self.device_by_url[path] = dispatcher
 
     def get_device_dispather(self, path):
         _path = path[1:] if path.startswith('/') else path
-        for url, dispatcher in self.deviceByUrl.items():
+        for url, dispatcher in self.device_by_url.items():
             if _path.startswith(url):
                 return dispatcher
         raise HTTPRequestHandlingError(status=404, reason='not found', soapfault=b'client error')
@@ -92,62 +94,63 @@ class HostedServiceDispatcher:
     def __init__(self, sdc_definitions, logger):
         self.sdc_definitions = sdc_definitions
         self._logger = logger
-        self.hostedServiceByUrl = {}       # lookup for requests
-        self.hostedServices = []
+        self.hosted_service_by_url = {}  # lookup for requests
+        self.hosted_services = []
 
     def register_hosted_service(self, hosted_service):
         path = hosted_service.epr
         if path.endswith('/'):
             path = path[:-1]
-        if path in self.hostedServiceByUrl:
+        if path in self.hosted_service_by_url:
             raise RuntimeError('Path "{}" already registered'.format(path))
-        self.hostedServiceByUrl[path] = hosted_service
-        self.hostedServices.append(hosted_service)
+        self.hosted_service_by_url[path] = hosted_service
+        self.hosted_services.append(hosted_service)
 
     def on_post(self, path, headers, request):
-        """Method converts the http request into a soap envelope and calls dispatchSoapRequest.
-           Return of dispatchSoapRequest (soap envelope) is converted back to a string."""
+        """Method converts the http request into a soap envelope and calls dispatch_soap_request.
+           Return of dispatch_soap_request (soap envelope) is converted back to a string."""
         commlog.get_communication_logger().log_soap_request_in(request, 'POST')
-        normalizedRequest = self.sdc_definitions.normalize_xml_text(request)
+        normalized_request = self.sdc_definitions.normalize_xml_text(request)
         # execute the method
-        soapEnvelope = pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(normalizedRequest)
-        response = self._dispatchSoapRequest(path, headers, soapEnvelope)
+        envelope = pysoap.soapenvelope.ReceivedSoap12Envelope.from_xml_string(normalized_request)
+        response = self._dispatch_soap_request(path, headers, envelope)
         normalized_response_xml_string = response.as_xml()
         return self.sdc_definitions.denormalize_xml_text(normalized_response_xml_string)
 
-    def _dispatchSoapRequest(self, path, header, soapEnvelope):
+    def _dispatch_soap_request(self, path, header, envelope):
         # path is a string like /0105a018-8f4c-4199-9b04-aff4835fd8e9/StateEvent, without http:/servername:port
-        hostedService = self.hostedServiceByUrl.get(path)
-        if not hostedService:
-            raise InvalidPathError(soapEnvelope, path)
+        hosted_service = self.hosted_service_by_url.get(path)
+        if not hosted_service:
+            raise InvalidPathError(envelope, path)
         try:
-            return hostedService.dispatchSoapRequest( path, header, soapEnvelope)
+            return hosted_service.dispatch_soap_request(path, header, envelope)
         except InvalidActionError as ex:
             # error: no handler for this action; log this error with all known pathes, the re-raise
             all_actions = []
-            for dispatcher in self.hostedServices:
-                all_actions.extend(', '.join([dispatcher.epr, k]) for k in dispatcher.getActions())
+            for dispatcher in self.hosted_services:
+                all_actions.extend(', '.join([dispatcher.epr, k]) for k in dispatcher.get_actions())
 
-            txt = 'HostedServiceDispatcher.dispatchSoapRequest: {} , known=\n{}'.format(ex, '\n'.join(all_actions))
+            txt = 'HostedServiceDispatcher.dispatch_soap_request: {} , known=\n{}'.format(ex, '\n'.join(all_actions))
             self._logger.error(txt)
             raise
 
-    def on_get(self, path, httpHeaders):
+    def on_get(self, path, http_headers):
         """ Get Requests are handled as they are, no soap envelopes"""
-        response_string = self._dispatchGetRequest(path, httpHeaders)
-        return  self.sdc_definitions.denormalize_xml_text(response_string)
+        response_string = self._dispatch_get_request(path, http_headers)
+        return self.sdc_definitions.denormalize_xml_text(response_string)
 
-    def _dispatchGetRequest(self, path, httpHeaders):
-        parsedPath = urllib.parse.urlparse(path)
-        p = parsedPath.path
-        if p.endswith('/'):
-            p = p[:-1]
-        dispatcher = self.hostedServiceByUrl.get(p)
+    def _dispatch_get_request(self, path, http_headers):
+        parsed_path = urllib.parse.urlparse(path)
+        _path = parsed_path.path
+        if _path.endswith('/'):
+            _path = _path[:-1]
+        dispatcher = self.hosted_service_by_url.get(_path)
         if dispatcher is None:
             raise KeyError(
-                'HostedServiceDispatcher.dispatchGetRequest: unknown path "{}", known = {}'.format(p, self.hostedServiceByUrl.keys()))
-        response_string = dispatcher.dispatchGetRequest(parsedPath, httpHeaders)
-        return  self.sdc_definitions.denormalize_xml_text(response_string)
+                'HostedServiceDispatcher.dispatch_get_request: unknown path "{}", known = {}'.format(_path,
+                                                                                                     self.hosted_service_by_url.keys()))
+        response_string = dispatcher.dispatch_get_request(parsed_path, http_headers)
+        return self.sdc_definitions.denormalize_xml_text(response_string)
 
 
 class _SdcServerRequestHandler(HTTPRequestHandler):
@@ -162,14 +165,14 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             devices_dispatcher = self.server.dispatcher
             if devices_dispatcher is None:
                 # close this connection
-                self.close_connection = 1
+                self.close_connection = 1  # pylint: disable=attribute-defined-outside-init
                 response_xml_string = b'received a POST request, but have no dispatcher'
                 self.send_response(404)  # not found
             else:
                 request = self._read_request()
                 commlog.get_communication_logger().log_soap_request_in(request, 'POST')
                 try:
-                    #delegate handling to on_post method of dispatcher
+                    # delegate handling to on_post method of dispatcher
                     response_xml_string = devices_dispatcher.on_post(self.path, self.headers, request)
                     http_status = 200
                     http_reason = 'Ok'
@@ -197,11 +200,11 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             self.server.logger.error(traceback.format_exc())
             # we must create a soapEnvelope in order to generate a SoapFault
             dev_dispatcher = devices_dispatcher.get_device_dispather(self.path)
-            normalizedRequest = dev_dispatcher.sdc_definitions.normalize_xml_text(request)
-            soapEnvelope = pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(normalizedRequest)
+            normalized_request = dev_dispatcher.sdc_definitions.normalize_xml_text(request)
+            envelope = pysoap.soapenvelope.ReceivedSoap12Envelope.from_xml_string(normalized_request)
 
-            response = pysoap.soapenvelope.SoapFault(soapEnvelope, code=pysoap.soapenvelope.SoapFaultCode.SENDER,
-                                                          reason=str(ex))
+            response = pysoap.soapenvelope.SoapFault(envelope, code=pysoap.soapenvelope.SoapFaultCode.SENDER,
+                                                     reason=str(ex))
             normalized_response_xml_string = response.as_xml()
             response_xml_string = dev_dispatcher.sdc_definitions.denormalize_xml_text(normalized_response_xml_string)
             self.send_response(500)
@@ -211,14 +214,15 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             self.wfile.write(response_xml_string)
 
     def do_GET(self):
-        parsedPath = urllib.parse.urlparse(self.path)
+        parsed_path = urllib.parse.urlparse(self.path)
         try:
-            commlog.get_communication_logger().log_soap_request_in('', 'GET') # GET has no content, log it to document duration of processing
+            commlog.get_communication_logger().log_soap_request_in('',
+                                                                   'GET')  # GET has no content, log it to document duration of processing
             response_string = self.server.dispatcher.on_get(self.path, self.headers)
             self.send_response(200, 'Ok')
             response_string = self._compress_if_required(response_string)
             commlog.get_communication_logger().log_soap_response_out(response_string, 'GET')
-            if parsedPath.query == 'wsdl':
+            if parsed_path.query == 'wsdl':
                 content_type = "text/xml; charset=utf-8"
             else:
                 content_type = "application/soap+xml; charset=utf-8"
@@ -234,18 +238,18 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 
 
 class HttpServerThread(threading.Thread):
-    
-    def __init__(self, my_ipaddress, sslContext, supported_encodings, log_prefix=None, chunked_responses=False):
+
+    def __init__(self, my_ipaddress, ssl_context, supported_encodings, log_prefix=None, chunked_responses=False):
         '''
         :param my_ipaddress:
-        :param sslContext:
+        :param ssl_context:
         :param supported_encodings: a list od strings
         '''
         super().__init__(name='Dev_SdcHttpServerThread')
         self.daemon = True
 
         self._my_ipaddress = my_ipaddress
-        self._ssl_context = sslContext
+        self._ssl_context = ssl_context
         self.my_port = None
         self.httpd = None
         self.supported_encodings = supported_encodings
@@ -254,17 +258,16 @@ class HttpServerThread(threading.Thread):
         self.chunked_responses = chunked_responses
         # create and set up the dispatcher for all incoming requests
         self.devices_dispatcher = DevicesDispatcher(self._logger)
-        self.started_evt = threading.Event() # helps to wait until thread has initialised is variables
-
+        self.started_evt = threading.Event()  # helps to wait until thread has initialised is variables
 
     def run(self):
         try:
             myport = 0  # zero means that OS selects a free port
             self.httpd = MyHTTPServer((self._my_ipaddress, myport), _SdcServerRequestHandler)
-            self.httpd.chunked_response = self.chunked_responses # monkey-patching, value needed by _SdcServerRequestHandler
+            self.httpd.chunked_response = self.chunked_responses  # pylint: disable=attribute-defined-outside-init
             # add use compression flag to the server
             setattr(self.httpd, 'supported_encodings', self.supported_encodings)
-            self.httpd.logger = self._logger # add logger by monkey-pathing
+            self.httpd.logger = self._logger  # pylint: disable=attribute-defined-outside-init
             if self._ssl_context is not None:
                 self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket)
             self.my_port = self.httpd.server_port
@@ -273,22 +276,23 @@ class HttpServerThread(threading.Thread):
             self.started_evt.set()
             self.httpd.serve_forever()
         except Exception:
-            self._logger.error('Unhandled Exception at thread runtime. Thread will abort! {}'.format(traceback.format_exc()))
+            self._logger.error(
+                'Unhandled Exception at thread runtime. Thread will abort! {}'.format(traceback.format_exc()))
             raise
 
-    def setCompressionFlag(self, useCompression):
+    def set_compression_flag(self, use_compression):
         '''Sets use compression attribute on the http server to be used in handler
-        @param useCompression: bool flag 
+        @param use_compression: bool flag
         '''
-        self.httpd.useCompression = useCompression
-   
-    def stop(self, closeAllConnections=True):
+        self.httpd.use_compression = use_compression  # pylint: disable=attribute-defined-outside-init
+
+    def stop(self, close_all_connections=True):
         self.httpd.shutdown()
         self.join(timeout=5)
         self.httpd.socket.close()
-        if closeAllConnections:
+        if close_all_connections:
             if self.httpd.dispatcher is not None:
-                self.httpd.dispatcher = None # this leads to a '503' reaction in SOAPNotificationsHandler
+                self.httpd.dispatcher = None  # this leads to a '503' reaction in SOAPNotificationsHandler
             for thr in self.httpd.threads:
                 thread, request, client_addr = thr
                 if thread.is_alive():
@@ -300,7 +304,7 @@ class HttpServerThread(threading.Thread):
                         # the connection is already closed
                         continue
                     except Exception as ex:
-                        self._logger.warn ('error closing socket from {}: {}', client_addr, ex)
+                        self._logger.warn('error closing socket from {}: {}', client_addr, ex)
             time.sleep(0.1)
             for thr in self.httpd.threads:
                 thread, request, client_addr = thr

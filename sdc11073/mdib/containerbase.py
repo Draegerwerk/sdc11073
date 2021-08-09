@@ -20,7 +20,7 @@ class ContainerBase:
     def __init__(self, nsmapper):
         self.nsmapper = nsmapper
         self.node = None
-        for dummy_name, cprop in self._sorted_container_properties():
+        for dummy_name, cprop in self.sorted_container_properties():
             cprop.init_instance_data(self)
 
     def get_actual_value(self, attr_name):
@@ -47,23 +47,23 @@ class ContainerBase:
         '''
         if set_xsi_type and self.NODETYPE is not None:
             node.set(QN_TYPE, self.nsmapper.docname_from_qname(self.NODETYPE))
-        for dummy_name, prop in self._sorted_container_properties():
+        for dummy_name, prop in self.sorted_container_properties():
             prop.update_xml_value(self, node)
         return node
 
 
-    def _update_from_node(self, node):
+    def update_from_node(self, node):
         ''' update members.
         '''
         # update all ContainerProperties
-        for dummy_name, cprop in self._sorted_container_properties():
+        for dummy_name, cprop in self.sorted_container_properties():
             cprop.update_from_node(self, node)
 
     def _update_from_other(self, other_container, skipped_properties):
         # update all ContainerProperties
         if skipped_properties is None:
             skipped_properties = []
-        for prop_name, _ in self._sorted_container_properties():
+        for prop_name, _ in self.sorted_container_properties():
             if prop_name not in skipped_properties:
                 new_value = getattr(other_container, prop_name)
                 setattr(self, prop_name, copy.copy(new_value))
@@ -75,7 +75,7 @@ class ContainerBase:
         return copied
 
 
-    def _sorted_container_properties(self):
+    def sorted_container_properties(self):
         '''
         @return: a list of (name, object) tuples of all GenericProperties ( and subclasses)
         '''
@@ -98,7 +98,7 @@ class ContainerBase:
         returns a list of strings that describe differences"""
         ret = []
         ignore_list = ignore_property_names or []
-        my_properties = self._sorted_container_properties()
+        my_properties = self.sorted_container_properties()
         for name, dummy in my_properties:
             if name in ignore_list:
                 continue
@@ -110,13 +110,13 @@ class ContainerBase:
             else:
                 if isinstance(my_value, float) or isinstance(other_value, float):
                     # cast both to float, if one is a Decimal Exception might be thrown
-                    if abs((float(my_value)-float(other_value))/float(my_value)) > 1e-10: # 1e-10 is good enough
+                    if abs((float(my_value)-float(other_value))/float(my_value)) > 1e-6: # 1e-6 is good enough
                         ret.append('{}={}, other={}'.format(name, my_value, other_value))
                 elif my_value != other_value:
                     ret.append('{}={}, other={}'.format(name, my_value, other_value))
         # check also if other has a different list of properties
         my_property_names = {p[0] for p in my_properties}  #  set comprehension
-        other_property_names = {p[0] for p in other._sorted_container_properties()}
+        other_property_names = {p[0] for p in other.sorted_container_properties()}
         surplus_names = other_property_names - my_property_names
         if surplus_names:
             ret.append(f'other has more data elements:{surplus_names}')
@@ -124,4 +124,3 @@ class ContainerBase:
 
     def is_equal(self, other):
         return len(self.diff(other)) == 0
-

@@ -13,21 +13,23 @@ from sdc11073.certloader import mk_ssl_context_from_folder
 adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
 ca_folder = os.getenv('ref_ca')
 ssl_passwd = os.getenv('ref_ssl_passwd') or None
-search_epr = os.getenv('ref_search_epr') or 'abc' # abc is fixed ending in reference_device uuid.
+search_epr = os.getenv('ref_search_epr') or 'abc' # 'abc' # abc is fixed ending in reference_device uuid.
+#search_epr =  'der' # 'e30'
 
 def run_ref_test():
     results = []
+    print(f'using adapter address {adapter_ip}')
     print('Test step 1: discover device which endpoint ends with "{}"'.format(search_epr))
     wsd = sdc11073.wsdiscovery.WSDiscoveryWhitelist([adapter_ip])
     wsd.start()
     my_service = None
     while my_service is None:
-        services = wsd.searchServices(types=SDC_v1_Definitions.MedicalDeviceTypesFilter)
-        print('found {} services {}'.format(len(services), ', '.join([s.getEPR() for s in services])))
+        services = wsd.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter)
+        print('found {} services {}'.format(len(services), ', '.join([s.epr for s in services])))
         for s in services:
-            if s.getEPR().endswith(search_epr):
+            if s.epr.endswith(search_epr):
                 my_service = s
-                print('found service {}'.format(s.getEPR()))
+                print('found service {}'.format(s.epr))
                 break
     print('Test step 1 successful: device discovered')
     results.append('### Test 1 ### passed')
@@ -35,15 +37,18 @@ def run_ref_test():
     print('Test step 2: connect to device...')
     try:
         if ca_folder:
-            ssl_context = mk_ssl_context_from_folder(ca_folder, cyphers_file=None,
-                                                     certificate='sdccert.pem',
+            ssl_context = mk_ssl_context_from_folder(ca_folder,
+                                                     cyphers_file=None,
+                                                     private_key='user_private_key_encrypted.pem',
+                                                     certificate='user_certificate_root_signed.pem',
+                                                     ca_public_key='root_certificate.pem',
                                                      ssl_passwd=ssl_passwd,
                                                      )
         else:
             ssl_context = None
-        client = sdc11073.sdcclient.SdcClient.fromWsdService(my_service,
-                                                             sslContext=ssl_context)
-        client.startAll()
+        client = sdc11073.sdcclient.SdcClient.from_wsd_service(my_service,
+                                                             ssl_context=ssl_context)
+        client.start_all()
         print('Test step 2 successful: connected to device')
         results.append('### Test 2 ### passed')
     except:
@@ -54,7 +59,7 @@ def run_ref_test():
     print('Test step 3&4: get mdib and subscribe...')
     try:
         mdib = sdc11073.mdib.clientmdib.ClientMdibContainer(client)
-        mdib.initMdib()
+        mdib.init_mdib()
         print('Test step 3&4 successful')
         results.append('### Test 3 ### passed')
         results.append('### Test 4 ### passed')
@@ -65,7 +70,7 @@ def run_ref_test():
         return results
 
     print('Test step 5: check that at least one patient context exists')
-    patients = mdib.contextStates.NODETYPE.get(sdc11073.namespaces.domTag('PatientContextState'), [])
+    patients = mdib.context_states.NODETYPE.get(sdc11073.namespaces.domTag('PatientContextState'), [])
     if len(patients) > 0:
         print('found {} patients, Test step 5 successful'.format(len(patients)))
         results.append('### Test 5 ### passed')
@@ -74,7 +79,7 @@ def run_ref_test():
         results.append('### Test 5 ### failed')
 
     print('Test step 6: check that at least one location context exists')
-    locations = mdib.contextStates.NODETYPE.get(sdc11073.namespaces.domTag('LocationContextState'), [])
+    locations = mdib.context_states.NODETYPE.get(sdc11073.namespaces.domTag('LocationContextState'), [])
     if len(locations) > 0:
         print('found {} locations, Test step 6 successful'.format(len(locations)))
         results.append('### Test 6 ### passed')
@@ -96,8 +101,8 @@ def run_ref_test():
         for k, v in alertsbyhandle.items():
             alert_updates[k].append(v)
 
-    observableproperties.bind(mdib, metricsByHandle=onMetricUpdates)
-    observableproperties.bind(mdib, alertByHandle=onAlertUpdates)
+    observableproperties.bind(mdib, metrics_by_handle=onMetricUpdates)
+    observableproperties.bind(mdib, alert_by_handle=onAlertUpdates)
 
     sleep_timer = 20
     min_updates = sleep_timer // 5 - 1
@@ -137,7 +142,7 @@ def run_ref_test():
             if s.handle != setst_handle:
                 continue
             print('setString Op ={}'.format(s))
-            fut = client.SetService_client.setString(s.handle, 'hoppeldipop')
+            fut = client.set_service_client.set_string(s.handle, 'hoppeldipop')
             try:
                 res = fut.result(timeout=10)
                 print(res)
@@ -163,7 +168,7 @@ def run_ref_test():
             if s.handle != setval_handle:
                 continue
             print('setNumericValue Op ={}'.format(s))
-            fut = client.SetService_client.setNumericValue(s.handle, 42)
+            fut = client.set_service_client.set_numeric_value(s.handle, 42)
             try:
                 res = fut.result(timeout=10)
                 print(res)
@@ -187,7 +192,7 @@ def run_ref_test():
             if s.handle != activate_handle:
                 continue
             print('activate Op ={}'.format(s))
-            fut = client.SetService_client.activate(s.handle, 'hoppeldipop')
+            fut = client.set_service_client.activate(s.handle, 'hoppeldipop')
             try:
                 res = fut.result(timeout=10)
                 print(res)
@@ -201,11 +206,29 @@ def run_ref_test():
                 print('timeout error')
                 results.append('### Test 9(Activate) ### failed')
 
+    print('Test step 10: cancel all subscriptions')
+    client._subscription_mgr.unsubscribe_all()
+    time.sleep(2)
+
     return results
 
 
 
 if __name__ == '__main__':
+    xtra_log_config = os.getenv('ref_xtra_log_cnf')  # or None
+
+    import json
+    import logging.config
+
+    here = os.path.dirname(__file__)
+
+    with open(os.path.join(here, 'logging_default.jsn')) as f:
+        logging_setup = json.load(f)
+    logging.config.dictConfig(logging_setup)
+    if xtra_log_config is not None:
+        with open(xtra_log_config) as f:
+            logging_setup2 = json.load(f)
+            logging.config.dictConfig(logging_setup2)
 
     results = run_ref_test()
     for r in results:

@@ -213,7 +213,7 @@ def unbind_all(obj, *propertyNames):
     @param *propertyNames: list of strings , each string names an ObservableProperty.
     """
     for name in propertyNames:
-        prop = _findProperty(obj, name)
+        prop = _find_property(obj, name)
         prop.unbind_all(obj)
 
 

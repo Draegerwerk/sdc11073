@@ -92,14 +92,14 @@ class RtDataMdibUpdateTransaction(_TransactionBase):
 class MdibUpdateTransaction(_TransactionBase):
     # pylint: disable=protected-access
     """ a helper class that collects multiple updates into one transaction.
-    Used by contextmanager DeviceMdibContainer.mdibUpdateTransaction """
+    Used by contextmanager DeviceMdibContainer.transaction_manager """
 
     @tr_method_wrapper
     def add_descriptor(self, descriptor_container, adjust_descriptor_version=True):
         """
         :param descriptor_container: the object that shall be added to mdib
         :param adjust_descriptor_version: if True, and a descriptor with this handle does not exist, but was already present in this mdib before,
-          the DescriptorVersion of descriptorContainer is set to last known version for this handle +1
+          the DescriptorVersion of descriptor_container is set to last known version for this handle +1
         :return: None
         """
         descriptor_handle = descriptor_container.handle
@@ -223,11 +223,11 @@ class MdibUpdateTransaction(_TransactionBase):
         Otherwise an the existing contextState with that handle will be returned or a new one created.
         When the transaction is committed, the modifications to the copy will be applied to the original version,
         and notification messages will be sent to clients.
-        :param descriptorHandle: the descriptorHandle of the object that shall be read
-        :param contextStateHandle: If None, a new Context State will be created and returned.
+        :param descriptor_handle: the descriptorHandle of the object that shall be read
+        :param context_state_handle: If None, a new Context State will be created and returned.
             Otherwise an existing contextState with that handle will be returned or a new one created.
-        :param adjustStateVersion: if True, and a state with this handle does not exist, but was already present in this mdib before,
-          the StateVersion of descriptorContainer is set to last known version for this handle +1
+        :param adjust_state_version: if True, and a state with this handle does not exist, but was already present in this mdib before,
+          the StateVersion of descriptor_container is set to last known version for this handle +1
         @return: a copy of the state.
         """
         lookup_key = (descriptor_handle, context_state_handle)

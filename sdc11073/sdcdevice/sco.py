@@ -7,84 +7,90 @@ A remote control command is executed async. The respone to such soap request con
 The progress of the transaction is reported with an OperationInvokedReport.
 A client must subscribe to the OperationInvokeReport Event of the 'Set' service, otherwise it would not get informed about progress.
 """
-import threading
 import inspect
-import sys
-import traceback
-import time
 import queue
-from .. import observableproperties as properties
-from ..namespaces import domTag
-from ..pmtypes import InvocationState, SafetyClassification
+import sys
+import threading
+import time
+import traceback
+
 from .. import loghelper
-from .. import mdib as mdib_
+# from .. import mdib as mdib_
+from .. import observableproperties as properties
+from ..namespaces import domTag, msgTag
+from ..pmtypes import InvocationState, SafetyClassification
 
 
 class _OperationsWorker(threading.Thread):
     """ Thread that enqueues and processes all operations.
     It manages transaction ids for all operations.
-    Progress notifications are sent via subscriptionmanager."""
+    Progress notifications are sent via subscription manager."""
 
-    def __init__(self, subscriptionsmgr, mdib, log_prefix):
+    def __init__(self, subscriptions_mgr, mdib, log_prefix):
         """
-        @param subscriptionsmgr: subscriptionsmgr.notifyOperation is called in order to notify all subscribers of OperationInvokeReport Events
+        @param subscriptions_mgr: subscriptionsmgr.notify_operation is called in order to notify all subscribers of OperationInvokeReport Events
         """
         super().__init__(name='DeviceOperationsWorker')
         self.daemon = True
-        self._subscriptionsmgr = subscriptionsmgr
+        self._subscriptions_mgr = subscriptions_mgr
         self._mdib = mdib
-        self._operationsQ = queue.Queue(10)  # spooled operations
-        self._transactionId = 1
-        self._transactionIdLock = threading.Lock()
+        self._operations_queue = queue.Queue(10)  # spooled operations
+        self._transaction_id = 1
+        self._transaction_id_lock = threading.Lock()
         self._logger = loghelper.get_logger_adapter('sdc.device.op_worker', log_prefix)
 
-    def enqueueOperation(self, operation, request, argument):
+    def enqueue_operation(self, operation, request, argument):
         """ enqueues operation "operation".
         @param operation: a callable with signature operation(request, mdib)
         @param request: the soapEnvelope of the request
         @param argument: parsed argument for the operation handler
         @return: a transaction Id
         """
-        with self._transactionIdLock:
-            transactionId = self._transactionId
-            self._transactionId += 1
-        self._operationsQ.put((transactionId, operation, request, argument), timeout=1)
-        return transactionId
+        with self._transaction_id_lock:
+            transaction_id = self._transaction_id
+            self._transaction_id += 1
+        self._operations_queue.put((transaction_id, operation, request, argument), timeout=1)
+        return transaction_id
 
     def run(self):
         while True:
             try:
-                op = self._operationsQ.get()
-                if op == 'stop_sco':
+                from_queue = self._operations_queue.get()
+                if from_queue == 'stop_sco':
                     self._logger.info('stop request found. Terminating now.')
                     return
-                tr_id, operation, request, argument = op
+                tr_id, operation, request, argument = from_queue  # unpack tuple
                 time.sleep(0.001)
                 self._logger.info('{}: starting operation "{}"', operation.__class__.__name__, operation.handle)
                 # duplicate the WAIT response to the operation request as notification. Standard requires this.
-                self._subscriptionsmgr.notifyOperation(self._mdib.sequence_id, self._mdib.mdib_version, tr_id, operation,
-                                                       InvocationState.WAIT)
+                self._subscriptions_mgr.notify_operation(
+                    operation, tr_id, InvocationState.WAIT,
+                    self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version)
                 time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
-                self._subscriptionsmgr.notifyOperation(self._mdib.sequence_id, self._mdib.mdib_version, tr_id, operation,
-                                                       InvocationState.START)
+                self._subscriptions_mgr.notify_operation(
+                    operation, tr_id, InvocationState.START,
+                    self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version)
                 try:
-                    operation.executeOperation(request, argument)
+                    operation.execute_operation(request, argument)
                     self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
                                       operation.handle)
-                    self._subscriptionsmgr.notifyOperation(self._mdib.sequence_id, self._mdib.mdib_version, tr_id,
-                                                           operation, InvocationState.FINISHED)
+                    self._subscriptions_mgr.notify_operation(
+                        operation, tr_id, InvocationState.FINISHED,
+                        self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version)
                 except Exception as ex:
                     self._logger.info('{}: error executing operation "{}": {}', operation.__class__.__name__,
                                       operation.handle, traceback.format_exc())
-                    self._subscriptionsmgr.notifyOperation(self._mdib.sequence_id, self._mdib.mdib_version, tr_id,
-                                                           operation, InvocationState.FAILED, error='Oth',
-                                                           error_message=repr(ex))
+                    self._subscriptions_mgr.notify_operation(
+                        operation, tr_id, InvocationState.FAILED,
+                        self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version,
+                        error='Oth', error_message=repr(ex))
+
             except Exception as ex:
                 self._logger.error('{}: unexpected error while handling operation "{}": {}',
                                    operation.__class__.__name__, operation.handle, traceback.format_exc())
 
     def stop(self):
-        self._operationsQ.put('stop_sco')  # a dummy request to stop the thread
+        self._operations_queue.put('stop_sco')  # a dummy request to stop the thread
         self.join(timeout=1)
 
 
@@ -97,59 +103,61 @@ class ScoOperationsRegistry:
     Such VMDs potentially have their own SCO. In every other case, SCO operations are modeled in pm:MdsDescriptor/pm:Sco.
     """
 
-    def __init__(self, subscriptionsmgr, operations_factory, mdib, handle='_sco', log_prefix=None):
+    def __init__(self, subscriptions_mgr, operations_factory, mdib, handle='_sco', log_prefix=None):
         self._worker = None
-        self._subscriptionsmgr = subscriptionsmgr
+        self._subscriptions_mgr = subscriptions_mgr
         self.operations_factory = operations_factory
         self._mdib = mdib
         self._log_prefix = log_prefix
         self._logger = loghelper.get_logger_adapter('sdc.device.op_reg', log_prefix)
-        self._registeredOperations = {}  # lookup by handle
+        self._registered_operations = {}  # lookup by handle
         self._handle = handle
 
         # find the Sco of the Mds, this will be the default sco for new operations
-        mdsDescriptorContainer = mdib.descriptions.NODETYPE.getOne(domTag('MdsDescriptor'))
-        scos = mdib.descriptions.find(parent_handle=mdsDescriptorContainer.handle).find(
+        mds_descriptor_container = mdib.descriptions.NODETYPE.getOne(domTag('MdsDescriptor'))
+        sco_containers = mdib.descriptions.find(parent_handle=mds_descriptor_container.handle).find(
             NODETYPE=domTag('ScoDescriptor')).objects
-        if len(scos) == 1:
+        if len(sco_containers) == 1:
             self._logger.info('found Sco node in mds, using it')
-            self._mds_sco_descriptorContainer = scos[0]
+            self._mds_sco_descriptor_container = sco_containers[0]
         else:
             self._logger.info('not found Sco node in mds, creating it')
             # create sco and add to mdib
-            self._mds_sco_descriptorContainer = mdib_.descriptorcontainers.ScoDescriptorContainer(
-                mdib.nsmapper, self._handle, mdsDescriptorContainer.handle)
-            mdib.descriptions.add_object(self._mds_sco_descriptorContainer)
+            cls = mdib.get_descriptor_container_class(domTag('ScoDescriptor'))
+            self._mds_sco_descriptor_container = cls(mdib.nsmapper, self._handle, mds_descriptor_container.handle)
+            # self._mds_sco_descriptor_container = mdib_.descriptorcontainers.ScoDescriptorContainer(
+            #     mdib.nsmapper, self._handle, mdsDescriptorContainer.handle)
+            mdib.descriptions.add_object(self._mds_sco_descriptor_container)
 
-    def registerOperation(self, operation, scoDescriptorContainer=None):
+    def register_operation(self, operation, sco_descriptor_container=None):
         self._logger.info('register operation "{}"', operation)
-        if operation.handle in self._registeredOperations:
+        if operation.handle in self._registered_operations:
             self._logger.info('handle {} is already registered, will re-use it', operation.handle)
-        parentContainer = scoDescriptorContainer or self._mds_sco_descriptorContainer
-        operation.setMdib(self._mdib, parentContainer)
-        self._registeredOperations[operation.handle] = operation
+        parent_container = sco_descriptor_container or self._mds_sco_descriptor_container
+        operation.set_mdib(self._mdib, parent_container)
+        self._registered_operations[operation.handle] = operation
 
-    def unRegisterOperationByHandle(self, operationHandle):
-        del self._registeredOperations[operationHandle]
+    def unregister_operation_by_handle(self, operation_handle):
+        del self._registered_operations[operation_handle]
 
-    def getOperationByHandle(self, operationHandle):
-        return self._registeredOperations.get(operationHandle)
+    def get_operation_by_handle(self, operation_handle):
+        return self._registered_operations.get(operation_handle)
 
-    def enqueueOperation(self, operation, request, argument):
+    def enqueue_operation(self, operation, request, argument):
         """ enqueues operation "operation".
         @param operation: a callable with signature operation(request, mdib)
         @param request: the soapEnvelope of the request
         @return: a transaction Id
         """
-        return self._worker.enqueueOperation(operation, request, argument)
+        return self._worker.enqueue_operation(operation, request, argument)
 
-    def startWorker(self):
+    def start_worker(self):
         if self._worker is not None:
             raise RuntimeError('SCO worker is already running')
-        self._worker = _OperationsWorker(self._subscriptionsmgr, self._mdib, self._log_prefix)
+        self._worker = _OperationsWorker(self._subscriptions_mgr, self._mdib, self._log_prefix)
         self._worker.start()
 
-    def stopWorker(self):
+    def stop_worker(self):
         if self._worker is not None:
             self._worker.stop()
             self._worker = None
@@ -158,38 +166,39 @@ class ScoOperationsRegistry:
 class OperationDefinition:
     """ This is the base class of all provided operations.
     An operation is a point for remote control over the network."""
-    currentValue = properties.ObservableProperty(fire_only_on_changed_value=False)
-    currentRequest = properties.ObservableProperty(fire_only_on_changed_value=False)
-    currentArgument = properties.ObservableProperty(fire_only_on_changed_value=False)
+    current_value = properties.ObservableProperty(fire_only_on_changed_value=False)
+    current_request = properties.ObservableProperty(fire_only_on_changed_value=False)
+    current_argument = properties.ObservableProperty(fire_only_on_changed_value=False)
     OP_DESCR_QNAME = None
     OP_STATE_QNAME = None
+    OP_QNAME = None
 
-    def __init__(self, handle, operationTarget,
-                 safetyClassification=SafetyClassification.INF,
-                 codedValue=None,
+    def __init__(self, handle, operation_target_handle,
+                 safety_classification=SafetyClassification.INF,
+                 coded_value=None,
                  log_prefix=None):  # pylint:disable=too-many-arguments
         """
         @param handle: the handle of the operation itself.
-        @param operationTarget: the handle of the modified data (MdDescription)
+        @param operation_target_handle: the handle of the modified data (MdDescription)
         @param safetyClassification: one of pmtypes.SafetyClassification values
         @param codedValue: a pmtypes.CodedValue instance
         """
         self._logger = loghelper.get_logger_adapter('sdc.device.op.{}'.format(self.__class__.__name__), log_prefix)
         self._mdib = None
-        self._descriptorContainer = None
-        self._operationStateContainer = None
-        self._operationTargetContainer = None
+        self._descriptor_container = None
+        self._operation_state_container = None
+        self._operation_target_container = None
         self._handle = handle
-        self._operationTargetHandle = operationTarget
-        # documentation of operationTarget:
+        self._operation_target_handle = operation_target_handle
+        # documentation of operation_target_handle:
         # A HANDLE reference this operation is targeted to. In case of a single state this is the HANDLE of the descriptor. 
         # In case that multiple states may belong to one descriptor (pm:AbstractMultiState), OperationTarget is the HANDLE 
         # of one of the state instances (if the state is modified by the operation).
         # self._operationDescriptorQName = operationDescriptorQName
         # self._operationStateQName = operationStateQName
 
-        self._safetyClassification = safetyClassification
-        self._codedValue = codedValue
+        self._safety_classification = safety_classification
+        self._coded_value = coded_value
         self.calls = []  # record when operation was called
 
     @property
@@ -197,21 +206,21 @@ class OperationDefinition:
         return self._handle
 
     @property
-    def operationTarget(self):
-        return self._operationTargetHandle
+    def operation_target_handle(self):
+        return self._operation_target_handle
 
     @property
-    def operationTargetStorage(self):
+    def operation_target_storage(self):
         return self._mdib.states
 
-    def executeOperation(self, request, argument):  # pylint: disable=unused-argument
+    def execute_operation(self, request, argument):  # pylint: disable=unused-argument
         """ This is the code that executes the operation itself.
-        A handler that executes the operation must be bound to observable "currentRequest"."""
+        A handler that executes the operation must be bound to observable "current_request"."""
         self.calls.append((time.time(), request))
-        self.currentRequest = request
-        self.currentArgument = argument
+        self.current_request = request
+        self.current_argument = argument
 
-    def setMdib(self, mdib, parentDescriptorContainer):
+    def set_mdib(self, mdib, parent_descriptor_container):
         """ The operation needs to know the mdib that it operates on.
         This is called by SubscriptionManager on registration.
         Needs to be implemented by derived classes if specific things have to be initialized."""
@@ -219,123 +228,125 @@ class OperationDefinition:
             raise RuntimeError('Mdib is already set')
         self._mdib = mdib
         self._logger.log_prefix = mdib.log_prefix  # use same prefix as mdib for logging
-        self._descriptorContainer = self._mdib.descriptions.handle.getOne(self._handle, allowNone=True)
-        if self._descriptorContainer is not None:
+        self._descriptor_container = self._mdib.descriptions.handle.getOne(self._handle, allowNone=True)
+        if self._descriptor_container is not None:
             # there is already a descriptor
             self._logger.info('descriptor for operation "{}" is already present, re-using it'.format(self._handle))
         else:
-            operationDescriptorClass = mdib.get_descriptor_container_class(self.OP_DESCR_QNAME)
-            self._descriptorContainer = operationDescriptorClass(
-                mdib.nsmapper, self._handle, parentDescriptorContainer.handle)
-            self._initOperationDescriptorContainer()
-            mdib.descriptions.add_object(self._descriptorContainer)
+            cls = mdib.get_descriptor_container_class(self.OP_DESCR_QNAME)
+            self._descriptor_container = cls(
+                mdib.nsmapper, self._handle, parent_descriptor_container.handle)
+            self._init_operation_descriptor_container()
+            mdib.descriptions.add_object(self._descriptor_container)
 
-        self._operationStateContainer = self._mdib.states.descriptorHandle.getOne(self._handle, allowNone=True)
-        if self._operationStateContainer is not None:
+        self._operation_state_container = self._mdib.states.descriptorHandle.getOne(self._handle, allowNone=True)
+        if self._operation_state_container is not None:
             self._logger.info('operation state for operation "{}" is already present, re-using it'.format(self._handle))
-            self._operationStateContainer.set_node_member()
+            self._operation_state_container.set_node_member()
         else:
-            operationStateClass = mdib.get_state_container_class(self.OP_STATE_QNAME)
-            self._operationStateContainer = operationStateClass(mdib.nsmapper, self._descriptorContainer)
-            self._operationStateContainer.set_node_member()
-            mdib.states.add_object(self._operationStateContainer)
+            cls = mdib.get_state_container_class(self.OP_STATE_QNAME)
+            self._operation_state_container = cls(mdib.nsmapper, self._descriptor_container)
+            self._operation_state_container.set_node_member()
+            mdib.states.add_object(self._operation_state_container)
 
         # now add the object that is target of operation
-        self._initOperationTargetContainer()
+        self._init_operation_target_container()
 
-    def _initOperationDescriptorContainer(self):
-        self._descriptorContainer.OperationTarget = self._operationTargetHandle
-        if self._codedValue is not None:
-            self._descriptorContainer.Type = self._codedValue
+    def _init_operation_descriptor_container(self):
+        self._descriptor_container.OperationTarget = self._operation_target_handle
+        if self._coded_value is not None:
+            self._descriptor_container.Type = self._coded_value
 
-    def _initOperationTargetContainer(self):
+    def _init_operation_target_container(self):
         """ Create the object that is manipulated by the operation"""
-        operationTargetDescriptor = self._mdib.descriptions.handle.getOne(self._operationTargetHandle)
-        self._operationTargetContainer = self._mdib.states.descriptorHandle.getOne(self._operationTargetHandle,
-                                                                                   allowNone=True)  # pylint:disable=protected-access
-        if self._operationTargetContainer is not None:
+        operation_target_descriptor = self._mdib.descriptions.handle.getOne(self._operation_target_handle)
+        self._operation_target_container = self._mdib.states.descriptorHandle.getOne(self._operation_target_handle,
+                                                                                     allowNone=True)  # pylint:disable=protected-access
+        if self._operation_target_container is not None:
             self._logger.info('operation target state for operation "{}" is already present, re-using it'.format(
-                self._operationTargetHandle))
+                self._operation_target_handle))
         else:
-            self._operationTargetContainer = self._mdib.mk_state_container_from_descriptor(
-                operationTargetDescriptor)
-            self._operationTargetContainer.set_node_member()
-            self._logger.info('creating {} DescriptorHandle = {}', self._operationTargetContainer.__class__.__name__,
-                              self._operationTargetHandle)
-            if self._operationTargetContainer is not None:
-                self.operationTargetStorage.add_object(self._operationTargetContainer)
+            self._operation_target_container = self._mdib.mk_state_container_from_descriptor(
+                operation_target_descriptor)
+            self._operation_target_container.set_node_member()
+            self._logger.info('creating {} DescriptorHandle = {}', self._operation_target_container.__class__.__name__,
+                              self._operation_target_handle)
+            if self._operation_target_container is not None:
+                self.operation_target_storage.add_object(self._operation_target_container)
 
-    def setOperatingMode(self, mode):
+    def set_operating_mode(self, mode):
         """ Mode is one of En, Dis, NA"""
-        with self._mdib.mdibUpdateTransaction() as tr:
-            st = tr.get_state(self._handle)
-            st.OperatingMode = mode
+        with self._mdib.transaction_manager() as mgr:
+            state = mgr.get_state(self._handle)
+            state.OperatingMode = mode
 
-    def collectValues(self, numberOfValues=None):
+    def collect_values(self, number_of_values=None):
         """ Async way to retrieve next value(s):
         Returns a Future-like object that has a result() method.
         For details see properties.SingleValueCollector and propertiesValuesCollector documentation.
         """
-        if numberOfValues is None:
-            return properties.SingleValueCollector(self, 'currentValue')
-        else:
-            return properties.ValuesCollector(self, 'currentValue', numberOfValues)
+        if number_of_values is None:
+            return properties.SingleValueCollector(self, 'current_value')
+        return properties.ValuesCollector(self, 'current_value', number_of_values)
 
     def __str__(self):
-        return '{} handle={} operationTarget={}'.format(self.__class__.__name__, self._handle,
-                                                        self._operationTargetHandle)
+        return '{} handle={} operation-target={}'.format(self.__class__.__name__, self._handle,
+                                                         self._operation_target_handle)
 
 
 class _SetStringOperation(OperationDefinition):
     OP_DESCR_QNAME = domTag('SetStringOperationDescriptor')
     OP_STATE_QNAME = domTag('SetStringOperationState')
+    OP_QNAME = msgTag('SetString')
 
-    def __init__(self, handle, operationTarget, initialValue=None, codedValue=None):
+    def __init__(self, handle, operation_target_handle, initial_value=None, coded_value=None):
         super().__init__(handle=handle,
-                         operationTarget=operationTarget,
-                         codedValue=codedValue)
-        self.currentValue = initialValue
+                         operation_target_handle=operation_target_handle,
+                         coded_value=coded_value)
+        self.current_value = initial_value
 
     @classmethod
-    def fromOperationContainer(cls, operationContainer):
-        return cls(handle=operationContainer.handle,
-                   operationTarget=operationContainer.OperationTarget,
-                   initialValue=None, codedValue=None)
+    def from_operation_container(cls, operation_container):
+        return cls(handle=operation_container.handle,
+                   operation_target_handle=operation_container.OperationTarget,
+                   initial_value=None, coded_value=None)
 
 
 class _SetValueOperation(OperationDefinition):
     OP_DESCR_QNAME = domTag('SetValueOperationDescriptor')
     OP_STATE_QNAME = domTag('SetValueOperationState')
+    OP_QNAME = msgTag('SetValue')
 
-    def __init__(self, handle, operationTarget, initialValue=None, codedValue=None):
+    def __init__(self, handle, operation_target_handle, initial_value=None, coded_value=None):
         super().__init__(handle=handle,
-                         operationTarget=operationTarget,
-                         codedValue=codedValue)
-        self.currentValue = initialValue
+                         operation_target_handle=operation_target_handle,
+                         coded_value=coded_value)
+        self.current_value = initial_value
 
 
 class _SetContextStateOperation(OperationDefinition):
     """Default implementation of SetContextOperation."""
     OP_DESCR_QNAME = domTag('SetContextStateOperationDescriptor')
     OP_STATE_QNAME = domTag('SetContextStateOperationState')
+    OP_QNAME = msgTag('SetContextState')
 
-    def __init__(self, handle, operationTarget, codedValue=None):
+    def __init__(self, handle, operation_target_handle, coded_value=None):
         super().__init__(handle,
-                         operationTarget,
-                         codedValue=codedValue)
+                         operation_target_handle,
+                         coded_value=coded_value)
 
     @property
-    def operationTargetStorage(self):
+    def operation_target_storage(self):
         return self._mdib.context_states
 
-    def _initOperationTargetContainer(self):
+    def _init_operation_target_container(self):
         """ initially no patient context is created."""
         pass
 
     @classmethod
-    def fromOperationContainer(cls, operationContainer):
-        return cls(handle=operationContainer.handle,
-                   operationTarget=operationContainer.OperationTarget)
+    def from_operation_container(cls, operation_container):
+        return cls(handle=operation_container.handle,
+                   operation_target_handle=operation_container.OperationTarget)
 
 
 class _ActivateOperation(OperationDefinition):
@@ -343,11 +354,12 @@ class _ActivateOperation(OperationDefinition):
     """
     OP_DESCR_QNAME = domTag('ActivateOperationDescriptor')
     OP_STATE_QNAME = domTag('ActivateOperationState')
+    OP_QNAME = msgTag('Activate')
 
-    def __init__(self, handle, operationTarget, codedValue=None):
+    def __init__(self, handle, operation_target_handle, coded_value=None):
         super().__init__(handle=handle,
-                         operationTarget=operationTarget,
-                         codedValue=codedValue)
+                         operation_target_handle=operation_target_handle,
+                         coded_value=coded_value)
 
 
 class _SetAlertStateOperation(OperationDefinition):
@@ -355,11 +367,12 @@ class _SetAlertStateOperation(OperationDefinition):
     """
     OP_DESCR_QNAME = domTag('SetAlertStateOperationDescriptor')
     OP_STATE_QNAME = domTag('SetAlertStateOperationState')
+    OP_QNAME = msgTag('SetAlertState')
 
-    def __init__(self, handle, operationTarget, codedValue=None, log_prefix=None):
+    def __init__(self, handle, operation_target_handle, coded_value=None, log_prefix=None):
         super().__init__(handle=handle,
-                         operationTarget=operationTarget,
-                         codedValue=codedValue,
+                         operation_target_handle=operation_target_handle,
+                         coded_value=coded_value,
                          log_prefix=log_prefix)
 
 
@@ -368,11 +381,12 @@ class _SetComponentStateOperation(OperationDefinition):
     """
     OP_DESCR_QNAME = domTag('SetComponentStateOperationDescriptor')
     OP_STATE_QNAME = domTag('SetComponentStateOperationState')
+    OP_QNAME = msgTag('SetComponentState')
 
-    def __init__(self, handle, operationTarget, codedValue=None, log_prefix=None):
+    def __init__(self, handle, operation_target_handle, coded_value=None, log_prefix=None):
         super().__init__(handle=handle,
-                         operationTarget=operationTarget,
-                         codedValue=codedValue,
+                         operation_target_handle=operation_target_handle,
+                         coded_value=coded_value,
                          log_prefix=log_prefix)
 
 
@@ -381,27 +395,26 @@ class _SetMetricStateOperation(OperationDefinition):
     """
     OP_DESCR_QNAME = domTag('SetMetricStateOperationDescriptor')
     OP_STATE_QNAME = domTag('SetMetricStateOperationState')
+    OP_QNAME = msgTag('SetMetricState')
 
-    def __init__(self, handle, operationTarget, codedValue=None, log_prefix=None):
+    def __init__(self, handle, operation_target_handle, coded_value=None, log_prefix=None):
         super().__init__(handle=handle,
-                         operationTarget=operationTarget,
-                         codedValue=codedValue,
+                         operation_target_handle=operation_target_handle,
+                         coded_value=coded_value,
                          log_prefix=log_prefix)
-
 
 
 # mapping of states: xsi:type information to classes
 # find all classes in this module that have a member "OP_DESCR_QNAME"
 _classes = inspect.getmembers(sys.modules[__name__],
-                             lambda member: inspect.isclass(member) and member.__module__ == __name__)
+                              lambda member: inspect.isclass(member) and member.__module__ == __name__)
 _classes_with_QNAME = [c[1] for c in _classes if hasattr(c[1], 'OP_DESCR_QNAME') and c[1].OP_DESCR_QNAME is not None]
 # make a dictionary from found classes: (Key is OP_DESCR_QNAME, value is the class itself
 _operation_lookup_by_type = dict([(c.OP_DESCR_QNAME, c) for c in _classes_with_QNAME])
 
 
-def getOperationClass(qNameType):
+def get_operation_class(q_name):
     """
     @param qNameType: a QName instance
     """
-    return _operation_lookup_by_type.get(qNameType)
-
+    return _operation_lookup_by_type.get(q_name)

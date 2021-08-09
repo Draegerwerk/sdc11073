@@ -182,7 +182,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self._max_realtime_samples = max_realtime_samples
         self._last_wf_age_log = time.time()
         if PROFILING:
-            self.pr = cProfile.Profile()
+            self.prof = cProfile.Profile()
 
         self._context_mdib_version = None
         self._msg_reader = sdc_client.msg_reader
@@ -195,13 +195,13 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     def init_mdib(self):
         if self._is_initialized:
             raise RuntimeError('ClientMdibContainer is already initialized')
-        # first start receiving notifications, then call getMdib.
+        # first start receiving notifications, then call get_mdib.
         # Otherwise we might miss notifications.
         self._bind_to_observables()
 
         get_service = self._sdc_client.client('Get')
         self._logger.info('initializing mdib...')
-        mdib_node = get_service.getMdibNode()
+        mdib_node = get_service.get_mdib_node()
         self.nsmapper.use_doc_prefixes(mdib_node.nsmap)
         self._logger.info('creating description containers...')
         descriptor_containers = self._msg_reader.read_mddescription(mdib_node, self)
@@ -270,7 +270,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         try:
             self._logger.info('_sync_context_states called')
             context_service = self._sdc_client.client('Context')
-            response_node = context_service.getContextStatesNode()
+            response_node = context_service.get_context_states_node()
             self._logger.info('creating context state containers...')
             context_state_containers = self._msg_reader.read_contextstates(response_node, self)
             devices_context_state_handles = [s.Handle for s in context_state_containers]
@@ -287,7 +287,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             time.sleep(0.001)
             context_service = self._sdc_client.client('Context')
             self._logger.info('requesting context states...')
-            response_node = context_service.getContextStatesNode(handles)
+            response_node = context_service.get_context_states_node(handles)
             self._logger.info('creating context state containers...')
             context_state_containers = self._msg_reader.read_contextstates(response_node, self)
 
@@ -323,15 +323,15 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     def _bind_to_observables(self):
         # observe properties of sdcClient
         if PROFILING:
-            properties.bind(self._sdc_client, waveFormReport=self._on_waveform_report_profiled)
+            properties.bind(self._sdc_client, waveform_report=self._on_waveform_report_profiled)
         else:
-            properties.bind(self._sdc_client, waveFormReport=self._on_waveform_report)
-        properties.bind(self._sdc_client, episodicMetricReport=self._on_episodic_metric_report)
-        properties.bind(self._sdc_client, episodicAlertReport=self._on_episodic_alert_report)
-        properties.bind(self._sdc_client, episodicContextReport=self._on_episodic_context_report)
-        properties.bind(self._sdc_client, episodicComponentReport=self._on_episodic_component_report)
-        properties.bind(self._sdc_client, descriptionModificationReport=self._on_description_modification_report)
-        properties.bind(self._sdc_client, episodicOperationalStateReport=self._on_operational_state_report)
+            properties.bind(self._sdc_client, waveform_report=self._on_waveform_report)
+        properties.bind(self._sdc_client, episodic_metric_report=self._on_episodic_metric_report)
+        properties.bind(self._sdc_client, episodic_alert_report=self._on_episodic_alert_report)
+        properties.bind(self._sdc_client, episodic_context_report=self._on_episodic_context_report)
+        properties.bind(self._sdc_client, episodic_component_report=self._on_episodic_component_report)
+        properties.bind(self._sdc_client, description_modification_report=self._on_description_modification_report)
+        properties.bind(self._sdc_client, episodic_operational_state_report=self._on_operational_state_report)
 
     def _can_accept_mdib_version(self, log_prefix, new_mdib_version):
         if self.MDIB_VERSION_CHECK_DISABLED:
@@ -389,12 +389,12 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 self.mdib_version = new_mdib_version
                 self._update_sequence_id(report_node)
                 for state_container in state_containers:
-                    if state_container.descriptorContainer is not None and state_container.descriptorContainer.DescriptorVersion != state_container.DescriptorVersion:
+                    if state_container.descriptor_container is not None and state_container.descriptor_container.DescriptorVersion != state_container.DescriptorVersion:
                         self._logger.warn(
                             '_on_episodic_metric_report: metric "{}": descriptor version expect "{}", found "{}"',
                             state_container.descriptorHandle, state_container.DescriptorVersion,
-                            state_container.descriptorContainer.DescriptorVersion)
-                        state_container.descriptorContainer = None
+                            state_container.descriptor_container.DescriptorVersion)
+                        state_container.descriptor_container = None
                     try:
                         old_state_container = self.states.descriptorHandle.getOne(state_container.descriptorHandle,
                                                                                   allowNone=True)
@@ -454,12 +454,12 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 self.mdib_version = new_mdib_version
                 self._update_sequence_id(report_node)
                 for state_container in state_containers:
-                    if state_container.descriptorContainer is not None and state_container.descriptorContainer.DescriptorVersion != state_container.DescriptorVersion:
+                    if state_container.descriptor_container is not None and state_container.descriptor_container.DescriptorVersion != state_container.DescriptorVersion:
                         self._logger.warn(
                             '_on_episodic_alert_report: alert "{}": descriptor version expect "{}", found "{}"',
                             state_container.descriptorHandle, state_container.DescriptorVersion,
-                            state_container.descriptorContainer.DescriptorVersion)
-                        state_container.descriptorContainer = None
+                            state_container.descriptor_container.DescriptorVersion)
+                        state_container.descriptor_container = None
                     try:
                         old_state_container = self.states.descriptorHandle.getOne(state_container.descriptorHandle,
                                                                                   allowNone=True)
@@ -494,13 +494,13 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 self.mdib_version = new_mdib_version
                 self._update_sequence_id(report_node)
                 for state_container in all_operation_state_containers:
-                    if state_container.descriptorContainer is not None and \
-                            state_container.descriptorContainer.DescriptorVersion != state_container.DescriptorVersion:
+                    if state_container.descriptor_container is not None and \
+                            state_container.descriptor_container.DescriptorVersion != state_container.DescriptorVersion:
                         self._logger.warn(
                             '_on_operational_state_report: OperationState "{}": descriptor version expect "{}", found "{}"',
                             state_container.descriptorHandle, state_container.DescriptorVersion,
-                            state_container.descriptorContainer.DescriptorVersion)
-                        state_container.descriptorContainer = None
+                            state_container.descriptor_container.DescriptorVersion)
+                        state_container.descriptor_container = None
                     try:
                         old_state_container = self.states.descriptorHandle.getOne(state_container.descriptorHandle,
                                                                                   allowNone=True)
@@ -520,11 +520,11 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             self.operation_by_handle = operation_by_handle
 
     def _on_waveform_report_profiled(self, report_node):
-        self.pr.enable()
+        self.prof.enable()
         self._on_waveform_report(report_node)
-        self.pr.disable()
+        self.prof.disable()
         str_io = StringIO()
-        stats = pstats.Stats(self.pr, stream=str_io).sort_stats('cumulative')
+        stats = pstats.Stats(self.prof, stream=str_io).sort_stats('cumulative')
         stats.print_stats(30)
         print(str_io.getvalue())
         print('total number of states: {}'.format(len(self.states._objects)))  # pylint:disable=protected-access
@@ -551,7 +551,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 self._update_sequence_id(report_node)
                 for new_sac in all_rtsamplearray_containers:
                     d_handle = new_sac.descriptorHandle
-                    descriptor_container = new_sac.descriptorContainer
+                    descriptor_container = new_sac.descriptor_container
                     if descriptor_container is None:
                         self._logger.warn('_on_waveform_report: No Descriptor found for handle "{}"', d_handle)
 

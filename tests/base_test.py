@@ -25,15 +25,15 @@ class BaseTest(unittest.TestCase):
     def setUpCocoDraft10(self):
         self.cocoFinalLocation = SdcLocation(fac='tklx', poc='CU1', bed='cocoDraft10Bed')
 
-        self.sdcDeviceCoCoFinal = SomeDevice.fromMdibFile(self.wsdiscovery, None, '70041_MDIB_Final.xml')
-        self.sdcDeviceCoCoFinal.startAll()
-        self.sdcDeviceCoCoFinal.setLocation(self.cocoFinalLocation, self._locValidators)
-        xAddr = self.sdcDeviceCoCoFinal.getXAddrs()
+        self.sdcDeviceCoCoFinal = SomeDevice.from_mdib_file(self.wsdiscovery, None, '70041_MDIB_Final.xml')
+        self.sdcDeviceCoCoFinal.start_all()
+        self.sdcDeviceCoCoFinal.set_location(self.cocoFinalLocation, self._locValidators)
+        xAddr = self.sdcDeviceCoCoFinal.get_xaddrs()
         self.sdcClientCocoFinal = SdcClient(xAddr[0],
                                             deviceType=self.sdcDeviceCoCoFinal.mdib.sdc_definitions.MedicalDeviceType,
                                             validate=True)
-        self.sdcClientCocoFinal.startAll()
+        self.sdcClientCocoFinal.start_all()
 
     def stopDraft10(self):
-        self.sdcClientCocoFinal.stopAll()
-        self.sdcDeviceCoCoFinal.stopAll()
+        self.sdcClientCocoFinal.stop_all()
+        self.sdcDeviceCoCoFinal.stop_all()

@@ -18,23 +18,23 @@ class TestSoapEnvelope(unittest.TestCase):
   </m:alert>
  </env:Body>
 </env:Envelope>'''
-        env = soapenvelope.ReceivedSoap12Envelope.fromXMLString(xml)
+        env = soapenvelope.ReceivedSoap12Envelope.from_xml_string(xml)
         
         # verify that document was parsed
-        self.assertTrue(env.headerNode is not None)
-        self.assertTrue(env.bodyNode is not None)
+        self.assertTrue(env.header_node is not None)
+        self.assertTrue(env.body_node is not None)
         
-        tmp = env.headerNode.find('n:alertcontrol', {'n': 'http://example.org/alertcontrol'})
+        tmp = env.header_node.find('n:alertcontrol', {'n': 'http://example.org/alertcontrol'})
         self.assertTrue(tmp is not None)
 
-        tmp = env.bodyNode.find('m:alert', {'m': 'http://example.org/alert'})
+        tmp = env.body_node.find('m:alert', {'m': 'http://example.org/alert'})
         self.assertTrue(tmp is not None)
 
-        env = soapenvelope.ReceivedSoap12Envelope.fromXMLString(xml)
+        env = soapenvelope.ReceivedSoap12Envelope.from_xml_string(xml)
         
         # verify that document was 
-        self.assertTrue(env.headerNode is not None)
-        self.assertTrue(env.bodyNode is not None)
+        self.assertTrue(env.header_node is not None)
+        self.assertTrue(env.body_node is not None)
 
 
     def test_adressing_fromXML(self):
@@ -56,17 +56,17 @@ class TestSoapEnvelope(unittest.TestCase):
   </m:alert>
  </env:Body>
 </env:Envelope>'''
-        env = soapenvelope.DPWSEnvelope.fromXMLString(xml)
+        env = soapenvelope.DPWSEnvelope.from_xml_string(xml)
         
         # verify that document was parsed
-        self.assertTrue(env.headerNode is not None)
-        self.assertTrue(env.bodyNode is not None)
+        self.assertTrue(env.header_node is not None)
+        self.assertTrue(env.body_node is not None)
         
-        self.assertEqual(env.address.messageId, 'http://example.com/someuniquestring' )
-        self.assertEqual(env.address.to, 'mailto:fabrikam@example.com' )
-        self.assertEqual(env.address.from_, None )
-        self.assertEqual(env.address.replyTo.address, 'http://example.com/business/client1' )
-        self.assertEqual(env.address.faultTo.address, 'http://example.com/business/client2' )
+        self.assertEqual(env.address.message_id, 'http://example.com/someuniquestring' )
+        self.assertEqual(env.address.addr_to, 'mailto:fabrikam@example.com' )
+        self.assertEqual(env.address.addr_from, None )
+        self.assertEqual(env.address.reply_to.address, 'http://example.com/business/client1' )
+        self.assertEqual(env.address.fault_to.address, 'http://example.com/business/client2' )
         self.assertEqual(env.address.action, 'http://example.com/fabrikam/mail/Delete' )
         
 
@@ -106,20 +106,20 @@ class TestSoapEnvelope(unittest.TestCase):
    </wsx:Metadata>
  </env:Body>
 </env:Envelope>'''
-        env = soapenvelope.DPWSEnvelope.fromXMLString(xml)
+        env = soapenvelope.DPWSEnvelope.from_xml_string(xml)
         
         # verify that document was parsed
-        self.assertTrue(env.headerNode is not None)
-        self.assertTrue(env.bodyNode is not None)
+        self.assertTrue(env.header_node is not None)
+        self.assertTrue(env.body_node is not None)
         
-        self.assertEqual(env.thisModel.manufacturer[None], 'ACME Manufacturing' )
-        self.assertEqual(env.thisModel.modelName['en-GB'], 'ColourBeam 9' )
-        self.assertEqual(env.thisModel.modelName['en-US'], 'ColorBeam 9' )
+        self.assertEqual(env.this_model.manufacturer[None], 'ACME Manufacturing' )
+        self.assertEqual(env.this_model.model_name['en-GB'], 'ColourBeam 9' )
+        self.assertEqual(env.this_model.model_name['en-US'], 'ColorBeam 9' )
 
-        self.assertEqual(env.thisDevice.friendlyName['en-GB'], 'My Device' )
-        self.assertEqual(env.thisDevice.friendlyName['de-DE'], 'Meine Kiste' )
-        self.assertEqual(env.thisDevice.firmwareVersion, '12.2' )
-        self.assertEqual(env.thisDevice.serialNumber, '123_abc' )
+        self.assertEqual(env.this_device.friendly_name['en-GB'], 'My Device' )
+        self.assertEqual(env.this_device.friendly_name['de-DE'], 'Meine Kiste' )
+        self.assertEqual(env.this_device.firmware_version, '12.2' )
+        self.assertEqual(env.this_device.serial_number, '123_abc' )
 
 
 
@@ -160,20 +160,20 @@ class TestSoapEnvelope(unittest.TestCase):
    </wsx:Metadata>
  </env:Body>
 </env:Envelope>'''
-        env = soapenvelope.DPWSEnvelope.fromXMLString(xml)
+        env = soapenvelope.DPWSEnvelope.from_xml_string(xml)
         
         # verify that document was parsed
-        self.assertTrue(env.headerNode is not None)
-        self.assertTrue(env.bodyNode is not None)
+        self.assertTrue(env.header_node is not None)
+        self.assertTrue(env.body_node is not None)
         
-        self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].endpointReferences[0].address, 'http://172.30.184.244/print')
-        self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].endpointReferences[1].address, 'http://[fdaa:23]/print1')
+        self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].endpoint_references[0].address, 'http://172.30.184.244/print')
+        self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].endpoint_references[1].address, 'http://[fdaa:23]/print1')
         self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].types[0], 'img:PrintBasicPortType')
         self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].types[1], 'img:PrintAdvancedPortType')
-        self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].serviceId, 'http://printer.example.org/imaging/PrintService')
+        self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].service_id, 'http://printer.example.org/imaging/PrintService')
 
-        self.assertEqual(env.host.endpointReferences[0].address, 'http://172.30.184.244/host')
-        self.assertEqual(env.host.endpointReferences[1].address, 'http://[fdaa:23]/host1')
+        self.assertEqual(env.host.endpoint_references[0].address, 'http://172.30.184.244/host')
+        self.assertEqual(env.host.endpoint_references[1].address, 'http://[fdaa:23]/host1')
         self.assertEqual(env.host.types[0], 'img:HostPortType')
         self.assertEqual(env.host.types[1], 'img:HostAdvancedPortType')
 

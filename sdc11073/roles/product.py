@@ -1,9 +1,9 @@
-from sdc11073.roles import operationprovider
 from . import alarmprovider
 from . import audiopauseprovider
 from . import clockprovider
-from . import metricprovider
 from . import contextprovider
+from . import metricprovider
+from . import operationprovider
 from . import patientcontextprovider
 from . import providerbase
 from .. import loghelper
@@ -11,66 +11,64 @@ from .. import namespaces
 
 
 class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
-    '''
+    """
     Responsible for SetComponentState Operations
-    '''
+    """
 
-    def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
-        ''' Can handle following cases:
-        SetComponentStateOperationDescriptor, target = any AbstractComponentDescriptor: => handler = _setComponentState
-        '''
-        operationTargetHandle = operationDescriptorContainer.OperationTarget
-        operationTargetDescriptorContainer = self._mdib.descriptions.handle.getOne(operationTargetHandle)
+    def make_operation_instance(self, operation_descriptor_container, operations_factory):
+        """ Can handle following cases:
+        SetComponentStateOperationDescriptor, target = any AbstractComponentDescriptor: => handler = _set_component_state
+        """
+        operation_target_handle = operation_descriptor_container.OperationTarget
+        op_target_descriptor_container = self._mdib.descriptions.handle.getOne(operation_target_handle)
 
-        if operationDescriptorContainer.NODETYPE == namespaces.domTag('SetComponentStateOperationDescriptor'):
-            if operationTargetDescriptorContainer.NODETYPE in (namespaces.domTag('MdsDescriptor'),
-                                                               namespaces.domTag('ChannelDescriptor'),
-                                                               namespaces.domTag('VmdDescriptor'),
-                                                               namespaces.domTag('ClockDescriptor'),
-                                                               namespaces.domTag('ScoDescriptor'),
-                                                               ):
+        if operation_descriptor_container.NODETYPE == namespaces.domTag('SetComponentStateOperationDescriptor'):
+            if op_target_descriptor_container.NODETYPE in (namespaces.domTag('MdsDescriptor'),
+                                                           namespaces.domTag('ChannelDescriptor'),
+                                                           namespaces.domTag('VmdDescriptor'),
+                                                           namespaces.domTag('ClockDescriptor'),
+                                                           namespaces.domTag('ScoDescriptor'),
+                                                           ):
                 op_cls = operations_factory(namespaces.domTag('SetComponentStateOperationDescriptor'))
-                operation = self._mkOperation(op_cls,
-                                              handle=operationDescriptorContainer.handle,
-                                              operationTargetHandle=operationTargetHandle,
-                                              codedValue=operationDescriptorContainer.Type,
-                                              currentArgumentHandler=self._setComponentState)
+                operation = self._mk_operation(op_cls,
+                                               handle=operation_descriptor_container.handle,
+                                               operation_target_handle=operation_target_handle,
+                                               codedValue=operation_descriptor_container.Type,
+                                               current_argument_handler=self._set_component_state)
                 return operation
-            return None  # the operation target is no AbstractDeviceComponentDescriptor
-        elif operationDescriptorContainer.NODETYPE == namespaces.domTag('ActivateOperationDescriptor'):
+        elif operation_descriptor_container.NODETYPE == namespaces.domTag('ActivateOperationDescriptor'):
             #  on what can activate be called?
-            if operationTargetDescriptorContainer.NODETYPE in (namespaces.domTag('MdsDescriptor'),
-                                                               namespaces.domTag('ChannelDescriptor'),
-                                                               namespaces.domTag('VmdDescriptor'),
-                                                               namespaces.domTag('ScoDescriptor'),
-                                                               ):
+            if op_target_descriptor_container.NODETYPE in (namespaces.domTag('MdsDescriptor'),
+                                                           namespaces.domTag('ChannelDescriptor'),
+                                                           namespaces.domTag('VmdDescriptor'),
+                                                           namespaces.domTag('ScoDescriptor'),
+                                                           ):
                 # no generic handler to be called!
                 op_cls = operations_factory(namespaces.domTag('ActivateOperationDescriptor'))
-                return self._mkOperation(op_cls,
-                                         handle=operationDescriptorContainer.handle,
-                                         operationTargetHandle=operationTargetHandle,
-                                         codedValue=operationDescriptorContainer.Type)
-            return None
+                return self._mk_operation(op_cls,
+                                          handle=operation_descriptor_container.handle,
+                                          operation_target_handle=operation_target_handle,
+                                          codedValue=operation_descriptor_container.Type)
+        return None
 
-    def _setComponentState(self, operationInstance, value):
-        '''
+    def _set_component_state(self, operation_instance, value):
+        """
 
-        :param operationInstance: the operation
+        :param operation_instance: the operation
         :param value: a list of proposed metric states
         :return:
-        '''
+        """
         # ToDo: consider ModifiableDate attribute
-        operationInstance.currentValue = value
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            for proposedComponentState in value:
-                #state = mgr.getComponentState(proposedComponentState.descriptorHandle)
-                state = mgr.get_state(proposedComponentState.descriptorHandle)
+        operation_instance.current_value = value
+        with self._mdib.transaction_manager() as mgr:
+            for proposed_state in value:
+                state = mgr.get_state(proposed_state.descriptorHandle)
                 if state.isComponentState:
                     self._logger.info('updating {} with proposed component state', state)
-                    state.update_from_other_container(proposedComponentState,
+                    state.update_from_other_container(proposed_state,
                                                       skipped_properties=['StateVersion', 'DescriptorVersion'])
                 else:
-                    self._logger.warn('_setComponentState operation: ignore invalid referenced type {} in operation',
+                    self._logger.warn('_set_component_state operation: ignore invalid referenced type {} in operation',
                                       state.NODETYPE)
 
 
@@ -95,28 +93,28 @@ class BaseProduct:
     def _all_providers_sorted(self):
         return self._ordered_providers
         # # specialized roles first, generic roles last
-        # return self._withoutNoneValues([self.audiopause_provider, self.daynight_provider, self.clock_provider,
+        # return self._without_none_values([self.audiopause_provider, self.daynight_provider, self.clock_provider,
         #         self.patientcontext_provider, self.alarm_provider,
         #         self.metric_provider, self.ensembleContextProvider, self.operation_provider,
         #         self.contextstate_provider,
         #         self.componentstate_provider])
 
     @staticmethod
-    def _withoutNoneValues(some_list):
+    def _without_none_values(some_list):
         return [e for e in some_list if e is not None]
 
-    def initOperations(self, mdib, sco):
+    def init_operations(self, mdib, sco):
+        """ register all actively provided operations """
         self._mdib = mdib
-        ''' register all actively provided operations '''
         for role_handler in self._all_providers_sorted():
-            role_handler.initOperations(mdib)
+            role_handler.init_operations(mdib)
 
-        self._registerExistingMdibOperations(sco)
+        self._register_existing_mdib_operations(sco)
 
         for role_handler in self._all_providers_sorted():
-            ops = role_handler.makeMissingOperations(sco.operations_factory)
-            for op in ops:
-                sco.registerOperation(op)
+            operations = role_handler.make_missing_operations(sco.operations_factory)
+            for operation in operations:
+                sco.register_operation(operation)
 
         # log all operations that do not have a handler now
         all_mdib_ops = []
@@ -129,68 +127,68 @@ class BaseProduct:
                          namespaces.domTag('ActivateOperationDescriptorContainer')]:
             all_mdib_ops.extend(self._mdib.descriptions.NODETYPE.get(nodetype, []))
         all_mdib_op_handles = [op.Handle for op in all_mdib_ops]
-        all_not_registered_op_handles = [op_h for op_h in all_mdib_op_handles if sco.getOperationByHandle(op_h) is None]
+        all_not_registered_op_handles = [op_h for op_h in all_mdib_op_handles if sco.get_operation_by_handle(op_h) is None]
         if not all_mdib_op_handles:
             self._logger.info('this device has no operations in mdib.')
         elif all_not_registered_op_handles:
             self._logger.info('there are operations without handler! handles = {}', all_not_registered_op_handles)
         else:
             self._logger.info('there are no operations without handler.')
-        mdib.mkStateContainersforAllDescriptors()
-        mdib.preCommitHandler = self._onPreCommit
-        mdib.postCommitHandler = self._onPostCommit
+        mdib.mk_state_containers_for_all_descriptors()
+        mdib.pre_commit_handler = self._on_pre_commit
+        mdib.post_commit_handler = self._on_post_commit
 
     def stop(self):
         for role_handler in self._all_providers_sorted():
             role_handler.stop()
 
-    def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
-        ''' try to get an operation for this operationDescriptorContainer ( given in mdib) '''
-        operationTargetHandle = operationDescriptorContainer.OperationTarget
-        operationTargetDescr = self._mdib.descriptions.handle.getOne(operationTargetHandle,
-                                                                     allowNone=True)  # descriptor container
-        if operationTargetDescr is None:
+    def make_operation_instance(self, operation_descriptor_container, operations_factory):
+        """ try to get an operation for this operation_descriptor_container ( given in mdib) """
+        operation_target_handle = operation_descriptor_container.OperationTarget
+        operation_target_descr = self._mdib.descriptions.handle.getOne(operation_target_handle,
+                                                                       allowNone=True)  # descriptor container
+        if operation_target_descr is None:
             # this operation is incomplete, the operation target does not exist. Registration not possible.
             self._logger.warn(
                 'Operation {}: target {} does not exist, will not register operation'.format(
-                    operationDescriptorContainer.handle, operationTargetHandle))
-            return
+                    operation_descriptor_container.handle, operation_target_handle))
+            return None
         for role_handler in self._all_providers_sorted():
-            op = role_handler.makeOperationInstance(operationDescriptorContainer, operations_factory)
-            if op is not None:
+            operation = role_handler.make_operation_instance(operation_descriptor_container, operations_factory)
+            if operation is not None:
                 self._logger.info('{} provided operation for {}'.format(role_handler.__class__.__name__,
-                                                                        operationDescriptorContainer))
-                return op
-            else:
-                self._logger.debug('{}: no handler for {}'.format(op.__class__.__name__, operationDescriptorContainer))
+                                                                        operation_descriptor_container))
+                return operation
+            self._logger.debug(
+                '{}: no handler for {}'.format(operation.__class__.__name__, operation_descriptor_container))
         return None
 
-    def _registerExistingMdibOperations(self, sco):
-        operationDescriptorContainers = self._mdib.get_operation_descriptors()
-        for c in operationDescriptorContainers:
-            registered_op = sco.getOperationByHandle(c.handle)
+    def _register_existing_mdib_operations(self, sco):
+        operation_descriptor_containers = self._mdib.get_operation_descriptors()
+        for descriptor in operation_descriptor_containers:
+            registered_op = sco.get_operation_by_handle(descriptor.handle)
             if registered_op is None:
                 self._logger.info('found unregistered {} in mdib, handle={}, code={} target={}'.format(
-                    c.NODETYPE.localname, c.Handle, c.Type, c.OperationTarget))
-                op = self.makeOperationInstance(c, sco.operations_factory)
-                if op is not None:
-                    sco.registerOperation(op)
+                    descriptor.NODETYPE.localname, descriptor.Handle, descriptor.Type, descriptor.OperationTarget))
+                operation = self.make_operation_instance(descriptor, sco.operations_factory)
+                if operation is not None:
+                    sco.register_operation(operation)
 
-    def _onPreCommit(self, mdib, transaction):
-        for p in self._all_providers_sorted():
-            p.onPreCommit(mdib, transaction)
-        self._addMissingStatesToTransaction(mdib, transaction)
+    def _on_pre_commit(self, mdib, transaction):
+        for provider in self._all_providers_sorted():
+            provider.on_pre_commit(mdib, transaction)
+        self._add_missing_states_to_transaction(mdib, transaction)
 
-    def _onPostCommit(self, mdib, transaction):
-        for p in self._all_providers_sorted():
-            p.onPostCommit(mdib, transaction)
-        self._removeStatesForDeletedDescriptors(mdib, transaction)
+    def _on_post_commit(self, mdib, transaction):
+        for provider in self._all_providers_sorted():
+            provider.on_post_commit(mdib, transaction)
+        self._remove_states_for_deleted_descriptors(mdib, transaction)
 
-    def _removeStatesForDeletedDescriptors(self, mdib, transaction):
-        '''
+    def _remove_states_for_deleted_descriptors(self, mdib, transaction):
+        """
         remove states from mdib for deleted descriptors
         :return:
-        '''
+        """
         for tr_item in transaction.descriptor_updates.values():
             if tr_item.new is None:
                 # deleted descriptor
@@ -201,19 +199,19 @@ class BaseProduct:
                 if objects:
                     mdib.context_states.remove_objects(objects)
 
-    def _addMissingStatesToTransaction(self, mdib, transaction):
-        '''
+    def _add_missing_states_to_transaction(self, mdib, transaction):
+        """
         add states to new descriptors if they are not part of this transaction
-        '''
+        """
         for tr_item in transaction.descriptor_updates.values():
             if tr_item.old is None:
                 # new descriptor
                 state_cls = mdib.get_state_class_for_descriptor(tr_item.new)
                 if not state_cls.isMultiState:
                     if not transaction.has_state(tr_item.new.handle):
-                        st = state_cls(mdib.nsmapper, tr_item.new)
-                        st.set_node_member()
-                        transaction.add_state(st)
+                        state = state_cls(mdib.nsmapper, tr_item.new)
+                        state.set_node_member()
+                        transaction.add_state(state)
 
 
 class GenericProduct(BaseProduct):

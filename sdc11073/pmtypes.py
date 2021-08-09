@@ -14,7 +14,7 @@ from .namespaces import domTag, QN_TYPE, docname_from_qname, text_to_qname
 class StringEnum(str, enum.Enum):
 
     def __str__(self):
-        return self.value
+        return str(self.value)
 
 
 class PropertyBasedPMType:
@@ -26,7 +26,7 @@ class PropertyBasedPMType:
         return node
 
     def update_node(self, node):
-        for prop_name, prop in self._sorted_container_properties():
+        for prop_name, prop in self.sorted_container_properties():
             try:
                 prop.update_xml_value(self, node)
             except Exception as ex:
@@ -34,15 +34,15 @@ class PropertyBasedPMType:
                     self.__class__.__name__, prop_name, str(prop), traceback.format_exc()))
 
     def update_from_node(self, node):
-        for dummy, prop in self._sorted_container_properties():
+        for dummy, prop in self.sorted_container_properties():
             prop.update_from_node(self, node)
 
     def update_from_other(self, other):
         """copies the python values, no xml involved"""
-        for dummy, prop in self._sorted_container_properties():
+        for dummy, prop in self.sorted_container_properties():
             prop.update_from_other(self, other)
 
-    def _sorted_container_properties(self):
+    def sorted_container_properties(self):
         """
         @return: a list of (name, object) tuples of all GenericProperties ( and subclasses)
         list is created based on _props lists of classes
@@ -63,7 +63,7 @@ class PropertyBasedPMType:
     def __eq__(self, other):
         """ compares all properties"""
         try:
-            for name, dummy in self._sorted_container_properties():
+            for name, dummy in self.sorted_container_properties():
                 my_value = getattr(self, name)
                 other_value = getattr(other, name)
                 if my_value == other_value:
@@ -79,7 +79,7 @@ class PropertyBasedPMType:
         return not self == other
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({self._sorted_container_properties()})'
+        return f'{self.__class__.__name__}({self.sorted_container_properties()})'
 
     @classmethod
     def from_node(cls, node):
@@ -612,7 +612,7 @@ class AbstractMetricValue(PropertyBasedPMType):
             self.MetricQuality.Validity = MeasurementValidity.VALID  # pylint: disable=invalid-name
 
     def update_from_node(self, node):
-        for dummy, prop in self._sorted_container_properties():
+        for dummy, prop in self.sorted_container_properties():
             prop.update_from_node(self, node)
         self.node = node
 
@@ -643,7 +643,7 @@ class NumericMetricValue(AbstractMetricValue):
     def __eq__(self, other):
         """ compares all properties, special handling of Value member"""
         try:
-            for name, dummy in self._sorted_container_properties():
+            for name, dummy in self.sorted_container_properties():
                 if name == 'Value':
                     # check if more than 0.01 off
                     my_value = getattr(self, name)
@@ -721,7 +721,7 @@ class SampleArrayValue(AbstractMetricValue):
     def __eq__(self, other):
         """ compares all properties, special handling of Value member"""
         try:
-            for name, dummy in self._sorted_container_properties():
+            for name, dummy in self.sorted_container_properties():
                 if name == 'Samples':
                     ownsample = getattr(self, name)
                     othersample = getattr(other, name)

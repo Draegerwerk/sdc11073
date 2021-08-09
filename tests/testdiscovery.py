@@ -156,7 +156,7 @@ class TestDiscovery(unittest.TestCase):
         testlog.info('search done.') 
         
         for service in services:
-            testlog.info('found service: {} : {}'.format(service.epr, service.getXAddrs()))
+            testlog.info('found service: {} : {}'.format(service.epr, service.get_x_addrs()))
         myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
 
@@ -207,7 +207,7 @@ class TestDiscovery(unittest.TestCase):
         testlog.info('search done.')
 
         for service in services:
-            testlog.info('found service: {} : {}'.format(service.epr, service.getXAddrs()))
+            testlog.info('found service: {} : {}'.format(service.epr, service.get_x_addrs()))
         myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
         self.assertEqual(myServices[0].types, [ttype])
@@ -234,7 +234,7 @@ class TestDiscovery(unittest.TestCase):
         testlog.info('search done.')
 
         for service in services:
-            testlog.info('found service: {} : {}'.format(service.epr, service.getXAddrs()))
+            testlog.info('found service: {} : {}'.format(service.epr, service.get_x_addrs()))
         myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
         self.assertEqual(myServices[0].types, [ttype])
@@ -261,7 +261,7 @@ class TestDiscovery(unittest.TestCase):
         testlog.info('search done.')
 
         for service in services:
-            testlog.info('found service: {} : {}'.format(service.epr, service.getXAddrs()))
+            testlog.info('found service: {} : {}'.format(service.epr, service.get_x_addrs()))
         myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
         self.assertEqual(myServices[0].types, [ttype])
@@ -311,7 +311,7 @@ class TestDiscovery(unittest.TestCase):
         testlog.info('search done.') 
         
         for service in services:
-            testlog.info('found service: {} : {}'.format(service.epr, service.getXAddrs()))
+            testlog.info('found service: {} : {}'.format(service.epr, service.get_x_addrs()))
         myServices = [s for s in services if 'my_epr' in s.epr] # there might be other devices in the network
         self.assertEqual(len(myServices), deviceCount)
 

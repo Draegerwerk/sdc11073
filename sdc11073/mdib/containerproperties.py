@@ -576,8 +576,8 @@ class ExtensionNodeProperty(_NodeProperty):
             del sub_node[:]  # delete all children first
 
             for tag, val in extension_local_value.value.items():
-                if isinstance(val, etree_._Element):
-                    _node = val  # .extend([copy.copy(n) for n in val])
+                if isinstance(val, etree_._Element):  #pylint: disable=protected-access
+                    _node = val
                 else:
                     _node = val.as_etree_node(tag, node.nsmap)
                 sub_node.append(copy.copy(_node))

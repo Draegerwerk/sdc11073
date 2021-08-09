@@ -18,10 +18,10 @@ class Test_Device(unittest.TestCase):
                                bed='Bed')
     
 #        self.sdcDevice = CoCoDeviceAnesthesia(self.wsd, my_uuid=None, useSSL=False)
-        self.sdcDevice = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml')
-        self.sdcDevice.startAll()
+        self.sdcDevice = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
+        self.sdcDevice.start_all()
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdcDevice.setLocation(location, self._locValidators)
+        self.sdcDevice.set_location(location, self._locValidators)
 
         time.sleep(0.1) # allow full init of device
         
@@ -32,20 +32,20 @@ class Test_Device(unittest.TestCase):
     def tearDown(self):
         print ('############### tearDown {}... ##############'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### tearDown {} ... ##############'.format(self._testMethodName))
-        self.sdcDevice.stopAll()
+        self.sdcDevice.stop_all()
         self.wsd.stop()
 
 
     def test_restart(self):
         ''' Starting 2nd device with existing mdib shall not raise an exception'''
-        self.sdcDevice.stopAll()
+        self.sdcDevice.stop_all()
 #        sdcDevice2 = CoCoDeviceAnesthesia(self.wsd, my_uuid=None, useSSL=False,
-#                                          deviceMdibContainer=self.sdcDevice.mdib)
-        sdcDevice2 = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml')
+#                                          device_mdib_container=self.sdcDevice.mdib)
+        sdcDevice2 = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         try:
-            sdcDevice2.startAll()
+            sdcDevice2.start_all()
         finally:
-            sdcDevice2.stopAll()
+            sdcDevice2.stop_all()
             
 
 

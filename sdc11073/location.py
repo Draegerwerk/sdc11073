@@ -90,11 +90,11 @@ class SdcLocation:
         if self.root != other.root:
             return False
         for my_attr, other_attr in ((self.fac, other.fac),
-                           (self.bld, other.bld),
-                           (self.poc, other.poc),
-                           (self.flr, other.flr),
-                           (self.rm, other.rm),
-                           (self.bed, other.bed)):
+                                    (self.bld, other.bld),
+                                    (self.poc, other.poc),
+                                    (self.flr, other.flr),
+                                    (self.rm, other.rm),
+                                    (self.bed, other.bed)):
             if my_attr is not None:
                 if my_attr != other_attr:
                     return False

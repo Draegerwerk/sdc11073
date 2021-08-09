@@ -16,8 +16,8 @@ from .sdcclient.operations import OperationsManager
 from .sdcclient.subscription import SOAPNotificationsHandler
 from .sdcclient.subscription import SubscriptionClient, NotificationsReceiverDispatcherThread
 from .sdcdevice.localizationservice import LocalizationService
-from .sdcdevice.sco import getOperationClass, ScoOperationsRegistry
-from .sdcdevice.sdc_handlers import SdcHandler_Full
+from .sdcdevice.sco import get_operation_class, ScoOperationsRegistry
+from .sdcdevice.sdc_handlers import SdcHandlerFull
 from .sdcdevice.sdcservicesimpl import ContextService, WaveformService, DescriptionEventService
 from .sdcdevice.sdcservicesimpl import GetService, SetService, StateEventService, ContainmentTreeService
 from .sdcdevice.subscriptionmgr import SubscriptionsManager
@@ -117,8 +117,8 @@ DefaultSdcClientComponents = {
 DefaultSdcDeviceComponents = {
     'MsgFactoryClass': SoapMessageFactory,
     'MsgReaderClass': MessageReader,
-    'SdcDeviceHandlerClass': SdcHandler_Full,
-    'OperationsFactory': getOperationClass,
+    'SdcDeviceHandlerClass': SdcHandlerFull,
+    'OperationsFactory': get_operation_class,
     'ScoOperationsRegistryClass': ScoOperationsRegistry,
     'SubscriptionsManagerClass': SubscriptionsManager,
     'ServiceHandlers': {'ContainmentTreeService': ContainmentTreeService,
@@ -132,6 +132,20 @@ DefaultSdcDeviceComponents = {
                         }
 }
 
+schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
+
+class SchemaPathsSdc:
+    MetaDataExchangeSchemaFile = os.path.join(schemaFolder, 'MetadataExchange.xsd')
+    EventingSchemaFile = os.path.join(schemaFolder, 'eventing.xsd')
+    SoapEnvelopeSchemaFile = os.path.join(schemaFolder, 'soap-envelope.xsd')
+    WsAddrSchemaFile = os.path.join(schemaFolder, 'ws-addr.xsd')
+    AddressingSchemaFile = os.path.join(schemaFolder, 'addressing.xsd')
+    XMLSchemaFile = os.path.join(schemaFolder, 'xml.xsd')
+    DPWSSchemaFile = os.path.join(schemaFolder, 'wsdd-dpws-1.1-schema-os.xsd')
+    MessageModelSchemaFile = os.path.join(schemaFolder, 'BICEPS_MessageModel.xsd')
+    ParticipantModelSchemaFile = os.path.join(schemaFolder, 'BICEPS_ParticipantModel.xsd')
+    ExtensionPointSchemaFile = os.path.join(schemaFolder, 'ExtensionPoint.xsd')
+
 
 class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     BICEPSNamespace_base = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/'
@@ -144,9 +158,6 @@ class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     MDPWSNameSpace = 'http://standards.ieee.org/downloads/11073/11073-20702-2016'  # this name changed between WPF and SDC! IEEE correction
     MedicalDeviceType = etree_.QName(MedicalDeviceTypeNamespace, 'MedicalDevice')
     SDCDeviceType = etree_.QName(DPWS_SDCNamespace, 'SdcDevice')
-    MessageModelSchemaFile = os.path.join(schemaFolder, 'BICEPS_MessageModel.xsd')
-    ParticipantModelSchemaFile = os.path.join(schemaFolder, 'BICEPS_ParticipantModel.xsd')
-    ExtensionPointSchemaFile = os.path.join(schemaFolder, 'ExtensionPoint.xsd')
     ActionsNamespace = DPWS_SDCNamespace
     PortTypeNamespace = DPWS_SDCNamespace
 
@@ -156,6 +167,7 @@ class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     Actions = _SdcV1Actions
     DefaultSdcDeviceComponents = DefaultSdcDeviceComponents
     DefaultSdcClientComponents = DefaultSdcClientComponents
+    SchemaFilePaths = SchemaPathsSdc
 
 
 SDC_v1_Definitions.schemaResolver = _SchemaResolver(SDC_v1_Definitions)

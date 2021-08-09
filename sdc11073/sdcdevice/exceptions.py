@@ -14,8 +14,7 @@ class HTTPRequestHandlingError(Exception):
     def __repr__(self):
         if self.soapfault:
             return '{}(status={}, reason={}'.format(self.__class__.__name__, self.status, self.soapfault)
-        else:
-            return '{}(status={}, reason={}'.format(self.__class__.__name__, self.status, self.reason)
+        return '{}(status={}, reason={}'.format(self.__class__.__name__, self.status, self.reason)
 
 
 class FunctionNotImplementedError(HTTPRequestHandlingError):

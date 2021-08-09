@@ -18,12 +18,12 @@ class SoapMessageFactory:
         self._mdib_wref = None
 
     @staticmethod
-    def mk_getmetadata_envelope(to):
+    def mk_getmetadata_envelope(addr_to):
         soap_envelope = soapenvelope.Soap12Envelope(nsmap)
-        soap_envelope.setAddress(
+        soap_envelope.set_address(
             soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Request',
-                                   to=to))
-        soap_envelope.addBodyObject(
+                                   addr_to=addr_to))
+        soap_envelope.add_body_object(
             soapenvelope.GenericNode(etree_.Element('{http://schemas.xmlsoap.org/ws/2004/09/mex}GetMetadata')))
         return soap_envelope
 
@@ -35,168 +35,167 @@ class SoapMessageFactory:
             raise RuntimeError('SoapMessageFactory has already an registered mdib')
         self._mdib_wref = None if mdib is None else weakref.ref(mdib)
 
-    def mk_getdescriptor_envelope(self, to, port_type, requested_handles):
+    def mk_getdescriptor_envelope(self, addr_to, port_type, requested_handles):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param requested_handles: a list of strings
         :return: a SoapEnvelope
         """
         method = 'GetMdState'
-        return self._mk_get_method_envelope(to, port_type, method, params=_handles2params(requested_handles))
+        return self._mk_get_method_envelope(addr_to, port_type, method, params=_handles2params(requested_handles))
 
-    def mk_getmdib_envelope(self, to, port_type):
+    def mk_getmdib_envelope(self, addr_to, port_type):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :return: a SoapEnvelope
         """
         method = 'GetMdib'
-        return self._mk_get_method_envelope(to, port_type, method)
+        return self._mk_get_method_envelope(addr_to, port_type, method)
 
     def mk_getmdib_response_envelope(self, request, mdib, include_contextstates):
         nsmapper = mdib.nsmapper
-        responseSoapEnvelope = soapenvelope.Soap12Envelope(
+        response_envelope = soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        replyAddress = request.address.mkReplyAddress(
-            action=self._getActionString(mdib.sdc_definitions, 'GetMdibResponse'))
-        responseSoapEnvelope.addHeaderObject(replyAddress)
+        reply_address = request.address.mk_reply_address(
+            action=self._get_action_string(mdib.sdc_definitions, 'GetMdibResponse'))
+        response_envelope.add_header_object(reply_address)
         if include_contextstates:
-            mdibNode = mdib.reconstruct_mdib_with_context_states()
+            mdib_node = mdib.reconstruct_mdib_with_context_states()
         else:
-            mdibNode = mdib.reconstruct_mdib()
-        mdibVersionString = mdibNode.get('MdibVersion')  # use same version a in mdib node for response
-        sequenceIdString = mdibNode.get('SequenceId')
+            mdib_node = mdib.reconstruct_mdib()
+        mdib_version_string = mdib_node.get('MdibVersion')  # use same version a in mdib node for response
+        sequence_id_string = mdib_node.get('SequenceId')
 
-        getMdibResponseNode = etree_.Element(msgTag('GetMdibResponse'),
-                                             nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM))
-        if mdibVersionString:
-            getMdibResponseNode.set('MdibVersion', mdibVersionString)
-        getMdibResponseNode.set('SequenceId', sequenceIdString)
-        getMdibResponseNode.append(mdibNode)
-        responseSoapEnvelope.addBodyElement(getMdibResponseNode)
-        return responseSoapEnvelope
+        get_mdib_response_node = etree_.Element(msgTag('GetMdibResponse'),
+                                                nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM))
+        if mdib_version_string:
+            get_mdib_response_node.set('MdibVersion', mdib_version_string)
+        get_mdib_response_node.set('SequenceId', sequence_id_string)
+        get_mdib_response_node.append(mdib_node)
+        response_envelope.add_body_element(get_mdib_response_node)
+        return response_envelope
 
-    def mk_getmddescription_envelope(self, to, port_type, requested_handles=None):
+    def mk_getmddescription_envelope(self, addr_to, port_type, requested_handles=None):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param requested_handles: a list of strings
         :return: a SoapEnvelope
         """
         method = 'GetMdDescription'
-        return self._mk_get_method_envelope(to, port_type, method, params=_handles2params(requested_handles))
+        return self._mk_get_method_envelope(addr_to, port_type, method, params=_handles2params(requested_handles))
 
-    def mk_getmddescription_response_envelope(self, request, mdib, requestedHandles):
-        includeMds = True if len(requestedHandles) == 0 else False  # if we have handles, we need to check them
-        for h in requestedHandles:
-            if mdib.descriptions.handle.getOne(h, allowNone=True) is not None:
-                includeMds = True
+    def mk_getmddescription_response_envelope(self, request, mdib, requested_handles):
+        include_mds = len(requested_handles) == 0  # if we have handles, we need to check them
+        for handle in requested_handles:
+            if mdib.descriptions.handle.getOne(handle, allowNone=True) is not None:
+                include_mds = True
                 break
         my_namespaces = mdib.nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.MSG, Prefixes.PM)
-        responseSoapEnvelope = soapenvelope.Soap12Envelope(my_namespaces)
-        replyAddress = request.address.mkReplyAddress(
-            action=self._getActionString(mdib.sdc_definitions, 'GetMdDescriptionResponse'))
-        responseSoapEnvelope.addHeaderObject(replyAddress)
+        response_envelope = soapenvelope.Soap12Envelope(my_namespaces)
+        reply_address = request.address.mk_reply_address(
+            action=self._get_action_string(mdib.sdc_definitions, 'GetMdDescriptionResponse'))
+        response_envelope.add_header_object(reply_address)
 
-        getMdDescriptionResponseNode = etree_.Element(msgTag('GetMdDescriptionResponse'),
-                                                      nsmap=nsmap)
+        response_node = etree_.Element(msgTag('GetMdDescriptionResponse'), nsmap=nsmap)
 
-        if includeMds:
-            mdDescriptionNode, mdib_version = mdib.reconstruct_md_description()
-            mdDescriptionNode.tag = msgTag('MdDescription')  # rename according to message
-            mdibVersionString = str(mdib_version)
+        if include_mds:
+            md_description_node, mdib_version = mdib.reconstruct_md_description()
+            md_description_node.tag = msgTag('MdDescription')  # rename according to message
+            mdib_version_string = str(mdib_version)
         else:
-            mdDescriptionNode = etree_.Element(msgTag('MdDescription'))
-            mdibVersionString = None
-        sequenceIdString = mdib.sequence_id
-        if mdibVersionString:
-            getMdDescriptionResponseNode.set('MdibVersion', mdibVersionString)
-        getMdDescriptionResponseNode.set('SequenceId', sequenceIdString)
+            md_description_node = etree_.Element(msgTag('MdDescription'))
+            mdib_version_string = None
+        sequence_id_string = mdib.sequence_id
+        if mdib_version_string:
+            response_node.set('MdibVersion', mdib_version_string)
+        response_node.set('SequenceId', sequence_id_string)
 
-        getMdDescriptionResponseNode.append(mdDescriptionNode)
-        responseSoapEnvelope.addBodyElement(getMdDescriptionResponseNode)
-        return responseSoapEnvelope
+        response_node.append(md_description_node)
+        response_envelope.add_body_element(response_node)
+        return response_envelope
 
-    def mk_getmdstate_envelope(self, to, port_type, requested_handles=None):
+    def mk_getmdstate_envelope(self, addr_to, port_type, requested_handles=None):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param requested_handles: a list of strings
         :return: a SoapEnvelope
         """
         method = 'GetMdState'
-        return self._mk_get_method_envelope(to, port_type, method, params=_handles2params(requested_handles))
+        return self._mk_get_method_envelope(addr_to, port_type, method, params=_handles2params(requested_handles))
 
     @staticmethod
-    def _getActionString(sdc_definitions, methodName):
+    def _get_action_string(sdc_definitions, method_name):
         actions_lookup = sdc_definitions.Actions
-        return getattr(actions_lookup, methodName)
+        return getattr(actions_lookup, method_name)
 
-    def mk_getmdstate_response_envelope(self, request, mdib, stateContainers):
+    def mk_getmdstate_response_envelope(self, request, mdib, state_containers):
         nsmapper = mdib.nsmapper
-        responseSoapEnvelope = soapenvelope.Soap12Envelope(
+        response_envelope = soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        replyAddress = request.address.mkReplyAddress(
-            action=self._getActionString(mdib.sdc_definitions, 'GetMdStateResponse'))
-        responseSoapEnvelope.addHeaderObject(replyAddress)
-        getMdStateResponseNode = etree_.Element(msgTag('GetMdStateResponse'), nsmap=nsmap)
-        getMdStateResponseNode.set('MdibVersion', str(mdib.mdib_version))
-        getMdStateResponseNode.set('SequenceId', mdib.sequence_id)
+        reply_address = request.address.mk_reply_address(
+            action=self._get_action_string(mdib.sdc_definitions, 'GetMdStateResponse'))
+        response_envelope.add_header_object(reply_address)
+        response_node = etree_.Element(msgTag('GetMdStateResponse'), nsmap=nsmap)
+        response_node.set('MdibVersion', str(mdib.mdib_version))
+        response_node.set('SequenceId', mdib.sequence_id)
 
-        mdStateNode = etree_.Element(msgTag('MdState'), attrib=None, nsmap=nsmapper.doc_ns_map)
-        for stateContainer in stateContainers:
-            mdStateNode.append(stateContainer.mk_state_node(domTag('State')))
+        md_state_node = etree_.Element(msgTag('MdState'), attrib=None, nsmap=nsmapper.doc_ns_map)
+        for state_container in state_containers:
+            md_state_node.append(state_container.mk_state_node(domTag('State')))
 
-        getMdStateResponseNode.append(mdStateNode)
-        responseSoapEnvelope.addBodyElement(getMdStateResponseNode)
-        return responseSoapEnvelope
+        response_node.append(md_state_node)
+        response_envelope.add_body_element(response_node)
+        return response_envelope
 
-    def mk_getcontainmenttree_envelope(self, to, port_type, requested_handles):
+    def mk_getcontainmenttree_envelope(self, addr_to, port_type, requested_handles):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param requested_handles: a list of strings
         :return: a SoapEnvelope
         """
         method = 'GetContainmentTree'
-        return self._mk_get_method_envelope(to, port_type, method, params=_handles2params(requested_handles))
+        return self._mk_get_method_envelope(addr_to, port_type, method, params=_handles2params(requested_handles))
 
-    def mk_getcontextstates_envelope(self, to, port_type, requested_handles=None):
+    def mk_getcontextstates_envelope(self, addr_to, port_type, requested_handles=None):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param requested_handles: a list of strings
         :return: a SoapEnvelope
         """
         requestparams = []
         if requested_handles:
-            for h in requested_handles:
+            for handle in requested_handles:
                 requestparams.append(etree_.Element(msgTag('HandleRef'),
                                                     attrib={QN_TYPE: '{}:HandleRef'.format(Prefixes.MSG.prefix)},
                                                     nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM)))
-                requestparams[-1].text = h
+                requestparams[-1].text = handle
         method = 'GetContextStates'
-        return self._mk_get_method_envelope(to, port_type, method, params=requestparams)
+        return self._mk_get_method_envelope(addr_to, port_type, method, params=requestparams)
 
-    def mk_getcontextstates_by_identification_envelope(self, to, port_type, identifications):
+    def mk_getcontextstates_by_identification_envelope(self, addr_to, port_type, identifications):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param identifications: list of identifiers (type: InstanceIdentifier from pmtypes)
         :return: a SoapEnvelope
         """
         requestparams = []
         if identifications:
-            for oneId in identifications:
-                requestparams.append(oneId.as_etree_node(qname=msgTag('Identification'),
-                                                         nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM)))
+            for identification in identifications:
+                requestparams.append(identification.as_etree_node(
+                    qname=msgTag('Identification'), nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM)))
         method = 'GetContextStatesByIdentification'
-        return self._mk_get_method_envelope(to, port_type, method, params=requestparams)
+        return self._mk_get_method_envelope(addr_to, port_type, method, params=requestparams)
 
-    def mk_requestednumericvalue_envelope(self, to, port_type, operation_handle, requested_numeric_value):
+    def mk_requestednumericvalue_envelope(self, addr_to, port_type, operation_handle, requested_numeric_value):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param requested_numeric_value: a string
@@ -206,14 +205,14 @@ class SoapMessageFactory:
                                               attrib={QN_TYPE: '{}:decimal'.format(Prefixes.XSD.prefix)})
         requested_value_node.text = str(requested_numeric_value)
         method = 'SetValue'
-        return self._mk_setmethod_envelope(to, port_type, method,
+        return self._mk_setmethod_envelope(addr_to, port_type, method,
                                            operation_handle,
                                            [requested_value_node],
                                            additional_namespaces=[Prefixes.XSD])
 
-    def mk_requestedstring_envelope(self, to, port_type, operation_handle, requested_string):
+    def mk_requestedstring_envelope(self, addr_to, port_type, operation_handle, requested_string):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param requested_string: a string
@@ -223,27 +222,27 @@ class SoapMessageFactory:
                                                attrib={QN_TYPE: '{}:string'.format(Prefixes.XSD.prefix)})
         requested_string_node.text = requested_string
         method = 'SetString'
-        return self._mk_setmethod_envelope(to, port_type, method, operation_handle, [requested_string_node],
+        return self._mk_setmethod_envelope(addr_to, port_type, method, operation_handle, [requested_string_node],
                                            additional_namespaces=[Prefixes.XSD])
 
-    def mk_setalert_envelope(self, to, port_type, operation_handle, proposed_alert_states):
+    def mk_setalert_envelope(self, addr_to, port_type, operation_handle, proposed_alert_states):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param proposed_alert_states: a list of AbstractAlertStateContainer or derived class
         :return: a SoapEnvelope
         """
         _proposed_states = [p.mk_copy() for p in proposed_alert_states]
-        for p in _proposed_states:
-            p.nsmapper = DocNamespaceHelper()  # use my namespaces
+        for state in _proposed_states:
+            state.nsmapper = DocNamespaceHelper()  # use my namespaces
         _proposed_state_nodes = [p.mk_state_node(msgTag('ProposedAlertState')) for p in _proposed_states]
         method = 'SetAlertState'
-        return self._mk_setmethod_envelope(to, port_type, method, operation_handle, _proposed_state_nodes)
+        return self._mk_setmethod_envelope(addr_to, port_type, method, operation_handle, _proposed_state_nodes)
 
-    def mk_setmetricstate_envelope(self, to, port_type, operation_handle, proposed_metric_states):
+    def mk_setmetricstate_envelope(self, addr_to, port_type, operation_handle, proposed_metric_states):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param proposed_metric_states: a list of AbstractMetricStateContainer or derived class
@@ -251,14 +250,15 @@ class SoapMessageFactory:
         """
         _proposed_states = [p.mk_copy() for p in proposed_metric_states]
         nsmapper = DocNamespaceHelper()
-        for p in _proposed_states:
-            p.nsmapper = nsmapper  # use my namespaces
+        for state in _proposed_states:
+            state.nsmapper = nsmapper  # use my namespaces
         _proposed_state_nodes = [p.mk_state_node(msgTag('ProposedMetricState')) for p in _proposed_states]
-        return self._mk_setmethod_envelope(to, port_type, 'SetMetricState', operation_handle, _proposed_state_nodes)
+        return self._mk_setmethod_envelope(addr_to, port_type, 'SetMetricState', operation_handle,
+                                           _proposed_state_nodes)
 
-    def mk_setcomponentstate_envelope(self, to, port_type, operation_handle, proposed_component_states):
+    def mk_setcomponentstate_envelope(self, addr_to, port_type, operation_handle, proposed_component_states):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param proposed_component_states: a list of AbstractComponentStateContainers or derived class
@@ -266,32 +266,34 @@ class SoapMessageFactory:
         """
         _proposed_states = [p.mk_copy() for p in proposed_component_states]
         nsmapper = DocNamespaceHelper()
-        for p in _proposed_states:
-            p.nsmapper = nsmapper  # use my namespaces
+        for state in _proposed_states:
+            state.nsmapper = nsmapper  # use my namespaces
         _proposed_state_nodes = [p.mk_state_node(msgTag('ProposedComponentState')) for p in _proposed_states]
-        return self._mk_setmethod_envelope(to, port_type, 'SetComponentState', operation_handle, _proposed_state_nodes)
+        return self._mk_setmethod_envelope(addr_to, port_type, 'SetComponentState', operation_handle,
+                                           _proposed_state_nodes)
 
-    def mk_setcontextstate_envelope(self, to, port_type, operation_handle, proposed_context_states):
+    def mk_setcontextstate_envelope(self, addr_to, port_type, operation_handle, proposed_context_states):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param proposed_context_states: a list of AbstractContextStateContainers or derived class
         :return: a SoapEnvelope
         """
         _proposed_states = [p.mk_copy() for p in proposed_context_states]
-        for p in _proposed_states:
+        for state in _proposed_states:
             # BICEPS: if handle == descriptorHandle, it means insert.
-            if p.Handle is None:
-                p.Handle = p.DescriptorHandle
-            p.nsmapper = DocNamespaceHelper()  # use my namespaces
+            if state.Handle is None:
+                state.Handle = state.DescriptorHandle
+            state.nsmapper = DocNamespaceHelper()  # use my namespaces
         _proposed_state_nodes = [p.mk_state_node(msgTag('ProposedContextState')) for p in _proposed_states]
 
-        return self._mk_setmethod_envelope(to, port_type, 'SetContextState', operation_handle, _proposed_state_nodes)
+        return self._mk_setmethod_envelope(addr_to, port_type, 'SetContextState', operation_handle,
+                                           _proposed_state_nodes)
 
-    def mk_activate_envelope(self, to, port_type, operation_handle, value):
+    def mk_activate_envelope(self, addr_to, port_type, operation_handle, value):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param value: a string used as argument
@@ -312,13 +314,13 @@ class SoapMessageFactory:
         #    sih = [sih]
         sih = None
         tmp = etree_.tostring(body_node)
-        soap_envelope = self._mk_soapenvelope(to, port_type, 'Activate', tmp, additional_headers=sih)
+        soap_envelope = self._mk_soapenvelope(addr_to, port_type, 'Activate', tmp, additional_headers=sih)
         return soap_envelope
 
-    def mk_getlocalizedtext_envelope(self, to, port_type, refs=None, version=None, langs=None,
+    def mk_getlocalizedtext_envelope(self, addr_to, port_type, refs=None, version=None, langs=None,
                                      text_widths=None, number_of_lines=None):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param refs: a list of strings or None
         :param version: an unsigned integer or None
@@ -329,9 +331,9 @@ class SoapMessageFactory:
         """
         requestparams = []
         if refs is not None:
-            for r in refs:
+            for ref in refs:
                 node = etree_.Element(msgTag('Ref'))
-                node.text = r
+                node.text = ref
                 requestparams.append(node)
         if version is not None:
             node = etree_.Element(msgTag('Version'))
@@ -343,9 +345,9 @@ class SoapMessageFactory:
                 node.text = lang
                 requestparams.append(node)
         if text_widths is not None:
-            for tw in text_widths:
+            for text_width in text_widths:
                 node = etree_.Element(msgTag('TextWidth'))
-                node.text = tw
+                node.text = text_width
                 requestparams.append(node)
         if number_of_lines is not None:
             for nol in number_of_lines:
@@ -353,91 +355,93 @@ class SoapMessageFactory:
                 node.text = nol
                 requestparams.append(node)
         method = 'GetLocalizedText'
-        return self._mk_get_method_envelope(to, port_type, method, params=requestparams)
+        return self._mk_get_method_envelope(addr_to, port_type, method, params=requestparams)
 
-    def mk_getsupportedlanguages_envelope(self, to, port_type):
+    def mk_getsupportedlanguages_envelope(self, addr_to, port_type):
         """
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :return: a SoapEnvelope
         """
         method = 'GetSupportedLanguages'
-        return self._mk_get_method_envelope(to, port_type, method)
+        return self._mk_get_method_envelope(addr_to, port_type, method)
 
-    def mk_subscribe_envelope(self, to,
-                              notifyto_url, notifyto_identifier,
+    @staticmethod
+    def mk_subscribe_envelope(addr_to,
+                              notifyto_url, notify_to_identifier,
                               endto_url, endto_identifier,
                               expire_minutes, subscribe_filter):
         soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
-        soap_envelope.setAddress(soapenvelope.WsAddress(
+        soap_envelope.set_address(soapenvelope.WsAddress(
             action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Subscribe',
-            to=to))
+            addr_to=addr_to))
 
         notify_to = soapenvelope.WsaEndpointReferenceType(notifyto_url,
-                                                          referenceParametersNode=[notifyto_identifier])
+                                                          reference_parameters_node=[notify_to_identifier])
         end_to = soapenvelope.WsaEndpointReferenceType(endto_url,
-                                                       referenceParametersNode=[endto_identifier])
+                                                       reference_parameters_node=[endto_identifier])
 
-        body = soapenvelope.WsSubscribe(notifyTo=notify_to,
-                                        endTo=end_to,
+        body = soapenvelope.WsSubscribe(notify_to=notify_to,
+                                        end_to=end_to,
                                         expires=expire_minutes * 60,
                                         filter_=subscribe_filter)
-        soap_envelope.addBodyObject(body)
+        soap_envelope.add_body_object(body)
         return soap_envelope
 
-    def mk_renew_envelope(self, to, dev_reference_param, expire_minutes):
+    def mk_renew_envelope(self, addr_to, dev_reference_param, expire_minutes):
         soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
-        soap_envelope.setAddress(soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Renew',
-                                                        to=to))
+        soap_envelope.set_address(soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Renew',
+                                                         addr_to=addr_to))
         self._add_device_references(soap_envelope, dev_reference_param)
         renew_node = etree_.Element(wseTag('Renew'), nsmap=Prefixes.partial_map(Prefixes.WSE))
         expires_node = etree_.SubElement(renew_node, wseTag('Expires'), nsmap=Prefixes.partial_map(Prefixes.WSE))
         expires_node.text = isoduration.duration_string(expire_minutes * 60)
-        soap_envelope.addBodyElement(renew_node)
+        soap_envelope.add_body_element(renew_node)
         return soap_envelope
 
-    def mk_getstatus_envelope(self, to, dev_reference_param):
+    def mk_getstatus_envelope(self, addr_to, dev_reference_param):
         soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
-        soap_envelope.setAddress(
+        soap_envelope.set_address(
             soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/GetStatus',
-                                   to=to))
+                                   addr_to=addr_to))
         self._add_device_references(soap_envelope, dev_reference_param)
         body_node = etree_.Element(wseTag('GetStatus'))
-        soap_envelope.addBodyElement(body_node)
+        soap_envelope.add_body_element(body_node)
         return soap_envelope
 
-    def mk_unsubscribe_envelope(self, to, dev_reference_param):
+    def mk_unsubscribe_envelope(self, addr_to, dev_reference_param):
         soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
-        soap_envelope.setAddress(soapenvelope.WsAddress(
-            action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Unsubscribe', to=to))
+        soap_envelope.set_address(soapenvelope.WsAddress(
+            action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Unsubscribe', addr_to=addr_to))
         self._add_device_references(soap_envelope, dev_reference_param)
-        soap_envelope.addBodyElement(etree_.Element(wseTag('Unsubscribe')))
+        soap_envelope.add_body_element(etree_.Element(wseTag('Unsubscribe')))
         return soap_envelope
 
-    def _add_device_references(self, soap_envelope, dev_reference_param):
+    @staticmethod
+    def _add_device_references(soap_envelope, dev_reference_param):
         ''' add references for requests to device (renew, getstatus, unsubscribe)'''
         if dev_reference_param is not None:
-            for e in dev_reference_param:
-                e_ = copy.copy(e)
+            for element in dev_reference_param:
+                element_ = copy.copy(element)
                 # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
-                e_.set('IsReferenceParameter', 'true')
-                soap_envelope.addHeaderElement(e_)
+                element_.set('IsReferenceParameter', 'true')
+                soap_envelope.add_header_element(element_)
 
-    def _mk_get_method_envelope(self, to, port_type, method_name, params=None):
+    def _mk_get_method_envelope(self, addr_to, port_type, method_name, params=None):
         body_node = etree_.Element(msgTag(method_name))
         soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.MSG))
         action_string = self.get_action_string(port_type, method_name)
-        soap_envelope.setAddress(soapenvelope.WsAddress(action=action_string, to=to))
+        soap_envelope.set_address(soapenvelope.WsAddress(action=action_string, addr_to=addr_to))
         if params:
-            for p in params:
-                body_node.append(p)
-        soap_envelope.addBodyObject(soapenvelope.GenericNode(body_node))
+            for param in params:
+                body_node.append(param)
+        soap_envelope.add_body_object(soapenvelope.GenericNode(body_node))
         return soap_envelope
 
-    def _mk_setmethod_envelope(self, to, port_type, method_name, operation_handle, request_nodes,
+    def _mk_setmethod_envelope(self, addr_to, port_type, method_name, operation_handle, request_nodes,
                                additional_namespaces=None):
         """ helper to create the soap envelope
-        :param to: to-field value in address
+        :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param method_name: last element of name of the called action
         :param operation_handle: handle name as string
@@ -448,8 +452,8 @@ class SoapMessageFactory:
                                 attrib={QN_TYPE: '{}:HandleRef'.format(Prefixes.PM.prefix)},
                                 nsmap=Prefixes.partial_map(Prefixes.PM))
         ref.text = operation_handle
-        for n in request_nodes:
-            body_node.append(n)
+        for node in request_nodes:
+            body_node.append(node)
         if additional_namespaces:
             my_ns = Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG, *additional_namespaces)
         else:
@@ -459,8 +463,8 @@ class SoapMessageFactory:
 
         soap_envelope = soapenvelope.Soap12Envelope(my_ns)
         action_string = self.get_action_string(port_type, method_name)
-        soap_envelope.setAddress(soapenvelope.WsAddress(action=action_string, to=to))
-        soap_envelope.addBodyElement(body_node)
+        soap_envelope.set_address(soapenvelope.WsAddress(action=action_string, addr_to=addr_to))
+        soap_envelope.add_body_element(body_node)
         return soap_envelope
 
     def get_action_string(self, port_type, method_name):
@@ -470,15 +474,16 @@ class SoapMessageFactory:
         except AttributeError:  # fallback, if a definition is missing
             return '{}/{}/{}'.format(self._sdc_definitions.ActionsNamespace, port_type, method_name)
 
-    def mk_realtime_samples_report_body(self, realtime_sample_states, ns_map, mdib_version, sequence_id):
+    @staticmethod
+    def mk_realtime_samples_report_body(realtime_sample_states, ns_map, mdib_version, sequence_id):
         body_node = etree_.Element(msgTag('WaveformStream'),
                                    attrib={'SequenceId': sequence_id,
                                            'MdibVersion': str(mdib_version)},
                                    nsmap=ns_map)
 
-        for s in realtime_sample_states:
-            stateNode = s.mk_state_node(msgTag('State'), set_xsi_type=False)
-            body_node.append(stateNode)
+        for state in realtime_sample_states:
+            state_node = state.mk_state_node(msgTag('State'), set_xsi_type=False)
+            body_node.append(state_node)
         return body_node
 
     def mk_episodic_metric_report_body(self, states, ns_map, mdib_version, sequence_id):
@@ -531,78 +536,80 @@ class SoapMessageFactory:
                                               msgTag('ContextState'),
                                               report_parts, ns_map, mdib_version, sequence_id)
 
-    def _mk_report_body(self, body_tag, state_tag, states, ns_map, mdib_version, sequence_id):
+    @staticmethod
+    def _mk_report_body(body_tag, state_tag, states, ns_map, mdib_version, sequence_id):
         body_node = etree_.Element(body_tag,
                                    attrib={'SequenceId': sequence_id,
                                            'MdibVersion': str(mdib_version)},
                                    nsmap=ns_map)
-        reportPartNode = etree_.SubElement(body_node, msgTag('ReportPart'))
+        report_part_node = etree_.SubElement(body_node, msgTag('ReportPart'))
 
-        for s in states:
-            stateNode = s.mk_state_node(state_tag)
-            reportPartNode.append(stateNode)
+        for state in states:
+            report_part_node.append(state.mk_state_node(state_tag))
         return body_node
 
-    def _mk__periodic_report_body(self, body_tag, state_tag, report_parts, ns_map, mdib_version, sequence_id):
+    @staticmethod
+    def _mk__periodic_report_body(body_tag, state_tag, report_parts, ns_map, mdib_version, sequence_id):
         body_node = etree_.Element(body_tag,
                                    attrib={'SequenceId': sequence_id,
                                            'MdibVersion': str(mdib_version)},
                                    nsmap=ns_map)
         for part in report_parts:
-            reportPartNode = etree_.SubElement(body_node, msgTag('ReportPart'))
-            for s in part.states:
-                stateNode = s.mk_state_node(state_tag)
-                reportPartNode.append(stateNode)
+            report_part_node = etree_.SubElement(body_node, msgTag('ReportPart'))
+            for state in part.states:
+                report_part_node.append(state.mk_state_node(state_tag))
         return body_node
 
-    def mk_operation_invoked_report_body(self, ns_map, mdib_version, sequence_id,
+    @staticmethod
+    def mk_operation_invoked_report_body(ns_map, mdib_version, sequence_id,
                                          operation_handle_ref, transaction_id, invocation_state,
                                          error=None, error_message=None):
         body_node = etree_.Element(msgTag('OperationInvokedReport'),
                                    attrib={'SequenceId': sequence_id,
                                            'MdibVersion': str(mdib_version)},
                                    nsmap=ns_map)
-        reportPartNode = etree_.SubElement(body_node,
-                                           msgTag('ReportPart'),
-                                           attrib={'OperationHandleRef': operation_handle_ref})
-        invocationInfoNode = etree_.SubElement(reportPartNode, msgTag('InvocationInfo'))
-        invocationSourceNode = etree_.SubElement(reportPartNode, msgTag('InvocationSource'),
-                                                 attrib={'Root': Prefixes.SDC.namespace,
-                                                         'Extension': 'AnonymousSdcParticipant'})
+        report_part_node = etree_.SubElement(body_node,
+                                             msgTag('ReportPart'),
+                                             attrib={'OperationHandleRef': operation_handle_ref})
+        invocation_info_node = etree_.SubElement(report_part_node, msgTag('InvocationInfo'))
+        invocation_source_node = etree_.SubElement(report_part_node, msgTag('InvocationSource'),
+                                                   attrib={'Root': Prefixes.SDC.namespace,
+                                                           'Extension': 'AnonymousSdcParticipant'})
         # implemented only SDC R0077 for value of invocationSourceNode:
         # Root =  "http://standards.ieee.org/downloads/11073/11073-20701-2018"
         # Extension = "AnonymousSdcParticipant".
         # a known participant (R0078) is currently not supported
         # ToDo: implement R0078
-        transactionIdNode = etree_.SubElement(invocationInfoNode, msgTag('TransactionId'))
-        transactionIdNode.text = str(transaction_id)
-        operationStateNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationState'))
-        operationStateNode.text = str(invocation_state)
+        transaction_id_node = etree_.SubElement(invocation_info_node, msgTag('TransactionId'))
+        transaction_id_node.text = str(transaction_id)
+        operation_state_node = etree_.SubElement(invocation_info_node, msgTag('InvocationState'))
+        operation_state_node.text = str(invocation_state)
         if error is not None:
-            errorNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationError'))
-            errorNode.text = str(error)
+            error_node = etree_.SubElement(invocation_info_node, msgTag('InvocationError'))
+            error_node.text = str(error)
         if error_message is not None:
-            errorMessageNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationErrorMessage'))
-            errorMessageNode.text = str(error_message)
+            error_message_node = etree_.SubElement(invocation_info_node, msgTag('InvocationErrorMessage'))
+            error_message_node.text = str(error_message)
         return body_node
 
-    def mk_notification_report(self, ws_addr, body_node, ident_nodes, doc_nsmap):
-        soapEnvelope = soapenvelope.Soap12Envelope(doc_nsmap)
-        soapEnvelope.addBodyElement(body_node)
-        soapEnvelope.setAddress(ws_addr)
+    @staticmethod
+    def mk_notification_report(ws_addr, body_node, ident_nodes, doc_nsmap):
+        envelope = soapenvelope.Soap12Envelope(doc_nsmap)
+        envelope.add_body_element(body_node)
+        envelope.set_address(ws_addr)
         for ident_node in ident_nodes:
-            soapEnvelope.addHeaderElement(ident_node)
-        return soapEnvelope
+            envelope.add_header_element(ident_node)
+        return envelope
 
-    def _mk_soapenvelope(self, to, port_type, method_name, xml_body_string=None, additional_headers=None):
+    def _mk_soapenvelope(self, addr_to, port_type, method_name, xml_body_string=None, additional_headers=None):
         action = self.get_action_string(port_type, method_name)
         envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.MSG, Prefixes.WSA))
-        envelope.setAddress(soapenvelope.WsAddress(action=action, to=to))
+        envelope.set_address(soapenvelope.WsAddress(action=action, addr_to=addr_to))
         if additional_headers is not None:
-            for h in additional_headers:
-                envelope.addHeaderObject(h)
+            for header in additional_headers:
+                envelope.add_header_object(header)
         if xml_body_string is not None:
-            envelope.addBodyString(xml_body_string)
+            envelope.add_body_string(xml_body_string)
         return envelope
 
 
@@ -614,8 +621,8 @@ def _handles2params(handles):
     """
     params = []
     if handles is not None:
-        for h in handles:
+        for handle in handles:
             node = etree_.Element(msgTag('HandleRef'))
-            node.text = h
+            node.text = handle
             params.append(node)
     return params

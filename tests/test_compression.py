@@ -26,13 +26,13 @@ class Test_Compression(unittest.TestCase):
         self.wsd.start()
         # Create a new device
         self.location = sdc11073.location.SdcLocation(fac='tklx', poc='CU1', bed='Bed')
-        self.sdcDevice_Final = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml')
+        self.sdcDevice_Final = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         self._locValidators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extension_string='System')]
 
     def tearDown(self):
         # close
-        self.sdcClient_Final.stopAll()
-        self.sdcDevice_Final.stopAll()
+        self.sdcClient_Final.stop_all()
+        self.sdcDevice_Final.stop_all()
         time.sleep(1)
         self.wsd.stop()
 
@@ -41,32 +41,32 @@ class Test_Compression(unittest.TestCase):
 
         # start device with compression settings
         if compressionFlag is None:
-            self.sdcDevice_Final.setUsedCompression()
+            self.sdcDevice_Final.set_used_compression()
         else:
-            self.sdcDevice_Final.setUsedCompression(compressionFlag)
+            self.sdcDevice_Final.set_used_compression(compressionFlag)
 
-        self.sdcDevice_Final.startAll()
-        self.sdcDevice_Final.setLocation(self.location, self._locValidators)
+        self.sdcDevice_Final.start_all()
+        self.sdcDevice_Final.set_location(self.location, self._locValidators)
 
         time.sleep(0.5)  # allow full init of devices
 
         # Connect a new client to the divece
-        xAddr = self.sdcDevice_Final.getXAddrs()
+        xAddr = self.sdcDevice_Final.get_xaddrs()
         self.sdcClient_Final = SdcClient(xAddr[0],
                                          sdc_definitions=self.sdcDevice_Final.mdib.sdc_definitions,
                                          #deviceType=self.sdcDevice_Final.mdib.sdc_definitions.MedicalDeviceType
                                          )
         if compressionFlag is None:
-            self.sdcClient_Final.setUsedCompression()
+            self.sdcClient_Final.set_used_compression()
         else:
-            self.sdcClient_Final.setUsedCompression(compressionFlag)
-        self.sdcClient_Final.startAll()
+            self.sdcClient_Final.set_used_compression(compressionFlag)
+        self.sdcClient_Final.start_all()
         time.sleep(0.5)
 
         # Get http connection to execute the call
         self.getService = self.sdcClient_Final.client('Set')
-        self.soapClient = next(iter(self.sdcClient_Final._soapClients.values()))
-        self.clientHttpCon = self.soapClient._httpConnection
+        self.soap_client = next(iter(self.sdcClient_Final._soap_clients.values()))
+        self.clientHttpCon = self.soap_client._http_connection
 
         self.xml = XML_REQ
         # Python 2 and 3 compatibility
@@ -102,7 +102,7 @@ class Test_Compression(unittest.TestCase):
         # Create a compressed getMetadata request
         self._start_with_compression(compression.GZIP)
 
-        self.xml = self.soapClient.compress_payload(compression.GZIP, self.xml)
+        self.xml = self.soap_client.compress_payload(compression.GZIP, self.xml)
         self.xml = bytearray(self.xml)  # cast to bytes, required to bypass httplib checks for is str
         headers = {
             'Content-type': 'application/soap+xml',
@@ -118,7 +118,7 @@ class Test_Compression(unittest.TestCase):
         response = self.clientHttpCon.getresponse()
         responseHeaders = {k.lower(): v for k, v in response.getheaders()}
         content = response.read()
-        content = self.soapClient.decompress(content, compression.GZIP)
+        content = self.soap_client.decompress(content, compression.GZIP)
 
         self.assertIn('content-encoding', responseHeaders)
         try:
@@ -131,7 +131,7 @@ class Test_Compression(unittest.TestCase):
         # Create a compressed getMetadata request
         self._start_with_compression(compression.LZ4)
 
-        self.xml = self.soapClient.compress_payload(compression.LZ4, self.xml)
+        self.xml = self.soap_client.compress_payload(compression.LZ4, self.xml)
         self.xml = bytearray(self.xml)  # cast to bytes, required to bypass httplib checks for is str
         headers = {
             'Content-type': 'application/soap+xml',
@@ -147,7 +147,7 @@ class Test_Compression(unittest.TestCase):
         response = self.clientHttpCon.getresponse()
         responseHeaders = {k.lower(): v for k, v in response.getheaders()}
         content = response.read()
-        content = self.soapClient.decompress(content, compression.LZ4)
+        content = self.soap_client.decompress(content, compression.LZ4)
 
         self.assertIn('content-encoding', responseHeaders)
         try:

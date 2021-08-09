@@ -2,6 +2,6 @@ import platform
 
 # OS dependent import
 if platform.system() == 'Windows':
-    from .ntifmanagerdll import getNetworkAdapterConfigs, GetAdaptersAddresses
+    from .ntifmanagerdll import get_network_adapter_configs, get_adapters_addresses
 else:
-    from .posixifmanager import getNetworkAdapterConfigs, GetAdaptersAddresses
+    from .posixifmanager import get_network_adapter_configs, get_adapters_addresses

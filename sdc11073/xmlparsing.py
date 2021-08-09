@@ -11,23 +11,23 @@ class BicepsSchema:
         self.parser = etree_.ETCompatXMLParser(resolve_entities=False)
         self._version_ref = definition_cls
         self.parser.resolvers.add(self._version_ref.schemaResolver)
-
-        participant_schema = self._parse_file(self._version_ref.ParticipantModelSchemaFile)
+        schema_paths = self._version_ref.SchemaFilePaths
+        participant_schema = self._parse_file(schema_paths.ParticipantModelSchemaFile)
         self.participant_schema = etree_.XMLSchema(etree=participant_schema)
 
-        message_schema = self._parse_file(self._version_ref.MessageModelSchemaFile)
+        message_schema = self._parse_file(schema_paths.MessageModelSchemaFile)
         self.message_schema = etree_.XMLSchema(etree=message_schema)
 
-        mex_schema = self._parse_file(self._version_ref.MetaDataExchangeSchemaFile, normalized=False)
+        mex_schema = self._parse_file(schema_paths.MetaDataExchangeSchemaFile, normalized=False)
         self.mex_schema = etree_.XMLSchema(etree=mex_schema)
 
-        eventing_schema = self._parse_file(self._version_ref.EventingSchemaFile, normalized=False)
+        eventing_schema = self._parse_file(schema_paths.EventingSchemaFile, normalized=False)
         self.eventing_schema = etree_.XMLSchema(etree=eventing_schema)
 
-        soap12_schema = self._parse_file(self._version_ref.SoapEnvelopeSchemaFile, normalized=False)
+        soap12_schema = self._parse_file(schema_paths.SoapEnvelopeSchemaFile, normalized=False)
         self.soap12_schema = etree_.XMLSchema(etree=soap12_schema)
 
-        dpws_schema = self._parse_file(self._version_ref.DPWSSchemaFile, normalized=False)
+        dpws_schema = self._parse_file(schema_paths.DPWSSchemaFile, normalized=False)
         self.dpws_schema = etree_.XMLSchema(etree=dpws_schema)
 
     def __str__(self):

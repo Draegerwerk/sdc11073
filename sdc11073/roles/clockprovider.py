@@ -1,7 +1,7 @@
+from . import providerbase
+from .nomenclature import NomenclatureCodes as nc
 from .. import namespaces
 from .. import pmtypes
-from .nomenclature import NomenclatureCodes as nc
-from . import providerbase
 
 # coded values for SDC ntp and time zone
 MDC_OP_SET_TIME_SYNC_REF_SRC = pmtypes.CodedValue(nc.MDC_OP_SET_TIME_SYNC_REF_SRC)
@@ -9,6 +9,7 @@ MDC_ACT_SET_TIME_ZONE = pmtypes.CodedValue(nc.MDC_ACT_SET_TIME_ZONE)
 
 OP_SET_NTP = pmtypes.CodedValue(nc.OP_SET_NTP)
 OP_SET_TZ = pmtypes.CodedValue(nc.OP_SET_TZ)
+
 
 class GenericSDCClockProvider(providerbase.ProviderRole):
     """ Handles operations for setting ntp server and time zone.
@@ -20,117 +21,113 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
         self._set_ntp_operations = []
         self._set_tz_operations = []
 
-    def initOperations(self, mdib):
-        super().initOperations(mdib)
+    def init_operations(self, mdib):
+        super().init_operations(mdib)
         # create a clock descriptor and state if they do not exist in mdib
-        clockDescriptor = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('ClockDescriptor'), allowNone=True)
-        if clockDescriptor is None:
-            mdsContainer = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
-            clock_descr_handle = 'clock_' + mdsContainer.handle
+        clock_descriptor = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('ClockDescriptor'), allowNone=True)
+        if clock_descriptor is None:
+            mds_container = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
+            clock_descr_handle = 'clock_' + mds_container.handle
             self._logger.info('creating a clock descriptor, handle={}'.format(clock_descr_handle))
-            clockDescriptor = self._mdib.createClockDescriptorContainer(handle=clock_descr_handle,
-                                                                        parent_handle=mdsContainer.handle,
-                                                                        coded_value=pmtypes.CodedValue(123),
-                                                                        safety_classification=pmtypes.SafetyClassification.INF)
+            clock_descriptor = self._mdib.create_clock_descriptor_container(handle=clock_descr_handle,
+                                                                            parent_handle=mds_container.handle,
+                                                                            coded_value=pmtypes.CodedValue(123),
+                                                                            safety_classification=pmtypes.SafetyClassification.INF)
 
-        clockState = self._mdib.states.descriptorHandle.getOne(clockDescriptor.handle, allowNone = True)
-        if clockState is None:
-            clockState = self._mdib.mk_state_container_from_descriptor(clockDescriptor)
-            self._mdib.addState(clockState)
+        clock_state = self._mdib.states.descriptorHandle.getOne(clock_descriptor.handle, allowNone=True)
+        if clock_state is None:
+            clock_state = self._mdib.mk_state_container_from_descriptor(clock_descriptor)
+            self._mdib.add_state(clock_state)
 
-
-    def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
-        if operationDescriptorContainer.coding in (MDC_OP_SET_TIME_SYNC_REF_SRC.coding, OP_SET_NTP.coding):
+    def make_operation_instance(self, operation_descriptor_container, operations_factory):
+        if operation_descriptor_container.coding in (MDC_OP_SET_TIME_SYNC_REF_SRC.coding, OP_SET_NTP.coding):
             self._logger.info('instantiating "set ntp server" operation from existing descriptor handle={}'.format(
-                operationDescriptorContainer.handle))
-            set_ntp_operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
-                                                                         operations_factory,
-                                                                         currentArgumentHandler=self._setNTPString)
+                operation_descriptor_container.handle))
+            set_ntp_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
+                                                                             operations_factory,
+                                                                             current_argument_handler=self._set_ntp_string)
             self._set_ntp_operations.append(set_ntp_operation)
             return set_ntp_operation
-        elif operationDescriptorContainer.coding in (MDC_ACT_SET_TIME_ZONE.coding, OP_SET_TZ.coding):
+        if operation_descriptor_container.coding in (MDC_ACT_SET_TIME_ZONE.coding, OP_SET_TZ.coding):
             self._logger.info('instantiating "set time zone" operation from existing descriptor handle={}'.format(
-                operationDescriptorContainer.handle))
-            set_tz_operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
-                                                                        operations_factory,
-                                                                        currentArgumentHandler=self._setTZString)
+                operation_descriptor_container.handle))
+            set_tz_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
+                                                                            operations_factory,
+                                                                            current_argument_handler=self._set_tz_string)
             self._set_tz_operations.append(set_tz_operation)
             return set_tz_operation
         return None  # ?
 
-    def makeMissingOperations(self, operations_factory):
+    def make_missing_operations(self, operations_factory):
         ops = []
-        mdsContainer = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
-        clockDescriptor = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('ClockDescriptor'), allowNone=True)
+        mds_container = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
+        clock_descriptor = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('ClockDescriptor'), allowNone=True)
         set_string_op_cls = operations_factory(namespaces.domTag('SetStringOperationDescriptor'))
 
         if not self._set_ntp_operations:
             self._logger.info('adding "set ntp server" operation, code = {}'.format(nc.MDC_OP_SET_TIME_SYNC_REF_SRC))
-            set_ntp_operation = self._mkOperation(set_string_op_cls,
-                                                 handle='SET_NTP_SRV_'+ mdsContainer.handle,
-                                                 operationTargetHandle=clockDescriptor.handle,
-                                                 codedValue=MDC_OP_SET_TIME_SYNC_REF_SRC,
-                                                 currentArgumentHandler=self._setNTPString)
+            set_ntp_operation = self._mk_operation(set_string_op_cls,
+                                                   handle='SET_NTP_SRV_' + mds_container.handle,
+                                                   operation_target_handle=clock_descriptor.handle,
+                                                   codedValue=MDC_OP_SET_TIME_SYNC_REF_SRC,
+                                                   current_argument_handler=self._set_ntp_string)
             self._set_ntp_operations.append(set_ntp_operation)
             ops.append(set_ntp_operation)
         if not self._set_tz_operations:
             self._logger.info('adding "set time zone" operation, code = {}'.format(nc.MDC_ACT_SET_TIME_ZONE))
-            set_tz_operation = self._mkOperation(set_string_op_cls,
-                                                 handle='SET_TZONE_'+ mdsContainer.handle,
-                                                 operationTargetHandle=clockDescriptor.handle,
-                                                 codedValue=MDC_ACT_SET_TIME_ZONE,
-                                                 currentArgumentHandler=self._setTZString)
+            set_tz_operation = self._mk_operation(set_string_op_cls,
+                                                  handle='SET_TZONE_' + mds_container.handle,
+                                                  operation_target_handle=clock_descriptor.handle,
+                                                  codedValue=MDC_ACT_SET_TIME_ZONE,
+                                                  current_argument_handler=self._set_tz_string)
             self._set_tz_operations.append(set_tz_operation)
             ops.append(set_tz_operation)
         return ops
 
-
-    def _setNTPString(self, operationInstance, value):
-        '''This is the handler for the set ntp server operation.
-         It sets the ReferenceSource value of clock state'''
-        operationDescriptorHandle = operationInstance.handle
-        operationDescriptorContainer = self._mdib.descriptions.handle.getOne(operationDescriptorHandle)
-        operationTargetHandle = operationDescriptorContainer.OperationTarget
-        self._logger.info('set value {} from {} to {}', operationTargetHandle, operationInstance.currentValue,
+    def _set_ntp_string(self, operation_instance, value):
+        """This is the handler for the set ntp server operation.
+         It sets the ReferenceSource value of clock state"""
+        operation_descriptor_handle = operation_instance.handle
+        operation_descriptor_container = self._mdib.descriptions.handle.getOne(operation_descriptor_handle)
+        operation_target_handle = operation_descriptor_container.OperationTarget
+        self._logger.info('set value {} from {} to {}', operation_target_handle, operation_instance.current_value,
                           value)
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            #state = mgr.getComponentState(operationTargetHandle)
-            state = mgr.get_state(operationTargetHandle)
+        with self._mdib.transaction_manager() as mgr:
+            # state = mgr.getComponentState(operation_target_handle)
+            state = mgr.get_state(operation_target_handle)
             if state.NODETYPE == namespaces.domTag('MdsState'):
-                mdsHandle = state.descriptorHandle
+                mds_handle = state.descriptorHandle
                 mgr.unget_state(state)
                 # look for the ClockState child
-                clockDescriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'),[])
-                clockDescriptors = [ c for c in clockDescriptors if c.parent_handle == mdsHandle]
-                if len(clockDescriptors) == 1:
-                    # state = mgr.getComponentState(clockDescriptors[0].handle)
-                    state = mgr.get_state(clockDescriptors[0].handle)
+                clock_descriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'), [])
+                clock_descriptors = [c for c in clock_descriptors if c.parent_handle == mds_handle]
+                if len(clock_descriptors) == 1:
+                    # state = mgr.getComponentState(clock_descriptors[0].handle)
+                    state = mgr.get_state(clock_descriptors[0].handle)
             if state.NODETYPE != namespaces.domTag('ClockState'):
-                raise RuntimeError('_setNTPString: expected ClockState, got {}'.format(state.NODETYPE.localname))
+                raise RuntimeError('_set_ntp_string: expected ClockState, got {}'.format(state.NODETYPE.localname))
             state.ReferenceSource = [pmtypes.ElementWithTextOnly(value)]
 
-
-    def _setTZString(self, operationInstance, value):
-        '''This is the handler for the set time zone operation.
-         It sets the TimeZone value of clock state.'''
-        operationDescriptorHandle = operationInstance.handle
-        operationDescriptorContainer = self._mdib.descriptions.handle.getOne(operationDescriptorHandle)
-        operationTargetHandle = operationDescriptorContainer.OperationTarget
-        self._logger.info('set value {} from {} to {}', operationTargetHandle, operationInstance.currentValue,
+    def _set_tz_string(self, operation_instance, value):
+        """This is the handler for the set time zone operation.
+         It sets the TimeZone value of clock state."""
+        operation_descriptor_handle = operation_instance.handle
+        operation_descriptor_container = self._mdib.descriptions.handle.getOne(operation_descriptor_handle)
+        operation_target_handle = operation_descriptor_container.OperationTarget
+        self._logger.info('set value {} from {} to {}', operation_target_handle, operation_instance.current_value,
                           value)
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            #state = mgr.getComponentState(operationTargetHandle)
-            state = mgr.get_state(operationTargetHandle)
+        with self._mdib.transaction_manager() as mgr:
+            # state = mgr.getComponentState(operation_target_handle)
+            state = mgr.get_state(operation_target_handle)
             if state.NODETYPE == namespaces.domTag('MdsState'):
-                mdsHandle = state.descriptorHandle
+                mds_handle = state.descriptorHandle
                 mgr.unget_state(state)
                 # look for the ClockState child
-                clockDescriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'),[])
-                clockDescriptors = [ c for c in clockDescriptors if c.parent_handle == mdsHandle]
-                if len(clockDescriptors) == 1:
-                    #state = mgr.getComponentState(clockDescriptors[0].handle)
-                    state = mgr.get_state(clockDescriptors[0].handle)
+                clock_descriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'), [])
+                clock_descriptors = [c for c in clock_descriptors if c.parent_handle == mds_handle]
+                if len(clock_descriptors) == 1:
+                    state = mgr.get_state(clock_descriptors[0].handle)
 
             if state.NODETYPE != namespaces.domTag('ClockState'):
-                raise RuntimeError('_setNTPString: expected Clockstate, got {}'.format(state.NODETYPE.localname))
+                raise RuntimeError('_set_ntp_string: expected Clockstate, got {}'.format(state.NODETYPE.localname))
             state.TimeZone = value

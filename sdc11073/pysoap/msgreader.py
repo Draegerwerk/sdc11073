@@ -42,7 +42,7 @@ class MessageReader:
         :param request: a soap envelope
         :return : a list of requested Handles
         """
-        return request.bodyNode.xpath('*/msg:HandleRef/text()', namespaces=namespaces.nsmap)
+        return request.body_node.xpath('*/msg:HandleRef/text()', namespaces=namespaces.nsmap)
 
     def read_mddescription(self, node, mdib):
         """
@@ -78,7 +78,7 @@ class MessageReader:
         :param request: a soap envelope
         :return : a list of requested Handles
         """
-        return request.bodyNode.xpath('*/msg:HandleRef/text()', namespaces=namespaces.nsmap)
+        return request.body_node.xpath('*/msg:HandleRef/text()', namespaces=namespaces.nsmap)
 
     def read_mdstate(self, node, mdib, additional_descriptor_containers=None):
         """
@@ -178,7 +178,7 @@ class MessageReader:
         """ update members.
         """
         # update all ContainerProperties
-        for _, cprop in container._sorted_container_properties():
+        for _, cprop in container.sorted_container_properties():
             cprop.update_from_node(container, node)
 
     def _mk_statecontainers_from_reportpart(self, reportpart_node, mdib):
@@ -227,8 +227,7 @@ class MessageReader:
         states = []
         all_alerts = report_node.xpath('msg:ReportPart/msg:AlertState', namespaces=namespaces.nsmap)
         for alert in all_alerts:
-            sc = self.mk_statecontainer_from_node(alert, mdib)
-            states.append(sc)
+            states.append(self.mk_statecontainer_from_node(alert, mdib))
         return states
 
     def read_operationalstate_report(self, report_node, mdib):
@@ -240,8 +239,7 @@ class MessageReader:
         states = []
         found_nodes = report_node.xpath('msg:ReportPart/msg:OperationState', namespaces=namespaces.nsmap)
         for found_node in found_nodes:
-            sc = self.mk_statecontainer_from_node(found_node, mdib)
-            states.append(sc)
+            states.append(self.mk_statecontainer_from_node(found_node, mdib))
         return states
 
     def read_episodic_context_report(self, report_node, mdib):
@@ -265,8 +263,7 @@ class MessageReader:
         states = []
         found_nodes = report_node.xpath('msg:ReportPart/msg:ComponentState', namespaces=namespaces.nsmap)
         for found_node in found_nodes:
-            sc = self.mk_statecontainer_from_node(found_node, mdib)
-            states.append(sc)
+            states.append(self.mk_statecontainer_from_node(found_node, mdib))
         return states
 
     def read_description_modification_report(self, report_node, mdib):

@@ -13,6 +13,7 @@ import urllib
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
+from enum import Enum
 from http.client import HTTPConnection, HTTPSConnection, RemoteDisconnected
 from typing import Any
 from typing import Iterable
@@ -23,9 +24,9 @@ from lxml.etree import ETCompatXMLParser, QName, Element, SubElement, tostring, 
 # pylint: enable=no-name-in-module
 
 try:
-    from sdc11073.netconn import getNetworkAdapterConfigs
+    from sdc11073.netconn import get_network_adapter_configs
 except ImportError:
-    def getNetworkAdapterConfigs():
+    def get_network_adapter_configs():
         return []
 try:
     from sdc11073.commlogg import get_communication_logger
@@ -123,7 +124,7 @@ def _get_network_addresses():
     @return: a set of strings
     """
     result = []
-    interfaces = getNetworkAdapterConfigs()
+    interfaces = get_network_adapter_configs()
     for interface in interfaces:
         if interface.ip not in _IP_BLACKLIST:
             result.append(interface.ip)
@@ -237,21 +238,24 @@ class SoapEnvelope:
             self.message_id = uuid.uuid4().urn
 
 
+class _MessageType(Enum):
+    multicast = 1
+    unicast = 2
+
+
 @dataclass(frozen=True)
 class Message:
     env: SoapEnvelope
     addr: str
     port: int
-    msg_type: str
-    MULTICAST: str = 'multicast'
-    UNICAST: str = 'unicast'
+    msg_type: _MessageType
 
 
 class Service:
-    def __init__(self, types, scopes, xAddrs, epr, instance_id):
+    def __init__(self, types, scopes, x_addrs, epr, instance_id):
         self.types = types
         self.scopes = scopes
-        self._x_addrs = xAddrs
+        self._x_addrs = x_addrs
         self.epr = epr
         self.instance_id = instance_id
         self.message_number = 0
@@ -269,7 +273,7 @@ class Service:
     # def setScopes(self, scopes):
     #     self._scopes = scopes
 
-    def getXAddrs(self):
+    def get_x_addrs(self):
         ret = []
         ip_addrs = None
         for x_addr in self._x_addrs:
@@ -283,7 +287,7 @@ class Service:
                 ret.append(x_addr)
         return ret
 
-    def setXAddrs(self, x_addrs):
+    def set_x_addrs(self, x_addrs):
         self._x_addrs = x_addrs
 
     # def getEPR(self):
@@ -313,17 +317,17 @@ class Service:
     def increment_message_number(self):
         self.message_number = self.message_number + 1
 
-    def is_located_on(self, *ipaddresses):
+    def is_located_on(self, *ip_addresses):
         """
         @param ipaddresses: ip addresses, lists of strings or strings
         """
         my_addresses = []
-        for i in ipaddresses:
-            if isinstance(i, str):
-                my_addresses.append(i)
+        for ip_address in ip_addresses:
+            if isinstance(ip_address, str):
+                my_addresses.append(ip_address)
             else:
-                my_addresses.extend(i)
-        for addr in self.getXAddrs():
+                my_addresses.extend(ip_address)
+        for addr in self.get_x_addrs():
             parsed = urllib.parse.urlsplit(addr)
             ip_addr = parsed.netloc.split(':')[0]
             if ip_addr in my_addresses:
@@ -526,7 +530,7 @@ def _parse_envelope(data, ip_addr, logger):
         dom = fromstring(data, parser=parser)
     except Exception as ex:
         logger.error('load error "%s" in "%s"', ex, data)
-        return
+        return None
 
     header = dom.find('s12:Header', _namespaces_map)
     body = dom.find('s12:Body', _namespaces_map)
@@ -537,16 +541,16 @@ def _parse_envelope(data, ip_addr, logger):
     soap_action = header.find('wsa:Action', _namespaces_map)
     if soap_action is None:
         # this is something else, ignore it
-        return
+        return None
 
     soap_action = soap_action.text
 
     env = SoapEnvelope(msg_id)
     env.action = soap_action
 
-    to = header.find('wsa:To', _namespaces_map)
-    if to is not None:
-        env.addr_to = to.text
+    addr_to = header.find('wsa:To', _namespaces_map)
+    if addr_to is not None:
+        env.addr_to = addr_to.text
 
     # parse action specific data
     try:
@@ -555,11 +559,11 @@ def _parse_envelope(data, ip_addr, logger):
             env.types.extend(_parse_types(msg_node))
             env.scopes.extend(_parse_scopes(msg_node))
             return env
-        elif soap_action == ACTION_PROBE_MATCH:
+        if soap_action == ACTION_PROBE_MATCH:
             _parse_relates_to(header, env)
             _parse_app_sequence(header, env)
-            pmNodes = msg_node.findall('wsd:ProbeMatch', _namespaces_map)
-            for node in pmNodes:
+            pm_nodes = msg_node.findall('wsd:ProbeMatch', _namespaces_map)
+            for node in pm_nodes:
                 epr = _parse_epr(node)
                 types = _parse_types(node)
                 scopes = _parse_scopes(node)
@@ -567,27 +571,27 @@ def _parse_envelope(data, ip_addr, logger):
                 mdv = _parse_metadata_version(node)
                 env.probe_resolve_matches.append(ProbeResolveMatch(epr, types, scopes, x_addrs, mdv))
             return env
-        elif soap_action == ACTION_RESOLVE:
+        if soap_action == ACTION_RESOLVE:
             _parse_reply_to(header, env)
             env.epr = _parse_epr(msg_node)
             return env
-        elif soap_action == ACTION_RESOLVE_MATCH:
+        if soap_action == ACTION_RESOLVE_MATCH:
             _parse_relates_to(header, env)
             _parse_app_sequence(header, env)
-            resolveMatchNode = msg_node.find('wsd:ResolveMatch', _namespaces_map)
-            if resolveMatchNode is not None:
-                epr = _parse_epr(resolveMatchNode)
-                types = _parse_types(resolveMatchNode)
-                scopes = _parse_scopes(resolveMatchNode)
-                x_addrs = _parse_xaddrs(resolveMatchNode)
-                mdv = _parse_metadata_version(resolveMatchNode)
+            resolve_match_node = msg_node.find('wsd:ResolveMatch', _namespaces_map)
+            if resolve_match_node is not None:
+                epr = _parse_epr(resolve_match_node)
+                types = _parse_types(resolve_match_node)
+                scopes = _parse_scopes(resolve_match_node)
+                x_addrs = _parse_xaddrs(resolve_match_node)
+                mdv = _parse_metadata_version(resolve_match_node)
                 env.probe_resolve_matches.append(ProbeResolveMatch(epr, types, scopes, x_addrs, mdv))
             return env
-        elif soap_action == ACTION_BYE:
+        if soap_action == ACTION_BYE:
             _parse_app_sequence(header, env)
             env.epr = _parse_epr(msg_node)
             return env
-        elif soap_action == ACTION_HELLO:
+        if soap_action == ACTION_HELLO:
             _parse_app_sequence(header, env)
             env.epr = _parse_epr(msg_node)
             env.types.extend(_parse_types(msg_node))
@@ -598,7 +602,7 @@ def _parse_envelope(data, ip_addr, logger):
     except:
         logger.error('Parse Error %s:', traceback.format_exc())
         logger.error('parsed data is from %r, data: %r:', ip_addr, data)
-        return
+        return None
 
 
 def _create_message(env):
@@ -617,8 +621,8 @@ def _create_message(env):
 
 
 def _create_probe_message(env):
-    doc, header, body = _create_skel_soap_message(ACTION_PROBE, env.message_id, addr_to=env.addr_to,
-                                                  reply_to=env.addr_reply_to)
+    doc, _, body = _create_skel_soap_message(ACTION_PROBE, env.message_id, addr_to=env.addr_to,
+                                             reply_to=env.addr_reply_to)
     probe_element = SubElement(body, WsdTag('Probe'))
     _create_type_nodes(probe_element, env.types)
     _create_scope_node(probe_element, env.scopes)
@@ -636,13 +640,13 @@ def _create_probe_match_message(env):
     probe_matches_element = SubElement(body, WsdTag('ProbeMatches'))
 
     probe_matches = env.probe_resolve_matches
-    for probe_matche in probe_matches:
-        probeMatchEl = SubElement(probe_matches_element, WsdTag('ProbeMatch'))
-        _create_epr_node(probeMatchEl, probe_matche.epr)
-        _create_type_nodes(probeMatchEl, probe_matche.types)
-        _create_scope_node(probeMatchEl, probe_matche.scopes)
-        _create_xaddr_node(probeMatchEl, probe_matche.x_addrs)
-        _mk_subelement_with_text(probeMatchEl, WsdTag('MetadataVersion'), probe_matche.metadata_version)
+    for probe_match in probe_matches:
+        probe_match_element = SubElement(probe_matches_element, WsdTag('ProbeMatch'))
+        _create_epr_node(probe_match_element, probe_match.epr)
+        _create_type_nodes(probe_match_element, probe_match.types)
+        _create_scope_node(probe_match_element, probe_match.scopes)
+        _create_xaddr_node(probe_match_element, probe_match.x_addrs)
+        _mk_subelement_with_text(probe_match_element, WsdTag('MetadataVersion'), probe_match.metadata_version)
     return tostring(doc)
 
 
@@ -860,14 +864,14 @@ class _NetworkingThread:
                 del self._multi_out_uni_in_sockets[addr]
 
     def add_unicast_message(self, env, addr, port, initial_delay=0):
-        msg = Message(env, addr, port, Message.UNICAST)
+        msg = Message(env, addr, port, _MessageType.unicast)
         self._logger.debug(
             'add_unicast_message: adding message Id %s. delay=%.2f', env.message_id, initial_delay)
         self._repeated_enqueue_msg(msg, initial_delay, UNICAST_UDP_REPEAT, UNICAST_UDP_MIN_DELAY,
                                    UNICAST_UDP_MAX_DELAY, UNICAST_UDP_UPPER_DELAY)
 
     def add_multicast_message(self, env, addr, port, initial_delay=0):
-        msg = Message(env, addr, port, Message.MULTICAST)
+        msg = Message(env, addr, port, _MessageType.multicast)
         self._logger.debug(
             'add_multicast_message: adding message Id %s. delay=%.2f', env.message_id, initial_delay)
         self._repeated_enqueue_msg(msg, initial_delay, MULTICAST_UDP_REPEAT, MULTICAST_UDP_MIN_DELAY,
@@ -982,7 +986,7 @@ class _NetworkingThread:
 
         data = _create_message(msg.env)
 
-        if msg.msg_type == Message.UNICAST:
+        if msg.msg_type == _MessageType.unicast:
             get_communication_logger().log_discovery_msg_out(msg.addr, data)
             self._uni_out_socket.sendto(data, (msg.addr, msg.port))
         else:
@@ -1085,10 +1089,10 @@ class WSDiscoveryWithHTTPProxy:
     This uses an http proxy for discovery
     """
 
-    def __init__(self, proxy_url, logger=None, sslContext=None):
+    def __init__(self, proxy_url, logger=None, ssl_context=None):
         self.__disco_proxy_address = urllib.parse.urlsplit(proxy_url)
         self._logger = logger or logging.getLogger('sdc.discover')
-        self._ssl_context = sslContext
+        self._ssl_context = ssl_context
         self._local_services = {}
         self.resolve_services = False
 
@@ -1101,14 +1105,14 @@ class WSDiscoveryWithHTTPProxy:
     def search_services(self, types=None, scopes=None, timeout=5):
         """search for services given the TYPES and SCOPES in a given timeout
         """
-        remote_services = self._send_probe(types, scopes)
-        filtered = _filter_services(remote_services.values(), types, scopes, self._logger)
+        remote_services = self._send_probe(types, scopes, timeout)
+        filtered_services = _filter_services(remote_services.values(), types, scopes, self._logger)
         if not self.resolve_services:
-            return filtered
+            return filtered_services
 
         resolved_services = []
-        for s in filtered:
-            resolved_services.append(self._send_resolve(s.epr))
+        for service in filtered_services:
+            resolved_services.append(self._send_resolve(service.epr))
         return resolved_services
 
     searchServices = search_services  # backwards compatibility
@@ -1116,8 +1120,8 @@ class WSDiscoveryWithHTTPProxy:
     def search_multiple_types(self, types_list, scopes=None, timeout=5, repeat_probe_interval=3):
         # repeat_probe_interval is not needed, but kept in order to have identical signature
         result = {}  # avoid double entries by adding to dictionary with epr as key
-        for t in types_list:
-            services = self.search_services(t, scopes, timeout)
+        for _type in types_list:
+            services = self.search_services(_type, scopes, timeout)
             for service in services:
                 result[service.epr] = service
         return result.values()
@@ -1140,13 +1144,13 @@ class WSDiscoveryWithHTTPProxy:
         # do nothing, this implementation has no internal list
         pass
 
-    def publish_service(self, epr, types, scopes, xAddrs):
+    def publish_service(self, epr, types, scopes, x_addrs):
         """Publish a service with the given TYPES, SCOPES and XAddrs (service addresses)
 
-        if xAddrs contains item, which includes {ip} pattern, one item per IP addres will be sent
+        if x_addrs contains item, which includes {ip} pattern, one item per IP addres will be sent
         """
         instance_id = _generate_instance_id()
-        service = Service(types, scopes, xAddrs, epr, instance_id)
+        service = Service(types, scopes, x_addrs, epr, instance_id)
         self._logger.info('publishing %r', service)
         self._local_services[epr] = service
         self._send_hello(service)
@@ -1160,18 +1164,18 @@ class WSDiscoveryWithHTTPProxy:
 
     clearService = clear_service  # backwards compatibility
 
-    def post_http(self, data):
+    def _post_http(self, data, timeout=5):
         if self.__disco_proxy_address.scheme == 'https':
-            conn = HTTPSConnection(self.__disco_proxy_address.netloc, timeout=5, context=self._ssl_context)
+            conn = HTTPSConnection(self.__disco_proxy_address.netloc, timeout=timeout, context=self._ssl_context)
         else:
-            conn = HTTPConnection(self.__disco_proxy_address.netloc, timeout=5)
+            conn = HTTPConnection(self.__disco_proxy_address.netloc, timeout=timeout)
         conn.request('POST', self.__disco_proxy_address.path, data)
         resp = conn.getresponse()
         resp_data = resp.read()
         conn.close()
         return resp_data
 
-    def _send_probe(self, types=None, scopes=None):
+    def _send_probe(self, types, scopes, timeout):
         self._logger.debug('sending probe types=%r scopes=%r', _types_info(types), scopes)
         env = SoapEnvelope()
         env.action = ACTION_PROBE
@@ -1179,12 +1183,12 @@ class WSDiscoveryWithHTTPProxy:
         env.types = types
         env.scopes = scopes
         data = _create_probe_message(env)
-        resp_data = self.post_http(data)
+        resp_data = self._post_http(data, timeout)
         get_communication_logger().log_discovery_msg_in(self.__disco_proxy_address.netloc, resp_data)
         resp_env = _parse_envelope(resp_data, self.__disco_proxy_address.netloc, self._logger)
         services = {}
         for match in resp_env.probe_resolve_matches:
-            services[match.epr] = (Service(match.types, match.scopes, match.getXAddrs(), match.epr,
+            services[match.epr] = (Service(match.types, match.scopes, match.get_x_addrs(), match.epr,
                                            resp_env.instance_id))
         return services
 
@@ -1195,12 +1199,12 @@ class WSDiscoveryWithHTTPProxy:
         env.addr_to = ADDRESS_ALL
         env.epr = epr
         data = _create_resolve_message(env)
-        resp_data = self.post_http(data)
+        resp_data = self._post_http(data)
         get_communication_logger().log_discovery_msg_in(self.__disco_proxy_address.netloc, resp_data)
         resp_env = _parse_envelope(resp_data, self.__disco_proxy_address.netloc, self._logger)
         services = {}
         for match in resp_env.probe_resolve_matches:
-            services[match.epr] = (Service(match.types, match.scopes, match.getXAddrs(), match.epr,
+            services[match.epr] = (Service(match.types, match.scopes, match.get_x_addrs(), match.epr,
                                            resp_env.instance_id))
         return services
 
@@ -1214,11 +1218,11 @@ class WSDiscoveryWithHTTPProxy:
         env.message_number = str(service.message_number)
         env.types = service.types
         env.scopes = service.scopes
-        env.x_addrs = service.getXAddrs()
+        env.x_addrs = service.get_x_addrs()
         env.epr = service.epr
         data = _create_hello_message(env)
         try:
-            self.post_http(data)
+            self._post_http(data)
         except RemoteDisconnected:
             pass
 
@@ -1233,7 +1237,7 @@ class WSDiscoveryWithHTTPProxy:
         service.increment_message_number()
         data = _create_bye_message(env)
         try:
-            self.post_http(data)
+            self._post_http(data)
         except RemoteDisconnected:
             pass
 
@@ -1356,7 +1360,7 @@ class WSDiscoveryBase:
         self._logger = logger or logging.getLogger('sdc.discover')
         random.seed(int(time.time() * 1000000))
 
-    def setRemoteServiceHelloCallback(self, cb, types=None, scopes=None):
+    def set_remote_service_hello_callback(self, callback, types=None, scopes=None):
         """Set callback, which will be called when new service appeared online
         and sent Hi message
 
@@ -1366,51 +1370,51 @@ class WSDiscoveryBase:
 
         Set None to disable callback
         """
-        self._remote_service_hello_callback = cb
+        self._remote_service_hello_callback = callback
         self._remote_service_hello_callback_types_filter = types
         self._remote_service_hello_callback_scopes_filter = scopes
 
-    def setRemoteServiceByeCallback(self, cb):
+    def set_remote_service_bye_callback(self, callback):
         """Set callback, which will be called when new service appeared online
         and sent Hi message
         Service is passed as a parameter to the callback
         Set None to disable callback
         """
-        self._remote_service_bye_callback = cb
+        self._remote_service_bye_callback = callback
 
-    def setRemoveServiceDisappearedCallback(self, cb):
-        """Set callback, which will be called when new service disappears
-        Service uuid is passed as a parameter to the callback
-        Set None to disable callback
-        """
-        self._remoteServiceDisppearedCallback = cb
+    # def set_remote_service_disappeared_callback(self, cb):
+    #     """Set callback, which will be called when new service disappears
+    #     Service uuid is passed as a parameter to the callback
+    #     Set None to disable callback
+    #     """
+    #     self._remoteServiceDisppearedCallback = cb
 
-    def setRemoteServiceResolveMatchCallback(self, cb):  # B.D.
-        self._remote_service_resolve_match_callback = cb
+    def set_remote_service_resolve_match_callback(self, callback):  # B.D.
+        self._remote_service_resolve_match_callback = callback
 
-    def setOnProbeCallback(self, cb):
-        self._on_probe_callback = cb
+    def set_on_probe_callback(self, callback):
+        self._on_probe_callback = callback
 
     def _add_remote_service(self, service):
         epr = service.epr
         if not epr:
             self._logger.info('service without epr, ignoring it! %r', service)
             return
-        s = self._remote_services.get(service.epr)
-        if not s:
+        already_known_service = self._remote_services.get(service.epr)
+        if not already_known_service:
             self._remote_services[service.epr] = service
             self._logger.info('new remote %r', service)
         else:
             # use the longest elements for merged service
             merged = []
-            if len(service.getXAddrs()) > len(s.getXAddrs()):
-                s.setXAddrs(service.getXAddrs())
-                merged.append('XAddr={}'.format(service.getXAddrs()))
-            if len(service.scopes) > len(s.scopes):
-                s.scopes = service.scopes
+            if len(service.get_x_addrs()) > len(already_known_service.get_x_addrs()):
+                already_known_service.set_x_addrs(service.get_x_addrs())
+                merged.append('XAddr={}'.format(service.get_x_addrs()))
+            if len(service.scopes) > len(already_known_service.scopes):
+                already_known_service.scopes = service.scopes
                 merged.append('Scopes={}'.format(service.scopes))
-            if len(service.types) > len(s.types):
-                s.types = service.types
+            if len(service.types) > len(already_known_service.types):
+                already_known_service.types = service.types
                 merged.append('Types={}'.format(service.types))
             if merged:
                 self._logger.info(
@@ -1460,13 +1464,13 @@ class WSDiscoveryBase:
 
         elif act == ACTION_HELLO:
             # check if it is from a discovery proxy
-            rt = env.relationship_type
-            if rt is not None and rt.localname == "Suppression" and rt.namespace == NS_D:
-                xAddr = env.x_addrs[0]
+            rel_type = env.relationship_type
+            if rel_type is not None and rel_type.localname == "Suppression" and rel_type.namespace == NS_D:
+                x_addr = env.x_addrs[0]
                 # only support 'soap.udp'
-                if xAddr.startswith("soap.udp:"):
+                if x_addr.startswith("soap.udp:"):
                     self._disco_proxy_active = True
-                    self.__disco_proxy_address = _extract_soap_udp_address_from_uri(URI(xAddr))
+                    self.__disco_proxy_address = _extract_soap_udp_address_from_uri(URI(x_addr))
                     self._disco_proxy_epr = env.epr
 
             service = Service(env.types, env.scopes, env.x_addrs, env.epr, env.instance_id)
@@ -1496,7 +1500,7 @@ class WSDiscoveryBase:
     def env_received(self, env, addr):
         self._handle_env(env, addr)
 
-    def _send_resolve_match(self, service, relatesTo, addr):
+    def _send_resolve_match(self, service, relates_to, addr):
         self._logger.info('sending resolve match to %s', addr)
         service.increment_message_number()
 
@@ -1505,30 +1509,30 @@ class WSDiscoveryBase:
         env.addr_to = WSA_ANONYMOUS
         env.instance_id = str(service.instance_id)
         env.message_number = str(service.message_number)
-        env.relates_to = relatesTo
+        env.relates_to = relates_to
 
         env.probe_resolve_matches.append(ProbeResolveMatch(service.epr,
                                                            service.types, service.scopes,
-                                                           service.getXAddrs(), str(service.metadata_version)))
+                                                           service.get_x_addrs(), str(service.metadata_version)))
         self._networking_thread.add_unicast_message(env, addr[0], addr[1])
 
-    def _send_probe_match(self, services, relatesTo, addr):
+    def _send_probe_match(self, services, relates_to, addr):
         self._logger.info('sending probe match to %s for %d services', addr, len(services))
-        msgNumber = 1
+        msg_number = 1
         # send one match response for every service, dpws explorer can't handle telegram otherwise if too many devices reported
         for service in services:
             env = SoapEnvelope()
             env.action = ACTION_PROBE_MATCH
             env.addr_to = WSA_ANONYMOUS
             env.instance_id = _generate_instance_id()
-            env.message_number = str(msgNumber)
-            env.relates_to = relatesTo
+            env.message_number = str(msg_number)
+            env.relates_to = relates_to
 
             # add values to ProbeResponse acc. to flags
             epr = service.epr if self.PROBEMATCH_EPR else ''
             types = service.types if self.PROBEMATCH_TYPES else []
             scopes = service.scopes if self.PROBEMATCH_SCOPES else []
-            xaddrs = service.getXAddrs() if self.PROBEMATCH_XADDRS else []
+            xaddrs = service.get_x_addrs() if self.PROBEMATCH_XADDRS else []
             env.probe_resolve_matches.append(ProbeResolveMatch(epr, types, scopes, xaddrs,
                                                                str(service.metadata_version)))
 
@@ -1543,7 +1547,8 @@ class WSDiscoveryBase:
         env.scopes = scopes
 
         if self._disco_proxy_active:
-            self._networking_thread.add_unicast_message(env, self.__disco_proxy_address[0], self.__disco_proxy_address[1])
+            self._networking_thread.add_unicast_message(env, self.__disco_proxy_address[0],
+                                                        self.__disco_proxy_address[1])
         else:
             self._networking_thread.add_multicast_message(env, MULTICAST_IPV4_ADDRESS, MULTICAST_PORT)
 
@@ -1555,7 +1560,8 @@ class WSDiscoveryBase:
         env.epr = epr
 
         if self._disco_proxy_active:
-            self._networking_thread.add_unicast_message(env, self.__disco_proxy_address[0], self.__disco_proxy_address[1])
+            self._networking_thread.add_unicast_message(env, self.__disco_proxy_address[0],
+                                                        self.__disco_proxy_address[1])
         else:
             self._networking_thread.add_multicast_message(env, MULTICAST_IPV4_ADDRESS, MULTICAST_PORT)
 
@@ -1569,10 +1575,10 @@ class WSDiscoveryBase:
         env.message_number = str(service.message_number)
         env.types = service.types
         env.scopes = service.scopes
-        env.x_addrs = service.getXAddrs()
+        env.x_addrs = service.get_x_addrs()
         env.epr = service.epr
         self._networking_thread.add_multicast_message(env, MULTICAST_IPV4_ADDRESS, MULTICAST_PORT,
-                                                     random.randint(0, APP_MAX_DELAY))
+                                                      random.randint(0, APP_MAX_DELAY))
 
     def _send_bye(self, service):
         self._logger.debug('sending bye on %s', service)
@@ -1600,22 +1606,22 @@ class WSDiscoveryBase:
             self._stop_threads()
             self._server_started = False
 
-    def _is_accepted_address(self, addr):  # pylint: disable=unused-argument
+    def _is_accepted_address(self, address):  # pylint: disable=unused-argument, no-self-use
         """ accept any interface. Overwritten in derived classes."""
         return True
 
-    def _network_address_added(self, addr):
-        if not self._is_accepted_address(addr):
-            self._logger.debug('network Address ignored: %s', addr)
+    def _network_address_added(self, address):
+        if not self._is_accepted_address(address):
+            self._logger.debug('network Address ignored: %s', address)
             return
 
-        self._logger.debug('network Address Add: %s', addr)
+        self._logger.debug('network Address Add: %s', address)
         try:
-            self._networking_thread.add_source_addr(addr)
+            self._networking_thread.add_source_addr(address)
             for service in self._local_services.values():
                 self._send_hello(service)
         except:
-            self._logger.warning('error in network Address "%s" Added: %s', addr, traceback.format_exc())
+            self._logger.warning('error in network Address "%s" Added: %s', address, traceback.format_exc())
 
     def _network_address_removed(self, addr):
         self._logger.debug('network Address removed %s', addr)
@@ -1684,24 +1690,20 @@ class WSDiscoveryBase:
         end = start + timeout
         now = time.monotonic()
         while now < end:
-            for t in types_list:
-                self._send_probe(t, scopes)
+            for _type in types_list:
+                self._send_probe(_type, scopes)
             now = time.monotonic()
             if now + repeat_probe_interval <= end:
                 time.sleep(repeat_probe_interval)
             elif now < end:
                 time.sleep(end - now)
         result = []
-        for t in types_list:
-            result.extend(_filter_services(self._remote_services.values(), t, scopes))
+        for _type in types_list:
+            result.extend(_filter_services(self._remote_services.values(), _type, scopes))
         return result
 
-    def search_medical_device_services_in_location(self, sdc_location, timeout=3, bicepsVersion=None):
-        if bicepsVersion is None:
-            types = _FallbackMedicalDeviceTypesFilter
-        else:
-            types = bicepsVersion.MedicalDeviceTypesFilter
-        services = self.search_services(types=types, timeout=timeout)
+    def search_medical_device_services_in_location(self, sdc_location, timeout=3):
+        services = self.search_services(types=_MedicalDeviceTypesFilter, timeout=timeout)
         return sdc_location.matching_services(services)
 
     def publish_service(self, epr, types, scopes, x_addrs):
@@ -1712,8 +1714,7 @@ class WSDiscoveryBase:
         if not self._server_started:
             raise Exception("Server not started")
 
-        instanceId = _generate_instance_id()
-        service = Service(types, scopes, x_addrs, epr, instanceId)
+        service = Service(types, scopes, x_addrs, epr, _generate_instance_id())
         self._logger.info('publishing %r', service)
         self._local_services[epr] = service
         self._send_hello(service)
@@ -1739,10 +1740,10 @@ class WSDiscoveryBlacklist(WSDiscoveryBase):
         tmp = [] if ignored_adaptor_addresses is None else ignored_adaptor_addresses
         self._ignored_adaptor_addresses = [re.compile(x) for x in tmp]
 
-    def _is_accepted_address(self, addr):
+    def _is_accepted_address(self, address):
         """ check if any of the regular expressions matches the argument"""
-        for x in self._ignored_adaptor_addresses:
-            if x.match(addr) is not None:
+        for ign_address in self._ignored_adaptor_addresses:
+            if ign_address.match(address) is not None:
                 return False
         return True
 
@@ -1761,10 +1762,10 @@ class WSDiscoveryWhitelist(WSDiscoveryBase):
         tmp = [] if accepted_adapter_addresses is None else accepted_adapter_addresses
         self.accepted_adapter_addresses = [re.compile(x) for x in tmp]
 
-    def _is_accepted_address(self, addr):
+    def _is_accepted_address(self, address):
         """ check if any of the regular expressions matches the argument"""
-        for x in self.accepted_adapter_addresses:
-            if x.match(addr) is not None:
+        for acc_address in self.accepted_adapter_addresses:
+            if acc_address.match(address) is not None:
                 return True
         return False
 
@@ -1784,7 +1785,7 @@ class WSDiscoverySingleAdapter(WSDiscoveryBase):
         """
         super(WSDiscoverySingleAdapter, self).__init__(logger)
 
-        all_adapters = getNetworkAdapterConfigs()
+        all_adapters = get_network_adapter_configs()
         # try to match name. if it matches, we are already ready.
         filtered_adapters = [a for a in all_adapters if a.friendly_name == adapter_name]
         if len(filtered_adapters) == 1:
@@ -1803,11 +1804,11 @@ class WSDiscoverySingleAdapter(WSDiscoveryBase):
                                                                                              [a.friendly_name for a in
                                                                                               all_adapters]))
 
-    def _is_accepted_address(self, addr):
+    def _is_accepted_address(self, address):
         """ check if any of the regular expressions matches the argument"""
-        return addr in self._my_ip_address
+        return address in self._my_ip_address
 
 
-_FallbackMedicalDeviceTypesFilter = [QName(NS_DPWS, 'Device'),
-                                     QName('http://standards.ieee.org/downloads/11073/11073-20702-2016',
-                                           'MedicalDevice')]
+_MedicalDeviceTypesFilter = [QName(NS_DPWS, 'Device'),
+                             QName('http://standards.ieee.org/downloads/11073/11073-20702-2016',
+                                   'MedicalDevice')]

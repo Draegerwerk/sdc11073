@@ -1,6 +1,6 @@
-from ..namespaces import domTag
-from .. pmtypes import ComponentActivation
 from .providerbase import ProviderRole
+from ..namespaces import domTag
+from ..pmtypes import ComponentActivation
 
 
 class GenericMetricProvider(ProviderRole):
@@ -9,98 +9,100 @@ class GenericMetricProvider(ProviderRole):
     - SetValueOperation on numeric metrics
     - SetStringOperation on (enum) string metrics
     """
-    def __init__(self, activationStateCanRemoveMetricValue=True, log_prefix=None):
+
+    def __init__(self, activation_state_can_remove_metric_value=True, log_prefix=None):
         '''
 
-        :param activationStateCanRemoveMetricValue: if True, SF717 is handled
+        :param activation_state_can_remove_metric_value: if True, SF717 is handled
                SF717: A Metric Provider shall not provide a MetricValue if the ActivationState = Shtdn|Off|Fail.
         '''
         super().__init__(log_prefix)
-        self.activationStateCanRemoveMetricValue = activationStateCanRemoveMetricValue
+        self.activation_state_can_remove_metric_value = activation_state_can_remove_metric_value
 
-    def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
+    def make_operation_instance(self, operation_descriptor_container, operations_factory):
         ''' Can handle following cases:
-        SetValueOperation, target = NumericMetricDescriptor: => handler = _setNumericValue
-        SetStringOperation, target = (Enum)StringMetricDescriptor: => handler = _setString
-        SetMetricStateOperationDescriptor, target = any subclass of AbstractMetricDescriptor: => handler = _setMetricState
+        SetValueOperation, target = NumericMetricDescriptor: => handler = _set_numeric_value
+        SetStringOperation, target = (Enum)StringMetricDescriptor: => handler = _set_string
+        SetMetricStateOperationDescriptor, target = any subclass of AbstractMetricDescriptor: => handler = _set_metric_state
         '''
-        operationTargetHandle = operationDescriptorContainer.OperationTarget
-        operationTargetDescriptorContainer = self._mdib.descriptions.handle.getOne(operationTargetHandle)
+        operation_target_handle = operation_descriptor_container.OperationTarget
+        op_target_descriptor_container = self._mdib.descriptions.handle.getOne(operation_target_handle)
 
-        if operationTargetDescriptorContainer.NODETYPE not in (domTag('StringMetricDescriptor'),
-                                                               domTag('EnumStringMetricDescriptor'),
-                                                               domTag('NumericMetricDescriptor'),
-                                                               domTag('RealTimeSampleArrayMetricDescriptor')):
-            return None # this is not metric provider role
+        if op_target_descriptor_container.NODETYPE not in (domTag('StringMetricDescriptor'),
+                                                           domTag('EnumStringMetricDescriptor'),
+                                                           domTag('NumericMetricDescriptor'),
+                                                           domTag('RealTimeSampleArrayMetricDescriptor')):
+            return None  # this is not metric provider role
 
-        if operationDescriptorContainer.NODETYPE == domTag('SetValueOperationDescriptor'):
-            if operationTargetDescriptorContainer.NODETYPE == domTag('NumericMetricDescriptor'):
+        if operation_descriptor_container.NODETYPE == domTag('SetValueOperationDescriptor'):
+            if op_target_descriptor_container.NODETYPE == domTag('NumericMetricDescriptor'):
                 op_cls = operations_factory(domTag('SetValueOperationDescriptor'))
-                return self._mkOperation(op_cls,
-                                         handle=operationDescriptorContainer.handle,
-                                         operationTargetHandle=operationTargetHandle,
-                                         codedValue=operationDescriptorContainer.Type,
-                                         currentArgumentHandler=self._setNumericValue)
+                return self._mk_operation(op_cls,
+                                          handle=operation_descriptor_container.handle,
+                                          operation_target_handle=operation_target_handle,
+                                          codedValue=operation_descriptor_container.Type,
+                                          current_argument_handler=self._set_numeric_value)
             return None
-        elif operationDescriptorContainer.NODETYPE == domTag('SetStringOperationDescriptor'):
-            if operationTargetDescriptorContainer.NODETYPE in (domTag('StringMetricDescriptor'),
-                                                               domTag('EnumStringMetricDescriptor')):
+        if operation_descriptor_container.NODETYPE == domTag('SetStringOperationDescriptor'):
+            if op_target_descriptor_container.NODETYPE in (domTag('StringMetricDescriptor'),
+                                                           domTag('EnumStringMetricDescriptor')):
                 op_cls = operations_factory(domTag('SetStringOperationDescriptor'))
-                return self._mkOperation(op_cls,
-                                         handle=operationDescriptorContainer.handle,
-                                         operationTargetHandle=operationTargetHandle,
-                                         codedValue=operationDescriptorContainer.Type,
-                                         currentArgumentHandler=self._setString)
+                return self._mk_operation(op_cls,
+                                          handle=operation_descriptor_container.handle,
+                                          operation_target_handle=operation_target_handle,
+                                          codedValue=operation_descriptor_container.Type,
+                                          current_argument_handler=self._set_string)
             return None
-        elif operationDescriptorContainer.NODETYPE == domTag('SetMetricStateOperationDescriptor'):
+        if operation_descriptor_container.NODETYPE == domTag('SetMetricStateOperationDescriptor'):
             op_cls = operations_factory(domTag('SetMetricStateOperationDescriptor'))
-            operation = self._mkOperation(op_cls,
-                                          handle=operationDescriptorContainer.handle,
-                                          operationTargetHandle=operationTargetHandle,
-                                          codedValue=operationDescriptorContainer.Type,
-                                          currentArgumentHandler=self._setMetricState)
+            operation = self._mk_operation(op_cls,
+                                           handle=operation_descriptor_container.handle,
+                                           operation_target_handle=operation_target_handle,
+                                           codedValue=operation_descriptor_container.Type,
+                                           current_argument_handler=self._set_metric_state)
             return operation
         return None
 
-    def _setMetricState(self, operationInstance, value):
+    def _set_metric_state(self, operation_instance, value):
         '''
 
-        :param operationInstance: the operation
+        :param operation_instance: the operation
         :param value: a list of proposed metric states
         :return:
         '''
-        #ToDo: consider ModifiableDate attribute
-        operationInstance.currentValue = value
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            for proposedMetricState in value:
+        # ToDo: consider ModifiableDate attribute
+        operation_instance.current_value = value
+        with self._mdib.transaction_manager() as mgr:
+            for proposed_state in value:
                 # state = mgr.getMetricState(proposedMetricState.descriptorHandle)
-                state = mgr.get_state(proposedMetricState.descriptorHandle)
+                state = mgr.get_state(proposed_state.descriptorHandle)
                 if state.isMetricState:
                     self._logger.info('updating {} with proposed metric state', state)
-                    state.update_from_other_container(proposedMetricState,
+                    state.update_from_other_container(proposed_state,
                                                       skipped_properties=['StateVersion', 'DescriptorVersion'])
                 else:
-                    self._logger.warn('_setMetricState operation: ignore invalid referenced type {} in operation', state.NODETYPE)
+                    self._logger.warn('_set_metric_state operation: ignore invalid referenced type {} in operation',
+                                      state.NODETYPE)
 
-    def onPreCommit(self, mdib, transaction):
-        if not self.activationStateCanRemoveMetricValue:
+    def on_pre_commit(self, mdib, transaction):
+        if not self.activation_state_can_remove_metric_value:
             return
         if transaction.metric_state_updates:
-            self._handleMetricsComponentActivation(transaction.metric_state_updates.values())
+            self._handle_metrics_component_activation(transaction.metric_state_updates.values())
         if transaction.rt_sample_state_updates:
-            self._handleMetricsComponentActivation(transaction.rt_sample_state_updates.values())
+            self._handle_metrics_component_activation(transaction.rt_sample_state_updates.values())
 
-    def _handleMetricsComponentActivation(self, metric_state_updates):
+    def _handle_metrics_component_activation(self, metric_state_updates):
         # check if MetricValue shall be removed
-        for oldstate, newstate in metric_state_updates:
-            if newstate is None or not newstate.isMetricState:
+        for _, new_state in metric_state_updates:
+            if new_state is None or not new_state.isMetricState:
                 continue
             # SF717: check if MetricValue shall be automatically removed
-            if newstate.ActivationState in (ComponentActivation.OFF,
-                                            ComponentActivation.SHUTDOWN,
-                                            ComponentActivation.FAILURE):
-                if newstate.metricValue is not None:
+            if new_state.ActivationState in (ComponentActivation.OFF,
+                                             ComponentActivation.SHUTDOWN,
+                                             ComponentActivation.FAILURE):
+                if new_state.metricValue is not None:
                     # remove metric value
                     self._logger.info('{}: remove metric value because ActivationState="{}", handle="{}"',
-                                      self.__class__.__name__, newstate.ActivationState, newstate.descriptorHandle)
-                    newstate.metricValue = None
+                                      self.__class__.__name__, new_state.ActivationState, new_state.descriptorHandle)
+                    new_state.metricValue = None

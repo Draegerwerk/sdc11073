@@ -40,32 +40,36 @@ if __name__ == '__main__':
     logger.info('{}', 'start')
     wsd = sdc11073.wsdiscovery.WSDiscoveryWhitelist([adapter_ip])
     wsd.start()
-    my_mdib = sdc11073.mdib.DeviceMdibContainer.fromMdibFile(mdib_path)
+    my_mdib = sdc11073.mdib.DeviceMdibContainer.from_mdib_file(mdib_path)
     my_uuid = UUID(My_UUID_str)
     print("UUID for this device is {}".format(my_uuid))
     loc = sdc11073.location.SdcLocation(ref_fac, ref_poc, ref_bed)
     print("location for this device is {}".format(loc))
     dpwsModel = sdc11073.pysoap.soapenvelope.DPWSThisModel(manufacturer='sdc11073',
-                                                           manufacturerUrl='www.sdc11073.com',
-                                                           modelName='TestDevice',
-                                                           modelNumber='1.0',
-                                                           modelUrl='www.sdc11073.com/model',
-                                                           presentationUrl='www.sdc11073.com/model/presentation')
+                                                           manufacturer_url='www.sdc11073.com',
+                                                           model_name='TestDevice',
+                                                           model_number='1.0',
+                                                           model_url='www.sdc11073.com/model',
+                                                           presentation_url='www.sdc11073.com/model/presentation')
 
-    dpwsDevice = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendlyName='TestDevice',
-                                                             firmwareVersion='Version1',
-                                                             serialNumber='12345')
+    dpwsDevice = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendly_name='TestDevice',
+                                                             firmware_version='Version1',
+                                                             serial_number='12345')
     if ca_folder:
-        ssl_context = mk_ssl_context_from_folder(ca_folder, cyphers_file=None,
+        ssl_context = mk_ssl_context_from_folder(ca_folder,
+                                                 private_key='user_private_key_encrypted.pem',
+                                                 certificate='user_certificate_root_signed.pem',
+                                                 ca_public_key='root_certificate.pem',
+                                                 cyphers_file=None,
                                                  ssl_passwd=ssl_passwd)
     else:
         ssl_context = None
     sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.SdcDevice(wsd, my_uuid, dpwsModel, dpwsDevice, my_mdib,
-                                                           sslContext=ssl_context)
-    sdcDevice.startAll()
+                                                           ssl_context=ssl_context)
+    sdcDevice.start_all()
 
-    validators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extensionString='System')]
-    sdcDevice.setLocation(loc, validators)
+    validators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+    sdcDevice.set_location(loc, validators)
     patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get(domTag('PatientContextDescriptor'))[0].handle
     with my_mdib.mdibUpdateTransaction() as mgr:
         patientContainer = mgr.get_state(patientDescriptorHandle)

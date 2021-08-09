@@ -30,13 +30,7 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     It defines namespaces and handlers for the protocol.
     Derive from this class in order to define different protocol handling."""
     DpwsDeviceType = dpwsTag('Device')
-    MetaDataExchangeSchemaFile = os.path.join(schemaFolder, 'MetadataExchange.xsd')
-    EventingSchemaFile = os.path.join(schemaFolder, 'eventing.xsd')
-    SoapEnvelopeSchemaFile = os.path.join(schemaFolder, 'soap-envelope.xsd')
-    WsAddrSchemaFile = os.path.join(schemaFolder, 'ws-addr.xsd')
-    AddressingSchemaFile = os.path.join(schemaFolder, 'addressing.xsd')
-    XMLSchemaFile = os.path.join(schemaFolder, 'xml.xsd')
-    DPWSSchemaFile = os.path.join(schemaFolder, 'wsdd-dpws-1.1-schema-os.xsd')
+    SchemaFilePaths = None
     # set the following namespaces in derived classes:
     MedicalDeviceTypeNamespace = None
     BICEPSNamespace = None
@@ -99,14 +93,18 @@ class SchemaResolverBase(etree_.Resolver):
         self._logger = loghelper.get_logger_adapter('sdc.schema_resolver', log_prefix)
 
 
-    def resolve(self, url, id, context):  # pylint: disable=unused-argument, redefined-builtin
+    def resolve(self, url, id, context):  # pylint: disable=unused-argument, redefined-builtin, invalid-name
         try:
             # first check if there is a lookup defined
             ref = self.lookup.get(url)
             if ref is None:
                 ref = self.lookup_ext.get(url)
             if ref is not None:
-                filename = getattr(self._base_definitions, ref)
+                try:
+                    filename = getattr(self._base_definitions.SchemaFilePaths, ref)
+                except AttributeError as ex:
+                    self._logger.warn('could not resolve ref={}', ref)
+                    return None
                 self._logger.debug('could resolve url {} via lookup to {}', url, filename)
                 if not os.path.exists(filename):
                     self._logger.warn('could resolve url {} via lookup, but path {} does not exist', url, filename)

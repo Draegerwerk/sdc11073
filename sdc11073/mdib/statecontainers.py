@@ -33,8 +33,8 @@ class AbstractStateContainer(ContainerBase):
 
     def __init__(self, nsmapper, descriptor_container):
         super().__init__(nsmapper)
+        self.descriptor_container = descriptor_container
         # pylint: disable=invalid-name
-        self.descriptorContainer = descriptor_container
         self.DescriptorHandle = descriptor_container.handle
         self.DescriptorVersion = descriptor_container.DescriptorVersion
         #pylint: enable=invalid-name
@@ -66,10 +66,10 @@ class AbstractStateContainer(ContainerBase):
         #pylint: enable=invalid-name
 
     def update_descriptor_version(self):
-        if self.descriptorContainer is None:
-            raise RuntimeError('State {} has no descriptorContainer'.format(self))
-        if self.descriptorContainer.DescriptorVersion != self.DescriptorVersion:
-            self.DescriptorVersion = self.descriptorContainer.DescriptorVersion
+        if self.descriptor_container is None:
+            raise RuntimeError('State {} has no descriptor_container'.format(self))
+        if self.descriptor_container.DescriptorVersion != self.DescriptorVersion:
+            self.DescriptorVersion = self.descriptor_container.DescriptorVersion
 
     def __repr__(self):
         return '{} descriptorHandle="{}" StateVersion={}'.format(self.__class__.__name__, self.descriptorHandle,
@@ -344,7 +344,7 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
         super().__init__(*args, **kwargs)
         self.last_updated = time.time()
 
-        if self.descriptorContainer.SignalDelegationSupported:
+        if self.descriptor_container.SignalDelegationSupported:
             # Delegable signals should have location Remote according to BICEPS
             self.Location = pmtypes.AlertSignalPrimaryLocation.REMOTE #pylint: disable=invalid-name
 

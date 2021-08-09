@@ -56,7 +56,7 @@ class IndexDefinition(dict):
                 return None
             raise RuntimeError('key "{}" not found'.format(key))
 
-    def getOne(self, key, allowNone=False):  # pylint: disable=invalid_name
+    def getOne(self, key, allowNone=False):  # pylint: disable=invalid-name
         warnings.warn('use get_one', DeprecationWarning)
         return self.get_one(key, allowNone)
 
@@ -183,12 +183,12 @@ class MultiKeyLookup:
         self._objects.add(obj)
         self._mk_indices(obj)
 
-    def add_objects(self, objs):
+    def add_objects(self, objects):
         with self._lock:
-            self.add_objects_no_lock(objs)
+            self.add_objects_no_lock(objects)
 
-    def add_objects_no_lock(self, objs):
-        for obj in objs:
+    def add_objects_no_lock(self, objects):
+        for obj in objects:
             if obj in self._objects:
                 continue
             self._objects.add(obj)
@@ -226,12 +226,12 @@ class MultiKeyLookup:
         self._rm_indices(obj)
         self._objects.remove(obj)
 
-    def remove_objects(self, objs):
+    def remove_objects(self, objects):
         with self._lock:
-            self.remove_objects_no_lock(objs)
+            self.remove_objects_no_lock(objects)
 
-    def remove_objects_no_lock(self, objs):
-        for obj in objs:
+    def remove_objects_no_lock(self, objects):
+        for obj in objects:
             obj_refs = self._object_ids.get(id(obj))
             if obj_refs is None:
                 continue

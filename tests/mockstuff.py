@@ -2,7 +2,7 @@ import threading
 import logging
 import os.path
 import urllib
-from sdc11073.pysoap.soapenvelope import Soap12Envelope, DPWSThisModel, DPWSThisDevice
+from sdc11073.pysoap.soapenvelope import Soap12Envelope, DPWSThisModel, DPWSThisDevice, WsAddress
 from sdc11073.sdcdevice.subscriptionmgr import _DevSubscription
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073 import namespaces
@@ -47,38 +47,46 @@ class MockWsDiscovery(object):
 class TestDevSubscription(_DevSubscription):
     """ Can be used instead of real Subscription objects"""
     mode = 'SomeMode'
-    notifyTo = 'http://self.com:123'
+    notify_to = 'http://self.com:123'
     identifier = '0815'
     expires = 60
     notifyRef = 'a ref string'
     def __init__(self, filter_, biceps_schema):
-        notifyRefNode = etree_.Element(namespaces.wseTag('References'))
-        identNode = etree_.SubElement(notifyRefNode, namespaces.wseTag('Identifier'))
+        notify_ref_node = etree_.Element(namespaces.wseTag('References'))
+        identNode = etree_.SubElement(notify_ref_node, namespaces.wseTag('Identifier'))
         identNode.text = self.notifyRef
         base_urls = [ urllib.parse.SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
 
         super(TestDevSubscription, self).__init__(mode=self.mode, 
-                                                  notifyToAddress=self.notifyTo, 
-                                                  notifyRefNode=notifyRefNode,
-                                                  endToAddress=None,
-                                                  endToRefNode=None,
+                                                  notify_to_address=self.notify_to,
+                                                  notify_ref_node=notify_ref_node,
+                                                  end_to_address=None,
+                                                  end_to_ref_node=None,
                                                   expires=self.expires,
                                                   max_subscription_duration=42,
                                                   filter_=filter_,
-                                                  sslContext=None,
+                                                  ssl_context=None,
                                                   biceps_schema=biceps_schema,
-                                                  acceptedEncodings=None,
+                                                  accepted_encodings=None,
                                                   base_urls=base_urls)
         self.reports = []
         self.message_schema = biceps_schema.message_schema
         
         
-    def sendNotificationReport(self, msg_factory, bodyNode, action, doc_nsmap):
-        soapEnvelope = Soap12Envelope(doc_nsmap)
-        soapEnvelope.addBodyElement(bodyNode)
-        rep = self._mkNotificationReport(soapEnvelope, action)
+    def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
+        addr = WsAddress(addr_to=self.notify_to_address,
+                         action=action,
+                         addr_from=None,
+                         reply_to=None,
+                         fault_to=None,
+                         reference_parameters_node=None)
+        rep = msg_factory.mk_notification_report(addr, body_node, self.notify_ref_nodes, doc_nsmap)
+
+#        soapEnvelope = Soap12Envelope(doc_nsmap)
+#        soapEnvelope.add_body_element(body_node)
+#        rep = msg_factory._mk_notification_report(soapEnvelope, action)
         try:
-            rep.validateBody(self.message_schema)
+            rep.validate_body(self.message_schema)
         except:
             print (rep.as_xml(pretty=True))
             raise
@@ -90,33 +98,33 @@ class SomeDevice(SdcDevice):
 
     """
     def __init__(self, wsdiscovery, my_uuid, mdib_xml_string,
-                 validate=True, sslContext=None, logLevel=logging.INFO, log_prefix='',
+                 validate=True, ssl_context=None, log_prefix='',
                  chunked_messages=False):
         model = DPWSThisModel(manufacturer='Draeger CoC Systems',
-                              manufacturerUrl='www.draeger.com',
-                              modelName='SomeDevice',
-                              modelNumber='1.0',
-                              modelUrl='www.draeger.com/whatever/you/want/model',
-                              presentationUrl='www.draeger.com/whatever/you/want/presentation')
-        device = DPWSThisDevice(friendlyName='Py SomeDevice',
-                                firmwareVersion='0.99',
-                                serialNumber='12345')
+                              manufacturer_url='www.draeger.com',
+                              model_name='SomeDevice',
+                              model_number='1.0',
+                              model_url='www.draeger.com/whatever/you/want/model',
+                              presentation_url='www.draeger.com/whatever/you/want/presentation')
+        device = DPWSThisDevice(friendly_name='Py SomeDevice',
+                                firmware_version='0.99',
+                                serial_number='12345')
 #        log_prefix = '' if not ident else '<{}>:'.format(ident)
-        deviceMdibContainer = DeviceMdibContainer.fromString(mdib_xml_string, log_prefix=log_prefix)
+        device_mdib_container = DeviceMdibContainer.from_string(mdib_xml_string, log_prefix=log_prefix)
         # set Metadata
-        mdsDescriptor = deviceMdibContainer.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
+        mdsDescriptor = device_mdib_container.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
         mdsDescriptor.MetaData.Manufacturer.append(pmtypes.LocalizedText(u'Dräger'))
-        mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(model.modelName[None]))
+        mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(model.model_name[None]))
         mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')
         mdsDescriptor.MetaData.ModelNumber = '0.99'
-        super(SomeDevice, self).__init__(wsdiscovery, my_uuid, model, device, deviceMdibContainer, validate,
+        super(SomeDevice, self).__init__(wsdiscovery, my_uuid, model, device, device_mdib_container, validate,
                                          # registerDefaultOperations=True,
-                                         sslContext=sslContext, logLevel=logLevel, log_prefix=log_prefix,
+                                         ssl_context=ssl_context,log_prefix=log_prefix,
                                          chunked_messages=chunked_messages)
 
     @classmethod
-    def fromMdibFile(cls, wsdiscovery, my_uuid, mdib_xml_path,
-                 validate=True, sslContext=None, logLevel=logging.INFO, log_prefix='', chunked_messages=False):
+    def from_mdib_file(cls, wsdiscovery, my_uuid, mdib_xml_path,
+                 validate=True, ssl_context=None, log_level=logging.INFO, log_prefix='', chunked_messages=False):
         """
         An alternative constructor for the class
         """
@@ -126,5 +134,5 @@ class SomeDevice(SdcDevice):
 
         with open(mdib_xml_path, 'rb') as f:
             mdib_xml_string = f.read()
-        return cls(wsdiscovery, my_uuid, mdib_xml_string, validate, sslContext, logLevel, log_prefix=log_prefix,
+        return cls(wsdiscovery, my_uuid, mdib_xml_string, validate, ssl_context, log_prefix=log_prefix,
                    chunked_messages=chunked_messages)

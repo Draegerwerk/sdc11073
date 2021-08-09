@@ -16,39 +16,38 @@ class TestClientProxies(unittest.TestCase):
                                                              sdc_definitions=definitions_sdc.SDC_v1_Definitions,
                                                              # deviceType=definitions_sdc.SDC_v1_Definitions.MedicalDeviceType,
                                                              validate=CLIENT_VALIDATE,
-                                                             my_ipaddress='169.254.0.3',
-                                                             logLevel=logging.DEBUG)
+                                                             my_ipaddress='169.254.0.3')
         self._allclients = (self.sdcClient_final,)
-        self.hosted = DPWSHosted(endpointReferencesList=[WsaEndpointReferenceType('http://1.2.3.4:6000')],
-                                                        typesList=['xyz'], 
-                                                        serviceId='abc')
+        self.hosted = DPWSHosted(endpoint_references_list=[WsaEndpointReferenceType('http://1.2.3.4:6000')],
+                                                        types_list=['xyz'],
+                                                        service_id='abc')
 
 
     def test_Get_GetMdib(self):
         for sdcClient in self._allclients:
-            getServiceClient = sdcClient._mkHostedServiceClient(port_type='GetService', soapClient=None, hosted=self.hosted)
+            getServiceClient = sdcClient._mk_hosted_service_client(port_type='GetService', soap_client=None, hosted=self.hosted)
             soapEnvelope = getServiceClient._msg_factory.mk_getmdib_envelope(
                 getServiceClient.endpoint_reference.address, getServiceClient.porttype)
 
             print(soapEnvelope.as_xml(pretty=True))
 
-            soapEnvelope.validateBody(sdcClient._bicepsSchema.message_schema)
+            soapEnvelope.validate_body(sdcClient._biceps_schema.message_schema)
 
     def test_Set_setNumericValue(self):
         for sdcClient in self._allclients:
-            setServiceClient = sdcClient._mkHostedServiceClient(port_type='SetService', soapClient=None, hosted=self.hosted)
-            soapEnvelope = setServiceClient._mkRequestedNumericValueEnvelope(operationHandle='123',
-                                                                             requestedNumericValue=42.42)
+            setServiceClient = sdcClient._mk_hosted_service_client(port_type='SetService', soap_client=None, hosted=self.hosted)
+            soapEnvelope = setServiceClient._mk_requested_numeric_value_envelope(operation_handle='123',
+                                                                             requested_numeric_value=42.42)
             print(soapEnvelope.as_xml(pretty=True))
-            soapEnvelope.validateBody(sdcClient._bicepsSchema.message_schema)
+            soapEnvelope.validate_body(sdcClient._biceps_schema.message_schema)
 
     def test_Set_setString(self):
         for sdcClient in self._allclients:
-            setServiceClient = sdcClient._mkHostedServiceClient(port_type='SetService', soapClient=None, hosted=self.hosted)
-            soapEnvelope = setServiceClient._mkRequestedStringEnvelope(operationHandle='123',
-                                                                       requestedString='aaa42.42')
+            setServiceClient = sdcClient._mk_hosted_service_client(port_type='SetService', soap_client=None, hosted=self.hosted)
+            soapEnvelope = setServiceClient._mk_requested_string_envelope(operation_handle='123',
+                                                                       requested_string='aaa42.42')
             print(soapEnvelope.as_xml(pretty=True))
-            soapEnvelope.validateBody(sdcClient._bicepsSchema.message_schema)
+            soapEnvelope.validate_body(sdcClient._biceps_schema.message_schema)
 
     def test_Set_setAlertState(self):
         for sdcClient in self._allclients:
@@ -61,13 +60,13 @@ class TestClientProxies(unittest.TestCase):
             alertState = stateClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
                                     descriptor_container=descr)
 
-            setServiceClient = sdcClient._mkHostedServiceClient(port_type='SetService', soapClient=None, hosted=self.hosted)
+            setServiceClient = sdcClient._mk_hosted_service_client(port_type='SetService', soap_client=None, hosted=self.hosted)
             for state in list(AlertActivation):
                 alertState.ActivationState = state
-                soapEnvelope = setServiceClient._mkSetAlertEnvelope( operationHandle='op123',
-                                                                           proposedAlertStates=[alertState])
+                soapEnvelope = setServiceClient._mk_set_alert_envelope( operation_handle='op123',
+                                                                           proposed_alert_states=[alertState])
                 print (soapEnvelope.as_xml(pretty=True))
-                soapEnvelope.validateBody(sdcClient._bicepsSchema.message_schema)
+                soapEnvelope.validate_body(sdcClient._biceps_schema.message_schema)
 
     def test_Set_setMetricState(self):
         for sdcClient in self._allclients:
@@ -79,14 +78,14 @@ class TestClientProxies(unittest.TestCase):
             stateClass = sdcClient.sdc_definitions.sc.get_container_class(sdc11073.namespaces.domTag('NumericMetricState'))
             metricState = stateClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
                                      descriptor_container=descr)
-            setServiceClient = sdcClient._mkHostedServiceClient(port_type='SetService', soapClient=None, hosted=self.hosted)
+            setServiceClient = sdcClient._mk_hosted_service_client(port_type='SetService', soap_client=None, hosted=self.hosted)
             for state in list(ComponentActivation):
                 metricState.ActivationState = state
                 metricState.BodySite = [sdc11073.pmtypes.CodedValue('abc', 'def')]
-                soapEnvelope = setServiceClient._mkSetMetricStateEnvelope( operationHandle='op123',
-                                                                                 proposedMetricStates=[metricState])
+                soapEnvelope = setServiceClient._mk_set_metric_state_envelope( operation_handle='op123',
+                                                                                 proposed_metric_states=[metricState])
                 print (soapEnvelope.as_xml(pretty=True))
-                soapEnvelope.validateBody(sdcClient._bicepsSchema.message_schema)
+                soapEnvelope.validate_body(sdcClient._biceps_schema.message_schema)
 
     def test_sortIpaddresses(self):
         #              to be sorted            refIp     expected result
@@ -94,7 +93,7 @@ class TestClientProxies(unittest.TestCase):
                      (['1.2.3.3', '1.2.3.4'], '1.2.3.6', ['1.2.3.4', '1.2.3.3']),
                      (['1.2.3.1', '1.2.3.5'], '1.2.3.4', ['1.2.3.5', '1.2.3.1']),]
         for (addresses, refIp, expected) in test_data:
-            result = sdc11073.sdcclient.sdcclientimpl.sortIPAddresses(addresses, refIp)
+            result = sdc11073.sdcclient.sdcclientimpl.sort_ip_addresses(addresses, refIp)
             self.assertEqual(result, expected)
 
 def suite():

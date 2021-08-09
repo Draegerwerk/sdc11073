@@ -48,7 +48,7 @@ class TestDeviceWaveform(unittest.TestCase):
 
     def tearDown(self):
         if self.sdcDevice:
-            self.sdcDevice.stopAll()
+            self.sdcDevice.stop_all()
 
     def test_waveformGeneratorHandling(self):
         tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.005)
@@ -79,12 +79,12 @@ class TestDeviceWaveform(unittest.TestCase):
         ca = pmtypes.ComponentActivation # shortcut
         h = HANDLES[0]
         for actState in (ca.OFF, ca.FAILURE, ca.NOT_READY, ca.SHUTDOWN, ca.STANDBY):    
-            self.mdib.setWaveformGeneratorActivationState(h, actState)    
+            self.mdib.set_waveform_generator_activation_state(h, actState)
             rt_sample_array = waveform_generators[h].get_next_sample_array()
             self.assertEqual(rt_sample_array.activation_state, actState)
             self.assertEqual(len(rt_sample_array.samples), 0)
 
-        self.mdib.setWaveformGeneratorActivationState(h, pmtypes.ComponentActivation.ON)
+        self.mdib.set_waveform_generator_activation_state(h, pmtypes.ComponentActivation.ON)
         now = time.time()
         time.sleep(0.1)    
         rt_sample_array = waveform_generators[h].get_next_sample_array()
@@ -94,14 +94,14 @@ class TestDeviceWaveform(unittest.TestCase):
 
     def test_waveformSubscription(self):
         self._model = sdc11073.pysoap.soapenvelope.DPWSThisModel(manufacturer='Chinakracher GmbH',
-                                                                 manufacturerUrl='www.chinakracher.com',
-                                                                 modelName='BummHuba',
-                                                                 modelNumber='1.0',
-                                                                 modelUrl='www.chinakracher.com/bummhuba/model',
-                                                                 presentationUrl='www.chinakracher.com/bummhuba/presentation')
-        self._device = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendlyName='Big Bang Practice',
-                                                                   firmwareVersion='0.99',
-                                                                   serialNumber='87kabuuum889')
+                                                                 manufacturer_url='www.chinakracher.com',
+                                                                 model_name='BummHuba',
+                                                                 model_number='1.0',
+                                                                 model_url='www.chinakracher.com/bummhuba/model',
+                                                                 presentation_url='www.chinakracher.com/bummhuba/presentation')
+        self._device = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendly_name='Big Bang Practice',
+                                                                   firmware_version='0.99',
+                                                                   serial_number='87kabuuum889')
         
         tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.02)
         st = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.02)
@@ -112,16 +112,16 @@ class TestDeviceWaveform(unittest.TestCase):
         self.mdib.register_waveform_generator(HANDLES[2], si)
         
         annotation = pmtypes.Annotation(pmtypes.CodedValue('a','b'))
-        self.mdib.registerAnnotationGenerator(annotation,
-                                              triggerHandle=HANDLES[2],
-                                              annotatedHandles=(HANDLES[0], HANDLES[1], HANDLES[2]))
+        self.mdib.register_annotation_generator(annotation,
+                                              trigger_handle=HANDLES[2],
+                                              annotated_handles=(HANDLES[0], HANDLES[1], HANDLES[2]))
         
         self.wsDiscovery = mockstuff.MockWsDiscovery(['5.6.7.8'])
         uuid = None # let device create one
-        self.sdcDevice = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, uuid, self._model, self._device, self.mdib, logLevel=logging.DEBUG)
-        self.sdcDevice.startAll()
+        self.sdcDevice = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, uuid, self._model, self._device, self.mdib)
+        self.sdcDevice.start_all()
         testSubscr = mockstuff.TestDevSubscription(self.sdcDevice.mdib.sdc_definitions.Actions.Waveform, self.sdcDevice.mdib.biceps_schema)
-        self.sdcDevice.subscriptionsManager._subscriptions. add_object(testSubscr)
+        self.sdcDevice.subscriptions_manager._subscriptions. add_object(testSubscr)
 
         time.sleep(3)
         print (testSubscr.reports[-2].as_xml(pretty=True))

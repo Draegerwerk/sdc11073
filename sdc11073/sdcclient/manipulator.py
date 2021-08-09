@@ -22,12 +22,14 @@ class RequestManipulator:
     def manipulate_soapenvelope(self, soap_envelope):
         if callable(self.cb_soapenvelope):
             return self.cb_soapenvelope(soap_envelope)
+        return None
 
     def manipulate_domtree(self, domtree):
         if callable(self.cb_xml):
             return self.cb_xml(domtree)
+        return None
 
     def manipulate_string(self, xml_string):
         if callable(self.cb_string):
             return self.cb_string(xml_string)
-
+        return None

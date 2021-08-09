@@ -9,7 +9,7 @@ from .. import observableproperties as properties
 from .. import pmtypes
 from ..namespaces import DocNamespaceHelper, msgTag, domTag
 from ..xmlparsing import BicepsSchema
-
+from ..etc import apply_map
 
 class RtSampleContainer:
     """Contains a single Value"""
@@ -48,11 +48,9 @@ class _MultikeyWithVersionLookup(multikey.MultiKeyLookup):
             self._save_version(obj)
         multikey.MultiKeyLookup.remove_object_no_lock(self, obj)
 
-    def remove_objects_no_lock(self, objs):
-        for obj in objs:
-            if obj is not None:
-                self._save_version(obj)
-        multikey.MultiKeyLookup.remove_objects_no_lock(self, objs)
+    def remove_objects_no_lock(self, objects):
+        apply_map(self._save_version, [obj for obj in objects if obj is not None])
+        multikey.MultiKeyLookup.remove_objects_no_lock(self, objects)
 
 
 class DescriptorsLookup(_MultikeyWithVersionLookup):
@@ -96,13 +94,12 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
         if parent is not None:
             parent.add_child(obj)
 
-    def add_objects(self, objs):
+    def add_objects(self, objects):
         with self._lock:
-            self.add_objects_no_lock(objs)
+            self.add_objects_no_lock(objects)
 
-    def add_objects_no_lock(self, objs):
-        for obj in objs:
-            self.add_object_no_lock(obj)
+    def add_objects_no_lock(self, objects):
+        apply_map(self.add_object_no_lock, objects)
 
     def remove_object(self, obj):
         keys = self._object_ids.get(id(obj))
@@ -117,16 +114,15 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
         if parent is not None:
             parent.rm_child(obj)
 
-    def remove_objects(self, objs):
+    def remove_objects(self, objects):
         with self._lock:
-            self.remove_objects_no_lock(objs)
+            self.remove_objects_no_lock(objects)
 
-    def remove_objects_no_lock(self, objs):
-        for obj in objs:
-            self.remove_object_no_lock(obj)
+    def remove_objects_no_lock(self, objects):
+        apply_map(self.remove_object_no_lock, objects)
 
     def replace_object_no_lock(self, new_obj):
-        """ remove existing descriptorContainer and add new one, but do not touch childlist of parent (that keeps order)"""
+        """ remove existing descriptor_container and add new one, but do not touch childlist of parent (that keeps order)"""
         orig_obj = self.handle.getOne(new_obj.handle)
         self.remove_object_no_lock(orig_obj)
         self.add_object_no_lock(new_obj)
@@ -285,7 +281,7 @@ class MdibContainer:
         @param state_containers: a list of StateContainer objects.
         """
         for state_container in state_containers:
-            if state_container.descriptorContainer is not None:
+            if state_container.descriptor_container is not None:
                 self._logger.debug('add_state_containers: new state {}', state_container)
             else:
                 self._logger.warn('add_state_containers: new state {}, but has no descriptor!', state_container)
@@ -311,7 +307,6 @@ class MdibContainer:
         md_description_node = etree_.Element(domTag('MdDescription'),
                                              attrib={'DescriptionVersion': str(self.mddescription_version)},
                                              nsmap=doc_nsmap)
-
         for root_container in root_containers:
             node = root_container.mk_descriptor_node(tag=domTag('Mds'), connect_child_descriptors=True)
             md_description_node.append(node)
@@ -338,7 +333,7 @@ class MdibContainer:
             try:
                 md_state_node.append(state_container.mk_state_node(tag))
             except RuntimeError:
-                self._logger.error('State {} has no descriptorContainer', state_container.descriptorHandle)
+                self._logger.error('State {} has no descriptor_container', state_container.descriptorHandle)
         if add_context_states:
             for state_container in self.context_states.objects:
                 md_state_node.append(state_container.mk_state_node(tag))
@@ -491,7 +486,6 @@ class MdibContainer:
         """
         selected_objects = None
         for coding in codings:
-
             if selected_objects is None:
                 selected_objects = self.descriptions.objects  # initially all objects
             else:
@@ -514,10 +508,10 @@ class MdibContainer:
         return selected_objects
 
     def get_all_descriptors_in_subtree(self, descriptor_container, depth_first=True, include_root=True):
-        """ walks the tree below descriptorContainer.
+        """ walks the tree below descriptor_container.
         :param descriptor_container:
         :param depth_first: determines order of returned list. DepthFirst=True has all leaves on top, otherwise at the end.
-        :param include_root: if True descriptorContainer itself is also part of returned list
+        :param include_root: if True descriptor_container itself is also part of returned list
         :return: a list of DescriptorContainer objects
         """
         result = []
@@ -526,8 +520,7 @@ class MdibContainer:
             child_containers = self.descriptions.parent_handle.get(parent.handle, list())
             if not depth_first:
                 result.extend(child_containers)
-            for child in child_containers:
-                _getchildren(child)
+            apply_map(_getchildren, child_containers)
             if depth_first:
                 result.extend(child_containers)
 

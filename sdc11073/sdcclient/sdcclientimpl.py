@@ -1,132 +1,126 @@
 ''' Using lxml based SoapClient'''
-import weakref
+import copy
 import functools
 import logging
-import os
-import traceback
 import ssl
+import traceback
 import urllib
-import copy
-from lxml import etree as etree_
+import weakref
+
 from cryptography import x509
 from cryptography.hazmat import backends
 from cryptography.x509 import extensions
+from lxml import etree as etree_
 
-from .. import observableproperties as properties
 from .. import commlog
-from .. import loghelper
-from .. import xmlparsing
-from ..namespaces import nsmap
-from ..namespaces import Prefixes
-from ..definitions_base import ProtocolsRegistry
-from ..pysoap.soapenvelope import  WsAddress, Soap12Envelope, DPWSEnvelope, MetaDataSection
-from ..pysoap.soapclient import SoapClient
 from .. import compression
+from .. import loghelper
 from .. import netconn
+from .. import observableproperties as properties
+from .. import xmlparsing
+from ..definitions_base import ProtocolsRegistry
+from ..namespaces import Prefixes
+from ..namespaces import nsmap
+from ..pysoap.soapclient import SoapClient
+from ..pysoap.soapenvelope import WsAddress, Soap12Envelope, DPWSEnvelope, MetaDataSection
 
-def _mkSoapClient(scheme, netloc, logger, sslContext, sdc_definitions, supported_encodings=None,
-                  requestEncodings=None, chunked_requests=False):
+
+def _mk_soap_client(scheme, netloc, logger, ssl_context, sdc_definitions, supported_encodings=None,
+                    request_encodings=None, chunked_requests=False):
     if scheme == 'https':
-        _ssl_context = sslContext
+        _ssl_context = ssl_context
     else:
         _ssl_context = None
-    return  SoapClient(netloc, logger, sslContext=_ssl_context,
-                       sdc_definitions=sdc_definitions,
-                       supported_encodings=supported_encodings,
-                       requestEncodings=requestEncodings,
-                       chunked_requests=chunked_requests)
-
-
-# default ssl context data
-here = os.path.dirname(__file__)
-caFolder = os.path.join(os.path.dirname(here), 'ca')
-_ssl_certfile = os.path.join(caFolder, 'sdccert.pem') # this is the certification chain ( contains root ca and signed public key
-_ssl_keyfile = os.path.join(caFolder, 'userkey.pem')     # this is the private key of own certificate
-_ssl_cacert = os.path.join(caFolder, 'cacert.pem')    # this is the common root ca that signed all sdc devices 
-_ssl_passwd = 'dummypass' #'Phase1' #dummypass
-_ssl_cypherfile = os.path.join(caFolder, 'cyphers.json') # Json file that determines ciphers to be used
+    return SoapClient(netloc, logger, ssl_context=_ssl_context,
+                      sdc_definitions=sdc_definitions,
+                      supported_encodings=supported_encodings,
+                      request_encodings=request_encodings,
+                      chunked_requests=chunked_requests)
 
 
 class HostDescription:
     def __init__(self, dpws_envelope):
         self._dpws_envelope = dpws_envelope
-        self.thisModel = dpws_envelope.thisModel 
-        self.thisDevice = dpws_envelope.thisDevice 
+        self.this_model = dpws_envelope.this_model
+        self.this_device = dpws_envelope.this_device
         self.host = dpws_envelope.host
 
     def __str__(self):
-        return 'HostDescription: thisModel = {}, thisDevice = {}, host = {}'.format(self.thisModel, self.thisDevice, self.host)
+        return 'HostDescription: this_model = {}, this_device = {}, host = {}'.format(self.this_model, self.this_device,
+                                                                                      self.host)
 
 
 class HostedServiceDescription:
-    VALIDATE_MEX = False # workaraound as long as validation error due to missing dpws schema is not solved
+    VALIDATE_MEX = False  # workaraound as long as validation error due to missing dpws schema is not solved
+
     def __init__(self, service_id, endpoint_address, validate, biceps_schema, msg_factory, log_prefix=''):
         self._endpoint_address = endpoint_address
         self.service_id = service_id
         self._validate = validate
-        self._bicepsSchema = biceps_schema
+        self._biceps_schema = biceps_schema
         self._msg_factory = msg_factory
         self.log_prefix = log_prefix
-        self.metaData = None
+        self.metadata = None
         self.wsdl_string = None
         self.wsdl = None
         self._logger = loghelper.get_logger_adapter('sdc.client.{}'.format(service_id), log_prefix)
-        self._url = urllib.parse.urlparse(endpoint_address) 
+        self._url = urllib.parse.urlparse(endpoint_address)
         self.services = {}
 
     @property
-    def _mexSchema(self):
-        return None if not self._validate else self._bicepsSchema.mex_schema
+    def _mex_schema(self):
+        return None if not self._validate else self._biceps_schema.mex_schema
 
-    def readMetadata(self, soap_client):
+    def read_metadata(self, soap_client):
         soap_envelope = self._msg_factory.mk_getmetadata_envelope(self._endpoint_address)
         if self.VALIDATE_MEX:
-            soap_envelope.validateBody(self._mexSchema)
-        endpoint_envelope = soap_client.postSoapEnvelopeTo(self._url.path,
-                                                          soap_envelope,
-                                                          msg='<{}> readMetadata'.format(self.service_id))
+            soap_envelope.validate_body(self._mex_schema)
+        endpoint_envelope = soap_client.post_soap_envelope_to(self._url.path,
+                                                              soap_envelope,
+                                                              msg='<{}> read_metadata'.format(self.service_id))
         if self.VALIDATE_MEX:
-            endpoint_envelope.validateBody(self._mexSchema)
-        self.metaData = MetaDataSection.from_etree_node(endpoint_envelope.bodyNode)
-        self.readwsdl(soap_client, self.metaData.wsdl_location)
-        return
+            endpoint_envelope.validate_body(self._mex_schema)
+        self.metadata = MetaDataSection.from_etree_node(endpoint_envelope.body_node)
+        self._read_wsdl(soap_client, self.metadata.wsdl_location)
 
-    def readwsdl(self, soap_client, wsdl_url):
-        p = urllib.parse.urlparse(wsdl_url)
-        actual_path = p.path + '?{}'.format(p.query) if p.query else p.path
-        self.wsdl_string = soap_client.getUrl(actual_path, msg='{}:getwsdl'.format(self.log_prefix))
+    def _read_wsdl(self, soap_client, wsdl_url):
+        parsed = urllib.parse.urlparse(wsdl_url)
+        actual_path = parsed.path + '?{}'.format(parsed.query) if parsed.query else parsed.path
+        self.wsdl_string = soap_client.get_url(actual_path, msg='{}:getwsdl'.format(self.log_prefix))
         commlog.get_communication_logger().log_wsdl(self.wsdl_string, self.service_id)
         try:
-            self.wsdl = etree_.fromstring(self.wsdl_string, parser=etree_.ETCompatXMLParser(resolve_entities=False)) # make am ElementTree instance
+            self.wsdl = etree_.fromstring(self.wsdl_string, parser=etree_.ETCompatXMLParser(
+                resolve_entities=False))  # make am ElementTree instance
         except etree_.XMLSyntaxError as ex:
-            self._logger.error('could not read wsdl from {}: error={}, data=\n{}'.format(actual_path, ex, self.wsdl_string))
+            self._logger.error(
+                'could not read wsdl from {}: error={}, data=\n{}'.format(actual_path, ex, self.wsdl_string))
+
     def __repr__(self):
         return '{} "{}" endpoint = {}'.format(self.__class__.__name__, self.service_id, self._endpoint_address)
 
 
-def ip2Int(ipString):
+def ip_addr_to_int(ip_string):
     ''' Convert string like '192.168.0.1' to an integer
-    (helper for sortIPAddresses)'''
-    return functools.reduce(lambda x,y: x*256+y, (int(x) for x in ipString.split('.')), 0)
+    (helper for sort_ip_addresses)'''
+    return functools.reduce(lambda x, y: x * 256 + y, (int(x) for x in ip_string.split('.')), 0)
 
 
-def _cmp(a, b, _refInt):
-    ''' helper for sortIPAddresses'''
-    _a = abs(ip2Int(a) - _refInt)
-    _b = abs(ip2Int(b) - _refInt)
-    diff = _a - _b
+def _cmp(address_a, address_bb, _ref_int):
+    ''' helper for sort_ip_addresses'''
+    _a_abs = abs(ip_addr_to_int(address_a) - _ref_int)
+    _b_abs = abs(ip_addr_to_int(address_bb) - _ref_int)
+    diff = _a_abs - _b_abs
     if diff < 0:
         return -1
-    elif diff > 0:
+    if diff > 0:
         return 1
-    else:
-        return 0
+    return 0
 
 
-def sortIPAddresses(adresses, refIp):
+def sort_ip_addresses(adresses, ref_ip):
     ''' sorts list addresses by distance to refIP, shortest distance first'''
-    _ref = ip2Int(refIp)
-    adresses.sort(key=lambda a: abs(ip2Int(a) - _ref))
+    _ref = ip_addr_to_int(ref_ip)
+    adresses.sort(key=lambda a: abs(ip_addr_to_int(a) - _ref))
     return adresses
 
 
@@ -134,89 +128,90 @@ class SdcClient:
     ''' The SdcClient can be used with a known device location.
     The location is typically the result of a wsdiscovery process.
     This class expects that the BICEPS services are available in the device.
-    What if not???? => raise exception in discoverHostedServices
-    ''' 
-    isConnected = properties.ObservableProperty(False) # a boolean
-    
+    What if not???? => raise exception in _discover_hosted_services
+    '''
+    isConnected = properties.ObservableProperty(False)  # a boolean
+
     # observable properties for all notifications
-    # all incoming Notifications can be observed in stateEventReportEnvelope ( as soap envelope)
-    stateEventReportEnvelope = properties.ObservableProperty()
+    # all incoming Notifications can be observed in state_event_report ( as soap envelope)
+    state_event_report = properties.ObservableProperty()
 
     # the following observables can be used to observe the incoming notifications by message type.
     # They contain only the body node of the notification, not the envelope
-    waveFormReport = properties.ObservableProperty()
-    episodicMetricReport = properties.ObservableProperty()
-    episodicAlertReport = properties.ObservableProperty()
-    episodicComponentReport = properties.ObservableProperty()
-    episodicOperationalStateReport = properties.ObservableProperty()
-    episodicContextReport = properties.ObservableProperty()
-    periodicMetricReport = properties.ObservableProperty()
-    periodicAlertReport = properties.ObservableProperty()
-    periodicComponentReport = properties.ObservableProperty()
-    periodicOperationalStateReport = properties.ObservableProperty()
-    periodicContextReport = properties.ObservableProperty()
-    descriptionModificationReport = properties.ObservableProperty()
-    operationInvokedReport = properties.ObservableProperty()
+    waveform_report = properties.ObservableProperty()
+    episodic_metric_report = properties.ObservableProperty()
+    episodic_alert_report = properties.ObservableProperty()
+    episodic_component_report = properties.ObservableProperty()
+    episodic_operational_state_report = properties.ObservableProperty()
+    episodic_context_report = properties.ObservableProperty()
+    periodic_metric_report = properties.ObservableProperty()
+    periodic_alert_report = properties.ObservableProperty()
+    periodic_component_report = properties.ObservableProperty()
+    periodic_operational_state_report = properties.ObservableProperty()
+    periodic_context_report = properties.ObservableProperty()
+    description_modification_report = properties.ObservableProperty()
+    operation_invoked_report = properties.ObservableProperty()
 
     SSL_CIPHERS = None  # None : use SSL default
-    def __init__(self, devicelocation, sdc_definitions, validate=True, sslEvents='auto', sslContext=None,
-                 my_ipaddress=None, logLevel=None, ident='',
+
+    def __init__(self, device_location, sdc_definitions, validate=True, ssl_events='auto', ssl_context=None,
+                 my_ipaddress=None, ident='',
                  specific_components=None,
                  chunked_requests=False):  # pylint:disable=too-many-arguments
         '''
-        @param devicelocation: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
+        @param device_location: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         @param sdc_definition: a QName that defines the device type, e.g. '{http://standards.ieee.org/downloads/11073/11073-20702-2016}MedicalDevice'
                           can be None, in that case value from pysdc.xmlparsing.Final is used
-        @param sslEvents: define if HTTP server of client uses https
-             sslEvents='auto': use https if Xaddress of device is https
-             sslEvents=True: always use https
-             sslEvents=False: use only http 
-        @param sslContext: if not None, this context is used. Otherwise a sSSLContext is automatically generated.
-        @param my_ipAddress: This address is used for the http server that receives notifications. 
-             If value is None, best own address is determined automatically (recommended).  
+        @param ssl_events: define if HTTP server of client uses https
+             ssl_events='auto': use https if Xaddress of device is https
+             ssl_events=True: always use https
+             ssl_events=False: use only http
+        @param ssl_context: if not None, this context is used. Otherwise a sSSLContext is automatically generated.
+        @param my_ipAddress: This address is used for the http server that receives notifications.
+             If value is None, best own address is determined automatically (recommended).
         '''
-        self._devicelocation = devicelocation
+        self._device_location = device_location
         self.sdc_definitions = sdc_definitions
         self._components = copy.deepcopy(sdc_definitions.DefaultSdcClientComponents)
         if specific_components is not None:
             # merge specific stuff into _components
-            for key, value in  specific_components.items():
+            for key, value in specific_components.items():
                 self._components[key] = value
-        self._bicepsSchema = xmlparsing.BicepsSchema(self.sdc_definitions)
-        splitted = urllib.parse.urlsplit(self._devicelocation)
+        self._biceps_schema = xmlparsing.BicepsSchema(self.sdc_definitions)
+        splitted = urllib.parse.urlsplit(self._device_location)
         self._device_uses_https = splitted.scheme.lower() == 'https'
 
         self.log_prefix = ident or ''
         self.chunked_requests = chunked_requests
-        self._sslEvents = sslEvents
-        self._setupLogging(logLevel)
+        self._ssl_events = ssl_events
+        # self._setup_logging(log_level)
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
-        self._logger_wf = loghelper.get_logger_adapter('sdc.client.wf', self.log_prefix) # waveform logger
+        self._logger_wf = loghelper.get_logger_adapter('sdc.client.wf', self.log_prefix)  # waveform logger
         if my_ipaddress is None:
-            self._my_ipaddress = self._findBestOwnIpAddress()
+            self._my_ipaddress = self._find_best_own_ip_address()
         else:
             self._my_ipaddress = my_ipaddress
-        self._logger.info('SdcClient for {} uses own IP Address {}', self._devicelocation, self._my_ipaddress)
-        self.metaData = None
-        self.hostDescription = None
-        self._hostedServices = {} # lookup by service id
+        self._logger.info('SdcClient for {} uses own IP Address {}', self._device_location, self._my_ipaddress)
+        self.metadata = None
+        self.host_description = None
+        self._hosted_services = {}  # lookup by service id
         self._validate = validate
         try:
             self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)
         except AttributeError:
             self._logger.info('Using SSL is enabled. TLS 1.3 is not supported')
-        self._ssl_context = sslContext
-        self._notificationsDispatcherThread = None
-        
-        self._logger.info('created {} for {}', self.__class__.__name__, self._devicelocation)
+        self._ssl_context = ssl_context
+        self._notifications_dispatcher_thread = None
+
+        self._logger.info('created {} for {}', self.__class__.__name__, self._device_location)
 
         self._compression_methods = compression.encodings[:]
-        self._subscriptionMgr = None
-        self._operationsManager = None
-        self._serviceClients = {}
-        self._mdib = None   
-        self._soapClients = {} # all http connections that this client holds
-        self.peerCertificate = None
+        self._subscription_mgr = None
+        self._operations_manager = None
+        self._service_clients = {}
+        self._mdib = None
+        self._soap_clients = {}  # all http connections that this client holds
+        self.peer_certificate = None
         self.all_subscribed = False
         msg_reader_cls = self._components['MsgReaderClass']
         self.msg_reader = msg_reader_cls(self._logger, 'msg_reader')
@@ -229,7 +224,7 @@ class SdcClient:
             raise RuntimeError('SdcClient has already an registered mdib')
         self._mdib = None if mdib is None else weakref.ref(mdib)
         if mdib is not None:
-            mdib.biceps_schema = self._bicepsSchema
+            mdib.biceps_schema = self._biceps_schema
         if self.client('Set') is not None:
             self.client('Set').register_mdib(mdib)
         if self.client('Context') is not None:
@@ -244,172 +239,173 @@ class SdcClient:
     def my_ipaddress(self):
         return self._my_ipaddress
 
-    def _findBestOwnIpAddress(self):
-        myIpAddresses = [conn.ip for conn in netconn.getNetworkAdapterConfigs() if conn.ip not in (None, '0.0.0.0')]
-        splitted = urllib.parse.urlsplit(self._devicelocation)
-        sortIPAddresses(myIpAddresses, splitted.hostname)
-        return myIpAddresses[0]
+    def _find_best_own_ip_address(self):
+        my_addresses = [conn.ip for conn in netconn.get_network_adapter_configs() if conn.ip not in (None, '0.0.0.0')]
+        splitted = urllib.parse.urlsplit(self._device_location)
+        sort_ip_addresses(my_addresses, splitted.hostname)
+        return my_addresses[0]
 
-    def _subscribe(self, dpwsHosted, actions, callback):
-        ''' creates a subscription object and registers it in 
-        @param dpwsHosted: proxy for the hosted service that provides the events we want to subscribe to
+    def _subscribe(self, dpws_hosted, actions, callback):
+        ''' creates a subscription object and registers it in
+        @param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
                            This is the target for all subscribe/unsubscribe ... messages
         @param actions: a list of filters. this (joined) string is sent to the sdc server in the Subscribe message
         @param callback: callable with signature callback(soapEnvlope)
         @return: a subscription object that has callback already registerd
         '''
-        s = self._subscriptionMgr.mkSubscription(dpwsHosted, actions)
-        for f in actions:
-            self._notificationsDispatcherThread.dispatcher.register_function(f, s.onNotification)
+        subscription = self._subscription_mgr.mk_subscription(dpws_hosted, actions)
+        for action in actions:
+            self._notifications_dispatcher_thread.dispatcher.register_function(action, subscription.on_notification)
         if callback is not None:
-            properties.bind(s, notification=callback)
-        s.subscribe()
-        return s
+            properties.bind(subscription, notification=callback)
+        subscription.subscribe()
+        return subscription
 
-    def client(self, porttypename):
+    def client(self, port_type_name):
         ''' returns the client for the given port type name.
         WDP and SDC use different port type names, e.g WPF="Get", SDC="GetService".
         If the port type is not found directly, it tries also with or without "Service" in name.
-        :param porttypename: string, e.g "Get", or "GetService", ...
+        :param port_type_name: string, e.g "Get", or "GetService", ...
         '''
-        client = self._serviceClients.get(porttypename)
-        if client is None and porttypename.endswith('Service'):
-            client = self._serviceClients.get(porttypename[:-7])
-        if client is None and not porttypename.endswith('Service'):
-            client = self._serviceClients.get(porttypename+"Service")
+        client = self._service_clients.get(port_type_name)
+        if client is None and port_type_name.endswith('Service'):
+            client = self._service_clients.get(port_type_name[:-7])
+        if client is None and not port_type_name.endswith('Service'):
+            client = self._service_clients.get(port_type_name + "Service")
         return client
 
     @property
-    def GetService_client(self):
+    def get_service_client(self):
         return self.client('GetService')
 
     @property
-    def SetService_client(self):
+    def set_service_client(self):
         return self.client('SetService')
 
     @property
-    def DescriptionEventService_client(self):
+    def description_event_service_client(self):
         return self.client('DescriptionEventService')
 
     @property
-    def StateEventService_client(self):
+    def state_event_service_client(self):
         return self.client('StateEventService')
 
     @property
-    def ContextService_client(self):
+    def context_service_client(self):
         return self.client('ContextService')
 
     @property
-    def WaveformService_client(self):
+    def waveform_service_client(self):
         return self.client('Waveform')
 
     @property
-    def ContainmentTreeService_client(self):
+    def containment_tree_service_client(self):
         return self.client('ContainmentTreeService')
 
     @property
-    def ArchiveService_client(self):
+    def archive_service_client(self):
         return self.client('ArchiveService')
 
     @property
-    def LocalizationService_client(self):
+    def localization_service_client(self):
         return self.client('LocalizationService')
 
-    def startAll(self, notSubscribedActions=None, subscriptionsCheckInterval=None, async_dispatch=True,
-                 subscribe_periodic_reports=False):
+    def start_all(self, not_subscribed_actions=None, subscriptions_check_interval=None, async_dispatch=True,
+                  subscribe_periodic_reports=False):
         '''
-        :param notSubscribedActions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
-        :param subscriptionsCheckInterval: an interval in seconds or None
+        :param not_subscribed_actions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
+        :param subscriptions_check_interval: an interval in seconds or None
         :param async_dispatch: if True, incoming requests are queued and response is sent immediately (processing is done later).
                                 if False, response is sent after the complete processing is done.
         :return: None
         '''
-        self.discoverHostedServices()
-        self._startEventSink(async_dispatch)
-        periodic_actions = set([self.sdc_definitions.Actions.PeriodicMetricReport,
-                             self.sdc_definitions.Actions.PeriodicAlertReport,
-                             self.sdc_definitions.Actions.PeriodicComponentReport,
-                             self.sdc_definitions.Actions.PeriodicContextReport,
-                             self.sdc_definitions.Actions.PeriodicOperationalStateReport])
+        self._discover_hosted_services()
+        self._start_event_sink(async_dispatch)
+        periodic_actions = {self.sdc_definitions.Actions.PeriodicMetricReport,
+                            self.sdc_definitions.Actions.PeriodicAlertReport,
+                            self.sdc_definitions.Actions.PeriodicComponentReport,
+                            self.sdc_definitions.Actions.PeriodicContextReport,
+                            self.sdc_definitions.Actions.PeriodicOperationalStateReport}
 
         # start subscription manager
         subscription_manager_class = self._components['SubscriptionManagerClass']
-        self._subscriptionMgr = subscription_manager_class(self._msg_factory,
-                                                           self._notificationsDispatcherThread.base_url,
-                                                           log_prefix=self.log_prefix,
-                                                           checkInterval=subscriptionsCheckInterval)
-        self._subscriptionMgr.start()
+        self._subscription_mgr = subscription_manager_class(self._msg_factory,
+                                                            self._notifications_dispatcher_thread.base_url,
+                                                            log_prefix=self.log_prefix,
+                                                            check_interval=subscriptions_check_interval)
+        self._subscription_mgr.start()
 
         # flag 'self.all_subscribed' tells mdib that mdib state versions shall not have any gaps
         # => log warnings for missing versions
         self.all_subscribed = True
-        notSubscribedActionsSet = set([])
-        if notSubscribedActions:
-            not_subscribed_episodic_actions = [a for a in notSubscribedActions if not 'Periodic' in a]
+        not_subscribed_actions_set = set([])
+        if not_subscribed_actions:
+            not_subscribed_episodic_actions = [a for a in not_subscribed_actions if not 'Periodic' in a]
             if not_subscribed_episodic_actions:
                 self.all_subscribed = False
-                notSubscribedActionsSet = set(notSubscribedActions)
+                not_subscribed_actions_set = set(not_subscribed_actions)
 
         # start operationInvoked subscription and tell all
         operations_manager_class = self._components['OperationsManagerClass']
-        self._operationsManager = operations_manager_class(self.log_prefix)
+        self._operations_manager = operations_manager_class(self.log_prefix)
 
-        for client in self._serviceClients.values():
-            client.setOperationsManager(self._operationsManager)
+        for client in self._service_clients.values():
+            client.set_operations_manager(self._operations_manager)
 
         # start all subscriptions
         # group subscriptions per hosted service
-        for service_id, dpwsHosted in self.metaData.hosted.items():
+        for service_id, dpws_hosted in self.metadata.hosted.items():
             available_actions = []
-            for port_type_qname in dpwsHosted.types:
+            for port_type_qname in dpws_hosted.types:
                 port_type = port_type_qname.split(':')[-1]
                 client = self.client(port_type)
                 if client is not None:
-                    available_actions.extend( client.getSubscribableActions())
+                    available_actions.extend(client.get_subscribable_actions())
             if len(available_actions) > 0:
-                subscribe_actions = set(available_actions) - notSubscribedActionsSet
+                subscribe_actions = set(available_actions) - not_subscribed_actions_set
                 if not subscribe_periodic_reports:
                     subscribe_actions -= set(periodic_actions)
                 try:
-                    self._subscribe(dpwsHosted, subscribe_actions,
-                                    self._onAnyStateEventReport)
+                    self._subscribe(dpws_hosted, subscribe_actions,
+                                    self._on_any_state_event_report)
                 except Exception as ex:
-                    self.all_subscribed = False # => do not log errors when mdib versions are missing in notifications
-                    self._logger.error('startAll: could not subscribe: error = {}, actions= {}',
+                    self.all_subscribed = False  # => do not log errors when mdib versions are missing in notifications
+                    self._logger.error('start_all: could not subscribe: error = {}, actions= {}',
                                        traceback.format_exc(), subscribe_actions)
 
         # register callback for end of subscription
-        self._notificationsDispatcherThread.dispatcher.register_function(
-            self.sdc_definitions.Actions.SubscriptionEnd, self._onSubScriptionEnd)
+        self._notifications_dispatcher_thread.dispatcher.register_function(
+            self.sdc_definitions.Actions.SubscriptionEnd, self._on_subscription_end)
 
-        #connect self.isConnected observable to allSubscriptionsOkay observable in subscriptionsmanager
-        def setIsConnected(isOk):
-            self.isConnected = isOk
-        properties.strongbind(self._subscriptionMgr, allSubscriptionsOkay=setIsConnected)
-        self.isConnected = self._subscriptionMgr.allSubscriptionsOkay
+        # connect self.isConnected observable to all_subscriptions_okay observable in subscriptionsmanager
+        def set_is_connected(is_ok):
+            self.isConnected = is_ok
 
-    def stopAll(self, unsubscribe=True, closeAllConnections=True):
-        if self._subscriptionMgr is not None:
+        properties.strongbind(self._subscription_mgr, all_subscriptions_okay=set_is_connected)
+        self.isConnected = self._subscription_mgr.all_subscriptions_okay
+
+    def stop_all(self, unsubscribe=True, close_all_connections=True):
+        if self._subscription_mgr is not None:
             if unsubscribe:
-                self._subscriptionMgr.unsubscribeAll()
-            self._subscriptionMgr.stop()
-        self._stopEventSink(closeAllConnections)
-        self._register_mdib(None)   
-            
-        for cl in self._soapClients.values():
-            cl.close()
-        self._soapClients = {}
+                self._subscription_mgr.unsubscribe_all()
+            self._subscription_mgr.stop()
+        self._stop_event_sink(close_all_connections)
+        self._register_mdib(None)
 
-    def setUsedCompression(self, *compression_methods):
+        for client in self._soap_clients.values():
+            client.close()
+        self._soap_clients = {}
+
+    def set_used_compression(self, *compression_methods):
         # update list in place
         del self._compression_methods[:]
         self._compression_methods.extend(compression_methods)
 
     def get_peer_cert_extended_key_usages(self):
-        _url = urllib.parse.urlparse(self._devicelocation)
+        _url = urllib.parse.urlparse(self._device_location)
         if self._ssl_context is not None and _url.scheme == 'https':
-            wsc = self._getSoapClient(self._devicelocation)
-            if wsc.isClosed():
+            wsc = self._get_soap_client(self._device_location)
+            if wsc.is_closed():
                 wsc.connect()
             sock = wsc.sock
             binary_peer_cert = sock.getpeercert(binary_form=True)
@@ -417,262 +413,262 @@ class SdcClient:
                 cert = x509.load_der_x509_certificate(binary_peer_cert, backends.default_backend())
                 try:
                     ext_key_usage = cert.extensions.get_extension_for_class(extensions.ExtendedKeyUsage)
-                    return [e for e in ext_key_usage.value]
+                    return ext_key_usage.value  #[e for e in ext_key_usage.value]
                 except Exception as ex:
                     self._logger.warn('Unable to read EKU:{}'.format(repr(ex)))
         return list()
 
-    def getMetaData(self):
-        _url = urllib.parse.urlparse(self._devicelocation)
-        wsc = self._getSoapClient(self._devicelocation)
+    def get_metadata(self):
+        _url = urllib.parse.urlparse(self._device_location)
+        wsc = self._get_soap_client(self._device_location)
 
         if self._ssl_context is not None and _url.scheme == 'https':
-            if wsc.isClosed():
+            if wsc.is_closed():
                 wsc.connect()
             sock = wsc.sock
-            self.peerCertificate = sock.getpeercert(binary_form=False)
-            self._logger.info('Peer Certificate: {}', self.peerCertificate)
+            self.peer_certificate = sock.getpeercert(binary_form=False)
+            self._logger.info('Peer Certificate: {}', self.peer_certificate)
             self._logger.info('Peer Certificate Extended Key Usages: {}', self.get_peer_cert_extended_key_usages())
 
-        soapEnvelope = Soap12Envelope(nsmap)
-        soapEnvelope.setAddress(WsAddress(action='{}/Get'.format(Prefixes.WXF.namespace),
-                                          to=self._devicelocation))
-        
-        self.metaData = wsc.postSoapEnvelopeTo(_url.path, soapEnvelope, responseFactory=DPWSEnvelope.fromXMLString,
-                                               msg='getMetadata')
-        self.hostDescription = HostDescription(self.metaData)
-        self._logger.debug('HostDescription: {}', self.hostDescription)
+        envelope = Soap12Envelope(nsmap)
+        envelope.set_address(WsAddress(action='{}/Get'.format(Prefixes.WXF.namespace),
+                                       addr_to=self._device_location))
 
-    def discoverHostedServices(self):
+        self.metadata = wsc.post_soap_envelope_to(_url.path, envelope,
+                                                  response_factory=DPWSEnvelope.from_xml_string,
+                                                  msg='getMetadata')
+        self.host_description = HostDescription(self.metadata)
+        self._logger.debug('HostDescription: {}', self.host_description)
+
+    def _discover_hosted_services(self):
         ''' Discovers all hosted services.
         Raises RuntimeError if device does not provide the expected BICEPS services
         '''
         # we need to read the meta data of the device only once => temporary soap client is sufficient
-        self._logger.debug('reading meta data from {}', self._devicelocation)
-        #self.metaData = 
-        if self.metaData is None:
-            self.getMetaData()
+        self._logger.debug('reading meta data from {}', self._device_location)
+        # self.metadata =
+        if self.metadata is None:
+            self.get_metadata()
 
         # now query also meta data of hosted services
-        self._mkHostedServices() 
-        self._logger.debug('Services: {}', self._serviceClients.keys())
+        self._mk_hosted_services()
+        self._logger.debug('Services: {}', self._service_clients.keys())
 
         # only GetService is mandatory!!!
-        if self.GetService_client is None:
-            raise RuntimeError('GetService not detected! found services = {}'.format(self._serviceClients.keys()))
+        if self.get_service_client is None:
+            raise RuntimeError('GetService not detected! found services = {}'.format(self._service_clients.keys()))
 
-    def _getSoapClient(self, address):
+    def _get_soap_client(self, address):
         _url = urllib.parse.urlparse(address)
         key = (_url.scheme, _url.netloc)
-        soapClient = self._soapClients.get(key)
-        if soapClient is None:
-            soapClient = _mkSoapClient(_url.scheme, _url.netloc,
-                                       loghelper.get_logger_adapter('sdc.client.soap', self.log_prefix),
-                                       sslContext=self._ssl_context,
-                                       sdc_definitions=self.sdc_definitions,
-                                       supported_encodings=self._compression_methods,
-                                       chunked_requests=self.chunked_requests)
-            self._soapClients[key] = soapClient
-        return soapClient
+        soap_client = self._soap_clients.get(key)
+        if soap_client is None:
+            soap_client = _mk_soap_client(_url.scheme, _url.netloc,
+                                          loghelper.get_logger_adapter('sdc.client.soap', self.log_prefix),
+                                          ssl_context=self._ssl_context,
+                                          sdc_definitions=self.sdc_definitions,
+                                          supported_encodings=self._compression_methods,
+                                          chunked_requests=self.chunked_requests)
+            self._soap_clients[key] = soap_client
+        return soap_client
 
-    def _mkHostedServices(self):
-        for hosted in self.metaData.hosted.values():
-            endpoint_reference = hosted.endpointReferences[0].address
-            soapClient = self._getSoapClient(endpoint_reference)
-            hosted.soapClient = soapClient
+    def _mk_hosted_services(self):
+        for hosted in self.metadata.hosted.values():
+            endpoint_reference = hosted.endpoint_references[0].address
+            soap_client = self._get_soap_client(endpoint_reference)
+            hosted.soap_client = soap_client
             ns_types = [t.split(':') for t in hosted.types]
             h_descr = HostedServiceDescription(
-                hosted.serviceId, endpoint_reference,
-                self._validate, self._bicepsSchema, self._msg_factory, self.log_prefix)
-            self._hostedServices[hosted.serviceId] = h_descr
-            h_descr.readMetadata(soapClient)
+                hosted.service_id, endpoint_reference,
+                self._validate, self._biceps_schema, self._msg_factory, self.log_prefix)
+            self._hosted_services[hosted.service_id] = h_descr
+            h_descr.read_metadata(soap_client)
             for _, porttype in ns_types:
-                h = self._mkHostedServiceClient(porttype, soapClient, hosted)
-                self._serviceClients[porttype] = h
-                h_descr.services[porttype] = h
+                hosted_service_client = self._mk_hosted_service_client(porttype, soap_client, hosted)
+                self._service_clients[porttype] = hosted_service_client
+                h_descr.services[porttype] = hosted_service_client
 
-    def _mkHostedServiceClient(self, port_type, soapClient, hosted):
+    def _mk_hosted_service_client(self, port_type, soap_client, hosted):
         cls = self._components['ServiceHandlers'][port_type]
-        return cls(soapClient, self._msg_factory, hosted, port_type, self._validate,
-                   self.sdc_definitions, self._bicepsSchema, self.log_prefix)
+        return cls(soap_client, self._msg_factory, hosted, port_type, self._validate,
+                   self.sdc_definitions, self._biceps_schema, self.log_prefix)
 
-    def _startEventSink(self, async_dispatch):
-        if self._sslEvents == 'auto':
-            sslContext = self._ssl_context if self._device_uses_https else None
-        elif self._sslEvents: # True
-            sslContext = self._ssl_context
-        else:   # False
-            sslContext = None
+    def _start_event_sink(self, async_dispatch):
+        if self._ssl_events == 'auto':
+            ssl_context = self._ssl_context if self._device_uses_https else None
+        elif self._ssl_events:  # True
+            ssl_context = self._ssl_context
+        else:  # False
+            ssl_context = None
 
         # create Event Server
-        notifications_receiver_class = self._components['NotificationsReceiverClass'] # tread
+        notifications_receiver_class = self._components['NotificationsReceiverClass']  # tread
         notifications_handler_class = self._components['NotificationsHandlerClass']
-        self._notificationsDispatcherThread = notifications_receiver_class(
+        self._notifications_dispatcher_thread = notifications_receiver_class(
             self._my_ipaddress,
-            sslContext,
+            ssl_context,
             log_prefix=self.log_prefix,
             sdc_definitions=self.sdc_definitions,
             supported_encodings=self._compression_methods,
             soap_notifications_handler_class=notifications_handler_class,
-            async_dispatch = async_dispatch)
+            async_dispatch=async_dispatch)
 
-        self._notificationsDispatcherThread.start()
-        self._notificationsDispatcherThread.started_evt.wait(timeout=5)
-        self._logger.info('serving EventSink on {}', self._notificationsDispatcherThread.base_url)
+        self._notifications_dispatcher_thread.start()
+        self._notifications_dispatcher_thread.started_evt.wait(timeout=5)
+        self._logger.info('serving EventSink on {}', self._notifications_dispatcher_thread.base_url)
 
-    def _stopEventSink(self, closeAllConnections):
-        if self._notificationsDispatcherThread is not None:
-            self._notificationsDispatcherThread.stop(closeAllConnections)
+    def _stop_event_sink(self, close_all_connections):
+        if self._notifications_dispatcher_thread is not None:
+            self._notifications_dispatcher_thread.stop(close_all_connections)
 
-    def _onAnyStateEventReport(self, soapenvelope):
+    def _on_any_state_event_report(self, envelope):
         ''' dispatch by message body'''
-        self.stateEventReportEnvelope = soapenvelope # update observable
-        message = soapenvelope.bodyNode[0].tag
+        self.state_event_report = envelope  # update observable
+        message = envelope.body_node[0].tag
         if message.endswith('EpisodicMetricReport'):
-            return self._on_episodic_metric_report(soapenvelope)
-        elif message.endswith('EpisodicAlertReport'):
-            return self._on_episodic_alert_report(soapenvelope)
-        elif message.endswith('EpisodicComponentReport'):
-            return self._on_episodic_component_report(soapenvelope)
-        elif message.endswith('EpisodicOperationalStateReport'):
-            return self._onEpisodicOperationalStateReport(soapenvelope)
-        elif message.endswith('EpisodicContextReport'):
-            return self._on_episodic_context_report(soapenvelope)
-        elif message.endswith('WaveformStream') or message.endswith('WaveformStreamReport'): # different names in Draft6 and Final
-            return self._onWaveFormReport(soapenvelope)
-        elif message.endswith('OperationInvokedReport'):
-            return self._onOperationInvokedReport(soapenvelope)
-        elif message.endswith('EpisodicContextReport'):
-            return self._on_episodic_context_report(soapenvelope)
-        elif message.endswith('DescriptionModificationReport'):
-            return self._onDescriptionReport(soapenvelope)
-        elif message.endswith('PeriodicMetricReport'):
-            return self._onPeriodicMetricReport(soapenvelope)
-        elif message.endswith('PeriodicAlertReport'):
-            return self._onPeriodicAlertReport(soapenvelope)
-        elif message.endswith('PeriodicComponentReport'):
-            return self._onPeriodicComponentReport(soapenvelope)
-        elif message.endswith('PeriodicOperationalStateReport'):
-            return self._onPeriodicOperationalStateReport(soapenvelope)
-        elif message.endswith('PeriodicContextReport'):
-            return self._onPeriodicContextReport(soapenvelope)
-        else:
-            raise RuntimeError('unknown message {}'.format(message))
+            return self._on_episodic_metric_report(envelope)
+        if message.endswith('EpisodicAlertReport'):
+            return self._on_episodic_alert_report(envelope)
+        if message.endswith('EpisodicComponentReport'):
+            return self._on_episodic_component_report(envelope)
+        if message.endswith('EpisodicOperationalStateReport'):
+            return self._on_episodic_operational_state_report(envelope)
+        if message.endswith('EpisodicContextReport'):
+            return self._on_episodic_context_report(envelope)
+        if message.endswith('WaveformStream') or message.endswith(
+                'WaveformStreamReport'):  # different names in Draft6 and Final
+            return self._on_waveform_report(envelope)
+        if message.endswith('OperationInvokedReport'):
+            return self._on_operation_invoked_report(envelope)
+        if message.endswith('EpisodicContextReport'):
+            return self._on_episodic_context_report(envelope)
+        if message.endswith('DescriptionModificationReport'):
+            return self._on_description_report(envelope)
+        if message.endswith('PeriodicMetricReport'):
+            return self._on_periodic_metric_report(envelope)
+        if message.endswith('PeriodicAlertReport'):
+            return self._on_periodic_alert_report(envelope)
+        if message.endswith('PeriodicComponentReport'):
+            return self._on_periodic_component_report(envelope)
+        if message.endswith('PeriodicOperationalStateReport'):
+            return self._on_periodic_operational_state_report(envelope)
+        if message.endswith('PeriodicContextReport'):
+            return self._on_periodic_context_report(envelope)
+        raise RuntimeError('unknown message {}'.format(message))
 
-    def _onOperationInvokedReport(self, soapenvelope):
-        ret = self._operationsManager.onOperationInvokedReport(soapenvelope)
-        report = soapenvelope.bodyNode.xpath('msg:OperationInvokedReport', namespaces=nsmap)
-        self.operationInvokedReport = report[0] # update observable
+    def _on_operation_invoked_report(self, envelope):
+        ret = self._operations_manager.on_operation_invoked_report(envelope)
+        report = envelope.body_node.xpath('msg:OperationInvokedReport', namespaces=nsmap)
+        self.operation_invoked_report = report[0]  # update observable
         return ret
 
-    def _onWaveFormReport(self, soapenvelope):
+    def _on_waveform_report(self, envelope):
         try:
-            waveformStream = soapenvelope.bodyNode[0] # the msg:WaveformStreamReport node
+            waveform_node = envelope.body_node[0]  # the msg:WaveformStreamReport node
         except IndexError:
-            waveformStream = None
-            
-        if waveformStream is not None:
-            self._logger_wf.debug('_onWaveFormReport')
-        else:
-            self._logger_wf.error('WaveformStream does not contain msg:WaveformStream!', soapenvelope)
-        
-        self.waveFormReport = waveformStream # update observable
+            waveform_node = None
 
-    def _get_report(self, soap_envelope, name):
-        reports = soap_envelope.bodyNode.xpath(f'msg:{name}', namespaces=nsmap)
+        if waveform_node is not None:
+            self._logger_wf.debug('_on_waveform_report')
+        else:
+            self._logger_wf.error('WaveformStream does not contain msg:WaveformStream!', envelope)
+
+        self.waveform_report = waveform_node  # update observable
+
+    def _get_report(self, envelope, name):
+        reports = envelope.body_node.xpath(f'msg:{name}', namespaces=nsmap)
         if len(reports) == 1:
             self._logger.debug('_get_report {}', name)
             return reports[0]
-        elif len(reports) > 1:
+        if len(reports) > 1:
             self._logger.error('report contains {} elements of msg:{}!', len(reports), name)
         else:
             self._logger.error('report does not contain msg:{}!', name)
+        return None
 
-    def _on_episodic_metric_report(self, soapenvelope):
-        report = self._get_report(soapenvelope, 'EpisodicMetricReport')
+    def _on_episodic_metric_report(self, envelope):
+        report = self._get_report(envelope, 'EpisodicMetricReport')
         if report is not None:
-            self.episodicMetricReport = report
+            self.episodic_metric_report = report
 
-    def _onPeriodicMetricReport(self, soapenvelope):
-        report = self._get_report(soapenvelope, 'PeriodicMetricReport')
+    def _on_periodic_metric_report(self, envelope):
+        report = self._get_report(envelope, 'PeriodicMetricReport')
         if report is not None:
-            self.periodicMetricReport = report
+            self.periodic_metric_report = report
 
-    def _on_episodic_alert_report(self, soapenvelope):
-        report = self._get_report(soapenvelope, 'EpisodicAlertReport')
+    def _on_episodic_alert_report(self, envelope):
+        report = self._get_report(envelope, 'EpisodicAlertReport')
         if report is not None:
-            self.episodicAlertReport = report
+            self.episodic_alert_report = report
 
-    def _onPeriodicAlertReport(self, soapenvelope):
-        report = self._get_report(soapenvelope, 'PeriodicAlertReport')
+    def _on_periodic_alert_report(self, envelope):
+        report = self._get_report(envelope, 'PeriodicAlertReport')
         if report is not None:
-            self.periodicAlertReport = report
+            self.periodic_alert_report = report
 
-    def _on_episodic_component_report(self, soapenvelope):
-        report = self._get_report(soapenvelope, 'EpisodicComponentReport')
+    def _on_episodic_component_report(self, envelope):
+        report = self._get_report(envelope, 'EpisodicComponentReport')
         if report is not None:
-            self.episodicComponentReport = report
+            self.episodic_component_report = report
 
-    def _onPeriodicComponentReport(self, soapenvelope):
-        report = self._get_report(soapenvelope, 'PeriodicComponentReport')
+    def _on_periodic_component_report(self, envelope):
+        report = self._get_report(envelope, 'PeriodicComponentReport')
         if report is not None:
-            self.periodicComponentReport = report
+            self.periodic_component_report = report
 
-    def _onEpisodicOperationalStateReport(self, soapenvelope):
-        report = self._get_report(soapenvelope, 'EpisodicOperationalStateReport')
+    def _on_episodic_operational_state_report(self, envelope):
+        report = self._get_report(envelope, 'EpisodicOperationalStateReport')
         if report is not None:
-            self.episodicOperationalStateReport = report
+            self.episodic_operational_state_report = report
 
-    def _onPeriodicOperationalStateReport(self, soapenvelope):
-        report = self._get_report(soapenvelope, 'PeriodicOperationalStateReport')
+    def _on_periodic_operational_state_report(self, envelope):
+        report = self._get_report(envelope, 'PeriodicOperationalStateReport')
         if report is not None:
-            self.periodicOperationalStateReport = report
+            self.periodic_operational_state_report = report
 
-    def _on_episodic_context_report(self, soapenvelope):
-        report = self._get_report(soapenvelope, 'EpisodicContextReport')
+    def _on_episodic_context_report(self, envelope):
+        report = self._get_report(envelope, 'EpisodicContextReport')
         if report is not None:
-            self.episodicContextReport = report
+            self.episodic_context_report = report
 
-    def _onPeriodicContextReport(self, soapenvelope):
-        report = self._get_report(soapenvelope, 'PeriodicContextReport')
+    def _on_periodic_context_report(self, envelope):
+        report = self._get_report(envelope, 'PeriodicContextReport')
         if report is not None:
-            self.periodicContextReport = report
+            self.periodic_context_report = report
 
-    def _onDescriptionReport(self, soapenvelope):
-        report = self._get_report(soapenvelope, 'DescriptionModificationReport')
+    def _on_description_report(self, envelope):
+        report = self._get_report(envelope, 'DescriptionModificationReport')
         if report is not None:
-            self.descriptionModificationReport = report
+            self.description_modification_report = report
 
-    def _onSubScriptionEnd(self, soapenvelope):
-        self.stateEventReportEnvelope = soapenvelope # update observable
-        self._subscriptionMgr.onSubScriptionEnd(soapenvelope)
+    def _on_subscription_end(self, envelope):
+        self.state_event_report = envelope  # update observable
+        self._subscription_mgr.on_subscription_end(envelope)
 
-    def _setupLogging(self, logLevel):
-        loghelper.ensure_log_stream()
-        if logLevel is None:
-            return
-        clientLog = logging.getLogger('sdc.client')
-        clientLog.setLevel(logLevel)
+    # def _setup_logging(self, log_level):
+    #     loghelper.ensure_log_stream()
+    #     if log_level is None:
+    #         return
+    #     logging.getLogger('sdc.client').setLevel(log_level)
 
     def __str__(self):
-        return 'SdcClient to {} {} on {}'.format(self.hostDescription.thisDevice, 
-                                                    self.hostDescription.thisModel,
-                                                    self._devicelocation)
+        return 'SdcClient to {} {} on {}'.format(self.host_description.this_device,
+                                                 self.host_description.this_model,
+                                                 self._device_location)
 
     @classmethod
-    def fromWsdService(cls, wsdService, validate=True, sslEvents='auto',
-                     sslContext=None, my_ipaddress=None, logLevel=logging.INFO,
-                     ident='', specific_components=None):
-        device_locations = wsdService.getXAddrs()
+    def from_wsd_service(cls, wsd_service, validate=True, ssl_events='auto',
+                         ssl_context=None, my_ipaddress=None,
+                         ident='', specific_components=None):
+        device_locations = wsd_service.get_x_addrs()
         if not device_locations:
-            raise RuntimeError('discovered Service has no address!{}'.format(wsdService))
+            raise RuntimeError('discovered Service has no address!{}'.format(wsd_service))
         device_location = device_locations[0]
-        deviceType = None
-        for _q_name in wsdService.types:
+        for _q_name in wsd_service.types:
             q_name = etree_.QName(_q_name.namespace, _q_name.localname)
             for protocol in ProtocolsRegistry.protocols:
                 if protocol.ns_matches(q_name):
-                    return cls(device_location, sdc_definitions=protocol, validate=validate, sslEvents=sslEvents,
-                               sslContext=sslContext, my_ipaddress=my_ipaddress, logLevel=logLevel, ident=ident,
+                    return cls(device_location, sdc_definitions=protocol, validate=validate, ssl_events=ssl_events,
+                               ssl_context=ssl_context, my_ipaddress=my_ipaddress, ident=ident,
                                specific_components=specific_components)
         raise RuntimeError('no matching protocol definition found for this service!')

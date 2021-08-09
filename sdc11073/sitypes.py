@@ -39,9 +39,11 @@ class T_DualChannelDef(PropertyBasedPMType): # pylint: disable=invalid-name
         @param algorithm : a string
         @param transform : a string
         """
+        # pylint: disable=invalid-name
         self.Selector = selectors
         self.Algorithm = algorithm
         self.Transform = transform
+        # pylint: enable=invalid-name
 
     @classmethod
     def from_node(cls, node):
@@ -62,7 +64,7 @@ class T_SafetyContextDef(PropertyBasedPMType): # pylint: disable=invalid-name
         @param algorithm : a string
         @param transform : a string
         """
-        self.Selector = selectors
+        self.Selector = selectors  # pylint: disable=invalid-name
 
     @classmethod
     def from_node(cls, node):
@@ -81,8 +83,10 @@ class T_SafetyReq(PropertyBasedPMType): # pylint: disable=invalid-name
     _props = ['DualChannelDef', 'SafetyContextDef']
 
     def __init__(self, dualChannelDef, safetyContextDef):
+        # pylint: disable=invalid-name
         self.DualChannelDef = dualChannelDef
         self.SafetyContextDef = safetyContextDef
+        # pylint: enable=invalid-name
 
     @classmethod
     def from_node(cls, node):

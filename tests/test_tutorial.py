@@ -27,18 +27,18 @@ my_mdib_path = os.path.join(here, '70041_MDIB_Final.xml')
 
 
 def createGenericDevice(wsdiscovery_instance, location, mdibPath, role_provider=None):
-    my_mdib = DeviceMdibContainer.fromMdibFile(mdibPath)
+    my_mdib = DeviceMdibContainer.from_mdib_file(mdibPath)
     my_uuid = uuid.uuid4()
     dpwsModel = DPWSThisModel(manufacturer='Draeger',
-                              manufacturerUrl='www.draeger.com',
-                              modelName='TestDevice',
-                              modelNumber='1.0',
-                              modelUrl='www.draeger.com/model',
-                              presentationUrl='www.draeger.com/model/presentation')
+                              manufacturer_url='www.draeger.com',
+                              model_name='TestDevice',
+                              model_number='1.0',
+                              model_url='www.draeger.com/model',
+                              presentation_url='www.draeger.com/model/presentation')
 
-    dpwsDevice = DPWSThisDevice(friendlyName='TestDevice',
-                                firmwareVersion='Version1',
-                                serialNumber='12345')
+    dpwsDevice = DPWSThisDevice(friendly_name='TestDevice',
+                                firmware_version='Version1',
+                                serial_number='12345')
     sdcDevice = SdcDevice(wsdiscovery_instance,
                           my_uuid,
                           dpwsModel,
@@ -47,9 +47,9 @@ def createGenericDevice(wsdiscovery_instance, location, mdibPath, role_provider=
                           roleProvider=role_provider)
     for desc in sdcDevice.mdib.descriptions.objects:
         desc.SafetyClassification = pmtypes.SafetyClassification.MED_A
-    sdcDevice.startAll(startRealtimeSampleLoop=False)
+    sdcDevice.start_all(start_rtsample_loop=False)
     validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
-    sdcDevice.setLocation(location, validators)
+    sdcDevice.set_location(location, validators)
     return sdcDevice
 
 
@@ -71,10 +71,10 @@ class Test_Tutorial(unittest.TestCase):
     def tearDown(self) -> None:
         for cl in self.my_clients:
             print('stopping {}'.format(cl))
-            cl.stopAll()
+            cl.stop_all()
         for d in self.my_devices:
             print('stopping {}'.format(d))
-            d.stopAll()
+            d.stop_all()
         for w in self.my_wsdiscoveries:
             print('stopping {}'.format(w))
             w.stop()
@@ -153,9 +153,9 @@ class Test_Tutorial(unittest.TestCase):
         services = my_client_wsDiscovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)  # both devices found
 
-        my_client = SdcClient.fromWsdService(services[0])
+        my_client = SdcClient.from_wsd_service(services[0])
         self.my_clients.append(my_client)
-        my_client.startAll()
+        my_client.start_all()
         ############# Mdib usage ##############################
         # In data oriented tests a mdib instance is very handy:
         # The mdib collects all data and makes it easily available for the test
@@ -194,9 +194,9 @@ class Test_Tutorial(unittest.TestCase):
         services = my_client_wsDiscovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)  # both devices found
 
-        my_client = SdcClient.fromWsdService(services[0])
+        my_client = SdcClient.from_wsd_service(services[0])
         self.my_clients.append(my_client)
-        my_client.startAll()
+        my_client.start_all()
         myMdib = ClientMdibContainer(my_client)
         myMdib.init_mdib()
 
@@ -212,12 +212,12 @@ class Test_Tutorial(unittest.TestCase):
         my_operation = my_operations[0]
 
         # make a proposed patient context:
-        contextService = my_client.ContextService_client
-        proposedPatient = contextService.mkProposedContextObject(myPatientContextDescriptorContainer.handle)
+        contextService = my_client.context_service_client
+        proposedPatient = contextService.mk_proposed_context_object(myPatientContextDescriptorContainer.handle)
         proposedPatient.Firstname = 'Jack'
         proposedPatient.Lastname = 'Miller'
-        future = contextService.setContextState(operationHandle=my_operation.handle,
-                                                proposedContextStates=[proposedPatient])
+        future = contextService.set_context_state(operation_handle=my_operation.handle,
+                                                proposed_context_states=[proposedPatient])
         result = future.result(timeout=5)
         self.assertEqual(result.state, pmtypes.InvocationState.FINISHED)
 
@@ -242,41 +242,41 @@ class Test_Tutorial(unittest.TestCase):
                 self.operation2_called = 0
                 self.operation2_args = None
 
-            def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
-                """ if the role provider is responsible for handling of calls to this operationDescriptorContainer,
+            def make_operation_instance(self, operation_descriptor_container, operations_factory):
+                """ if the role provider is responsible for handling of calls to this operation_descriptor_container,
                  it creates an operation instance and returns it. Otherwise it returns None"""
-                if operationDescriptorContainer.coding == MY_CODE_1.coding:
+                if operation_descriptor_container.coding == MY_CODE_1.coding:
                     # This is a very simple check that only checks the code of the operation.
                     # Depending on your use case, you could also check the operation target is the correct one,
                     # or if this is a child of a specific VMD, ...
                     #
                     # The following line shows how to provide your callback (in this case self._handle_operation_1).
                     # This callback is called when a consumer calls the operation.
-                    operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
+                    operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                          operations_factory,
-                                                                         currentArgumentHandler=self._handle_operation_1)
+                                                                         current_argument_handler=self._handle_operation_1)
                     return operation
-                elif operationDescriptorContainer.coding == MY_CODE_2.coding:
-                    operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
+                elif operation_descriptor_container.coding == MY_CODE_2.coding:
+                    operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                          operations_factory,
-                                                                         currentArgumentHandler=self._handle_operation_2)
+                                                                         current_argument_handler=self._handle_operation_2)
                     return operation
                 else:
                     return None
 
-            def _handle_operation_1(self, operationInstance, argument):
+            def _handle_operation_1(self, operation_instance, argument):
                 """This operation does not manipulate the mdib at all, it only registers the call."""
                 self.operation1_called += 1
                 self.operation1_args = argument
                 self._logger.info('_handle_operation_1 called')
 
-            def _handle_operation_2(self, operationInstance, argument):
+            def _handle_operation_2(self, operation_instance, argument):
                 """This operation manipulate it operation target, and only registers the call."""
                 self.operation2_called += 1
                 self.operation2_args = argument
                 self._logger.info('_handle_operation_2 called')
-                with self._mdib.mdibUpdateTransaction() as mgr:
-                    my_state = mgr.get_state(operationInstance.operationTarget)
+                with self._mdib.transaction_manager() as mgr:
+                    my_state = mgr.get_state(operation_instance.operation_target_handle)
                     if my_state.metricValue is None:
                         my_state.mk_metric_value()
                     my_state.metricValue.Value = argument
@@ -290,25 +290,25 @@ class Test_Tutorial(unittest.TestCase):
                 self.operation3_args = None
                 self.operation3_called = 0
 
-            def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
-                if operationDescriptorContainer.coding == MY_CODE_3.coding:
+            def make_operation_instance(self, operation_descriptor_container, operations_factory):
+                if operation_descriptor_container.coding == MY_CODE_3.coding:
                     self._logger.info(
                         'instantiating operation 3 from existing descriptor handle={}'.format(
-                            operationDescriptorContainer.handle))
-                    operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
+                            operation_descriptor_container.handle))
+                    operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                          operations_factory,
-                                                                         currentArgumentHandler=self._handle_operation_3)
+                                                                         current_argument_handler=self._handle_operation_3)
                     return operation
                 else:
                     return None
 
-            def _handle_operation_3(self, operationInstance, argument):
+            def _handle_operation_3(self, operation_instance, argument):
                 """This operation manipulate it operation target, and only registers the call."""
                 self.operation3_called += 1
                 self.operation3_args = argument
                 self._logger.info('_handle_operation_3 called')
-                with self._mdib.mdibUpdateTransaction() as mgr:
-                    my_state = mgr.get_state(operationInstance.operationTarget)
+                with self._mdib.transaction_manager() as mgr:
+                    my_state = mgr.get_state(operation_instance.operation_target_handle)
                     if my_state.metricValue is None:
                         my_state.mk_metric_value()
                     my_state.metricValue.Value = argument
@@ -352,9 +352,9 @@ class Test_Tutorial(unittest.TestCase):
         services = my_client_wsDiscovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
 
-        my_client = SdcClient.fromWsdService(services[0])
+        my_client = SdcClient.from_wsd_service(services[0])
         self.my_clients.append(my_client)
-        my_client.startAll()
+        my_client.start_all()
         myMdib = ClientMdibContainer(my_client)
         myMdib.init_mdib()
 
@@ -364,7 +364,7 @@ class Test_Tutorial(unittest.TestCase):
         operations = myMdib.descriptions.coding.get(MY_CODE_1.coding)
         # the mdib contains 2 operations with the same code. To keep things simple, just use the first one here.
         op = operations[0]
-        future = my_client.SetService_client.activate(op.handle, 'foo')
+        future = my_client.set_service_client.activate(op.handle, 'foo')
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_1.operation1_called, 1)
@@ -374,10 +374,10 @@ class Test_Tutorial(unittest.TestCase):
         # This inconsistency will be fixed in a later version of sdc11073
         self.assertEqual(my_product_impl.my_provider_1.operation1_args, ['foo'])
 
-        # call setString operation
+        # call set_string operation
         op = myMdib.descriptions.coding.getOne(MY_CODE_2.coding)
         for value in ('foo', 'bar'):
-            future = my_client.SetService_client.setString(op.handle, value)
+            future = my_client.set_service_client.set_string(op.handle, value)
             result = future.result()
             print(result)
             self.assertEqual(my_product_impl.my_provider_1.operation2_args, value)
@@ -389,7 +389,7 @@ class Test_Tutorial(unittest.TestCase):
         state_descr = myMdib.descriptions.coding.getOne(MY_CODE_3_TARGET.coding)
         operations = myMdib.get_operation_descriptors_for_descriptor_handle(state_descr.Handle)
         op = operations[0]
-        future = my_client.SetService_client.setNumericValue(op.handle, 42)
+        future = my_client.set_service_client.set_numeric_value(op.handle, 42)
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_2.operation3_args, 42)

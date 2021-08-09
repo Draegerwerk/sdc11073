@@ -55,12 +55,12 @@ def mk_descriptor_node(descriptor_container, tag, set_xsi_type=True, connect_chi
     descriptor_container.update_node(node, set_xsi_type)  # create all
     if connect_child_descriptors:
         # append all children, then bring them in correct order
-        for node_type, child_list in descriptor_container._child_containers_by_type.items():
-            child_tag = descriptor_container._tag_name_for_child_descriptor(node_type)
+        for node_type, child_list in descriptor_container.child_containers_by_type.items():
+            child_tag = descriptor_container.tag_name_for_child_descriptor(node_type)
             for child in child_list:
                 child_node = mk_descriptor_node(child, child_tag, connect_child_descriptors=True)
                 node.append(child_node)
-    descriptor_container._sort_child_nodes(node)
+    descriptor_container.sort_child_nodes(node)
     return node
 
 
@@ -111,7 +111,7 @@ class AbstractDescriptorContainer(ContainerBase):
         super().__init__(nsmapper)
         self.parent_handle = parent_handle
         self.handle = handle
-        self._child_containers_by_type = defaultdict(list)
+        self.child_containers_by_type = defaultdict(list)
 
     @property
     def coding(self):
@@ -152,10 +152,10 @@ class AbstractDescriptorContainer(ContainerBase):
         self._update_from_other(other, skipped_properties)
 
     def add_child(self, child_descriptor_container):
-        self._child_containers_by_type[child_descriptor_container.NODETYPE].append(child_descriptor_container)
+        self.child_containers_by_type[child_descriptor_container.NODETYPE].append(child_descriptor_container)
 
     def rm_child(self, child_descriptor_container):
-        tag_specific_list = self._child_containers_by_type[child_descriptor_container.NODETYPE]
+        tag_specific_list = self.child_containers_by_type[child_descriptor_container.NODETYPE]
         for container in tag_specific_list:
             if container.handle == child_descriptor_container.handle:
                 tag_specific_list.remove(container)
@@ -187,7 +187,7 @@ class AbstractDescriptorContainer(ContainerBase):
         """
         return mk_descriptor_node(self, tag, set_xsi_type, connect_child_descriptors)
 
-    def _tag_name_for_child_descriptor(self, node_type):
+    def tag_name_for_child_descriptor(self, node_type):
         for child in sorted_child_declarations(self):
             try:
                 if node_type in child.node_types:
@@ -196,7 +196,7 @@ class AbstractDescriptorContainer(ContainerBase):
                 pass
         raise ValueError(f'{node_type} not known in child declarations of {self.__class__.__name__}')
 
-    def _sort_child_nodes(self, node):
+    def sort_child_nodes(self, node):
         """
         raises an ValueError if a child node exist that is not listed in ordered_tags
         @param node: a list of QNames
@@ -231,7 +231,7 @@ class AbstractDescriptorContainer(ContainerBase):
         obj = cls(nsmapper,
                   handle=None,  # will be determined in constructor from node value
                   parent_handle=parent_handle)
-        obj._update_from_node(node)
+        obj.update_from_node(node)
         return obj
 
 

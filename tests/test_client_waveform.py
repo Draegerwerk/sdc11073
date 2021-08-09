@@ -165,8 +165,7 @@ class TestClientWaveform(unittest.TestCase):
                                                              sdc_definitions=definitions_sdc.SDC_v1_Definitions,
                                                              #deviceType=definitions_sdc.SDC_v1_Definitions.MedicalDeviceType,
                                                              validate=CLIENT_VALIDATE,
-                                                             my_ipaddress='169.254.0.3',
-                                                             logLevel=logging.DEBUG)
+                                                             my_ipaddress='169.254.0.3')
         self.all_clients = (self.sdcClient_final,)
 
 
@@ -175,10 +174,10 @@ class TestClientWaveform(unittest.TestCase):
 
         # same test for draft10 version
         cl = self.sdcClient_final
-        soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(WfReport_draft10.encode('utf-8'),
-                                                                                          schema=cl._bicepsSchema.message_schema)
-        cl._onWaveFormReport(soapenvelope)
-        self.assertEqual(cl.waveFormReport.tag, namespaces.msgTag('WaveformStream'))
+        soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.from_xml_string(WfReport_draft10.encode('utf-8'),
+                                                                                          schema=cl._biceps_schema.message_schema)
+        cl._on_waveform_report(soapenvelope)
+        self.assertEqual(cl.waveform_report.tag, namespaces.msgTag('WaveformStream'))
 
 
     def test_stream_handling(self):
@@ -196,8 +195,8 @@ class TestClientWaveform(unittest.TestCase):
                               'Handle':handle}
                 element = etree_.Element('Metric', attrib=attributes, nsmap=sdc11073.namespaces.nsmap)
                 clientmdib.descriptions.add_object(sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.from_node(clientmdib.nsmapper, element, None)) # None = no parent handle
-            soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
-            cl._onWaveFormReport(soapenvelope)
+            soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.from_xml_string(wfReport.encode('utf-8'))
+            cl._on_waveform_report(soapenvelope)
             
             # verify that all handles of reported RealTimeSampleArrays are present
             for handle in my_handles:
@@ -227,8 +226,8 @@ class TestClientWaveform(unittest.TestCase):
                 self.assertEqual(len(rtBuffer.rt_data[i].annotations), 0)
     
             # add another Report (with identical data, but that is not relevant here)
-            soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
-            cl._onWaveFormReport(soapenvelope)
+            soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.from_xml_string(wfReport.encode('utf-8'))
+            cl._on_waveform_report(soapenvelope)
             # verify only that array length is 2*bigger now
             for handle in my_handles:
                 current_samples = SAMPLES[handle]
@@ -238,8 +237,8 @@ class TestClientWaveform(unittest.TestCase):
             
             #add a lot more data, verify that length limitation is working
             for i in range(100):
-                soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
-                cl._onWaveFormReport(soapenvelope)
+                soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.from_xml_string(wfReport.encode('utf-8'))
+                cl._on_waveform_report(soapenvelope)
             # verify only that array length is limited
             for handle in my_handles:
                 current_samples = SAMPLES[handle]

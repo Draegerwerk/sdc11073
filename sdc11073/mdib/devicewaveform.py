@@ -86,7 +86,7 @@ class _SampleArrayGenerator:
             now = time.time()
             observation_time = self._last_timestamp or now
             samples_count = int((now - observation_time) / self._generator.sampleperiod)
-            samples = self._generator.nextSamples(samples_count)
+            samples = self._generator.next_samples(samples_count)
             self._last_timestamp = observation_time + self._generator.sampleperiod * samples_count
             self.current_rt_sample_array = RtSampleArray(
                 observation_time, self._generator.sampleperiod, samples, self._activation_state)
@@ -137,7 +137,7 @@ class DefaultWaveformSource(AbstractWaveformSource):
         descriptor_container = mdib.descriptions.handle.getOne(descriptor_handle)
         if descriptor_container.SamplePeriod != sample_period:
             # we must inform subscribers
-            with mdib.mdibUpdateTransaction() as trns:
+            with mdib.transaction_manager() as trns:
                 descr = trns.get_descriptor(descriptor_handle)
                 descr.SamplePeriod = sample_period
         if descriptor_handle in self._waveform_generators:
@@ -152,7 +152,7 @@ class DefaultWaveformSource(AbstractWaveformSource):
         @param componentActivation: one of pmtypes.ComponentActivation values
         """
         self._waveform_generators[descriptor_handle].set_activation_state(component_activation_state)
-        with mdib.mdibUpdateTransaction() as trns:
+        with mdib.transaction_manager() as trns:
             state = trns.get_state(descriptor_handle)
             state.ActivationState = component_activation_state
 

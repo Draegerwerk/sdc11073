@@ -1,14 +1,14 @@
-import uuid
 import copy
+import uuid
 from io import BytesIO
+
 from lxml import etree as etree_
 
-from sdc11073.namespaces import wsaTag, wseTag, dpwsTag, s12Tag, xmlTag, nsmap, WSA_ANONYMOUS, docname_from_qname
 from sdc11073.namespaces import Prefixes
+from sdc11073.namespaces import wsaTag, wseTag, dpwsTag, s12Tag, xmlTag, nsmap, WSA_ANONYMOUS, docname_from_qname
 from .. import isoduration
 
-CHECK_NAMESPACES = False   # can be used to enable additional checks for too many namespaces or undefined namespaces
-
+CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
 
 DIALECT_ACTION = '{}/Action'.format(Prefixes.DPWS.namespace)
 DIALECT_THIS_MODEL = '{}/ThisModel'.format(Prefixes.DPWS.namespace)
@@ -18,194 +18,192 @@ HOST_TYPE = '{}/host'.format(Prefixes.DPWS.namespace)
 
 
 class SoapResponseException(Exception):
-    
-    def __init__(self, soapResponseEnvelope):
+
+    def __init__(self, response_envelope):
         super().__init__()
-        self.soapResponseEnvelope = soapResponseEnvelope
+        self.response_envelope = response_envelope
 
 
 class ExtendedDocumentInvalid(etree_.DocumentInvalid):
-
     pass
 
 
-def mergeDicts(*args):
-    result = {}
-    for d in args:
-        for k, v in d.items():
-            if not k in result:
-                result[k] = v 
-            else:
-                if result[k] != v:
-                    raise RuntimeError('Merge Conflict key={}, value1={}, value2={}'.format(k, result[k], v))
-    return result
+# def merge_dicts(*args):
+#     result = {}
+#     for d in args:
+#         for k, v in d.items():
+#             if not k in result:
+#                 result[k] = v
+#             else:
+#                 if result[k] != v:
+#                     raise RuntimeError('Merge Conflict key={}, value1={}, value2={}'.format(k, result[k], v))
+#     return result
 
-    
-def getText(node, idstring, ns):
+
+def _get_text(node, id_string, namespace_map):
     if node is None:
-        return
-    tmp = node.find(idstring, ns)
-    if tmp is not None:
-        return tmp.text
+        return None
+    tmp = node.find(id_string, namespace_map)
+    if tmp is None:
+        return None
+    return tmp.text
 
 
 class GenericNode:
     def __init__(self, node):
         self._node = node
 
-        
-    def as_etree_subnode(self, rootNode):
-        rootNode.append(self._node)
+    def as_etree_subnode(self, root_node):
+        root_node.append(self._node)
 
 
-    
 class WsaEndpointReferenceType:
     ''' Acc. to "http://www.w3.org/2005/08/addressing"
 
     '''
-    __slots__ = ('address', 'referenceParametersNode', 'metaDataNode')
-    def __init__(self, address, referenceParametersNode=None, metaDataNode=None):
-        self.address = address # type="wsa:AttributedURI", which is an xs:anyURI element
-        self.referenceParametersNode = None
-        self.metaDataNode = None
-        if referenceParametersNode is not None:
-            if hasattr(referenceParametersNode, 'tag') and referenceParametersNode.tag == wsaTag('ReferenceParameters'):
-                self.referenceParametersNode = referenceParametersNode # any content allowed. optional
+    __slots__ = ('address', 'reference_parameters_node', 'metadata_node')
+
+    def __init__(self, address, reference_parameters_node=None, metadata_node=None):
+        self.address = address  # type="wsa:AttributedURI", which is an xs:anyURI element
+        self.reference_parameters_node = None
+        self.metadata_node = None
+        if reference_parameters_node is not None:
+            if hasattr(reference_parameters_node, 'tag') and reference_parameters_node.tag == wsaTag(
+                    'ReferenceParameters'):
+                self.reference_parameters_node = reference_parameters_node  # any content allowed. optional
             else:
-                self.referenceParametersNode = etree_.Element(wsaTag('ReferenceParameters'))
-                self.referenceParametersNode.extend(referenceParametersNode)
-        if metaDataNode is not None:
-            if hasattr(metaDataNode, 'tag') and metaDataNode.tag == wsaTag('MetaData'):
-                self.metaDataNode = metaDataNode # any content allowed. optional
+                self.reference_parameters_node = etree_.Element(wsaTag('ReferenceParameters'))
+                self.reference_parameters_node.extend(reference_parameters_node)
+        if metadata_node is not None:
+            if hasattr(metadata_node, 'tag') and metadata_node.tag == wsaTag('MetaData'):
+                self.metadata_node = metadata_node  # any content allowed. optional
             else:
-                self.metaDataNode = etree_.Element(wsaTag('MetaData'))
-                self.metaDataNode.extend(metaDataNode)
+                self.metadata_node = etree_.Element(wsaTag('MetaData'))
+                self.metadata_node.extend(metadata_node)
 
     def __str__(self):
         return 'WsaEndpointReferenceType: address={}'.format(self.address)
-    
-    @classmethod
-    def from_etree_node(cls, rootNode):
-        addressNode = rootNode.find('wsa:Address', nsmap)
-        address = addressNode.text
-        referenceParametersNode = rootNode.find('wsa:ReferenceParameters', nsmap)
-        metaDataNode = rootNode.find('wsa:MetaData', nsmap)
-        ret = cls(address, referenceParametersNode, metaDataNode)
-        return ret
-    
-    
-    def as_etree_subnode(self, rootNode):
-        node  = etree_.SubElement(rootNode, wsaTag('Address'))
-        node.text = self.address
-        if self.referenceParametersNode is not None:
-            rootNode.append(copy.copy(self.referenceParametersNode))
-        if self.metaDataNode is not None:
-            rootNode.append(self.metaDataNode)
 
+    @classmethod
+    def from_etree_node(cls, root_node):
+        address_node = root_node.find('wsa:Address', nsmap)
+        address = address_node.text
+        reference_parameters_node = root_node.find('wsa:ReferenceParameters', nsmap)
+        metadata_node = root_node.find('wsa:MetaData', nsmap)
+        ret = cls(address, reference_parameters_node, metadata_node)
+        return ret
+
+    def as_etree_subnode(self, root_node):
+        node = etree_.SubElement(root_node, wsaTag('Address'))
+        node.text = self.address
+        if self.reference_parameters_node is not None:
+            root_node.append(copy.copy(self.reference_parameters_node))
+        if self.metadata_node is not None:
+            root_node.append(self.metadata_node)
 
 
 class WsAddress:
-    __slots__ = ('messageId', 'to', 'from_', 'replyTo', 'faultTo', 'action',
-                 'messageId', 'relatesTo', 'referenceParametersNode', 'relationshipType')
-    def __init__(self, action, messageId=None, to=None, relatesTo=None, from_=None, replyTo=None,
-                 faultTo=None, referenceParametersNode=None, relationshipType=None): #pylint: disable=too-many-arguments
+    __slots__ = ('message_id', 'addr_to', 'addr_from', 'reply_to', 'fault_to', 'action',
+                 'relates_to', 'reference_parameters_node', 'relationship_type')
+
+    def __init__(self, action, message_id=None, addr_to=None, relates_to=None, addr_from=None, reply_to=None,
+                 fault_to=None, reference_parameters_node=None,
+                 relationship_type=None):  # pylint: disable=too-many-arguments
         '''
 
         :param action: xs:anyURI string, required
-        :param messageId: xs:anyURI string or None or False; default is None
-                          if None, a messageId is generated automatically
+        :param message_id: xs:anyURI string or None or False; default is None
+                          if None, a message_id is generated automatically
                           if False, no message ID is generated ( makes only sense for testing )
-        :param to: xs:anyURI string, optional
-        :param relatesTo: xs:anyURI string, 0...n
-        :param from_: WsaEndpointReferenceType instance, optional
-        :param replyTo: WsaEndpointReferenceType instance, optional
+        :param addr_to: xs:anyURI string, optional
+        :param relates_to: xs:anyURI string, 0...n
+        :param addr_from: WsaEndpointReferenceType instance, optional
+        :param reply_to: WsaEndpointReferenceType instance, optional
         :param faultTo: WsaEndpointReferenceType instance, optional
-        :param referenceParametersNode: any node, optional
-        :param relationshipType: a QName, optional
+        :param reference_parameters_node: any node, optional
+        :param relationship_type: a QName, optional
         '''
         self.action = action
-        if messageId == False:
-            self.messageId = None
+        if message_id == False:
+            self.message_id = None
         else:
-            self.messageId = messageId or uuid.uuid4().urn
-        self.to = to
-        self.relatesTo = relatesTo
-        self.from_ = from_
-        self.replyTo = replyTo
-        self.faultTo = faultTo
-        self.referenceParametersNode = referenceParametersNode
-        self.relationshipType = relationshipType
+            self.message_id = message_id or uuid.uuid4().urn
+        self.addr_to = addr_to
+        self.relates_to = relates_to
+        self.addr_from = addr_from
+        self.reply_to = reply_to
+        self.fault_to = fault_to
+        self.reference_parameters_node = reference_parameters_node
+        self.relationship_type = relationship_type
 
-    def mkReplyAddress(self, action):
-        return WsAddress(action=action, relatesTo=self.messageId)
+    def mk_reply_address(self, action):
+        return WsAddress(action=action, relates_to=self.message_id)
 
-
-    def as_etree_subnode(self, rootNode):
+    def as_etree_subnode(self, root_node):
         # To (OPTIONAL), defaults to anonymous
-        node = etree_.SubElement(rootNode, wsaTag('To'), attrib={s12Tag('mustUnderstand'): 'true'})
-        node.text = self.to or WSA_ANONYMOUS
-        #From
-        if self.from_:
-            self.from_.as_etree_subnode(rootNode)
+        node = etree_.SubElement(root_node, wsaTag('To'), attrib={s12Tag('mustUnderstand'): 'true'})
+        node.text = self.addr_to or WSA_ANONYMOUS
+        # From
+        if self.addr_from:
+            self.addr_from.as_etree_subnode(root_node)
         # ReplyTo (OPTIONAL), defaults to anonymous
-        if self.replyTo:
-            self.replyTo.as_etree_subnode(rootNode)
+        if self.reply_to:
+            self.reply_to.as_etree_subnode(root_node)
         # FaultTo (OPTIONAL)
-        if self.faultTo:
-            self.faultTo.as_etree_subnode(rootNode)
+        if self.fault_to:
+            self.fault_to.as_etree_subnode(root_node)
         # Action (REQUIRED)
-        node  = etree_.SubElement(rootNode, wsaTag('Action'), attrib={s12Tag('mustUnderstand'): 'true'})
+        node = etree_.SubElement(root_node, wsaTag('Action'), attrib={s12Tag('mustUnderstand'): 'true'})
         node.text = self.action
         # MessageID (OPTIONAL)
-        if self.messageId:
-            node  = etree_.SubElement(rootNode, wsaTag('MessageID'))
-            node.text = self.messageId
+        if self.message_id:
+            node = etree_.SubElement(root_node, wsaTag('MessageID'))
+            node.text = self.message_id
         # RelatesTo (OPTIONAL)
-        if self.relatesTo:
-            node  = etree_.SubElement(rootNode, wsaTag('RelatesTo'))
-            node.text = self.relatesTo
-            if self.relationshipType is not None:
-                node.set('RelationshipType', self.relationshipType)
+        if self.relates_to:
+            node = etree_.SubElement(root_node, wsaTag('RelatesTo'))
+            node.text = self.relates_to
+            if self.relationship_type is not None:
+                node.set('RelationshipType', self.relationship_type)
+        if self.reference_parameters_node:
+            root_node.append(copy.copy(self.reference_parameters_node))
 
-        if self.referenceParametersNode:
-            rootNode.append(copy.copy(self.referenceParametersNode))
-
-    
     @classmethod
-    def from_etree_node(cls, rootNode):
-        messageId = getText(rootNode, 'wsa:MessageID', nsmap)
-        to = getText(rootNode, 'wsa:To', nsmap)
-        action = getText(rootNode, 'wsa:Action', nsmap)
-        relatesTo = getText(rootNode, 'wsa:RelatesTo', nsmap)
-        relationshipType = None
-        relatesToNode = rootNode.find('wsa:RelatesTo', nsmap)
-        if relatesToNode is not None:
-            relatesTo = relatesToNode.text
-            relationshipTypeText = relatesToNode.attrib.get('RelationshipType')
-            if relationshipTypeText:
+    def from_etree_node(cls, root_node):
+        message_id = _get_text(root_node, 'wsa:MessageID', nsmap)
+        addr_to = _get_text(root_node, 'wsa:To', nsmap)
+        action = _get_text(root_node, 'wsa:Action', nsmap)
+        relates_to = _get_text(root_node, 'wsa:RelatesTo', nsmap)
+        relationship_type = None
+        relates_to_node = root_node.find('wsa:RelatesTo', nsmap)
+        if relates_to_node is not None:
+            relates_to = relates_to_node.text
+            relationshiptype_text = relates_to_node.attrib.get('RelationshipType')
+            if relationshiptype_text:
                 # split into namespace, localname
-                ns, loc = relationshipTypeText.rsplit('/', 1)
-                relationshipType= etree_.QName(ns, loc)
+                namespace, localname = relationshiptype_text.rsplit('/', 1)
+                relationship_type = etree_.QName(namespace, localname)
 
-        def mkEndpointReference(idstring):
-            tmp = rootNode.find(idstring, nsmap)
-            if tmp is not None:
-                return WsaEndpointReferenceType.from_etree_node(tmp)
-            
-        from_ = mkEndpointReference('wsa:From')
-        replyTo = mkEndpointReference('wsa:ReplyTo')
-        faultTo = mkEndpointReference('wsa:FaultTo')
-        referenceParametersNode = rootNode.find('wsa:ReferenceParameters', nsmap)
-        
-        return cls(messageId=messageId, 
-                   to=to, 
-                   action=action, 
-                   relatesTo=relatesTo, 
-                   from_=from_,
-                   replyTo=replyTo,
-                   faultTo=faultTo,
-                   referenceParametersNode=referenceParametersNode,
-                   relationshipType=relationshipType)
+        def mk_endpoint_reference(id_string):
+            tmp = root_node.find(id_string, nsmap)
+            if tmp is None:
+                return None
+            return WsaEndpointReferenceType.from_etree_node(tmp)
+
+        addr_from = mk_endpoint_reference('wsa:From')
+        reply_to = mk_endpoint_reference('wsa:ReplyTo')
+        fault_to = mk_endpoint_reference('wsa:FaultTo')
+        reference_parameters_node = root_node.find('wsa:ReferenceParameters', nsmap)
+
+        return cls(message_id=message_id,
+                   addr_to=addr_to,
+                   action=action,
+                   relates_to=relates_to,
+                   addr_from=addr_from,
+                   reply_to=reply_to,
+                   fault_to=fault_to,
+                   reference_parameters_node=reference_parameters_node,
+                   relationship_type=relationship_type)
 
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
@@ -213,313 +211,305 @@ _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
 
 class WsSubscribe:
     MODE_PUSH = '{}/DeliveryModes/Push'.format(Prefixes.WSE.namespace)
-    __slots__ = ('delivery_mode', 'notifyTo',  'endTo', 'expires', 'filter')
-    def __init__(self, notifyTo,
-                       expires,
-                       endTo=None,
-                       filter_=None,
-                       delivery_mode=None):
+    __slots__ = ('delivery_mode', 'notify_to', 'end_to', 'expires', 'filter')
+
+    def __init__(self, notify_to,
+                 expires,
+                 end_to=None,
+                 filter_=None,
+                 delivery_mode=None):
         '''
-        @param notifyTo: a WsaEndpointReferenceType
+        @param notify_to: a WsaEndpointReferenceType
         @param expires: duration in seconds ( absolute date not supported)
-        @param endTo: a WsaEndpointReferenceType or None
+        @param end_to: a WsaEndpointReferenceType or None
         @param delivery_mode: defaults to self.MODE_PUSH
         '''
         self.delivery_mode = delivery_mode or self.MODE_PUSH
-        self.notifyTo = notifyTo
-        self.endTo = endTo
+        self.notify_to = notify_to
+        self.end_to = end_to
         self.expires = expires
         self.filter = filter_
 
-
-    def as_etree_subnode(self, rootNode):
+    def as_etree_subnode(self, root_node):
         # To (OPTIONAL), defaults to anonymous
-        subscribe = etree_.SubElement(rootNode, wseTag('Subscribe'), nsmap=Prefixes.partial_map(Prefixes.WSE, Prefixes.WSA))
-        if self.endTo is not None:
-            endToNode = etree_.SubElement(subscribe, wseTag('EndTo'))
-            self.endTo.as_etree_subnode(endToNode)
+        subscribe = etree_.SubElement(root_node, wseTag('Subscribe'),
+                                      nsmap=Prefixes.partial_map(Prefixes.WSE, Prefixes.WSA))
+        if self.end_to is not None:
+            end_to_node = etree_.SubElement(subscribe, wseTag('EndTo'))
+            self.end_to.as_etree_subnode(end_to_node)
         delivery = etree_.SubElement(subscribe, wseTag('Delivery'))
         delivery.set('Mode', self.delivery_mode)
 
-        notifyToNode  = etree_.SubElement(delivery, wseTag('NotifyTo'))
-        self.notifyTo.as_etree_subnode(notifyToNode)
+        notify_to_node = etree_.SubElement(delivery, wseTag('NotifyTo'))
+        self.notify_to.as_etree_subnode(notify_to_node)
 
         exp = etree_.SubElement(subscribe, wseTag('Expires'))
         exp.text = isoduration.duration_string(self.expires)
         fil = etree_.SubElement(subscribe, wseTag('Filter'))
-        fil.set('Dialect', DIALECT_ACTION) # Is this always this string?
-        fil.text= self.filter
-
+        fil.set('Dialect', DIALECT_ACTION)  # Is this always this string?
+        fil.text = self.filter
 
     @classmethod
-    def from_etree_node(cls, rootNode):
-        raise NotImplementedError #pylint: disable=unused-argument
-
+    def from_etree_node(cls, root_node):
+        raise NotImplementedError  # pylint: disable=unused-argument
 
 
 class DPWSThisDevice:
-    __slots__ = ('friendlyName', 'firmwareVersion', 'serialNumber')
+    __slots__ = ('friendly_name', 'firmware_version', 'serial_number')
 
-    def __init__(self, friendlyName, firmwareVersion, serialNumber):
-        if isinstance(friendlyName, dict):
-            self.friendlyName = friendlyName
-        else:   
-            self.friendlyName = {'': friendlyName} # localized texts
-        self.firmwareVersion = firmwareVersion
-        self.serialNumber = serialNumber
-
+    def __init__(self, friendly_name, firmware_version, serial_number):
+        if isinstance(friendly_name, dict):
+            self.friendly_name = friendly_name
+        else:
+            self.friendly_name = {'': friendly_name}  # localized texts
+        self.firmware_version = firmware_version
+        self.serial_number = serial_number
 
     @classmethod
-    def from_etree_node(cls, rootNode):
-        friendlyName = {} # localized texts
-        for m in rootNode.findall('dpws:FriendlyName', nsmap):
-            friendlyName[m.get(_LANGUAGE_ATTR)] = m.text 
-        firmwareVersion = getText(rootNode, 'dpws:FirmwareVersion', nsmap)
-        serialNumber = getText(rootNode, 'dpws:SerialNumber', nsmap)
-        return cls(friendlyName, firmwareVersion, serialNumber)
+    def from_etree_node(cls, root_node):
+        friendly_name = {}  # localized texts
+        for f_name in root_node.findall('dpws:FriendlyName', nsmap):
+            friendly_name[f_name.get(_LANGUAGE_ATTR)] = f_name.text
+        firmware_version = _get_text(root_node, 'dpws:FirmwareVersion', nsmap)
+        serial_number = _get_text(root_node, 'dpws:SerialNumber', nsmap)
+        return cls(friendly_name, firmware_version, serial_number)
 
-
-    def as_etree_subnode(self, rootNode):
-        thisDevice = etree_.SubElement(rootNode, dpwsTag('ThisDevice'), nsmap=Prefixes.partial_map(Prefixes.DPWS))
-        for lang, name in self.friendlyName.items():
-            friendlyName = etree_.SubElement(thisDevice, dpwsTag('FriendlyName'))
-            friendlyName.text = name
-            friendlyName.set(_LANGUAGE_ATTR, lang)
-        firmwareVersion = etree_.SubElement(thisDevice, dpwsTag('FirmwareVersion'))
-        firmwareVersion.text = self.firmwareVersion
-        serialNumber = etree_.SubElement(thisDevice, dpwsTag('SerialNumber'))
-        serialNumber.text = self.serialNumber
-
+    def as_etree_subnode(self, root_node):
+        this_device = etree_.SubElement(root_node, dpwsTag('ThisDevice'), nsmap=Prefixes.partial_map(Prefixes.DPWS))
+        for lang, name in self.friendly_name.items():
+            friendly_name = etree_.SubElement(this_device, dpwsTag('FriendlyName'))
+            friendly_name.text = name
+            friendly_name.set(_LANGUAGE_ATTR, lang)
+        firmware_version = etree_.SubElement(this_device, dpwsTag('FirmwareVersion'))
+        firmware_version.text = self.firmware_version
+        serial_number = etree_.SubElement(this_device, dpwsTag('SerialNumber'))
+        serial_number.text = self.serial_number
 
     def __str__(self):
-        return 'DPWSThisDevice: friendlyName={}, firmwareVersion="{}", serialNumber="{}"'.format(self.friendlyName, self.firmwareVersion, self.serialNumber)
-
+        return 'DPWSThisDevice: friendly_name={}, firmware_version="{}", serial_number="{}"'.format(self.friendly_name,
+                                                                                                    self.firmware_version,
+                                                                                                    self.serial_number)
 
 
 class DPWSThisModel:
-    __slots__ = ('manufacturer', 'manufacturerUrl', 'modelName', 'modelNumber', 'modelUrl', 'presentationUrl')
-    def __init__(self, manufacturer, manufacturerUrl, modelName, modelNumber, modelUrl, presentationUrl):
+    __slots__ = ('manufacturer', 'manufacturer_url', 'model_name', 'model_number', 'model_url', 'presentation_url')
+
+    def __init__(self, manufacturer, manufacturer_url, model_name, model_number, model_url, presentation_url):
         if isinstance(manufacturer, dict):
             self.manufacturer = manufacturer
-        else:   
-            self.manufacturer = {None: manufacturer} # localized texts
-        self.manufacturerUrl = manufacturerUrl
-        if isinstance(modelName, dict):
-            self.modelName = modelName
-        else:   
-            self.modelName = {None: modelName} # localized texts
-        self.modelNumber = modelNumber
-        self.modelUrl = modelUrl
-        self.presentationUrl = presentationUrl
-
+        else:
+            self.manufacturer = {None: manufacturer}  # localized texts
+        self.manufacturer_url = manufacturer_url
+        if isinstance(model_name, dict):
+            self.model_name = model_name
+        else:
+            self.model_name = {None: model_name}  # localized texts
+        self.model_number = model_number
+        self.model_url = model_url
+        self.presentation_url = presentation_url
 
     def __str__(self):
-        return 'DPWSThisModel: manufacturer={}, modelName="{}", modelNumber="{}"'.format(self.manufacturer, self.modelName, self.modelNumber)
-
+        return 'DPWSThisModel: manufacturer={}, model_name="{}", model_number="{}"'.format(self.manufacturer,
+                                                                                           self.model_name,
+                                                                                           self.model_number)
 
     @classmethod
-    def from_etree_node(cls, rootNode):
-        manufacturer = {} # localized texts
-        for m in rootNode.findall('dpws:Manufacturer', nsmap):
-            manufacturer[m.get(_LANGUAGE_ATTR)] = m.text 
-        manufacturerUrl = getText(rootNode, 'dpws:ManufacturerUrl', nsmap)
-        modelName = {} # localized texts
-        for m in rootNode.findall('dpws:ModelName', nsmap):
-            modelName[m.get(_LANGUAGE_ATTR)] = m.text 
-        modelNumber = getText(rootNode, 'dpws:ModelNumber', nsmap)
-        modelUrl = getText(rootNode, 'dpws:ModelUrl',  nsmap)
-        presentationUrl = getText(rootNode, 'dpws:PresentationUrl', nsmap)
-        return cls(manufacturer, manufacturerUrl, modelName, modelNumber, modelUrl, presentationUrl)
+    def from_etree_node(cls, root_node):
+        manufacturer = {}  # localized texts
+        for manufact_node in root_node.findall('dpws:Manufacturer', nsmap):
+            manufacturer[manufact_node.get(_LANGUAGE_ATTR)] = manufact_node.text
+        manufacturer_url = _get_text(root_node, 'dpws:ManufacturerUrl', nsmap)
+        model_name = {}  # localized texts
+        for model_name_node in root_node.findall('dpws:ModelName', nsmap):
+            model_name[model_name_node.get(_LANGUAGE_ATTR)] = model_name_node.text
+        model_number = _get_text(root_node, 'dpws:ModelNumber', nsmap)
+        model_url = _get_text(root_node, 'dpws:ModelUrl', nsmap)
+        presentation_url = _get_text(root_node, 'dpws:PresentationUrl', nsmap)
+        return cls(manufacturer, manufacturer_url, model_name, model_number, model_url, presentation_url)
 
-
-    def as_etree_subnode(self, rootNode):
-        thisModel = etree_.SubElement(rootNode, dpwsTag('ThisModel'), nsmap=Prefixes.partial_map(Prefixes.DPWS))
+    def as_etree_subnode(self, root_node):
+        this_model = etree_.SubElement(root_node, dpwsTag('ThisModel'), nsmap=Prefixes.partial_map(Prefixes.DPWS))
         for lang, name in self.manufacturer.items():
-            manufacturer = etree_.SubElement(thisModel, dpwsTag('Manufacturer'))
+            manufacturer = etree_.SubElement(this_model, dpwsTag('Manufacturer'))
             manufacturer.text = name
             if lang is not None:
                 manufacturer.set(_LANGUAGE_ATTR, lang)
 
-        manufacturerUrl = etree_.SubElement(thisModel, dpwsTag('ManufacturerUrl'))
-        manufacturerUrl.text = self.manufacturerUrl
+        manufacturer_url = etree_.SubElement(this_model, dpwsTag('ManufacturerUrl'))
+        manufacturer_url.text = self.manufacturer_url
 
-        for lang, name in self.modelName.items():
-            manufacturer = etree_.SubElement(thisModel, dpwsTag('ModelName'))
+        for lang, name in self.model_name.items():
+            manufacturer = etree_.SubElement(this_model, dpwsTag('ModelName'))
             manufacturer.text = name
             if lang is not None:
                 manufacturer.set(_LANGUAGE_ATTR, lang)
 
-        modelNumber = etree_.SubElement(thisModel, dpwsTag('ModelNumber'))
-        modelNumber.text = self.modelNumber
-        modelUrl = etree_.SubElement(thisModel, dpwsTag('ModelUrl'))
-        modelUrl.text = self.modelUrl
-        presentationUrl = etree_.SubElement(thisModel, dpwsTag('PresentationUrl'))
-        presentationUrl.text = self.presentationUrl
-
+        model_number = etree_.SubElement(this_model, dpwsTag('ModelNumber'))
+        model_number.text = self.model_number
+        model_url = etree_.SubElement(this_model, dpwsTag('ModelUrl'))
+        model_url.text = self.model_url
+        presentation_url = etree_.SubElement(this_model, dpwsTag('PresentationUrl'))
+        presentation_url.text = self.presentation_url
 
 
 class DPWSHost:
-    __slots__ = ('endpointReferences', 'types')
-    def __init__(self, endpointReferencesList, typesList):
-        '''
-        @param endpointReferencesList: list of WsEndpointReference instances
-        @param typesList: a list of etree.QName instances
-        '''
-        self.endpointReferences = endpointReferencesList
-        self.types = typesList
+    __slots__ = ('endpoint_references', 'types')
 
+    def __init__(self, endpoint_references_list, types_list):
+        '''
+        @param endpoint_references_list: list of WsEndpointReference instances
+        @param types_list: a list of etree.QName instances
+        '''
+        self.endpoint_references = endpoint_references_list
+        self.types = types_list
 
-    def as_etree_subnode(self, rootNode):
+    def as_etree_subnode(self, root_node):
         _ns = Prefixes.partial_map(Prefixes.DPWS, Prefixes.WSA)
         # reverse lookup( key is namespace, value is prefix)
         res = {}
-        for k,v in _ns.items():
-            res[v] = k
-        for k,v in rootNode.nsmap.items():
-            res[v] = k
-        
+        for key, value in _ns.items():
+            res[value] = key
+        for key, value in root_node.nsmap.items():
+            res[value] = key
+
         # must explicitely add namespaces of types to Host node, because list of qnames is not handled by lxml
-        typesTexts = []
+        types_texts = []
         if self.types:
             for qname in self.types:
                 prefix = res.get(qname.namespace)
                 if not prefix:
                     # create a random prefix
-                    prefix='_dpwsh{}'.format(len(_ns))
+                    prefix = '_dpwsh{}'.format(len(_ns))
                     _ns[prefix] = qname.namespace
-                typesTexts.append('{}:{}'.format(prefix, qname.localname))
-                
-        hostNode = etree_.SubElement(rootNode, dpwsTag('Host'))#, nsmap=_ns)
-        epRefNode = etree_.SubElement(hostNode, wsaTag('EndpointReference'))#, nsmap=_ns) 
-        for epRef in self.endpointReferences:
-            epRef.as_etree_subnode(epRefNode)
-            
-        if typesTexts:
-            typesNode = etree_.SubElement(hostNode, dpwsTag('Types'), nsmap=_ns)# add also namespace prefixes that were locally generated
-            typesText = ' '.join(typesTexts)
-            typesNode.text = typesText
+                types_texts.append('{}:{}'.format(prefix, qname.localname))
 
+        host_node = etree_.SubElement(root_node, dpwsTag('Host'))  # , nsmap=_ns)
+        ep_ref_node = etree_.SubElement(host_node, wsaTag('EndpointReference'))  # , nsmap=_ns)
+        for ep_ref in self.endpoint_references:
+            ep_ref.as_etree_subnode(ep_ref_node)
+
+        if types_texts:
+            types_node = etree_.SubElement(host_node, dpwsTag('Types'),
+                                           nsmap=_ns)  # add also namespace prefixes that were locally generated
+            types_node.text = ' '.join(types_texts)
 
     @classmethod
-    def from_etree_node(cls, rootNode):
-        endpointReferences = []
-        for tmp in rootNode.findall('wsa:EndpointReference', nsmap):
-            endpointReferences.append(WsaEndpointReferenceType.from_etree_node(tmp))
-        types = getText(rootNode, 'dpws:Types', nsmap)
+    def from_etree_node(cls, root_node):
+        endpoint_references = []
+        for tmp in root_node.findall('wsa:EndpointReference', nsmap):
+            endpoint_references.append(WsaEndpointReferenceType.from_etree_node(tmp))
+        types = _get_text(root_node, 'dpws:Types', nsmap)
         if types:
             types = types.split()
-        return cls(endpointReferences, types)
-
+        return cls(endpoint_references, types)
 
     def __str__(self):
-        return 'DPWSHost: endpointReference={}, types="{}"'.format(self.endpointReferences, self.types)
-
+        return 'DPWSHost: endpointReference={}, types="{}"'.format(self.endpoint_references, self.types)
 
 
 class DPWSHosted:
-    __slots__ = ('endpointReferences', 'types', 'serviceId', 'soapClient')
-    def __init__(self, endpointReferencesList, typesList, serviceId):
-        self.endpointReferences = endpointReferencesList
-        self.types = typesList  # a list of QNames
-        self.serviceId = serviceId
-        self.soapClient = None
+    __slots__ = ('endpoint_references', 'types', 'service_id', 'soap_client')
 
+    def __init__(self, endpoint_references_list, types_list, service_id):
+        self.endpoint_references = endpoint_references_list
+        self.types = types_list  # a list of QNames
+        self.service_id = service_id
+        self.soap_client = None
 
-    def as_etree_subnode(self, rootNode):
-        hostedNode = etree_.SubElement(rootNode, dpwsTag('Hosted'))
-        epRefNode = etree_.SubElement(hostedNode, wsaTag('EndpointReference'))
-        for epRef in self.endpointReferences:
-            epRef.as_etree_subnode(epRefNode)
+    def as_etree_subnode(self, root_node):
+        hosted_node = etree_.SubElement(root_node, dpwsTag('Hosted'))
+        ep_ref_node = etree_.SubElement(hosted_node, wsaTag('EndpointReference'))
+        for ep_ref in self.endpoint_references:
+            ep_ref.as_etree_subnode(ep_ref_node)
         if self.types:
-            typesText = ' '.join([docname_from_qname(t, rootNode.nsmap) for t in self.types])
-            typesNode = etree_.SubElement(hostedNode, dpwsTag('Types'))#, nsmap=ns)
-            typesNode.text = typesText
-        serviceNode = etree_.SubElement(hostedNode, dpwsTag('ServiceId'))#, nsmap=ns)
-        serviceNode.text = self.serviceId
-
+            types_text = ' '.join([docname_from_qname(t, root_node.nsmap) for t in self.types])
+            types_node = etree_.SubElement(hosted_node, dpwsTag('Types'))
+            types_node.text = types_text
+        service_node = etree_.SubElement(hosted_node, dpwsTag('ServiceId'))
+        service_node.text = self.service_id
 
     @classmethod
-    def from_etree_node(cls, rootNode):
-        endpointReferences = []
-        for tmp in rootNode.findall('wsa:EndpointReference', nsmap):
-            endpointReferences.append(WsaEndpointReferenceType.from_etree_node(tmp))
-        types = getText(rootNode, 'dpws:Types', nsmap)
+    def from_etree_node(cls, root_node):
+        endpoint_references = []
+        for tmp in root_node.findall('wsa:EndpointReference', nsmap):
+            endpoint_references.append(WsaEndpointReferenceType.from_etree_node(tmp))
+        types = _get_text(root_node, 'dpws:Types', nsmap)
         if types:
             types = types.split()
-        serviceId = getText(rootNode, 'dpws:ServiceId', nsmap)
-        return cls(endpointReferences, types, serviceId)
+        service_id = _get_text(root_node, 'dpws:ServiceId', nsmap)
+        return cls(endpoint_references, types, service_id)
 
     def __str__(self):
-        return 'DPWSHosted: endpointReference={}, types="{}" serviceId="{}"'.format(self.endpointReferences, self.types, self.serviceId)
-
+        return 'DPWSHosted: endpointReference={}, types="{}" service_id="{}"'.format(self.endpoint_references,
+                                                                                     self.types,
+                                                                                     self.service_id)
 
 
 class DPWSRelationShip:
-    def __init__(self, rootNode=None):
-        hostNode = rootNode.find('dpws:Host', nsmap)
+    def __init__(self, root_node=None):
+        host_node = root_node.find('dpws:Host', nsmap)
         self.hosted = {}
-        self.host = DPWSHost.from_etree_node(hostNode)
-        for hostedNode in rootNode.findall('dpws:Hosted', nsmap):
-            hosted = DPWSHosted.from_etree_node(hostedNode)
-            self.hosted[hosted.serviceId] = hosted
-
+        self.host = DPWSHost.from_etree_node(host_node)
+        for hosted_node in root_node.findall('dpws:Hosted', nsmap):
+            hosted = DPWSHosted.from_etree_node(hosted_node)
+            self.hosted[hosted.service_id] = hosted
 
 
 class MetaDataSection:
-    def __init__(self, metadataSections):
-        self._metadataSections = metadataSections
-
+    def __init__(self, metadata_sections):
+        self._metadata_sections = metadata_sections
 
     def __getattr__(self, attrname):
         try:
-            return self._metadataSections[attrname]
+            return self._metadata_sections[attrname]
         except KeyError:
             raise AttributeError
 
-
     @classmethod
-    def from_etree_node(cls, rootNode):
-        metadata = rootNode.find('wsx:Metadata', nsmap)
-        metadataSections = {}
+    def from_etree_node(cls, root_node):
+        metadata = root_node.find('wsx:Metadata', nsmap)
+        metadata_sections = {}
         if metadata is not None:
-            for metadataSection in metadata.findall('wsx:MetadataSection', nsmap):
-                dialect = metadataSection.attrib['Dialect']
-                if dialect[-1] == '/': 
+            for metadata_section_node in metadata.findall('wsx:MetadataSection', nsmap):
+                dialect = metadata_section_node.attrib['Dialect']
+                if dialect[-1] == '/':
                     dialect = dialect[:-1]
                 if dialect == "http://schemas.xmlsoap.org/wsdl":
-                    locationNode = metadataSection.find('wsx:Location', nsmap)
-                    metadataSections['wsdl_location'] = locationNode.text
+                    location_node = metadata_section_node.find('wsx:Location', nsmap)
+                    metadata_sections['wsdl_location'] = location_node.text
                 elif dialect == DIALECT_THIS_MODEL:
-                    thisModelNode = metadataSection.find('dpws:ThisModel', nsmap)
-                    metadataSections['thisModel'] = DPWSThisModel.from_etree_node(thisModelNode)
+                    this_model_node = metadata_section_node.find('dpws:ThisModel', nsmap)
+                    metadata_sections['this_model'] = DPWSThisModel.from_etree_node(this_model_node)
                 elif dialect == DIALECT_THIS_DEVICE:
-                    thisDeviceNode = metadataSection.find('dpws:ThisDevice', nsmap)
-                    metadataSections['thisDevice'] = DPWSThisDevice.from_etree_node(thisDeviceNode)
+                    this_device_node = metadata_section_node.find('dpws:ThisDevice', nsmap)
+                    metadata_sections['this_device'] = DPWSThisDevice.from_etree_node(this_device_node)
                 elif dialect == DIALECT_RELATIONSHIP:
-                    relationshipNode = metadataSection.find('dpws:Relationship', nsmap)
-                    if relationshipNode.get('Type') == HOST_TYPE:
-                        metadataSections['relationShip'] = DPWSRelationShip(relationshipNode)
-        return cls(metadataSections)
+                    relationship_node = metadata_section_node.find('dpws:Relationship', nsmap)
+                    if relationship_node.get('Type') == HOST_TYPE:
+                        metadata_sections['relationShip'] = DPWSRelationShip(relationship_node)
+        return cls(metadata_sections)
 
 
 class Soap12EnvelopeBase:
-    __slots__ = ('_headerNode', '_bodyNode', '_headerObjects', '_bodyObjects', '_docRoot')
+    __slots__ = ('_header_node', '_body_node', '_header_objects', '_body_objects', '_doc_root')
+
     def __init__(self):
-        self._headerNode = None
-        self._bodyNode = None
-        self._headerObjects = []
-        self._bodyObjects = []
-        self._docRoot = None
+        self._header_node = None
+        self._body_node = None
+        self._header_objects = []
+        self._body_objects = []
+        self._doc_root = None
 
     @property
-    def headerNode(self):
-        return self._headerNode
+    def header_node(self):
+        return self._header_node
 
     @property
-    def bodyNode(self):
-        return self._bodyNode
+    def body_node(self):
+        return self._body_node
 
-    def _assert_valid_exception_wrapper(self, schema, content):
+    @staticmethod
+    def _assert_valid_exception_wrapper(schema, content):
         try:
             schema.assertValid(content)
         except etree_.DocumentInvalid:
@@ -536,64 +526,65 @@ class Soap12EnvelopeBase:
 
 class Soap12Envelope(Soap12EnvelopeBase):
     __slots__ = ('_nsmap', 'address')
-    def __init__(self, nsmap):
+
+    def __init__(self, ns_map):
         super().__init__()
-        self._nsmap = nsmap
+        self._nsmap = ns_map
         self.address = None
 
-    def addHeaderObject(self, obj):
+    def add_header_object(self, obj):
         assert hasattr(obj, 'as_etree_subnode')
-        self._headerObjects.append(obj)
-        self._docRoot = None
+        self._header_objects.append(obj)
+        self._doc_root = None
 
-    def addHeaderString(self, headerString):
-        element = etree_.fromstring(headerString)
-        self.addHeaderObject(GenericNode(element))
-        self._docRoot = None
-        
-    def addHeaderElement(self, element):
-        self.addHeaderObject(GenericNode(element))
-        self._docRoot = None
-    
-    def addBodyObject(self, obj):
+    # def addHeaderString(self, headerString):
+    #     element = etree_.fromstring(headerString)
+    #     self.add_header_object(GenericNode(element))
+    #     self._doc_root = None
+
+    def add_header_element(self, element):
+        self.add_header_object(GenericNode(element))
+        self._doc_root = None
+
+    def add_body_object(self, obj):
         assert hasattr(obj, 'as_etree_subnode')
-        self._bodyObjects.append(obj)
-        self._docRoot = None
+        self._body_objects.append(obj)
+        self._doc_root = None
 
-    def addBodyString(self, bodyString):
-        element = etree_.fromstring(bodyString)
-        self.addBodyObject(GenericNode(element))
-        self._docRoot = None
+    def add_body_string(self, body_string):
+        element = etree_.fromstring(body_string)
+        self.add_body_object(GenericNode(element))
+        self._doc_root = None
 
-    def addBodyElement(self, element):
-        self.addBodyObject(GenericNode(element))
-        self._docRoot = None
+    def add_body_element(self, element):
+        self.add_body_object(GenericNode(element))
+        self._doc_root = None
 
-    def setAddress(self, wsAddress):
-        self.address = wsAddress
+    def set_address(self, ws_address):
+        self.address = ws_address
 
-    def buildDoc(self):
-        if self._docRoot is not None:
-            return self._docRoot
-        
+    def build_doc(self):
+        if self._doc_root is not None:
+            return self._doc_root
+
         root = etree_.Element(s12Tag('Envelope'), nsmap=self._nsmap)
 
         header = etree_.SubElement(root, s12Tag('Header'))
         if self.address:
             self.address.as_etree_subnode(header)
-        for h in self._headerObjects:
-            h.as_etree_subnode(header)
+        for header_object in self._header_objects:
+            header_object.as_etree_subnode(header)
         body = etree_.SubElement(root, s12Tag('Body'))
-        for b in self._bodyObjects:
-            b.as_etree_subnode(body)
-        self._headerNode = header
-        self._bodyNode = body
-        self._docRoot = root
+        for body_object in self._body_objects:
+            body_object.as_etree_subnode(body)
+        self._header_node = header
+        self._body_node = body
+        self._doc_root = root
         return root
 
     def as_xml(self, pretty=False, request_manipulator=None):
         tmp = BytesIO()
-        root = self.buildDoc()
+        root = self.build_doc()
         doc = etree_.ElementTree(element=root)
         if hasattr(request_manipulator, 'manipulate_domtree'):
             _doc = request_manipulator.manipulate_domtree(doc)
@@ -602,34 +593,34 @@ class Soap12Envelope(Soap12EnvelopeBase):
         doc.write(tmp, encoding='UTF-8', xml_declaration=True, pretty_print=pretty)
         return tmp.getvalue()
 
-    def validateBody(self, schema):
-        root = self.buildDoc()
+    def validate_body(self, schema):
+        root = self.build_doc()
         doc = etree_.ElementTree(element=root)
         if CHECK_NAMESPACES:
             self._find_unused_namespaces(root)
             self._find_undefined_namespaces()
         if schema is None:
             return
-        bodyNode = doc.find('s12:Body', nsmap)
-        if bodyNode is not None:
+        body_node = doc.find('s12:Body', nsmap)
+        if body_node is not None:
             try:
-                payloadNode = bodyNode[0]
+                payload_node = body_node[0]
             except IndexError:  # empty body
                 return
-            self._assert_valid_exception_wrapper(schema, payloadNode)
+            self._assert_valid_exception_wrapper(schema, payload_node)
 
     def _find_unused_namespaces(self, root):
         xml_doc = self.as_xml()
         unused = []
         used = []
-        for prefix, ns in root.nsmap.items():
-            _pr = prefix+':'
-            if _pr.encode() not in xml_doc:
-                unused.append((prefix, ns))
+        for prefix, namespace in root.nsmap.items():
+            _pref = prefix + ':'
+            if _pref.encode() not in xml_doc:
+                unused.append((prefix, namespace))
             else:
                 used.append(prefix)
         if unused:
-            print (root.nsmap, used, xml_doc[:500]) # do not need to see the wohle message
+            print(root.nsmap, used, xml_doc[:500])  # do not need to see the wohle message
             raise RuntimeError('unused namespaces:{}, used={}'.format(unused, used))
 
     def _find_undefined_namespaces(self):
@@ -639,85 +630,82 @@ class Soap12Envelope(Soap12EnvelopeBase):
 
 
 class ReceivedSoap12Envelope(Soap12EnvelopeBase):
-    __slots__ = ('msgNode', 'rawdata', 'address')
+    __slots__ = ('msg_node', 'rawdata', 'address')
+
     def __init__(self, doc=None, rawdata=None):
         super().__init__()
-        self._docRoot = doc
+        self._doc_root = doc
         self.rawdata = rawdata
-        self._headerNode = None
-        self._bodyNode = None
+        self._header_node = None
+        self._body_node = None
         self.address = None
         if doc is not None:
-            self._headerNode = doc.find('s12:Header', nsmap)
-            self._bodyNode = doc.find('s12:Body', nsmap)
-            self.address = WsAddress.from_etree_node(self.headerNode)
+            self._header_node = doc.find('s12:Header', nsmap)
+            self._body_node = doc.find('s12:Body', nsmap)
+            self.address = WsAddress.from_etree_node(self.header_node)
             try:
-                self.msgNode = self.bodyNode[0]
-            except IndexError: # body has no content, this can happen
-                self.msgNode = None
-        
+                self.msg_node = self.body_node[0]
+            except IndexError:  # body has no content, this can happen
+                self.msg_node = None
 
     def as_xml(self, pretty=False):
         tmp = BytesIO()
-        doc = etree_.ElementTree(element=self._docRoot)
+        doc = etree_.ElementTree(element=self._doc_root)
         doc.write(tmp, encoding='UTF-8', xml_declaration=True, pretty_print=pretty)
         return tmp.getvalue()
 
-    def validateBody(self, schema):
+    def validate_body(self, schema):
         if schema is None:
             return
-        self._assert_valid_exception_wrapper(schema, self.msgNode)
+        self._assert_valid_exception_wrapper(schema, self.msg_node)
 
     @classmethod
-    def fromXMLString(cls, xmlString, schema=None, **kwargs):
+    def from_xml_string(cls, xml_string, schema=None, **kwargs):
         parser = etree_.ETCompatXMLParser(resolve_entities=False)
-        
-        try:    
-            doc = etree_.fromstring(xmlString, parser=parser, **kwargs)
+
+        try:
+            doc = etree_.fromstring(xml_string, parser=parser, **kwargs)
         except Exception as ex:
-            print ('load error "{}" in "{}"'.format(ex, xmlString))
+            print('load error "{}" in "{}"'.format(ex, xml_string))
             raise
         if schema is not None:
-            msgNode = doc.find('s12:Body', nsmap)[0]
-            schema.assertValid(msgNode)
-        return cls(doc=doc, rawdata=xmlString)
-
-
-
+            msg_node = doc.find('s12:Body', nsmap)[0]
+            schema.assertValid(msg_node)
+        return cls(doc=doc, rawdata=xml_string)
 
 
 class DPWSEnvelope(ReceivedSoap12Envelope):
-    __slots__ = ('address', 'thisModel', 'thisDevice', 'hosted', 'host', 'metaData')
+    __slots__ = ('address', 'this_model', 'this_device', 'hosted', 'host', 'metadata')
 
     def __init__(self, doc, rawdata):
         super().__init__(doc, rawdata)
         self.address = None
-        self.thisModel = None
-        self.thisDevice = None
+        self.this_model = None
+        self.this_device = None
         self.hosted = {}
         self.host = None
-        self.metaData = None
-        
+        self.metadata = None
+
         if doc is not None:
-            self.address = WsAddress.from_etree_node(self.headerNode)
-            self.metaData = MetaDataSection(self.bodyNode)
-            metadata = self.bodyNode.find('wsx:Metadata', nsmap)
+            self.address = WsAddress.from_etree_node(self.header_node)
+            self.metadata = MetaDataSection(self.body_node)
+            metadata = self.body_node.find('wsx:Metadata', nsmap)
             if metadata is not None:
-                for metadataSection in metadata.findall('wsx:MetadataSection', nsmap):
-                    if metadataSection.attrib['Dialect'] == DIALECT_THIS_MODEL:
-                        thisModelNode = metadataSection.find('dpws:ThisModel', nsmap)
-                        self.thisModel = DPWSThisModel.from_etree_node(thisModelNode)
-                    elif metadataSection.attrib['Dialect'] == DIALECT_THIS_DEVICE:
-                        thisDeviceNode = metadataSection.find('dpws:ThisDevice', nsmap)
-                        self.thisDevice = DPWSThisDevice.from_etree_node(thisDeviceNode)
-                    elif metadataSection.attrib['Dialect'] == DIALECT_RELATIONSHIP:
-                        relationship = metadataSection.find('dpws:Relationship', nsmap)
+                for metadata_section_node in metadata.findall('wsx:MetadataSection', nsmap):
+                    if metadata_section_node.attrib['Dialect'] == DIALECT_THIS_MODEL:
+                        this_model_node = metadata_section_node.find('dpws:ThisModel', nsmap)
+                        self.this_model = DPWSThisModel.from_etree_node(this_model_node)
+                    elif metadata_section_node.attrib['Dialect'] == DIALECT_THIS_DEVICE:
+                        this_device_node = metadata_section_node.find('dpws:ThisDevice', nsmap)
+                        self.this_device = DPWSThisDevice.from_etree_node(this_device_node)
+                    elif metadata_section_node.attrib['Dialect'] == DIALECT_RELATIONSHIP:
+                        relationship = metadata_section_node.find('dpws:Relationship', nsmap)
                         if relationship.get('Type') == HOST_TYPE:
-                            hostNode = relationship.find('dpws:Host', nsmap)
-                            self.host = DPWSHost.from_etree_node(hostNode)
-                            for hostedNode in relationship.findall('dpws:Hosted', nsmap):
-                                hosted = DPWSHosted.from_etree_node(hostedNode)
-                                self.hosted[hosted.serviceId] = hosted
+                            host_node = relationship.find('dpws:Host', nsmap)
+                            self.host = DPWSHost.from_etree_node(host_node)
+                            for hosted_node in relationship.findall('dpws:Hosted', nsmap):
+                                hosted = DPWSHosted.from_etree_node(hosted_node)
+                                self.hosted[hosted.service_id] = hosted
 
 
 class _SoapFaultBase(Soap12Envelope):
@@ -741,41 +729,44 @@ class _SoapFaultBase(Soap12Envelope):
         </S:Body>
 
     '''
+
     def __init__(self, requestEnvelope, fault_action, code, reason, subCode, details):
-        super().__init__(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA,Prefixes.WSE))
-        replyAddress = requestEnvelope.address.mkReplyAddress(fault_action)
-        self.addHeaderObject(replyAddress)
-        faultNode = etree_.Element(s12Tag('Fault'))
-        codeNode = etree_.SubElement(faultNode, s12Tag('Code'))
-        valueNode = etree_.SubElement(codeNode, s12Tag('Value'))
-        valueNode.text = 's12:{}'.format(code)
+        super().__init__(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
+        reply_address = requestEnvelope.address.mk_reply_address(fault_action)
+        self.add_header_object(reply_address)
+        fault_node = etree_.Element(s12Tag('Fault'))
+        code_node = etree_.SubElement(fault_node, s12Tag('Code'))
+        value_node = etree_.SubElement(code_node, s12Tag('Value'))
+        value_node.text = 's12:{}'.format(code)
         if subCode is not None:
-            subcodeNode = etree_.SubElement(codeNode, s12Tag('Subcode'))
-            valueNode = etree_.SubElement(subcodeNode, s12Tag('Value'))
-            valueNode.text = docname_from_qname(subCode, nsmap)
-        reasonNode = etree_.SubElement(faultNode, s12Tag('Reason'))
-        reasontextNode = etree_.SubElement(reasonNode, s12Tag('Text'))
-        reasontextNode.set(xmlTag('lang'), 'en-US')
-        reasontextNode.text = reason
+            subcode_node = etree_.SubElement(code_node, s12Tag('Subcode'))
+            sub_value_node = etree_.SubElement(subcode_node, s12Tag('Value'))
+            sub_value_node.text = docname_from_qname(subCode, nsmap)
+        reason_node = etree_.SubElement(fault_node, s12Tag('Reason'))
+        reason_text_node = etree_.SubElement(reason_node, s12Tag('Text'))
+        reason_text_node.set(xmlTag('lang'), 'en-US')
+        reason_text_node.text = reason
         if details is not None:
-            _detailNode = etree_.SubElement(faultNode, s12Tag('Detail'))
-            _detailNode.set(xmlTag('lang'), 'en-US')
+            detail_node = etree_.SubElement(fault_node, s12Tag('Detail'))
+            detail_node.set(xmlTag('lang'), 'en-US')
             if isinstance(details, str):
-                detNode = etree_.SubElement(_detailNode, 'data')
-                detNode.text = details
+                det_data_node = etree_.SubElement(detail_node, 'data')
+                det_data_node.text = details
             else:
-                _detailNode.append(details)
-        self.addBodyElement(faultNode)
+                detail_node.append(details)
+        self.add_body_element(fault_node)
 
 
 class SoapFault(_SoapFaultBase):
     SOAP_FAULT_ACTION = '{}/soap/fault'.format(Prefixes.WSA.namespace)
+
     def __init__(self, requestEnvelope, code, reason, subCode=None, details=None):
         super().__init__(requestEnvelope, self.SOAP_FAULT_ACTION, code, reason, subCode, details)
 
 
 class AdressingFault(_SoapFaultBase):
     ADDRESSING_FAULT_ACTION = '{}/fault'.format(Prefixes.WSA.namespace)
+
     def __init__(self, requestEnvelope, code, reason, subCode=None, details=None):
         super().__init__(requestEnvelope, self.ADDRESSING_FAULT_ACTION, code, reason, subCode, details)
 
@@ -783,13 +774,15 @@ class AdressingFault(_SoapFaultBase):
 class ReceivedSoapFault(ReceivedSoap12Envelope):
     def __init__(self, doc=None, rawdata=None):
         super().__init__(doc, rawdata)
-        self.code = ', '.join(self._bodyNode.xpath('s12:Fault/s12:Code/s12:Value/text()', namespaces=nsmap))
-        self.subcode = ', '.join(self._bodyNode.xpath('s12:Fault/s12:Code/s12:Subcode/s12:Value/text()', namespaces=nsmap))
-        self.reason = ', '.join(self._bodyNode.xpath('s12:Fault/s12:Reason/s12:Text/text()', namespaces=nsmap))
-        self.detail = ', '.join(self._bodyNode.xpath('s12:Fault/s12:Detail/text()', namespaces=nsmap))
+        self.code = ', '.join(self._body_node.xpath('s12:Fault/s12:Code/s12:Value/text()', namespaces=nsmap))
+        self.subcode = ', '.join(
+            self._body_node.xpath('s12:Fault/s12:Code/s12:Subcode/s12:Value/text()', namespaces=nsmap))
+        self.reason = ', '.join(self._body_node.xpath('s12:Fault/s12:Reason/s12:Text/text()', namespaces=nsmap))
+        self.detail = ', '.join(self._body_node.xpath('s12:Fault/s12:Detail/text()', namespaces=nsmap))
 
     def __repr__(self):
-        return ('ReceivedSoapFault(code="{}", subcode="{}", reason="{}", detail="{}")'.format(self.code, self.subcode, self.reason, self.detail))
+        return ('ReceivedSoapFault(code="{}", subcode="{}", reason="{}", detail="{}")'.format(self.code, self.subcode,
+                                                                                              self.reason, self.detail))
 
 
 class SoapFaultCode:

@@ -1,37 +1,40 @@
-from .. import namespaces
 from .contextprovider import GenericContextProvider
+from .. import namespaces
+
 
 class GenericPatientContextProvider(GenericContextProvider):
 
     def __init__(self, log_prefix):
         super().__init__(log_prefix)
-        self._patientContextDescriptorContainer = None
-        self._setPatientContextOperations = []
+        self._patient_context_descriptor_container = None
+        self._set_patient_context_operations = []
 
-    def initOperations(self, mdib):
-        super().initOperations(mdib)
+    def init_operations(self, mdib):
+        super().init_operations(mdib)
         # expecting exactly one PatientContextDescriptor
-        patientContextDescriptorContainers = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('PatientContextDescriptor'))
-        if patientContextDescriptorContainers is not None and len(patientContextDescriptorContainers) == 1:
-            self._patientContextDescriptorContainer = patientContextDescriptorContainers[0]
+        descriptor_containers = self._mdib.descriptions.NODETYPE.get(
+            namespaces.domTag('PatientContextDescriptor'))
+        if descriptor_containers is not None and len(descriptor_containers) == 1:
+            self._patient_context_descriptor_container = descriptor_containers[0]
 
-    def makeOperationInstance(self, operationDescriptorContainer, operations_factory):
-        if self._patientContextDescriptorContainer and operationDescriptorContainer.OperationTarget == self._patientContextDescriptorContainer.handle:
-            pc_operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
-                                                                    operations_factory,
-                                                                    currentArgumentHandler=self._setContextState)
-            self._setPatientContextOperations.append(pc_operation)
+    def make_operation_instance(self, operation_descriptor_container, operations_factory):
+        if self._patient_context_descriptor_container and operation_descriptor_container.OperationTarget == self._patient_context_descriptor_container.handle:
+            pc_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
+                                                                        operations_factory,
+                                                                        current_argument_handler=self._set_context_state)
+            self._set_patient_context_operations.append(pc_operation)
             return pc_operation
+        return None
 
-    def makeMissingOperations(self, operations_factory):
+    def make_missing_operations(self, operations_factory):
         ops = []
-        if self._patientContextDescriptorContainer and not self._setPatientContextOperations:
+        if self._patient_context_descriptor_container and not self._set_patient_context_operations:
             set_context_state_op_cls = operations_factory(namespaces.domTag('SetContextStateOperationDescriptor'))
 
-            pc_operation = self._mkOperation(set_context_state_op_cls,
-                                             handle='opSetPatCtx',
-                                             operationTargetHandle=self._patientContextDescriptorContainer.handle,
-                                             codedValue=None,
-                                             currentArgumentHandler=self._setContextState)
+            pc_operation = self._mk_operation(set_context_state_op_cls,
+                                              handle='opSetPatCtx',
+                                              operation_target_handle=self._patient_context_descriptor_container.handle,
+                                              codedValue=None,
+                                              current_argument_handler=self._set_context_state)
             ops.append(pc_operation)
         return ops
