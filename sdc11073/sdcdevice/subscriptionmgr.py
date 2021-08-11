@@ -13,9 +13,8 @@ from .. import isoduration
 from .. import loghelper
 from .. import multikey
 from .. import observableproperties
-from .. import xmlparsing
 from ..compression import CompressionHandler
-from ..etc import apply_map
+from ..etc import apply_map, short_filter_string
 from ..namespaces import Prefixes
 from ..namespaces import xmlTag, wseTag, wsaTag, msgTag, nsmap, DocNamespaceHelper
 from ..pysoap.soapclient import SoapClient, HTTPReturnCodeError
@@ -134,19 +133,6 @@ class _DevSubscription:
                 return True
         return False
 
-    # def _mk_notification_report(self, envelope, action):
-    #     addr = WsAddress(addr_to=self.notify_to_address,
-    #                      action=action,
-    #                      addr_from=None,
-    #                      reply_to=None,
-    #                      fault_to=None,
-    #                      reference_parameters_node=None)
-    #     envelope.set_address(addr)
-    #     for ident_node in self.notify_ref_nodes:
-    #         envelope.add_header_element(ident_node)
-    #     envelope.validate_body(self._biceps_schema.message_schema)
-    #     return envelope
-
     def _mk_end_report(self, envelope, action):
         to_addr = self.end_to_address or self.notify_to_address
         addr = WsAddress(addr_to=to_addr,
@@ -249,8 +235,7 @@ class _DevSubscription:
             ref_ident,
             self.my_identifier.text,
             self.remaining_seconds,
-            xmlparsing.short_filter_string(
-                self._filters))
+            short_filter_string(self._filters))
 
     @classmethod
     def from_soap_envelope(cls, envelope, ssl_context, biceps_schema, accepted_encodings, max_subscription_duration,

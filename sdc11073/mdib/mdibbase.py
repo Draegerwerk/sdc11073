@@ -8,7 +8,7 @@ from .. import multikey
 from .. import observableproperties as properties
 from .. import pmtypes
 from ..namespaces import DocNamespaceHelper, msgTag, domTag
-from ..xmlparsing import BicepsSchema
+from ..definitions_base import SchemaValidators
 from ..etc import apply_map
 
 class RtSampleContainer:
@@ -179,7 +179,7 @@ class MdibContainer:
         @param sdc_definitions: a class derived from Definitions_Base
         """
         self.sdc_definitions = sdc_definitions
-        self.biceps_schema = BicepsSchema(sdc_definitions)  # used for validation
+        self.biceps_schema = SchemaValidators(sdc_definitions)  # used for validation
         self._logger = None  # must to be instantiated by derived class
         self.nsmapper = DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file
         self.mdib_version = 0

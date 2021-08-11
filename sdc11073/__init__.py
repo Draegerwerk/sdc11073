@@ -7,7 +7,6 @@ from . import pmtypes
 from . import location
 from . import sdcclient
 from . import sdcdevice
-from . import xmlparsing
 from . import commlog
 from . import compression
 

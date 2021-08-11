@@ -16,7 +16,7 @@ from sdc11073.pysoap.soapenvelope import ReceivedSoap12Envelope, SoapResponseExc
 from .. import commlog
 from .. import loghelper
 from .. import observableproperties as properties
-from .. import xmlparsing, isoduration
+from .. import etc, isoduration
 from ..httprequesthandler import HTTPRequestHandler
 from ..namespaces import nsmap as _global_nsmap
 from ..namespaces import wseTag, wsaTag
@@ -299,7 +299,7 @@ class _ClSubscription:
 
     @property
     def short_filter_string(self):
-        return xmlparsing.short_filter_string(self._actions)
+        return etc.short_filter_string(self._actions)
 
     def __str__(self):
         return 'Subscription of "{}", is_subscribed={}, remaining time = {} sec., count={}'.format(

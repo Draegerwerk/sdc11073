@@ -3,7 +3,7 @@ import os
 from lxml import etree as etree_
 
 from .definitions_base import BaseDefinitions
-from .definitions_base import SchemaResolverBase
+from .definitions_base import SchemaResolver
 from .mdib import descriptorcontainers as dc_final
 from .mdib import statecontainers as sc_final
 from .namespaces import Prefixes
@@ -25,11 +25,11 @@ from .sdcdevice.subscriptionmgr import SubscriptionsManager
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
 
-class _SchemaResolver(SchemaResolverBase):
-    lookup_ext = {
-        'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_ParticipantModel.xsd': 'ParticipantModelSchemaFile',
-        'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd': 'MessageModelSchemaFile',
-        'http://standards.ieee.org/downloads/11073/11073-10207-2017/ExtensionPoint.xsd': 'ExtensionPointSchemaFile', }
+# class _SchemaResolver(SchemaResolverBase):
+#     lookup_ext = {
+#         'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_ParticipantModel.xsd': 'ParticipantModelSchemaFile',
+#         'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd': 'MessageModelSchemaFile',
+#         'http://standards.ieee.org/downloads/11073/11073-10207-2017/ExtensionPoint.xsd': 'ExtensionPointSchemaFile', }
 
 
 # the following namespace definitions reflect the initial SDC standard.
@@ -139,12 +139,22 @@ class SchemaPathsSdc:
     EventingSchemaFile = os.path.join(schemaFolder, 'eventing.xsd')
     SoapEnvelopeSchemaFile = os.path.join(schemaFolder, 'soap-envelope.xsd')
     WsAddrSchemaFile = os.path.join(schemaFolder, 'ws-addr.xsd')
-    AddressingSchemaFile = os.path.join(schemaFolder, 'addressing.xsd')
     XMLSchemaFile = os.path.join(schemaFolder, 'xml.xsd')
     DPWSSchemaFile = os.path.join(schemaFolder, 'wsdd-dpws-1.1-schema-os.xsd')
     MessageModelSchemaFile = os.path.join(schemaFolder, 'BICEPS_MessageModel.xsd')
     ParticipantModelSchemaFile = os.path.join(schemaFolder, 'BICEPS_ParticipantModel.xsd')
     ExtensionPointSchemaFile = os.path.join(schemaFolder, 'ExtensionPoint.xsd')
+    namespace_schema_file_lookup = {  # for schema resolver
+        # eventing.xsd originally uses http://schemas.xmlsoap.org/ws/2004/08/addressing,
+        # but DPWS overwrites the addressing standard of eventing with http://www.w3.org/2005/08/addressing!
+        # In order to reflect this, eventing.xsd was patched so that it uses same namespace and schema location
+        # dpws uses a schema location that does not match the namespace!
+        'http://www.w3.org/2006/03/addressing/ws-addr.xsd': WsAddrSchemaFile,  # schema loc. used by dpws 1.1 schema
+        'http://www.w3.org/2001/xml.xsd': XMLSchemaFile,
+        'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_ParticipantModel.xsd': ParticipantModelSchemaFile,
+        'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd': MessageModelSchemaFile,
+        'http://standards.ieee.org/downloads/11073/11073-10207-2017/ExtensionPoint.xsd': ExtensionPointSchemaFile
+    }
 
 
 class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
@@ -168,6 +178,3 @@ class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     DefaultSdcDeviceComponents = DefaultSdcDeviceComponents
     DefaultSdcClientComponents = DefaultSdcClientComponents
     SchemaFilePaths = SchemaPathsSdc
-
-
-SDC_v1_Definitions.schemaResolver = _SchemaResolver(SDC_v1_Definitions)

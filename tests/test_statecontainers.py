@@ -3,16 +3,14 @@ import unittest
 import datetime
 from math import isclose
 from lxml import etree as etree_
-import copy
 import sdc11073.mdib.statecontainers as statecontainers
 import sdc11073.mdib.descriptorcontainers as descriptorcontainers
 import sdc11073.namespaces as namespaces
 import sdc11073.pmtypes as pmtypes
-import sdc11073.xmlparsing as xmlparsing
 import sdc11073.mdib.containerproperties as containerproperties
 from sdc11073.location import SdcLocation
 from sdc11073.definitions_sdc import SDC_v1_Definitions
-
+from sdc11073.definitions_base import SchemaValidators
 # pylint: disable=protected-access
 _my_tag = namespaces.domTag('State')
 
@@ -526,7 +524,7 @@ class TestStateContainers(unittest.TestCase):
         verifyEqual(sc, sc2)
 
         loc = SdcLocation(fac='a', poc='b', bed='c', bld='d', flr='e', rm='f', root='g')
-        biceps_schema = xmlparsing.BicepsSchema(SDC_v1_Definitions)
+        biceps_schema = SchemaValidators(SDC_v1_Definitions)
         sc = statecontainers.LocationContextStateContainer.from_sdc_location(nsmapper=self.nsmapper,
                                                                            descriptor_container=self.dc,
                                                                            handle='abc',

@@ -1,5 +1,4 @@
 import os
-import traceback
 import urllib
 
 from lxml import etree as etree_
@@ -26,7 +25,7 @@ class ProtocolsRegistry(type):
 
 # definitions that group all relevant dependencies for BICEPS versions
 class BaseDefinitions(metaclass=ProtocolsRegistry):
-    """ Central definitions for SDC
+    """ Base class for central definitions used by SDC.
     It defines namespaces and handlers for the protocol.
     Derive from this class in order to define different protocol handling."""
     DpwsDeviceType = dpwsTag('Device')
@@ -70,22 +69,49 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
             xml_text = xml_text.replace(internal_ns, namespace)
         return xml_text
 
-def _is_biceps_schema_file(filename):
+    @classmethod
+    def get_schema_file_path(cls, url):
+        return cls.SchemaFilePaths.namespace_schema_file_lookup.get(url)
+
+
+def _needs_normalize(filename):
     return filename.endswith('ExtensionPoint.xsd') or \
            filename.endswith('BICEPS_ParticipantModel.xsd') or \
            filename.endswith('BICEPS_MessageModel.xsd')
 
 
-class SchemaResolverBase(etree_.Resolver):
-    lookup = {'http://schemas.xmlsoap.org/ws/2004/08/addressing': 'AddressingSchemaFile',
-              'http://www.w3.org/2005/08/addressing/ws-addr.xsd': 'WsAddrSchemaFile',
-              'http://www.w3.org/2005/08/addressing': 'WsAddrSchemaFile',
-              'http://www.w3.org/2006/03/addressing/ws-addr.xsd': 'WsAddrSchemaFile',
-              'http://schemas.xmlsoap.org/ws/2004/08/eventing/eventing.xsd': 'EventingSchemaFile',
-              Prefixes.DPWS.namespace: 'DPWSSchemaFile',
-              'http://schemas.xmlsoap.org/ws/2004/09/mex/MetadataExchange.xsd': 'MetaDataExchangeSchemaFile',
-              'http://www.w3.org/2001/xml.xsd': 'XMLSchemaFile', }
-    lookup_ext = {}  # to be overridden by derived classes
+
+class SchemaValidators:
+    def __init__(self, definition_cls):
+        """
+        Contains instances of XMLSchema validators
+        :param definition_cls: a class derived from BaseDefinitions, it contains paths to xml schema files
+        """
+        self.parser = etree_.ETCompatXMLParser(resolve_entities=False)
+        self._definitions = definition_cls
+        self.parser.resolvers.add(SchemaResolver(definition_cls))
+        schema_paths = self._definitions.SchemaFilePaths
+
+        self.participant_schema = self._mk_schema(schema_paths.ParticipantModelSchemaFile, normalize=True)
+        self.message_schema = self._mk_schema(schema_paths.MessageModelSchemaFile, normalize=True)
+        self.mex_schema = self._mk_schema(schema_paths.MetaDataExchangeSchemaFile)
+        self.eventing_schema = self._mk_schema(schema_paths.EventingSchemaFile)
+        self.soap12_schema = self._mk_schema(schema_paths.SoapEnvelopeSchemaFile)
+        self.dpws_schema = self._mk_schema(schema_paths.DPWSSchemaFile)
+
+    def __str__(self):
+        return '{} {}'.format(self.__class__.__name__, self._definitions.__name__)
+
+    def _mk_schema(self, path, normalize=False):
+        with open(path, 'rb') as _file:
+            xml_text = _file.read()
+        if normalize:
+            xml_text = self._definitions.normalize_xml_text(xml_text)
+        elem_tree = etree_.fromstring(xml_text, parser=self.parser, base_url=path)
+        return etree_.XMLSchema(etree=elem_tree)
+
+
+class SchemaResolver(etree_.Resolver):
 
     def __init__(self, base_definitions, log_prefix=None):
         super().__init__()
@@ -94,39 +120,24 @@ class SchemaResolverBase(etree_.Resolver):
 
     def resolve(self, url, id, context):  # pylint: disable=unused-argument, redefined-builtin, invalid-name
         # first check if there is a lookup defined
-        ref = self.lookup.get(url)
-        if ref is None:
-            ref = self.lookup_ext.get(url)
-        if ref is not None:
-            try:
-                filename = getattr(self._base_definitions.SchemaFilePaths, ref)
-            except AttributeError:
-                self._logger.warn('could not resolve ref={}', ref)
-                return None
-            self._logger.debug('could resolve url {} via lookup to {}', url, filename)
-            if not os.path.exists(filename):
-                self._logger.warn('could resolve url {} via lookup, but path {} does not exist', url, filename)
-                return None
-            with open(filename, 'rb') as my_file:
-                xml_text = my_file.read()
-            if _is_biceps_schema_file(filename):
-                xml_text = self._base_definitions.normalize_xml_text(xml_text)
-            return self.resolve_string(xml_text, context, base_url=filename)
+        path = self._base_definitions.get_schema_file_path(url)
+        if path:
+            self._logger.debug('could resolve url {} via lookup to {}', url, path)
+        else:
+            # no lookup, parse url
+            parsed = urllib.parse.urlparse(url)
+            if parsed.scheme == 'file':
+                path = parsed.path  # get the path part
+            else:  # the url is a path
+                path = url
+            if path.startswith('/') and path[2] == ':':  # invalid construct like /C:/Temp
+                path = path[1:]
 
-        # no lookup, parse url
-        parsed = urllib.parse.urlparse(url)
-        if parsed.scheme == 'file':
-            path = parsed.path  # get the path part
-        else:  # the url is a path
-            path = url
-        if path.startswith('/') and path[2] == ':':  # invalid construct like /C:/Temp
-            path = path[1:]
         if not os.path.exists(path):
-            self._logger.warn('could not resolve url {}, path {} does not exist', url, path)
+            self._logger.error('no schema file for url "{}": resolved to "{}", but file does not exist', url, path)
             return None
-        self._logger.debug('could resolve url {}: path = {}', url, path)
-        with open(path, 'rb') as the_file:
-            xml_text = the_file.read()
-        if _is_biceps_schema_file(path):
+        with open(path, 'rb') as my_file:
+            xml_text = my_file.read()
+        if _needs_normalize(path):
             xml_text = self._base_definitions.normalize_xml_text(xml_text)
         return self.resolve_string(xml_text, context, base_url=path)

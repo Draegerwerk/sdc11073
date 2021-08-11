@@ -16,8 +16,7 @@ from .. import compression
 from .. import loghelper
 from .. import netconn
 from .. import observableproperties as properties
-from .. import xmlparsing
-from ..definitions_base import ProtocolsRegistry
+from ..definitions_base import ProtocolsRegistry, SchemaValidators
 from ..namespaces import Prefixes
 from ..namespaces import nsmap
 from ..pysoap.soapclient import SoapClient
@@ -159,8 +158,7 @@ class SdcClient:
                  chunked_requests=False):  # pylint:disable=too-many-arguments
         '''
         @param device_location: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
-        @param sdc_definition: a QName that defines the device type, e.g. '{http://standards.ieee.org/downloads/11073/11073-20702-2016}MedicalDevice'
-                          can be None, in that case value from pysdc.xmlparsing.Final is used
+        @param sdc_definitions: a class derived from BaseDefinitions
         @param ssl_events: define if HTTP server of client uses https
              ssl_events='auto': use https if Xaddress of device is https
              ssl_events=True: always use https
@@ -176,7 +174,7 @@ class SdcClient:
             # merge specific stuff into _components
             for key, value in specific_components.items():
                 self._components[key] = value
-        self._biceps_schema = xmlparsing.BicepsSchema(self.sdc_definitions)
+        self._biceps_schema = SchemaValidators(self.sdc_definitions)
         splitted = urllib.parse.urlsplit(self._device_location)
         self._device_uses_https = splitted.scheme.lower() == 'https'
 
