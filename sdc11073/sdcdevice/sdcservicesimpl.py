@@ -360,6 +360,18 @@ class DPWSPortTypeImpl(SOAPActionDispatcher):
     def add_wsdl_port_type(self, parent_node):
         raise NotImplementedError
 
+    def _mk_port_type_node(self, parent_node, is_event_source=False):
+        if 'dt' in parent_node.nsmap:
+            port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
+                                          attrib={'name': self.port_type_string,
+                                                  dpwsTag('DiscoveryType'): 'dt:ServiceProvider'})
+        else:
+            port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
+                                          attrib={'name': self.port_type_string})
+        if is_event_source:
+            port_type.attrib[wseTag('EventSource')] = 'true'
+        return port_type
+
     def __repr__(self):
         return '{} Porttype={} actions={}'.format(self.__class__.__name__, self.port_type_string,
                                                   self._soap_action_callbacks.keys())
@@ -513,7 +525,7 @@ class GetService(DPWSPortTypeImpl):
                     for handle in requested_handles:
                         try:
                             # If a HANDLE reference does match a multi state HANDLE, the corresponding multi state SHALL be included in the result list
-                            state_containers.append(self._mdib.context_states.handle.getOne(handle))
+                            state_containers.append(self._mdib.context_states.handle.get_one(handle))
                         except RuntimeError:
                             # If a HANDLE reference does match a descriptor HANDLE, all states that belong to the corresponding descriptor SHALL be included in the result list
                             state_containers.extend(self._mdib.states.descriptorHandle.get(handle, []))
@@ -582,13 +594,7 @@ class GetService(DPWSPortTypeImpl):
         :param parent_node:
         :return:
         """
-        if 'dt' in parent_node.nsmap:
-            port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                          attrib={'name': self.port_type_string,
-                                                  dpwsTag('DiscoveryType'): 'dt:ServiceProvider'})
-        else:
-            port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                          attrib={'name': self.port_type_string})
+        port_type = self._mk_port_type_node(parent_node)
         mk_wsdl_two_way_operation(port_type, operation_name='GetMdState')
         mk_wsdl_two_way_operation(port_type, operation_name='GetMdib')
         mk_wsdl_two_way_operation(port_type, operation_name='GetMdDescription')
@@ -621,9 +627,7 @@ class ContainmentTreeService(DPWSPortTypeImpl):
         raise FunctionNotImplementedError(request)
 
     def add_wsdl_port_type(self, parent_node):
-        port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                      attrib={'name': self.port_type_string,
-                                              dpwsTag('DiscoveryType'): 'dt:ServiceProvider'})
+        port_type = self._mk_port_type_node(parent_node)
         mk_wsdl_two_way_operation(port_type, operation_name='GetDescriptor')
         mk_wsdl_two_way_operation(port_type, operation_name='GetContainmentTree')
 
@@ -790,10 +794,7 @@ class SetService(DPWSPortTypeImpl):
         return response
 
     def add_wsdl_port_type(self, parent_node):
-        port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                      attrib={'name': self.port_type_string,
-                                              dpwsTag('DiscoveryType'): 'dt:ServiceProvider',
-                                              wseTag('EventSource'): 'true'})
+        port_type = self._mk_port_type_node(parent_node, True)
         mk_wsdl_two_way_operation(port_type, operation_name='Activate')
         mk_wsdl_two_way_operation(port_type, operation_name='SetString')
         mk_wsdl_two_way_operation(port_type, operation_name='SetComponentState')
@@ -808,10 +809,7 @@ class WaveformService(DPWSPortTypeImpl):
     WSDLOperationBindings = (WSDLOperationBinding('Waveform', None, 'literal'),)
 
     def add_wsdl_port_type(self, parent_node):
-        port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                      attrib={'name': self.port_type_string,
-                                              dpwsTag('DiscoveryType'): 'dt:ServiceProvider',
-                                              wseTag('EventSource'): 'true'})
+        port_type = self._mk_port_type_node(parent_node, True)
         _mk_wsdl_one_way_operation(port_type, operation_name='Waveform')
 
 
@@ -842,10 +840,7 @@ class StateEventService(DPWSPortTypeImpl):
                              )
 
     def add_wsdl_port_type(self, parent_node):
-        port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                      attrib={'name': self.port_type_string,
-                                              dpwsTag('DiscoveryType'): 'dt:ServiceProvider',
-                                              wseTag('EventSource'): 'true'})
+        port_type = self._mk_port_type_node(parent_node, True)
         _mk_wsdl_one_way_operation(port_type, operation_name='EpisodicAlertReport')
         _mk_wsdl_one_way_operation(port_type, operation_name='SystemErrorReport')
         _mk_wsdl_one_way_operation(port_type, operation_name='PeriodicAlertReport')
@@ -953,7 +948,7 @@ class ContextService(DPWSPortTypeImpl):
                 for handle in requested_handles:
                     # If a HANDLE reference does match a multi state HANDLE,
                     # the corresponding multi state SHALL be included in the result list
-                    tmp = self._mdib.context_states.handle.getOne(handle, allowNone=True)
+                    tmp = self._mdib.context_states.handle.get_one(handle, allow_none=True)
                     if tmp:
                         tmp = [tmp]
                     if not tmp:
@@ -963,7 +958,7 @@ class ContextService(DPWSPortTypeImpl):
                     if not tmp:
                         # R5042: If a HANDLE reference from the msg:GetContextStates/msg:HandleRef list does match an
                         # MDS descriptor, then all context states that are part of this MDS SHALL be included in the result list.
-                        descr = self._mdib.descriptions.handle.getOne(handle, allowNone=True)
+                        descr = self._mdib.descriptions.handle.get_one(handle, allow_none=True)
                         if descr:
                             if descr.NODETYPE == domTag('MdsDescriptor'):
                                 tmp = list(self._mdib.context_states.objects)
@@ -983,10 +978,7 @@ class ContextService(DPWSPortTypeImpl):
         return response
 
     def add_wsdl_port_type(self, parent_node):
-        port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                      attrib={'name': self.port_type_string,
-                                              dpwsTag('DiscoveryType'): 'dt:ServiceProvider',
-                                              wseTag('EventSource'): 'true'})
+        port_type = self._mk_port_type_node(parent_node, True)
         mk_wsdl_two_way_operation(port_type, operation_name='SetContextState')
         mk_wsdl_two_way_operation(port_type, operation_name='GetContextStates')
         _mk_wsdl_one_way_operation(port_type, operation_name='EpisodicContextReport')
@@ -1002,8 +994,5 @@ class DescriptionEventService(DPWSPortTypeImpl):
                              )
 
     def add_wsdl_port_type(self, parent_node):
-        port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                      attrib={'name': self.port_type_string,
-                                              dpwsTag('DiscoveryType'): 'dt:ServiceProvider',
-                                              wseTag('EventSource'): 'true'})
+        port_type = self._mk_port_type_node(parent_node, True)
         _mk_wsdl_one_way_operation(port_type, operation_name='DescriptionModificationReport')

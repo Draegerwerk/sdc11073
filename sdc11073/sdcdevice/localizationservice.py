@@ -148,7 +148,7 @@ class LocalizationStorage():
                                 tmp.append(candidates2[-1])  # use largest one
             elif len(text_widths) > 0:
                 # filter only text widths
-                for key, value_list in tmp_dict.items():
+                for value_list in tmp_dict.values():
                     for text_width in text_widths:
                         candidates = _text_width_filter(value_list,
                                                         text_width)  # returns sorted list of smaller elements
@@ -157,7 +157,7 @@ class LocalizationStorage():
 
             elif len(number_of_lines) > 0:
                 # filter only number of lines
-                for key, value_list in tmp_dict.items():
+                for value_list in tmp_dict.values():
                     for lines_cnt in i_nls:
                         candidates = _n_o_l_filter(value_list, lines_cnt)
                         if candidates:
@@ -207,9 +207,9 @@ class LocalizationService(DPWSPortTypeImpl):
     def __init__(self, port_type_string, sdc_device):
         super().__init__(port_type_string, sdc_device)
         self.register_action_callback(self._mdib.sdc_definitions.Actions.GetLocalizedText,
-                                         self._on_get_localized_text)
+                                      self._on_get_localized_text)
         self.register_action_callback(self._mdib.sdc_definitions.Actions.GetSupportedLanguages,
-                                         self._on_get_supported_languages)
+                                      self._on_get_supported_languages)
         self.localization_storage = LocalizationStorage()
 
     def _on_get_localized_text(self, http_header, request):  # pylint:disable=unused-argument
@@ -257,7 +257,8 @@ class LocalizationService(DPWSPortTypeImpl):
         nsmapper = self._mdib.nsmapper
         response_envelope = pysoap.soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        reply_address = request.address.mk_reply_address(action=self._get_action_string('GetSupportedLanguagesResponse'))
+        reply_address = request.address.mk_reply_address(
+            action=self._get_action_string('GetSupportedLanguagesResponse'))
         response_envelope.add_header_object(reply_address)
         response_node = etree_.Element(msgTag('GetSupportedLanguagesResponse'))
         response_node.set('MdibVersion', str(self._mdib.mdib_version))
@@ -266,32 +267,10 @@ class LocalizationService(DPWSPortTypeImpl):
         for lang in languages:
             node = etree_.SubElement(response_node, msgTag('Lang'))
             node.text = lang
-        response_envelope.add_body_element((response_node))
+        response_envelope.add_body_element(response_node)
         return response_envelope
 
     def add_wsdl_port_type(self, parent_node):
-        """
-        add wsdl:portType node to parent_node.
-        xml looks like this:
-        <wsdl:portType name="GetService" dpws:DiscoveryType="dt:ServiceProvider">
-          <wsdl:operation name="GetMdState">
-            <wsdl:input message="msg:GetLocalizedText"/>
-            <wsdl:output message="msg:GetLocalizedTextResponse"/>
-          </wsdl:operation>
-          <wsp:Policy>
-            <dpws:Profile wsp:Optional="true"/>
-          </wsp:Policy>
-          ...
-        </wsdl:portType>
-        :param parent_node:
-        :return:
-        """
-        if 'dt' in parent_node.nsmap:
-            port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                          attrib={'name': self.port_type_string,
-                                                  dpwsTag('DiscoveryType'): 'dt:ServiceProvider'})
-        else:
-            port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                          attrib={'name': self.port_type_string})
+        port_type = self._mk_port_type_node(parent_node)
         mk_wsdl_two_way_operation(port_type, operation_name='GetLocalizedText')
         mk_wsdl_two_way_operation(port_type, operation_name='GetSupportedLanguages')

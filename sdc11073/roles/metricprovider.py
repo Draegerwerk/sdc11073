@@ -26,7 +26,7 @@ class GenericMetricProvider(ProviderRole):
         SetMetricStateOperationDescriptor, target = any subclass of AbstractMetricDescriptor: => handler = _set_metric_state
         '''
         operation_target_handle = operation_descriptor_container.OperationTarget
-        op_target_descriptor_container = self._mdib.descriptions.handle.getOne(operation_target_handle)
+        op_target_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
 
         if op_target_descriptor_container.NODETYPE not in (domTag('StringMetricDescriptor'),
                                                            domTag('EnumStringMetricDescriptor'),
@@ -40,7 +40,7 @@ class GenericMetricProvider(ProviderRole):
                 return self._mk_operation(op_cls,
                                           handle=operation_descriptor_container.handle,
                                           operation_target_handle=operation_target_handle,
-                                          codedValue=operation_descriptor_container.Type,
+                                          coded_value=operation_descriptor_container.Type,
                                           current_argument_handler=self._set_numeric_value)
             return None
         if operation_descriptor_container.NODETYPE == domTag('SetStringOperationDescriptor'):
@@ -50,7 +50,7 @@ class GenericMetricProvider(ProviderRole):
                 return self._mk_operation(op_cls,
                                           handle=operation_descriptor_container.handle,
                                           operation_target_handle=operation_target_handle,
-                                          codedValue=operation_descriptor_container.Type,
+                                          coded_value=operation_descriptor_container.Type,
                                           current_argument_handler=self._set_string)
             return None
         if operation_descriptor_container.NODETYPE == domTag('SetMetricStateOperationDescriptor'):
@@ -58,7 +58,7 @@ class GenericMetricProvider(ProviderRole):
             operation = self._mk_operation(op_cls,
                                            handle=operation_descriptor_container.handle,
                                            operation_target_handle=operation_target_handle,
-                                           codedValue=operation_descriptor_container.Type,
+                                           coded_value=operation_descriptor_container.Type,
                                            current_argument_handler=self._set_metric_state)
             return operation
         return None

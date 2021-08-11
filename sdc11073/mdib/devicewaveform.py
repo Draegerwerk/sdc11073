@@ -134,7 +134,7 @@ class DefaultWaveformSource(AbstractWaveformSource):
         @param wf_generator: a waveforms.WaveformGenerator instance
         """
         sample_period = wf_generator.sampleperiod
-        descriptor_container = mdib.descriptions.handle.getOne(descriptor_handle)
+        descriptor_container = mdib.descriptions.handle.get_one(descriptor_handle)
         if descriptor_container.SamplePeriod != sample_period:
             # we must inform subscribers
             with mdib.transaction_manager() as trns:

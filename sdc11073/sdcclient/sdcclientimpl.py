@@ -1,7 +1,6 @@
 ''' Using lxml based SoapClient'''
 import copy
 import functools
-import logging
 import ssl
 import traceback
 import urllib
@@ -130,7 +129,7 @@ class SdcClient:
     This class expects that the BICEPS services are available in the device.
     What if not???? => raise exception in _discover_hosted_services
     '''
-    isConnected = properties.ObservableProperty(False)  # a boolean
+    is_connected = properties.ObservableProperty(False)  # a boolean
 
     # observable properties for all notifications
     # all incoming Notifications can be observed in state_event_report ( as soap envelope)
@@ -377,12 +376,12 @@ class SdcClient:
         self._notifications_dispatcher_thread.dispatcher.register_function(
             self.sdc_definitions.Actions.SubscriptionEnd, self._on_subscription_end)
 
-        # connect self.isConnected observable to all_subscriptions_okay observable in subscriptionsmanager
+        # connect self.is_connected observable to all_subscriptions_okay observable in subscriptionsmanager
         def set_is_connected(is_ok):
-            self.isConnected = is_ok
+            self.is_connected = is_ok
 
         properties.strongbind(self._subscription_mgr, all_subscriptions_okay=set_is_connected)
-        self.isConnected = self._subscription_mgr.all_subscriptions_okay
+        self.is_connected = self._subscription_mgr.all_subscriptions_okay
 
     def stop_all(self, unsubscribe=True, close_all_connections=True):
         if self._subscription_mgr is not None:
@@ -644,12 +643,6 @@ class SdcClient:
     def _on_subscription_end(self, envelope):
         self.state_event_report = envelope  # update observable
         self._subscription_mgr.on_subscription_end(envelope)
-
-    # def _setup_logging(self, log_level):
-    #     loghelper.ensure_log_stream()
-    #     if log_level is None:
-    #         return
-    #     logging.getLogger('sdc.client').setLevel(log_level)
 
     def __str__(self):
         return 'SdcClient to {} {} on {}'.format(self.host_description.this_device,

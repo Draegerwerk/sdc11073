@@ -396,10 +396,10 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             state_container.descriptor_container.DescriptorVersion)
                         state_container.descriptor_container = None
                     try:
-                        old_state_container = self.states.descriptorHandle.getOne(state_container.descriptorHandle,
-                                                                                  allowNone=True)
+                        old_state_container = self.states.descriptorHandle.get_one(state_container.descriptorHandle,
+                                                                                   allow_none=True)
                     except RuntimeError  as ex:
-                        self._logger.error('_on_episodic_metric_report, getOne on states: {}', ex)
+                        self._logger.error('_on_episodic_metric_report, get_one on states: {}', ex)
                         continue
                     desc_h = state_container.descriptorHandle
                     metrics_by_handle[desc_h] = state_container  # metric
@@ -461,10 +461,10 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             state_container.descriptor_container.DescriptorVersion)
                         state_container.descriptor_container = None
                     try:
-                        old_state_container = self.states.descriptorHandle.getOne(state_container.descriptorHandle,
-                                                                                  allowNone=True)
+                        old_state_container = self.states.descriptorHandle.get_one(state_container.descriptorHandle,
+                                                                                   allow_none=True)
                     except RuntimeError  as ex:
-                        self._logger.error('_on_episodic_alert_report, getOne on states: {}', ex)
+                        self._logger.error('_on_episodic_alert_report, get_one on states: {}', ex)
                         continue
 
                     if old_state_container is not None:
@@ -502,10 +502,10 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             state_container.descriptor_container.DescriptorVersion)
                         state_container.descriptor_container = None
                     try:
-                        old_state_container = self.states.descriptorHandle.getOne(state_container.descriptorHandle,
-                                                                                  allowNone=True)
+                        old_state_container = self.states.descriptorHandle.get_one(state_container.descriptorHandle,
+                                                                                   allow_none=True)
                     except RuntimeError  as ex:
-                        self._logger.error('_on_operational_state_report, getOne on states: {}', ex)
+                        self._logger.error('_on_operational_state_report, get_one on states: {}', ex)
                         continue
                     if old_state_container is not None:
                         if self._has_new_state_usable_state_version(old_state_container, state_container,
@@ -555,7 +555,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     if descriptor_container is None:
                         self._logger.warn('_on_waveform_report: No Descriptor found for handle "{}"', d_handle)
 
-                    old_state_container = self.states.descriptorHandle.getOne(d_handle, allowNone=True)
+                    old_state_container = self.states.descriptorHandle.get_one(d_handle, allow_none=True)
                     if old_state_container is None:
                         self.states.add_object(new_sac)
                         current_sc = new_sac
@@ -634,9 +634,10 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 self._update_sequence_id(report_node)
                 for state_container in state_containers:
                     try:
-                        old_state_container = self.context_states.handle.getOne(state_container.Handle, allowNone=True)
+                        old_state_container = self.context_states.handle.get_one(state_container.Handle,
+                                                                                 allow_none=True)
                     except RuntimeError  as ex:
-                        self._logger.error('_on_episodic_context_report, getOne on context_states: {}', ex)
+                        self._logger.error('_on_episodic_context_report, get_one on context_states: {}', ex)
                         continue
 
                     if old_state_container is None:
@@ -679,9 +680,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 for state_container in state_containers:
                     desc_h = state_container.descriptorHandle
                     try:
-                        old_state_container = self.states.descriptorHandle.getOne(desc_h, allowNone=True)
+                        old_state_container = self.states.descriptorHandle.get_one(desc_h, allow_none=True)
                     except RuntimeError  as ex:
-                        self._logger.error('_on_episodic_component_report, getOne on states: {}', ex)
+                        self._logger.error('_on_episodic_component_report, get_one on states: {}', ex)
                         continue
 
                     if old_state_container is None:
@@ -741,7 +742,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 for descriptor_container in deleted_descriptor_containers:
                     self._logger.debug('_on_description_modification_report: remove descriptor "{}" (parent="{}")',
                                        descriptor_container.handle, descriptor_container.parent_handle)
-                    self._rm_descriptor_by_handle(
+                    self.rm_descriptor_by_handle(
                         descriptor_container.handle)  # handling of self.deleted_descriptor_by_handle inside called method
 
                 # -- updated --
@@ -750,7 +751,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 for descriptor_container in updated_descriptor_containers:
                     self._logger.info('_on_description_modification_report: update descriptor "{}" (parent="{}")',
                                       descriptor_container.handle, descriptor_container.parent_handle)
-                    container = self.descriptions.handle.getOne(descriptor_container.handle, allowNone=True)
+                    container = self.descriptions.handle.get_one(descriptor_container.handle, allow_none=True)
                     if container is None:
                         pass
                     else:
@@ -770,17 +771,17 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             descriptor_container.handle, [])}  # set comprehension
                         to_be_deleted = my_handles - updated_handles
                         for handle in to_be_deleted:
-                            state = multikey.handle.getOne(handle)
+                            state = multikey.handle.get_one(handle)
                             self.context_states.remove_object_no_lock(state)
                 for state_container in state_containers:
                     # determine multikey
                     if state_container.isContextState:
                         multikey = self.context_states
-                        old_state_container = multikey.handle.getOne(state_container.Handle, allowNone=True)
+                        old_state_container = multikey.handle.get_one(state_container.Handle, allow_none=True)
                     else:
                         multikey = self.states
-                        old_state_container = multikey.descriptorHandle.getOne(
-                            state_container.descriptorHandle, allowNone=True)
+                        old_state_container = multikey.descriptorHandle.get_one(
+                            state_container.descriptorHandle, allow_none=True)
                     if old_state_container is not None:
                         old_state_container.update_from_other_container(state_container)
                         multikey.update_object(old_state_container)
@@ -868,16 +869,16 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         :param handle: if this is a multi state class, then this is the handle of the existing state that shall be used for copy.
         :return:
         """
-        descr = self.descriptions.handle.getOne(descriptor_handle)
+        descr = self.descriptions.handle.get_one(descriptor_handle)
         new_state = self.mk_state_container_from_descriptor(descr)
         if copy_current_state:
             lookup = self.context_states if new_state.isContextState else self.states
             if new_state.isMultiState:
                 if handle is None:  # new state
                     return new_state
-                old_state = lookup.handle.getOne(handle)
+                old_state = lookup.handle.get_one(handle)
             else:
-                old_state = lookup.descriptorHandle.getOne(descriptor_handle)
+                old_state = lookup.descriptorHandle.get_one(descriptor_handle)
             new_state.update_from_other_container(old_state)
         return new_state
 

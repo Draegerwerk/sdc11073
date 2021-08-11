@@ -49,7 +49,7 @@ class IndexDefinition(dict):
         try:
             result = self[key]
             if len(result) > 1:
-                raise RuntimeError('getOne: key "{}" has {} objects'.format(key, len(result)))
+                raise RuntimeError('get_one: key "{}" has {} objects'.format(key, len(result)))
             return result[0]
         except KeyError:
             if allow_none:

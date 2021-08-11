@@ -39,10 +39,8 @@ class ProviderRole:
 
     def _set_numeric_value(self, operation_instance, value):
         """ sets a numerical metric value"""
-        operation_descriptor_handle = operation_instance.handle
-        operation_descriptor_container = self._mdib.descriptions.handle.getOne(operation_descriptor_handle)
-        operation_target_handle = operation_descriptor_container.OperationTarget
-        self._logger.info('set value of {} via {} from {} to {}', operation_target_handle, operation_descriptor_handle,
+        operation_target_handle = self._get_operation_target_handle(operation_instance)
+        self._logger.info('set value of {} via {} from {} to {}', operation_target_handle, operation_instance.handle,
                           operation_instance.current_value, value)
         operation_instance.current_value = value
         with self._mdib.transaction_manager() as mgr:
@@ -53,16 +51,14 @@ class ProviderRole:
             state.metricValue.Value = value
             # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
             # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
-            metric_descriptor_container = self._mdib.descriptions.handle.getOne(operation_target_handle)
+            metric_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
             if metric_descriptor_container.MetricCategory in (pmtypes.MetricCategory.SETTING,
                                                               pmtypes.MetricCategory.PRESETTING):
                 state.metricValue.Validity = pmtypes.MeasurementValidity.VALID
 
     def _set_string(self, operation_instance, value):
         """ sets a string value"""
-        operation_descriptor_handle = operation_instance.handle
-        operation_descriptor_container = self._mdib.descriptions.handle.getOne(operation_descriptor_handle)
-        operation_target_handle = operation_descriptor_container.OperationTarget
+        operation_target_handle = self._get_operation_target_handle(operation_instance)
         self._logger.info('set value {} from {} to {}', operation_target_handle, operation_instance.current_value,
                           value)
         operation_instance.current_value = value
@@ -74,7 +70,7 @@ class ProviderRole:
             state.metricValue.Value = value
             # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
             # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
-            metric_descriptor_container = self._mdib.descriptions.handle.getOne(operation_target_handle)
+            metric_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
             if metric_descriptor_container.MetricCategory in (pmtypes.MetricCategory.SETTING,
                                                               pmtypes.MetricCategory.PRESETTING):
                 state.metricValue.Validity = pmtypes.MeasurementValidity.VALID
@@ -98,7 +94,7 @@ class ProviderRole:
                                        current_request_handler)
         return operation
 
-    def _mk_operation(self, cls, handle, operation_target_handle, codedValue, current_argument_handler=None,
+    def _mk_operation(self, cls, handle, operation_target_handle, coded_value, current_argument_handler=None,
                       current_request_handler=None):
         """
 
@@ -112,7 +108,7 @@ class ProviderRole:
         """
         operation = cls(handle=handle,
                         operation_target_handle=operation_target_handle,
-                        coded_value=codedValue)
+                        coded_value=coded_value)
         if current_argument_handler:
             # bind method to current_argument
             properties.strongbind(operation, current_argument=partial(current_argument_handler, operation))
@@ -120,3 +116,8 @@ class ProviderRole:
             # bind method to current_request
             properties.strongbind(operation, current_request=partial(current_request_handler, operation))
         return operation
+
+    def _get_operation_target_handle(self, operation_instance):
+        operation_descriptor_handle = operation_instance.handle
+        operation_descriptor_container = self._mdib.descriptions.handle.get_one(operation_descriptor_handle)
+        return operation_descriptor_container.OperationTarget

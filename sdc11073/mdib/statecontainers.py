@@ -420,19 +420,10 @@ class AbstractContextStateContainer(AbstractMultiStateContainer):
 
 
 class LocationContextStateContainer(AbstractContextStateContainer):
-    class LocationDetailType(pmtypes.PropertyBasedPMType):
-        PoC = cp.StringAttributeProperty('PoC')
-        Room = cp.StringAttributeProperty('Room')
-        Bed = cp.StringAttributeProperty('Bed')
-        Facility = cp.StringAttributeProperty('Facility')
-        Building = cp.StringAttributeProperty('Building')
-        Floor = cp.StringAttributeProperty('Floor')
-        _props = ('PoC', 'Room', 'Bed', 'Facility', 'Building', 'Floor')
-
     NODETYPE = domTag('LocationContextState')
     LocationDetail = cp.SubElementProperty(domTag('LocationDetail'),
-                                           value_class=LocationDetailType,
-                                           defaultPyValue=LocationDetailType(),
+                                           value_class=pmtypes.LocationDetail,
+                                           defaultPyValue=pmtypes.LocationDetail(),
                                            is_optional=True)
     _props = ('LocationDetail',)
 

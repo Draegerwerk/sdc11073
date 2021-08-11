@@ -114,7 +114,7 @@ class ScoOperationsRegistry:
         self._handle = handle
 
         # find the Sco of the Mds, this will be the default sco for new operations
-        mds_descriptor_container = mdib.descriptions.NODETYPE.getOne(domTag('MdsDescriptor'))
+        mds_descriptor_container = mdib.descriptions.NODETYPE.get_one(domTag('MdsDescriptor'))
         sco_containers = mdib.descriptions.find(parent_handle=mds_descriptor_container.handle).find(
             NODETYPE=domTag('ScoDescriptor')).objects
         if len(sco_containers) == 1:
@@ -191,8 +191,8 @@ class OperationDefinition:
         self._handle = handle
         self._operation_target_handle = operation_target_handle
         # documentation of operation_target_handle:
-        # A HANDLE reference this operation is targeted to. In case of a single state this is the HANDLE of the descriptor. 
-        # In case that multiple states may belong to one descriptor (pm:AbstractMultiState), OperationTarget is the HANDLE 
+        # A HANDLE reference this operation is targeted to. In case of a single state this is the HANDLE of the descriptor.
+        # In case that multiple states may belong to one descriptor (pm:AbstractMultiState), OperationTarget is the HANDLE
         # of one of the state instances (if the state is modified by the operation).
         # self._operationDescriptorQName = operationDescriptorQName
         # self._operationStateQName = operationStateQName
@@ -228,7 +228,7 @@ class OperationDefinition:
             raise RuntimeError('Mdib is already set')
         self._mdib = mdib
         self._logger.log_prefix = mdib.log_prefix  # use same prefix as mdib for logging
-        self._descriptor_container = self._mdib.descriptions.handle.getOne(self._handle, allowNone=True)
+        self._descriptor_container = self._mdib.descriptions.handle.get_one(self._handle, allow_none=True)
         if self._descriptor_container is not None:
             # there is already a descriptor
             self._logger.info('descriptor for operation "{}" is already present, re-using it'.format(self._handle))
@@ -239,7 +239,7 @@ class OperationDefinition:
             self._init_operation_descriptor_container()
             mdib.descriptions.add_object(self._descriptor_container)
 
-        self._operation_state_container = self._mdib.states.descriptorHandle.getOne(self._handle, allowNone=True)
+        self._operation_state_container = self._mdib.states.descriptorHandle.get_one(self._handle, allow_none=True)
         if self._operation_state_container is not None:
             self._logger.info('operation state for operation "{}" is already present, re-using it'.format(self._handle))
             self._operation_state_container.set_node_member()
@@ -259,9 +259,9 @@ class OperationDefinition:
 
     def _init_operation_target_container(self):
         """ Create the object that is manipulated by the operation"""
-        operation_target_descriptor = self._mdib.descriptions.handle.getOne(self._operation_target_handle)
-        self._operation_target_container = self._mdib.states.descriptorHandle.getOne(self._operation_target_handle,
-                                                                                     allowNone=True)  # pylint:disable=protected-access
+        operation_target_descriptor = self._mdib.descriptions.handle.get_one(self._operation_target_handle)
+        self._operation_target_container = self._mdib.states.descriptorHandle.get_one(self._operation_target_handle,
+                                                                                      allow_none=True)  # pylint:disable=protected-access
         if self._operation_target_container is not None:
             self._logger.info('operation target state for operation "{}" is already present, re-using it'.format(
                 self._operation_target_handle))
@@ -272,7 +272,8 @@ class OperationDefinition:
             self._logger.info('creating {} DescriptorHandle = {}', self._operation_target_container.__class__.__name__,
                               self._operation_target_handle)
             if self._operation_target_container is not None:
-                self.operation_target_storage.add_object(self._operation_target_container)
+                storage = self._mdib.context_states if self._operation_target_container.isMultiState else self._mdib.states
+                storage.add_object(self._operation_target_container)
 
     def set_operating_mode(self, mode):
         """ Mode is one of En, Dis, NA"""
@@ -341,7 +342,6 @@ class _SetContextStateOperation(OperationDefinition):
 
     def _init_operation_target_container(self):
         """ initially no patient context is created."""
-        pass
 
     @classmethod
     def from_operation_container(cls, operation_container):
@@ -410,7 +410,7 @@ _classes = inspect.getmembers(sys.modules[__name__],
                               lambda member: inspect.isclass(member) and member.__module__ == __name__)
 _classes_with_QNAME = [c[1] for c in _classes if hasattr(c[1], 'OP_DESCR_QNAME') and c[1].OP_DESCR_QNAME is not None]
 # make a dictionary from found classes: (Key is OP_DESCR_QNAME, value is the class itself
-_operation_lookup_by_type = dict([(c.OP_DESCR_QNAME, c) for c in _classes_with_QNAME])
+_operation_lookup_by_type = {c.OP_DESCR_QNAME: c for c in _classes_with_QNAME}
 
 
 def get_operation_class(q_name):

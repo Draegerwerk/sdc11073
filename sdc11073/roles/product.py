@@ -20,7 +20,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
         SetComponentStateOperationDescriptor, target = any AbstractComponentDescriptor: => handler = _set_component_state
         """
         operation_target_handle = operation_descriptor_container.OperationTarget
-        op_target_descriptor_container = self._mdib.descriptions.handle.getOne(operation_target_handle)
+        op_target_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
 
         if operation_descriptor_container.NODETYPE == namespaces.domTag('SetComponentStateOperationDescriptor'):
             if op_target_descriptor_container.NODETYPE in (namespaces.domTag('MdsDescriptor'),
@@ -33,7 +33,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
                 operation = self._mk_operation(op_cls,
                                                handle=operation_descriptor_container.handle,
                                                operation_target_handle=operation_target_handle,
-                                               codedValue=operation_descriptor_container.Type,
+                                               coded_value=operation_descriptor_container.Type,
                                                current_argument_handler=self._set_component_state)
                 return operation
         elif operation_descriptor_container.NODETYPE == namespaces.domTag('ActivateOperationDescriptor'):
@@ -48,7 +48,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
                 return self._mk_operation(op_cls,
                                           handle=operation_descriptor_container.handle,
                                           operation_target_handle=operation_target_handle,
-                                          codedValue=operation_descriptor_container.Type)
+                                          coded_value=operation_descriptor_container.Type)
         return None
 
     def _set_component_state(self, operation_instance, value):
@@ -127,7 +127,8 @@ class BaseProduct:
                          namespaces.domTag('ActivateOperationDescriptorContainer')]:
             all_mdib_ops.extend(self._mdib.descriptions.NODETYPE.get(nodetype, []))
         all_mdib_op_handles = [op.Handle for op in all_mdib_ops]
-        all_not_registered_op_handles = [op_h for op_h in all_mdib_op_handles if sco.get_operation_by_handle(op_h) is None]
+        all_not_registered_op_handles = [op_h for op_h in all_mdib_op_handles if
+                                         sco.get_operation_by_handle(op_h) is None]
         if not all_mdib_op_handles:
             self._logger.info('this device has no operations in mdib.')
         elif all_not_registered_op_handles:
@@ -145,8 +146,8 @@ class BaseProduct:
     def make_operation_instance(self, operation_descriptor_container, operations_factory):
         """ try to get an operation for this operation_descriptor_container ( given in mdib) """
         operation_target_handle = operation_descriptor_container.OperationTarget
-        operation_target_descr = self._mdib.descriptions.handle.getOne(operation_target_handle,
-                                                                       allowNone=True)  # descriptor container
+        operation_target_descr = self._mdib.descriptions.handle.get_one(operation_target_handle,
+                                                                        allow_none=True)  # descriptor container
         if operation_target_descr is None:
             # this operation is incomplete, the operation target does not exist. Registration not possible.
             self._logger.warn(
@@ -241,7 +242,7 @@ class MinimalProduct(BaseProduct):
                                         ])
 
 
-class ExtendedProduct(BaseProduct):
+class ExtendedProduct(MinimalProduct):
     def __init__(self, log_prefix=None):
         super().__init__(log_prefix)
         self._ordered_providers.extend([audiopauseprovider.GenericSDCAudioPauseProvider(log_prefix=log_prefix),

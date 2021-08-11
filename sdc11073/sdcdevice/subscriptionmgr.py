@@ -362,7 +362,7 @@ class SubscriptionsManager:
         ident = envelope.header_node.find(_DevSubscription.IDENT_TAG, namespaces=nsmap)
         if ident is not None:
             ident_text = ident.text
-            subscr = self._subscriptions.identifier.getOne(ident_text, allowNone=True)
+            subscr = self._subscriptions.identifier.get_one(ident_text, allow_none=True)
             if subscr is None:
                 self._logger.warn('unsubscribe: no object found for id={}', ident_text)
             else:

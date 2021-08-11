@@ -375,23 +375,23 @@ class Test_Tutorial(unittest.TestCase):
         self.assertEqual(my_product_impl.my_provider_1.operation1_args, ['foo'])
 
         # call set_string operation
-        op = myMdib.descriptions.coding.getOne(MY_CODE_2.coding)
+        op = myMdib.descriptions.coding.get_one(MY_CODE_2.coding)
         for value in ('foo', 'bar'):
             future = my_client.set_service_client.set_string(op.handle, value)
             result = future.result()
             print(result)
             self.assertEqual(my_product_impl.my_provider_1.operation2_args, value)
-            state = myMdib.states.descriptorHandle.getOne(op.OperationTarget)
+            state = myMdib.states.descriptorHandle.get_one(op.OperationTarget)
             self.assertEqual(state.metricValue.Value, value)
         self.assertEqual(my_product_impl.my_provider_1.operation2_called, 2)
 
         # call setValue operation
-        state_descr = myMdib.descriptions.coding.getOne(MY_CODE_3_TARGET.coding)
+        state_descr = myMdib.descriptions.coding.get_one(MY_CODE_3_TARGET.coding)
         operations = myMdib.get_operation_descriptors_for_descriptor_handle(state_descr.Handle)
         op = operations[0]
         future = my_client.set_service_client.set_numeric_value(op.handle, 42)
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_2.operation3_args, 42)
-        state = myMdib.states.descriptorHandle.getOne(op.OperationTarget)
+        state = myMdib.states.descriptorHandle.get_one(op.OperationTarget)
         self.assertEqual(state.metricValue.Value, 42)

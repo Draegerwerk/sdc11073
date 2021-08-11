@@ -1,6 +1,7 @@
 import logging
 import traceback
 
+
 # pylint: disable=invalid-name
 
 def ensure_log_stream():
@@ -19,6 +20,36 @@ def ensure_log_stream():
     # add ch to logger
     applog.addHandler(stream_handler)
     return
+
+
+def reset_log_levels(root_logger_name='sdc'):
+    for name in logging.Logger.manager.loggerDict:
+        if name.startswith(root_logger_name):
+            logging.getLogger(name).setLevel(logging.NOTSET)
+
+
+def reset_handlers(root_logger_name='sdc'):
+    for name in logging.Logger.manager.loggerDict:
+        if name.startswith(root_logger_name):
+            logger = logging.getLogger(name)
+            for handler in logger.handlers:
+                logger.removeHandler(handler)
+
+
+def basic_logging_setup(root_logger_name='sdc', level=logging.INFO, log_file_name=None):
+    logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=level)
+    reset_log_levels(root_logger_name)
+    reset_handlers(root_logger_name)
+    logger = logging.getLogger(root_logger_name)
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+    if log_file_name:
+        file_handler = logging.handlers.RotatingFileHandler(log_file_name,
+                                                            maxBytes=5000000,
+                                                            backupCount=2)
+        file_handler.setFormatter(formatter)
 
 
 class LoggerAdapter:

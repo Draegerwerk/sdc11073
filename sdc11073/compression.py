@@ -1,4 +1,4 @@
-"""Compression module for pysdc."""
+"""Compression module for http. """
 from collections import OrderedDict
 import zlib
 try:
@@ -88,9 +88,9 @@ class CompressionHandler:
         if header:
             for alg in (x.split(";") for x in header.split(",")):
                 alg_name = alg[0].strip()
-                parsed_headers[alg_name] = None
+                parsed_headers[alg_name] = 1 # default
                 try:
                     parsed_headers[alg_name] = float(alg[1].split("=")[1])
-                except:
-                    parsed_headers[alg_name] = 1 # default
+                except (ValueError, IndexError):
+                    pass
         return [pair[0] for pair in sorted(parsed_headers.items(), key=lambda kv: kv[1], reverse=True)]

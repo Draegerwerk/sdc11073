@@ -34,7 +34,7 @@ class GenericPatientContextProvider(GenericContextProvider):
             pc_operation = self._mk_operation(set_context_state_op_cls,
                                               handle='opSetPatCtx',
                                               operation_target_handle=self._patient_context_descriptor_container.handle,
-                                              codedValue=None,
+                                              coded_value=None,
                                               current_argument_handler=self._set_context_state)
             ops.append(pc_operation)
         return ops

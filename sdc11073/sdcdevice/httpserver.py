@@ -27,7 +27,7 @@ class MyThreadingMixIn:
             self.shutdown_request(request)
         except Exception as ex:
             if self.dispatcher is not None:
-                # only 
+                # only
                 self.handle_error(request, client_address)
             else:
                 print("don't care error:{}".format(ex))
@@ -35,18 +35,18 @@ class MyThreadingMixIn:
 
     def process_request(self, request, client_address):
         """Start a new thread to process the request."""
-        t = threading.Thread(target=self.process_request_thread,
-                             args=(request, client_address),
-                             name='SubscrRecv{}'.format(client_address))
-        t.daemon = True
-        t.start()
-        self.threads.append((t, request, client_address))
+        thread = threading.Thread(target=self.process_request_thread,
+                                  args=(request, client_address),
+                                  name='SubscrRecv{}'.format(client_address))
+        thread.daemon = True
+        thread.start()
+        self.threads.append((thread, request, client_address))
 
 
 if MULTITHREADED:
     class MyHTTPServer(MyThreadingMixIn, HTTPServer):
         ''' Each request is handled in a thread.
-        Following receipe from https://pymotw.com/2/BaseHTTPServer/index.html#module-BaseHTTPServer 
+        Following receipe from https://pymotw.com/2/BaseHTTPServer/index.html#module-BaseHTTPServer
         '''
 
         def __init__(self, *args, **kwargs):
@@ -159,7 +159,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
     # and network efficiency is more important tahn short latencies.
     disable_nagle_algorithm = False
 
-    def do_POST(self):
+    def do_POST(self):  # pylint: disable=invalid-name
         """SOAP POST gateway"""
         try:
             devices_dispatcher = self.server.dispatcher
@@ -177,7 +177,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
                     http_status = 200
                     http_reason = 'Ok'
                     # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
-                    assert (b'utf-8' in response_xml_string[:100].lower())
+                    assert b'utf-8' in response_xml_string[:100].lower()
                 except HTTPRequestHandlingError as ex:
                     response_xml_string = ex.soapfault
                     http_status = ex.status
@@ -213,7 +213,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             self.end_headers()
             self.wfile.write(response_xml_string)
 
-    def do_GET(self):
+    def do_GET(self):  # pylint: disable=invalid-name
         parsed_path = urllib.parse.urlparse(self.path)
         try:
             commlog.get_communication_logger().log_soap_request_in('',

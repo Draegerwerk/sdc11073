@@ -235,6 +235,10 @@ class SdcHandlerBase:
         # http path prefix of service e.g '8c26f673-fdbf-4380-b5ad-9e2454a65b6b'
         return self._my_uuid.hex
 
+    @property
+    def sco_operations_registry(self):
+        return self._sco_operations_registry
+
     def register_operation(self, operation):
         self._sco_operations_registry.register_operation(operation)
 
@@ -562,7 +566,7 @@ class SdcHandlerBase:
             operationals = []
             contexts = []
             for handle in all_handles:
-                descr = self._mdib.descriptions.handle.getOne(handle)
+                descr = self._mdib.descriptions.handle.get_one(handle)
                 if descr.isMetricDescriptor and not descr.isRealtimeSampleArrayMetricDescriptor:
                     metrics.append(handle)
                 elif descr.isSystemContextDescriptor or descr.isComponentDescriptor:
@@ -577,10 +581,10 @@ class SdcHandlerBase:
             with self._mdib.mdib_lock:
                 mdib_version = self._mdib.mdib_version
                 sequence_id = self._mdib.sequence_id
-                metric_states = [self._mdib.states.descriptorHandle.getOne(h).mk_copy() for h in metrics]
-                component_states = [self._mdib.states.descriptorHandle.getOne(h).mk_copy() for h in components]
-                alert_states = [self._mdib.states.descriptorHandle.getOne(h).mk_copy() for h in alerts]
-                operational_states = [self._mdib.states.descriptorHandle.getOne(h).mk_copy() for h in operationals]
+                metric_states = [self._mdib.states.descriptorHandle.get_one(h).mk_copy() for h in metrics]
+                component_states = [self._mdib.states.descriptorHandle.get_one(h).mk_copy() for h in components]
+                alert_states = [self._mdib.states.descriptorHandle.get_one(h).mk_copy() for h in alerts]
+                operational_states = [self._mdib.states.descriptorHandle.get_one(h).mk_copy() for h in operationals]
                 context_states = []
                 for context in contexts:
                     context_states.extend(

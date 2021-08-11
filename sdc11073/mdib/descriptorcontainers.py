@@ -8,7 +8,7 @@ from .containerbase import ContainerBase
 from .. import msgtypes
 from .. import observableproperties as properties
 from .. import pmtypes
-from ..namespaces import domTag, extTag, msgTag
+from ..namespaces import domTag, extTag, msgTag, Prefixes
 
 # some Helper classes for AbstractDescriptorContainer, they help to declare the kind and order of
 # sub elements.
@@ -41,24 +41,29 @@ def sorted_child_declarations(obj):
     return ret
 
 
-def mk_descriptor_node(descriptor_container, tag, set_xsi_type=True, connect_child_descriptors=False):
+def make_descriptor_node(descriptor_container, tag, set_xsi_type=True, connect_child_descriptors=False):
     """
     Creates a lxml etree node from instance data.
-    :param set_xsi_type:
-    :param tag: tag of node, defaults to self.nodeName
+    :param descriptor_container: a descriptor container instance
+    :param set_xsi_type: if true, the NODETYPE will be used to set the xsi:type attribute of the node
+    :param tag: tag of node
     :param connect_child_descriptors: if True, the whole sub-tree is included
     :return: an etree node
     """
+    if set_xsi_type:
+        namespace_map = descriptor_container.nsmapper.partial_map(Prefixes.PM, Prefixes.XSI)
+    else:
+        namespace_map = descriptor_container.nsmapper.partial_map(Prefixes.PM)
     node = etree_.Element(tag,
                           attrib={'Handle': descriptor_container.handle},
-                          nsmap=descriptor_container.nsmapper.doc_ns_map)
+                          nsmap=namespace_map)
     descriptor_container.update_node(node, set_xsi_type)  # create all
     if connect_child_descriptors:
         # append all children, then bring them in correct order
         for node_type, child_list in descriptor_container.child_containers_by_type.items():
             child_tag = descriptor_container.tag_name_for_child_descriptor(node_type)
             for child in child_list:
-                child_node = mk_descriptor_node(child, child_tag, connect_child_descriptors=True)
+                child_node = make_descriptor_node(child, child_tag, connect_child_descriptors=True)
                 node.append(child_node)
     descriptor_container.sort_child_nodes(node)
     return node
@@ -185,7 +190,7 @@ class AbstractDescriptorContainer(ContainerBase):
         :param connect_child_descriptors: if True, the whole sub-tree is included
         :return: an etree node
         """
-        return mk_descriptor_node(self, tag, set_xsi_type, connect_child_descriptors)
+        return make_descriptor_node(self, tag, set_xsi_type, connect_child_descriptors)
 
     def tag_name_for_child_descriptor(self, node_type):
         for child in sorted_child_declarations(self):

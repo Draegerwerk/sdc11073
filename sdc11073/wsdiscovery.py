@@ -17,10 +17,10 @@ from enum import Enum
 from http.client import HTTPConnection, HTTPSConnection, RemoteDisconnected
 from typing import Any
 from typing import Iterable
+from sdc11073.commlog import get_communication_logger
 
 # pylint: disable=no-name-in-module
 from lxml.etree import ETCompatXMLParser, QName, Element, SubElement, tostring, fromstring
-
 # pylint: enable=no-name-in-module
 
 try:
@@ -28,24 +28,6 @@ try:
 except ImportError:
     def get_network_adapter_configs():
         return []
-try:
-    from sdc11073.commlogg import get_communication_logger
-except ImportError:
-    class NullLogger:
-        """ This is a dummy logger that does nothing."""
-
-        def __getattr__(self, name):
-            return self.do_nothing
-
-        def do_nothing(self, *args, **kwargs):
-            pass
-
-
-    communicationLogger = NullLogger()
-
-
-    def get_communication_logger():
-        return communicationLogger
 
 BUFFER_SIZE = 0xffff
 APP_MAX_DELAY = 500  # miliseconds
@@ -602,7 +584,7 @@ def _parse_envelope(data, ip_addr, logger):
     except:
         logger.error('Parse Error %s:', traceback.format_exc())
         logger.error('parsed data is from %r, data: %r:', ip_addr, data)
-        return None
+    return None
 
 
 def _create_message(env):
@@ -651,8 +633,8 @@ def _create_probe_match_message(env):
 
 
 def _create_resolve_message(env):
-    doc, header, body = _create_skel_soap_message(ACTION_RESOLVE, env.message_id,
-                                                  addr_to=env.addr_to, reply_to=env.addr_reply_to)
+    doc, _, body = _create_skel_soap_message(ACTION_RESOLVE, env.message_id,
+                                             addr_to=env.addr_to, reply_to=env.addr_reply_to)
     resolve_element = SubElement(body, WsdTag('Resolve'))
     _create_epr_node(resolve_element, env.epr)
     return tostring(doc)
@@ -1117,7 +1099,7 @@ class WSDiscoveryWithHTTPProxy:
 
     searchServices = search_services  # backwards compatibility
 
-    def search_multiple_types(self, types_list, scopes=None, timeout=5, repeat_probe_interval=3):
+    def search_multiple_types(self, types_list, scopes=None, timeout=5):
         # repeat_probe_interval is not needed, but kept in order to have identical signature
         result = {}  # avoid double entries by adding to dictionary with epr as key
         for _type in types_list:
@@ -1297,7 +1279,7 @@ class WsDiscoveryProxyAndUdp:
                               search_proxy=True, search_direct=False):
         results = {}
         if search_proxy:
-            services = self._wsd_proxy.search_multiple_types(types_list, scopes, timeout, repeat_probe_interval)
+            services = self._wsd_proxy.search_multiple_types(types_list, scopes, timeout)
             for service in services:
                 results[service.epr] = service
         if search_direct:

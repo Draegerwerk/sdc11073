@@ -90,7 +90,7 @@ class SoapMessageFactory:
     def mk_getmddescription_response_envelope(self, request, mdib, requested_handles):
         include_mds = len(requested_handles) == 0  # if we have handles, we need to check them
         for handle in requested_handles:
-            if mdib.descriptions.handle.getOne(handle, allowNone=True) is not None:
+            if mdib.descriptions.handle.get_one(handle, allow_none=True) is not None:
                 include_mds = True
                 break
         my_namespaces = mdib.nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.MSG, Prefixes.PM)

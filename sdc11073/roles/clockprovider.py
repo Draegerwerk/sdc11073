@@ -24,9 +24,9 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
     def init_operations(self, mdib):
         super().init_operations(mdib)
         # create a clock descriptor and state if they do not exist in mdib
-        clock_descriptor = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('ClockDescriptor'), allowNone=True)
+        clock_descriptor = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('ClockDescriptor'), allow_none=True)
         if clock_descriptor is None:
-            mds_container = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
+            mds_container = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('MdsDescriptor'))
             clock_descr_handle = 'clock_' + mds_container.handle
             self._logger.info('creating a clock descriptor, handle={}'.format(clock_descr_handle))
             clock_descriptor = self._mdib.create_clock_descriptor_container(handle=clock_descr_handle,
@@ -34,7 +34,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                                                                             coded_value=pmtypes.CodedValue(123),
                                                                             safety_classification=pmtypes.SafetyClassification.INF)
 
-        clock_state = self._mdib.states.descriptorHandle.getOne(clock_descriptor.handle, allowNone=True)
+        clock_state = self._mdib.states.descriptorHandle.get_one(clock_descriptor.handle, allow_none=True)
         if clock_state is None:
             clock_state = self._mdib.mk_state_container_from_descriptor(clock_descriptor)
             self._mdib.add_state(clock_state)
@@ -60,8 +60,8 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
 
     def make_missing_operations(self, operations_factory):
         ops = []
-        mds_container = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
-        clock_descriptor = self._mdib.descriptions.NODETYPE.getOne(namespaces.domTag('ClockDescriptor'), allowNone=True)
+        mds_container = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('MdsDescriptor'))
+        clock_descriptor = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('ClockDescriptor'), allow_none=True)
         set_string_op_cls = operations_factory(namespaces.domTag('SetStringOperationDescriptor'))
 
         if not self._set_ntp_operations:
@@ -69,7 +69,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             set_ntp_operation = self._mk_operation(set_string_op_cls,
                                                    handle='SET_NTP_SRV_' + mds_container.handle,
                                                    operation_target_handle=clock_descriptor.handle,
-                                                   codedValue=MDC_OP_SET_TIME_SYNC_REF_SRC,
+                                                   coded_value=MDC_OP_SET_TIME_SYNC_REF_SRC,
                                                    current_argument_handler=self._set_ntp_string)
             self._set_ntp_operations.append(set_ntp_operation)
             ops.append(set_ntp_operation)
@@ -78,7 +78,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             set_tz_operation = self._mk_operation(set_string_op_cls,
                                                   handle='SET_TZONE_' + mds_container.handle,
                                                   operation_target_handle=clock_descriptor.handle,
-                                                  codedValue=MDC_ACT_SET_TIME_ZONE,
+                                                  coded_value=MDC_ACT_SET_TIME_ZONE,
                                                   current_argument_handler=self._set_tz_string)
             self._set_tz_operations.append(set_tz_operation)
             ops.append(set_tz_operation)
@@ -87,9 +87,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
     def _set_ntp_string(self, operation_instance, value):
         """This is the handler for the set ntp server operation.
          It sets the ReferenceSource value of clock state"""
-        operation_descriptor_handle = operation_instance.handle
-        operation_descriptor_container = self._mdib.descriptions.handle.getOne(operation_descriptor_handle)
-        operation_target_handle = operation_descriptor_container.OperationTarget
+        operation_target_handle = self._get_operation_target_handle(operation_instance)
         self._logger.info('set value {} from {} to {}', operation_target_handle, operation_instance.current_value,
                           value)
         with self._mdib.transaction_manager() as mgr:
@@ -111,9 +109,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
     def _set_tz_string(self, operation_instance, value):
         """This is the handler for the set time zone operation.
          It sets the TimeZone value of clock state."""
-        operation_descriptor_handle = operation_instance.handle
-        operation_descriptor_container = self._mdib.descriptions.handle.getOne(operation_descriptor_handle)
-        operation_target_handle = operation_descriptor_container.OperationTarget
+        operation_target_handle = self._get_operation_target_handle(operation_instance)
         self._logger.info('set value {} from {} to {}', operation_target_handle, operation_instance.current_value,
                           value)
         with self._mdib.transaction_manager() as mgr:
@@ -129,5 +125,5 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                     state = mgr.get_state(clock_descriptors[0].handle)
 
             if state.NODETYPE != namespaces.domTag('ClockState'):
-                raise RuntimeError('_set_ntp_string: expected Clockstate, got {}'.format(state.NODETYPE.localname))
+                raise RuntimeError('_set_ntp_string: expected ClockState, got {}'.format(state.NODETYPE.localname))
             state.TimeZone = value

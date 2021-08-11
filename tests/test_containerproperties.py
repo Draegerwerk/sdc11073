@@ -2,7 +2,7 @@ import unittest
 import datetime
 
 import sdc11073.mdib.containerproperties as containerproperties
-
+from sdc11073.isoduration import UTC
 #pylint: disable=protected-access
 
 DoB = containerproperties.DateOfBirthProperty
@@ -59,19 +59,19 @@ class TestContainerproperties(unittest.TestCase):
         datestring = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000))
         self.assertEqual(datestring, '2004-03-06T14:15:16.7')
 
-        datestring = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=containerproperties.UTC(0, 'UTC')))
+        datestring = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=UTC(0, 'UTC')))
         self.assertEqual(datestring, '2004-03-06T14:15:16.7Z')
         
-        datestring = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=containerproperties.UTC(180, 'UTC+1')))
+        datestring = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=UTC(180, 'UTC+1')))
         self.assertEqual(datestring, '2004-03-06T14:15:16.7+03:00')
 
-        datestring = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=containerproperties.UTC(-120, 'UTC+1')))
+        datestring = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=UTC(-120, 'UTC+1')))
         self.assertEqual(datestring, '2004-03-06T14:15:16.7-02:00')
         
-        datestring = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=containerproperties.UTC(181, 'UTC+1')))
+        datestring = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=UTC(181, 'UTC+1')))
         self.assertEqual(datestring, '2004-03-06T14:15:16.7+03:01')
 
-        datestring = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=containerproperties.UTC(-121, 'UTC+1')))
+        datestring = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=UTC(-121, 'UTC+1')))
         self.assertEqual(datestring, '2004-03-06T14:15:16.7-02:01')
         
         

@@ -174,7 +174,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                             new_state.descriptor_container = descriptor_container
                             new_state.update_descriptor_version()
                         else:
-                            old_state = self.states.descriptorHandle.getOne(descriptor_container.handle, allowNone=True)
+                            old_state = self.states.descriptorHandle.get_one(descriptor_container.handle, allow_none=True)
                             if old_state is not None:
                                 new_state = old_state.mk_copy()
                                 new_state.descriptor_container = descriptor_container
@@ -185,7 +185,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                             descr_updated_states.append(new_state)
 
                 def _increment_parent_descriptor_version(descriptor_container):
-                    parent_descriptor_container = self.descriptions.handle.getOne(descriptor_container.parent_handle)
+                    parent_descriptor_container = self.descriptions.handle.get_one(descriptor_container.parent_handle)
                     parent_descriptor_container.increment_descriptor_version()
                     descr_updated.append(parent_descriptor_container)
                     _update_corresponding_state(parent_descriptor_container)
@@ -333,8 +333,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     except RuntimeError:
                         self._logger.warn('transaction_manager: {} did not exist before!! really??', newstate)
                         raise
-                    except:
-                        raise
 
         mdib_version = self.mdib_version
         if self._sdc_device is not None:
@@ -411,7 +409,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 location_context.ContextAssociation = pmtypes.ContextAssociation.DISASSOCIATED
                 # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
                 location_context.UnbindingMdibVersion = self.mdib_version
-            descriptor_container = self.descriptions.NODETYPE.getOne(domTag('LocationContextDescriptor'))
+            descriptor_container = self.descriptions.NODETYPE.get_one(domTag('LocationContextDescriptor'))
 
             self._current_location = mgr.get_state(descriptor_container.handle)  # this creates a new location state
             self._current_location.update_from_sdc_location(sdc_location)
@@ -695,7 +693,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
         if create_location_context_descr or create_patient_context_descr:
             # make sure we have exactly one PatientContext and one LocationContext Descriptor, depending of flags
-            system_context_container = mdib.descriptions.NODETYPE.getOne(domTag('SystemContextDescriptor'))
+            system_context_container = mdib.descriptions.NODETYPE.get_one(domTag('SystemContextDescriptor'))
             children = mdib.descriptions.parent_handle.get(system_context_container.handle)
             child_node_types = [ch.NODETYPE for ch in children]
             if create_location_context_descr:

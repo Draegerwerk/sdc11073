@@ -277,13 +277,13 @@ class ContextServiceClient(HostedServiceClient):
         mdib = self._mdib_wref()
         if mdib is None:
             raise RuntimeError('no mdib information')
-        context_descriptor_container = mdib.descriptions.handle.getOne(descriptor_handle)
+        context_descriptor_container = mdib.descriptions.handle.get_one(descriptor_handle)
         if handle is None:
             cls = self._sdc_definitions.sc.get_container_class(context_descriptor_container.STATE_QNAME)
             obj = cls(nsmapper=DocNamespaceHelper(), descriptor_container=context_descriptor_container)
             obj.Handle = descriptor_handle  # this indicates that this is a new context state
         else:
-            _obj = mdib.context_states.handle.getOne(handle)
+            _obj = mdib.context_states.handle.get_one(handle)
             obj = _obj.mk_copy()
         return obj
 

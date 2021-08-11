@@ -59,7 +59,7 @@ class SdcDevice:
 
     @property
     def shall_validate(self):
-        return self._handler._validate
+        return self._handler.shall_validate
 
     @property
     def mdib(self):
@@ -67,16 +67,16 @@ class SdcDevice:
 
     @property
     def subscriptions_manager(self):
-        return self._handler._subscriptions_manager
+        return self._handler.subscriptions_manager
 
     @property
     def sco_operations_registry(self):
-        return self._handler._sco_operations_registry
+        return self._handler.sco_operations_registry
 
     @property
     def epr(self):
         # End Point Reference, e.g 'urn:uuid:8c26f673-fdbf-4380-b5ad-9e2454a65b6b'
-        return self._handler._my_uuid.urn
+        return self._handler.epr
 
     @property
     def path_prefix(self):

@@ -42,7 +42,7 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
 
     def make_missing_operations(self, operations_factory):
         ops = []
-        operation_target_container = self._mdib.descriptions.NODETYPE.getOne(
+        operation_target_container = self._mdib.descriptions.NODETYPE.get_one(
             domTag('MdsDescriptor'))  # the operation target is the mds itself
         activate_op_cls = operations_factory(domTag('ActivateOperationDescriptor'))
         if not self._set_global_audio_pause_operations:
@@ -51,7 +51,7 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
             set_ap_operation = self._mk_operation(activate_op_cls,
                                                   handle='AP__ON',
                                                   operation_target_handle=operation_target_container.handle,
-                                                  codedValue=MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE,
+                                                  coded_value=MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE,
                                                   current_request_handler=self._set_global_audio_pause)
             self._set_global_audio_pause_operations.append(set_ap_operation)
             ops.append(set_ap_operation)
@@ -62,7 +62,7 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
             cancel_ap_operation = self._mk_operation(activate_op_cls,
                                                      handle='AP__CANCEL',
                                                      operation_target_handle=operation_target_container.handle,
-                                                     codedValue=MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE,
+                                                     coded_value=MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE,
                                                      current_request_handler=self._cancel_global_audio_pause)
             ops.append(cancel_ap_operation)
             self._set_global_audio_pause_operations.append(cancel_ap_operation)
@@ -159,7 +159,7 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                                                                   d.Manifestation == pmtypes.AlertSignalManifestation.AUD]
                         for descriptor in audible_child_alert_signal_descriptors:
                             alert_signal_state = mgr.get_state(descriptor.handle)
-                            alert_condition_state = self._mdib.states.descriptorHandle.getOne(
+                            alert_condition_state = self._mdib.states.descriptorHandle.get_one(
                                 descriptor.ConditionSignaled)
                             if alert_condition_state.Presence:
                                 # set signal back to 'ON'

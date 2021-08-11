@@ -148,7 +148,7 @@ class MessageReader:
                 node_type = namespaces.text_to_qname(node_type, node.nsmap)
 
         descriptor_handle = node.get('DescriptorHandle')
-        descriptor_container = mdib.descriptions.handle.getOne(descriptor_handle, allowNone=True)
+        descriptor_container = mdib.descriptions.handle.get_one(descriptor_handle, allow_none=True)
         if descriptor_container is None:
             if additional_descriptor_containers is not None:
                 corresponding_descriptors = [d for d in additional_descriptor_containers if

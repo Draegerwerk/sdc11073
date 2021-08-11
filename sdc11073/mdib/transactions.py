@@ -29,13 +29,13 @@ class _TransactionBase:
             if new is None:  # descriptor is deleted in this transaction!
                 raise RuntimeError('The descriptor {} is going to be deleted'.format(descriptor_handle))
             return new
-        return self._device_mdib_container.descriptions.handle.getOne(descriptor_handle)
+        return self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
 
     def _get_or_mk_state_container(self, descriptor_handle, adjust_state_version=True):
         """ returns oldContainer, newContainer"""
         descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
-        old_state_container = self._device_mdib_container.states.descriptorHandle.getOne(descriptor_container.handle,
-                                                                                         allowNone=True)
+        old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.handle,
+                                                                                          allow_none=True)
         if old_state_container is None:
             # create a new state object
             new_state_container = self._device_mdib_container.mk_state_container_from_descriptor(descriptor_container)
@@ -76,7 +76,8 @@ class RtDataMdibUpdateTransaction(_TransactionBase):
         # This means no rollback possible.
         if descriptor_handle in self.rt_sample_state_updates:
             raise ValueError(f'descriptorHandle {descriptor_handle} already in updated set!')
-        state_container = self._device_mdib_container.states.descriptorHandle.getOne(descriptor_handle, allowNone=True)
+        state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_handle,
+                                                                                      allow_none=True)
         if state_container is None:
             raise ValueError(f'state {descriptor_handle} not found!')
 
@@ -117,7 +118,7 @@ class MdibUpdateTransaction(_TransactionBase):
     def remove_descriptor(self, descriptor_handle):
         if descriptor_handle in self.descriptor_updates:
             raise ValueError('descriptorHandle {} already in updated set!'.format(descriptor_handle))
-        orig_descriptor_container = self._device_mdib_container.descriptions.handle.getOne(descriptor_handle)
+        orig_descriptor_container = self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
         self.descriptor_updates[descriptor_handle] = TrItem(orig_descriptor_container, None)
 
     @tr_method_wrapper
@@ -129,7 +130,7 @@ class MdibUpdateTransaction(_TransactionBase):
         """
         if descriptor_handle in self.descriptor_updates:
             raise ValueError('descriptorHandle {} already in updated set!'.format(descriptor_handle))
-        orig_descriptor_container = self._device_mdib_container.descriptions.handle.getOne(descriptor_handle)
+        orig_descriptor_container = self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
         descriptor_container = orig_descriptor_container.mk_copy()
         descriptor_container.increment_descriptor_version()
         self.descriptor_updates[descriptor_handle] = TrItem(orig_descriptor_container, descriptor_container)
@@ -240,13 +241,14 @@ class MdibUpdateTransaction(_TransactionBase):
             new_state_container.BindingMdibVersion = self._device_mdib_container.mdib_version  # auto-set this Attribute
             new_state_container.BindingStartTime = time.time()  # auto-set this Attribute
         else:
-            old_state_container = self._device_mdib_container.context_states.handle.getOne(context_state_handle,
-                                                                                           allowNone=True)
+            old_state_container = self._device_mdib_container.context_states.handle.get_one(context_state_handle,
+                                                                                            allow_none=True)
             if old_state_container is not None:
                 new_state_container = old_state_container.mk_copy()
                 new_state_container.increment_state_version()
             else:
-                new_state_container = self._device_mdib_container.mk_state_container_from_descriptor(descriptor_container)
+                new_state_container = self._device_mdib_container.mk_state_container_from_descriptor(
+                    descriptor_container)
                 new_state_container.BindingMdibVersion = self._device_mdib_container.mdib_version  # auto-set this Attribute
                 new_state_container.BindingStartTime = time.time()  # auto-set this Attribute
                 new_state_container.Handle = context_state_handle
@@ -258,7 +260,8 @@ class MdibUpdateTransaction(_TransactionBase):
     def _get_real_time_sample_array_metric_state(self, descriptor_handle):
         if descriptor_handle in self.rt_sample_state_updates:
             raise ValueError('descriptorHandle {} already in updated set!'.format(descriptor_handle))
-        state_container = self._device_mdib_container.states.descriptorHandle.getOne(descriptor_handle, allowNone=True)
+        state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_handle,
+                                                                                      allow_none=True)
         if state_container is None:
             descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
             new_state = self._device_mdib_container.mk_state_container_from_descriptor(descriptor_container)

@@ -576,6 +576,8 @@ class ExtensionNodeProperty(_NodeProperty):
             del sub_node[:]  # delete all children first
 
             for tag, val in extension_local_value.value.items():
+                if val is None:
+                    continue
                 if isinstance(val, etree_._Element):  #pylint: disable=protected-access
                     _node = val
                 else:
@@ -806,18 +808,18 @@ class DateOfBirthProperty(_NodeProperty):
 ZERO = datetime.timedelta(0)
 
 
-class UTC(datetime.tzinfo):
-    """Fixed offset in minutes east from UTC."""
-
-    def __init__(self, offset_minutes, tzname=None):
-        self._offset = datetime.timedelta(minutes=offset_minutes)
-        self._tzname = tzname
-
-    def utcoffset(self, dt):  # pylint:disable=unused-argument
-        return self._offset
-
-    def tzname(self, dt):  # pylint:disable=unused-argument
-        return self._tzname
-
-    def dst(self, dt):  # pylint:disable=unused-argument
-        return ZERO
+# class UTC(datetime.tzinfo):
+#     """Fixed offset in minutes east from UTC."""
+#
+#     def __init__(self, offset_minutes, tzname=None):
+#         self._offset = datetime.timedelta(minutes=offset_minutes)
+#         self._tzname = tzname
+#
+#     def utcoffset(self, dt):  # pylint:disable=unused-argument
+#         return self._offset
+#
+#     def tzname(self, dt):  # pylint:disable=unused-argument
+#         return self._tzname
+#
+#     def dst(self, dt):  # pylint:disable=unused-argument
+#         return ZERO

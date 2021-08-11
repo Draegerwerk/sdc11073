@@ -202,7 +202,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.EpisodicContextReport, sdcDevice.mdib.biceps_schema)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
-            patientContextDescriptor = sdcDevice.mdib.descriptions.NODETYPE.getOne(namespaces.domTag('PatientContextDescriptor'))
+            patientContextDescriptor = sdcDevice.mdib.descriptions.NODETYPE.get_one(namespaces.domTag('PatientContextDescriptor'))
             descriptorHandle = patientContextDescriptor.handle
             with sdcDevice.mdib.transaction_manager() as mgr:
                 st = mgr.get_state(descriptorHandle)

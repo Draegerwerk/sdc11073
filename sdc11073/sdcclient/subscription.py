@@ -393,12 +393,12 @@ class SubscriptionClient(threading.Thread):
             self._logger.warn('on_subscription_end: did not find any identifier in message')
             return
         subscr_ident = subscr_ident_list[0]
-        for s in self.subscriptions.values():
-            if subscr_ident.text == s.end_to_identifier.text:
+        for subscription in self.subscriptions.values():
+            if subscr_ident.text == subscription.end_to_identifier.text:
                 self._logger.info('on_subscription_end: received Subscription End for {} {}',
-                                  s.short_filter_string,
+                                  subscription.short_filter_string,
                                   info)
-                s.is_subscribed = False
+                subscription.is_subscribed = False
                 return
         self._logger.warn('on_subscription_end: have no subscription for identifier = {}', subscr_ident.text)
 
@@ -485,12 +485,12 @@ class SOAPNotificationsDispatcherThreaded(SOAPNotificationsDispatcher):
 
     def _readqueue(self):
         while True:
-            fn, request, action = self._queue.get()
+            func, request, action = self._queue.get()
             try:
-                fn(request)
+                func(request)
             except:
                 self._logger.error(
-                    'method {} for action "{}" failed:{}'.format(fn.__name__, action, traceback.format_exc()))
+                    'method {} for action "{}" failed:{}'.format(func.__name__, action, traceback.format_exc()))
 
 
 class SOAPNotificationsHandler(HTTPRequestHandler):
@@ -498,22 +498,22 @@ class SOAPNotificationsHandler(HTTPRequestHandler):
     wbufsize = 0xffff  # 64k buffer to prevent tiny packages
     RESPONSE_COMPRESS_MINSIZE = 256  # bytes, compress response it it is larger than this value (and other side supports compression)
 
-    def do_POST(self):
+    def do_POST(self):  # pylint: disable=invalid-name
         """SOAP POST gateway"""
-        self.server.thread_obj._logger.debug('notification do_POST incoming')  # pylint: disable=protected-access
+        self.server.thread_obj.logger.debug('notification do_POST incoming')  # pylint: disable=protected-access
         dispatcher = self.server.dispatcher
         response_string = ''
         if dispatcher is None:
             # close this connection
             self.close_connection = 1
-            self.server.thread_obj._logger.warn(
+            self.server.thread_obj.logger.warn(
                 'received a POST request, but no dispatcher => returning 404 ')  # pylint:disable=protected-access
             self.send_response(404)  # not found
         else:
             request_bytes = self._read_request()
 
-            self.server.thread_obj._logger.debug('notification {} bytes',
-                                                 request_bytes)  # pylint: disable=protected-access
+            self.server.thread_obj.logger.debug('notification {} bytes',
+                                                request_bytes)  # pylint: disable=protected-access
             # execute the method
             commlog.get_communication_logger().log_soap_subscription_msg_in(request_bytes)
             try:
@@ -522,11 +522,11 @@ class SOAPNotificationsHandler(HTTPRequestHandler):
                     response_string = ''
                 self.send_response(202, b'Accepted')
             except _DispatchError as ex:
-                self.server.thread_obj._logger.error('received a POST request, but got _DispatchError => returning {}',
-                                                     ex.http_error_code)  # pylint:disable=protected-access
+                self.server.thread_obj.logger.error('received a POST request, but got _DispatchError => returning {}',
+                                                    ex.http_error_code)  # pylint:disable=protected-access
                 self.send_response(ex.http_error_code, ex.error_text)
             except Exception as ex:
-                self.server.thread_obj._logger.error(
+                self.server.thread_obj.logger.error(
                     'received a POST request, but got Exception "{}"=> returning {}\n{}', ex, 500,
                     traceback.format_exc())  # pylint:disable=protected-access
                 self.send_response(500, b'server error in dispatch')
@@ -561,7 +561,7 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
         self._ssl_context = ssl_context
         self._soap_notifications_handler_class = soap_notifications_handler_class
         self.daemon = True
-        self._logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', log_prefix)
+        self.logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', log_prefix)
 
         self._my_ipaddress = my_ipaddress
         self.my_port = None
@@ -583,7 +583,7 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
             # add use compression flag to the server
             setattr(self.httpd, 'supported_encodings', self.supported_encodings)
             self.my_port = self.httpd.server_port
-            self._logger.info('starting Notification receiver on {}:{}', self._my_ipaddress, self.my_port)
+            self.logger.info('starting Notification receiver on {}:{}', self._my_ipaddress, self.my_port)
             if self._ssl_context:
                 self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket)
                 self.base_url = 'https://{}:{}/'.format(self._my_ipaddress, self.my_port)
@@ -595,7 +595,7 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
             self.started_evt.set()
             self.httpd.serve_forever()
         except Exception:
-            self._logger.error(
+            self.logger.error(
                 'Unhandled Exception at thread runtime. Thread will abort! {}'.format(traceback.format_exc()))
             raise
 
@@ -616,17 +616,17 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
                     try:
                         request.shutdown(socket.SHUT_RDWR)
                         request.close()
-                        self._logger.info('closed socket for notifications from {}', client_addr)
+                        self.logger.info('closed socket for notifications from {}', client_addr)
                     except OSError as ex:
                         # the connection is already closed
                         continue
                     except Exception as ex:
-                        self._logger.warn('error closing socket for notifications from {}: {}', client_addr, ex)
+                        self.logger.warn('error closing socket for notifications from {}: {}', client_addr, ex)
             time.sleep(0.1)
             for thr in self.httpd.threads:
                 thread, request, client_addr = thr
                 if thread.is_alive():
                     thread.join(1)
                 if thread.is_alive():
-                    self._logger.warn('could not end client thread for notifications from {}', client_addr)
+                    self.logger.warn('could not end client thread for notifications from {}', client_addr)
             del self.httpd.threads[:]

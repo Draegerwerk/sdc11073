@@ -38,7 +38,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
 
     def make_operation_instance(self, operation_descriptor_container, operations_factory):
         operation_target_handle = operation_descriptor_container.OperationTarget
-        operation_target_descr = self._mdib.descriptions.handle.getOne(operation_target_handle)  # descriptor container
+        operation_target_descr = self._mdib.descriptions.handle.get_one(operation_target_handle)  # descriptor container
         if operation_descriptor_container.NODETYPE == namespaces.domTag('SetValueOperationDescriptor'):
             pass
         elif operation_descriptor_container.NODETYPE == namespaces.domTag('ActivateOperationDescriptor'):
@@ -81,12 +81,12 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 alert_condition.ActivationState = AlertActivation.OFF
                 alert_condition.set_node_member()
             else:
-                alert_signal_descr = self._mdib.descriptions.handle.getOne(alert_condition.descriptorHandle)
+                alert_signal_descr = self._mdib.descriptions.handle.get_one(alert_condition.descriptorHandle)
                 # ConditionSignaled can be None, in that case do nothing
                 if alert_signal_descr.ConditionSignaled:
-                    alert_condition_state = self._mdib.states.descriptorHandle.getOne(
+                    alert_condition_state = self._mdib.states.descriptorHandle.get_one(
                         alert_signal_descr.ConditionSignaled,
-                        allowNone=True)
+                        allow_none=True)
                     if alert_condition_state and alert_condition.ActivationState != alert_condition_state.ActivationState:
                         alert_condition.ActivationState = alert_condition_state.ActivationState
                         alert_condition.set_node_member()
@@ -100,7 +100,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             descriptor = tr_item.new
         if descriptor is None:
             # it is not part of this transaction
-            descriptor = mdib.descriptions.handle.getOne(handle, allowNone=True)
+            descriptor = mdib.descriptions.handle.get_one(handle, allow_none=True)
         if descriptor is None:
             raise KeyError('there is no descriptor for {}'.format(handle))
         return descriptor
@@ -156,7 +156,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 alert_state = tr_item.new
             if alert_state is None:
                 # it is not part of this transaction
-                alert_state = mdib.states.descriptorHandle.getOne(descriptor_handle, allowNone=True)
+                alert_state = mdib.states.descriptorHandle.get_one(descriptor_handle, allow_none=True)
             if alert_state is None:
                 raise RuntimeError('there is no alert state for {}'.format(descriptor_handle))
             return alert_state
@@ -197,7 +197,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         # look for active delegations (we only need the Manifestation value here)
         active_delegate_manifestations = []
         for descriptor in remote_alert_signal_descriptors:
-            alert_signal_state = mdib.states.descriptorHandle.getOne(descriptor.handle)
+            alert_signal_state = mdib.states.descriptorHandle.get_one(descriptor.handle)
             if alert_signal_state.Presence != AlertSignalPresence.OFF and alert_signal_state.Location == 'Rem':
                 active_delegate_manifestations.append(descriptor.Manifestation)
 
@@ -224,100 +224,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                     # don't change
                     transaction.unget_state(alert_signal_state)
 
-    # def _set_upper_limit(self, operation_descriptor_container, value):
-    #     """ set upper limit of an LimitAlertConditionStateContainer"""
-    #     operation_target_handle = operation_descriptor_container.OperationTarget
-    #     with self._mdib.transaction_manager() as mgr:
-    #         operation_state_container = mgr._device_mdib_container.states.descriptorHandle.getOne(
-    #             operation_descriptor_container.handle)
-    #         self._in_allowed_range(operation_state_container, value)
-    #         state = mgr.get_state(operation_target_handle)
-    #         self._logger.info('set upper limit handle="{}" from {} to {}', operation_target_handle, state.Limits.Upper,
-    #                           value)
-    #         state.Limits.Upper = value
-    #
-    # def _setLowerLimit(self, operation_descriptor_container, value):
-    #     """ set lower limit of an LimitAlertConditionStateContainer"""
-    #     operation_target_handle = operation_descriptor_container.OperationTarget
-    #     with self._mdib.transaction_manager() as mgr:
-    #         operation_state_container = mgr._device_mdib_container.states.descriptorHandle.getOne(
-    #             operation_descriptor_container.handle)
-    #         self._in_allowed_range(operation_state_container, value)
-    #         state = mgr.get_state(operation_target_handle)
-    #         self._logger.info('set lower limit handle={} from {} to {}', operation_target_handle, state.Limits.Lower,
-    #                           value)
-    #         state.Limits.Lower = value
-    #
-    # @staticmethod
-    # def _in_allowed_range(operation_state_container, value):
-    #     if operation_state_container.AllowedRange:
-    #         max_upper = max([i.Upper for i in operation_state_container.AllowedRange])
-    #         min_lower = min([i.Lower for i in operation_state_container.AllowedRange])
-    #         if not min_lower <= value <= max_upper:
-    #             raise ValueError('value "{}" to be set is not in AllowedRanges {}'.format(
-    #                 value, operation_state_container.AllowedRange))
-    #
-    # def _get_ac_source_range(self, source):
-    #     """
-    #     Given the source of the AlertCondition return PhysiologicalRange
-    #     Only returns range with Lower, Upper and StepWidth
-    #     @param source: Source metric handle
-    #     @return: (Range) PhysiologicalRange
-    #     """
-    #
-    #     for handle in source:
-    #         state = self._mdib.states.descriptorHandle.getOne(handle)
-    #         ranges = state.PhysiologicalRange
-    #         # find range that has Upper Lower and Step
-    #         for range in ranges:
-    #             if range.Upper is not None and range.Lower is not None and range.StepWidth is not None:
-    #                 return range
-    #     return None
-    #
-    # def _generate_value_in_range(self, source_range, previous_value, is_lower=True):
-    #     """ Generates a value within range different from the previous value"""
-    #     if source_range is None:
-    #         if is_lower:
-    #             return -random.random()
-    #         else:
-    #             return random.random()
-    #
-    #     exp = str(source_range.StepWidth)[::-1].find(".")
-    #     if exp == -1:
-    #         exp = 0
-    #
-    #     value = previous_value
-    #     for cnt in range(int((source_range.Upper - source_range.Lower) // source_range.StepWidth)):
-    #         if value != previous_value: break
-    #
-    #         if is_lower:
-    #             value = round(source_range.Lower + (source_range.StepWidth * cnt), exp)
-    #         else:
-    #             value = round(source_range.Upper - (source_range.StepWidth * cnt), exp)
-    #
-    #     return value
-
-    # def _activate_all_delegable_alert_signals(self, operation_descriptor_container, value):  # pylint: disable=unused-argument
-    #     # find all delegable Alert Signals in main alert system
-    #     # set ActivationState to "On"
-    #     # set all corresponding local alert signals to paused
-    #     allAlertConditionDescriptors = self._mdib.descriptions.NODETYPE.get(
-    #         namespaces.domTag('AlertConditionDescriptor'), [])
-    #     allAlertConditionDescriptors += self._mdib.descriptions.NODETYPE.get(
-    #         namespaces.domTag('LimitAlertConditionDescriptor'), [])
-    #     self._last_activate_all_delegable_alerts = time.time()
-    #     with self._mdib.transaction_manager() as mgr:
-    #         for acd in allAlertConditionDescriptors:
-    #             signalDescriptors = self._mdib.descriptions.ConditionSignaled.get(acd.handle, [])
-    #             for sd in signalDescriptors:
-    #                 if sd.SignalDelegationSupported:
-    #                     ss = mgr.get_state(sd.handle)
-    #                     if ss.ActivationState == AlertActivation.OFF:
-    #                         ss.ActivationState = AlertActivation.ON
-    #                         self._pause_fallback_alert_signals(sd, signalDescriptors, mgr)
-    #                     else:
-    #                         mgr.unget_state(ss)
-    #
     def _pause_fallback_alert_signals(self, delegable_signal_descriptor, all_signal_descriptors, transaction):
         if all_signal_descriptors is None:
             all_signal_descriptors = self._mdib.descriptions.ConditionSignaled.get(
@@ -403,7 +309,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
     #     self._last_set_alert_signal_state[handle] = time.time()
     #     state = mgr.get_state(handle)
     #     state.ActivationState = alertActivationState
-    #     descr = self._mdib.descriptions.handle.getOne(handle)
+    #     descr = self._mdib.descriptions.handle.get_one(handle)
     #     if descr.SignalDelegationSupported:
     #         if alertActivationState == AlertActivation.ON:
     #             self._pause_fallback_alert_signals(descr, None, mgr)
@@ -420,7 +326,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             state.ActivationState = value.ActivationState
             state.Presence = value.Presence
             state.ActualSignalGenerationDelay = value.ActualSignalGenerationDelay
-            descr = self._mdib.descriptions.handle.getOne(operation_target_handle)
+            descr = self._mdib.descriptions.handle.get_one(operation_target_handle)
             if descr.SignalDelegationSupported:
                 if value.ActivationState == AlertActivation.ON:
                     self._pause_fallback_alert_signals(descr, None, mgr)
@@ -450,8 +356,8 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             all_alert_systems_descr = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('AlertSystemDescriptor'),
                                                                            list())
             for alert_system_descr in all_alert_systems_descr:
-                alert_system_state = self._mdib.states.descriptorHandle.getOne(alert_system_descr.handle,
-                                                                               allowNone=True)
+                alert_system_state = self._mdib.states.descriptorHandle.get_one(alert_system_descr.handle,
+                                                                                allow_none=True)
                 if alert_system_state is not None:
                     selfcheck_period = alert_system_descr.SelfCheckPeriod
                     if selfcheck_period is not None:
@@ -489,7 +395,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 # expired, set all AlertSignalState.ActivationState to 'Off'
                 with self._mdib.transaction_manager() as mgr:
                     for op_descrs in all_op_descrs:
-                        signal_descr = self._mdib.descriptions.handle.getOne(op_descrs.OperationTarget)
+                        signal_descr = self._mdib.descriptions.handle.get_one(op_descrs.OperationTarget)
                         all_signal_descriptors = self._mdib.descriptions.ConditionSignaled.get(
                             signal_descr.ConditionSignaled, [])
                         signal_state = mgr.get_state(signal_descr.handle)

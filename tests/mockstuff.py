@@ -112,7 +112,7 @@ class SomeDevice(SdcDevice):
 #        log_prefix = '' if not ident else '<{}>:'.format(ident)
         device_mdib_container = DeviceMdibContainer.from_string(mdib_xml_string, log_prefix=log_prefix)
         # set Metadata
-        mdsDescriptor = device_mdib_container.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
+        mdsDescriptor = device_mdib_container.descriptions.NODETYPE.get_one(namespaces.domTag('MdsDescriptor'))
         mdsDescriptor.MetaData.Manufacturer.append(pmtypes.LocalizedText(u'Dräger'))
         mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(model.model_name[None]))
         mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')

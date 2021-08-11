@@ -90,7 +90,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
     def add_object_no_lock(self, obj):
         """ appends obj to parent"""
         _MultikeyWithVersionLookup.add_object_no_lock(self, obj)
-        parent = None if obj.parent_handle is None else self.handle.getOne(obj.parent_handle, allowNone=True)
+        parent = None if obj.parent_handle is None else self.handle.get_one(obj.parent_handle, allow_none=True)
         if parent is not None:
             parent.add_child(obj)
 
@@ -110,7 +110,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
 
     def remove_object_no_lock(self, obj):
         _MultikeyWithVersionLookup.remove_object_no_lock(self, obj)
-        parent = self.handle.getOne(obj.parent_handle, allowNone=True)
+        parent = self.handle.get_one(obj.parent_handle, allow_none=True)
         if parent is not None:
             parent.rm_child(obj)
 
@@ -123,7 +123,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
 
     def replace_object_no_lock(self, new_obj):
         """ remove existing descriptor_container and add new one, but do not touch childlist of parent (that keeps order)"""
-        orig_obj = self.handle.getOne(new_obj.handle)
+        orig_obj = self.handle.get_one(new_obj.handle)
         self.remove_object_no_lock(orig_obj)
         self.add_object_no_lock(new_obj)
 
@@ -138,6 +138,11 @@ class StatesLookup(_MultikeyWithVersionLookup):
             if increment:
                 version += 1
             obj.StateVersion = version
+
+    def add_object_no_lock(self, obj):
+        if obj.isMultiState:
+            raise RuntimeError('Multistate')
+        super().add_object_no_lock(obj)
 
 
 class MultiStatesLookup(_MultikeyWithVersionLookup):
@@ -380,7 +385,7 @@ class MdibContainer:
         channel_coding = channel_code.coding if hasattr(channel_code, 'coding') else channel_code
         metric_coding = metric_code.coding if hasattr(metric_code, 'coding') else metric_code
 
-        vmd = self.descriptions.coding.getOne(vmd_coding)
+        vmd = self.descriptions.coding.get_one(vmd_coding)
         _all_channels = self.descriptions.coding.get(channel_coding, list())
         all_channels = [c for c in _all_channels if c.parent_handle == vmd.handle]
         if len(all_channels) == 0:
@@ -555,9 +560,9 @@ class MdibContainer:
         if deleted_states_by_handle:
             self.deleted_states_by_handle = deleted_states_by_handle
 
-    def _rm_descriptor_by_handle(self, handle):
+    def rm_descriptor_by_handle(self, handle):
         """deletes descriptor and the subtree"""
-        descriptor_container = self.descriptions.handle.getOne(handle, allowNone=True)
+        descriptor_container = self.descriptions.handle.get_one(handle, allow_none=True)
         if descriptor_container is not None:
             all_descriptors = self.get_all_descriptors_in_subtree(descriptor_container)
             self._rm_descriptors_and_states(all_descriptors)

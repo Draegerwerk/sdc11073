@@ -17,7 +17,7 @@ class GenericContextProvider(providerbase.ProviderRole):
         """Create a handler for SetContextStateOperationDescriptor if type of operation target
         matches opTargetDescriptorTypes"""
         if operation_descriptor_container.NODETYPE == namespaces.domTag('SetContextStateOperationDescriptor'):
-            op_target_descr_container = self._mdib.descriptions.handle.getOne(
+            op_target_descr_container = self._mdib.descriptions.handle.get_one(
                 operation_descriptor_container.OperationTarget)
             if (not self._op_target_descr_types) or (
                     op_target_descr_container.NODETYPE not in self._op_target_descr_types):
@@ -35,8 +35,8 @@ class GenericContextProvider(providerbase.ProviderRole):
                 old_state_container = None
                 if proposed_st.descriptorHandle != proposed_st.Handle:
                     # this is an update for an existing state
-                    old_state_container = operation_instance.operation_target_storage.handle.getOne(
-                        proposed_st.Handle, allowNone=True)
+                    old_state_container = operation_instance.operation_target_storage.handle.get_one(
+                        proposed_st.Handle, allow_none=True)
                     if old_state_container is None:
                         raise ValueError('handle {} not found'.format(proposed_st.Handle))
                 if old_state_container is None:
