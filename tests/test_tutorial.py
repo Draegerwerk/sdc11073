@@ -40,10 +40,10 @@ def createGenericDevice(wsdiscovery_instance, location, mdibPath, role_provider=
                                 firmware_version='Version1',
                                 serial_number='12345')
     sdcDevice = SdcDevice(wsdiscovery_instance,
-                          my_uuid,
                           dpwsModel,
                           dpwsDevice,
                           my_mdib,
+                          my_uuid=my_uuid,
                           roleProvider=role_provider)
     for desc in sdcDevice.mdib.descriptions.objects:
         desc.SafetyClassification = pmtypes.SafetyClassification.MED_A
@@ -153,7 +153,7 @@ class Test_Tutorial(unittest.TestCase):
         services = my_client_wsDiscovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)  # both devices found
 
-        my_client = SdcClient.from_wsd_service(services[0])
+        my_client = SdcClient.from_wsd_service(services[0], ssl_context=None)
         self.my_clients.append(my_client)
         my_client.start_all()
         ############# Mdib usage ##############################
@@ -194,7 +194,7 @@ class Test_Tutorial(unittest.TestCase):
         services = my_client_wsDiscovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)  # both devices found
 
-        my_client = SdcClient.from_wsd_service(services[0])
+        my_client = SdcClient.from_wsd_service(services[0], ssl_context=None)
         self.my_clients.append(my_client)
         my_client.start_all()
         myMdib = ClientMdibContainer(my_client)
@@ -352,7 +352,7 @@ class Test_Tutorial(unittest.TestCase):
         services = my_client_wsDiscovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
 
-        my_client = SdcClient.from_wsd_service(services[0])
+        my_client = SdcClient.from_wsd_service(services[0], ssl_context=None)
         self.my_clients.append(my_client)
         my_client.start_all()
         myMdib = ClientMdibContainer(my_client)

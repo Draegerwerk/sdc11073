@@ -7,7 +7,7 @@ from sdc11073 import definitions_sdc
 
 #pylint: disable=protected-access
 
-DEV_ADDRESS = '169.254.0.200:10000'
+DEV_ADDRESS = 'http://169.254.0.200:10000'
 CLIENT_VALIDATE = True
 
 # data that is used in report
@@ -163,9 +163,8 @@ class TestClientWaveform(unittest.TestCase):
     def setUp(self):
         self.sdcClient_final =  sdc11073.sdcclient.SdcClient(DEV_ADDRESS,
                                                              sdc_definitions=definitions_sdc.SDC_v1_Definitions,
-                                                             #deviceType=definitions_sdc.SDC_v1_Definitions.MedicalDeviceType,
-                                                             validate=CLIENT_VALIDATE,
-                                                             my_ipaddress='169.254.0.3')
+                                                             ssl_context=None,
+                                                             validate=CLIENT_VALIDATE)
         self.all_clients = (self.sdcClient_final,)
 
 

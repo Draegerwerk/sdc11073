@@ -38,7 +38,7 @@ class Prefixes(_PrefixNamespaceTuple, Enum):
         """
         return dict((v.prefix, v.namespace) for v in prefix)
 
-Prefix_Namespace = Prefixes
+#Prefix_Namespace = Prefixes
 # these are all namespaces used in sdc:
 nsmap = dict((item.prefix, item.namespace) for item in Prefixes)
 

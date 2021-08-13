@@ -12,7 +12,7 @@ from codecs import open
 import os
 import subprocess
 
-version = '1.1.1'
+version = '2.0.0'
 
 # create a version.py file that is
 # a) used for __version__ info
@@ -29,7 +29,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 # write version file
 with open(os.path.join(here, 'sdc11073/version.py'), 'w') as v:
-    v.write("#generated file!\nversion='{}'\n\ngitrev='''{}'''".format(version, gitrev))
+    v.write(f"# generated file!\nVERSION = '{version}'\n\nGIT_REVISION = '''{gitrev}'''\n")
     
 # Get the long description from the README file
 with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:

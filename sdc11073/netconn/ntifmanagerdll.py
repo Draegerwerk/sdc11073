@@ -182,10 +182,10 @@ def get_network_adapter_configs(print_error=False):
                                                adapter.description,
                                                adapter.friendly_name)
                     network_adapters.append(cnf)
-                except:
+                except Exception:
                     if print_error:
                         print('could not determine IP address of adapter "{}": {}'.format(net_connection_id,
                                                                                           traceback.format_exc()))
-        except:
+        except Exception:
             print('could not determine data of adapter "{}": {}'.format(net_connection_id, traceback.format_exc()))
     return network_adapters

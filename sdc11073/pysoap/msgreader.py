@@ -131,7 +131,7 @@ class MessageReader:
             node_type = namespaces.text_to_qname(node_type, node.nsmap)
         else:
             node_type = etree_.QName(node.tag)
-        cls = mdib.get_descriptor_container_class(node_type)
+        cls = mdib.sdc_definitions.get_descriptor_container_class(node_type)
         return cls.from_node(mdib.nsmapper, node, parent_handle)
 
     @classmethod
@@ -160,7 +160,7 @@ class MessageReader:
                     'new state {}: descriptor with handle "{}" does not exist!'.format(node_type.localname,
                                                                                        descriptor_handle))
             descriptor_container = corresponding_descriptors[0]
-        st_cls = mdib.get_state_container_class(node_type)
+        st_cls = mdib.sdc_definitions.get_state_container_class(node_type)
         if node.tag != namespaces.domTag('State'):
             node = copy.copy(node)  # make a copy, do not modify the original report
             node.tag = namespaces.domTag('State')

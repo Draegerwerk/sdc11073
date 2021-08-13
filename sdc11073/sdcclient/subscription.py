@@ -150,7 +150,7 @@ class _ClSubscription:
             result_envelope = self.dpws_hosted.soap_client.post_soap_envelope_to(self._device_epr, envelope,
                                                                                  msg=msg)
             self._handle_subscribe_response(result_envelope)
-        except HTTPReturnCodeError as ex:
+        except HTTPReturnCodeError:
             self._logger.error('could not subscribe: {}'.format(HTTPReturnCodeError))
 
     def _add_device_references(self, envelope):
@@ -362,7 +362,7 @@ class SubscriptionClient(threading.Thread):
                     self._logger.debug('##### SubscriptionManager Interval ######')
                     for subscription in subscriptions:
                         self._logger.debug('{}', subscription)
-                except Exception as ex:
+                except Exception:
                     self._logger.error('##### check loop: {}', traceback.format_exc())
         finally:
             self._logger.info('terminating subscriptions check loop! self._run={}', self._run)
@@ -409,7 +409,7 @@ class SubscriptionClient(threading.Thread):
             for subscription in current_subscriptions:
                 try:
                     subscription.unsubscribe()
-                except:
+                except Exception:
                     self._logger.warn('unsubscribe error: {}\n call stack:{} ', traceback.format_exc(),
                                       traceback.format_stack())
 
@@ -488,7 +488,7 @@ class SOAPNotificationsDispatcherThreaded(SOAPNotificationsDispatcher):
             func, request, action = self._queue.get()
             try:
                 func(request)
-            except:
+            except Exception:
                 self._logger.error(
                     'method {} for action "{}" failed:{}'.format(func.__name__, action, traceback.format_exc()))
 
@@ -505,7 +505,7 @@ class SOAPNotificationsHandler(HTTPRequestHandler):
         response_string = ''
         if dispatcher is None:
             # close this connection
-            self.close_connection = 1
+            self.close_connection = True  # pylint: disable=attribute-defined-outside-init
             self.server.thread_obj.logger.warn(
                 'received a POST request, but no dispatcher => returning 404 ')  # pylint:disable=protected-access
             self.send_response(404)  # not found

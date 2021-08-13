@@ -117,8 +117,7 @@ class TestDeviceWaveform(unittest.TestCase):
                                               annotated_handles=(HANDLES[0], HANDLES[1], HANDLES[2]))
         
         self.wsDiscovery = mockstuff.MockWsDiscovery(['5.6.7.8'])
-        uuid = None # let device create one
-        self.sdcDevice = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, uuid, self._model, self._device, self.mdib)
+        self.sdcDevice = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, self._model, self._device, self.mdib)
         self.sdcDevice.start_all()
         testSubscr = mockstuff.TestDevSubscription(self.sdcDevice.mdib.sdc_definitions.Actions.Waveform, self.sdcDevice.mdib.biceps_schema)
         self.sdcDevice.subscriptions_manager._subscriptions. add_object(testSubscr)

@@ -17,10 +17,12 @@ from enum import Enum
 from http.client import HTTPConnection, HTTPSConnection, RemoteDisconnected
 from typing import Any
 from typing import Iterable
-from sdc11073.commlog import get_communication_logger
 
 # pylint: disable=no-name-in-module
 from lxml.etree import ETCompatXMLParser, QName, Element, SubElement, tostring, fromstring
+
+from sdc11073.commlog import get_communication_logger
+
 # pylint: enable=no-name-in-module
 
 try:
@@ -581,7 +583,7 @@ def _parse_envelope(data, ip_addr, logger):
             env.x_addrs = _parse_xaddrs(msg_node)
             env.metadata_version = _parse_metadata_version(msg_node)
             return env
-    except:
+    except:  # pylint: disable=bare-except
         logger.error('Parse Error %s:', traceback.format_exc())
         logger.error('parsed data is from %r, data: %r:', ip_addr, data)
     return None
@@ -600,6 +602,7 @@ def _create_message(env):
         return _create_hello_message(env)
     if env.action == ACTION_BYE:
         return _create_bye_message(env)
+    raise RuntimeError(f'do not know how to handle action {env.action}')
 
 
 def _create_probe_message(env):
@@ -741,10 +744,7 @@ class _AddressMonitorThread(threading.Thread):
             self._wsd._network_address_removed(address)
 
         for address in new:
-            try:
-                self._wsd._network_address_added(address)
-            except:
-                self._logger.warning(traceback.format_exc())
+            self._wsd._network_address_added(address)
         self._addresses = addresses
 
     def run(self):
@@ -885,7 +885,7 @@ class _NetworkingThread:
         while not self._quit_recv_event.is_set():
             try:
                 self._recv_messages()
-            except:
+            except:  # pylint: disable=bare-except
                 if not self._quit_recv_event.is_set():  # only log error if it does not happen during stop
                     self._logger.error('_run_recv:%s', traceback.format_exc())
 
@@ -897,7 +897,7 @@ class _NetworkingThread:
                         sock_name = _sock.getsockname()
                         if addr[1] == sock_name[1]:  # compare ports
                             return True
-                    except:  # port is not opened
+                    except OSError:  # port is not opened
                         continue
         return False
 
@@ -1602,7 +1602,7 @@ class WSDiscoveryBase:
             self._networking_thread.add_source_addr(address)
             for service in self._local_services.values():
                 self._send_hello(service)
-        except:
+        except:  # pylint: disable=bare-except
             self._logger.warning('error in network Address "%s" Added: %s', address, traceback.format_exc())
 
     def _network_address_removed(self, addr):

@@ -152,21 +152,18 @@ class SdcClient:
 
     SSL_CIPHERS = None  # None : use SSL default
 
-    def __init__(self, device_location, sdc_definitions, validate=True, ssl_events='auto', ssl_context=None,
-                 my_ipaddress=None, ident='',
+    def __init__(self, device_location, sdc_definitions, ssl_context, validate=True,
+                 ident='',
                  specific_components=None,
                  chunked_requests=False):  # pylint:disable=too-many-arguments
         '''
         @param device_location: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         @param sdc_definitions: a class derived from BaseDefinitions
-        @param ssl_events: define if HTTP server of client uses https
-             ssl_events='auto': use https if Xaddress of device is https
-             ssl_events=True: always use https
-             ssl_events=False: use only http
-        @param ssl_context: if not None, this context is used. Otherwise a sSSLContext is automatically generated.
-        @param my_ipAddress: This address is used for the http server that receives notifications.
+        @param ssl_context: used for ssl connection to device and for own HTTP Server (notifications receiver)
              If value is None, best own address is determined automatically (recommended).
         '''
+        if not device_location.startswith('http'):
+            raise ValueError('Invalid device_location, it must be match http(s)://<netloc> syntax')
         self._device_location = device_location
         self.sdc_definitions = sdc_definitions
         self._components = copy.deepcopy(sdc_definitions.DefaultSdcClientComponents)
@@ -180,14 +177,10 @@ class SdcClient:
 
         self.log_prefix = ident or ''
         self.chunked_requests = chunked_requests
-        self._ssl_events = ssl_events
         # self._setup_logging(log_level)
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
         self._logger_wf = loghelper.get_logger_adapter('sdc.client.wf', self.log_prefix)  # waveform logger
-        if my_ipaddress is None:
-            self._my_ipaddress = self._find_best_own_ip_address()
-        else:
-            self._my_ipaddress = my_ipaddress
+        self._my_ipaddress = self._find_best_own_ip_address()
         self._logger.info('SdcClient for {} uses own IP Address {}', self._device_location, self._my_ipaddress)
         self.metadata = None
         self.host_description = None
@@ -239,7 +232,10 @@ class SdcClient:
     def _find_best_own_ip_address(self):
         my_addresses = [conn.ip for conn in netconn.get_network_adapter_configs() if conn.ip not in (None, '0.0.0.0')]
         splitted = urllib.parse.urlsplit(self._device_location)
-        sort_ip_addresses(my_addresses, splitted.hostname)
+        device_addr = splitted.hostname
+        if device_addr is None:
+            device_addr = splitted.netloc.split(':')[0]  # without port
+        sort_ip_addresses(my_addresses, device_addr)
         return my_addresses[0]
 
     def _subscribe(self, dpws_hosted, actions, callback):
@@ -491,12 +487,7 @@ class SdcClient:
                    self.sdc_definitions, self._biceps_schema, self.log_prefix)
 
     def _start_event_sink(self, async_dispatch):
-        if self._ssl_events == 'auto':
-            ssl_context = self._ssl_context if self._device_uses_https else None
-        elif self._ssl_events:  # True
-            ssl_context = self._ssl_context
-        else:  # False
-            ssl_context = None
+        ssl_context = self._ssl_context if self._device_uses_https else None
 
         # create Event Server
         notifications_receiver_class = self._components['NotificationsReceiverClass']  # tread
@@ -648,18 +639,15 @@ class SdcClient:
                                                  self._device_location)
 
     @classmethod
-    def from_wsd_service(cls, wsd_service, validate=True, ssl_events='auto',
-                         ssl_context=None, my_ipaddress=None,
-                         ident='', specific_components=None):
+    def from_wsd_service(cls, wsd_service, ssl_context, validate=True, ident='', specific_components=None):
         device_locations = wsd_service.get_x_addrs()
         if not device_locations:
             raise RuntimeError('discovered Service has no address!{}'.format(wsd_service))
         device_location = device_locations[0]
         for _q_name in wsd_service.types:
             q_name = etree_.QName(_q_name.namespace, _q_name.localname)
-            for protocol in ProtocolsRegistry.protocols:
-                if protocol.ns_matches(q_name):
-                    return cls(device_location, sdc_definitions=protocol, validate=validate, ssl_events=ssl_events,
-                               ssl_context=ssl_context, my_ipaddress=my_ipaddress, ident=ident,
-                               specific_components=specific_components)
+            for sdc_definition in ProtocolsRegistry.protocols:
+                if sdc_definition.ns_matches(q_name):
+                    return cls(device_location, sdc_definition, ssl_context, validate=validate,
+                               ident=ident, specific_components=specific_components)
         raise RuntimeError('no matching protocol definition found for this service!')

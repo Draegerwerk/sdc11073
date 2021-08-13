@@ -62,9 +62,8 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
         self.wsDiscovery = sdc11073.wsdiscovery.WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsDiscovery.start()
-        my_uuid = None # let device create one
         mdib_d10 = sdc11073.mdib.DeviceMdibContainer.from_mdib_file(os.path.join(mdibFolder, '70041_MDIB_Final.xml'))
-        self.sdcDevice_d10 = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, my_uuid, self._model, self._device, mdib_d10)
+        self.sdcDevice_d10 = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, self._model, self._device, mdib_d10)
         self.sdcDevice_d10.start_all(periodic_reports_interval=1.0)
         self._allDevices = (self.sdcDevice_d10,)
 

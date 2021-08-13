@@ -595,7 +595,8 @@ class SubscriptionsManager:
                 #     subscr.send_notification_end_message(action)
             self._subscriptions.clear()
 
-    def _mk_descriptor_updates_report_part(self, parent_node, modification_type, descriptors, updated_states):
+    @staticmethod
+    def _mk_descriptor_updates_report_part(parent_node, modification_type, descriptors, updated_states):
         """ Helper that creates ReportPart."""
         # This method creates one ReportPart for every descriptor.
         # An optimization is possible by grouping all descriptors with the same parent handle into one ReportPart.
@@ -685,7 +686,7 @@ class SubscriptionsManager:
                 unreachable_netlocs.append(invalid_subscription.soap_client.netloc)
                 try:
                     invalid_subscription.soap_client.close()
-                except:
+                except OSError:
                     self._logger.error('error in soap client.close(): {}', traceback.format_exc())
 
             self._logger.info('deleting {}, errors={}', invalid_subscription,

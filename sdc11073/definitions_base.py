@@ -42,6 +42,9 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     DefaultSdcClientComponents = None
     MDPWSNameSpace = None
 
+    get_descriptor_container_class = None
+    get_state_container_class = None
+
     @classmethod
     def ns_matches(cls, namespace):
         """ This method checks if this definition set is the correct one for a given namespace"""
@@ -98,6 +101,7 @@ class SchemaValidators:
         self.eventing_schema = self._mk_schema(schema_paths.EventingSchemaFile)
         self.soap12_schema = self._mk_schema(schema_paths.SoapEnvelopeSchemaFile)
         self.dpws_schema = self._mk_schema(schema_paths.DPWSSchemaFile)
+        self.wsdl_schema = self._mk_schema(schema_paths.WSDLSchemaFile)
 
     def __str__(self):
         return '{} {}'.format(self.__class__.__name__, self._definitions.__name__)

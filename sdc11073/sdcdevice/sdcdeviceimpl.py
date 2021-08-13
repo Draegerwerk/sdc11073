@@ -1,13 +1,15 @@
 import copy
+from typing import List
 
 from .. import pmtypes
+from ..location import SdcLocation
 
 
 class SdcDevice:
     defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extension_string='System'),)
 
-    def __init__(self, ws_discovery, my_uuid, model, device, device_mdib_container, validate=True, roleProvider=None,
-                 ssl_context=None,
+    def __init__(self, ws_discovery, model, device, device_mdib_container, my_uuid=None,
+                 validate=True, roleProvider=None, ssl_context=None,
                  max_subscription_duration=7200, log_prefix='', specific_components=None,
                  chunked_messages=False):  # pylint:disable=too-many-arguments
         # ssl protocol handling itself is delegated to a handler.
@@ -27,7 +29,9 @@ class SdcDevice:
         self._mdib = device_mdib_container
         self._location = None
 
-    def set_location(self, location, validators=defaultInstanceIdentifiers, publish_now=True):
+    def set_location(self, location: SdcLocation,
+                     validators: List[pmtypes.InstanceIdentifier] = defaultInstanceIdentifiers,
+                     publish_now: bool = True):
         '''
         @param location: a pysdc.location.SdcLocation instance
         @param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
@@ -55,7 +59,8 @@ class SdcDevice:
         """
         scopes = self._handler.mk_scopes()
         x_addrs = self.get_xaddrs()
-        self._wsdiscovery.publish_service(self.epr, self._mdib.sdc_definitions.MedicalDeviceTypesFilter, scopes, x_addrs)
+        self._wsdiscovery.publish_service(self.epr, self._mdib.sdc_definitions.MedicalDeviceTypesFilter, scopes,
+                                          x_addrs)
 
     @property
     def shall_validate(self):

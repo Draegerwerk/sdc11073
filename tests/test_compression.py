@@ -54,7 +54,7 @@ class Test_Compression(unittest.TestCase):
         xAddr = self.sdcDevice_Final.get_xaddrs()
         self.sdcClient_Final = SdcClient(xAddr[0],
                                          sdc_definitions=self.sdcDevice_Final.mdib.sdc_definitions,
-                                         #deviceType=self.sdcDevice_Final.mdib.sdc_definitions.MedicalDeviceType
+                                         ssl_context=None,
                                          )
         if compressionFlag is None:
             self.sdcClient_Final.set_used_compression()

@@ -44,8 +44,9 @@ class Test_Device_PeriodicReports(unittest.TestCase):
 
         xAddr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcClient(xAddr[0],
-                          sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                          validate=CLIENT_VALIDATE)
+                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                    ssl_context=None,
+                                    validate=CLIENT_VALIDATE)
 
         print ('############### setUp done {} ##############'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))

@@ -46,6 +46,9 @@ class _TransactionBase:
             new_state_container.increment_state_version()
         return old_state_container, new_state_container
 
+    @property
+    def error(self):
+        return self._error
 
 def tr_method_wrapper(method):
     """a decorator for consistency checks and error handling"""

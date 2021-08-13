@@ -20,6 +20,7 @@ _wsdl_part = etree_.QName(_wsdl_ns, 'part')
 _wsdl_operation = etree_.QName(_wsdl_ns, 'operation')
 
 _WSP_NS = 'http://www.w3.org/ns/ws-policy'
+_MDPWS_NS = 'http://www.w3.org/ns/ws-policy'
 _WSP_PREFIX = 'wsp'
 
 # DiscoveryType, only used in SDC
@@ -228,9 +229,9 @@ class DPWSHostedService(EventService):
         return self._wsdl_string
 
     def _mk_wsdl_string(self):
-        biceps_schema = self._sdc_device.mdib.biceps_schema
         sdc_definitions = self._sdc_device.mdib.sdc_definitions
-        my_nsmap = Prefixes.partial_map(Prefixes.MSG, Prefixes.PM, Prefixes.WSA, Prefixes.WSE, Prefixes.DPWS)
+        my_nsmap = Prefixes.partial_map(
+            Prefixes.MSG, Prefixes.PM, Prefixes.WSA, Prefixes.WSE, Prefixes.DPWS, Prefixes.MDPWS)
         my_nsmap['tns'] = Prefixes.SDC.namespace
         my_nsmap['dt'] = _DISCOVERY_TYPE_NS
         porttype_prefix = 'tns'
@@ -259,10 +260,11 @@ class DPWSHostedService(EventService):
             sub_dispatcher.add_wsdl_port_type(wsdl_definitions)
         for sub_dispatcher in self._sub_dispatchers:
             sub_dispatcher.add_wsdl_binding(wsdl_definitions, porttype_prefix)
-
+        self._mdib.biceps_schema.wsdl_schema.assertValid(wsdl_definitions)
         return sdc_definitions.denormalize_xml_text(etree_.tostring(wsdl_definitions))
 
-    def _remove_annotations(self, root_node):
+    @staticmethod
+    def _remove_annotations(root_node):
         remove_annotations_string = b'''<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                                       xmlns:xs="http://www.w3.org/2001/XMLSchema">
           <xsl:output method="xml" indent="yes"/>
@@ -420,7 +422,7 @@ class DPWSPortTypeImpl(SOAPActionDispatcher):
                                                  'type': '{}:{}'.format(porttype_prefix, self.port_type_string)})
         etree_.SubElement(wsdl_binding, etree_.QName(_WSDL_S12, 'binding'),
                           attrib={'style': 'document', 'transport': 'http://schemas.xmlsoap.org/soap/http'})
-        # ToDo: wsp:policy?
+        _add_policy_dpws_profile(wsdl_binding)
         for wsdl_op in self.WSDLOperationBindings:
             wsdl_operation = etree_.SubElement(wsdl_binding, etree_.QName(_wsdl_ns, 'operation'),
                                                attrib={'name': wsdl_op.name})
@@ -434,7 +436,6 @@ class DPWSPortTypeImpl(SOAPActionDispatcher):
             if wsdl_op.output is not None:
                 wsdl_output = etree_.SubElement(wsdl_operation, etree_.QName(_wsdl_ns, 'output'))
                 etree_.SubElement(wsdl_output, etree_.QName(_WSDL_S12, 'body'), attrib={'use': wsdl_op.output})
-        _add_policy_dpws_profile(wsdl_binding)
 
 
 def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_message_name, fault):
@@ -448,7 +449,7 @@ def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_m
                           attrib={'message': '{}:{}'.format('tns', output_message_name),
                                   })
     if fault is not None:
-        fault_name, message_name, action = fault  # unpack 3 parameters
+        fault_name, message_name, _ = fault  # unpack 3 parameters
         etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'fault'),
                           attrib={'name': fault_name,
                                   'message': '{}:{}'.format('tns', message_name),
@@ -551,7 +552,7 @@ class GetService(DPWSPortTypeImpl):
         self._logger.debug('_on_get_mdib returns {}', lambda: response_envelope.as_xml(pretty=False))
         try:
             response_envelope.validate_body(self._bmm_schema)
-        except Exception as ex:
+        except Exception:
             self._logger.error('_on_get_mdib: invalid body:{}', traceback.format_exc())
             raise
         return response_envelope
@@ -582,13 +583,13 @@ class GetService(DPWSPortTypeImpl):
         add wsdl:portType node to parent_node.
         xml looks like this:
         <wsdl:portType name="GetService" dpws:DiscoveryType="dt:ServiceProvider">
+          <wsp:Policy>
+            <dpws:Profile wsp:Optional="true"/>
+          </wsp:Policy>
           <wsdl:operation name="GetMdState">
             <wsdl:input message="msg:GetMdState"/>
             <wsdl:output message="msg:GetMdStateResponse"/>
           </wsdl:operation>
-          <wsp:Policy>
-            <dpws:Profile wsp:Optional="true"/>
-          </wsp:Policy>
           ...
         </wsdl:portType>
         :param parent_node:

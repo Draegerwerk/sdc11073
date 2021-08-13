@@ -165,7 +165,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             devices_dispatcher = self.server.dispatcher
             if devices_dispatcher is None:
                 # close this connection
-                self.close_connection = 1  # pylint: disable=attribute-defined-outside-init
+                self.close_connection = True  # pylint: disable=attribute-defined-outside-init
                 response_xml_string = b'received a POST request, but have no dispatcher'
                 self.send_response(404)  # not found
             else:

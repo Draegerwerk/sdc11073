@@ -4,10 +4,10 @@ from lxml import etree as etree_
 
 from .sdcservicesimpl import DPWSPortTypeImpl
 from .sdcservicesimpl import WSDLMessageDescription, WSDLOperationBinding
-from .sdcservicesimpl import _wsdl_ns, mk_wsdl_two_way_operation
+from .sdcservicesimpl import mk_wsdl_two_way_operation
 from .. import pysoap
 from ..namespaces import Prefixes
-from ..namespaces import msgTag, dpwsTag, nsmap
+from ..namespaces import msgTag, nsmap
 
 _msg = Prefixes.MSG.prefix
 

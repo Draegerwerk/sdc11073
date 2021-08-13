@@ -278,7 +278,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 for obj in self.context_states.objects:
                     if obj.Handle not in devices_context_state_handles:
                         self.context_states.remove_object_no_lock((obj))
-        except:
+        except Exception:
             self._logger.error(traceback.format_exc())
 
     def _get_context_states(self, handles=None):
@@ -295,7 +295,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             self._logger.debug('_get_context_states: setting _context_mdib_version to {}', self._context_mdib_version)
 
             self._logger.debug('got {} context states', len(context_state_containers))
-            with self.context_states._lock:  # pylint: disable=protected-access
+            with self.context_states.lock:
                 for state_container in context_state_containers:
                     old_state_containers = self.context_states.handle.get(state_container.Handle, [])
                     if len(old_state_containers) == 0:
@@ -315,7 +315,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         txt = ', '.join([str(x) for x in old_state_containers])
                         self._logger.error('found {} objects: {}', len(old_state_containers), txt)
 
-        except:
+        except Exception:
             self._logger.error(traceback.format_exc())
         finally:
             self._logger.info('_get_context_states done')

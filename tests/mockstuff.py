@@ -97,7 +97,7 @@ class SomeDevice(SdcDevice):
     """A device used for unit tests
 
     """
-    def __init__(self, wsdiscovery, my_uuid, mdib_xml_string,
+    def __init__(self, wsdiscovery, mdib_xml_string, my_uuid=None,
                  validate=True, ssl_context=None, log_prefix='',
                  chunked_messages=False):
         model = DPWSThisModel(manufacturer='Draeger CoC Systems',
@@ -117,9 +117,8 @@ class SomeDevice(SdcDevice):
         mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(model.model_name[None]))
         mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')
         mdsDescriptor.MetaData.ModelNumber = '0.99'
-        super(SomeDevice, self).__init__(wsdiscovery, my_uuid, model, device, device_mdib_container, validate,
-                                         # registerDefaultOperations=True,
-                                         ssl_context=ssl_context,log_prefix=log_prefix,
+        super(SomeDevice, self).__init__(wsdiscovery, model, device, device_mdib_container, my_uuid, validate,
+                                         ssl_context=ssl_context, log_prefix=log_prefix,
                                          chunked_messages=chunked_messages)
 
     @classmethod
@@ -134,5 +133,5 @@ class SomeDevice(SdcDevice):
 
         with open(mdib_xml_path, 'rb') as f:
             mdib_xml_string = f.read()
-        return cls(wsdiscovery, my_uuid, mdib_xml_string, validate, ssl_context, log_prefix=log_prefix,
+        return cls(wsdiscovery, mdib_xml_string, my_uuid, validate, ssl_context, log_prefix=log_prefix,
                    chunked_messages=chunked_messages)

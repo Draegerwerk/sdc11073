@@ -108,6 +108,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         xAddr = self.sdcDevice_Final.get_xaddrs()
         self.sdcClient_Final = SdcClient(xAddr[0],
                                          sdc_definitions=self.sdcDevice_Final.mdib.sdc_definitions,
+                                         ssl_context=None,
                                          validate=CLIENT_VALIDATE)
         self.sdcClient_Final.start_all(subscribe_periodic_reports=True)
 
@@ -769,7 +770,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         # first we need to add a set_metric_state Operation
         scoDescriptors = sdcDevice.mdib.descriptions.NODETYPE.get(namespaces.domTag('ScoDescriptor'))
-        cls = sdcDevice.mdib.get_descriptor_container_class(namespaces.domTag('SetMetricStateOperationDescriptor'))
+        cls = sdcDevice.mdib.sdc_definitions.get_descriptor_container_class(
+            namespaces.domTag('SetMetricStateOperationDescriptor'))
         myCode = pmtypes.CodedValue(99999)
         setMetricStateOperationDescriptorContainer = sdcDevice.mdib._create_descriptor_container(
             cls, 'HANDLE_FOR_MY_TEST', scoDescriptors[0].handle, myCode, pmtypes.SafetyClassification.INF)
@@ -808,7 +810,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         operationtarget_handle = '2.1.2.1'  # a channel
         # first we need to add a set_component_state Operation
         scoDescriptors = sdcDevice.mdib.descriptions.NODETYPE.get(namespaces.domTag('ScoDescriptor'))
-        cls = sdcDevice.mdib.get_descriptor_container_class(namespaces.domTag('SetComponentStateOperationDescriptor'))
+        cls = sdcDevice.mdib.sdc_definitions.get_descriptor_container_class(
+            namespaces.domTag('SetComponentStateOperationDescriptor'))
         myCode = pmtypes.CodedValue(99999)
         setComponentStateOperationDescriptorContainer = sdcDevice.mdib._create_descriptor_container(cls,
                                                                                                   'HANDLE_FOR_MY_TEST',
@@ -1047,7 +1050,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(sdcClient, 'description_modification_report')
             new_handle = 'a_generated_descriptor'
             node_name = namespaces.domTag('NumericMetricDescriptor')
-            cls = sdcDevice.mdib.get_descriptor_container_class(node_name)
+            cls = sdcDevice.mdib.sdc_definitions.get_descriptor_container_class(node_name)
             with sdcDevice.mdib.transaction_manager() as mgr:
                 newDescriptorContainer = cls(nsmapper=sdcDevice.mdib.nsmapper,
                                              handle=new_handle,
@@ -1394,6 +1397,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         xAddr = self.sdcDevice_1.get_xaddrs()
         self.sdcClient_1 = SdcClient(xAddr[0],
                                      sdc_definitions=self.sdcDevice_1.mdib.sdc_definitions,
+                                     ssl_context=None,
                                      validate=CLIENT_VALIDATE,
                                      ident='<Draft6> ')
         self.sdcClient_1.start_all()
@@ -1401,6 +1405,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         xAddr = self.sdcDevice_2.get_xaddrs()
         self.sdcClient_2 = SdcClient(xAddr[0],
                                      sdc_definitions=self.sdcDevice_2.mdib.sdc_definitions,
+                                     ssl_context=None,
                                      validate=CLIENT_VALIDATE,
                                      ident='<Final> ')
         self.sdcClient_2.start_all()
@@ -1489,7 +1494,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         xAddr = self.sdcDevice_Final.get_xaddrs()
         self.sdcClient_Final = SdcClient(xAddr[0],
                                          sdc_definitions=self.sdcDevice_Final.mdib.sdc_definitions,
-                                         # deviceType=self.sdcDevice_Final.mdib.sdc_definitions.MedicalDeviceType,
+                                         ssl_context=None,
                                          validate=CLIENT_VALIDATE,
                                          ident='<Final> ',
                                          chunked_requests=True)

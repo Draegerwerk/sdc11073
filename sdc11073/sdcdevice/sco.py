@@ -123,10 +123,8 @@ class ScoOperationsRegistry:
         else:
             self._logger.info('not found Sco node in mds, creating it')
             # create sco and add to mdib
-            cls = mdib.get_descriptor_container_class(domTag('ScoDescriptor'))
+            cls = mdib.sdc_definitions.get_descriptor_container_class(domTag('ScoDescriptor'))
             self._mds_sco_descriptor_container = cls(mdib.nsmapper, self._handle, mds_descriptor_container.handle)
-            # self._mds_sco_descriptor_container = mdib_.descriptorcontainers.ScoDescriptorContainer(
-            #     mdib.nsmapper, self._handle, mdsDescriptorContainer.handle)
             mdib.descriptions.add_object(self._mds_sco_descriptor_container)
 
     def register_operation(self, operation, sco_descriptor_container=None):
@@ -233,7 +231,7 @@ class OperationDefinition:
             # there is already a descriptor
             self._logger.info('descriptor for operation "{}" is already present, re-using it'.format(self._handle))
         else:
-            cls = mdib.get_descriptor_container_class(self.OP_DESCR_QNAME)
+            cls = mdib.sdc_definitions.get_descriptor_container_class(self.OP_DESCR_QNAME)
             self._descriptor_container = cls(
                 mdib.nsmapper, self._handle, parent_descriptor_container.handle)
             self._init_operation_descriptor_container()
@@ -244,7 +242,7 @@ class OperationDefinition:
             self._logger.info('operation state for operation "{}" is already present, re-using it'.format(self._handle))
             self._operation_state_container.set_node_member()
         else:
-            cls = mdib.get_state_container_class(self.OP_STATE_QNAME)
+            cls = mdib.sdc_definitions.get_state_container_class(self.OP_STATE_QNAME)
             self._operation_state_container = cls(mdib.nsmapper, self._descriptor_container)
             self._operation_state_container.set_node_member()
             mdib.states.add_object(self._operation_state_container)

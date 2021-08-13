@@ -12,6 +12,6 @@ from . import compression
 
 try:
     from . import version
-    __version__ = version.version
+    __version__ = version.VERSION
 except ImportError:
     __version__ = '0.0.0'

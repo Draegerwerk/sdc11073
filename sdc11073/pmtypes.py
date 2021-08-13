@@ -29,9 +29,9 @@ class PropertyBasedPMType:
         for prop_name, prop in self.sorted_container_properties():
             try:
                 prop.update_xml_value(self, node)
-            except Exception as ex:
-                raise RuntimeError('In {}.{}, {} could not update: {}'.format(
-                    self.__class__.__name__, prop_name, str(prop), traceback.format_exc()))
+            except Exception:
+                raise RuntimeError(
+                    f'In {self.__class__.__name__}.{prop_name}, {str(prop)} could not update: {traceback.format_exc()}')
 
     def update_from_node(self, node):
         for dummy, prop in self.sorted_container_properties():
@@ -52,7 +52,7 @@ class PropertyBasedPMType:
         for cls in reversed(classes):
             try:
                 names = cls._props  # pylint: disable=protected-access
-            except:
+            except AttributeError:
                 continue
             for name in names:
                 obj = getattr(cls, name)

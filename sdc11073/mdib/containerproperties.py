@@ -626,6 +626,14 @@ class _ElementListProperty(_NodeProperty):
     def init_instance_data(self, instance):
         setattr(instance, self._local_var_name, [])
 
+    def get_py_value_from_node(self, instance, node):
+        # still not implemented here, to be defined in derived classes
+        raise NotImplementedError
+
+    def update_xml_value(self, instance, node):
+        # still not implemented here, to be defined in derived classes
+        raise NotImplementedError
+
 
 class SubElementListProperty(_ElementListProperty):
     """ a list of values that have an "as_etree_node" method. Used if maxOccurs="Unbounded" in BICEPS_ParticipantModel"""

@@ -1,14 +1,14 @@
 import time
 import traceback
 from threading import Lock
-
+from typing import Type, List
 from lxml import etree as etree_
 
 from .. import multikey
 from .. import observableproperties as properties
-from .. import pmtypes
+from ..pmtypes import CodedValue, DEFAULT_CODING_SYSTEM, Coding
 from ..namespaces import DocNamespaceHelper, msgTag, domTag
-from ..definitions_base import SchemaValidators
+from ..definitions_base import SchemaValidators, BaseDefinitions
 from ..etc import apply_map
 
 class RtSampleContainer:
@@ -174,7 +174,7 @@ class MdibContainer:
     sequence_id = properties.ObservableProperty()
 
 
-    def __init__(self, sdc_definitions):
+    def __init__(self, sdc_definitions: Type[BaseDefinitions]):
         """
         @param sdc_definitions: a class derived from Definitions_Base
         """
@@ -213,17 +213,17 @@ class MdibContainer:
 
     def add_description_containers(self, description_containers):
         """ init self.descriptions with provided descriptors
-        @param description_containers: a list od DescriptionStateContainer objects
+        @param description_containers: a list of DescriptorContainer objects
         """
         new_descriptor_by_handle = {}
-        with self.descriptions._lock:  # pylint: disable=protected-access
+        with self.descriptions.lock:
             for description_container in description_containers:
                 self.descriptions.add_object_no_lock(description_container)
                 new_descriptor_by_handle[description_container.handle] = description_container
 
         # finally update observable property
         if new_descriptor_by_handle:
-            self.new_descriptor_by_handle = new_descriptor_by_handle  # pylint: disable=invalid-name
+            self.new_descriptor_by_handle = new_descriptor_by_handle
 
     def clear_states(self):
         """removes all states and context states. """
@@ -374,12 +374,15 @@ class MdibContainer:
                                       encoding=encoding)
         return self.sdc_definitions.denormalize_xml_text(mdib_string)
 
-    def get_metric_descriptor_by_code(self, vmd_code, channel_code, metric_code):
+    def get_metric_descriptor_by_code(self,
+                                      vmd_code: [Coding, CodedValue],
+                                      channel_code: [Coding, CodedValue],
+                                      metric_code: [Coding, CodedValue]):
         """ This is the "correct" way to find an descriptor.
         Using well known handles is shaky, because they have no meaning and can change over time!
-        @param vmdCode: a pmtypes.CodedValue or a pmtypes.Coding instance
-        @param channelCode: a pmtypes.CodedValue or a pmtypes.Coding instance
-        @param metricCode: a pmtypes.CodedValue or a pmtypes.Coding instance
+        @param vmd_code: a CodedValue or a Coding instance
+        @param channel_code: a CodedValue or a Coding instance
+        @param metric_code: a CodedValue or a Coding instance
         """
         vmd_coding = vmd_code.coding if hasattr(vmd_code, 'coding') else vmd_code
         channel_coding = channel_code.coding if hasattr(channel_code, 'coding') else channel_code
@@ -404,12 +407,15 @@ class MdibContainer:
                                                                                             metric_coding))
         return all_metrics[0]
 
-    def get_operations_for_metric(self, vmd_code, channel_code, metric_code):
+    def get_operations_for_metric(self,
+                                  vmd_code: [Coding, CodedValue],
+                                  channel_code: [Coding, CodedValue],
+                                  metric_code: [Coding, CodedValue]):
         """ This is the "correct" way to find an operation.
         Using well known handles is shaky, because they have no meaning and can change over time!
-        @param vmd_code: a pmtypes.CodedValue or a pmtypes.Coding instance
-        @param channel_code: a pmtypes.CodedValue or a pmtypes.Coding instance
-        @param metric_code: a pmtypes.CodedValue or a pmtypes.Coding instance
+        @param vmd_code: a CodedValue or a Coding instance
+        @param channel_code: a CodedValue or a Coding instance
+        @param metric_code: a CodedValue or a Coding instance
         @return: a list of matching Operation Containers
         """
         descriptor_container = self.get_metric_descriptor_by_code(vmd_code, channel_code, metric_code)
@@ -428,22 +434,12 @@ class MdibContainer:
             my_operations = [op for op in my_operations if getattr(op, key) == value]
         return my_operations
 
-    def get_state_container_class(self, qname_type):
-        """
-        @param qname_type: a QName instance
-        """
-        # cls = self.biceps_schema.get_state_container_class(qNameType)
-        cls = self.sdc_definitions.sc.get_container_class(qname_type)
-        if cls is None:
-            self._logger.warn('No class for type={}; using AbstractStateContainer', str(qname_type))
-            cls = self.sdc_definitions.sc.AbstractStateContainer
-        return cls
-
     def get_state_class_for_descriptor(self, descriptor_container):
         state_class_qtype = descriptor_container.STATE_QNAME
         if state_class_qtype is None:
             raise TypeError('No state association for {}'.format(descriptor_container.__class__.__name__))
-        return self.get_state_container_class(state_class_qtype)
+        return self.sdc_definitions.get_state_container_class(state_class_qtype)
+        # return self.get_state_container_class(state_class_qtype)
 
     def mk_state_container_from_descriptor(self, descriptor_container):
         cls = self.get_state_class_for_descriptor(descriptor_container)
@@ -470,17 +466,6 @@ class MdibContainer:
             result.extend(self.descriptions.NODETYPE.get(domTag(node_type), []))
         return result
 
-    def get_descriptor_container_class(self, qname_type):
-        """
-        @param qname_type: a QName instance
-        """
-        cls = self.sdc_definitions.dc.get_container_class(qname_type)
-        if cls is None:
-            self._logger.warn('No class for type={}; using AbstractDescriptorContainer',
-                              str(qname_type))
-            raise RuntimeError('No class for type={}; using AbstractDescriptorContainer'.format(str(qname_type)))
-        return cls
-
     def select_descriptors(self, *codings):
         """ Returns all descriptor containers that match a path defined by list of codings.
         example:
@@ -502,7 +487,7 @@ class MdibContainer:
 
             # normalize coding
             if isinstance(coding, str):
-                coding = pmtypes.CodedValue(coding, pmtypes.DEFAULT_CODING_SYSTEM).coding
+                coding = CodedValue(coding, DEFAULT_CODING_SYSTEM).coding
             elif hasattr(coding, 'coding'):
                 coding = coding.coding
 

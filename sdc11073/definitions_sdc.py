@@ -3,9 +3,8 @@ import os
 from lxml import etree as etree_
 
 from .definitions_base import BaseDefinitions
-from .definitions_base import SchemaResolver
-from .mdib import descriptorcontainers as dc_final
-from .mdib import statecontainers as sc_final
+from .mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
+from .mdib.statecontainers import get_container_class as get_state_container_class
 from .namespaces import Prefixes
 from .pysoap.msgfactory import SoapMessageFactory
 from .pysoap.msgreader import MessageReader
@@ -23,13 +22,6 @@ from .sdcdevice.sdcservicesimpl import GetService, SetService, StateEventService
 from .sdcdevice.subscriptionmgr import SubscriptionsManager
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
-
-
-# class _SchemaResolver(SchemaResolverBase):
-#     lookup_ext = {
-#         'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_ParticipantModel.xsd': 'ParticipantModelSchemaFile',
-#         'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd': 'MessageModelSchemaFile',
-#         'http://standards.ieee.org/downloads/11073/11073-10207-2017/ExtensionPoint.xsd': 'ExtensionPointSchemaFile', }
 
 
 # the following namespace definitions reflect the initial SDC standard.
@@ -141,6 +133,7 @@ class SchemaPathsSdc:
     WsAddrSchemaFile = os.path.join(schemaFolder, 'ws-addr.xsd')
     XMLSchemaFile = os.path.join(schemaFolder, 'xml.xsd')
     DPWSSchemaFile = os.path.join(schemaFolder, 'wsdd-dpws-1.1-schema-os.xsd')
+    WSDLSchemaFile = os.path.join(schemaFolder, 'wsdl.xsd')
     MessageModelSchemaFile = os.path.join(schemaFolder, 'BICEPS_MessageModel.xsd')
     ParticipantModelSchemaFile = os.path.join(schemaFolder, 'BICEPS_ParticipantModel.xsd')
     ExtensionPointSchemaFile = os.path.join(schemaFolder, 'ExtensionPoint.xsd')
@@ -165,15 +158,15 @@ class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     MessageModelNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/message'
     ParticipantModelNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/participant'
     ExtensionPointNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/extension'
-    MDPWSNameSpace = 'http://standards.ieee.org/downloads/11073/11073-20702-2016'  # this name changed between WPF and SDC! IEEE correction
+    MDPWSNameSpace = 'http://standards.ieee.org/downloads/11073/11073-20702-2016'
     MedicalDeviceType = etree_.QName(MedicalDeviceTypeNamespace, 'MedicalDevice')
     SDCDeviceType = etree_.QName(DPWS_SDCNamespace, 'SdcDevice')
     ActionsNamespace = DPWS_SDCNamespace
     PortTypeNamespace = DPWS_SDCNamespace
 
     MedicalDeviceTypesFilter = [BaseDefinitions.DpwsDeviceType, MedicalDeviceType]
-    sc = sc_final
-    dc = dc_final
+    get_descriptor_container_class = get_descriptor_container_class
+    get_state_container_class = get_state_container_class
     Actions = _SdcV1Actions
     DefaultSdcDeviceComponents = DefaultSdcDeviceComponents
     DefaultSdcClientComponents = DefaultSdcClientComponents

@@ -440,7 +440,7 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
     Retriggerable = cp.BooleanAttributeProperty('Retriggerable', implied_py_value=True)  # optional
     AccessLevel = cp.EnumAttributeProperty('AccessLevel', implied_py_value=pmtypes.T_AccessLevel.USER,
                                            enum_cls=pmtypes.T_AccessLevel)
-    _props = ('OperationTarget', 'MaxTimeToFinish', 'InvocationEffectiveTimeout', 'Retriggerable')
+    _props = ('OperationTarget', 'MaxTimeToFinish', 'InvocationEffectiveTimeout', 'Retriggerable', 'AccessLevel')
 
 
 class SetValueOperationDescriptorContainer(AbstractOperationDescriptorContainer):
