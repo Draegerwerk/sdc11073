@@ -12,7 +12,7 @@ from codecs import open
 import os
 import subprocess
 
-version = '1.1.1'
+version = '1.1.2'
 
 # create a version.py file that is
 # a) used for __version__ info
@@ -68,6 +68,7 @@ setup(
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
     ],
 
     # What does your project relate to?

@@ -410,7 +410,7 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
     Retriggerable = cp.BooleanAttributeProperty('Retriggerable', impliedPyValue=True) # optional
     #  AccessLevel can be: Usr (User), CSUsr (Clinical Super User), RO (Responsible Organization), SP (Service Personnel), Oth (Other)
     AccessLevel = cp.NodeAttributeProperty('AccessLevel', impliedPyValue='Usr')
-    _props = ('OperationTarget', 'SafetyReq', 'InvocationEffectiveTimeout', 'MaxTimeToFinish', 'Retriggerable')
+    _props = ('OperationTarget', 'SafetyReq', 'InvocationEffectiveTimeout', 'MaxTimeToFinish', 'Retriggerable', 'AccessLevel')
 
 
 class SetValueOperationDescriptorContainer(AbstractOperationDescriptorContainer):
