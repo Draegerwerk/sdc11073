@@ -100,7 +100,7 @@ class ClientRtBuffer:
         :return: a list of mdibbase.RtSampleContainer
         """
         self.last_sc = realtime_sample_array_container
-        metric_value = realtime_sample_array_container.metricValue
+        metric_value = realtime_sample_array_container.MetricValue
         if metric_value is None:
             # this can happen if metric state is not activated.
             self._logger.debug('real time sample array "{} "has no metric value, ignoring it',
@@ -412,8 +412,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     else:
                         self.states.add_object(state_container)
 
-                    if state_container.metricValue is not None:
-                        determination_time = state_container.metricValue.DeterminationTime
+                    if state_container.MetricValue is not None:
+                        determination_time = state_container.MetricValue.DeterminationTime
                         if determination_time is None:
                             self._logger.warn(
                                 '_on_episodic_metric_report: metric {} version {} has no DeterminationTime',

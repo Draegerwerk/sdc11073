@@ -178,9 +178,9 @@ class TestDeviceSubscriptions(unittest.TestCase):
             with sdcDevice.mdib.transaction_manager() as mgr:
                 #st = mgr.getMetricState(descriptorHandle)
                 st = mgr.get_state(descriptorHandle)
-                if st.metricValue is None:
+                if st.MetricValue is None:
                     st.mk_metric_value()
-                st.metricValue.Value = firstValue
+                st.MetricValue.Value = firstValue
                 st.Validity = 'Vld'
             self.assertEqual(len(testSubscr.reports), 1)
             response = testSubscr.reports[0]
@@ -361,17 +361,17 @@ class TestDeviceSubscriptions(unittest.TestCase):
             with sdcDevice.mdib.transaction_manager() as mgr:
                 # st = mgr.getMetricState(descriptorHandle)
                 st = mgr.get_state(descriptorHandle)
-                if st.metricValue is None:
+                if st.MetricValue is None:
                     st.mk_metric_value()
-                st.metricValue.Value = firstValue
-                st.metricValue.Validity = 'Vld'
+                st.MetricValue.Value = firstValue
+                st.MetricValue.Validity = 'Vld'
             with sdcDevice.mdib.transaction_manager() as mgr:
                 # st = mgr.getMetricState(descriptorHandle)
                 st = mgr.get_state(descriptorHandle)
-                if st.metricValue is None:
+                if st.MetricValue is None:
                     st.mk_metric_value()
-                st.metricValue.Value = firstValue + 1
-                st.metricValue.Validity = 'Qst'
+                st.MetricValue.Value = firstValue + 1
+                st.MetricValue.Validity = 'Qst'
 
             time.sleep(2)
             self.assertEqual(len(testEpisodicSubscr.reports), 2)

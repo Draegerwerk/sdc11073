@@ -101,8 +101,8 @@ class GenericMetricProvider(ProviderRole):
             if new_state.ActivationState in (ComponentActivation.OFF,
                                              ComponentActivation.SHUTDOWN,
                                              ComponentActivation.FAILURE):
-                if new_state.metricValue is not None:
+                if new_state.MetricValue is not None:
                     # remove metric value
                     self._logger.info('{}: remove metric value because ActivationState="{}", handle="{}"',
                                       self.__class__.__name__, new_state.ActivationState, new_state.descriptorHandle)
-                    new_state.metricValue = None
+                    new_state.MetricValue = None

@@ -118,7 +118,7 @@ class Test_Tutorial(unittest.TestCase):
         self.assertEqual(len(services), 2)  # both devices found
 
         # now search only for devices in my_location2
-        services = my_client_wsDiscovery.search_services(scopes=[Scope(self.my_location2.scope_string_sdc)],
+        services = my_client_wsDiscovery.search_services(scopes=[Scope(self.my_location2.scope_string)],
                                                         timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
 
@@ -277,9 +277,9 @@ class Test_Tutorial(unittest.TestCase):
                 self._logger.info('_handle_operation_2 called')
                 with self._mdib.transaction_manager() as mgr:
                     my_state = mgr.get_state(operation_instance.operation_target_handle)
-                    if my_state.metricValue is None:
+                    if my_state.MetricValue is None:
                         my_state.mk_metric_value()
-                    my_state.metricValue.Value = argument
+                    my_state.MetricValue.Value = argument
 
         class MyProvider2(ProviderRole):
             """ This provider handles operations with code == MY_CODE_3.
@@ -309,9 +309,9 @@ class Test_Tutorial(unittest.TestCase):
                 self._logger.info('_handle_operation_3 called')
                 with self._mdib.transaction_manager() as mgr:
                     my_state = mgr.get_state(operation_instance.operation_target_handle)
-                    if my_state.metricValue is None:
+                    if my_state.MetricValue is None:
                         my_state.mk_metric_value()
-                    my_state.metricValue.Value = argument
+                    my_state.MetricValue.Value = argument
 
         class MyProductImpl(BaseProduct):
             """This class provides all handlers of the fictional product.
@@ -382,7 +382,7 @@ class Test_Tutorial(unittest.TestCase):
             print(result)
             self.assertEqual(my_product_impl.my_provider_1.operation2_args, value)
             state = myMdib.states.descriptorHandle.get_one(op.OperationTarget)
-            self.assertEqual(state.metricValue.Value, value)
+            self.assertEqual(state.MetricValue.Value, value)
         self.assertEqual(my_product_impl.my_provider_1.operation2_called, 2)
 
         # call setValue operation
@@ -394,4 +394,4 @@ class Test_Tutorial(unittest.TestCase):
         print(result)
         self.assertEqual(my_product_impl.my_provider_2.operation3_args, 42)
         state = myMdib.states.descriptorHandle.get_one(op.OperationTarget)
-        self.assertEqual(state.metricValue.Value, 42)
+        self.assertEqual(state.MetricValue.Value, 42)

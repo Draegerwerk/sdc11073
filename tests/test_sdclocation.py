@@ -16,8 +16,7 @@ class TestSdcLocation(unittest.TestCase):
         self.assertEqual(loc.rm, None)
         self.assertEqual(loc.bld, None)
         self.assertEqual(loc.flr, None)
-        scopeString = loc.scope_string_sdc
-        self.assertEqual(loc.scope_string_sdc, expectedScopeStringSdc)
+        self.assertEqual(loc.scope_string, expectedScopeStringSdc)
 
         # this is an unusual scope with bed only plus root
         expectedScopeString = self.scheme + ':/myroot/%2F%2F%2F%2F%2FBedA500?bed=BedA500'
@@ -29,8 +28,7 @@ class TestSdcLocation(unittest.TestCase):
         self.assertEqual(loc.rm, None)
         self.assertEqual(loc.bld, None)
         self.assertEqual(loc.flr, None)
-        scopeString = loc.scope_string_sdc
-        self.assertEqual(scopeString, expectedScopeString)
+        self.assertEqual(loc.scope_string, expectedScopeString)
 
         # this is an unusual scope with all parameters and spaces in them
         expectedScopeString = self.scheme + ':/some%20where/HOSP%201%2Fabc%201%2FCU%201%2Fflr%201%2FrM%201%2FBed%20A500?room=rM+1&flr=flr+1&bed=Bed+A500&bld=abc+1&fac=HOSP+1&poc=CU+1'
@@ -43,7 +41,7 @@ class TestSdcLocation(unittest.TestCase):
         self.assertEqual(loc.bld, 'abc 1')
         self.assertEqual(loc.flr, 'flr 1')
 
-        self.assertEqual(loc, SdcLocation.from_scope_string(loc.scope_string_sdc))
+        self.assertEqual(loc, SdcLocation.from_scope_string(loc.scope_string))
 
 
     def test_fromScopeString(self):
@@ -56,7 +54,7 @@ class TestSdcLocation(unittest.TestCase):
         self.assertEqual(loc.rm, None)
         self.assertEqual(loc.bld, None)
         self.assertEqual(loc.flr, None)
-        self.assertEqual(loc.scope_string_sdc, scope_string_sdc)
+        self.assertEqual(loc.scope_string, scope_string_sdc)
 
         # correct handling of scope with %20 spaces and + char in query
         scopeString = self.scheme + ':/some%20where/HOSP%201%2Fabc%201%2FCU%201%2Fflr%201%2FrM%201%2FBed%20A500?rm=rM+1&flr=flr+1&bed=Bed+A500&bldng=abc+1&fac=HOSP+1&poc=CU+1'

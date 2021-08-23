@@ -1,9 +1,11 @@
 import unittest
+
 from lxml import etree as etree_
-from sdc11073.mdib import descriptorcontainers
+
+from sdc11073 import msgtypes
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
-from sdc11073 import msgtypes
+from sdc11073.mdib import descriptorcontainers
 
 test_tag = namespaces.domTag('MyDescriptor')
 
@@ -28,8 +30,8 @@ class TestDescriptorContainers(unittest.TestCase):
         # test creation from node
         node = dc.mk_node(test_tag)
         dc2 = descriptorcontainers.AbstractDescriptorContainer.from_node(nsmapper=self.nsmapper,
-                                                                        node=node,
-                                                                        parent_handle='467')
+                                                                         node=node,
+                                                                         parent_handle='467')
         self.assertEqual(dc2.DescriptorVersion, 0)
         self.assertEqual(dc2.SafetyClassification, 'Inf')
         self.assertEqual(dc.Type, None)
@@ -62,8 +64,8 @@ class TestDescriptorContainers(unittest.TestCase):
 
         node = dc.mk_node(test_tag)
         dc3 = descriptorcontainers.AbstractDescriptorContainer.from_node(nsmapper=self.nsmapper,
-                                                                        node=node,
-                                                                        parent_handle='467')
+                                                                         node=node,
+                                                                         parent_handle='467')
         self.assertEqual(dc3.DescriptorVersion, 42)
         self.assertEqual(dc3.SafetyClassification, 'MedA')
         self.assertEqual(dc3.Type, dc.Type)
@@ -72,7 +74,6 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc3.Extension.value[namespaces.msgTag('Whatever')].tag, ext_node.tag)
         self.assertEqual(dc3.Extension.value[namespaces.msgTag('Retrievability')], retrievability)
         self.assertEqual(dc3.retrievability, retrievability)
-
 
     def test_AbstractMetricDescriptorContainer(self):
         dc = descriptorcontainers.AbstractMetricDescriptorContainer(nsmapper=self.nsmapper,
@@ -88,8 +89,8 @@ class TestDescriptorContainers(unittest.TestCase):
         # test creation from node
         node = dc.mk_node(test_tag)
         dc2 = descriptorcontainers.AbstractMetricDescriptorContainer.from_node(nsmapper=self.nsmapper,
-                                                                              node=node,
-                                                                              parent_handle='467')
+                                                                               node=node,
+                                                                               parent_handle='467')
         self.assertEqual(dc2.MetricAvailability, 'Cont')
         self.assertEqual(dc2.MetricCategory, 'Unspec')
         self.assertEqual(dc2.DeterminationPeriod, None)
@@ -133,10 +134,9 @@ class TestDescriptorContainers(unittest.TestCase):
         dc.AllowedValue = [pmtypes.AllowedValue('abc')]
 
         node = dc.mk_node(test_tag)
-        print(etree_.tostring(node, pretty_print=True))
         dc2 = descriptorcontainers.EnumStringMetricDescriptorContainer.from_node(nsmapper=self.nsmapper,
-                                                                                node=node,
-                                                                                parent_handle='467')
+                                                                                 node=node,
+                                                                                 parent_handle='467')
         self.assertEqual(dc.AllowedValue, dc2.AllowedValue)
 
     def _cmp_AlertConditionDescriptorContainer(self, dc, dc2):
@@ -153,8 +153,8 @@ class TestDescriptorContainers(unittest.TestCase):
         # create copy with default values
         node = dc.mk_node(test_tag)
         dc2 = descriptorcontainers.AlertConditionDescriptorContainer.from_node(nsmapper=self.nsmapper,
-                                                                              node=node,
-                                                                              parent_handle='467')
+                                                                               node=node,
+                                                                               parent_handle='467')
         self._cmp_AlertConditionDescriptorContainer(dc, dc2)
 
         # set values, test updateFromNode
@@ -162,10 +162,10 @@ class TestDescriptorContainers(unittest.TestCase):
         dc.Cause = [pmtypes.CauseInfo(
             remedyInfo=pmtypes.RemedyInfo([pmtypes.LocalizedText('abc'), pmtypes.LocalizedText('def')]),
             descriptions=[pmtypes.LocalizedText('descr1'), pmtypes.LocalizedText('descr2')]),
-                    pmtypes.CauseInfo(
-                        remedyInfo=pmtypes.RemedyInfo([pmtypes.LocalizedText('123'), pmtypes.LocalizedText('456')]),
-                        descriptions=[pmtypes.LocalizedText('descr1'), pmtypes.LocalizedText('descr2')])
-                    ]
+            pmtypes.CauseInfo(
+                remedyInfo=pmtypes.RemedyInfo([pmtypes.LocalizedText('123'), pmtypes.LocalizedText('456')]),
+                descriptions=[pmtypes.LocalizedText('descr1'), pmtypes.LocalizedText('descr2')])
+        ]
         dc.Kind = pmtypes.AlertConditionKind.TECHNICAL
         dc.Priority = pmtypes.AlertConditionPriority.HIGH
         node = dc.mk_node(test_tag)
@@ -174,8 +174,8 @@ class TestDescriptorContainers(unittest.TestCase):
 
         # create copy with values set
         dc2 = descriptorcontainers.AlertConditionDescriptorContainer.from_node(nsmapper=self.nsmapper,
-                                                                              node=node,
-                                                                              parent_handle='467')
+                                                                               node=node,
+                                                                               parent_handle='467')
         self._cmp_AlertConditionDescriptorContainer(dc, dc2)
 
     def _cmp_LimitAlertConditionDescriptorContainer(self, dc, dc2):
@@ -191,8 +191,8 @@ class TestDescriptorContainers(unittest.TestCase):
         # create copy with default values
         node = dc.mk_node(test_tag)
         dc2 = descriptorcontainers.LimitAlertConditionDescriptorContainer.from_node(nsmapper=self.nsmapper,
-                                                                                   node=node,
-                                                                                   parent_handle='467')
+                                                                                    node=node,
+                                                                                    parent_handle='467')
         self._cmp_LimitAlertConditionDescriptorContainer(dc, dc2)
 
         # set values, test updateFromNode
@@ -204,8 +204,8 @@ class TestDescriptorContainers(unittest.TestCase):
 
         # create copy with values set
         dc2 = descriptorcontainers.LimitAlertConditionDescriptorContainer.from_node(nsmapper=self.nsmapper,
-                                                                                   node=node,
-                                                                                   parent_handle='467')
+                                                                                    node=node,
+                                                                                    parent_handle='467')
         self._cmp_LimitAlertConditionDescriptorContainer(dc, dc2)
 
     def test_ActivateOperationDescriptorContainer(self):
@@ -221,8 +221,8 @@ class TestDescriptorContainers(unittest.TestCase):
         # create copy with default values
         node = dc.mk_node(test_tag)
         dc2 = descriptorcontainers.ActivateOperationDescriptorContainer.from_node(nsmapper=self.nsmapper,
-                                                                                 node=node,
-                                                                                 parent_handle='456')
+                                                                                  node=node,
+                                                                                  parent_handle='456')
         _cmp_ActivateOperationDescriptorContainer(dc, dc2)
 
         dc.Argument = [pmtypes.ActivateOperationDescriptorArgument(arg_name=pmtypes.CodedValue('abc', 'def'),
@@ -230,19 +230,16 @@ class TestDescriptorContainers(unittest.TestCase):
         dc2.update_from_other_container(dc)
         _cmp_ActivateOperationDescriptorContainer(dc, dc2)
 
-    def test_ClockDescriptorContainer_Final(self):
-        self._test_ClockDescriptorContainer(cls=descriptorcontainers.ClockDescriptorContainer)
-
-    def _test_ClockDescriptorContainer(self, cls):
-        dc = cls(nsmapper=self.nsmapper,
-                 handle='123',
-                 parent_handle='456',
-                 )
+    def test_ClockDescriptorContainer(self):
+        dc = descriptorcontainers.ClockDescriptorContainer(nsmapper=self.nsmapper,
+                                                           handle='123',
+                                                           parent_handle='456',
+                                                           )
         # create copy with default values
         node = dc.mk_node(test_tag)
-        dc2 = cls.from_node(nsmapper=self.nsmapper,
-                           node=node,
-                           parent_handle='467')
+        dc2 = descriptorcontainers.ClockDescriptorContainer.from_node(nsmapper=self.nsmapper,
+                                                                      node=node,
+                                                                      parent_handle='467')
         self.assertEqual(dc.TimeProtocol, dc2.TimeProtocol)
         self.assertEqual(dc.Resolution, dc2.Resolution)
 

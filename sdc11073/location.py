@@ -23,12 +23,12 @@ class SdcLocation:
         self.rm = rm  # room
         self.bed = bed  # Bed
 
-    def mk_sdc_extension_string(self):
-        elements = self._get_sdc_extension_elements()
+    def mk_extension_string(self):
+        elements = self._get_extension_elements()
         values = [e[1] for e in elements]
         return '/'.join(values)
 
-    def _get_sdc_extension_elements(self):
+    def _get_extension_elements(self):
         """
         :return: a list of (urlName, value) tuples
         """
@@ -41,8 +41,8 @@ class SdcLocation:
         return identifiers
 
     @property
-    def scope_string_sdc(self):
-        return self._mk_scope_string(self._get_sdc_extension_elements())
+    def scope_string(self):
+        return self._mk_scope_string(self._get_extension_elements())
 
     def _mk_scope_string(self, elements):
         identifiers = []
@@ -137,4 +137,4 @@ class SdcLocation:
         return not self == other
 
     def __str__(self):
-        return '{} {}'.format(self.__class__.__name__, self.scope_string_sdc)
+        return '{} {}'.format(self.__class__.__name__, self.scope_string)

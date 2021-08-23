@@ -46,15 +46,15 @@ class ProviderRole:
         with self._mdib.transaction_manager() as mgr:
             # state = mgr.getMetricState(operation_target_handle)
             state = mgr.get_state(operation_target_handle)
-            if state.metricValue is None:
+            if state.MetricValue is None:
                 state.mk_metric_value()
-            state.metricValue.Value = value
+            state.MetricValue.Value = value
             # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
             # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
             metric_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
             if metric_descriptor_container.MetricCategory in (pmtypes.MetricCategory.SETTING,
                                                               pmtypes.MetricCategory.PRESETTING):
-                state.metricValue.Validity = pmtypes.MeasurementValidity.VALID
+                state.MetricValue.Validity = pmtypes.MeasurementValidity.VALID
 
     def _set_string(self, operation_instance, value):
         """ sets a string value"""
@@ -65,15 +65,15 @@ class ProviderRole:
         with self._mdib.transaction_manager() as mgr:
             # state = mgr.getMetricState(operation_target_handle)
             state = mgr.get_state(operation_target_handle)
-            if state.metricValue is None:
+            if state.MetricValue is None:
                 state.mk_metric_value()
-            state.metricValue.Value = value
+            state.MetricValue.Value = value
             # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
             # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
             metric_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
             if metric_descriptor_container.MetricCategory in (pmtypes.MetricCategory.SETTING,
                                                               pmtypes.MetricCategory.PRESETTING):
-                state.metricValue.Validity = pmtypes.MeasurementValidity.VALID
+                state.MetricValue.Validity = pmtypes.MeasurementValidity.VALID
 
     def _mk_operation_from_operation_descriptor(self, operation_descriptor_container,
                                                 operations_factory,

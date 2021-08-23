@@ -138,23 +138,23 @@ class AbstractMetricStateContainerBase(AbstractStateContainer):
     isMetricState = True
 
     @property
-    def metricValue(self):
+    def MetricValue(self):  # pylint: disable=invalid-name
         return self._metric_value
 
-    @metricValue.setter
-    def metricValue(self, metric_value_object):
+    @MetricValue.setter
+    def MetricValue(self, metric_value_object):  # pylint: disable=invalid-name
         if metric_value_object is not None:
             assert isinstance(metric_value_object,
-                              self.__class__._metric_value.value_class)  # pylint: disable=protected-access
+                              self.__class__._metric_value.value_class)  # pylint: disable=protected-access, no-member
         self._metric_value = metric_value_object
 
     def mk_metric_value(self):
         if self._metric_value is None:
-            self._metric_value = self.__class__._metric_value.value_class()  # pylint: disable=protected-access
+            cls = self.__class__._metric_value.value_class # pylint: disable=protected-access, no-member
+            self._metric_value = cls()
             return self._metric_value
         raise RuntimeError('State (descr-handle="{}") already has a metric value'.format(self.descriptorHandle))
 
-    mkMetricValue = mk_metric_value  # backwards compatibility
 
 
 class AbstractMetricStateContainer(AbstractMetricStateContainerBase):
@@ -198,8 +198,8 @@ class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
 
     def __repr__(self):
         samples_count = 0
-        if self.metricValue is not None and self.metricValue.Samples is not None:
-            samples_count = len(self.metricValue.Samples)
+        if self._metric_value is not None and self._metric_value.Samples is not None:
+            samples_count = len(self._metric_value.Samples)
         return '{} descriptorHandle="{}" Activation="{}" Samples={}'.format(self.__class__.__name__,
                                                                             self.descriptorHandle,
                                                                             self.ActivationState,
@@ -447,7 +447,7 @@ class LocationContextStateContainer(AbstractContextStateContainer):
 
     @staticmethod
     def _mk_extension_string(sdc_location):
-        return sdc_location.mk_sdc_extension_string()
+        return sdc_location.mk_extension_string()
 
     @classmethod
     def from_sdc_location(cls, nsmapper, descriptor_container, handle, sdc_location):

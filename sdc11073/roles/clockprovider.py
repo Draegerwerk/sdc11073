@@ -58,31 +58,6 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             return set_tz_operation
         return None  # ?
 
-    def make_missing_operations(self, operations_factory):
-        ops = []
-        mds_container = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('MdsDescriptor'))
-        clock_descriptor = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('ClockDescriptor'), allow_none=True)
-        set_string_op_cls = operations_factory(namespaces.domTag('SetStringOperationDescriptor'))
-
-        if not self._set_ntp_operations:
-            self._logger.info('adding "set ntp server" operation, code = {}'.format(nc.MDC_OP_SET_TIME_SYNC_REF_SRC))
-            set_ntp_operation = self._mk_operation(set_string_op_cls,
-                                                   handle='SET_NTP_SRV_' + mds_container.handle,
-                                                   operation_target_handle=clock_descriptor.handle,
-                                                   coded_value=MDC_OP_SET_TIME_SYNC_REF_SRC,
-                                                   current_argument_handler=self._set_ntp_string)
-            self._set_ntp_operations.append(set_ntp_operation)
-            ops.append(set_ntp_operation)
-        if not self._set_tz_operations:
-            self._logger.info('adding "set time zone" operation, code = {}'.format(nc.MDC_ACT_SET_TIME_ZONE))
-            set_tz_operation = self._mk_operation(set_string_op_cls,
-                                                  handle='SET_TZONE_' + mds_container.handle,
-                                                  operation_target_handle=clock_descriptor.handle,
-                                                  coded_value=MDC_ACT_SET_TIME_ZONE,
-                                                  current_argument_handler=self._set_tz_string)
-            self._set_tz_operations.append(set_tz_operation)
-            ops.append(set_tz_operation)
-        return ops
 
     def _set_ntp_string(self, operation_instance, value):
         """This is the handler for the set ntp server operation.
@@ -127,3 +102,32 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             if state.NODETYPE != namespaces.domTag('ClockState'):
                 raise RuntimeError('_set_ntp_string: expected ClockState, got {}'.format(state.NODETYPE.localname))
             state.TimeZone = value
+
+
+class SDCClockProvider(GenericSDCClockProvider):
+    """This Implementation adds operations to mdib if they do not exist."""
+    def make_missing_operations(self, operations_factory):
+        ops = []
+        mds_container = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('MdsDescriptor'))
+        clock_descriptor = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('ClockDescriptor'), allow_none=True)
+        set_string_op_cls = operations_factory(namespaces.domTag('SetStringOperationDescriptor'))
+
+        if not self._set_ntp_operations:
+            self._logger.info('adding "set ntp server" operation, code = {}'.format(nc.MDC_OP_SET_TIME_SYNC_REF_SRC))
+            set_ntp_operation = self._mk_operation(set_string_op_cls,
+                                                   handle='SET_NTP_SRV_' + mds_container.handle,
+                                                   operation_target_handle=clock_descriptor.handle,
+                                                   coded_value=MDC_OP_SET_TIME_SYNC_REF_SRC,
+                                                   current_argument_handler=self._set_ntp_string)
+            self._set_ntp_operations.append(set_ntp_operation)
+            ops.append(set_ntp_operation)
+        if not self._set_tz_operations:
+            self._logger.info('adding "set time zone" operation, code = {}'.format(nc.MDC_ACT_SET_TIME_ZONE))
+            set_tz_operation = self._mk_operation(set_string_op_cls,
+                                                  handle='SET_TZONE_' + mds_container.handle,
+                                                  operation_target_handle=clock_descriptor.handle,
+                                                  coded_value=MDC_ACT_SET_TIME_ZONE,
+                                                  current_argument_handler=self._set_tz_string)
+            self._set_tz_operations.append(set_tz_operation)
+            ops.append(set_tz_operation)
+        return ops

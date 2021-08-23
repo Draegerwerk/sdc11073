@@ -8,7 +8,7 @@ MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE = pmtypes.CodedValue(nc.MDC_OP_SET_ALL_ALARMS_
 MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE = pmtypes.CodedValue(nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
 
 
-class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
+class GenericAudioPauseProvider(providerbase.ProviderRole):
     """Handling of global audio pause.
     It guarantees that there are operations with codes "MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE"
     and "MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE".
@@ -40,33 +40,33 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
             return cancel_ap_operation
         return None
 
-    def make_missing_operations(self, operations_factory):
-        ops = []
-        operation_target_container = self._mdib.descriptions.NODETYPE.get_one(
-            domTag('MdsDescriptor'))  # the operation target is the mds itself
-        activate_op_cls = operations_factory(domTag('ActivateOperationDescriptor'))
-        if not self._set_global_audio_pause_operations:
-            self._logger.info('adding "set audio pause" operation, no descriptor in mdib (looked for code = {})'.format(
-                nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE))
-            set_ap_operation = self._mk_operation(activate_op_cls,
-                                                  handle='AP__ON',
-                                                  operation_target_handle=operation_target_container.handle,
-                                                  coded_value=MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE,
-                                                  current_request_handler=self._set_global_audio_pause)
-            self._set_global_audio_pause_operations.append(set_ap_operation)
-            ops.append(set_ap_operation)
-        if not self._cancel_global_audio_pause_operations:
-            self._logger.info(
-                'adding "cancel audio pause" operation, no descriptor in mdib (looked for code = {})'.format(
-                    nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE))
-            cancel_ap_operation = self._mk_operation(activate_op_cls,
-                                                     handle='AP__CANCEL',
-                                                     operation_target_handle=operation_target_container.handle,
-                                                     coded_value=MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE,
-                                                     current_request_handler=self._cancel_global_audio_pause)
-            ops.append(cancel_ap_operation)
-            self._set_global_audio_pause_operations.append(cancel_ap_operation)
-        return ops
+    # def make_missing_operations(self, operations_factory):
+    #     ops = []
+    #     operation_target_container = self._mdib.descriptions.NODETYPE.get_one(
+    #         domTag('MdsDescriptor'))  # the operation target is the mds itself
+    #     activate_op_cls = operations_factory(domTag('ActivateOperationDescriptor'))
+    #     if not self._set_global_audio_pause_operations:
+    #         self._logger.info('adding "set audio pause" operation, no descriptor in mdib (looked for code = {})'.format(
+    #             nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE))
+    #         set_ap_operation = self._mk_operation(activate_op_cls,
+    #                                               handle='AP__ON',
+    #                                               operation_target_handle=operation_target_container.handle,
+    #                                               coded_value=MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE,
+    #                                               current_request_handler=self._set_global_audio_pause)
+    #         self._set_global_audio_pause_operations.append(set_ap_operation)
+    #         ops.append(set_ap_operation)
+    #     if not self._cancel_global_audio_pause_operations:
+    #         self._logger.info(
+    #             'adding "cancel audio pause" operation, no descriptor in mdib (looked for code = {})'.format(
+    #                 nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE))
+    #         cancel_ap_operation = self._mk_operation(activate_op_cls,
+    #                                                  handle='AP__CANCEL',
+    #                                                  operation_target_handle=operation_target_container.handle,
+    #                                                  coded_value=MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE,
+    #                                                  current_request_handler=self._cancel_global_audio_pause)
+    #         ops.append(cancel_ap_operation)
+    #         self._set_global_audio_pause_operations.append(cancel_ap_operation)
+    #     return ops
 
     def _set_global_audio_pause(self, operation_instance, request):  # pylint: disable=unused-argument
         """ This is the code that executes the operation itself:
@@ -168,3 +168,34 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
                                     alert_signal_state.Presence = pmtypes.AlertSignalPresence.ON
                                 else:
                                     mgr.unget_state(alert_signal_state)
+
+
+class AudioPauseProvider(GenericAudioPauseProvider):
+    """This Implementation adds operations to mdib if they do not exist."""
+    def make_missing_operations(self, operations_factory):
+        ops = []
+        operation_target_container = self._mdib.descriptions.NODETYPE.get_one(
+            domTag('MdsDescriptor'))  # the operation target is the mds itself
+        activate_op_cls = operations_factory(domTag('ActivateOperationDescriptor'))
+        if not self._set_global_audio_pause_operations:
+            self._logger.info('adding "set audio pause" operation, no descriptor in mdib (looked for code = {})'.format(
+                nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE))
+            set_ap_operation = self._mk_operation(activate_op_cls,
+                                                  handle='AP__ON',
+                                                  operation_target_handle=operation_target_container.handle,
+                                                  coded_value=MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE,
+                                                  current_request_handler=self._set_global_audio_pause)
+            self._set_global_audio_pause_operations.append(set_ap_operation)
+            ops.append(set_ap_operation)
+        if not self._cancel_global_audio_pause_operations:
+            self._logger.info(
+                'adding "cancel audio pause" operation, no descriptor in mdib (looked for code = {})'.format(
+                    nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE))
+            cancel_ap_operation = self._mk_operation(activate_op_cls,
+                                                     handle='AP__CANCEL',
+                                                     operation_target_handle=operation_target_container.handle,
+                                                     coded_value=MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE,
+                                                     current_request_handler=self._cancel_global_audio_pause)
+            ops.append(cancel_ap_operation)
+            self._set_global_audio_pause_operations.append(cancel_ap_operation)
+        return ops

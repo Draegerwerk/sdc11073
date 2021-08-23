@@ -170,12 +170,12 @@ class DefaultWaveformSource(AbstractWaveformSource):
         if wf_generator:
             rt_sample = wf_generator.get_next_sample_array()
             samples = [s[0] for s in rt_sample.samples]  # only the values without the 'start of cycle' flags
-            if state.metricValue is None:
+            if state.MetricValue is None:
                 state.mk_metric_value()
-            state.metricValue.Samples = samples
-            state.metricValue.DeterminationTime = rt_sample.determination_time
-            state.metricValue.Annotations = rt_sample.annotations
-            state.metricValue.ApplyAnnotations = rt_sample.apply_annotations
+            state.MetricValue.Samples = samples
+            state.MetricValue.DeterminationTime = rt_sample.determination_time
+            state.MetricValue.Annotations = rt_sample.annotations
+            state.MetricValue.ApplyAnnotations = rt_sample.apply_annotations
             state.ActivationState = rt_sample.activation_state
 
     def _add_all_annotations(self):

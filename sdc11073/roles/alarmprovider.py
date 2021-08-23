@@ -29,9 +29,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         self._worker_thread.daemon = True
         self._worker_thread.start()
 
-    def make_missing_operations(self, operations_factory):
-        return []
-
     def stop(self):
         self._stop_worker.set()
         self._worker_thread.join()
@@ -364,7 +361,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                         last_selfcheck = alert_system_state.LastSelfCheck or 0.0
                         if time.time() - last_selfcheck >= selfcheck_period:
                             states_needing_update.append(alert_system_state)
-        except:
+        except Exception:
             exc = traceback.format_exc()
             self._logger.error('_get_alert_system_states_needing_update: {}', exc)
         return states_needing_update
@@ -377,7 +374,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 with self._mdib.transaction_manager() as mgr:
                     tr_states = [mgr.get_state(s.descriptorHandle) for s in states_needing_update]
                     self._update_alert_system_states(self._mdib, mgr, tr_states)
-            except:
+            except Exception:
                 exc = traceback.format_exc()
                 self._logger.error('_checkAlertStates: {}', exc)
 

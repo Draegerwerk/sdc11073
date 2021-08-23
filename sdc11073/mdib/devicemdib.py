@@ -247,8 +247,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 for value in mgr.metric_state_updates.values():
                     oldstate, newstate = value.old, value.new
                     try:
-                        if set_determination_time and newstate.metricValue is not None:
-                            newstate.metricValue.DeterminationTime = now
+                        if set_determination_time and newstate.MetricValue is not None:
+                            newstate.MetricValue.DeterminationTime = now
                         # replace the old container with the new one
                         self.states.remove_object_no_lock(oldstate)
                         self.states.add_object_no_lock(newstate)

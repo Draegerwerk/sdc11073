@@ -284,11 +284,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
             with sdcDevice.mdib.transaction_manager(set_determination_time=False) as mgr:
                 # st = mgr.getMetricState(descriptorHandle)
                 st = mgr.get_state(descriptorHandle)
-                if st.metricValue is None:
+                if st.MetricValue is None:
                     st.mk_metric_value()
-                st.metricValue.Value = firstValue
-                st.metricValue.MetricQuality.Validity = pmtypes.MeasurementValidity.VALID
-                st.metricValue.DeterminationTime = now
+                st.MetricValue.Value = firstValue
+                st.MetricValue.MetricQuality.Validity = pmtypes.MeasurementValidity.VALID
+                st.MetricValue.DeterminationTime = now
                 st.PhysiologicalRange = [pmtypes.Range(1, 2, 3, 4, 5), pmtypes.Range(10, 20, 30, 40, 50)]
                 if sdcDevice is self.sdcDevice_Final:
                     st.PhysicalConnector = myPhysicalConnector
@@ -296,9 +296,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
             # verify that client automatically got the state (via EpisodicMetricReport )
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             cl_state1 = cl_mdib.states.descriptorHandle.get_one(descriptorHandle)
-            self.assertEqual(cl_state1.metricValue.Value, firstValue)
-            self.assertAlmostEqual(cl_state1.metricValue.DeterminationTime, now, delta=0.01)
-            self.assertEqual(cl_state1.metricValue.MetricQuality.Validity, pmtypes.MeasurementValidity.VALID)
+            self.assertEqual(cl_state1.MetricValue.Value, firstValue)
+            self.assertAlmostEqual(cl_state1.MetricValue.DeterminationTime, now, delta=0.01)
+            self.assertEqual(cl_state1.MetricValue.MetricQuality.Validity, pmtypes.MeasurementValidity.VALID)
             self.assertEqual(cl_state1.StateVersion, 1)  # this is the first state update after init
             if sdcDevice is self.sdcDevice_Final:
                 self.assertEqual(cl_state1.PhysicalConnector, myPhysicalConnector)
@@ -310,12 +310,12 @@ class Test_Client_SomeDevice(unittest.TestCase):
             with sdcDevice.mdib.transaction_manager() as mgr:
                 # st = mgr.getMetricState(descriptorHandle)
                 st = mgr.get_state(descriptorHandle)
-                st.metricValue.Value = newValue
+                st.MetricValue.Value = newValue
 
             # verify that client automatically got the state (via EpisodicMetricReport )
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             cl_state1 = cl_mdib.states.descriptorHandle.get_one(descriptorHandle)
-            self.assertEqual(cl_state1.metricValue.Value, newValue)
+            self.assertEqual(cl_state1.MetricValue.Value, newValue)
             self.assertEqual(cl_state1.StateVersion, 2)  # this is the 2nd state update after init
 
             # verify that client also got a PeriodicMetricReport
@@ -938,9 +938,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 # check content of state container
                 container = clientMdib.states.descriptorHandle.get_one(d_handle)
                 self.assertEqual(container.ActivationState, pmtypes.ComponentActivation.ON)
-                self.assertIsNotNone(container.metricValue)
-                self.assertAlmostEqual(container.metricValue.DeterminationTime, time.time(), delta=0.5)
-                self.assertGreater(len(container.metricValue.Samples), 1)
+                self.assertIsNotNone(container.MetricValue)
+                self.assertAlmostEqual(container.MetricValue.DeterminationTime, time.time(), delta=0.5)
+                self.assertGreater(len(container.MetricValue.Samples), 1)
 
             for d_handle in d_handles:
                 # check content of rt_buffer
@@ -966,7 +966,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             time.sleep(0.5)
             container = clientMdib.states.descriptorHandle.get_one(d_handle)
             self.assertEqual(container.ActivationState, pmtypes.ComponentActivation.OFF)
-            self.assertTrue(container.metricValue is None)
+            self.assertTrue(container.MetricValue is None)
 
             rtBuffer = clientMdib.rt_buffers.get(d_handle)
             self.assertEqual(len(rtBuffer.rt_data), clientMdib._max_realtime_samples)
@@ -1005,10 +1005,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
             with sdcDevice.mdib.transaction_manager() as mgr:
                 # mgr automatically increases the StateVersion
                 st = mgr.get_state(descriptorHandle)
-                if st.metricValue is None:
+                if st.MetricValue is None:
                     st.mk_metric_value()
-                st.metricValue.Value = firstValue
-                st.metricValue.Validity = 'Vld'
+                st.MetricValue.Value = firstValue
+                st.MetricValue.Validity = 'Vld'
 
             clientMdib = ClientMdibContainer(sdcClient)
             clientMdib.init_mdib()
@@ -1235,15 +1235,15 @@ class Test_Client_SomeDevice(unittest.TestCase):
             firstValue = 12
             with sdcDevice.mdib.transaction_manager(set_determination_time=False) as mgr:
                 st = mgr.get_state(descriptorHandle)
-                if st.metricValue is None:
+                if st.MetricValue is None:
                     st.mk_metric_value()
-                st.metricValue.Value = firstValue
-                st.metricValue.Validity = 'Vld'
-                st.metricValue.DeterminationTime = time.time()
+                st.MetricValue.Value = firstValue
+                st.MetricValue.Validity = 'Vld'
+                st.MetricValue.DeterminationTime = time.time()
                 st.PhysiologicalRange = [pmtypes.Range(1, 2, 3, 4, 5), pmtypes.Range(10, 20, 30, 40, 50)]
             data = coll.result(timeout=NOTIFICATION_TIMEOUT)
             self.assertTrue(descriptorHandle in data.keys())
-            self.assertEqual(st.metricValue.Value, data[descriptorHandle].metricValue.Value)  # compare some data
+            self.assertEqual(st.MetricValue.Value, data[descriptorHandle].MetricValue.Value)  # compare some data
 
             coll = observableproperties.SingleValueCollector(clientMdib,
                                                              'alert_by_handle')  # wait for the next EpisodicAlertReport

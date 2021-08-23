@@ -158,7 +158,7 @@ class SdcHandlerBase:
             det = loc.LocationDetail
             dr_loc = SdcLocation(fac=det.Facility, poc=det.PoC, bed=det.Bed, bld=det.Building,
                                  flr=det.Floor, rm=det.Room)
-            scopes.append(wsdiscovery.Scope(dr_loc.scope_string_sdc))
+            scopes.append(wsdiscovery.Scope(dr_loc.scope_string))
 
         for nodetype, scheme in (
                 ('OperatorContextDescriptor', 'sdc.ctxt.opr'),
