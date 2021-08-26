@@ -202,6 +202,7 @@ class SdcClient:
         self._mdib = None
         self._soap_clients = {}  # all http connections that this client holds
         self.peer_certificate = None
+        self.binary_peer_certificate = None
         self.all_subscribed = False
         msg_reader_cls = self._components['MsgReaderClass']
         self.msg_reader = msg_reader_cls(self._logger, 'msg_reader')
@@ -394,23 +395,6 @@ class SdcClient:
         del self._compression_methods[:]
         self._compression_methods.extend(compression_methods)
 
-    def get_peer_cert_extended_key_usages(self):
-        _url = urllib.parse.urlparse(self._device_location)
-        if self._ssl_context is not None and _url.scheme == 'https':
-            wsc = self._get_soap_client(self._device_location)
-            if wsc.is_closed():
-                wsc.connect()
-            sock = wsc.sock
-            binary_peer_cert = sock.getpeercert(binary_form=True)
-            if binary_peer_cert:
-                cert = x509.load_der_x509_certificate(binary_peer_cert, backends.default_backend())
-                try:
-                    ext_key_usage = cert.extensions.get_extension_for_class(extensions.ExtendedKeyUsage)
-                    return ext_key_usage.value  #[e for e in ext_key_usage.value]
-                except Exception as ex:
-                    self._logger.warn('Unable to read EKU:{}'.format(repr(ex)))
-        return list()
-
     def get_metadata(self):
         _url = urllib.parse.urlparse(self._device_location)
         wsc = self._get_soap_client(self._device_location)
@@ -420,8 +404,9 @@ class SdcClient:
                 wsc.connect()
             sock = wsc.sock
             self.peer_certificate = sock.getpeercert(binary_form=False)
+            self.binary_peer_certificate = sock.getpeercert(binary_form=True)  # in case the application needs it...
+
             self._logger.info('Peer Certificate: {}', self.peer_certificate)
-            self._logger.info('Peer Certificate Extended Key Usages: {}', self.get_peer_cert_extended_key_usages())
 
         envelope = Soap12Envelope(nsmap)
         envelope.set_address(WsAddress(action='{}/Get'.format(Prefixes.WXF.namespace),

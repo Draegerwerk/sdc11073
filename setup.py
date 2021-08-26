@@ -37,7 +37,6 @@ with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 dependencies = ['lxml>=2.3',
                 'lz4',
-                'cryptography',
                 "netifaces ; platform_system!='Windows'"]
 
 
