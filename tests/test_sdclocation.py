@@ -68,7 +68,7 @@ class TestSdcLocation(unittest.TestCase):
         self.assertEqual(loc.flr, 'flr 1')
         
         #if we can create another identical  DraegerLocation from loc, then scopeString also seems okay.
-        self.assertEqual(loc, SdcLocation.from_scope_string(loc.scope_string_sdc))
+        self.assertEqual(loc, SdcLocation.from_scope_string(loc.scope_string))
 
         # correct handling of scope with %20 spaces also in query
         for scopeString in (self.scheme + ':/some%20where/HOSP%201%2Fabc%201%2FCU%201%2Fflr%201%2FrM%201%2FBed%20A500?rm=rM%201&flr=flr%201&bed=Bed+A500&bldng=abc+1&fac=HOSP+1&poc=CU+1',

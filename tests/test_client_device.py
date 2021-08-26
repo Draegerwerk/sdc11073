@@ -1376,7 +1376,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         # common http server for both devices, borrow ssl context from device
         self.httpserver = HttpServerThread(my_ipaddress='0.0.0.0',
                                            ssl_context=self.sdcDevice_1._handler._ssl_context,
-                                           supported_encodings=compression.encodings[:],
+                                           supported_encodings=compression.CompressionHandler.available_encodings[:],
                                            log_prefix='hppt_srv')
         self.httpserver.start()
         self.httpserver.started_evt.wait(timeout=5)

@@ -49,7 +49,7 @@ class HTTPReturnCodeError(httplib.HTTPException):
         return 'HTTPReturnCodeError(status={}, reason={}'.format(self.status, self.reason)
 
 
-class SoapClient(CompressionHandler):
+class SoapClient:
     _usedSoapClients = 0
     SOCKET_TIMEOUT = 10 if sys.gettrace() is None else 1000  # higher timeout for debugging
 
@@ -77,7 +77,7 @@ class SoapClient(CompressionHandler):
         self.__class__._usedSoapClients += 1  # pylint: disable=protected-access
         self._client_number = self.__class__._usedSoapClients  # pylint: disable=protected-access
         self._log.info('created soap client No. {} for {}', self._client_number, netloc)
-        self.supported_encodings = supported_encodings if supported_encodings is not None else self.available_encodings
+        self.supported_encodings = supported_encodings if supported_encodings is not None else CompressionHandler.available_encodings
         self.request_encodings = request_encodings if request_encodings is not None else []  # these compression alg's does the other side accept ( set at runtime)
         self._get_headers = self._make_get_headers()
         self._lock = Lock()
@@ -178,7 +178,7 @@ class SoapClient(CompressionHandler):
         if self.request_encodings:
             for compr in self.request_encodings:
                 if compr in self.supported_encodings:
-                    xml = self.compress_payload(compr, xml)
+                    xml = CompressionHandler.compress_payload(compr, xml)
                     headers['Content-Encoding'] = compr
                     break
         if self._chunked_requests:
@@ -304,7 +304,7 @@ class SoapClient(CompressionHandler):
             if 'content-encoding' in headers:
                 enc = headers['content-encoding']
                 if enc in self.supported_encodings:
-                    content = self.decompress(_content, enc)
+                    content = CompressionHandler.decompress_payload(enc, _content)
                 else:
                     self._log.warn("{}: unsupported compression ", headers['content-encoding'])
                     raise httplib.UnknownTransferEncoding

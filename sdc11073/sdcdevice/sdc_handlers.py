@@ -72,7 +72,7 @@ class SdcHandlerBase:
         self._validate = validate
         self._ssl_context = ssl_context
         self._components = components
-        self._compression_methods = compression.encodings[:]
+        self._compression_methods = compression.CompressionHandler.available_encodings[:]
         self._http_server_thread = None
         # self._setup_logging(log_level)
         self._logger = loghelper.get_logger_adapter('sdc.device', log_prefix)

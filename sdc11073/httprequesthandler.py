@@ -34,7 +34,7 @@ def mkchunks(body, chunk_size=512):
 CR_LF = b'\r\n'
 
 
-class HTTPReader(CompressionHandler):
+class HTTPReader:
     ''' Base class that implements decoding of incoming http requests.
     Supported features:
     - read data by content-length
@@ -126,9 +126,9 @@ class HTTPReader(CompressionHandler):
         # if current server setting is any, use whatever client has provided in content-encoding header
         actual_enc = http_message.headers.get('content-encoding')
         if actual_enc:
-            supported_encs = supported_encodings or cls.available_encodings
+            supported_encs = supported_encodings or CompressionHandler.available_encodings
             if actual_enc in supported_encs:
-                http_body = cls.decompress(http_body, actual_enc)
+                http_body = CompressionHandler.decompress_payload(actual_enc, http_body)
             else:
                 raise DecompressError(f'content-encoding "{actual_enc}" is not supported', )
         return http_body
@@ -166,15 +166,15 @@ class HTTPReader(CompressionHandler):
         # if current server setting is any, use whatever client has provided in content-encoding header
         actual_enc = http_response.getheader('content-encoding')
         if actual_enc:
-            supported_encs = supported_encodings or cls.available_encodings
+            supported_encs = supported_encodings or CompressionHandler.available_encodings
             if actual_enc in supported_encs:
-                http_body = cls.decompress(http_body, actual_enc)
+                http_body = CompressionHandler.decompress_payload(actual_enc, http_body)
             else:
                 raise DecompressError(f'content-encoding "{actual_enc}" is not supported')
         return http_body
 
 
-class HTTPRequestHandler(BaseHTTPRequestHandler, CompressionHandler):
+class HTTPRequestHandler(BaseHTTPRequestHandler):
     ''' Base class that implements decoding of incoming http requests.
     Supported features:
     - read data by content-length
@@ -196,7 +196,7 @@ class HTTPRequestHandler(BaseHTTPRequestHandler, CompressionHandler):
         accepted_enc = CompressionHandler.parse_header(self.headers.get('accept-encoding'))
         for enc in accepted_enc:
             if enc in self.server.supported_encodings:
-                response_bytes = self.compress_payload(enc, response_bytes)
+                response_bytes = CompressionHandler.compress_payload(enc, response_bytes)
                 self.send_header('Content-Encoding', enc)
                 break
         return response_bytes

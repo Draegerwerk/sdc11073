@@ -1,29 +1,30 @@
 """Compression module for http. """
-from collections import OrderedDict
 import zlib
+from collections import OrderedDict
+
 try:
     import lz4.frame
+
     _LZ4 = True
 except ImportError:
     _LZ4 = False
 
-GZIP = 'gzip'
-LZ4 = 'x-lz4'
-ANY = 'any'
-
-encodings = []
-if _LZ4:
-    encodings.append(LZ4)
-encodings.append(GZIP)
-
 class CompressionException(Exception):
     pass
 
+
 class CompressionHandler:
-    """Compression handler mixin.
+    """Compression handler.
     Should be used by servers and clients that are supposed to handle compression
     """
-    available_encodings = encodings # initial default
+    available_encodings = []  # encodings # initial default
+    handlers = {}
+
+    @classmethod
+    def register_handler(cls, handler):
+        for alg in handler.algorithms:
+            cls.available_encodings.append(alg)
+            cls.handlers[alg] = handler
 
     @classmethod
     def compress_payload(cls, algorithm, payload):
@@ -34,18 +35,10 @@ class CompressionHandler:
         @param payload: text to compress
         @return: compressed content
         """
-        if algorithm == GZIP:
-            return cls._gzip_encode(payload)
-        if algorithm == LZ4 and lz4 is not None:
-            return lz4.frame.compress(payload)
-        if _LZ4:
-            txt = f"{algorithm} compression is not supported. Only gzip and lz4 are supported."
-        else:
-            txt = f"{algorithm} compression is not supported. Only gzip is supported."
-        raise CompressionException(txt)
+        return cls.get_handler(algorithm).compress_payload(payload)
 
-    @staticmethod
-    def decompress(payload, algorithm):
+    @classmethod
+    def decompress_payload(cls, algorithm, payload):
         """Compresses payload based on required algorithm.
         Raises CompressionException if algorithm is not supported.
 
@@ -53,21 +46,15 @@ class CompressionHandler:
         @param payload: text to decompress
         @return: decompressed content
         """
-        if algorithm == GZIP:
-            return zlib.decompress(payload, 16 + zlib.MAX_WBITS)
-        if algorithm == LZ4 and lz4 is not None:
-            return lz4.frame.decompress(payload)
-        if _LZ4:
-            txt = f"{algorithm} compression is not supported. Only gzip and lz4 are supported"
-        else:
-            txt = f"{algorithm} compression is not supported. Only gzip is supported"
-        raise CompressionException(txt)
+        return cls.get_handler(algorithm).decompress_payload(payload)
 
-    @staticmethod
-    def _gzip_encode(payload):
-        gzip_compress = zlib.compressobj(zlib.Z_DEFAULT_COMPRESSION, zlib.DEFLATED, 16 + zlib.MAX_WBITS)
-        data = gzip_compress.compress(payload) + gzip_compress.flush()
-        return data
+    @classmethod
+    def get_handler(cls, algorithm):
+        handler = cls.handlers.get(algorithm)
+        if not handler:
+            txt = f"{algorithm} compression is not supported. Only {cls.available_encodings} are supported."
+            raise CompressionException(txt)
+        return handler
 
     @staticmethod
     def parse_header(header):
@@ -88,9 +75,42 @@ class CompressionHandler:
         if header:
             for alg in (x.split(";") for x in header.split(",")):
                 alg_name = alg[0].strip()
-                parsed_headers[alg_name] = 1 # default
+                parsed_headers[alg_name] = 1  # default
                 try:
                     parsed_headers[alg_name] = float(alg[1].split("=")[1])
                 except (ValueError, IndexError):
                     pass
         return [pair[0] for pair in sorted(parsed_headers.items(), key=lambda kv: kv[1], reverse=True)]
+
+
+class GzipCompressionHandler:
+    algorithms = ('gzip',)
+
+    @staticmethod
+    def compress_payload(payload):
+        gzip_compress = zlib.compressobj(zlib.Z_DEFAULT_COMPRESSION, zlib.DEFLATED, 16 + zlib.MAX_WBITS)
+        data = gzip_compress.compress(payload) + gzip_compress.flush()
+        return data
+
+    @staticmethod
+    def decompress_payload(payload):
+        return zlib.decompress(payload, 16 + zlib.MAX_WBITS)
+
+
+CompressionHandler.register_handler(GzipCompressionHandler)
+
+
+class Lz4CompressionHandler:
+    algorithms = ('x-lz4', 'lz4')
+
+    @staticmethod
+    def compress_payload(payload):
+        return lz4.frame.compress(payload)
+
+    @staticmethod
+    def decompress_payload(payload):
+        return lz4.frame.decompress(payload)
+
+
+if _LZ4:
+    CompressionHandler.register_handler(Lz4CompressionHandler)

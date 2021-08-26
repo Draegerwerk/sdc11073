@@ -4,7 +4,7 @@ import sdc11073
 from tests.mockstuff import SomeDevice
 from sdc11073.sdcclient import SdcClient
 from lxml import etree
-import sdc11073.compression as compression
+from sdc11073 import compression
 
 XML_REQ = '<?xml version=\'1.0\' encoding=\'UTF-8\'?> \
 <s12:Envelope xmlns:dom="__BICEPS_ParticipantModel__" xmlns:dpws="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01"' \
@@ -17,6 +17,9 @@ XML_REQ = '<?xml version=\'1.0\' encoding=\'UTF-8\'?> \
           '<wsa:Action s12:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Request</wsa:Action>' \
           '<wsa:MessageID>urn:uuid:5837db9c-63a0-4f5c-99a3-9fc40ae61ba6</wsa:MessageID></s12:Header><s12:Body><wsx:GetMetadata/>' \
           '</s12:Body></s12:Envelope>'
+
+GZIP = compression.GzipCompressionHandler.algorithms[0]
+LZ4 = compression.Lz4CompressionHandler.algorithms[0]
 
 class Test_Compression(unittest.TestCase):
 
@@ -100,15 +103,15 @@ class Test_Compression(unittest.TestCase):
 
     def test_gzip_compression(self):
         # Create a compressed getMetadata request
-        self._start_with_compression(compression.GZIP)
+        self._start_with_compression(GZIP)
 
-        self.xml = self.soap_client.compress_payload(compression.GZIP, self.xml)
+        self.xml = compression.CompressionHandler.compress_payload(GZIP, self.xml)
         self.xml = bytearray(self.xml)  # cast to bytes, required to bypass httplib checks for is str
         headers = {
             'Content-type': 'application/soap+xml',
             'user_agent': 'pysoap',
             'Connection': 'keep-alive',
-            'Content-Encoding': compression.GZIP,
+            'Content-Encoding': GZIP,
             'Accept-Encoding': 'gzip, x-lz4',
             'Content-Length': str(len(self.xml))
         }
@@ -118,7 +121,7 @@ class Test_Compression(unittest.TestCase):
         response = self.clientHttpCon.getresponse()
         responseHeaders = {k.lower(): v for k, v in response.getheaders()}
         content = response.read()
-        content = self.soap_client.decompress(content, compression.GZIP)
+        content = compression.CompressionHandler.decompress_payload(GZIP, content)
 
         self.assertIn('content-encoding', responseHeaders)
         try:
@@ -126,18 +129,18 @@ class Test_Compression(unittest.TestCase):
         except:
             self.fail("Wrong xml syntax. Msg {}".format(content))
 
-    @unittest.skipIf(compression.LZ4 not in compression.encodings, 'no lz4 module available')
+    @unittest.skipIf(LZ4 not in compression.CompressionHandler.available_encodings, 'no lz4 module available')
     def test_lz4_compression(self):
         # Create a compressed getMetadata request
-        self._start_with_compression(compression.LZ4)
+        self._start_with_compression(LZ4)
 
-        self.xml = self.soap_client.compress_payload(compression.LZ4, self.xml)
+        self.xml = compression.CompressionHandler.compress_payload(LZ4, self.xml)
         self.xml = bytearray(self.xml)  # cast to bytes, required to bypass httplib checks for is str
         headers = {
             'Content-type': 'application/soap+xml',
             'user_agent': 'pysoap',
             'Connection': 'keep-alive',
-            'Content-Encoding': compression.LZ4,
+            'Content-Encoding': LZ4,
             'Accept-Encoding': 'gzip, x-lz4',
             'Content-Length': str(len(self.xml))
         }
@@ -147,7 +150,7 @@ class Test_Compression(unittest.TestCase):
         response = self.clientHttpCon.getresponse()
         responseHeaders = {k.lower(): v for k, v in response.getheaders()}
         content = response.read()
-        content = self.soap_client.decompress(content, compression.LZ4)
+        content = compression.CompressionHandler.decompress_payload(LZ4, content)
 
         self.assertIn('content-encoding', responseHeaders)
         try:

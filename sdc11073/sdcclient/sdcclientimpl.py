@@ -6,9 +6,6 @@ import traceback
 import urllib
 import weakref
 
-from cryptography import x509
-from cryptography.hazmat import backends
-from cryptography.x509 import extensions
 from lxml import etree as etree_
 
 from .. import commlog
@@ -195,7 +192,7 @@ class SdcClient:
 
         self._logger.info('created {} for {}', self.__class__.__name__, self._device_location)
 
-        self._compression_methods = compression.encodings[:]
+        self._compression_methods = compression.CompressionHandler.available_encodings[:]
         self._subscription_mgr = None
         self._operations_manager = None
         self._service_clients = {}
