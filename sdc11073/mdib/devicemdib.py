@@ -23,7 +23,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
      Do not modify containers directly, use transactions for that purpose.
      Transactions keep track of changes and initiate sending of update notifications to clients."""
 
-    def __init__(self, sdc_definitions: BaseDefinitions,
+    def __init__(self, sdc_definitions: [BaseDefinitions, None],
                  log_prefix: [str, None] = None,
                  waveform_source: [AbstractWaveformSource, None] = None):
         """
@@ -49,6 +49,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         self._waveform_source = waveform_source or DefaultWaveformSource()
         self._retrievability_episodic = []  # a list of handles
         self.retrievability_periodic = defaultdict(list)
+        self.descriptor_factory = DescriptorFactory(self)
 
     @contextmanager
     def transaction_manager(self, set_determination_time=True):
@@ -423,136 +424,19 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             if validators is not None:
                 self._current_location.Validator = validators
 
-    def _create_descriptor_container(self, cls, handle, parent_handle, coded_value, safety_classification):
-        obj = cls(nsmapper=self.nsmapper,
-                  handle=handle,
-                  parent_handle=parent_handle,
-                  )
-        obj.SafetyClassification = safety_classification
-        obj.Type = coded_value
-        return obj
-
-    def create_vmd_descriptor_container(self, handle: str, parent_handle: str, coded_value: pmtypes.CodedValue,
-                                        safety_classification: pmtypes.SafetyClassification):
+    def add_descriptor(self, descriptor_container, adjust_state_version=True):
+        """Add descriptor to mdib.
+        If method is called within an transaction, the created object is added to transaction and clients will be
+        notified. Otherwise the object is only added to mdib without sending notifications to clients!
+        :param descriptor_container: a descriptor container container instance
+        :param adjust_state_version: if True, and an object with the same handle was already in this mdib,
+           the descriptor version is set to last version + 1.
         """
-        This method creates an VmdDescriptorContainer with the given properties.
-        If it is called within an transaction, the created object is added to transaction and clients will be notified.
-        Otherwise the object is only added to mdib without sending notifications to clients!
-        :param handle: Handle of the new container
-        :param parent_handle: Handle of the parent
-        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
-        :param safety_classification: a pmtypes.SafetyClassification value
-        :return: the created object
-        """
-        cls = self.sdc_definitions.get_descriptor_container_class(domTag('VmdDescriptor'))
-        obj = self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
         if self._current_transaction is not None:
-            self._current_transaction.add_descriptor(obj)
+            self._current_transaction.add_descriptor(descriptor_container, adjust_state_version)
         else:
-            self.descriptions.add_object(obj)
-        return obj
-
-    def create_channel_descriptor_container(self, handle: str, parent_handle: str, coded_value: pmtypes.CodedValue,
-                                            safety_classification: pmtypes.SafetyClassification):
-        """
-        This method creates a ChannelDescriptorContainer with the given properties and optionally adds it to the mdib.
-        If it is called within an transaction, the created object is added to transaction and clients will be notified.
-        Otherwise the object is only added to mdib without sending notifications to clients!
-        :param handle: Handle of the new container
-        :param parent_handle: Handle of the parent
-        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
-        :param safety_classification: a pmtypes.SafetyClassification value
-        :return: the created object
-        """
-        cls = self.sdc_definitions.get_descriptor_container_class(domTag('ChannelDescriptor'))
-        obj = self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
-        if self._current_transaction is not None:
-            self._current_transaction.add_descriptor(obj)
-        else:
-            self.descriptions.add_object(obj)
-        return obj
-
-    def create_string_metric_descriptor_container(
-            self, handle: str, parent_handle: str, coded_value: pmtypes.CodedValue,
-            safety_classification: pmtypes.SafetyClassification, unit: pmtypes.CodedValue,
-            metric_availability: pmtypes.MetricAvailability = pmtypes.MetricAvailability.INTERMITTENT,
-            metric_category: pmtypes.MetricCategory = pmtypes.MetricCategory.UNSPECIFIED):
-        """
-        This method creates a StringMetricDescriptorContainer with the given properties and optionally adds it to the mdib.
-        If it is called within an transaction, the created object is added to transaction and clients will be notified.
-        Otherwise the object is only added to mdib without sending notifications to clients!
-        :param handle: Handle of the new container
-        :param parent_handle: Handle of the parent
-        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
-        :param safety_classification: a pmtypes.SafetyClassification value
-        :param unit: a CodedValue
-        :param metric_availability: pmtypes.MetricAvailability
-        :param metric_category: pmtypes.MetricCategory
-        :return: the created object
-        """
-        cls = self.sdc_definitions.get_descriptor_container_class(domTag('StringMetricDescriptor'))
-        obj = self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
-        obj.Unit = unit
-        obj.MetricAvailability = metric_availability
-        obj.MetricCategory = metric_category
-        if self._current_transaction is not None:
-            self._current_transaction.add_descriptor(obj)
-        else:
-            self.descriptions.add_object(obj)
-        return obj
-
-    def create_enum_string_metric_descriptor_container(
-            self, handle: str, parent_handle: str, coded_value: pmtypes.CodedValue,
-            safety_classification: pmtypes.SafetyClassification, unit: pmtypes.CodedValue,
-            allowed_values: List[str],
-            metric_availability: pmtypes.MetricAvailability = pmtypes.MetricAvailability.INTERMITTENT,
-            metric_category: pmtypes.MetricCategory = pmtypes.MetricCategory.UNSPECIFIED):
-        """
-        This method creates an EnumStringMetricDescriptorContainer with the given properties and optionally adds it
-        to the mdib.
-        If it is called within an transaction, the created object is added to transaction and clients will be notified.
-        Otherwise the object is only added to mdib without sending notifications to clients!
-        :param handle: Handle of the new container
-        :param parent_handle: Handle of the parent
-        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
-        :param safety_classification: a pmtypes.SafetyClassification value
-        :param unit: pmtypes.CodedValue
-        :param allowed_values:
-        :param metric_availability: pmtypes.MetricAvailability
-        :param metric_category: pmtypes.MetricCategory
-        :return: the created object
-        """
-        cls = self.sdc_definitions.get_descriptor_container_class(domTag('EnumStringMetricDescriptor'))
-        obj = self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
-        obj.Unit = unit
-        obj.MetricAvailability = metric_availability
-        obj.MetricCategory = metric_category
-        obj.AllowedValue = allowed_values
-        if self._current_transaction is not None:
-            self._current_transaction.add_descriptor(obj)
-        else:
-            self.descriptions.add_object(obj)
-        return obj
-
-    def create_clock_descriptor_container(self, handle: str, parent_handle: str, coded_value: pmtypes.CodedValue,
-                                          safety_classification: pmtypes.SafetyClassification):
-        """
-        This method creates a ClockDescriptorContainer with the given properties.
-        If it is called within an transaction, the created object is added to transaction and clients will be notified.
-        Otherwise the object is only added to mdib without sending notifications to clients!
-        :param handle: Handle of the new container
-        :param parent_handle: Handle of the parent
-        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
-        :param safety_classification: a pmtypes.SafetyClassification value
-        :return: the created object
-        """
-        cls = self.sdc_definitions.get_descriptor_container_class(domTag('ClockDescriptor'))
-        obj = self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
-        if self._current_transaction is not None:
-            self._current_transaction.add_descriptor(obj)
-        else:
-            self.descriptions.add_object(obj)
-        return obj
+            self.descriptions.add_object(descriptor_container)
+        return descriptor_container
 
     def add_state(self, state_container, adjust_state_version=True):
         """Add state to mdib.
@@ -587,12 +471,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         :return: None
         """
         descriptor_containers = self.msg_reader.read_mddescription(mds_node, self)
-        if self._current_transaction is not None:
-            # add all descriptor_containers to transaction
-            apply_map(self._current_transaction.add_descriptor, descriptor_containers)
-        else:
-            # add all descriptor_containers to self.descriptions
-            apply_map(self.descriptions.add_object, descriptor_containers)
+        apply_map(self.add_descriptor, descriptor_containers)
 
         state_containers = self.msg_reader.read_mdstate(
             mds_node, self, additional_descriptor_containers=descriptor_containers)
@@ -611,10 +490,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             descr_container = descr_cls(self.nsmapper,
                                         handle=uuid.uuid4().hex, parent_handle=system_context_container.handle)
             descr_container.SafetyClassification = pmtypes.SafetyClassification.INF
-            if self._current_transaction is not None:
-                self._current_transaction.add_descriptor(descr_container)
-            else:
-                self.descriptions.add_object(descr_container)
+            self.add_descriptor(descr_container)
 
     def ensure_patient_context_descriptor(self):
         """Create PatientContextDescriptor if there is none in mdib."""
@@ -628,10 +504,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             descr_container = descr_cls(self.nsmapper,
                                         handle=uuid.uuid4().hex, parent_handle=system_context_container.handle)
             descr_container.SafetyClassification = pmtypes.SafetyClassification.INF
-            if self._current_transaction is not None:
-                self._current_transaction.add_descriptor(descr_container)
-            else:
-                self.descriptions.add_object(descr_container)
+            self.add_descriptor(descr_container)
 
     # real time data handling
     def register_waveform_generator(self, descriptor_handle: str, wf_generator):
@@ -743,3 +616,140 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         mdib.mk_state_containers_for_all_descriptors()
         mdib.update_retrievability_lists()
         return mdib
+
+
+class DescriptorFactory:
+    def __init__(self, mdib):
+        self._mdib = mdib
+
+    def _create_descriptor_container(self, cls, handle, parent_handle, coded_value, safety_classification):
+        obj = cls(nsmapper=self._mdib.nsmapper,
+                  handle=handle,
+                  parent_handle=parent_handle,
+                  )
+        obj.SafetyClassification = safety_classification
+        obj.Type = coded_value
+        return obj
+
+    def create_vmd_descriptor_container(self, handle: str, parent_handle: str, coded_value: pmtypes.CodedValue,
+                                        safety_classification: pmtypes.SafetyClassification,
+                                        add_to_mdib: bool = True):
+        """
+        This method creates an VmdDescriptorContainer with the given properties.
+        If it is called within an transaction, the created object is added to transaction and clients will be notified.
+        Otherwise the object is only added to mdib without sending notifications to clients!
+        :param handle: Handle of the new container
+        :param parent_handle: Handle of the parent
+        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param safety_classification: a pmtypes.SafetyClassification value
+        :param add_to_mdib:
+        :return: the created object
+        """
+        cls = self._mdib.sdc_definitions.get_descriptor_container_class(domTag('VmdDescriptor'))
+        obj = self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
+        if add_to_mdib:
+            self._mdib.add_descriptor(obj)
+        return obj
+
+    def create_channel_descriptor_container(self, handle: str, parent_handle: str, coded_value: pmtypes.CodedValue,
+                                            safety_classification: pmtypes.SafetyClassification,
+                                            add_to_mdib: bool = True):
+        """
+        This method creates a ChannelDescriptorContainer with the given properties and optionally adds it to the mdib.
+        If it is called within an transaction, the created object is added to transaction and clients will be notified.
+        Otherwise the object is only added to mdib without sending notifications to clients!
+        :param handle: Handle of the new container
+        :param parent_handle: Handle of the parent
+        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param safety_classification: a pmtypes.SafetyClassification value
+        :param add_to_mdib:
+        :return: the created object
+        """
+        cls = self._mdib.sdc_definitions.get_descriptor_container_class(domTag('ChannelDescriptor'))
+        obj = self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
+        if add_to_mdib:
+            self._mdib.add_descriptor(obj)
+        return obj
+
+    def create_string_metric_descriptor_container(
+            self, handle: str, parent_handle: str, coded_value: pmtypes.CodedValue,
+            safety_classification: pmtypes.SafetyClassification, unit: pmtypes.CodedValue,
+            metric_availability: pmtypes.MetricAvailability = pmtypes.MetricAvailability.INTERMITTENT,
+            metric_category: pmtypes.MetricCategory = pmtypes.MetricCategory.UNSPECIFIED,
+            add_to_mdib: bool = True):
+        """
+        This method creates a StringMetricDescriptorContainer with the given properties and optionally adds it to the mdib.
+        If it is called within an transaction, the created object is added to transaction and clients will be notified.
+        Otherwise the object is only added to mdib without sending notifications to clients!
+        :param handle: Handle of the new container
+        :param parent_handle: Handle of the parent
+        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param safety_classification: a pmtypes.SafetyClassification value
+        :param unit: a CodedValue
+        :param metric_availability: pmtypes.MetricAvailability
+        :param metric_category: pmtypes.MetricCategory
+        :param add_to_mdib:
+        :return: the created object
+        """
+        cls = self._mdib.sdc_definitions.get_descriptor_container_class(domTag('StringMetricDescriptor'))
+        obj = self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
+        obj.Unit = unit
+        obj.MetricAvailability = metric_availability
+        obj.MetricCategory = metric_category
+        if add_to_mdib:
+            self._mdib.add_descriptor(obj)
+        return obj
+
+    def create_enum_string_metric_descriptor_container(
+            self, handle: str, parent_handle: str, coded_value: pmtypes.CodedValue,
+            safety_classification: pmtypes.SafetyClassification, unit: pmtypes.CodedValue,
+            allowed_values: List[str],
+            metric_availability: pmtypes.MetricAvailability = pmtypes.MetricAvailability.INTERMITTENT,
+            metric_category: pmtypes.MetricCategory = pmtypes.MetricCategory.UNSPECIFIED,
+            add_to_mdib: bool = True):
+        """
+        This method creates an EnumStringMetricDescriptorContainer with the given properties and optionally adds it
+        to the mdib.
+        If it is called within an transaction, the created object is added to transaction and clients will be notified.
+        Otherwise the object is only added to mdib without sending notifications to clients!
+        :param handle: Handle of the new container
+        :param parent_handle: Handle of the parent
+        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param safety_classification: a pmtypes.SafetyClassification value
+        :param unit: pmtypes.CodedValue
+        :param allowed_values:
+        :param metric_availability: pmtypes.MetricAvailability
+        :param metric_category: pmtypes.MetricCategory
+        :param add_to_mdib:
+        :return: the created object
+        """
+        cls = self._mdib.sdc_definitions.get_descriptor_container_class(domTag('EnumStringMetricDescriptor'))
+        obj = self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
+        obj.Unit = unit
+        obj.MetricAvailability = metric_availability
+        obj.MetricCategory = metric_category
+        obj.AllowedValue = allowed_values
+        if add_to_mdib:
+            self._mdib.add_descriptor(obj)
+        return obj
+
+    def create_clock_descriptor_container(self, handle: str, parent_handle: str, coded_value: pmtypes.CodedValue,
+                                          safety_classification: pmtypes.SafetyClassification,
+                                          add_to_mdib: bool = True):
+        """
+        This method creates a ClockDescriptorContainer with the given properties.
+        If it is called within an transaction, the created object is added to transaction and clients will be notified.
+        Otherwise the object is only added to mdib without sending notifications to clients!
+        :param handle: Handle of the new container
+        :param parent_handle: Handle of the parent
+        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param safety_classification: a pmtypes.SafetyClassification value
+        :param add_to_mdib:
+        :return: the created object
+        """
+        cls = self._mdib.sdc_definitions.get_descriptor_container_class(domTag('ClockDescriptor'))
+        obj = self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
+        if add_to_mdib:
+            self._mdib.add_descriptor(obj)
+        return obj
+

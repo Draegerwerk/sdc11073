@@ -1,13 +1,15 @@
 import copy
 import inspect
+
 from lxml import etree as etree_
+
 from .. import observableproperties as properties
-from ..namespaces import QN_TYPE
 from ..namespaces import Prefixes
+from ..namespaces import QN_TYPE
 
 
 class ContainerBase:
-    NODETYPE = None   # overwrite in derived classes! determines the value of xsi:Type attribute, must be a etree_.QName object
+    NODETYPE = None  # overwrite in derived classes! determines the value of xsi:Type attribute, must be a etree_.QName object
     node = properties.ObservableProperty()
 
     # every class with containerproperties must provice a list of property names.
@@ -24,38 +26,36 @@ class ContainerBase:
             cprop.init_instance_data(self)
 
     def get_actual_value(self, attr_name):
-        ''' ignores default value and implied value, e.g. returns None if value is not present in xml'''
+        """ ignores default value and implied value, e.g. returns None if value is not present in xml"""
         return getattr(self.__class__, attr_name).get_actual_value(self)
 
-
     def mk_node(self, tag, set_xsi_type=False):
-        '''
+        """
         create a etree node from instance data
         :param tag: tag of the newly created node
+        :param set_xsi_type:
         :return: etree node
-        '''
+        """
         node = etree_.Element(tag, nsmap=self.nsmapper.partial_map(Prefixes.PM, Prefixes.MSG, Prefixes.XSI))
         self.update_node(node, set_xsi_type)
         return node
 
-
     def update_node(self, node, set_xsi_type=False):
-        '''
-        create a etree node from instance data
-        :param tag: tag of the newly created node, defaults to self.NODENAME
+        """
+        update node with own data
+        :param node: node to be updated
+        :param set_xsi_type:
         :return: etree node
-        '''
+        """
         if set_xsi_type and self.NODETYPE is not None:
             node.set(QN_TYPE, self.nsmapper.docname_from_qname(self.NODETYPE))
         for dummy_name, prop in self.sorted_container_properties():
             prop.update_xml_value(self, node)
         return node
 
-
     def update_from_node(self, node):
-        ''' update members.
-        '''
-        # update all ContainerProperties
+        """ update members.
+        """
         for dummy_name, cprop in self.sorted_container_properties():
             cprop.update_from_node(self, node)
 
@@ -74,11 +74,10 @@ class ContainerBase:
             copied.node = copy.deepcopy(self.node)
         return copied
 
-
     def sorted_container_properties(self):
-        '''
+        """
         @return: a list of (name, object) tuples of all GenericProperties ( and subclasses)
-        '''
+        """
         ret = []
         all_classes = inspect.getmro(self.__class__)
         for cls in reversed(all_classes):
@@ -91,7 +90,6 @@ class ContainerBase:
                 if obj is not None:
                     ret.append((name, obj))
         return ret
-
 
     def diff(self, other, ignore_property_names=None):
         """ compares all properties (except to be ignored ones).
@@ -110,12 +108,12 @@ class ContainerBase:
             else:
                 if isinstance(my_value, float) or isinstance(other_value, float):
                     # cast both to float, if one is a Decimal Exception might be thrown
-                    if abs((float(my_value)-float(other_value))/float(my_value)) > 1e-6: # 1e-6 is good enough
+                    if abs((float(my_value) - float(other_value)) / float(my_value)) > 1e-6:  # 1e-6 is good enough
                         ret.append('{}={}, other={}'.format(name, my_value, other_value))
                 elif my_value != other_value:
                     ret.append('{}={}, other={}'.format(name, my_value, other_value))
         # check also if other has a different list of properties
-        my_property_names = {p[0] for p in my_properties}  #  set comprehension
+        my_property_names = {p[0] for p in my_properties}  # set comprehension
         other_property_names = {p[0] for p in other.sorted_container_properties()}
         surplus_names = other_property_names - my_property_names
         if surplus_names:

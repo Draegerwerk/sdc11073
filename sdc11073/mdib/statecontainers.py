@@ -37,7 +37,7 @@ class AbstractStateContainer(ContainerBase):
         # pylint: disable=invalid-name
         self.DescriptorHandle = descriptor_container.handle
         self.DescriptorVersion = descriptor_container.DescriptorVersion
-        #pylint: enable=invalid-name
+        # pylint: enable=invalid-name
 
     def set_node_member(self):
         self.node = self.mk_state_node(domTag('State'))
@@ -63,7 +63,7 @@ class AbstractStateContainer(ContainerBase):
             self.StateVersion = 1
         else:
             self.StateVersion += 1
-        #pylint: enable=invalid-name
+        # pylint: enable=invalid-name
 
     def update_descriptor_version(self):
         if self.descriptor_container is None:
@@ -150,11 +150,10 @@ class AbstractMetricStateContainerBase(AbstractStateContainer):
 
     def mk_metric_value(self):
         if self._metric_value is None:
-            cls = self.__class__._metric_value.value_class # pylint: disable=protected-access, no-member
+            cls = self.__class__._metric_value.value_class  # pylint: disable=protected-access, no-member
             self._metric_value = cls()
             return self._metric_value
         raise RuntimeError('State (descr-handle="{}") already has a metric value'.format(self.descriptorHandle))
-
 
 
 class AbstractMetricStateContainer(AbstractMetricStateContainerBase):
@@ -346,7 +345,7 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
 
         if self.descriptor_container.SignalDelegationSupported:
             # Delegable signals should have location Remote according to BICEPS
-            self.Location = pmtypes.AlertSignalPrimaryLocation.REMOTE #pylint: disable=invalid-name
+            self.Location = pmtypes.AlertSignalPrimaryLocation.REMOTE  # pylint: disable=invalid-name
 
 
 class AlertConditionStateContainer(AbstractAlertStateContainer):
@@ -380,7 +379,7 @@ class AbstractMultiStateContainer(AbstractStateContainer):
 
     def __init__(self, nsmapper, descriptor_container):
         super().__init__(nsmapper, descriptor_container)
-        self.Handle = uuid.uuid4().hex  #pylint: disable=invalid-name
+        self.Handle = uuid.uuid4().hex  # pylint: disable=invalid-name
         self._handle_is_generated = True
 
     def update_from_other_container(self, other, skipped_properties=None):
@@ -428,7 +427,7 @@ class LocationContextStateContainer(AbstractContextStateContainer):
     _props = ('LocationDetail',)
 
     def update_from_sdc_location(self, sdc_location):
-        #pylint: disable=invalid-name
+        # pylint: disable=invalid-name
         self.LocationDetail.PoC = sdc_location.poc
         self.LocationDetail.Room = sdc_location.rm
         self.LocationDetail.Bed = sdc_location.bed
@@ -496,7 +495,7 @@ classes = inspect.getmembers(sys.modules[__name__],
 classes_with_NODETYPE = [c[1] for c in classes if hasattr(c[1], 'NODETYPE') and c[1].NODETYPE is not None]
 # make a dictionary from found classes: (Key is NODETYPE, value is the class itself
 # _state_lookup_by_type = dict([(c.NODETYPE, c) for c in classes_with_NODETYPE])
-_state_lookup_by_type = {c.NODETYPE:c for c in classes_with_NODETYPE}
+_state_lookup_by_type = {c.NODETYPE: c for c in classes_with_NODETYPE}
 
 
 def get_container_class(type_qname):

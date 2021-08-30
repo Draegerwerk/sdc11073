@@ -127,6 +127,11 @@ class ClientRtBuffer:
         return rtsample_containers
 
     def add_rtsample_containers(self, rtsample_containers):
+        """
+        Updates self.rt_data with the new rtsample_containers
+        :param rtsample_containers: a list of mdibbase.RtSampleContainer
+        :return: None
+        """
         if not rtsample_containers:
             return
         with self._lock:
@@ -164,14 +169,23 @@ _BufferedNotification = namedtuple('_BufferedNotification', 'report handler')
 
 class ClientMdibContainer(mdibbase.MdibContainer):
     """ This mdib is meant to be read-only.
-    Only update source is a BICEPSClient."""
+    Only update source is a SdcClient."""
 
     DETERMINATIONTIME_WARN_LIMIT = 1.0  # in seconds
     MDIB_VERSION_CHECK_DISABLED = False  # for testing purpose you can disable checking of mdib version, so that every notification is accepted.
-    INITIAL_NOTIFICATION_BUFFERING = True  # if False, the response for the first incoming notification is answered after the getmdib is done.
 
-    # if True, first notifications are buffered and the responses are sent immediately.
+    # INITIAL_NOTIFICATION_BUFFERING setting determines how incoming notifications are handled between start of
+    # subscription ond handling of GetMib Response.
+    # INITIAL_NOTIFICATION_BUFFERING = False: the response for the first incoming notification is answered after the getmdib is done.
+    # INITIAL_NOTIFICATION_BUFFERING = True:  responses are sent immediately and first notifications are buffered.
+    INITIAL_NOTIFICATION_BUFFERING = True
+
     def __init__(self, sdc_client, max_realtime_samples=100):
+        """
+
+        :param sdc_client: a SdcClient instance
+        :param max_realtime_samples: determines how many real time samples are stored per RealtimeSampleArray
+        """
         super().__init__(sdc_client.sdc_definitions)
         self._logger = loghelper.get_logger_adapter('sdc.client.mdib', sdc_client.log_prefix)
         self._sdc_client = sdc_client
@@ -193,11 +207,16 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self.metric_time_warner = DeterminationTimeWarner()
 
     def init_mdib(self):
+        """
+        Binds own notification handlers to observables of sdc client and calls GetMdib.
+        Client mdib is initialized from GetMdibResponse, and from then on updated from incoming notifications.
+        :return:
+        """
         if self._is_initialized:
             raise RuntimeError('ClientMdibContainer is already initialized')
         # first start receiving notifications, then call get_mdib.
         # Otherwise we might miss notifications.
-        self._bind_to_observables()
+        self._bind_to_client_observables()
 
         get_service = self._sdc_client.client('Get')
         self._logger.info('initializing mdib...')
@@ -241,6 +260,63 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self._logger.info('initializing mdib done')
 
     initMdib = init_mdib  # backwards compatibility
+
+    def wait_metric_matches(self, handle, matches_func, timeout):
+        """ wait until a matching metric has been received. The matching is defined by the handle of the metric
+        and the result of a matching function. If the matching function returns true, this function returns.
+        @param handle: The handle string of the metric of interest.
+        @param matches_func: a callable, argument is the current state with matching handle. Can be None, in that case every state matches
+        Example:
+            expected = 42
+            def isMatchingValue(state):
+                found = state.xpath('dom:MetricValue/@Value', namespaces=nsmap) # returns a list of values, empty if nothing matches
+                if found:
+                    found[0] = int(found[0])
+                    return [expected] == found
+        @param timeout: timeout in seconds
+        @return: the matching state. In cas of a timeout it raises a TimeoutError exception.
+        """
+        fut = futures.Future()
+
+        # define a callback function that sets value of fut
+        def on_metrics_by_handle(metrics_by_handle):
+            metric = metrics_by_handle.get(handle)
+            if metric is not None:
+                if matches_func is None or matches_func(metric):
+                    fut.set_result(metric)
+
+        try:
+            properties.bind(self, metrics_by_handle=on_metrics_by_handle)
+            begin = time.monotonic()
+            ret = fut.result(timeout)
+            self._logger.debug('wait_metric_matches: got result after {:.2f} seconds', time.monotonic() - begin)
+            return ret
+        finally:
+            properties.unbind(self, metrics_by_handle=on_metrics_by_handle)
+
+    def mk_proposed_state(self, descriptor_handle, copy_current_state=True, handle=None):
+        """ Create a new state that can be used as proposed state in according operations.
+        The new state is not part of mdib!
+
+        :param descriptor_handle: the descriptor
+        :param copy_current_state: if True, all members of existing state will be copied to new state
+        :param handle: if this is a multi state class, then this is the handle of the existing state that shall be used for copy.
+        :return:
+        """
+        descr = self.descriptions.handle.get_one(descriptor_handle)
+        new_state = self.mk_state_container_from_descriptor(descr)
+        if copy_current_state:
+            lookup = self.context_states if new_state.isContextState else self.states
+            if new_state.isMultiState:
+                if handle is None:  # new state
+                    return new_state
+                old_state = lookup.handle.get_one(handle)
+            else:
+                old_state = lookup.descriptorHandle.get_one(descriptor_handle)
+            new_state.update_from_other_container(old_state)
+        return new_state
+
+    mkProposedState = mk_proposed_state  # backwards compatibility
 
     def _buffer_notification(self, report, func):
         """
@@ -320,8 +396,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         finally:
             self._logger.info('_get_context_states done')
 
-    def _bind_to_observables(self):
-        # observe properties of sdcClient
+    def _bind_to_client_observables(self):
+        # get notifications from sdcClient
         if PROFILING:
             properties.bind(self._sdc_client, waveform_report=self._on_waveform_report_profiled)
         else:
@@ -826,63 +902,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 report_name, old_state_container.StateVersion, old_state_container.__class__.__name__,
                 old_state_container.descriptorHandle, diffs)
         return False
-
-    def wait_metric_matches(self, handle, matches_func, timeout):
-        """ wait until a matching metric has been received. The matching is defined by the handle of the metric and the result of a matching function.
-        If the matching function returns true, this function returns.
-        @param handle: The handle string of the metric of interest.
-        @param matches_func: a callable, argument is the current state with matching handle. Can be None, in that case every state matches
-        Example:
-            expected = 42
-            def isMatchingValue(state):
-                found = state.xpath('dom:MetricValue/@Value', namespaces=nsmap) # returns a list of values, empty if nothing matches
-                if found:
-                    found[0] = int(found[0])
-                    return [expected] == found
-        @param timeout: timeout in seconds
-        @return: the matching state. In cas of a timeout it raises a TimeoutError exception.
-        """
-        fut = futures.Future()
-
-        # define a callback function that sets value of fut
-        def on_metrics_by_handle(metrics_by_handle):
-            metric = metrics_by_handle.get(handle)
-            if metric is not None:
-                if matches_func is None or matches_func(metric):
-                    fut.set_result(metric)
-
-        try:
-            properties.bind(self, metrics_by_handle=on_metrics_by_handle)
-            begin = time.monotonic()
-            ret = fut.result(timeout)
-            self._logger.debug('wait_metric_matches: got result after {:.2f} seconds', time.monotonic() - begin)
-            return ret
-        finally:
-            properties.unbind(self, metrics_by_handle=on_metrics_by_handle)
-
-    def mk_proposed_state(self, descriptor_handle, copy_current_state=True, handle=None):
-        """ Create a new state that can be used as proposed state in according operations.
-        The new state is not part of mdib!
-
-        :param descriptor_handle: the descriptor
-        :param copy_current_state: if True, all members of existing state will be copied to new state
-        :param handle: if this is a multi state class, then this is the handle of the existing state that shall be used for copy.
-        :return:
-        """
-        descr = self.descriptions.handle.get_one(descriptor_handle)
-        new_state = self.mk_state_container_from_descriptor(descr)
-        if copy_current_state:
-            lookup = self.context_states if new_state.isContextState else self.states
-            if new_state.isMultiState:
-                if handle is None:  # new state
-                    return new_state
-                old_state = lookup.handle.get_one(handle)
-            else:
-                old_state = lookup.descriptorHandle.get_one(descriptor_handle)
-            new_state.update_from_other_container(old_state)
-        return new_state
-
-    mkProposedState = mk_proposed_state  # backwards compatibility
 
     def get_wf_age_stdev(self):
         means = []

@@ -1,15 +1,17 @@
 import time
 import traceback
 from threading import Lock
-from typing import Type, List
+from typing import Type
+
 from lxml import etree as etree_
 
 from .. import multikey
 from .. import observableproperties as properties
-from ..pmtypes import CodedValue, DEFAULT_CODING_SYSTEM, Coding
-from ..namespaces import DocNamespaceHelper, msgTag, domTag
 from ..definitions_base import SchemaValidators, BaseDefinitions
 from ..etc import apply_map
+from ..namespaces import DocNamespaceHelper, msgTag, domTag
+from ..pmtypes import CodedValue, DEFAULT_CODING_SYSTEM, Coding
+
 
 class RtSampleContainer:
     """Contains a single Value"""
@@ -61,17 +63,13 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
         self.add_index('handle', multikey.UIndexDefinition(lambda obj: obj.handle))
         self.add_index('parent_handle', multikey.IndexDefinition(lambda obj: obj.parent_handle))
         self.add_index('NODETYPE', multikey.IndexDefinition(lambda obj: obj.NODETYPE))
+        self.add_index('coding', multikey.IndexDefinition(lambda obj: obj.coding))
         self.add_index('ConditionSignaled',
                        multikey.IndexDefinition(lambda obj: obj.ConditionSignaled, index_none_values=False))
         # an index to find all alert conditions for a metric (AlertCondition is the only class that has a
         # "Source" attribute, therefore this simple approach without type testing is sufficient):
         self.add_index('Source',
                        multikey.IndexDefinition1n(lambda obj: [s.text for s in obj.Source], index_none_values=False))
-
-        # ToDo: really 3 indices for coding needed?
-        self.add_index('codingSystem', multikey.IndexDefinition(lambda obj: obj.codingSystem))
-        self.add_index('codeId', multikey.IndexDefinition(lambda obj: obj.codeId))
-        self.add_index('coding', multikey.IndexDefinition(lambda obj: obj.coding))
 
     def _save_version(self, obj):
         self.handle_version_lookup[obj.handle] = obj.DescriptorVersion
@@ -173,7 +171,6 @@ class MdibContainer:
         fire_only_on_changed_value=False)  # is a result of deleted descriptors
     sequence_id = properties.ObservableProperty()
 
-
     def __init__(self, sdc_definitions: Type[BaseDefinitions]):
         """
         @param sdc_definitions: a class derived from Definitions_Base
@@ -262,10 +259,12 @@ class MdibContainer:
                 context_by_handle[state_container.descriptorHandle] = state_container
             elif state_container.isSystemContextState or state_container.isMultiState:
                 pass  # ignoring for now
-            elif state_container.NODETYPE == domTag('ScoState'):  # special case Draft6 ScoState (is not a component state)
+            elif state_container.NODETYPE == domTag(
+                    'ScoState'):  # special case Draft6 ScoState (is not a component state)
                 pass  # this cannot be updated anyway over the network, but handle it here to avoid runtime error
             else:
-                raise RuntimeError('handling of {} has been forgotten to implement!'.format(state_container.__class__.__name__))
+                raise RuntimeError(
+                    'handling of {} has been forgotten to implement!'.format(state_container.__class__.__name__))
 
         # finally update observable properties
         if alert_by_handle:
@@ -439,7 +438,6 @@ class MdibContainer:
         if state_class_qtype is None:
             raise TypeError('No state association for {}'.format(descriptor_container.__class__.__name__))
         return self.sdc_definitions.get_state_container_class(state_class_qtype)
-        # return self.get_state_container_class(state_class_qtype)
 
     def mk_state_container_from_descriptor(self, descriptor_container):
         cls = self.get_state_class_for_descriptor(descriptor_container)

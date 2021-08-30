@@ -291,22 +291,22 @@ class SoapMessageFactory:
         return self._mk_setmethod_envelope(addr_to, port_type, 'SetContextState', operation_handle,
                                            _proposed_state_nodes)
 
-    def mk_activate_envelope(self, addr_to, port_type, operation_handle, value):
+    def mk_activate_envelope(self, addr_to, port_type, operation_handle, arguments=None):
         """
         :param addr_to: to-field value in address
         :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
-        :param value: a string used as argument
+        :param arguments: a list of strings or None
         :return: a SoapEnvelope
         """
         body_node = etree_.Element(msgTag('Activate'), attrib=None, nsmap=nsmap)
         ref = etree_.SubElement(body_node, msgTag('OperationHandleRef'))
         ref.text = operation_handle
-        argument_node = None
-        if value is not None:
-            argument_node = etree_.SubElement(body_node, msgTag('Argument'))
-            arg_val = etree_.SubElement(argument_node, msgTag('ArgValue'))
-            arg_val.text = value
+        if arguments is not None:
+            for argument in arguments:
+                argument_node = etree_.SubElement(body_node, msgTag('Argument'))
+                arg_val = etree_.SubElement(argument_node, msgTag('ArgValue'))
+                arg_val.text = argument
         # TODO: add argument_node to soap envelope somehow
         # look for safety context in mdib
         # sih = self._mk_optional_safetyheader(body_node, operation_handle)

@@ -184,7 +184,7 @@ class TestClientWaveform(unittest.TestCase):
         my_handles = ('0x34F05506', '0x34F05501', '0x34F05500')
         for cl, wfReport in ((self.sdcClient_final, WfReport_draft10),):
             clientmdib = sdc11073.mdib.ClientMdibContainer(cl)
-            clientmdib._bind_to_observables()
+            clientmdib._bind_to_client_observables()
             clientmdib._is_initialized = True # fake it, because we do not call init_mdib()
             clientmdib.MDIB_VERSION_CHECK_DISABLED = True # we have no mdib version incrementing in this test, therefore disable check
             # create dummy descriptors

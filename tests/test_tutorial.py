@@ -3,6 +3,7 @@ import unittest
 import uuid
 
 from sdc11073 import pmtypes
+from sdc11073 import msgtypes
 from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.location import SdcLocation
@@ -364,7 +365,8 @@ class Test_Tutorial(unittest.TestCase):
         operations = myMdib.descriptions.coding.get(MY_CODE_1.coding)
         # the mdib contains 2 operations with the same code. To keep things simple, just use the first one here.
         op = operations[0]
-        future = my_client.set_service_client.activate(op.handle, 'foo')
+        argument = 'foo'
+        future = my_client.set_service_client.activate(op.handle, arguments=[argument])
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_1.operation1_called, 1)

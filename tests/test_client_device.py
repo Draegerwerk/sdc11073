@@ -1,36 +1,37 @@
-import sys
-import unittest
+import copy
+import datetime
 import logging
 import os
+import sys
 import time
+import unittest
 from itertools import product
-from lxml import etree as etree_
-import datetime
-import copy
 
-from sdc11073 import pmtypes
+from lxml import etree as etree_
+
+from sdc11073 import commlog
+from sdc11073 import compression
+from sdc11073 import loghelper
 from sdc11073 import namespaces
 from sdc11073 import observableproperties
-from sdc11073 import commlog
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073 import pmtypes
 from sdc11073.location import SdcLocation
-from sdc11073.roles.nomenclature import NomenclatureCodes as nc
-from sdc11073 import loghelper
+from sdc11073.mdib import ClientMdibContainer
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import ReceivedSoapFault
+from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.sdcclient import SdcClient
-from sdc11073.mdib import ClientMdibContainer
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.httpserver import HttpServerThread
-from sdc11073 import compression
+from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
     comm_logger = commlog.CommLogger(log_folder=r'c:\temp\sdc_commlog',
-                                    log_out=True,
-                                    log_in=True,
-                                    broadcast_ip_filter=None)
+                                     log_out=True,
+                                     log_in=True,
+                                     broadcast_ip_filter=None)
     commlog.set_communication_logger(comm_logger)
 
 CLIENT_VALIDATE = True
@@ -148,8 +149,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         # make SinusGenerator (0x34F05501) the annotator source
         annotation = pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))  # what is CodedValue for startOfInspirationCycle?
         sdcDevice.mdib.register_annotation_generator(annotation,
-                                                   trigger_handle='0x34F05501',
-                                                   annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
+                                                     trigger_handle='0x34F05501',
+                                                     annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
 
     def test_BasicConnect(self):
         # simply check that correct top node is returned
@@ -420,13 +421,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
             patientDescriptorContainer = clientMdib.descriptions.NODETYPE.get_one(
                 namespaces.domTag('PatientContextDescriptor'))
             # initially the device shall not have any patient
-            patientContextStateContainer = clientMdib.context_states.NODETYPE.get_one(namespaces.domTag('PatientContext'),
-                                                                                    allow_none=True)
+            patientContextStateContainer = clientMdib.context_states.NODETYPE.get_one(
+                namespaces.domTag('PatientContext'),
+                allow_none=True)
             self.assertIsNone(patientContextStateContainer)
 
             myOperations = clientMdib.get_operation_descriptors_for_descriptor_handle(patientDescriptorContainer.handle,
-                                                                                 NODETYPE=namespaces.domTag(
-                                                                                     'SetContextStateOperationDescriptor'))
+                                                                                      NODETYPE=namespaces.domTag(
+                                                                                          'SetContextStateOperationDescriptor'))
             self.assertEqual(len(myOperations), 1)
             operation_handle = myOperations[0].handle
             print('Handle for SetContextSTate Operation = {}'.format(operation_handle))
@@ -479,7 +481,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
             # test update of the patient
             proposedContext = context.mk_proposed_context_object(patientDescriptorContainer.handle,
-                                                              handle=patientContextStateContainer.Handle)
+                                                                 handle=patientContextStateContainer.Handle)
             proposedContext.CoreData.Givenname = 'Karla'
             future = context.set_context_state(operation_handle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
@@ -667,7 +669,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         clientMdib.init_mdib()
         coding = pmtypes.Coding(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
         operation = sdcDevice.mdib.descriptions.coding.get_one(coding)
-        future = setService.activate(operation_handle=operation.handle, value=None)
+        future = setService.activate(operation_handle=operation.handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
         state = result.state
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
@@ -683,7 +685,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         coding = pmtypes.Coding(nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
         operation = sdcDevice.mdib.descriptions.coding.get_one(coding)
-        future = setService.activate(operation_handle=operation.handle, value=None)
+        future = setService.activate(operation_handle=operation.handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
         state = result.state
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
@@ -773,7 +775,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         cls = sdcDevice.mdib.sdc_definitions.get_descriptor_container_class(
             namespaces.domTag('SetMetricStateOperationDescriptor'))
         myCode = pmtypes.CodedValue(99999)
-        setMetricStateOperationDescriptorContainer = sdcDevice.mdib._create_descriptor_container(
+        setMetricStateOperationDescriptorContainer = sdcDevice.mdib.descriptor_factory._create_descriptor_container(
             cls, 'HANDLE_FOR_MY_TEST', scoDescriptors[0].handle, myCode, pmtypes.SafetyClassification.INF)
         setMetricStateOperationDescriptorContainer.OperationTarget = '0x34F001D5'
         setMetricStateOperationDescriptorContainer.Type = pmtypes.CodedValue(999998)
@@ -793,7 +795,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         before_stateversion = proposedMetricState.StateVersion
         newLifeTimePeriod = 42.5
         proposedMetricState.LifeTimePeriod = newLifeTimePeriod
-        future = setService.set_metric_state(operation_handle=operation_handle, proposed_metric_states=[proposedMetricState])
+        future = setService.set_metric_state(operation_handle=operation_handle,
+                                             proposed_metric_states=[proposedMetricState])
         result = future.result(timeout=SET_TIMEOUT)
         state = result.state
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
@@ -813,17 +816,17 @@ class Test_Client_SomeDevice(unittest.TestCase):
         cls = sdcDevice.mdib.sdc_definitions.get_descriptor_container_class(
             namespaces.domTag('SetComponentStateOperationDescriptor'))
         myCode = pmtypes.CodedValue(99999)
-        setComponentStateOperationDescriptorContainer = sdcDevice.mdib._create_descriptor_container(cls,
-                                                                                                  'HANDLE_FOR_MY_TEST',
-                                                                                                  scoDescriptors[
-                                                                                                      0].handle,
-                                                                                                  myCode,
-                                                                                                  pmtypes.SafetyClassification.INF)
+        setComponentStateOperationDescriptorContainer = sdcDevice.mdib.descriptor_factory._create_descriptor_container(
+            cls,
+            'HANDLE_FOR_MY_TEST',
+            scoDescriptors[0].handle,
+            myCode,
+            pmtypes.SafetyClassification.INF)
         setComponentStateOperationDescriptorContainer.OperationTarget = operationtarget_handle
         setComponentStateOperationDescriptorContainer.Type = pmtypes.CodedValue(999998)
         sdcDevice.mdib.descriptions.add_object(setComponentStateOperationDescriptorContainer)
         op = sdcDevice.product_roles.make_operation_instance(setComponentStateOperationDescriptorContainer,
-                                                           sdcDevice.sco_operations_registry.operations_factory)
+                                                             sdcDevice.sco_operations_registry.operations_factory)
         sdcDevice.sco_operations_registry.register_operation(op)
         sdcDevice.mdib.mk_state_containers_for_all_descriptors()
         setService = sdcClient.client('Set')
@@ -839,7 +842,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         newOperatingHours = 42
         proposedComponentState.OperatingHours = newOperatingHours
         future = setService.set_component_state(operation_handle=operation_handle,
-                                              proposed_component_states=[proposedComponentState])
+                                                proposed_component_states=[proposedComponentState])
         result = future.result(timeout=SET_TIMEOUT)
         state = result.state
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
@@ -957,7 +960,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     self.assertEqual(w_a.annotations[0].Type,
                                      pmtypes.CodedValue('a', 'b'))  # like in provideRealtimeData
                 # the cycle time of the annotator source is 1.2 seconds. The difference of the observation times must be almost 1.2
-                self.assertAlmostEqual(with_annotation[1].determination_time - with_annotation[0].determination_time, 1.2,
+                self.assertAlmostEqual(with_annotation[1].determination_time - with_annotation[0].determination_time,
+                                       1.2,
                                        delta=0.05)
 
             # now disable one waveform
@@ -1447,8 +1451,8 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         # make SinusGenerator (0x34F05501) the annotator source
         annotation = pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))  # what is CodedValue for startOfInspirationCycle?
         sdcDevice.mdib.register_annotation_generator(annotation,
-                                                   trigger_handle='0x34F05501',
-                                                   annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
+                                                     trigger_handle='0x34F05501',
+                                                     annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
 
     def test_BasicConnect(self):
         # simply check that correct top node is returned
@@ -1480,7 +1484,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         self.wsd.start()
         location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
         self.sdcDevice_Final = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<Final> ',
-                                                       chunked_messages=True)
+                                                         chunked_messages=True)
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         nsmapper = self.sdcDevice_Final.mdib.nsmapper
         nsmapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
@@ -1536,8 +1540,8 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         # make SinusGenerator (0x34F05501) the annotator source
         annotation = pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))  # what is CodedValue for startOfInspirationCycle?
         sdcDevice.mdib.register_annotation_generator(annotation,
-                                                   trigger_handle='0x34F05501',
-                                                   annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
+                                                     trigger_handle='0x34F05501',
+                                                     annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
 
     def test_BasicConnect(self):
         # simply check that correct top node is returned

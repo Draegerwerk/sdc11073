@@ -167,20 +167,20 @@ class SetServiceClient(HostedServiceClient):
         envelope = self._mk_set_metric_state_envelope(operation_handle, proposed_metric_states)
         return self._call_operation(envelope, request_manipulator=request_manipulator)
 
-    def activate(self, operation_handle, value, request_manipulator=None):
+    def activate(self, operation_handle, arguments=None, request_manipulator=None):
         """ an activate call does not return the result of the operation directly. Instead you get an transaction id,
         and will receive the status of this transaction as notification ("OperationInvokedReport").
         This method returns a "future" object. The future object has a result as soon as a final transaction state is received.
-        @param operation_handle: a string
-        @param value: a string
-        @return: a concurrent.futures.Future object
+        :param operation_handle: a string
+        :param arguments: a list of strings or None
+        :return: a concurrent.futures.Future object
         """
         # make message body
-        self._logger.info('activate handle={} value={}', operation_handle, value)
+        self._logger.info('activate handle={} arguments={}', operation_handle, arguments)
         envelope = self._msg_factory.mk_activate_envelope(self.endpoint_reference.address,
                                                           self.porttype,
                                                           operation_handle,
-                                                          value)
+                                                          arguments)
         envelope.validate_body(self._bmm_schema)
         return self._call_operation(envelope, request_manipulator=request_manipulator)
 
