@@ -33,9 +33,9 @@ class SdcDevice:
                      validators: List[pmtypes.InstanceIdentifier] = defaultInstanceIdentifiers,
                      publish_now: bool = True):
         '''
-        @param location: a pysdc.location.SdcLocation instance
-        @param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
-        @param publish_now: if True, the device is published via its wsdiscovery reference.
+        :param location: a pysdc.location.SdcLocation instance
+        :param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
+        :param publish_now: if True, the device is published via its wsdiscovery reference.
         '''
         if location == self._location:
             return

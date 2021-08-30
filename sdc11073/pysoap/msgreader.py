@@ -137,8 +137,8 @@ class MessageReader:
     @classmethod
     def mk_statecontainer_from_node(cls, node, mdib, forced_type=None, additional_descriptor_containers=None):
         """
-        @param node: a etree node
-        @param forcedType: if given, the QName that shall be used for class instantiation instead of the data in node
+        :param node: a etree node
+        :param forcedType: if given, the QName that shall be used for class instantiation instead of the data in node
         """
         if forced_type is not None:
             node_type = forced_type

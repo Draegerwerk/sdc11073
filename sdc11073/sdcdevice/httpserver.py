@@ -282,7 +282,7 @@ class HttpServerThread(threading.Thread):
 
     def set_compression_flag(self, use_compression):
         '''Sets use compression attribute on the http server to be used in handler
-        @param use_compression: bool flag
+        :param use_compression: bool flag
         '''
         self.httpd.use_compression = use_compression  # pylint: disable=attribute-defined-outside-init
 

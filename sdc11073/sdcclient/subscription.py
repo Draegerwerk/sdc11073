@@ -77,9 +77,9 @@ class _ClSubscription:
 
     def __init__(self, msg_factory, dpws_hosted, actions, notification_url, end_to_url, ident):
         """
-        @param serviceClient:
-        @param filter_:
-        @param notification_url: e.g. http://1.2.3.4:9999, or https://1.2.3.4:9999
+        :param serviceClient:
+        :param filter_:
+        :param notification_url: e.g. http://1.2.3.4:9999, or https://1.2.3.4:9999
         """
         self._msg_factory = msg_factory
         self.dpws_hosted = dpws_hosted
@@ -263,7 +263,7 @@ class _ClSubscription:
 
     def check_status(self, renew_limit):
         """ Calls get_status and updates internal data.
-        @param renew_limit: a value in seconds. If remaining duration of subscription is less than this value, it renews the subscription.
+        :param renew_limit: a value in seconds. If remaining duration of subscription is less than this value, it renews the subscription.
         @return: None
         """
         if not self.is_subscribed:
@@ -311,10 +311,10 @@ class _ClSubscription:
 
 class SubscriptionClient(threading.Thread):
     """ Factory for Subscription objects, thread that automatically renews expiring subscriptions.
-    @param notification_url: the destination url for notifications.
-    @param end_to_url: if given the destination url for end subscription notifications; if not given, the notification_url is used.
-    @param check_interval: the interval (in seconds ) for get_status requests. Defaults to SUBSCRIPTION_CHECK_INTERVAL
-    @param ident: a string that is used in log output; defaults to empty string
+    :param notification_url: the destination url for notifications.
+    :param end_to_url: if given the destination url for end subscription notifications; if not given, the notification_url is used.
+    :param check_interval: the interval (in seconds ) for get_status requests. Defaults to SUBSCRIPTION_CHECK_INTERVAL
+    :param ident: a string that is used in log output; defaults to empty string
      """
     all_subscriptions_okay = properties.ObservableProperty(True)  # a boolean
     keep_alive_with_renew = True  # enable as workaround if checkstatus is not supported
@@ -601,7 +601,7 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
 
     def stop(self, close_all_connections=True):
         """
-        @param close_all_connections: for testing purpose one might want to keep the connection handler threads alive.
+        :param close_all_connections: for testing purpose one might want to keep the connection handler threads alive.
                 If param is False then they are kept alive.
         """
         self.httpd.shutdown()

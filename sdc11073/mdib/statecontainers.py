@@ -500,6 +500,6 @@ _state_lookup_by_type = {c.NODETYPE: c for c in classes_with_NODETYPE}
 
 def get_container_class(type_qname):
     """
-    @param type_qname: the QName of the expected NODETYPE
+    :param type_qname: the QName of the expected NODETYPE
     """
     return _state_lookup_by_type.get(type_qname)

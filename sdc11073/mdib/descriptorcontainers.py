@@ -204,7 +204,7 @@ class AbstractDescriptorContainer(ContainerBase):
     def sort_child_nodes(self, node):
         """
         raises an ValueError if a child node exist that is not listed in ordered_tags
-        @param node: a list of QNames
+        :param node: a list of QNames
         """
         child_decls = sorted_child_declarations(self)
         qnames = [o.child_qname for o in child_decls]

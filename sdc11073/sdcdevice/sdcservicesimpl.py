@@ -194,7 +194,7 @@ class DPWSHostedService(EventService):
 
     def __init__(self, sdc_device, base_urls, path_suffix, sub_dispatchers, offered_subscriptions):
         """
-        @param base_urls: urlparse.SplitResult instances. They define the base addresses of this service
+        :param base_urls: urlparse.SplitResult instances. They define the base addresses of this service
         """
         super().__init__(sdc_device, sub_dispatchers, offered_subscriptions)
 

@@ -182,8 +182,8 @@ def bind(obj, **kwargs):
     The advantage is that the garbage collector can remove objects even if they are referenced by ObservableProperty.
     ObservableProperty silently removes the callable if it no longer exists.
     This method does not work with lambda expressions!
-    @param obj: an object with ObservableProperty member(s)
-    @param **kwargs: name of parameter must match the name of an ObservableProperty, value must be a callable."""
+    :param obj: an object with ObservableProperty member(s)
+    :param **kwargs: name of parameter must match the name of an ObservableProperty, value must be a callable."""
     for name, func in kwargs.items():
         prop = _find_property(obj, name)
         prop.bind(obj, func)
@@ -199,8 +199,8 @@ def strongbind(obj, **kwargs):
 
 def unbind(obj, **kwargs):
     """ unbind callables that were bound before.
-    @param obj: an object with ObservableProperty member(s)
-    @param **kwargs: name of parameter must match the name of an ObservableProperty, value must be a callable.
+    :param obj: an object with ObservableProperty member(s)
+    :param **kwargs: name of parameter must match the name of an ObservableProperty, value must be a callable.
                     Unbinding an unknown callable is allowed, in this cases nothing changes. """
     for name, func in kwargs.items():
         prop = _find_property(obj, name)
@@ -209,8 +209,8 @@ def unbind(obj, **kwargs):
 
 def unbind_all(obj, *propertyNames):
     """ unbind all callables that were bound before.
-    @param obj: an object with ObservableProperty member(s)
-    @param *propertyNames: list of strings , each string names an ObservableProperty.
+    :param obj: an object with ObservableProperty member(s)
+    :param *propertyNames: list of strings , each string names an ObservableProperty.
     """
     for name in propertyNames:
         prop = _find_property(obj, name)

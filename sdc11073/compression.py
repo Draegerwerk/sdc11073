@@ -31,8 +31,8 @@ class CompressionHandler:
         """Compresses payload based on required algorithm.
         Raises CompressionException if algorithm is not supported.
 
-        @param algorithm: one of available values specified as constants in this module
-        @param payload: text to compress
+        :param algorithm: one of available values specified as constants in this module
+        :param payload: text to compress
         @return: compressed content
         """
         return cls.get_handler(algorithm).compress_payload(payload)
@@ -42,8 +42,8 @@ class CompressionHandler:
         """Compresses payload based on required algorithm.
         Raises CompressionException if algorithm is not supported.
 
-        @param algorithm: one of available values specified as constants in this module
-        @param payload: text to decompress
+        :param algorithm: one of available values specified as constants in this module
+        :param payload: text to decompress
         @return: decompressed content
         """
         return cls.get_handler(algorithm).decompress_payload(payload)

@@ -154,9 +154,9 @@ class SdcClient:
                  specific_components=None,
                  chunked_requests=False):  # pylint:disable=too-many-arguments
         '''
-        @param device_location: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
-        @param sdc_definitions: a class derived from BaseDefinitions
-        @param ssl_context: used for ssl connection to device and for own HTTP Server (notifications receiver)
+        :param device_location: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
+        :param sdc_definitions: a class derived from BaseDefinitions
+        :param ssl_context: used for ssl connection to device and for own HTTP Server (notifications receiver)
              If value is None, best own address is determined automatically (recommended).
         '''
         if not device_location.startswith('http'):
@@ -238,10 +238,10 @@ class SdcClient:
 
     def _subscribe(self, dpws_hosted, actions, callback):
         ''' creates a subscription object and registers it in
-        @param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
+        :param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
                            This is the target for all subscribe/unsubscribe ... messages
-        @param actions: a list of filters. this (joined) string is sent to the sdc server in the Subscribe message
-        @param callback: callable with signature callback(soapEnvlope)
+        :param actions: a list of filters. this (joined) string is sent to the sdc server in the Subscribe message
+        :param callback: callable with signature callback(soapEnvlope)
         @return: a subscription object that has callback already registerd
         '''
         subscription = self._subscription_mgr.mk_subscription(dpws_hosted, actions)

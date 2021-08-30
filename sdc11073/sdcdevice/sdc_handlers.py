@@ -50,17 +50,17 @@ class SdcHandlerBase:
                  components,
                  log_prefix='', chunked_messages=False):  # pylint:disable=too-many-arguments
         """
-        @param uuid: a string that becomes part of the devices url (no spaces, no special characters please. This could cause an invalid url!).
+        :param uuid: a string that becomes part of the devices url (no spaces, no special characters please. This could cause an invalid url!).
                      Parameter can be None, in this case a random uuid string is generated.
-        @param ws_discovery: reference to the wsDiscovery instance
-        @param model: a pysoap.soapenvelope.DPWSThisModel instance
-        @param device: a pysoap.soapenvelope.DPWSThisDevice instance
-        @param device_mdib_container: a DeviceMdibContainer instance
-        @param roleProvider: handles the operation calls
-        @param ssl_context: if not None, this context is used and https url is used. Otherwise http
-        @param log_level: if not None, the "sdc.device" logger will use this level
-        @param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
-        @param ident: names a device, used for logging
+        :param ws_discovery: reference to the wsDiscovery instance
+        :param model: a pysoap.soapenvelope.DPWSThisModel instance
+        :param device: a pysoap.soapenvelope.DPWSThisDevice instance
+        :param device_mdib_container: a DeviceMdibContainer instance
+        :param roleProvider: handles the operation calls
+        :param ssl_context: if not None, this context is used and https url is used. Otherwise http
+        :param log_level: if not None, the "sdc.device" logger will use this level
+        :param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
+        :param ident: names a device, used for logging
         """
         self._my_uuid = my_uuid or uuid.uuid4()
         self._wsdiscovery = ws_discovery

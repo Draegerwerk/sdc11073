@@ -47,8 +47,8 @@ class CommLogger:
 
     def _mk_filename(self, ip_type, direction, info):
         """
-        @param ipType: "tcp" or "udp"
-        @param direction: "in" or "out"
+        :param ipType: "tcp" or "udp"
+        :param direction: "in" or "out"
         """
         assert ip_type in (T_UDP, T_UDP_MULTICAST, T_HTTP, T_HTTP_REQ, T_HTTP_RESP, T_WSDL)
         assert direction in (D_IN, D_OUT)

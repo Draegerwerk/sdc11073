@@ -173,7 +173,7 @@ class MdibContainer:
 
     def __init__(self, sdc_definitions: Type[BaseDefinitions]):
         """
-        @param sdc_definitions: a class derived from Definitions_Base
+        :param sdc_definitions: a class derived from Definitions_Base
         """
         self.sdc_definitions = sdc_definitions
         self.biceps_schema = SchemaValidators(sdc_definitions)  # used for validation
@@ -210,7 +210,7 @@ class MdibContainer:
 
     def add_description_containers(self, description_containers):
         """ init self.descriptions with provided descriptors
-        @param description_containers: a list of DescriptorContainer objects
+        :param description_containers: a list of DescriptorContainer objects
         """
         new_descriptor_by_handle = {}
         with self.descriptions.lock:
@@ -282,7 +282,7 @@ class MdibContainer:
 
     def add_state_containers(self, state_containers):
         """Adds states to self.states and self.context_states.
-        @param state_containers: a list of StateContainer objects.
+        :param state_containers: a list of StateContainer objects.
         """
         for state_container in state_containers:
             if state_container.descriptor_container is not None:
@@ -318,7 +318,7 @@ class MdibContainer:
 
     def _reconstruct_mdib(self, add_context_states):
         """build dom tree from current data
-        @param add_context_states: bool
+        :param add_context_states: bool
         @return: an etree_ node
         """
         doc_nsmap = self.nsmapper.doc_ns_map
@@ -379,9 +379,9 @@ class MdibContainer:
                                       metric_code: [Coding, CodedValue]):
         """ This is the "correct" way to find an descriptor.
         Using well known handles is shaky, because they have no meaning and can change over time!
-        @param vmd_code: a CodedValue or a Coding instance
-        @param channel_code: a CodedValue or a Coding instance
-        @param metric_code: a CodedValue or a Coding instance
+        :param vmd_code: a CodedValue or a Coding instance
+        :param channel_code: a CodedValue or a Coding instance
+        :param metric_code: a CodedValue or a Coding instance
         """
         vmd_coding = vmd_code.coding if hasattr(vmd_code, 'coding') else vmd_code
         channel_coding = channel_code.coding if hasattr(channel_code, 'coding') else channel_code
@@ -412,9 +412,9 @@ class MdibContainer:
                                   metric_code: [Coding, CodedValue]):
         """ This is the "correct" way to find an operation.
         Using well known handles is shaky, because they have no meaning and can change over time!
-        @param vmd_code: a CodedValue or a Coding instance
-        @param channel_code: a CodedValue or a Coding instance
-        @param metric_code: a CodedValue or a Coding instance
+        :param vmd_code: a CodedValue or a Coding instance
+        :param channel_code: a CodedValue or a Coding instance
+        :param metric_code: a CodedValue or a Coding instance
         @return: a list of matching Operation Containers
         """
         descriptor_container = self.get_metric_descriptor_by_code(vmd_code, channel_code, metric_code)

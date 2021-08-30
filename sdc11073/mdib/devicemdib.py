@@ -404,8 +404,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         """
         This method updates only the mdib internal data!
         use the SdcDevice.set_location method if you want to publish the address an the network.
-        @param sdc_location: a pysdc.location.SdcLocation instance
-        @param validators: a list of pysdc.pmtypes.InstanceIdentifier objects or None
+        :param sdc_location: a pysdc.location.SdcLocation instance
+        :param validators: a list of pysdc.pmtypes.InstanceIdentifier objects or None
         """
         all_location_contexts = self.context_states.NODETYPE.get(domTag('LocationContextState'), [])
         with self.transaction_manager() as mgr:

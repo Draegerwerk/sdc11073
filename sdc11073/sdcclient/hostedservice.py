@@ -14,7 +14,7 @@ class HostedServiceClient:
     def __init__(self, soap_client, msg_factory, dpws_hosted, porttype, validate, sdc_definitions, biceps_parser,
                  log_prefix=''):
         '''
-        @param simple_xml_hosted_node: a "Hosted" node in a simplexml document
+        :param simple_xml_hosted_node: a "Hosted" node in a simplexml document
         '''
         self.endpoint_reference = dpws_hosted.endpoint_references[0]
         self._url = urllib.parse.urlparse(self.endpoint_reference.address)
@@ -83,7 +83,7 @@ class GetServiceClient(HostedServiceClient):
 
     def get_md_description_node(self, requested_handles=None, request_manipulator=None):
         """
-        @param requested_handles: None if all descriptors shall be requested, otherwise a list of handles
+        :param requested_handles: None if all descriptors shall be requested, otherwise a list of handles
         """
         envelope = self._msg_factory.mk_getmddescription_envelope(
             self.endpoint_reference.address, self.porttype, requested_handles)
@@ -103,7 +103,7 @@ class GetServiceClient(HostedServiceClient):
 
     def get_md_state(self, requested_handles=None, request_manipulator=None):
         """
-        @param requested_handles: None if all states shall be requested, otherwise a list of handles
+        :param requested_handles: None if all states shall be requested, otherwise a list of handles
         """
         envelope = self._msg_factory.mk_getmdstate_envelope(self.endpoint_reference.address,
                                                             self.porttype, requested_handles)
@@ -113,7 +113,7 @@ class GetServiceClient(HostedServiceClient):
 
     def get_md_state_node(self, requested_handles=None, request_manipulator=None):
         """
-        @param requested_handles: None if all states shall be requested, otherwise a list of handles
+        :param requested_handles: None if all states shall be requested, otherwise a list of handles
         """
         return self.get_md_state(requested_handles, request_manipulator=request_manipulator).msg_node
 
@@ -123,8 +123,8 @@ class SetServiceClient(HostedServiceClient):
 
     def set_numeric_value(self, operation_handle, requested_numeric_value, request_manipulator=None):
         """ call SetNumericValue Method of device
-        @param operation_handle: a string
-        @param requested_numeric_value: int or float or a string representing a decimal number
+        :param operation_handle: a string
+        :param requested_numeric_value: int or float or a string representing a decimal number
         @return a Future object
         """
         self._logger.info('set_numeric_value operation_handle={} requested_numeric_value={}',
@@ -134,8 +134,8 @@ class SetServiceClient(HostedServiceClient):
 
     def set_string(self, operation_handle, requested_string, request_manipulator=None):
         """ call SetString Method of device
-        @param operation_handle: a string
-        @param requested_string: a string
+        :param operation_handle: a string
+        :param requested_string: a string
         @return a Future object
         """
         self._logger.info('set_string operation_handle={} requested_string={}',
@@ -146,8 +146,8 @@ class SetServiceClient(HostedServiceClient):
     def set_alert_state(self, operation_handle, proposed_alert_state, request_manipulator=None):
         """The SetAlertState method corresponds to the SetAlertStateOperation objects in the MDIB and allows the modification of an alert.
         It can handle a single proposed AlertState as argument (only for backwards compatibility) and a list of them.
-        @param operation_handle: handle name as string
-        @param proposed_alert_state: domainmodel.AbstractAlertState instance or a list of them
+        :param operation_handle: handle name as string
+        :param proposed_alert_state: domainmodel.AbstractAlertState instance or a list of them
         """
         self._logger.info('set_alert_state operation_handle={} requestedAlertState={}',
                           operation_handle, proposed_alert_state)
@@ -159,8 +159,8 @@ class SetServiceClient(HostedServiceClient):
 
     def set_metric_state(self, operation_handle, proposed_metric_states, request_manipulator=None):
         """The SetMetricState method corresponds to the SetMetricStateOperation objects in the MDIB and allows the modification of metric states.
-        @param operation_handle: handle name as string
-        @param proposed_metric_states: a list of domainmodel.AbstractMetricState instance or derived class
+        :param operation_handle: handle name as string
+        :param proposed_metric_states: a list of domainmodel.AbstractMetricState instance or derived class
         """
         self._logger.info('set_metric_state operation_handle={} requestedMetricState={}',
                           operation_handle, proposed_metric_states)
@@ -187,8 +187,8 @@ class SetServiceClient(HostedServiceClient):
     def set_component_state(self, operation_handle, proposed_component_states, request_manipulator=None):
         """
         The set_component_state method corresponds to the SetComponentStateOperation objects in the MDIB and allows to insert or modify context states.
-        @param operation_handle: handle name as string
-        @param proposed_component_states: a list of domainmodel.AbstractDeviceComponentState instances or derived class
+        :param operation_handle: handle name as string
+        :param proposed_component_states: a list of domainmodel.AbstractDeviceComponentState instances or derived class
         :return: a concurrent.futures.Future
         """
         tmp = ', '.join(['{}(descriptorHandle={})'.format(st.__class__.__name__, st.descriptorHandle)
@@ -302,7 +302,7 @@ class ContextServiceClient(HostedServiceClient):
 
     def get_context_states_node(self, handles=None, request_manipulator=None):
         """
-        @param handles: a list of handles
+        :param handles: a list of handles
         """
         envelope = self._msg_factory.mk_getcontextstates_envelope(
             self.endpoint_reference.address, self.porttype, handles)

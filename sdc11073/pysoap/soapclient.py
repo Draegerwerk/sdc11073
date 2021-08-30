@@ -31,13 +31,13 @@ class HTTPSConnectionNoDelay(httplib.HTTPSConnection):
 
 
 class HTTPReturnCodeError(httplib.HTTPException):
-    ''' THis class is used to map http return codes to Python exceptions.'''
+    """ THis class is used to map http return codes to Python exceptions."""
 
     def __init__(self, status, reason, soapfault):
-        '''
-        @param status: integer, e.g. 404
+        """
+        :param status: integer, e.g. 404
         param reason: the provided human readable text
-        '''
+        """
         super().__init__()
         self.status = status
         self.reason = reason
@@ -50,25 +50,26 @@ class HTTPReturnCodeError(httplib.HTTPException):
 
 
 class SoapClient:
+    """SOAP Client wraps an http connection. It can send / receive SoapEnvelopes."""
     _usedSoapClients = 0
     SOCKET_TIMEOUT = 10 if sys.gettrace() is None else 1000  # higher timeout for debugging
 
-    """SOAP Client"""
     roundtrip_time = observableproperties.ObservableProperty()
 
     def __init__(self, netloc, logger, ssl_context, sdc_definitions, supported_encodings=None,
                  request_encodings=None, chunked_requests=False):
-        ''' Connects to one url
-        @param netloc: the location of the service (domainname:port) ###url of the service
-        @param ssl_context: an optional sll.SSLContext instance
-        @param biceps_schema:
-        @param supported_encodings: configured set of encodings that can be used. If None, all available encodings are used.
+        """ Connects to one url
+        :param netloc: the location of the service (domainname:port) ###url of the service
+        :param ssl_context: an optional sll.SSLContext instance
+        :param sdc_definitions: needed to normalize and de-normalize xml text.
+        :param supported_encodings: configured set of encodings that can be used. If None, all available encodings are used.
                                 This used for decompression of received responses.
                                 If this is an empty list, no compression is supported.
-        @param request_encodings: an optional list of encodings that the other side accepts. It is used to compress requests.
+        :param request_encodings: an optional list of encodings that the other side accepts. It is used to compress requests.
                                 If not set, requests will not be commpressed.
                                 If set, then the http request will be compressed using this method
-        '''
+        :param chunked_requests
+        """
         self._log = logger
         self._ssl_context = ssl_context
         self._sdc_definitions = sdc_definitions
@@ -92,10 +93,10 @@ class SoapClient:
         return None if self._http_connection is None else self._http_connection.sock
 
     def _mk_http_connection(self):
-        ''' Soap client never sends very large requests, the largest packages are notifications.
+        """ Soap client never sends very large requests, the largest packages are notifications.
          Therefore we can use TCP_NODELAY for a little faster transmission.
         (Otherwise there would be a chance that receivers windows size decreases, which would result in smaller
-        packages and therefore higher network load.'''
+        packages and therefore higher network load."""
         if self._ssl_context is not None:
             conn = HTTPSConnectionNoDelay(self._netloc, context=self._ssl_context, timeout=self.SOCKET_TIMEOUT)
         else:
@@ -120,13 +121,13 @@ class SoapClient:
 
     def post_soap_envelope_to(self, path, soap_envelope, response_factory=None, schema=None, msg='',
                               request_manipulator=None):
-        '''
-        @param path: url path component
-        @param soapEnvelopeRequest: The soap envelope that shall be sent
-        @param response_factory: a callable that creates a response object from received xml. If None, a ReceivedSoap12Envelope will be created
-        @param schema: If given, the request is validated against this schema
-        @param msg: used in logs, helps to identify the context in which the method was called
-        '''
+        """
+        :param path: url path component
+        :param soapEnvelopeRequest: The soap envelope that shall be sent
+        :param response_factory: a callable that creates a response object from received xml. If None, a ReceivedSoap12Envelope will be created
+        :param schema: If given, the request is validated against this schema
+        :param msg: used in logs, helps to identify the context in which the method was called
+        """
         if self.is_closed():
             self.connect()
         return self.__post_soap_envelope(soap_envelope, response_factory, schema, path, msg, request_manipulator)

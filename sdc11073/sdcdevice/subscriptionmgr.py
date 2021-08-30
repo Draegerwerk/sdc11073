@@ -50,10 +50,10 @@ class _DevSubscription:
                  max_subscription_duration, filter_, ssl_context, biceps_schema,
                  accepted_encodings):  # pylint:disable=too-many-arguments
         """
-        @param notify_to_address: dom node of Subscribe Request
-        @param end_to_address: dom node of Subscribe Request
-        @param expires: seconds as float
-        @param filter: a space separated list of actions, or only one action
+        :param notify_to_address: dom node of Subscribe Request
+        :param end_to_address: dom node of Subscribe Request
+        :param expires: seconds as float
+        :param filter: a space separated list of actions, or only one action
         """
         self.mode = mode
         self.base_urls = base_urls

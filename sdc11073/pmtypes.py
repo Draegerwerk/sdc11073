@@ -125,11 +125,11 @@ class LocalizedText(PropertyBasedPMType):
 
     def __init__(self, text, lang=None, ref=None, version=None, textWidth=None):
         """
-        @param text: a string
-        @param lang: a string or None
-        @param ref: a string or None
-        @param version: an int or None
-        @param textWidth: xs, s, m, l, xl, xxl or None
+        :param text: a string
+        :param lang: a string or None
+        :param ref: a string or None
+        :param version: an int or None
+        :param textWidth: xs, s, m, l, xl, xxl or None
         """
         self.text = text
         # pylint: disable=invalid-name
@@ -232,9 +232,9 @@ class T_Translation(PropertyBasedPMType):
 
     def __init__(self, code, codingsystem=None, codingSystemVersion=None):
         """
-        @param code: a string or an int
-        @param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
-        @param codingSystemVersion: a string, min. length = 1
+        :param code: a string or an int
+        :param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
+        :param codingSystemVersion: a string, min. length = 1
         """
         # pylint: disable=invalid-name
         self.Code = str(code)
@@ -289,12 +289,12 @@ class CodedValue(PropertyBasedPMType):
     def __init__(self, code, codingsystem=None, codingSystemVersion=None, codingSystemNames=None,
                  conceptDescriptions=None, symbolicCodeName=None):
         """
-        @param code: a string or an int
-        @param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
-        @param codingSystemVersion: a string, min. length = 1
-        @param codingSystemNames: a list of LocalizedText objects or None
-        @param conceptDescriptions: a list of LocalizedText objects or None
-        @param symbolicCodeName: a string, min. length = 1 or None
+        :param code: a string or an int
+        :param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
+        :param codingSystemVersion: a string, min. length = 1
+        :param codingSystemNames: a list of LocalizedText objects or None
+        :param conceptDescriptions: a list of LocalizedText objects or None
+        :param symbolicCodeName: a string, min. length = 1 or None
         """
         # pylint: disable=invalid-name
         self.Code = str(code)
@@ -402,9 +402,9 @@ class OperationGroup(PropertyBasedPMType):
 
     def __init__(self, coded_value=None, operating_mode=None, operations=None):
         """
-        @param coded_value: a CodedValue instances or None
-        @param operating_mode:  xsd:string string
-        @param operations: a xsd:string
+        :param coded_value: a CodedValue instances or None
+        :param operating_mode:  xsd:string string
+        :param operations: a xsd:string
         """
         # pylint: disable=invalid-name
         self.Type = coded_value
@@ -436,10 +436,10 @@ class InstanceIdentifier(PropertyBasedPMType):
 
     def __init__(self, root, type_coded_value=None, identifier_names=None, extension_string=None):
         """
-        @param root:  xsd:anyURI string
-        @param type_coded_value: a CodedValue instances or None
-        @param identifier_names: a list of LocalizedText instances or None
-        @param extension_string: a xsd:string
+        :param root:  xsd:anyURI string
+        :param type_coded_value: a CodedValue instances or None
+        :param identifier_names: a list of LocalizedText instances or None
+        :param extension_string: a xsd:string
         """
         # pylint: disable=invalid-name
         self.Root = root
@@ -477,11 +477,11 @@ class Range(PropertyBasedPMType):
 
     def __init__(self, lower=None, upper=None, step_width=None, relative_accuracy=None, absolute_accuracy=None):
         """
-        @param lower: The including lower bound of the range. A value as float or integer, can be None
-        @param upper: The including upper bound of the range. A value as float or integer, can be None
-        @param step_width: The numerical distance between two values in the range of the given upper and lower bound. A value as float or integer, can be None
-        @param relative_accuracy: Maximum relative error in relation to the correct value within the given range. A value as float or integer, can be None
-        @param absolute_accuracy: Maximum absolute error in relation to the correct value within the given range. A value as float or integer, can be None
+        :param lower: The including lower bound of the range. A value as float or integer, can be None
+        :param upper: The including upper bound of the range. A value as float or integer, can be None
+        :param step_width: The numerical distance between two values in the range of the given upper and lower bound. A value as float or integer, can be None
+        :param relative_accuracy: Maximum relative error in relation to the correct value within the given range. A value as float or integer, can be None
+        :param absolute_accuracy: Maximum absolute error in relation to the correct value within the given range. A value as float or integer, can be None
         """
         # pylint: disable=invalid-name
         self.Lower = lower
@@ -505,8 +505,8 @@ class Measurement(PropertyBasedPMType):
 
     def __init__(self, value, unit):
         """
-        @param value: a value as string, float or integer
-        @param unit: a CodedValue instance
+        :param value: a value as string, float or integer
+        :param unit: a CodedValue instance
         """
         # pylint: disable=invalid-name
         self.MeasuredValue = value
@@ -540,8 +540,8 @@ class AllowedValue(PropertyBasedPMType):
     def __init__(self, value_string, type_coding=None):
         """One AllowedValue of a EnumStringMetricDescriptor. It has up to two sub elements "Value" and "Type"(optional).
         A StringEnumMetricDescriptor has a list of AllowedValues.
-        @param valueString: a string
-        @param type_coding: an optional CodedValue instance
+        :param valueString: a string
+        :param type_coding: an optional CodedValue instance
         """
         # pylint: disable=invalid-name
         self.Value = value_string
@@ -761,7 +761,7 @@ class RemedyInfo(PropertyBasedPMType):
 
     def __init__(self, descriptions=None):
         """
-        @param descriptions : a list of LocalizedText objects or None
+        :param descriptions : a list of LocalizedText objects or None
         """
         if descriptions:
             self.Description = descriptions     # pylint: disable=invalid-name
@@ -780,8 +780,8 @@ class CauseInfo(PropertyBasedPMType):
 
     def __init__(self, remedyInfo=None, descriptions=None):
         """
-        @param remedyInfo: a RemedyInfo instance or None
-        @param descriptions : a list of LocalizedText objects or None
+        :param remedyInfo: a RemedyInfo instance or None
+        :param descriptions : a list of LocalizedText objects or None
         """
         # pylint: disable=invalid-name
         self.RemedyInfo = remedyInfo
@@ -813,8 +813,8 @@ class ActivateOperationDescriptorArgument(PropertyBasedPMType):
 
     def __init__(self, arg_name=None, arg=None):
         """
-        @param arg_name: a CodedValue instance
-        @param arg : etree_.QName instance
+        :param arg_name: a CodedValue instance
+        :param arg : etree_.QName instance
         """
         # pylint: disable=invalid-name
         self.ArgName = arg_name
@@ -846,8 +846,8 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
 
     def __init__(self, labels=None, number=None):
         """
-        @param labels: a  list of LocalizedText
-        @param number : an integer
+        :param labels: a  list of LocalizedText
+        :param number : an integer
         """
         # pylint: disable=invalid-name
         self.Label = labels or []
@@ -889,8 +889,8 @@ class SystemSignalActivation(PropertyBasedPMType):
 
     def __init__(self, manifestation=None, state=None):
         """
-        @param manifestation: a pmtypes.AlertSignalManifestation value
-        @param state : a pmtypes.AlertActivation value
+        :param manifestation: a pmtypes.AlertSignalManifestation value
+        :param state : a pmtypes.AlertActivation value
         """
         # pylint: disable=invalid-name
         self.Manifestation = manifestation
@@ -918,9 +918,9 @@ class ProductionSpecification(PropertyBasedPMType):
 
     def __init__(self, spectype=None, productionspec=None, componentid=None):
         """
-        @param spectype: a pmtypes.CodedValue value
-        @param productionspec: a string
-        @param componentid : a pmtypes.InstanceIdentifier value
+        :param spectype: a pmtypes.CodedValue value
+        :param productionspec: a string
+        :param componentid : a pmtypes.InstanceIdentifier value
         """
         # pylint: disable=invalid-name
         self.SpecType = spectype
@@ -1130,7 +1130,7 @@ class OrderDetail(PropertyBasedPMType):
         :param end: a xsd:DateTime string
         :param performer: a list of PersonParticipation objects
         :param service: a list of CodedValue objects
-        @param imagingprocedure: a list of ImagingProcedure objects
+        :param imagingprocedure: a list of ImagingProcedure objects
         """
         # pylint: disable=invalid-name
         self.Start = start

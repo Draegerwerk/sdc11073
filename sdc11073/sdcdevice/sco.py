@@ -28,7 +28,7 @@ class _OperationsWorker(threading.Thread):
 
     def __init__(self, subscriptions_mgr, mdib, log_prefix):
         """
-        @param subscriptions_mgr: subscriptionsmgr.notify_operation is called in order to notify all subscribers of OperationInvokeReport Events
+        :param subscriptions_mgr: subscriptionsmgr.notify_operation is called in order to notify all subscribers of OperationInvokeReport Events
         """
         super().__init__(name='DeviceOperationsWorker')
         self.daemon = True
@@ -41,9 +41,9 @@ class _OperationsWorker(threading.Thread):
 
     def enqueue_operation(self, operation, request, argument):
         """ enqueues operation "operation".
-        @param operation: a callable with signature operation(request, mdib)
-        @param request: the soapEnvelope of the request
-        @param argument: parsed argument for the operation handler
+        :param operation: a callable with signature operation(request, mdib)
+        :param request: the soapEnvelope of the request
+        :param argument: parsed argument for the operation handler
         @return: a transaction Id
         """
         with self._transaction_id_lock:
@@ -143,8 +143,8 @@ class ScoOperationsRegistry:
 
     def enqueue_operation(self, operation, request, argument):
         """ enqueues operation "operation".
-        @param operation: a callable with signature operation(request, mdib)
-        @param request: the soapEnvelope of the request
+        :param operation: a callable with signature operation(request, mdib)
+        :param request: the soapEnvelope of the request
         @return: a transaction Id
         """
         return self._worker.enqueue_operation(operation, request, argument)
@@ -176,10 +176,10 @@ class OperationDefinition:
                  coded_value=None,
                  log_prefix=None):  # pylint:disable=too-many-arguments
         """
-        @param handle: the handle of the operation itself.
-        @param operation_target_handle: the handle of the modified data (MdDescription)
-        @param safetyClassification: one of pmtypes.SafetyClassification values
-        @param codedValue: a pmtypes.CodedValue instance
+        :param handle: the handle of the operation itself.
+        :param operation_target_handle: the handle of the modified data (MdDescription)
+        :param safetyClassification: one of pmtypes.SafetyClassification values
+        :param codedValue: a pmtypes.CodedValue instance
         """
         self._logger = loghelper.get_logger_adapter('sdc.device.op.{}'.format(self.__class__.__name__), log_prefix)
         self._mdib = None
@@ -413,6 +413,6 @@ _operation_lookup_by_type = {c.OP_DESCR_QNAME: c for c in _classes_with_QNAME}
 
 def get_operation_class(q_name):
     """
-    @param qNameType: a QName instance
+    :param qNameType: a QName instance
     """
     return _operation_lookup_by_type.get(q_name)

@@ -45,8 +45,8 @@ class RtSampleArray:
 
     def add_annotations_at(self, annotation: pmtypes.Annotation, timestamps: Iterable[float]):
         """
-        @param annotation: a pmtypes.Annotation instance
-        @param timestamps: a list of time stamps (time.time based)
+        :param annotation: a pmtypes.Annotation instance
+        :param timestamps: a list of time stamps (time.time based)
         """
         applied = False
         annotation_index = len(self.annotations)  # Index is zero-based
@@ -70,7 +70,7 @@ class _SampleArrayGenerator:
 
     def set_activation_state(self, component_activation_state: pmtypes.ComponentActivation):
         """
-        @param component_activation_state: one of pmtypes.ComponentActivation values
+        :param component_activation_state: one of pmtypes.ComponentActivation values
         """
         self._activation_state = component_activation_state
         if component_activation_state == pmtypes.ComponentActivation.ON:
@@ -130,8 +130,8 @@ class DefaultWaveformSource(AbstractWaveformSource):
     def register_waveform_generator(self, mdib, descriptor_handle, wf_generator):
         """
         param mdib: a device mdib instance
-        @param descriptor_handle: the handle of the RealtimeSampelArray that shall accept this data
-        @param wf_generator: a waveforms.WaveformGenerator instance
+        :param descriptor_handle: the handle of the RealtimeSampelArray that shall accept this data
+        :param wf_generator: a waveforms.WaveformGenerator instance
         """
         sample_period = wf_generator.sampleperiod
         descriptor_container = mdib.descriptions.handle.get_one(descriptor_handle)
@@ -148,8 +148,8 @@ class DefaultWaveformSource(AbstractWaveformSource):
     def set_activation_state(self, mdib, descriptor_handle, component_activation_state):
         """
         param mdib: a device mdib instance
-        @param descriptorHandle: a handle string
-        @param componentActivation: one of pmtypes.ComponentActivation values
+        :param descriptorHandle: a handle string
+        :param componentActivation: one of pmtypes.ComponentActivation values
         """
         self._waveform_generators[descriptor_handle].set_activation_state(component_activation_state)
         with mdib.transaction_manager() as trns:

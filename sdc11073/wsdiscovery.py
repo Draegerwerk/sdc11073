@@ -303,7 +303,7 @@ class Service:
 
     def is_located_on(self, *ip_addresses):
         """
-        @param ipaddresses: ip addresses, lists of strings or strings
+        :param ipaddresses: ip addresses, lists of strings or strings
         """
         my_addresses = []
         for ip_address in ip_addresses:
@@ -1320,7 +1320,7 @@ class WSDiscoveryBase:
 
     def __init__(self, logger=None):
         """
-        @param logger: use this logger. if None a logger 'sdc.discover' is created.
+        :param logger: use this logger. if None a logger 'sdc.discover' is created.
         """
         self._networking_thread = None
         self._addrs_monitor_thread = None
@@ -1644,7 +1644,7 @@ class WSDiscoveryBase:
 
     def search_services(self, types=None, scopes=None, timeout=5, repeat_probe_interval=3):
         """search for services given the TYPES and SCOPES in a given timeout
-        @param repeat_probe_interval: send another probe message after x seconds"""
+        :param repeat_probe_interval: send another probe message after x seconds"""
         if not self._server_started:
             raise Exception("Server not started")
 
@@ -1664,7 +1664,7 @@ class WSDiscoveryBase:
         """search for services given the list of TYPES and SCOPES in a given timeout.
         It returns services that match at least one of the types (OR condition).
         Can be used to search for devices that support Biceps Draft6 and Final with one search.
-        @param repeat_probe_interval: send another probe message after x seconds"""
+        :param repeat_probe_interval: send another probe message after x seconds"""
         if not self._server_started:
             raise Exception("Server not started")
 
@@ -1715,7 +1715,7 @@ class WSDiscoveryBlacklist(WSDiscoveryBase):
 
     def __init__(self, ignored_adaptor_addresses=None, logger=None):
         """
-        @param ignoredAdaptorIPAddresses: an optional list of (own) ip addresses that shall not be used for discovery.
+        :param ignoredAdaptorIPAddresses: an optional list of (own) ip addresses that shall not be used for discovery.
                                           IP addresses are handled as regular expressions.
         """
         super(WSDiscoveryBlacklist, self).__init__(logger)
@@ -1738,7 +1738,7 @@ class WSDiscoveryWhitelist(WSDiscoveryBase):
 
     def __init__(self, accepted_adapter_addresses, logger=None):
         """
-        @param acceptedAdaptorIPAddresses: an optional list of (own) ip addresses that shall not be used for discovery.
+        :param acceptedAdaptorIPAddresses: an optional list of (own) ip addresses that shall not be used for discovery.
         """
         super(WSDiscoveryWhitelist, self).__init__(logger)
         tmp = [] if accepted_adapter_addresses is None else accepted_adapter_addresses
@@ -1758,11 +1758,11 @@ class WSDiscoverySingleAdapter(WSDiscoveryBase):
 
     def __init__(self, adapter_name, logger=None, force_adapter_name=False):
         """
-        @param adapter_name: a string,  e.g. 'local area connection'.
+        :param adapter_name: a string,  e.g. 'local area connection'.
                             parameter is only relevant if host has more than one adapter or forceName is True
                             If host has more than one adapter, the adapter with this friendly name is used, but if it does not exist, a RuntimeError is thrown.
-        @param logger: use this logger. If none, 'sdc.discover' is used.
-        @param force_adapter_name: if True, only this named adapter will be used.
+        :param logger: use this logger. If none, 'sdc.discover' is used.
+        :param force_adapter_name: if True, only this named adapter will be used.
                                  If False, and only one Adapter exists, the one existing adapter is used. (localhost is ignored in this case).
         """
         super(WSDiscoverySingleAdapter, self).__init__(logger)

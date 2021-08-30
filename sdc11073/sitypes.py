@@ -11,8 +11,8 @@ class T_Selector(PropertyBasedPMType): # pylint: disable=invalid-name
 
     def __init__(self, id_, text):
         """
-        @param id: a string
-        @param text : a string
+        :param id: a string
+        :param text : a string
         """
         self.Id = id_  # pylint: disable=invalid-name
         self.text = text
@@ -35,9 +35,9 @@ class T_DualChannelDef(PropertyBasedPMType): # pylint: disable=invalid-name
 
     def __init__(self, selectors, algorithm=None, transform=None):
         """
-        @param selectors: a list of Selector objects
-        @param algorithm : a string
-        @param transform : a string
+        :param selectors: a list of Selector objects
+        :param algorithm : a string
+        :param transform : a string
         """
         # pylint: disable=invalid-name
         self.Selector = selectors
@@ -60,9 +60,9 @@ class T_SafetyContextDef(PropertyBasedPMType): # pylint: disable=invalid-name
 
     def __init__(self, selectors):
         """
-        @param selectors: a list of Selector objects
-        @param algorithm : a string
-        @param transform : a string
+        :param selectors: a list of Selector objects
+        :param algorithm : a string
+        :param transform : a string
         """
         self.Selector = selectors  # pylint: disable=invalid-name
 
