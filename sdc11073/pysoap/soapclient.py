@@ -153,13 +153,20 @@ class SoapClient:
             xml_response = self._send_soap_request(path, xml_request, msg)
         finally:
             self.roundtrip_time = time.perf_counter() - started  # set roundtrip time even if method raises an exception
+        if not xml_response: # empty response
+            return None
         normalized_xml_response = self._sdc_definitions.normalize_xml_text(xml_response)
-        my_response_factory = response_factory or soapenvelope.ReceivedSoap12Envelope.from_xml_string
+        my_response_factory = response_factory or soapenvelope.ReceivedSoap12Envelope
         try:
-            return my_response_factory(normalized_xml_response, schema)
+            response_envelope = my_response_factory(normalized_xml_response)
+            if schema is not None:
+                response_envelope.validate_body(schema)
+            return response_envelope
         except XMLSyntaxError as ex:
             self._log.error('{} XMLSyntaxError in string: "{}"', msg, normalized_xml_response)
             raise RuntimeError('{} in "{}"'.format(ex, normalized_xml_response))
+        except:
+            raise
 
     def _send_soap_request(self, path, xml, msg):
         """Send SOAP request using HTTP"""
@@ -273,7 +280,7 @@ class SoapClient:
                 self._log.error(
                     "{}: POST to netloc='{}' path='{}': could not send request, HTTP response={}\ncontent='{}'", msg,
                     self._netloc, path, response.status, content)
-                soapfault = soapenvelope.ReceivedSoapFault.from_xml_string(content)
+                soapfault = soapenvelope.ReceivedSoapFault(content)
 
                 raise HTTPReturnCodeError(response.status, content, soapfault)
 

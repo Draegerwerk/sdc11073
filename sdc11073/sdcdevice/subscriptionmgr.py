@@ -163,7 +163,7 @@ class _DevSubscription:
         try:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
 
-            self._soap_client.post_soap_envelope_to(self._url.path, soap_envelope, response_factory=lambda x, schema: x,
+            self._soap_client.post_soap_envelope_to(self._url.path, soap_envelope, response_factory=None,
                                                     msg='send_notification_report {}'.format(action))
             try:
                 roundtrip_time = roundtrip_timer.result(0)
@@ -421,8 +421,7 @@ class SubscriptionsManager:
         expires = envelope.body_node.xpath('wse:Renew/wse:Expires/text()', namespaces=nsmap)
         if len(expires) == 0:
             expires = None
-            self._logger.debug('on_renew_request: no requested duration found, allowing max. ',
-                               lambda: envelope.as_xml(pretty=True))
+            self._logger.debug('on_renew_request: no requested duration found, allowing max.')
         else:
             expires = isoduration.parse_duration(str(expires[0]))
             self._logger.debug('on_renew_request {} seconds', expires)
@@ -655,6 +654,7 @@ class SubscriptionsManager:
         except Exception as ex:
             # this should never happen! => re-raise
             self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
+            raise
 
     def _get_subscriptions_for_action(self, action):
         with self._subscriptions.lock:

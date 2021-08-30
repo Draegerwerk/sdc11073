@@ -169,8 +169,9 @@ class EventService(_SOAPActionDispatcherWithSubDispatchers):
         return returned_envelope
 
     def _validate_eventing_response(self, returned_envelope):
-        returned_envelope.build_doc()
-        body_node_children = list(returned_envelope.body_node)
+        body = returned_envelope.body_node
+        # body = root.find(s12Tag('Body'))
+        body_node_children = list(body) # list(returned_envelope.body_node)
         if len(body_node_children) == 0:
             return
         if body_node_children[0].tag == s12Tag('Fault'):

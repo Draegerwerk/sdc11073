@@ -112,7 +112,7 @@ class HostedServiceDispatcher:
         commlog.get_communication_logger().log_soap_request_in(request, 'POST')
         normalized_request = self.sdc_definitions.normalize_xml_text(request)
         # execute the method
-        envelope = pysoap.soapenvelope.ReceivedSoap12Envelope.from_xml_string(normalized_request)
+        envelope = pysoap.soapenvelope.ReceivedSoap12Envelope(normalized_request)
         response = self._dispatch_soap_request(path, headers, envelope)
         normalized_response_xml_string = response.as_xml()
         return self.sdc_definitions.denormalize_xml_text(normalized_response_xml_string)
@@ -201,7 +201,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             # we must create a soapEnvelope in order to generate a SoapFault
             dev_dispatcher = devices_dispatcher.get_device_dispather(self.path)
             normalized_request = dev_dispatcher.sdc_definitions.normalize_xml_text(request)
-            envelope = pysoap.soapenvelope.ReceivedSoap12Envelope.from_xml_string(normalized_request)
+            envelope = pysoap.soapenvelope.ReceivedSoap12Envelope(normalized_request)
 
             response = pysoap.soapenvelope.SoapFault(envelope, code=pysoap.soapenvelope.SoapFaultCode.SENDER,
                                                      reason=str(ex))

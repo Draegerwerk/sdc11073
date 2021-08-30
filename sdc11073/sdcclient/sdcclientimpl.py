@@ -410,7 +410,7 @@ class SdcClient:
                                        addr_to=self._device_location))
 
         self.metadata = wsc.post_soap_envelope_to(_url.path, envelope,
-                                                  response_factory=DPWSEnvelope.from_xml_string,
+                                                  response_factory=DPWSEnvelope,
                                                   msg='getMetadata')
         self.host_description = HostDescription(self.metadata)
         self._logger.debug('HostDescription: {}', self.host_description)

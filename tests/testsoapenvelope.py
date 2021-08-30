@@ -18,8 +18,8 @@ class TestSoapEnvelope(unittest.TestCase):
   </m:alert>
  </env:Body>
 </env:Envelope>'''
-        env = soapenvelope.ReceivedSoap12Envelope.from_xml_string(xml)
-        
+        env = soapenvelope.ReceivedSoap12Envelope(xml)
+
         # verify that document was parsed
         self.assertTrue(env.header_node is not None)
         self.assertTrue(env.body_node is not None)
@@ -30,8 +30,8 @@ class TestSoapEnvelope(unittest.TestCase):
         tmp = env.body_node.find('m:alert', {'m': 'http://example.org/alert'})
         self.assertTrue(tmp is not None)
 
-        env = soapenvelope.ReceivedSoap12Envelope.from_xml_string(xml)
-        
+        env = soapenvelope.ReceivedSoap12Envelope(xml)
+
         # verify that document was 
         self.assertTrue(env.header_node is not None)
         self.assertTrue(env.body_node is not None)
@@ -56,8 +56,8 @@ class TestSoapEnvelope(unittest.TestCase):
   </m:alert>
  </env:Body>
 </env:Envelope>'''
-        env = soapenvelope.DPWSEnvelope.from_xml_string(xml)
-        
+        env = soapenvelope.DPWSEnvelope(xml)
+
         # verify that document was parsed
         self.assertTrue(env.header_node is not None)
         self.assertTrue(env.body_node is not None)
@@ -106,8 +106,8 @@ class TestSoapEnvelope(unittest.TestCase):
    </wsx:Metadata>
  </env:Body>
 </env:Envelope>'''
-        env = soapenvelope.DPWSEnvelope.from_xml_string(xml)
-        
+        env = soapenvelope.DPWSEnvelope(xml)
+
         # verify that document was parsed
         self.assertTrue(env.header_node is not None)
         self.assertTrue(env.body_node is not None)
@@ -160,8 +160,8 @@ class TestSoapEnvelope(unittest.TestCase):
    </wsx:Metadata>
  </env:Body>
 </env:Envelope>'''
-        env = soapenvelope.DPWSEnvelope.from_xml_string(xml)
-        
+        env = soapenvelope.DPWSEnvelope(xml)
+
         # verify that document was parsed
         self.assertTrue(env.header_node is not None)
         self.assertTrue(env.body_node is not None)

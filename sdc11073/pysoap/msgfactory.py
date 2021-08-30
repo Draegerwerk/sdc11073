@@ -23,8 +23,7 @@ class SoapMessageFactory:
         soap_envelope.set_address(
             soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Request',
                                    addr_to=addr_to))
-        soap_envelope.add_body_object(
-            soapenvelope.GenericNode(etree_.Element('{http://schemas.xmlsoap.org/ws/2004/09/mex}GetMetadata')))
+        soap_envelope.add_body_element(etree_.Element('{http://schemas.xmlsoap.org/ws/2004/09/mex}GetMetadata'))
         return soap_envelope
 
     def register_mdib(self, mdib):
@@ -307,14 +306,8 @@ class SoapMessageFactory:
                 argument_node = etree_.SubElement(body_node, msgTag('Argument'))
                 arg_val = etree_.SubElement(argument_node, msgTag('ArgValue'))
                 arg_val.text = argument
-        # TODO: add argument_node to soap envelope somehow
-        # look for safety context in mdib
-        # sih = self._mk_optional_safetyheader(body_node, operation_handle)
-        # if sih is not None:
-        #    sih = [sih]
-        sih = None
         tmp = etree_.tostring(body_node)
-        soap_envelope = self._mk_soapenvelope(addr_to, port_type, 'Activate', tmp, additional_headers=sih)
+        soap_envelope = self._mk_soapenvelope(addr_to, port_type, 'Activate', body_node)
         return soap_envelope
 
     def mk_getlocalizedtext_envelope(self, addr_to, port_type, refs=None, version=None, langs=None,
@@ -435,7 +428,7 @@ class SoapMessageFactory:
         if params:
             for param in params:
                 body_node.append(param)
-        soap_envelope.add_body_object(soapenvelope.GenericNode(body_node))
+        soap_envelope.add_body_element(body_node)
         return soap_envelope
 
     def _mk_setmethod_envelope(self, addr_to, port_type, method_name, operation_handle, request_nodes,
@@ -458,8 +451,6 @@ class SoapMessageFactory:
             my_ns = Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG, *additional_namespaces)
         else:
             my_ns = Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG)
-
-        # sih = self._mk_optional_safetyheader(body_node, operation_handle)  # a header or None
 
         soap_envelope = soapenvelope.Soap12Envelope(my_ns)
         action_string = self.get_action_string(port_type, method_name)
@@ -601,15 +592,15 @@ class SoapMessageFactory:
             envelope.add_header_element(ident_node)
         return envelope
 
-    def _mk_soapenvelope(self, addr_to, port_type, method_name, xml_body_string=None, additional_headers=None):
+    def _mk_soapenvelope(self, addr_to, port_type, method_name, body_node=None, additional_headers=None):
         action = self.get_action_string(port_type, method_name)
         envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.MSG, Prefixes.WSA))
         envelope.set_address(soapenvelope.WsAddress(action=action, addr_to=addr_to))
         if additional_headers is not None:
             for header in additional_headers:
                 envelope.add_header_object(header)
-        if xml_body_string is not None:
-            envelope.add_body_string(xml_body_string)
+        if body_node is not None:
+            envelope.add_body_element(body_node)
         return envelope
 
 

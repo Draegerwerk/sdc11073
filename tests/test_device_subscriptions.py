@@ -102,7 +102,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             self.assertGreater(len(testSubscr.reports), 20)
             report = testSubscr.reports[-1] # a 
             self._verify_proper_namespaces(report)
-            in_report = ReceivedSoap12Envelope.from_xml_string(report.as_xml())
+            in_report = ReceivedSoap12Envelope(report.as_xml())
             expected_action = sdcDevice.mdib.sdc_definitions.Actions.Waveform
             self.assertEqual(in_report.address.action, expected_action)
 
@@ -130,12 +130,12 @@ class TestDeviceSubscriptions(unittest.TestCase):
             # avoid instantiation of new soap client by pretenting there is one already
             sdcDevice.subscriptions_manager.soap_clients['localhost:123'] = 'dummy'
             response = sdcDevice.subscriptions_manager.on_subscribe_request(http_header,
-                                                                          ReceivedSoap12Envelope.from_xml_string(subscrRequest.as_xml()),
+                                                                          ReceivedSoap12Envelope(subscrRequest.as_xml()),
                                                                           'http://abc.com:123/def')
             self._verify_proper_namespaces(response)
             response.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
-            clSubscr._handle_subscribe_response(ReceivedSoap12Envelope.from_xml_string(response.as_xml()))
-            
+            clSubscr._handle_subscribe_response(ReceivedSoap12Envelope(response.as_xml()))
+
             # verify that devices subscription contains the subscription identifier of the client Subscription object
             devSubscr = list(sdcDevice.subscriptions_manager._subscriptions.objects)[0]
             self.assertEqual(devSubscr.notify_to_address, notify_to)
@@ -152,7 +152,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             renewRequest.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
             print (renewRequest.as_xml(pretty=True))
     
-            response = sdcDevice.subscriptions_manager.on_renew_request(ReceivedSoap12Envelope.from_xml_string(renewRequest.as_xml()))
+            response = sdcDevice.subscriptions_manager.on_renew_request(ReceivedSoap12Envelope(renewRequest.as_xml()))
             print (response.as_xml(pretty=True))
             response.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
     
@@ -161,7 +161,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             getStatusRequest.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
             print (getStatusRequest.as_xml(pretty=True))
     
-            response = sdcDevice.subscriptions_manager.on_get_status_request(ReceivedSoap12Envelope.from_xml_string(getStatusRequest.as_xml()))
+            response = sdcDevice.subscriptions_manager.on_get_status_request(ReceivedSoap12Envelope(getStatusRequest.as_xml()))
             print (response.as_xml(pretty=True))
             response.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
 
@@ -189,7 +189,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             response.validate_body(sdcDevice.mdib.biceps_schema.message_schema)
             
             # verify that header contains the identifier of client subscription
-            env  = ReceivedSoap12Envelope.from_xml_string(response.as_xml())
+            env = ReceivedSoap12Envelope(response.as_xml())
             idents = env.header_node.findall(namespaces.wseTag('Identifier'))
             self.assertEqual(len(idents), 1)
             self.assertEqual(idents[0].text, mockstuff.TestDevSubscription.notifyRef)
@@ -254,18 +254,18 @@ class TestDeviceSubscriptions(unittest.TestCase):
             # avoid instantiation of new soap client by pretending there is one already
             sdcDevice.subscriptions_manager.soap_clients['localhost:123'] = 'dummy'
             response = sdcDevice.subscriptions_manager.on_subscribe_request(http_header,
-                                                                          ReceivedSoap12Envelope.from_xml_string(subscrRequest.as_xml()),
+                                                                          ReceivedSoap12Envelope(subscrRequest.as_xml()),
                                                                           'http://abc.com:123/def')
             response.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
-            clSubscr._handle_subscribe_response(ReceivedSoap12Envelope.from_xml_string(response.as_xml()))
-    
+            clSubscr._handle_subscribe_response(ReceivedSoap12Envelope(response.as_xml()))
+
             # check renew
             clSubscr.dev_reference_param[0].text = 'bla'# make ident invalid
             renewRequest = clSubscr._mk_renew_envelope(expire_minutes=59)
             renewRequest.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
             print (renewRequest.as_xml(pretty=True))
     
-            response = sdcDevice.subscriptions_manager.on_renew_request(ReceivedSoap12Envelope.from_xml_string(renewRequest.as_xml()))
+            response = sdcDevice.subscriptions_manager.on_renew_request(ReceivedSoap12Envelope(renewRequest.as_xml()))
             print (response.as_xml(pretty=True))
             self.assertEqual(response.body_node[0].tag, namespaces.s12Tag('Fault'))
             response.validate_body(sdcDevice.mdib.biceps_schema.soap12_schema)
@@ -274,7 +274,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             getStatusRequest.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
             print (getStatusRequest.as_xml(pretty=True))
     
-            response = sdcDevice.subscriptions_manager.on_renew_request(ReceivedSoap12Envelope.from_xml_string(renewRequest.as_xml()))
+            response = sdcDevice.subscriptions_manager.on_renew_request(ReceivedSoap12Envelope(renewRequest.as_xml()))
             print (response.as_xml(pretty=True))
             self.assertEqual(response.body_node[0].tag, namespaces.s12Tag('Fault'))
             response.validate_body(sdcDevice.mdib.biceps_schema.soap12_schema)
@@ -303,12 +303,11 @@ class TestDeviceSubscriptions(unittest.TestCase):
             # avoid instantiation of new soap client by pretenting there is one already
             sdcDevice.subscriptions_manager.soap_clients['localhost:123'] = 'dummy'
             response = sdcDevice.subscriptions_manager.on_subscribe_request(http_header,
-                                                                         ReceivedSoap12Envelope.from_xml_string(
-                                                                             subscrRequest.as_xml()),
+                                                                         ReceivedSoap12Envelope(subscrRequest.as_xml()),
                                                                          'http://abc.com:123/def')
             self._verify_proper_namespaces(response)
             response.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
-            clSubscr._handle_subscribe_response(ReceivedSoap12Envelope.from_xml_string(response.as_xml()))
+            clSubscr._handle_subscribe_response(ReceivedSoap12Envelope(response.as_xml()))
 
             # verify that devices subscription contains the subscription identifier of the client Subscription object
             devSubscr = list(sdcDevice.subscriptions_manager._subscriptions.objects)[0]
@@ -327,7 +326,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             print(renewRequest.as_xml(pretty=True))
 
             response = sdcDevice.subscriptions_manager.on_renew_request(
-                ReceivedSoap12Envelope.from_xml_string(renewRequest.as_xml()))
+                ReceivedSoap12Envelope(renewRequest.as_xml()))
             print(response.as_xml(pretty=True))
             response.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
 
@@ -337,7 +336,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             print(getStatusRequest.as_xml(pretty=True))
 
             response = sdcDevice.subscriptions_manager.on_get_status_request(
-                ReceivedSoap12Envelope.from_xml_string(getStatusRequest.as_xml()))
+                ReceivedSoap12Envelope(getStatusRequest.as_xml()))
             print(response.as_xml(pretty=True))
             response.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
 
@@ -385,7 +384,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             response.validate_body(sdcDevice.mdib.biceps_schema.message_schema)
 
             # verify that header contains the identifier of client subscription
-            env = ReceivedSoap12Envelope.from_xml_string(response.as_xml())
+            env = ReceivedSoap12Envelope(response.as_xml())
             idents = env.header_node.findall(namespaces.wseTag('Identifier'))
             self.assertEqual(len(idents), 1)
             self.assertEqual(idents[0].text, mockstuff.TestDevSubscription.notifyRef)

@@ -1331,8 +1331,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.assertEqual(ex.status, 400)
                 fault_xml = ex.reason
                 self.assertTrue(b'Fault' in fault_xml)
-                rec = ReceivedSoapFault.from_xml_string(fault_xml)
-                self.assertTrue(rec._body_node[0].tag.endswith('Fault'))
+                rec = ReceivedSoapFault(fault_xml)
+                self.assertTrue(rec.body_node[0].tag.endswith('Fault'))
                 self.assertEqual(rec.code, 's12:Sender')
 
             else:

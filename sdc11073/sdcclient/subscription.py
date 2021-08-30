@@ -436,7 +436,7 @@ class SOAPNotificationsDispatcher:
     def dispatch(self, path, xml):
         start = time.time()
         normalized_xml = self._sdc_definitions.normalize_xml_text(xml)
-        request = ReceivedSoap12Envelope.from_xml_string(normalized_xml)
+        request = ReceivedSoap12Envelope(normalized_xml)
         try:
             action = request.address.action
         except AttributeError:
@@ -467,7 +467,7 @@ class SOAPNotificationsDispatcherThreaded(SOAPNotificationsDispatcher):
 
     def dispatch(self, path, xml):
         normalized_xml = self._sdc_definitions.normalize_xml_text(xml)
-        request = ReceivedSoap12Envelope.from_xml_string(normalized_xml)
+        request = ReceivedSoap12Envelope(normalized_xml)
         try:
             action = request.address.action
         except AttributeError:

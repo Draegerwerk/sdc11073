@@ -9,7 +9,7 @@ from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.location import SdcLocation
 from sdc11073.namespaces import msgTag, domTag, nsmap
 from sdc11073.namespaces import Prefixes
-from sdc11073.pysoap.soapenvelope import GenericNode, WsAddress, Soap12Envelope, ReceivedSoap12Envelope
+from sdc11073.pysoap.soapenvelope import WsAddress, Soap12Envelope, ReceivedSoap12Envelope
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.pmtypes import AlertConditionPriority
 from tests import mockstuff
@@ -52,7 +52,7 @@ class TestDeviceServices(unittest.TestCase):
         soapEnvelope.add_header_object(WsAddress(message_id=identifier,
                                                action=action, 
                                                addr_to=endpoint_reference))
-        soapEnvelope.add_body_object(GenericNode(body_node))
+        soapEnvelope.add_body_element(body_node)
                 
         soapEnvelope.validate_body(sdcDevice.mdib.biceps_schema.message_schema)
         return soapEnvelope
@@ -84,7 +84,7 @@ class TestDeviceServices(unittest.TestCase):
             getService = sdcDevice._handler._get_dispatcher
             endpoint_reference = '123'
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdib', endpoint_reference)
-            receivedEnv = ReceivedSoap12Envelope.from_xml_string(getEnv.as_xml())
+            receivedEnv = ReceivedSoap12Envelope(getEnv.as_xml())
             http_header = {}
             response = getService._on_get_mdib(http_header, receivedEnv)
             response.validate_body(sdcDevice.mdib.biceps_schema.message_schema)
@@ -94,7 +94,7 @@ class TestDeviceServices(unittest.TestCase):
             getService = sdcDevice._handler._get_dispatcher
             endpoint_reference = '123'
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdState', endpoint_reference)
-            receivedEnv = ReceivedSoap12Envelope.from_xml_string(getEnv.as_xml())
+            receivedEnv = ReceivedSoap12Envelope(getEnv.as_xml())
             http_header = {}
             response = getService.dispatch_soap_request(None, http_header, receivedEnv)
             response.validate_body(sdcDevice.mdib.biceps_schema.message_schema)
@@ -105,7 +105,7 @@ class TestDeviceServices(unittest.TestCase):
             getService = sdcDevice._handler._get_dispatcher
             endpoint_reference = '123'
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdDescription', endpoint_reference)
-            receivedEnv = ReceivedSoap12Envelope.from_xml_string(getEnv.as_xml())
+            receivedEnv = ReceivedSoap12Envelope(getEnv.as_xml())
             http_header = {}
             response = getService.dispatch_soap_request(None, http_header, receivedEnv)
             
@@ -122,7 +122,7 @@ class TestDeviceServices(unittest.TestCase):
                 alarmConditionDescriptor = tr.get_descriptor('0xD3C00109')
                 alarmConditionDescriptor.Priority = AlertConditionPriority.LOW
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdDescription', endpoint_reference)
-            receivedEnv = ReceivedSoap12Envelope.from_xml_string(getEnv.as_xml())
+            receivedEnv = ReceivedSoap12Envelope(getEnv.as_xml())
             http_header = {}
             response = getService.dispatch_soap_request(None, http_header, receivedEnv)
             response.validate_body(sdcDevice.mdib.biceps_schema.message_schema)
@@ -138,7 +138,7 @@ class TestDeviceServices(unittest.TestCase):
             contextService = sdcDevice._handler._context_dispatcher
             endpoint_reference = '123'
             getEnv = self._mkGetRequest(sdcDevice, contextService.port_type_string, 'GetContextStates', endpoint_reference)
-            receivedEnv = ReceivedSoap12Envelope.from_xml_string(getEnv.as_xml())
+            receivedEnv = ReceivedSoap12Envelope(getEnv.as_xml())
             http_header = {}
             response = contextService.dispatch_soap_request(None, http_header, receivedEnv)
             print (response.as_xml(pretty=True))

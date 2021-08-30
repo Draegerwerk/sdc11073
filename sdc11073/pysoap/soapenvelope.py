@@ -28,18 +28,6 @@ class ExtendedDocumentInvalid(etree_.DocumentInvalid):
     pass
 
 
-# def merge_dicts(*args):
-#     result = {}
-#     for d in args:
-#         for k, v in d.items():
-#             if not k in result:
-#                 result[k] = v
-#             else:
-#                 if result[k] != v:
-#                     raise RuntimeError('Merge Conflict key={}, value1={}, value2={}'.format(k, result[k], v))
-#     return result
-
-
 def _get_text(node, id_string, namespace_map):
     if node is None:
         return None
@@ -49,7 +37,7 @@ def _get_text(node, id_string, namespace_map):
     return tmp.text
 
 
-class GenericNode:
+class _GenericNode:
     def __init__(self, node):
         self._node = node
 
@@ -58,9 +46,9 @@ class GenericNode:
 
 
 class WsaEndpointReferenceType:
-    ''' Acc. to "http://www.w3.org/2005/08/addressing"
+    """ Acc. to "http://www.w3.org/2005/08/addressing"
 
-    '''
+    """
     __slots__ = ('address', 'reference_parameters_node', 'metadata_node')
 
     def __init__(self, address, reference_parameters_node=None, metadata_node=None):
@@ -103,13 +91,16 @@ class WsaEndpointReferenceType:
 
 
 class WsAddress:
+    """ Acc. to "http://www.w3.org/2005/08/addressing"
+
+    """
     __slots__ = ('message_id', 'addr_to', 'addr_from', 'reply_to', 'fault_to', 'action',
                  'relates_to', 'reference_parameters_node', 'relationship_type')
 
     def __init__(self, action, message_id=None, addr_to=None, relates_to=None, addr_from=None, reply_to=None,
                  fault_to=None, reference_parameters_node=None,
                  relationship_type=None):  # pylint: disable=too-many-arguments
-        '''
+        """
 
         :param action: xs:anyURI string, required
         :param message_id: xs:anyURI string or None or False; default is None
@@ -122,7 +113,7 @@ class WsAddress:
         :param faultTo: WsaEndpointReferenceType instance, optional
         :param reference_parameters_node: any node, optional
         :param relationship_type: a QName, optional
-        '''
+        """
         self.action = action
         if message_id == False:
             self.message_id = None
@@ -210,6 +201,9 @@ _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
 
 
 class WsSubscribe:
+    """
+    from ws-eventing
+    """
     MODE_PUSH = '{}/DeliveryModes/Push'.format(Prefixes.WSE.namespace)
     __slots__ = ('delivery_mode', 'notify_to', 'end_to', 'expires', 'filter')
 
@@ -218,12 +212,12 @@ class WsSubscribe:
                  end_to=None,
                  filter_=None,
                  delivery_mode=None):
-        '''
+        """
         @param notify_to: a WsaEndpointReferenceType
         @param expires: duration in seconds ( absolute date not supported)
         @param end_to: a WsaEndpointReferenceType or None
         @param delivery_mode: defaults to self.MODE_PUSH
-        '''
+        """
         self.delivery_mode = delivery_mode or self.MODE_PUSH
         self.notify_to = notify_to
         self.end_to = end_to
@@ -356,10 +350,10 @@ class DPWSHost:
     __slots__ = ('endpoint_references', 'types')
 
     def __init__(self, endpoint_references_list, types_list):
-        '''
+        """
         @param endpoint_references_list: list of WsEndpointReference instances
         @param types_list: a list of etree.QName instances
-        '''
+        """
         self.endpoint_references = endpoint_references_list
         self.types = types_list
 
@@ -490,45 +484,29 @@ class MetaDataSection:
         return cls(metadata_sections)
 
 
-class Soap12EnvelopeBase:
-    __slots__ = ('_header_node', '_body_node', '_header_objects', '_body_objects', '_doc_root')
-
-    def __init__(self):
-        self._header_node = None
-        self._body_node = None
-        self._header_objects = []
-        self._body_objects = []
-        self._doc_root = None
-
-    @property
-    def header_node(self):
-        return self._header_node
-
-    @property
-    def body_node(self):
-        return self._body_node
-
-    @staticmethod
-    def _assert_valid_exception_wrapper(schema, content):
+def _assert_valid_exception_wrapper(schema, content):
+    try:
+        schema.assertValid(content)
+    except etree_.DocumentInvalid:
+        # reformat and validate again to produce better error output
+        tmp_str = etree_.tostring(content, pretty_print=True)
+        tmp = etree_.parse(BytesIO(tmp_str))
+        tmp_str = tmp_str.decode('utf-8')
         try:
-            schema.assertValid(content)
-        except etree_.DocumentInvalid:
-            # reformat and validate again to produce better error output
-            tmp_str = etree_.tostring(content, pretty_print=True)
-            tmp = etree_.parse(BytesIO(tmp_str))
-            tmp_str = tmp_str.decode('utf-8')
-            try:
-                schema.assertValid(tmp)
-            except etree_.DocumentInvalid as err:
-                msg = "{}\n{}".format(str(err), tmp_str)
-                raise ExtendedDocumentInvalid(msg, error_log=err.error_log)
+            schema.assertValid(tmp)
+        except etree_.DocumentInvalid as err:
+            msg = "{}\n{}".format(str(err), tmp_str)
+            raise ExtendedDocumentInvalid(msg, error_log=err.error_log)
 
 
-class Soap12Envelope(Soap12EnvelopeBase):
-    __slots__ = ('_nsmap', 'address')
+class Soap12Envelope:
+    """This represents an outgoing soap envelope"""
+    __slots__ = ('_header_objects', '_body_object', '_doc_root', '_nsmap', 'address')
 
     def __init__(self, ns_map):
-        super().__init__()
+        self._header_objects = []
+        self._body_object = None
+        self._doc_root = None
         self._nsmap = ns_map
         self.address = None
 
@@ -537,54 +515,32 @@ class Soap12Envelope(Soap12EnvelopeBase):
         self._header_objects.append(obj)
         self._doc_root = None
 
-    # def addHeaderString(self, headerString):
-    #     element = etree_.fromstring(headerString)
-    #     self.add_header_object(GenericNode(element))
-    #     self._doc_root = None
-
     def add_header_element(self, element):
-        self.add_header_object(GenericNode(element))
+        self.add_header_object(_GenericNode(element))
         self._doc_root = None
 
     def add_body_object(self, obj):
+        if self._body_object is not None:
+            raise RuntimeError('there can be only one body object')
         assert hasattr(obj, 'as_etree_subnode')
-        self._body_objects.append(obj)
-        self._doc_root = None
-
-    def add_body_string(self, body_string):
-        element = etree_.fromstring(body_string)
-        self.add_body_object(GenericNode(element))
+        self._body_object = obj
         self._doc_root = None
 
     def add_body_element(self, element):
-        self.add_body_object(GenericNode(element))
+        self.add_body_object(_GenericNode(element))
         self._doc_root = None
 
     def set_address(self, ws_address):
         self.address = ws_address
 
-    def build_doc(self):
-        if self._doc_root is not None:
-            return self._doc_root
-
-        root = etree_.Element(s12Tag('Envelope'), nsmap=self._nsmap)
-
-        header = etree_.SubElement(root, s12Tag('Header'))
-        if self.address:
-            self.address.as_etree_subnode(header)
-        for header_object in self._header_objects:
-            header_object.as_etree_subnode(header)
-        body = etree_.SubElement(root, s12Tag('Body'))
-        for body_object in self._body_objects:
-            body_object.as_etree_subnode(body)
-        self._header_node = header
-        self._body_node = body
-        self._doc_root = root
-        return root
+    @property
+    def body_node(self):
+        root = self._build_doc()
+        return root.find(s12Tag('Body'))
 
     def as_xml(self, pretty=False, request_manipulator=None):
         tmp = BytesIO()
-        root = self.build_doc()
+        root = self._build_doc()
         doc = etree_.ElementTree(element=root)
         if hasattr(request_manipulator, 'manipulate_domtree'):
             _doc = request_manipulator.manipulate_domtree(doc)
@@ -594,7 +550,7 @@ class Soap12Envelope(Soap12EnvelopeBase):
         return tmp.getvalue()
 
     def validate_body(self, schema):
-        root = self.build_doc()
+        root = self._build_doc()
         doc = etree_.ElementTree(element=root)
         if CHECK_NAMESPACES:
             self._find_unused_namespaces(root)
@@ -607,7 +563,23 @@ class Soap12Envelope(Soap12EnvelopeBase):
                 payload_node = body_node[0]
             except IndexError:  # empty body
                 return
-            self._assert_valid_exception_wrapper(schema, payload_node)
+            _assert_valid_exception_wrapper(schema, payload_node)
+
+    def _build_doc(self):
+        if self._doc_root is not None:
+            return self._doc_root
+
+        root = etree_.Element(s12Tag('Envelope'), nsmap=self._nsmap)
+
+        header = etree_.SubElement(root, s12Tag('Header'))
+        if self.address:
+            self.address.as_etree_subnode(header)
+        for header_object in self._header_objects:
+            header_object.as_etree_subnode(header)
+        body = etree_.SubElement(root, s12Tag('Body'))
+        if self._body_object:
+            self._body_object.as_etree_subnode(body)
+        return root
 
     def _find_unused_namespaces(self, root):
         xml_doc = self.as_xml()
@@ -629,87 +601,8 @@ class Soap12Envelope(Soap12EnvelopeBase):
             raise RuntimeError('undefined namespaces:{}'.format(xml_doc))
 
 
-class ReceivedSoap12Envelope(Soap12EnvelopeBase):
-    __slots__ = ('msg_node', 'rawdata', 'address')
-
-    def __init__(self, doc=None, rawdata=None):
-        super().__init__()
-        self._doc_root = doc
-        self.rawdata = rawdata
-        self._header_node = None
-        self._body_node = None
-        self.address = None
-        if doc is not None:
-            self._header_node = doc.find('s12:Header', nsmap)
-            self._body_node = doc.find('s12:Body', nsmap)
-            self.address = WsAddress.from_etree_node(self.header_node)
-            try:
-                self.msg_node = self.body_node[0]
-            except IndexError:  # body has no content, this can happen
-                self.msg_node = None
-
-    def as_xml(self, pretty=False):
-        tmp = BytesIO()
-        doc = etree_.ElementTree(element=self._doc_root)
-        doc.write(tmp, encoding='UTF-8', xml_declaration=True, pretty_print=pretty)
-        return tmp.getvalue()
-
-    def validate_body(self, schema):
-        if schema is None:
-            return
-        self._assert_valid_exception_wrapper(schema, self.msg_node)
-
-    @classmethod
-    def from_xml_string(cls, xml_string, schema=None, **kwargs):
-        parser = etree_.ETCompatXMLParser(resolve_entities=False)
-
-        try:
-            doc = etree_.fromstring(xml_string, parser=parser, **kwargs)
-        except Exception as ex:
-            print('load error "{}" in "{}"'.format(ex, xml_string))
-            raise
-        if schema is not None:
-            msg_node = doc.find('s12:Body', nsmap)[0]
-            schema.assertValid(msg_node)
-        return cls(doc=doc, rawdata=xml_string)
-
-
-class DPWSEnvelope(ReceivedSoap12Envelope):
-    __slots__ = ('address', 'this_model', 'this_device', 'hosted', 'host', 'metadata')
-
-    def __init__(self, doc, rawdata):
-        super().__init__(doc, rawdata)
-        self.address = None
-        self.this_model = None
-        self.this_device = None
-        self.hosted = {}
-        self.host = None
-        self.metadata = None
-
-        if doc is not None:
-            self.address = WsAddress.from_etree_node(self.header_node)
-            self.metadata = MetaDataSection(self.body_node)
-            metadata = self.body_node.find('wsx:Metadata', nsmap)
-            if metadata is not None:
-                for metadata_section_node in metadata.findall('wsx:MetadataSection', nsmap):
-                    if metadata_section_node.attrib['Dialect'] == DIALECT_THIS_MODEL:
-                        this_model_node = metadata_section_node.find('dpws:ThisModel', nsmap)
-                        self.this_model = DPWSThisModel.from_etree_node(this_model_node)
-                    elif metadata_section_node.attrib['Dialect'] == DIALECT_THIS_DEVICE:
-                        this_device_node = metadata_section_node.find('dpws:ThisDevice', nsmap)
-                        self.this_device = DPWSThisDevice.from_etree_node(this_device_node)
-                    elif metadata_section_node.attrib['Dialect'] == DIALECT_RELATIONSHIP:
-                        relationship = metadata_section_node.find('dpws:Relationship', nsmap)
-                        if relationship.get('Type') == HOST_TYPE:
-                            host_node = relationship.find('dpws:Host', nsmap)
-                            self.host = DPWSHost.from_etree_node(host_node)
-                            for hosted_node in relationship.findall('dpws:Hosted', nsmap):
-                                hosted = DPWSHosted.from_etree_node(hosted_node)
-                                self.hosted[hosted.service_id] = hosted
-
-
 class _SoapFaultBase(Soap12Envelope):
-    '''
+    """
     created xml:
         <S:Body>
             <S:Fault>
@@ -728,11 +621,11 @@ class _SoapFaultBase(Soap12Envelope):
             </S:Fault>
         </S:Body>
 
-    '''
+    """
 
-    def __init__(self, requestEnvelope, fault_action, code, reason, subCode, details):
+    def __init__(self, request_envelope, fault_action, code, reason, subCode, details):
         super().__init__(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
-        reply_address = requestEnvelope.address.mk_reply_address(fault_action)
+        reply_address = request_envelope.address.mk_reply_address(fault_action)
         self.add_header_object(reply_address)
         fault_node = etree_.Element(s12Tag('Fault'))
         code_node = etree_.SubElement(fault_node, s12Tag('Code'))
@@ -760,25 +653,95 @@ class _SoapFaultBase(Soap12Envelope):
 class SoapFault(_SoapFaultBase):
     SOAP_FAULT_ACTION = '{}/soap/fault'.format(Prefixes.WSA.namespace)
 
-    def __init__(self, requestEnvelope, code, reason, subCode=None, details=None):
-        super().__init__(requestEnvelope, self.SOAP_FAULT_ACTION, code, reason, subCode, details)
+    def __init__(self, request_envelope, code, reason, subCode=None, details=None):
+        super().__init__(request_envelope, self.SOAP_FAULT_ACTION, code, reason, subCode, details)
 
 
 class AdressingFault(_SoapFaultBase):
     ADDRESSING_FAULT_ACTION = '{}/fault'.format(Prefixes.WSA.namespace)
 
-    def __init__(self, requestEnvelope, code, reason, subCode=None, details=None):
-        super().__init__(requestEnvelope, self.ADDRESSING_FAULT_ACTION, code, reason, subCode, details)
+    def __init__(self, request_envelope, code, reason, subCode=None, details=None):
+        super().__init__(request_envelope, self.ADDRESSING_FAULT_ACTION, code, reason, subCode, details)
+
+
+class ReceivedSoap12Envelope:
+    """Represents a received soap envelope"""
+    __slots__ = ('msg_node', 'raw_data', 'address', '_doc_root', 'header_node', 'body_node')
+
+    def __init__(self, xml_string):
+        parser = etree_.ETCompatXMLParser(resolve_entities=False)
+        try:
+            self._doc_root = etree_.fromstring(xml_string, parser=parser)
+        except Exception as ex:
+            print('load error "{}" in "{}"'.format(ex, xml_string))
+            raise
+        self.raw_data = xml_string
+        self.header_node = None
+        self.body_node = None
+        self.address = None
+        self.header_node = self._doc_root.find('s12:Header', nsmap)
+        self.body_node = self._doc_root.find('s12:Body', nsmap)
+        self.address = WsAddress.from_etree_node(self.header_node)
+        try:
+            self.msg_node = self.body_node[0]
+        except IndexError:  # body has no content, this can happen
+            self.msg_node = None
+
+    def as_xml(self, pretty=False):
+        tmp = BytesIO()
+        doc = etree_.ElementTree(element=self._doc_root)
+        doc.write(tmp, encoding='UTF-8', xml_declaration=True, pretty_print=pretty)
+        return tmp.getvalue()
+
+    def validate_body(self, schema):
+        if schema is None:
+            return
+        _assert_valid_exception_wrapper(schema, self.msg_node)
+
+
+class DPWSEnvelope(ReceivedSoap12Envelope):
+    __slots__ = ('address', 'this_model', 'this_device', 'hosted', 'host', 'metadata')
+
+    def __init__(self, xml_string):
+        super().__init__(xml_string)
+        self.address = None
+        self.this_model = None
+        self.this_device = None
+        self.hosted = {}
+        self.host = None
+        self.metadata = None
+
+        self.address = WsAddress.from_etree_node(self.header_node)
+        self.metadata = MetaDataSection(self.body_node)
+        metadata = self.body_node.find('wsx:Metadata', nsmap)
+        if metadata is not None:
+            for metadata_section_node in metadata.findall('wsx:MetadataSection', nsmap):
+                if metadata_section_node.attrib['Dialect'] == DIALECT_THIS_MODEL:
+                    this_model_node = metadata_section_node.find('dpws:ThisModel', nsmap)
+                    self.this_model = DPWSThisModel.from_etree_node(this_model_node)
+                elif metadata_section_node.attrib['Dialect'] == DIALECT_THIS_DEVICE:
+                    this_device_node = metadata_section_node.find('dpws:ThisDevice', nsmap)
+                    self.this_device = DPWSThisDevice.from_etree_node(this_device_node)
+                elif metadata_section_node.attrib['Dialect'] == DIALECT_RELATIONSHIP:
+                    relationship = metadata_section_node.find('dpws:Relationship', nsmap)
+                    if relationship.get('Type') == HOST_TYPE:
+                        host_node = relationship.find('dpws:Host', nsmap)
+                        self.host = DPWSHost.from_etree_node(host_node)
+                        for hosted_node in relationship.findall('dpws:Hosted', nsmap):
+                            hosted = DPWSHosted.from_etree_node(hosted_node)
+                            self.hosted[hosted.service_id] = hosted
+
 
 
 class ReceivedSoapFault(ReceivedSoap12Envelope):
-    def __init__(self, doc=None, rawdata=None):
-        super().__init__(doc, rawdata)
-        self.code = ', '.join(self._body_node.xpath('s12:Fault/s12:Code/s12:Value/text()', namespaces=nsmap))
+    def __init__(self, xml_string):
+        super().__init__(xml_string)
+
+        self.code = ', '.join(self.body_node.xpath('s12:Fault/s12:Code/s12:Value/text()', namespaces=nsmap))
         self.subcode = ', '.join(
-            self._body_node.xpath('s12:Fault/s12:Code/s12:Subcode/s12:Value/text()', namespaces=nsmap))
-        self.reason = ', '.join(self._body_node.xpath('s12:Fault/s12:Reason/s12:Text/text()', namespaces=nsmap))
-        self.detail = ', '.join(self._body_node.xpath('s12:Fault/s12:Detail/text()', namespaces=nsmap))
+            self.body_node.xpath('s12:Fault/s12:Code/s12:Subcode/s12:Value/text()', namespaces=nsmap))
+        self.reason = ', '.join(self.body_node.xpath('s12:Fault/s12:Reason/s12:Text/text()', namespaces=nsmap))
+        self.detail = ', '.join(self.body_node.xpath('s12:Fault/s12:Detail/text()', namespaces=nsmap))
 
     def __repr__(self):
         return ('ReceivedSoapFault(code="{}", subcode="{}", reason="{}", detail="{}")'.format(self.code, self.subcode,
@@ -786,9 +749,9 @@ class ReceivedSoapFault(ReceivedSoap12Envelope):
 
 
 class SoapFaultCode:
-    '''
+    """
         Soap Fault codes, see https://www.w3.org/TR/soap12-part1/#faultcodes
-    '''
+    """
     VERSION_MM = 'VersionMismatch'
     MUSTUNSERSTAND = 'MustUnderstand'
     DATAENC = 'DataEncodingUnknown'
