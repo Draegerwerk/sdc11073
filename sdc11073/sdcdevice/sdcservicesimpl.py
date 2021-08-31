@@ -10,6 +10,9 @@ from ..namespaces import msgTag, domTag, s12Tag, wsxTag, wseTag, dpwsTag, mdpwsT
 from .. import pmtypes
 from .. import loghelper
 from .exceptions import InvalidActionError, FunctionNotImplementedError
+from .sco import ActivateOperation, SetStringOperation, SetValueOperation, SetMetricStateOperation, \
+    SetAlertStateOperation, SetContextStateOperation, SetComponentStateOperation
+
 _msg_prefix = Prefix.MSG.prefix
 
 _wsdl_ns = Prefix.WSDL.namespace
@@ -81,7 +84,6 @@ class SOAPActionDispatcher(object):
             self._logger.error('dispatchGetRequest:path="{}" ,no handler found!', key)
             raise KeyError('dispatchGetRequest:path="{}" ,no handler found!'.format(key))
 
-
     def _getActionHandler(self, action):
         ''' returns a callable or None'''
         return self._soapActionCallbacks.get(action)
@@ -98,7 +100,6 @@ class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
         super(_SOAPActionDispatcherWithSubDispatchers, self).__init__()
         self.subDispatchers = subDispatchers or [] # chained SOAPActionDispatcher
 
-
     def _getActionHandler(self, action):
         ''' returns a callable or None'''
         fn = self._soapActionCallbacks.get(action)
@@ -110,7 +111,6 @@ class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
                 return fn
         return None
 
-
     def getActions(self):
         ''' returns a list of action strings that can be handled.'''
         actions =  list(self._soapActionCallbacks.keys())
@@ -120,7 +120,6 @@ class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
 
     def __repr__(self):
         return '{} actions={}'.format(self.__class__.__name__, self._soapActionCallbacks.keys())
-
 
 
 class EventService(_SOAPActionDispatcherWithSubDispatchers):
@@ -221,12 +220,10 @@ class DPWSHostedService(EventService):
         self.register_soapActionCallback('{}/GetMetadata/Request'.format(Prefix.WSX.namespace), self._onGetMetaData)
         self.register_getCallback(path=self.epr, query='wsdl', fn=self._onGetWSDL)
 
-
     def _onGetWSDL(self):
         ''' return wsdl'''
         self._logger.debug('_onGetWsdl returns {}', self._wsdlString)
         return self._wsdlString
-
 
     def _mkWsdlString(self):
         biceps_schema = self._sdcDevice.mdib.bicepsSchema
@@ -261,9 +258,8 @@ class DPWSHostedService(EventService):
         for s in self.subDispatchers:
             s.addWsdlBinding(wsdl_definitions, porttype_prefix)
 
-        s =  etree_.tostring(wsdl_definitions)
+        s = etree_.tostring(wsdl_definitions)
         return sdc_definitions.denormalizeXMLText(s)
-
 
     def _removeAnnotations(self, root_node):
         remove_annotations_string = b'''<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
@@ -281,7 +277,6 @@ class DPWSHostedService(EventService):
         remove_annotations_doc = etree_.parse(BytesIO(remove_annotations_string))
         remove_annotations_xslt = etree_.XSLT(remove_annotations_doc)
         return remove_annotations_xslt(root_node).getroot()
-
 
     def _onGetMetaData(self, httpHeader, request):
         _nsm = self._mdib.nsmapper
@@ -366,7 +361,6 @@ class DPWSPortTypeImpl(SOAPActionDispatcher):
         return '{} Porttype={} actions={}'.format(self.__class__.__name__, self.port_type_string,
                                                   self._soapActionCallbacks.keys())
 
-
     def addWsdlMessages(self, parentNode):
         '''
         add wsdl:message node to parentNode.
@@ -383,7 +377,6 @@ class DPWSPortTypeImpl(SOAPActionDispatcher):
                 etree_.SubElement(elem, _wsdl_part,
                                   attrib={'name': 'parameters',
                                           'element': elementName})
-
 
     def addWsdlBinding(self, parentNode, porttype_prefix):
         '''
@@ -443,7 +436,6 @@ def __mkWsdlOperation(parentNode, operationName, inputMessageName, outputMessage
                                   })
     return elem
 
-
 def _mkWsdlTwowayOperation(parentNode, operationName, inputMessageName=None, outputMessageName=None,  fault=None):
     # has input and output
     input_MessageName = inputMessageName or operationName # defaults to operation name
@@ -488,7 +480,6 @@ class GetService(DPWSPortTypeImpl):
         self.register_soapActionCallback(actions.GetMdState, self._onGetMdState)
         self.register_soapActionCallback(actions.GetMdib, self._onGetMdib)
         self.register_soapActionCallback(actions.GetMdDescription, self._onGetMdDescription)
-
 
     def _onGetMdState(self, httpHeader, request):  # pylint:disable=unused-argument
         self._logger.debug('_onGetMdState')
@@ -617,7 +608,6 @@ class GetService(DPWSPortTypeImpl):
         responseSoapEnvelope.validateBody(self._bmmSchema)
         return responseSoapEnvelope
 
-
     def addWsdlPortType(self, parentNode):
         '''
         add wsdl:portType node to parentNode.
@@ -656,13 +646,11 @@ class ContainmentTreeService(DPWSPortTypeImpl):
     WSDLOperationBindings = (WSDLOperationBinding('GetDescriptor', 'literal', 'literal'),
                              WSDLOperationBinding('GetContainmentTree', 'literal', 'literal'))
 
-
     def __init__(self, port_type_string, sdcDevice):
         super(ContainmentTreeService, self).__init__(port_type_string, sdcDevice)
         actions = self._mdib.sdc_definitions.Actions
         self.register_soapActionCallback(actions.GetContainmentTree, self._onGetContainmentTree)
         self.register_soapActionCallback(actions.GetDescriptor, self._onGetDescriptor)
-
 
     def _onGetContainmentTree(self, httpHeader, request):
         #ToDo: implement, currently method only raises a soap fault
@@ -672,7 +660,6 @@ class ContainmentTreeService(DPWSPortTypeImpl):
     def _onGetDescriptor(self, httpHeader, request):
         #ToDo: implement, currently method only raises a soap fault
         raise FunctionNotImplementedError(request)
-
 
     def addWsdlPortType(self, parentNode):
         portType = etree_.SubElement(parentNode, etree_.QName(_wsdl_ns,'portType'),
@@ -716,17 +703,19 @@ class SetService(DPWSPortTypeImpl):
         self.register_soapActionCallback(actions.SetAlertState, self._onSetAlertState)
         self.register_soapActionCallback(actions.SetComponentState, self._onSetComponentState)
 
-
     def _onActivate(self, httpHeader, request): #pylint:disable=unused-argument
         '''Handler for Active calls.
         It enques an operation and generates the expected operation invoked report. '''
-        return self._handleOperationRequest(request, 'ActivateResponse')
+        self._logger.debug('_onActivate')
+        ret = self._handleOperationRequest(request, 'ActivateResponse', ActivateOperation)
+        self._logger.debug('_onActivate done')
+        return ret
 
     def _onSetValue(self, httpHeader, request): #pylint:disable=unused-argument
         '''Handler for SetValue calls.
         It enques an operation and generates the expected operation invoked report. '''
         self._logger.info('_onSetValue')
-        ret = self._handleOperationRequest(request, 'SetValueResponse')
+        ret = self._handleOperationRequest(request, 'SetValueResponse', SetValueOperation)
         self._logger.info('_onSetValue done')
         return ret
 
@@ -734,34 +723,40 @@ class SetService(DPWSPortTypeImpl):
         '''Handler for SetString calls.
         It enques an operation and generates the expected operation invoked report.'''
         self._logger.debug('_onSetString')
-        return self._handleOperationRequest(request, 'SetStringResponse')
+        ret = self._handleOperationRequest(request, 'SetStringResponse', SetStringOperation)
+        self._logger.debug('_onSetString done')
+        return ret
 
     def _onSetMetricState(self, httpHeader, request):  # pylint:disable=unused-argument
         '''Handler for SetMetricState calls.
         It enques an operation and generates the expected operation invoked report.'''
         self._logger.debug('_onSetMetricState')
-        return self._handleOperationRequest(request, 'SetMetricStateResponse')
-
+        ret = self._handleOperationRequest(request, 'SetMetricStateResponse', SetMetricStateOperation)
+        self._logger.debug('_onSetMetricState done')
+        return ret
 
     def _onSetAlertState(self, httpHeader, request):  # pylint:disable=unused-argument
         '''Handler for SetMetricState calls.
         It enques an operation and generates the expected operation invoked report.'''
         self._logger.debug('_onSetAlertState')
-        return self._handleOperationRequest(request, 'SetAlertStateResponse')
-
+        ret = self._handleOperationRequest(request, 'SetAlertStateResponse', SetAlertStateOperation)
+        self._logger.debug('_onSetAlertState done')
+        return ret
 
     def _onSetComponentState(self, httpHeader, request):  # pylint:disable=unused-argument
         '''Handler for SetMetricState calls.
         It enques an operation and generates the expected operation invoked report.'''
-        self._logger.debug('_onSetAlertState')
-        return self._handleOperationRequest(request, 'SetComponentStateResponse')
+        self._logger.debug('_onComponentState')
+        ret = self._handleOperationRequest(request, 'SetComponentStateResponse',SetComponentStateOperation)
+        self._logger.debug('_onComponentState done')
+        return ret
 
-
-    def _handleOperationRequest(self, request, responseName):  # pylint:disable=unused-argument
+    def _handleOperationRequest(self, request, responseName, operationClass):  # pylint:disable=unused-argument
         '''
         It enques an operation and generate the expected operation invoked report.
         :param request:
         :param responseName:
+        :param operationClass:
         :return:
         '''
         response = pysoap.soapenvelope.Soap12Envelope(self._mdib.nsmapper.partialMap(Prefix.S12, Prefix.WSA))
@@ -777,6 +772,7 @@ class SetService(DPWSPortTypeImpl):
         invocationStateNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationState'))
 
         errorTexts = []
+        error_type = pmtypes.InvocationError.UNSPECIFIED
 
         operationHandleRefs = request.bodyNode.xpath('*/msg:OperationHandleRef/text()', namespaces=nsmap)
         operation = None
@@ -785,8 +781,14 @@ class SetService(DPWSPortTypeImpl):
             operation = self._sdcDevice.getOperationByHandle(operationHandleRef)
             if operation is None:
                 errorTexts.append('operation not known: "{}"'.format(operationHandleRef))
+                error_type = pmtypes.InvocationError.UNKNOWN_OPERATION
+            elif not isinstance(operation, operationClass):
+                errorTexts.append('unexpected operation request: "{}" for operation "{}"'
+                                  .format(request.msgNode.tag, operationHandleRef))
+                error_type = pmtypes.InvocationError.INVALID_VALUE
         else:
             errorTexts.append('no OperationHandleRef found in Request')
+            error_type = pmtypes.InvocationError.OTHER
 
         if errorTexts:
             self._logger.warn('_handleOperationRequest: errorTexts = {}'.format(errorTexts))
@@ -794,7 +796,7 @@ class SetService(DPWSPortTypeImpl):
             invocationStateNode.text = pmtypes.InvocationState.FAILED
             transactionIdNode.text = '0'
             operationErrorNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationError'))
-            operationErrorNode.text = pmtypes.InvocationError.INVALID_VALUE
+            operationErrorNode.text = error_type
             operationErrorMessageNode = etree_.SubElement(invocationInfoNode,
                                                           msgTag('InvocationErrorMessage'))
             operationErrorMessageNode.text = '; '.join(errorTexts)
@@ -887,7 +889,6 @@ class ContextService(DPWSPortTypeImpl):
                              WSDLOperationBinding('PeriodicContextReport', None, 'literal'),
                              )
 
-
     def __init__(self, port_type_string, sdcDevice):
         super(ContextService, self).__init__(port_type_string, sdcDevice)
         actions = self._mdib.sdc_definitions.Actions
@@ -910,6 +911,7 @@ class ContextService(DPWSPortTypeImpl):
         invocationStateNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationState'))
 
         errorTexts = []
+        error_type = pmtypes.InvocationError.UNSPECIFIED
 
         operationHandleRefs = request.bodyNode.xpath('msg:SetContextState/msg:OperationHandleRef/text()',
                                                      namespaces=nsmap)
@@ -917,17 +919,24 @@ class ContextService(DPWSPortTypeImpl):
             operationHandleRef = operationHandleRefs[0]
             operation = self._sdcDevice.getOperationByHandle(operationHandleRef)
             if operation is None:
-                errorTexts.append('operation "{}" not known'.format(operationHandleRef))
+                errorTexts.append('operation not known: "{}"'.format(operationHandleRef))
+                error_type = pmtypes.InvocationError.UNKNOWN_OPERATION
+            elif not isinstance(operation, SetContextStateOperation):
+                errorTexts.append('unexpected operation request: "{}" for operation "{}"'
+                                  .format(request.msgNode.tag, operationHandleRef))
+                error_type = pmtypes.InvocationError.INVALID_VALUE
         elif len(operationHandleRefs) > 1:
             errorTexts.append('multiple OperationHandleRefs found: "{}"'.format(operationHandleRefs))
+            error_type = pmtypes.InvocationError.OTHER
         else:
             errorTexts.append('no OperationHandleRef found')
+            error_type = pmtypes.InvocationError.OTHER
 
         if errorTexts:
             invocationStateNode.text = pmtypes.InvocationState.FAILED
             transactionIdNode.text = '0'
             operationErrorNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationError'))
-            operationErrorNode.text = pmtypes.InvocationError.INVALID_VALUE
+            operationErrorNode.text = error_type
             operationErrorMessageNode = etree_.SubElement(invocationInfoNode,
                                                           msgTag('InvocationErrorMessage'))
             operationErrorMessageNode.text = '; '.join(errorTexts)
@@ -999,8 +1008,6 @@ class ContextService(DPWSPortTypeImpl):
         _mkWsdlTwowayOperation(portType, operationName='GetContextStates')
         _mkWsdlOnewayOperation(portType, operationName='EpisodicContextReport')
         _mkWsdlOnewayOperation(portType, operationName='PeriodicContextReport')
-
-
 
 class DescriptionEventService(DPWSPortTypeImpl):
     WSDLMessageDescriptions = (WSDLMessageDescription('DescriptionModificationReport', ('{}:DescriptionModificationReport'.format(_msg_prefix),)),
