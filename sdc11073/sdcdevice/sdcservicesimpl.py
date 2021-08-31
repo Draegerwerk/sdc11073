@@ -10,6 +10,8 @@ from ..namespaces import msgTag, domTag, s12Tag, wsxTag, wseTag, dpwsTag, mdpwsT
 from .. import pmtypes
 from .. import loghelper
 from .exceptions import InvalidActionError, FunctionNotImplementedError
+from .sco import ActivateOperation, SetStringOperation, SetValueOperation, SetMetricStateOperation, \
+    SetAlertStateOperation, SetContextStateOperation, SetComponentStateOperation
 _msg_prefix = Prefix.MSG.prefix
 
 _wsdl_ns = Prefix.WSDL.namespace
@@ -720,13 +722,16 @@ class SetService(DPWSPortTypeImpl):
     def _onActivate(self, httpHeader, request): #pylint:disable=unused-argument
         '''Handler for Active calls.
         It enques an operation and generates the expected operation invoked report. '''
-        return self._handleOperationRequest(request, 'ActivateResponse')
+        self._logger.debug('_onActivate')
+        ret = self._handleOperationRequest(request, 'ActivateResponse', ActivateOperation)
+        self._logger.debug('_onActivate done')
+        return ret
 
     def _onSetValue(self, httpHeader, request): #pylint:disable=unused-argument
         '''Handler for SetValue calls.
         It enques an operation and generates the expected operation invoked report. '''
         self._logger.info('_onSetValue')
-        ret = self._handleOperationRequest(request, 'SetValueResponse')
+        ret = self._handleOperationRequest(request, 'SetValueResponse', SetValueOperation)
         self._logger.info('_onSetValue done')
         return ret
 
@@ -734,34 +739,42 @@ class SetService(DPWSPortTypeImpl):
         '''Handler for SetString calls.
         It enques an operation and generates the expected operation invoked report.'''
         self._logger.debug('_onSetString')
-        return self._handleOperationRequest(request, 'SetStringResponse')
+        ret = self._handleOperationRequest(request, 'SetStringResponse', SetStringOperation)
+        self._logger.debug('_onSetString done')
+        return ret
 
     def _onSetMetricState(self, httpHeader, request):  # pylint:disable=unused-argument
         '''Handler for SetMetricState calls.
         It enques an operation and generates the expected operation invoked report.'''
         self._logger.debug('_onSetMetricState')
-        return self._handleOperationRequest(request, 'SetMetricStateResponse')
+        ret = self._handleOperationRequest(request, 'SetMetricStateResponse', SetMetricStateOperation)
+        self._logger.debug('_onSetMetricState done')
+        return ret
 
 
     def _onSetAlertState(self, httpHeader, request):  # pylint:disable=unused-argument
         '''Handler for SetMetricState calls.
         It enques an operation and generates the expected operation invoked report.'''
         self._logger.debug('_onSetAlertState')
-        return self._handleOperationRequest(request, 'SetAlertStateResponse')
-
+        ret = self._handleOperationRequest(request, 'SetAlertStateResponse', SetAlertStateOperation)
+        self._logger.debug('_onSetAlertState done')
+        return ret
 
     def _onSetComponentState(self, httpHeader, request):  # pylint:disable=unused-argument
         '''Handler for SetMetricState calls.
         It enques an operation and generates the expected operation invoked report.'''
-        self._logger.debug('_onSetAlertState')
-        return self._handleOperationRequest(request, 'SetComponentStateResponse')
+        self._logger.debug('_onComponentState')
+        ret = self._handleOperationRequest(request, 'SetComponentStateResponse',SetComponentStateOperation)
+        self._logger.debug('_onComponentState done')
+        return ret
 
 
-    def _handleOperationRequest(self, request, responseName):  # pylint:disable=unused-argument
+    def _handleOperationRequest(self, request, responseName, operationContainer):  # pylint:disable=unused-argument
         '''
         It enques an operation and generate the expected operation invoked report.
         :param request:
         :param responseName:
+        :param operationContainer:
         :return:
         '''
         response = pysoap.soapenvelope.Soap12Envelope(self._mdib.nsmapper.partialMap(Prefix.S12, Prefix.WSA))
@@ -777,6 +790,7 @@ class SetService(DPWSPortTypeImpl):
         invocationStateNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationState'))
 
         errorTexts = []
+        error_type = pmtypes.InvocationError.UNSPECIFIED
 
         operationHandleRefs = request.bodyNode.xpath('*/msg:OperationHandleRef/text()', namespaces=nsmap)
         operation = None
@@ -785,8 +799,14 @@ class SetService(DPWSPortTypeImpl):
             operation = self._sdcDevice.getOperationByHandle(operationHandleRef)
             if operation is None:
                 errorTexts.append('operation not known: "{}"'.format(operationHandleRef))
+                error_type = pmtypes.InvocationError.UNKNOWN_OPERATION
+            elif not isinstance(operation, operationContainer):
+                errorTexts.append('unexpected operation request: "{}" for operation "{}"'
+                                  .format(request.msgNode.tag, operationHandleRef))
+                error_type = pmtypes.InvocationError.INVALID_VALUE
         else:
             errorTexts.append('no OperationHandleRef found in Request')
+            error_type = pmtypes.InvocationError.OTHER
 
         if errorTexts:
             self._logger.warn('_handleOperationRequest: errorTexts = {}'.format(errorTexts))
@@ -794,7 +814,7 @@ class SetService(DPWSPortTypeImpl):
             invocationStateNode.text = pmtypes.InvocationState.FAILED
             transactionIdNode.text = '0'
             operationErrorNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationError'))
-            operationErrorNode.text = pmtypes.InvocationError.INVALID_VALUE
+            operationErrorNode.text = error_type
             operationErrorMessageNode = etree_.SubElement(invocationInfoNode,
                                                           msgTag('InvocationErrorMessage'))
             operationErrorMessageNode.text = '; '.join(errorTexts)
@@ -910,6 +930,7 @@ class ContextService(DPWSPortTypeImpl):
         invocationStateNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationState'))
 
         errorTexts = []
+        error_type = pmtypes.InvocationError.UNSPECIFIED
 
         operationHandleRefs = request.bodyNode.xpath('msg:SetContextState/msg:OperationHandleRef/text()',
                                                      namespaces=nsmap)
@@ -917,17 +938,24 @@ class ContextService(DPWSPortTypeImpl):
             operationHandleRef = operationHandleRefs[0]
             operation = self._sdcDevice.getOperationByHandle(operationHandleRef)
             if operation is None:
-                errorTexts.append('operation "{}" not known'.format(operationHandleRef))
+                errorTexts.append('operation not known: "{}"'.format(operationHandleRef))
+                error_type = pmtypes.InvocationError.UNKNOWN_OPERATION
+            elif not isinstance(operation, SetContextStateOperation):
+                errorTexts.append('unexpected operation request: "{}" for operation "{}"'
+                                  .format(request.msgNode.tag, operationHandleRef))
+                error_type = pmtypes.InvocationError.INVALID_VALUE
         elif len(operationHandleRefs) > 1:
             errorTexts.append('multiple OperationHandleRefs found: "{}"'.format(operationHandleRefs))
+            error_type = pmtypes.InvocationError.OTHER
         else:
             errorTexts.append('no OperationHandleRef found')
+            error_type = pmtypes.InvocationError.OTHER
 
         if errorTexts:
             invocationStateNode.text = pmtypes.InvocationState.FAILED
             transactionIdNode.text = '0'
             operationErrorNode = etree_.SubElement(invocationInfoNode, msgTag('InvocationError'))
-            operationErrorNode.text = pmtypes.InvocationError.INVALID_VALUE
+            operationErrorNode.text = error_type
             operationErrorMessageNode = etree_.SubElement(invocationInfoNode,
                                                           msgTag('InvocationErrorMessage'))
             operationErrorMessageNode.text = '; '.join(errorTexts)
