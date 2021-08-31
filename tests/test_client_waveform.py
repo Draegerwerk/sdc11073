@@ -1,18 +1,20 @@
-import unittest
 import logging
-from lxml import etree as etree_
-import sdc11073
-from sdc11073 import namespaces
-from sdc11073 import definitions_sdc
+import unittest
 
-#pylint: disable=protected-access
+from lxml import etree as etree_
+
+import sdc11073
+from sdc11073 import definitions_sdc
+from sdc11073 import namespaces
+
+# pylint: disable=protected-access
 
 DEV_ADDRESS = 'http://169.254.0.200:10000'
 CLIENT_VALIDATE = True
 
 # data that is used in report
 observationTime_ms = 1467596359152
-OBSERVATIONTIME = observationTime_ms/1000.0
+OBSERVATIONTIME = observationTime_ms / 1000.0
 HANDLES = ("0x34F05506", "0x34F05501", "0x34F05500")
 SAMPLES = {"0x34F05506": (5.566406, 5.712891, 5.712891, 5.712891, 5.800781),
            "0x34F05501": (0.1, -0.1, 1.0, 2.0, 3.0),
@@ -78,15 +80,14 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
     </msg:WaveformStreamReport>
   </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>
-'''.format(obs_time=observationTime_ms, 
+'''.format(obs_time=observationTime_ms,
            array1=' '.join([str(n) for n in SAMPLES["0x34F05506"]]),
            array2=' '.join([str(n) for n in SAMPLES["0x34F05501"]]),
            array3=' '.join([str(n) for n in SAMPLES["0x34F05500"]]),
-           msg=namespaces.nsmap['msg'], 
-           ext=namespaces.nsmap['ext'], 
+           msg=namespaces.nsmap['msg'],
+           ext=namespaces.nsmap['ext'],
            dom=namespaces.nsmap['dom'],
-          )
-
+           )
 
 WfReport_draft10 = u'''<?xml version="1.0" encoding="utf-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
@@ -148,55 +149,56 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
     </msg:WaveformStream>
   </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>
-'''.format(obs_time=observationTime_ms, 
+'''.format(obs_time=observationTime_ms,
            array1=' '.join([str(n) for n in SAMPLES["0x34F05506"]]),
            array2=' '.join([str(n) for n in SAMPLES["0x34F05501"]]),
            array3=' '.join([str(n) for n in SAMPLES["0x34F05500"]]),
-           msg=namespaces.nsmap['msg'], 
-           ext=namespaces.nsmap['ext'], 
+           msg=namespaces.nsmap['msg'],
+           ext=namespaces.nsmap['ext'],
            dom=namespaces.nsmap['dom'],
-          )
+           )
 
 
 class TestClientWaveform(unittest.TestCase):
-    
-    def setUp(self):
-        self.sdcClient_final =  sdc11073.sdcclient.SdcClient(DEV_ADDRESS,
-                                                             sdc_definitions=definitions_sdc.SDC_v1_Definitions,
-                                                             ssl_context=None,
-                                                             validate=CLIENT_VALIDATE)
-        self.all_clients = (self.sdcClient_final,)
 
+    def setUp(self):
+        self.sdc_client = sdc11073.sdcclient.SdcClient(DEV_ADDRESS,
+                                                       sdc_definitions=definitions_sdc.SDC_v1_Definitions,
+                                                       ssl_context=None,
+                                                       validate=CLIENT_VALIDATE)
+        self.all_clients = (self.sdc_client,)
 
     def test_basic_handling(self):
         ''' call _onWaveformReport method directly. Verify that observable is a WaveformStream Element'''
 
         # same test for draft10 version
-        cl = self.sdcClient_final
+        cl = self.sdc_client
         soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope(WfReport_draft10.encode('utf-8'))
         soapenvelope.validate_body(cl._biceps_schema.message_schema)
         cl._on_waveform_report(soapenvelope)
         self.assertEqual(cl.waveform_report.tag, namespaces.msgTag('WaveformStream'))
 
-
     def test_stream_handling(self):
         ''' Connect a mdib with client. Call _onWaveformReport method directly. Verify that observable is a WaveformStream Element'''
         my_handles = ('0x34F05506', '0x34F05501', '0x34F05500')
-        for cl, wfReport in ((self.sdcClient_final, WfReport_draft10),):
+        for cl, wfReport in ((self.sdc_client, WfReport_draft10),):
             clientmdib = sdc11073.mdib.ClientMdibContainer(cl)
             clientmdib._bind_to_client_observables()
-            clientmdib._is_initialized = True # fake it, because we do not call init_mdib()
-            clientmdib.MDIB_VERSION_CHECK_DISABLED = True # we have no mdib version incrementing in this test, therefore disable check
+            clientmdib._is_initialized = True  # fake it, because we do not call init_mdib()
+            clientmdib.MDIB_VERSION_CHECK_DISABLED = True  # we have no mdib version incrementing in this test, therefore disable check
             # create dummy descriptors
             for handle in my_handles:
                 attributes = {'SamplePeriod': 'P0Y0M0DT0H0M0.0157S',  # use a unique sample period
-                              etree_.QName(sdc11073.namespaces.nsmap['xsi'], 'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
-                              'Handle':handle}
+                              etree_.QName(sdc11073.namespaces.nsmap['xsi'],
+                                           'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
+                              'Handle': handle}
                 element = etree_.Element('Metric', attrib=attributes, nsmap=sdc11073.namespaces.nsmap)
-                clientmdib.descriptions.add_object(sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.from_node(clientmdib.nsmapper, element, None)) # None = no parent handle
+                clientmdib.descriptions.add_object(
+                    sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.from_node(
+                        clientmdib.nsmapper, element, None))  # None = no parent handle
             soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope(wfReport.encode('utf-8'))
             cl._on_waveform_report(soapenvelope)
-            
+
             # verify that all handles of reported RealTimeSampleArrays are present
             for handle in my_handles:
                 current_samples = SAMPLES[handle]
@@ -205,25 +207,27 @@ class TestClientWaveform(unittest.TestCase):
                 self.assertEqual(len(rtBuffer.rt_data), s_count)
                 self.assertAlmostEqual(rtBuffer.sample_period, 0.0157)
                 self.assertAlmostEqual(rtBuffer.rt_data[0].determination_time, OBSERVATIONTIME)
-                self.assertAlmostEqual(rtBuffer.rt_data[-1].determination_time - OBSERVATIONTIME, rtBuffer.sample_period*(s_count-1), places=4)
-                self.assertAlmostEqual(rtBuffer.rt_data[-2].determination_time - OBSERVATIONTIME, rtBuffer.sample_period*(s_count-2), places=4)
+                self.assertAlmostEqual(rtBuffer.rt_data[-1].determination_time - OBSERVATIONTIME,
+                                       rtBuffer.sample_period * (s_count - 1), places=4)
+                self.assertAlmostEqual(rtBuffer.rt_data[-2].determination_time - OBSERVATIONTIME,
+                                       rtBuffer.sample_period * (s_count - 2), places=4)
                 for i in range(s_count):
                     self.assertAlmostEqual(rtBuffer.rt_data[i].value, current_samples[i])
-            
+
             # verify that only handle 0x34F05501 has an annotation
             for handle in [my_handles[0], my_handles[2]]:
                 rtBuffer = clientmdib.rt_buffers[handle]
                 for sample in rtBuffer.rt_data:
                     self.assertEqual(len(sample.annotations), 0)
-    
+
             rtBuffer = clientmdib.rt_buffers[my_handles[1]]
-            annotated = rtBuffer.rt_data[2] # this object should have the annotation (SampleIndex="2")
+            annotated = rtBuffer.rt_data[2]  # this object should have the annotation (SampleIndex="2")
             self.assertEqual(len(annotated.annotations), 1)
             self.assertEqual(annotated.annotations[0].coding.code, '4711')
             self.assertEqual(annotated.annotations[0].coding.codingSystem, 'bla')
-            for i in (0,1,3,4):
+            for i in (0, 1, 3, 4):
                 self.assertEqual(len(rtBuffer.rt_data[i].annotations), 0)
-    
+
             # add another Report (with identical data, but that is not relevant here)
             soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope(wfReport.encode('utf-8'))
             cl._on_waveform_report(soapenvelope)
@@ -232,9 +236,9 @@ class TestClientWaveform(unittest.TestCase):
                 current_samples = SAMPLES[handle]
                 s_count = len(current_samples)
                 rtBuffer = clientmdib.rt_buffers[handle]
-                self.assertEqual(len(rtBuffer.rt_data), s_count*2)
-            
-            #add a lot more data, verify that length limitation is working
+                self.assertEqual(len(rtBuffer.rt_data), s_count * 2)
+
+            # add a lot more data, verify that length limitation is working
             for i in range(100):
                 soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope(wfReport.encode('utf-8'))
                 cl._on_waveform_report(soapenvelope)
@@ -246,15 +250,12 @@ class TestClientWaveform(unittest.TestCase):
                 self.assertEqual(len(rtBuffer.rt_data), rtBuffer._max_samples)
 
 
-
 def suite():
     return unittest.TestLoader().loadTestsFromTestCase(TestClientWaveform)
 
 
 if __name__ == '__main__':
     logging.getLogger('sdc.client').setLevel(logging.DEBUG)
-    
+
     unittest.TextTestRunner(verbosity=2).run(suite())
 #   unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('test_client_waveform.TestClientWafeform.test_stream_handling'))
-    
-        

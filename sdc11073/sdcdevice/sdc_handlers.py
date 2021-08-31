@@ -263,11 +263,9 @@ class SdcHandlerBase:
         if shared_http_server:
             self._http_server_thread = shared_http_server
         else:
-            self._http_server_thread = httpserver.HttpServerThread(my_ipaddress='0.0.0.0',
-                                                                   ssl_context=self._ssl_context,
-                                                                   supported_encodings=self._compression_methods,
-                                                                   log_prefix=self._log_prefix,
-                                                                   chunked_responses=self.chunked_messages)
+            self._http_server_thread = httpserver.DeviceHttpServerThread(
+                my_ipaddress='0.0.0.0', ssl_context=self._ssl_context, supported_encodings=self._compression_methods,
+                log_prefix=self._log_prefix, chunked_responses=self.chunked_messages)
 
             # first start http server, the services need to know the ip port number
             self._http_server_thread.start()
@@ -278,7 +276,7 @@ class SdcHandlerBase:
 
         host_ips = self._wsdiscovery.get_active_addresses()
         self._url_dispatcher = httpserver.HostedServiceDispatcher(self._mdib.sdc_definitions, self._logger)
-        self._http_server_thread.devices_dispatcher.register_device_dispatcher(self.path_prefix, self._url_dispatcher)
+        self._http_server_thread.dispatcher.register_device_dispatcher(self.path_prefix, self._url_dispatcher)
         if len(host_ips) == 0:
             self._logger.error('Cannot start device, there is no IP address to bind it to.')
             raise RuntimeError('Cannot start device, there is no IP address to bind it to.')

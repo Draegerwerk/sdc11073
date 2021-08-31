@@ -22,7 +22,7 @@ from sdc11073.pysoap.soapenvelope import ReceivedSoapFault
 from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice import waveforms
-from sdc11073.sdcdevice.httpserver import HttpServerThread
+from sdc11073.sdcdevice.httpserver import DeviceHttpServerThread
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from tests.mockstuff import SomeDevice
 
@@ -95,25 +95,25 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
         location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
-        self.sdcDevice_Final = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_level=logging.INFO)
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_level=logging.INFO)
         # in order to test correct handling of default namespaces, we make participant model the default namespace
-        nsmapper = self.sdcDevice_Final.mdib.nsmapper
+        nsmapper = self.sdc_device.mdib.nsmapper
         nsmapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
-        self.sdcDevice_Final.start_all(periodic_reports_interval=1.0)
+        self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdcDevice_Final.set_location(location, self._locValidators)
-        self.provideRealtimeData(self.sdcDevice_Final)
+        self.sdc_device.set_location(location, self._locValidators)
+        self.provideRealtimeData(self.sdc_device)
 
         time.sleep(0.5)  # allow full init of devices
 
-        xAddr = self.sdcDevice_Final.get_xaddrs()
-        self.sdcClient_Final = SdcClient(xAddr[0],
-                                         sdc_definitions=self.sdcDevice_Final.mdib.sdc_definitions,
-                                         ssl_context=None,
-                                         validate=CLIENT_VALIDATE)
-        self.sdcClient_Final.start_all(subscribe_periodic_reports=True)
+        xAddr = self.sdc_device.get_xaddrs()
+        self.sdc_client = SdcClient(xAddr[0],
+                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                    ssl_context=None,
+                                    validate=CLIENT_VALIDATE)
+        self.sdc_client.start_all(subscribe_periodic_reports=True)
 
-        self._all_cl_dev = [(self.sdcClient_Final, self.sdcDevice_Final)]
+        self._all_cl_dev = [(self.sdc_client, self.sdc_device)]
 
         time.sleep(1)
         sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
@@ -291,7 +291,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.MetricValue.MetricQuality.Validity = pmtypes.MeasurementValidity.VALID
                 st.MetricValue.DeterminationTime = now
                 st.PhysiologicalRange = [pmtypes.Range(1, 2, 3, 4, 5), pmtypes.Range(10, 20, 30, 40, 50)]
-                if sdcDevice is self.sdcDevice_Final:
+                if sdcDevice is self.sdc_device:
                     st.PhysicalConnector = myPhysicalConnector
 
             # verify that client automatically got the state (via EpisodicMetricReport )
@@ -301,7 +301,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertAlmostEqual(cl_state1.MetricValue.DeterminationTime, now, delta=0.01)
             self.assertEqual(cl_state1.MetricValue.MetricQuality.Validity, pmtypes.MeasurementValidity.VALID)
             self.assertEqual(cl_state1.StateVersion, 1)  # this is the first state update after init
-            if sdcDevice is self.sdcDevice_Final:
+            if sdcDevice is self.sdc_device:
                 self.assertEqual(cl_state1.PhysicalConnector, myPhysicalConnector)
 
             # set new Value
@@ -656,8 +656,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     self.assertEqual(loc.UnbindingMdibVersion, cl_locations[j + 1].BindingMdibVersion)
 
     def test_AudioPause_SDC(self):
-        sdcClient = self.sdcClient_Final
-        sdcDevice = self.sdcDevice_Final
+        sdcClient = self.sdc_client
+        sdcDevice = self.sdc_device
         alertSystemDescriptorType = namespaces.domTag('AlertSystemDescriptor')
 
         alertSystemDescriptors = sdcDevice.mdib.descriptions.NODETYPE.get(alertSystemDescriptorType)
@@ -699,8 +699,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(state.SystemSignalActivation[0].State, pmtypes.AlertActivation.ON)
 
     def test_setNtpServer_SDC(self):
-        sdcClient = self.sdcClient_Final
-        sdcDevice = self.sdcDevice_Final
+        sdcClient = self.sdc_client
+        sdcDevice = self.sdc_device
         setService = sdcClient.client('Set')
         clientMdib = ClientMdibContainer(sdcClient)
         clientMdib.init_mdib()
@@ -733,8 +733,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(state.ReferenceSource[0].text, value)
 
     def test_setTimeZone_SDC(self):
-        sdcClient = self.sdcClient_Final
-        sdcDevice = self.sdcDevice_Final
+        sdcClient = self.sdc_client
+        sdcDevice = self.sdc_device
         setService = sdcClient.client('Set')
         clientMdib = ClientMdibContainer(sdcClient)
         clientMdib.init_mdib()
@@ -767,8 +767,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(state.TimeZone, value)
 
     def test_setMetricState_SDC(self):
-        sdcClient = self.sdcClient_Final
-        sdcDevice = self.sdcDevice_Final
+        sdcClient = self.sdc_client
+        sdcDevice = self.sdc_device
 
         # first we need to add a set_metric_state Operation
         scoDescriptors = sdcDevice.mdib.descriptions.NODETYPE.get(namespaces.domTag('ScoDescriptor'))
@@ -807,8 +807,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertAlmostEqual(updatedMetricState.LifeTimePeriod, newLifeTimePeriod)
 
     def test_setComponentState_SDC(self):
-        sdcClient = self.sdcClient_Final
-        sdcDevice = self.sdcDevice_Final
+        sdcClient = self.sdc_client
+        sdcDevice = self.sdc_device
 
         operationtarget_handle = '2.1.2.1'  # a channel
         # first we need to add a set_component_state Operation
@@ -864,8 +864,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                               ['0x34F05500', '0x34F05501', '0x34F05506'])
 
     def test_getSupportedLanguages(self):
-        sdcDevice = self.sdcDevice_Final
-        sdcClient = self.sdcClient_Final
+        sdcDevice = self.sdc_device
+        sdcClient = self.sdc_client
         storage = sdcDevice._handler._localization_dispatcher.localization_storage
         storage.add(pmtypes.LocalizedText('bla', lang='de-de', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS),
                     pmtypes.LocalizedText('foo', lang='en-en', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS)
@@ -877,8 +877,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertTrue('en-en' in languages)
 
     def test_getLocalizedTexts(self):
-        sdcDevice = self.sdcDevice_Final
-        sdcClient = self.sdcClient_Final
+        sdcDevice = self.sdc_device
+        sdcClient = self.sdc_client
         storage = sdcDevice._handler._localization_dispatcher.localization_storage
         storage.add(pmtypes.LocalizedText('bla_a', lang='de-de', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS))
         storage.add(pmtypes.LocalizedText('foo_a', lang='en-en', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS))
@@ -1078,10 +1078,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
             cl_descriptorContainer = clientMdib.descriptions.handle.get_one(new_handle, allow_none=True)
             self.assertIsNone(cl_descriptorContainer)
 
-    def test_AlertConditionModification_Final(self):
-        self._test_AlertConditionModification(self.sdcClient_Final, self.sdcDevice_Final)
-
-    def _test_AlertConditionModification(self, sdcClient, sdcDevice):
+    def test_AlertConditionModification(self):
+        sdcClient = self.sdc_client
+        sdcDevice = self.sdc_device
         alertDescriptorHandle = '0xD3C00100'
         limitAlertDescriptorHandle = '0xD3C00108'
 
@@ -1222,7 +1221,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             cl_state_count3 = len(clientMdib.states.objects)
             self.assertEqual(dev_descriptor_count3, dev_descriptor_count1)
             self.assertEqual(dev_descriptor_count3, cl_descriptor_count3)
-            if sdcDevice is self.sdcDevice_Final:
+            if sdcDevice is self.sdc_device:
                 self.assertEqual(dev_state_count3, dev_state_count1)
             else:
                 self.assertEqual(dev_state_count3, dev_state_count1 - 1)  # scostate is not sent in draft6
@@ -1378,10 +1377,10 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         self.sdcDevice_1 = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<dev1> ')
 
         # common http server for both devices, borrow ssl context from device
-        self.httpserver = HttpServerThread(my_ipaddress='0.0.0.0',
-                                           ssl_context=self.sdcDevice_1._handler._ssl_context,
-                                           supported_encodings=compression.CompressionHandler.available_encodings[:],
-                                           log_prefix='hppt_srv')
+        self.httpserver = DeviceHttpServerThread(
+            my_ipaddress='0.0.0.0', ssl_context=self.sdcDevice_1._handler._ssl_context,
+            supported_encodings=compression.CompressionHandler.available_encodings[:],
+            log_prefix='hppt_srv')
         self.httpserver.start()
         self.httpserver.started_evt.wait(timeout=5)
 
@@ -1483,28 +1482,28 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
         location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
-        self.sdcDevice_Final = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<Final> ',
-                                                         chunked_messages=True)
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<Final> ',
+                                                    chunked_messages=True)
         # in order to test correct handling of default namespaces, we make participant model the default namespace
-        nsmapper = self.sdcDevice_Final.mdib.nsmapper
+        nsmapper = self.sdc_device.mdib.nsmapper
         nsmapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
-        self.sdcDevice_Final.start_all()
+        self.sdc_device.start_all()
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdcDevice_Final.set_location(location, self._locValidators)
-        self.provideRealtimeData(self.sdcDevice_Final)
+        self.sdc_device.set_location(location, self._locValidators)
+        self.provideRealtimeData(self.sdc_device)
 
         time.sleep(0.5)  # allow full init of devices
 
-        xAddr = self.sdcDevice_Final.get_xaddrs()
-        self.sdcClient_Final = SdcClient(xAddr[0],
-                                         sdc_definitions=self.sdcDevice_Final.mdib.sdc_definitions,
-                                         ssl_context=None,
-                                         validate=CLIENT_VALIDATE,
-                                         ident='<Final> ',
-                                         chunked_requests=True)
-        self.sdcClient_Final.start_all()
+        xAddr = self.sdc_device.get_xaddrs()
+        self.sdc_client = SdcClient(xAddr[0],
+                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                    ssl_context=None,
+                                    validate=CLIENT_VALIDATE,
+                                    ident='<Final> ',
+                                    chunked_requests=True)
+        self.sdc_client.start_all()
 
-        self._all_cl_dev = [(self.sdcClient_Final, self.sdcDevice_Final)]
+        self._all_cl_dev = [(self.sdc_client, self.sdc_device)]
 
         time.sleep(1)
         sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))

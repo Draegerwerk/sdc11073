@@ -1,72 +1,25 @@
 import copy
 import http.client
 import queue
-import socket
 import threading
 import time
 import traceback
 import urllib
 import uuid
-from http.server import HTTPServer
 
 from lxml import etree as etree_
 
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import ReceivedSoap12Envelope, SoapResponseException
 from .. import commlog
+from .. import etc, isoduration
 from .. import loghelper
 from .. import observableproperties as properties
-from .. import etc, isoduration
-from ..httprequesthandler import HTTPRequestHandler
+from ..httprequesthandler import HTTPRequestHandler, AbstractDispatcher, HttpServerThreadBase
 from ..namespaces import nsmap as _global_nsmap
 from ..namespaces import wseTag, wsaTag
 
-MULTITHREADED = True
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
-
-
-class MyThreadingMixIn:
-
-    def process_request_thread(self, request, client_address):
-        """Same as in BaseServer but as a thread.
-
-        In addition, exception handling is done here.
-
-        """
-        try:
-            self.finish_request(request, client_address)
-            self.shutdown_request(request)
-        except Exception as ex:
-            if self.dispatcher is not None:
-                self.handle_error(request, client_address)
-            else:
-                print("don't care error:{}".format(ex))
-            self.shutdown_request(request)
-
-    def process_request(self, request, client_address):
-        """Start a new thread to process the request."""
-        thread = threading.Thread(target=self.process_request_thread,
-                                  args=(request, client_address),
-                                  name='SubscrRecv{}'.format(client_address))
-        thread.daemon = True
-        thread.start()
-        self.threads.append((thread, request, client_address))
-
-
-if MULTITHREADED:
-    class MyHTTPServer(MyThreadingMixIn, HTTPServer):
-        """ Each request is handled in a thread.
-        Following receipe from https://pymotw.com/2/BaseHTTPServer/index.html#module-BaseHTTPServer
-        """
-
-        def __init__(self, *args, **kwargs):
-            HTTPServer.__init__(self, *args, **kwargs)
-            self.daemon_threads = True
-            self.threads = []
-            self.dispatcher = None
-
-else:
-    MyHTTPServer = HTTPServer  # single threaded, sequential operation
 
 
 class _ClSubscription:
@@ -421,7 +374,7 @@ class _DispatchError(Exception):
         self.error_text = error_text
 
 
-class SOAPNotificationsDispatcher:
+class SOAPNotificationsDispatcher(AbstractDispatcher):
     """ receiver of all notifications"""
 
     def __init__(self, log_prefix, sdc_definitions):
@@ -433,7 +386,13 @@ class SOAPNotificationsDispatcher:
     def register_function(self, action, func):
         self.methods[action] = func
 
-    def dispatch(self, path, xml):
+    def on_post(self, path: str, headers, request: str) -> [str, None]:
+        return self._dispatch(path, request)
+
+    def on_get(self, path: str, headers) -> str:
+        return ''
+
+    def _dispatch(self, path, xml):
         start = time.time()
         normalized_xml = self._sdc_definitions.normalize_xml_text(xml)
         request = ReceivedSoap12Envelope(normalized_xml)
@@ -500,33 +459,32 @@ class SOAPNotificationsHandler(HTTPRequestHandler):
 
     def do_POST(self):  # pylint: disable=invalid-name
         """SOAP POST gateway"""
-        self.server.thread_obj.logger.debug('notification do_POST incoming')  # pylint: disable=protected-access
+        self.server.logger.debug('notification do_POST incoming')  # pylint: disable=protected-access
         dispatcher = self.server.dispatcher
         response_string = ''
         if dispatcher is None:
             # close this connection
             self.close_connection = True  # pylint: disable=attribute-defined-outside-init
-            self.server.thread_obj.logger.warn(
+            self.server.logger.warn(
                 'received a POST request, but no dispatcher => returning 404 ')  # pylint:disable=protected-access
             self.send_response(404)  # not found
         else:
             request_bytes = self._read_request()
 
-            self.server.thread_obj.logger.debug('notification {} bytes',
-                                                request_bytes)  # pylint: disable=protected-access
+            self.server.logger.debug('notification {} bytes', request_bytes)  # pylint: disable=protected-access
             # execute the method
             commlog.get_communication_logger().log_soap_subscription_msg_in(request_bytes)
             try:
-                response_string = self.server.dispatcher.dispatch(self.path, request_bytes)
+                response_string = self.server.dispatcher.on_post(self.path, self.headers, request_bytes)
                 if response_string is None:
                     response_string = ''
                 self.send_response(202, b'Accepted')
             except _DispatchError as ex:
-                self.server.thread_obj.logger.error('received a POST request, but got _DispatchError => returning {}',
-                                                    ex.http_error_code)  # pylint:disable=protected-access
+                self.server.logger.error('received a POST request, but got _DispatchError => returning {}',
+                                         ex.http_error_code)  # pylint:disable=protected-access
                 self.send_response(ex.http_error_code, ex.error_text)
             except Exception as ex:
-                self.server.thread_obj.logger.error(
+                self.server.logger.error(
                     'received a POST request, but got Exception "{}"=> returning {}\n{}', ex, 500,
                     traceback.format_exc())  # pylint:disable=protected-access
                 self.send_response(500, b'server error in dispatch')
@@ -540,93 +498,25 @@ class SOAPNotificationsHandler(HTTPRequestHandler):
         self.wfile.write(response_bytes)
 
 
-class NotificationsReceiverDispatcherThread(threading.Thread):
-
+class NotificationsReceiverDispatcherThread(HttpServerThreadBase):
     def __init__(self, my_ipaddress, ssl_context, log_prefix, sdc_definitions, supported_encodings,
                  soap_notifications_handler_class=None, async_dispatch=True):
         """
-
-        :param my_ipaddress: http server will listen on this address
-        :param ssl_context: http server uses this ssl context
-        :param ident: used for logging
-        :param sdc_definitions: namespaces etc
-        :param supported_encodings: a list of strings
-        :param soap_notifications_handler_class: if None, SOAPNotificationsHandler is used,
-                otherwise the provided class ( a HTTPRequestHandler).
-        :param async_dispatch: if True, incoming requests are queued and response is sent (processing is done later).
-                                if False, response is sent after the complete processing is done.
+        This thread receives all notifications from the connected device.
+        :param my_ipaddress:
+        :param ssl_context:
+        :param log_prefix:
+        :param sdc_definitions:
+        :param supported_encodings:
+        :param soap_notifications_handler_class:
+        :param async_dispatch:
         """
-        super().__init__(
-            name='Cl_NotificationsReceiver_{}'.format(log_prefix))
-        self._ssl_context = ssl_context
-        self._soap_notifications_handler_class = soap_notifications_handler_class
-        self.daemon = True
-        self.logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', log_prefix)
-
-        self._my_ipaddress = my_ipaddress
-        self.my_port = None
-        self.base_url = None
-        self.httpd = None
-        self.supported_encodings = supported_encodings
-        # create and set up the dispatcher for notifications
+        logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', log_prefix)
+        request_handler = soap_notifications_handler_class or SOAPNotificationsHandler
         if async_dispatch:
-            self.dispatcher = SOAPNotificationsDispatcherThreaded(log_prefix, sdc_definitions)
+            dispatcher = SOAPNotificationsDispatcherThreaded(log_prefix, sdc_definitions)
         else:
-            self.dispatcher = SOAPNotificationsDispatcher(log_prefix, sdc_definitions)
-        self.started_evt = threading.Event()  # helps to wait until thread has initialised is variables
-
-    def run(self):
-        try:
-            myport = 0  # zero means that OS selects a free port
-            self.httpd = MyHTTPServer((self._my_ipaddress, myport),
-                                      self._soap_notifications_handler_class or SOAPNotificationsHandler)
-            # add use compression flag to the server
-            setattr(self.httpd, 'supported_encodings', self.supported_encodings)
-            self.my_port = self.httpd.server_port
-            self.logger.info('starting Notification receiver on {}:{}', self._my_ipaddress, self.my_port)
-            if self._ssl_context:
-                self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket)
-                self.base_url = 'https://{}:{}/'.format(self._my_ipaddress, self.my_port)
-            else:
-                self.base_url = 'http://{}:{}/'.format(self._my_ipaddress, self.my_port)
-            self.httpd.dispatcher = self.dispatcher
-            # make logger available for SOAPNotificationsHandler
-            self.httpd.thread_obj = self  # pylint: disable=attribute-defined-outside-init
-            self.started_evt.set()
-            self.httpd.serve_forever()
-        except Exception:
-            self.logger.error(
-                'Unhandled Exception at thread runtime. Thread will abort! {}'.format(traceback.format_exc()))
-            raise
-
-    def stop(self, close_all_connections=True):
-        """
-        :param close_all_connections: for testing purpose one might want to keep the connection handler threads alive.
-                If param is False then they are kept alive.
-        """
-        self.httpd.shutdown()
-        self.httpd.socket.close()
-        if close_all_connections:
-            if self.httpd.dispatcher is not None:
-                self.httpd.dispatcher.methods = {}
-                self.httpd.dispatcher = None  # this leads to a '503' reaction in SOAPNotificationsHandler
-            for thr in self.httpd.threads:
-                thread, request, client_addr = thr
-                if thread.is_alive():
-                    try:
-                        request.shutdown(socket.SHUT_RDWR)
-                        request.close()
-                        self.logger.info('closed socket for notifications from {}', client_addr)
-                    except OSError as ex:
-                        # the connection is already closed
-                        continue
-                    except Exception as ex:
-                        self.logger.warn('error closing socket for notifications from {}: {}', client_addr, ex)
-            time.sleep(0.1)
-            for thr in self.httpd.threads:
-                thread, request, client_addr = thr
-                if thread.is_alive():
-                    thread.join(1)
-                if thread.is_alive():
-                    self.logger.warn('could not end client thread for notifications from {}', client_addr)
-            del self.httpd.threads[:]
+            dispatcher = SOAPNotificationsDispatcher(log_prefix, sdc_definitions)
+        super().__init__(my_ipaddress, ssl_context, supported_encodings,
+                         request_handler, dispatcher,
+                         logger, chunked_responses=False)

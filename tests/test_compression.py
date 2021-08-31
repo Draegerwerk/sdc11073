@@ -29,13 +29,13 @@ class Test_Compression(unittest.TestCase):
         self.wsd.start()
         # Create a new device
         self.location = sdc11073.location.SdcLocation(fac='tklx', poc='CU1', bed='Bed')
-        self.sdcDevice_Final = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         self._locValidators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extension_string='System')]
 
     def tearDown(self):
         # close
-        self.sdcClient_Final.stop_all()
-        self.sdcDevice_Final.stop_all()
+        self.sdc_client.stop_all()
+        self.sdc_device.stop_all()
         time.sleep(1)
         self.wsd.stop()
 
@@ -44,31 +44,31 @@ class Test_Compression(unittest.TestCase):
 
         # start device with compression settings
         if compressionFlag is None:
-            self.sdcDevice_Final.set_used_compression()
+            self.sdc_device.set_used_compression()
         else:
-            self.sdcDevice_Final.set_used_compression(compressionFlag)
+            self.sdc_device.set_used_compression(compressionFlag)
 
-        self.sdcDevice_Final.start_all()
-        self.sdcDevice_Final.set_location(self.location, self._locValidators)
+        self.sdc_device.start_all()
+        self.sdc_device.set_location(self.location, self._locValidators)
 
         time.sleep(0.5)  # allow full init of devices
 
         # Connect a new client to the divece
-        xAddr = self.sdcDevice_Final.get_xaddrs()
-        self.sdcClient_Final = SdcClient(xAddr[0],
-                                         sdc_definitions=self.sdcDevice_Final.mdib.sdc_definitions,
+        xAddr = self.sdc_device.get_xaddrs()
+        self.sdc_client = SdcClient(xAddr[0],
+                                         sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                          ssl_context=None,
                                          )
         if compressionFlag is None:
-            self.sdcClient_Final.set_used_compression()
+            self.sdc_client.set_used_compression()
         else:
-            self.sdcClient_Final.set_used_compression(compressionFlag)
-        self.sdcClient_Final.start_all()
+            self.sdc_client.set_used_compression(compressionFlag)
+        self.sdc_client.start_all()
         time.sleep(0.5)
 
         # Get http connection to execute the call
-        self.getService = self.sdcClient_Final.client('Set')
-        self.soap_client = next(iter(self.sdcClient_Final._soap_clients.values()))
+        self.getService = self.sdc_client.client('Set')
+        self.soap_client = next(iter(self.sdc_client._soap_clients.values()))
         self.clientHttpCon = self.soap_client._http_connection
 
         self.xml = XML_REQ

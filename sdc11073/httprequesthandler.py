@@ -1,4 +1,9 @@
+import socket
+import threading
+import traceback
+from abc import ABC, abstractmethod
 from http.server import BaseHTTPRequestHandler
+from http.server import HTTPServer
 from io import BytesIO
 
 from .compression import CompressionHandler
@@ -30,6 +35,7 @@ def mkchunks(body, chunk_size=512):
         data.write(b'\r\n')
         if not head:
             return data.getvalue()
+
 
 CR_LF = b'\r\n'
 
@@ -203,3 +209,161 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
 
     def log_request(self, code='-', size='-'):
         pass  # suppress printing of every request to stderr
+
+
+class ThreadingHTTPServer(HTTPServer):
+    """ Each request is handled in a thread.
+    """
+
+    def __init__(self, logger, server_address, RequestHandlerClass):  # *args, **kwargs):
+        super().__init__(server_address, RequestHandlerClass)
+        self.daemon_threads = True
+        self.threads = []
+        self.dispatcher = None
+        self.logger = logger
+
+    def process_request_thread(self, request, client_address):
+        """Same as in BaseServer but as a thread.
+
+        In addition, exception handling is done here.
+
+        """
+        try:
+            self.finish_request(request, client_address)
+        except Exception:
+            self.handle_error(request, client_address)
+        finally:
+            self.shutdown_request(request)
+
+    def process_request(self, request, client_address):
+        """Start a new thread to process the request."""
+        thread = threading.Thread(target=self.process_request_thread,
+                                  args=(request, client_address),
+                                  name='SubscrRecv{}'.format(client_address))
+        thread.daemon = True
+        self.threads.append((thread, request, client_address))
+        thread.start()
+
+    def server_close(self):
+        super().server_close()
+        if self.dispatcher is not None:
+            self.dispatcher.methods = {}
+            self.dispatcher = None  # this leads to a '503' reaction in SOAPNotificationsHandler
+        for thr in self.threads:
+            thread, request, client_addr = thr
+            if thread.is_alive():
+                try:
+                    request.shutdown(socket.SHUT_RDWR)
+                    request.close()
+                    self.logger.info('closed socket for notifications from {}', client_addr)
+                except OSError:
+                    # the connection is already closed
+                    continue
+                except Exception as ex:
+                    self.logger.warn('error closing socket for notifications from {}: {}', client_addr, ex)
+
+
+class AbstractDispatcher(ABC):
+    @abstractmethod
+    def on_post(self, path: str, headers, request: str) -> [str, None]:
+        pass
+
+    @abstractmethod
+    def on_get(self, path: str, headers) -> str:
+        pass
+
+
+class HttpServerThreadBase(threading.Thread):
+
+    def __init__(self, my_ipaddress, ssl_context, supported_encodings,
+                 request_handler_cls, dispatcher,
+                 logger, chunked_responses=False):
+        """
+        Runs a ThreadingHTTPServer in a thread, so that it can be stopped without deadlock.
+        Handling of requests happens in two stages:
+        - the http server instantiates a request handler with the request
+        - the request handler forwards the handling itself to a dispatcher (due to the dynamic nature of the handling).
+        :param my_ipaddress: The ip address that the http server shall bind to (no port!)
+        :param ssl_context: a ssl.SslContext instance or None
+        :param supported_encodings: a list of strings
+        :param request_handler_cls: a class derived from HTTPRequestHandler
+        :param dispatcher: a AbstractDispatcher instance
+        :param logger: a python logger
+        :param chunked_responses:
+        """
+        super().__init__(name='Dev_SdcHttpServerThread')
+        self.daemon = True
+
+        self._my_ipaddress = my_ipaddress
+        self._ssl_context = ssl_context
+        self.my_port = None
+        self.httpd = None
+        self.supported_encodings = supported_encodings
+
+        self.logger = logger
+        self.chunked_responses = chunked_responses
+        self._request_handler_cls = request_handler_cls
+        # create and set up the dispatcher for all incoming requests
+        self.dispatcher = dispatcher
+        self.started_evt = threading.Event()  # helps to wait until thread has initialised is variables
+        self._stop_requested = False
+        self.base_url = None
+
+    def run(self):
+        self._stop_requested = False
+        try:
+            myport = 0  # zero means that OS selects a free port
+            self.httpd = ThreadingHTTPServer(self.logger,
+                                             (self._my_ipaddress, myport),
+                                             self._request_handler_cls)
+            self.httpd.chunked_response = self.chunked_responses  # pylint: disable=attribute-defined-outside-init
+            # add use compression flag to the server
+            setattr(self.httpd, 'supported_encodings', self.supported_encodings)
+
+            self.my_port = self.httpd.server_port
+            self.logger.info('starting http server on {}:{}', self._my_ipaddress, self.my_port)
+            if self._ssl_context:
+                self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket)
+                self.base_url = 'https://{}:{}/'.format(self._my_ipaddress, self.my_port)
+            else:
+                self.base_url = 'http://{}:{}/'.format(self._my_ipaddress, self.my_port)
+
+            self.httpd.logger = self.logger  # pylint: disable=attribute-defined-outside-init
+            # self.httpd.thread_obj = self  # pylint: disable=attribute-defined-outside-init
+            if self._ssl_context is not None:
+                self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket)
+            self.my_port = self.httpd.server_port
+            self.httpd.dispatcher = self.dispatcher
+
+            self.started_evt.set()
+            self.httpd.serve_forever()
+        except Exception:
+            if not self._stop_requested:
+                self.logger.error(
+                    'Unhandled Exception at thread runtime. Thread will abort! {}'.format(traceback.format_exc()))
+            raise
+        finally:
+            self.logger.info('http server stopped.')
+
+    def set_compression_flag(self, use_compression):
+        '''Sets use compression attribute on the http server to be used in handler
+        :param use_compression: bool flag
+        '''
+        self.httpd.use_compression = use_compression  # pylint: disable=attribute-defined-outside-init
+
+    def stop(self, close_all_connections=True):
+        """
+        :param close_all_connections: for testing purpose one might want to keep the connection handler threads alive.
+                If param is False then they are kept alive.
+        """
+        self._stop_requested = True
+        self.httpd.shutdown()
+        self.httpd.server_close()
+        if close_all_connections:
+            for thr in self.httpd.threads:
+                thread, request, client_addr = thr
+                if thread.is_alive():
+                    thread.join(1)
+                if thread.is_alive():
+                    self.logger.warn('could not end client thread for notifications from {}', client_addr)
+            del self.httpd.threads[:]

@@ -1,64 +1,15 @@
-import socket
-import threading
-import time
 import traceback
 import urllib
-from http.server import HTTPServer
 
 from .exceptions import HTTPRequestHandlingError, InvalidPathError, InvalidActionError
 from .. import commlog
 from .. import loghelper
 from .. import pysoap
 from ..httprequesthandler import HTTPRequestHandler, mkchunks
-
-MULTITHREADED = True
-
-
-class MyThreadingMixIn:
-
-    def process_request_thread(self, request, client_address):
-        """Same as in BaseServer but as a thread.
-
-        In addition, exception handling is done here.
-
-        """
-        try:
-            self.finish_request(request, client_address)
-            self.shutdown_request(request)
-        except Exception as ex:
-            if self.dispatcher is not None:
-                # only
-                self.handle_error(request, client_address)
-            else:
-                print("don't care error:{}".format(ex))
-            self.shutdown_request(request)
-
-    def process_request(self, request, client_address):
-        """Start a new thread to process the request."""
-        thread = threading.Thread(target=self.process_request_thread,
-                                  args=(request, client_address),
-                                  name='SubscrRecv{}'.format(client_address))
-        thread.daemon = True
-        thread.start()
-        self.threads.append((thread, request, client_address))
+from ..httprequesthandler import HttpServerThreadBase, AbstractDispatcher
 
 
-if MULTITHREADED:
-    class MyHTTPServer(MyThreadingMixIn, HTTPServer):
-        ''' Each request is handled in a thread.
-        Following receipe from https://pymotw.com/2/BaseHTTPServer/index.html#module-BaseHTTPServer
-        '''
-
-        def __init__(self, *args, **kwargs):
-            HTTPServer.__init__(self, *args, **kwargs)
-            self.daemon_threads = True
-            self.threads = []
-            self.dispatcher = None
-else:
-    MyHTTPServer = HTTPServer  # single threaded, sequential operation
-
-
-class DevicesDispatcher:
+class DevicesDispatcher(AbstractDispatcher):
     """ Dispatch to one of the registered devices, based on url"""
 
     def __init__(self, logger):
@@ -81,15 +32,15 @@ class DevicesDispatcher:
                 return dispatcher
         raise HTTPRequestHandlingError(status=404, reason='not found', soap_fault=b'client error')
 
-    def on_post(self, path, headers, request):
+    def on_post(self, path: str, headers, request: str) -> [str, None]:
         return self.get_device_dispather(path).on_post(path, headers, request)
 
-    def on_get(self, path, headers):
+    def on_get(self, path: str, headers) -> str:
         return self.get_device_dispather(path).on_get(path, headers)
 
 
-class HostedServiceDispatcher:
-    ''' receiver of all messages'''
+class HostedServiceDispatcher(AbstractDispatcher):
+    """ receiver of all messages"""
 
     def __init__(self, sdc_definitions, logger):
         self.sdc_definitions = sdc_definitions
@@ -106,7 +57,7 @@ class HostedServiceDispatcher:
         self.hosted_service_by_url[path] = hosted_service
         self.hosted_services.append(hosted_service)
 
-    def on_post(self, path, headers, request):
+    def on_post(self, path: str, headers, request: str) -> [str, None]:
         """Method converts the http request into a soap envelope and calls dispatch_soap_request.
            Return of dispatch_soap_request (soap envelope) is converted back to a string."""
         commlog.get_communication_logger().log_soap_request_in(request, 'POST')
@@ -134,9 +85,9 @@ class HostedServiceDispatcher:
             self._logger.error(txt)
             raise
 
-    def on_get(self, path, http_headers):
+    def on_get(self, path: str, headers) -> str:
         """ Get Requests are handled as they are, no soap envelopes"""
-        response_string = self._dispatch_get_request(path, http_headers)
+        response_string = self._dispatch_get_request(path, headers)
         return self.sdc_definitions.denormalize_xml_text(response_string)
 
     def _dispatch_get_request(self, path, http_headers):
@@ -216,8 +167,8 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
     def do_GET(self):  # pylint: disable=invalid-name
         parsed_path = urllib.parse.urlparse(self.path)
         try:
-            commlog.get_communication_logger().log_soap_request_in('',
-                                                                   'GET')  # GET has no content, log it to document duration of processing
+            # GET has no content, log it to document duration of processing
+            commlog.get_communication_logger().log_soap_request_in('', 'GET')
             response_string = self.server.dispatcher.on_get(self.path, self.headers)
             self.send_response(200, 'Ok')
             response_string = self._compress_if_required(response_string)
@@ -227,8 +178,9 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             else:
                 content_type = "application/soap+xml; charset=utf-8"
         except Exception as ex:
+            self.server.logger.error(traceback.format_exc())
             self.send_response(500)
-            response_string = str(ex)
+            response_string = str(ex).encode('utf-8')
             content_type = "text"
 
         self.send_header("Content-Type", content_type)
@@ -237,79 +189,17 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
         self.wfile.write(response_string)
 
 
-class HttpServerThread(threading.Thread):
+class DeviceHttpServerThread(HttpServerThreadBase):
 
     def __init__(self, my_ipaddress, ssl_context, supported_encodings, log_prefix=None, chunked_responses=False):
-        '''
+        """
         :param my_ipaddress:
         :param ssl_context:
         :param supported_encodings: a list od strings
-        '''
-        super().__init__(name='Dev_SdcHttpServerThread')
-        self.daemon = True
-
-        self._my_ipaddress = my_ipaddress
-        self._ssl_context = ssl_context
-        self.my_port = None
-        self.httpd = None
-        self.supported_encodings = supported_encodings
-
-        self._logger = loghelper.get_logger_adapter('sdc.device.httpsrv', log_prefix)
-        self.chunked_responses = chunked_responses
-        # create and set up the dispatcher for all incoming requests
-        self.devices_dispatcher = DevicesDispatcher(self._logger)
-        self.started_evt = threading.Event()  # helps to wait until thread has initialised is variables
-
-    def run(self):
-        try:
-            myport = 0  # zero means that OS selects a free port
-            self.httpd = MyHTTPServer((self._my_ipaddress, myport), _SdcServerRequestHandler)
-            self.httpd.chunked_response = self.chunked_responses  # pylint: disable=attribute-defined-outside-init
-            # add use compression flag to the server
-            setattr(self.httpd, 'supported_encodings', self.supported_encodings)
-            self.httpd.logger = self._logger  # pylint: disable=attribute-defined-outside-init
-            if self._ssl_context is not None:
-                self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket)
-            self.my_port = self.httpd.server_port
-            self.httpd.dispatcher = self.devices_dispatcher
-
-            self.started_evt.set()
-            self.httpd.serve_forever()
-        except Exception:
-            self._logger.error(
-                'Unhandled Exception at thread runtime. Thread will abort! {}'.format(traceback.format_exc()))
-            raise
-
-    def set_compression_flag(self, use_compression):
-        '''Sets use compression attribute on the http server to be used in handler
-        :param use_compression: bool flag
-        '''
-        self.httpd.use_compression = use_compression  # pylint: disable=attribute-defined-outside-init
-
-    def stop(self, close_all_connections=True):
-        self.httpd.shutdown()
-        self.join(timeout=5)
-        self.httpd.socket.close()
-        if close_all_connections:
-            if self.httpd.dispatcher is not None:
-                self.httpd.dispatcher = None  # this leads to a '503' reaction in SOAPNotificationsHandler
-            for thr in self.httpd.threads:
-                thread, request, client_addr = thr
-                if thread.is_alive():
-                    try:
-                        request.shutdown(socket.SHUT_RDWR)
-                        request.close()
-                        self._logger.info('closed socket from {}', client_addr)
-                    except OSError as ex:
-                        # the connection is already closed
-                        continue
-                    except Exception as ex:
-                        self._logger.warn('error closing socket from {}: {}', client_addr, ex)
-            time.sleep(0.1)
-            for thr in self.httpd.threads:
-                thread, request, client_addr = thr
-                if thread.is_alive():
-                    thread.join(1)
-                if thread.is_alive():
-                    self._logger.warn('could not end client thread connected from {}', client_addr)
-            del self.httpd.threads[:]
+        """
+        logger = loghelper.get_logger_adapter('sdc.device.httpsrv', log_prefix)
+        request_handler = _SdcServerRequestHandler
+        dispatcher = DevicesDispatcher(logger)
+        super().__init__(my_ipaddress, ssl_context, supported_encodings,
+                         request_handler, dispatcher,
+                         logger, chunked_responses=chunked_responses)

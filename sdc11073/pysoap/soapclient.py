@@ -168,8 +168,6 @@ class SoapClient:
         except XMLSyntaxError as ex:
             self._log.error('{} XMLSyntaxError in string: "{}"', msg, normalized_xml_response)
             raise RuntimeError('{} in "{}"'.format(ex, normalized_xml_response))
-        except:
-            raise
 
     def _send_soap_request(self, path, xml, msg):
         """Send SOAP request using HTTP"""
