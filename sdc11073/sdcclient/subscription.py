@@ -644,7 +644,5 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
             for thr in self.httpd.threads:
                 thread, request, client_addr = thr
                 if thread.is_alive():
-                    thread.join(1)
-                if thread.is_alive():
-                    self._logger.warn('could not end client thread for notifications from {}', client_addr)
+                    thread.join(2)
             del self.httpd.threads[:]
