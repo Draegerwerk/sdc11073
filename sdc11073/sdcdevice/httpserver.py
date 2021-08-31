@@ -79,7 +79,7 @@ class DevicesDispatcher:
         for url, dispatcher in self.device_by_url.items():
             if _path.startswith(url):
                 return dispatcher
-        raise HTTPRequestHandlingError(status=404, reason='not found', soapfault=b'client error')
+        raise HTTPRequestHandlingError(status=404, reason='not found', soap_fault=b'client error')
 
     def on_post(self, path, headers, request):
         return self.get_device_dispather(path).on_post(path, headers, request)
@@ -179,7 +179,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
                     # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
                     assert b'utf-8' in response_xml_string[:100].lower()
                 except HTTPRequestHandlingError as ex:
-                    response_xml_string = ex.soapfault
+                    response_xml_string = ex.soap_fault
                     http_status = ex.status
                     http_reason = ex.reason
 

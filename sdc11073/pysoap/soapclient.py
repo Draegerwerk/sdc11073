@@ -31,21 +31,22 @@ class HTTPSConnectionNoDelay(httplib.HTTPSConnection):
 
 
 class HTTPReturnCodeError(httplib.HTTPException):
-    """ THis class is used to map http return codes to Python exceptions."""
+    """ This class is used to map http return codes to Python exceptions."""
 
-    def __init__(self, status, reason, soapfault):
+    def __init__(self, status, reason, soap_fault):
         """
         :param status: integer, e.g. 404
-        param reason: the provided human readable text
+        :param reason: the provided human readable text
+        :param soap_fault: a ReceivedSoapFault instance
         """
         super().__init__()
         self.status = status
         self.reason = reason
-        self.soapfault = soapfault
+        self.soap_fault = soap_fault
 
     def __repr__(self):
-        if self.soapfault:
-            return 'HTTPReturnCodeError(status={}, reason={}'.format(self.status, self.soapfault)
+        if self.soap_fault:
+            return 'HTTPReturnCodeError(status={}, reason={}'.format(self.status, self.soap_fault)
         return 'HTTPReturnCodeError(status={}, reason={}'.format(self.status, self.reason)
 
 
@@ -60,6 +61,7 @@ class SoapClient:
                  request_encodings=None, chunked_requests=False):
         """ Connects to one url
         :param netloc: the location of the service (domainname:port) ###url of the service
+        :param logger: a python logger instance
         :param ssl_context: an optional sll.SSLContext instance
         :param sdc_definitions: needed to normalize and de-normalize xml text.
         :param supported_encodings: configured set of encodings that can be used. If None, all available encodings are used.
@@ -68,7 +70,7 @@ class SoapClient:
         :param request_encodings: an optional list of encodings that the other side accepts. It is used to compress requests.
                                 If not set, requests will not be commpressed.
                                 If set, then the http request will be compressed using this method
-        :param chunked_requests
+        :param chunked_requests: it True, requests are chunk-encoded
         """
         self._log = logger
         self._ssl_context = ssl_context
@@ -281,9 +283,9 @@ class SoapClient:
                 self._log.error(
                     "{}: POST to netloc='{}' path='{}': could not send request, HTTP response={}\ncontent='{}'", msg,
                     self._netloc, path, response.status, content)
-                soapfault = soapenvelope.ReceivedSoapFault(content)
+                soap_fault = soapenvelope.ReceivedSoapFault(content)
 
-                raise HTTPReturnCodeError(response.status, content, soapfault)
+                raise HTTPReturnCodeError(response.status, content, soap_fault)
 
             response_headers = {k.lower(): v for k, v in response.getheaders()}
 
