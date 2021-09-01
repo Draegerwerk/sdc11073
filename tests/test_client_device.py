@@ -1389,7 +1389,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         self.sdcDevice_1.set_location(location, self._locValidators)
         self.provideRealtimeData(self.sdcDevice_1)
 
-        self.sdcDevice_2 = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<Final> ')
+        self.sdcDevice_2 = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<dev2> ')
         self.sdcDevice_2.start_all(shared_http_server=self.httpserver)
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdcDevice_2.set_location(location, self._locValidators)
@@ -1402,7 +1402,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
                                      sdc_definitions=self.sdcDevice_1.mdib.sdc_definitions,
                                      ssl_context=None,
                                      validate=CLIENT_VALIDATE,
-                                     ident='<Draft6> ')
+                                     log_prefix='<cl1> ')
         self.sdcClient_1.start_all()
 
         xAddr = self.sdcDevice_2.get_xaddrs()
@@ -1410,7 +1410,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
                                      sdc_definitions=self.sdcDevice_2.mdib.sdc_definitions,
                                      ssl_context=None,
                                      validate=CLIENT_VALIDATE,
-                                     ident='<Final> ')
+                                     log_prefix='<cl2> ')
         self.sdcClient_2.start_all()
 
         self._all_cl_dev = ((self.sdcClient_1, self.sdcDevice_1),
@@ -1499,7 +1499,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
-                                    ident='<Final> ',
+                                    log_prefix='<Final> ',
                                     chunked_requests=True)
         self.sdc_client.start_all()
 

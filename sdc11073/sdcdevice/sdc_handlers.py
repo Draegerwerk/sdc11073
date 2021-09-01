@@ -58,7 +58,8 @@ class SdcHandlerBase:
         :param device_mdib_container: a DeviceMdibContainer instance
         :param roleProvider: handles the operation calls
         :param ssl_context: if not None, this context is used and https url is used. Otherwise http
-        :param log_level: if not None, the "sdc.device" logger will use this level
+        :param components: a dictionary
+        :param log_prefix: a string
         :param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
         :param ident: names a device, used for logging
         """
@@ -80,9 +81,9 @@ class SdcHandlerBase:
         self.chunked_messages = chunked_messages
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
 
-        msg_reader_cls = self._components['MsgReaderClass']
+        msg_reader_cls = self._components.MsgReaderClass
         self.msg_reader = msg_reader_cls(self._logger)
-        msg_factory_cls = self._components['MsgFactoryClass']
+        msg_factory_cls = self._components.MsgFactoryClass
         self.msg_factory = msg_factory_cls(sdc_definitions=device_mdib_container.sdc_definitions,
                                            logger=self._logger)
 
@@ -113,7 +114,7 @@ class SdcHandlerBase:
 
         self.dpws_host = None
 
-        cls = self._components['SubscriptionsManagerClass']
+        cls = self._components.SubscriptionsManagerClass
         self._subscriptions_manager = cls(self._ssl_context,
                                           self._mdib.sdc_definitions,
                                           self._mdib.biceps_schema,
@@ -125,8 +126,8 @@ class SdcHandlerBase:
 
         # self._subscriptions_manager = self._mkSubscriptionManager(max_subscription_duration)
 
-        cls = self._components['ScoOperationsRegistryClass']
-        operations_factory = self._components['OperationsFactory']
+        cls = self._components.ScoOperationsRegistryClass
+        operations_factory = self._components.OperationsFactory
         handle = '_sco'
         self._sco_operations_registry = cls(self._subscriptions_manager, operations_factory, self._mdib, handle,
                                             log_prefix=self._log_prefix)
@@ -658,7 +659,7 @@ class SdcHandlerFull(SdcHandlerBase):
     def _register_hosted_services(self, base_urls):
         # register all services with their endpoint references acc. to sdc standard
         actions = self._mdib.sdc_definitions.Actions
-        service_handlers_lookup = self._components['ServiceHandlers']
+        service_handlers_lookup = self._components.ServiceHandlers
 
         cls = service_handlers_lookup['GetService']
         self._get_dispatcher = cls('GetService', self)

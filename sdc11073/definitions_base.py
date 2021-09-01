@@ -1,5 +1,6 @@
 import os
 import urllib
+from dataclasses import dataclass
 
 from lxml import etree as etree_
 
@@ -21,6 +22,62 @@ class ProtocolsRegistry(type):
         if name != 'BaseDefinitions':  # ignore the base class itself
             cls.protocols.append(new_cls)
         return new_cls
+
+
+# Dependency injection: This class defines which component implementations the sdc client will use.
+@dataclass()
+class SdcClientComponents:
+    MsgFactoryClass: type = None
+    MsgReaderClass: type = None
+    NotificationsReceiverClass: type = None
+    NotificationsHandlerClass: type = None
+    SubscriptionManagerClass: type = None
+    OperationsManagerClass: type = None
+    ServiceHandlers: dict = None
+
+    def merge(self, other):
+        def _merge(attrname):
+            other_value = getattr(other, attrname)
+            if other_value:
+                setattr(self, attrname, other_value)
+
+        _merge('MsgFactoryClass')
+        _merge('MsgReaderClass')
+        _merge('NotificationsReceiverClass')
+        _merge('NotificationsHandlerClass')
+        _merge('SubscriptionManagerClass')
+        _merge('OperationsManagerClass')
+        if other.ServiceHandlers:
+            for key, value in other.ServiceHandlers.items():
+                self.ServiceHandlers[key] = value
+
+
+# Dependency injection: This class defines which component implementations the sdc device will use.
+@dataclass()
+class SdcDeviceComponents:
+    MsgFactoryClass: type = None
+    MsgReaderClass: type = None
+    SdcDeviceHandlerClass: type = None
+    OperationsFactory: type = None
+    ScoOperationsRegistryClass: type = None
+    SubscriptionsManagerClass: type = None
+    ServiceHandlers: dict = None
+
+    def merge(self, other):
+        def _merge(attrname):
+            other_value = getattr(other, attrname)
+            if other_value:
+                setattr(self, attrname, other_value)
+
+        _merge('MsgFactoryClass')
+        _merge('MsgReaderClass')
+        _merge('SdcDeviceHandlerClass')
+        _merge('OperationsFactory')
+        _merge('ScoOperationsRegistryClass')
+        _merge('SubscriptionsManagerClass')
+        if other.ServiceHandlers:
+            for key, value in other.ServiceHandlers.items():
+                self.ServiceHandlers[key] = value
 
 
 # definitions that group all relevant dependencies for BICEPS versions
@@ -81,7 +138,6 @@ def _needs_normalize(filename):
     return filename.endswith('ExtensionPoint.xsd') or \
            filename.endswith('BICEPS_ParticipantModel.xsd') or \
            filename.endswith('BICEPS_MessageModel.xsd')
-
 
 
 class SchemaValidators:

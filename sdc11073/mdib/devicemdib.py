@@ -601,7 +601,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     break
         if protocol_definition is None:
             raise ValueError('cannot create instance, no known BICEPS schema version identified')
-        msg_reader_cls = protocol_definition.DefaultSdcDeviceComponents['MsgReaderClass']
+        msg_reader_cls = protocol_definition.DefaultSdcDeviceComponents.MsgReaderClass
         mdib = cls(protocol_definition, log_prefix=log_prefix)
         root = msg_reader_cls.get_mdib_root_node(mdib.sdc_definitions, xml_text)
         mdib.biceps_schema.message_schema.assertValid(root)

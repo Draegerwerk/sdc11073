@@ -15,7 +15,6 @@ import time
 import traceback
 
 from .. import loghelper
-# from .. import mdib as mdib_
 from .. import observableproperties as properties
 from ..namespaces import domTag, msgTag
 from ..pmtypes import InvocationState, SafetyClassification

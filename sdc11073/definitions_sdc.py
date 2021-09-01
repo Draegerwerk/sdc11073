@@ -2,7 +2,7 @@ import os
 
 from lxml import etree as etree_
 
-from .definitions_base import BaseDefinitions
+from .definitions_base import BaseDefinitions, SdcClientComponents, SdcDeviceComponents
 from .mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
 from .mdib.statecontainers import get_container_class as get_state_container_class
 from .namespaces import Prefixes
@@ -23,13 +23,12 @@ from .sdcdevice.subscriptionmgr import SubscriptionsManager
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
-
 # the following namespace definitions reflect the initial SDC standard.
 # There might be changes or additions in the future, who knows...
 #
 
 _DPWS_SDCNamespace = 'http://standards.ieee.org/downloads/11073/11073-20701-2018'  # pylint: disable=invalid-name
-_ActionsNamespace = _DPWS_SDCNamespace   # pylint: disable=invalid-name
+_ActionsNamespace = _DPWS_SDCNamespace  # pylint: disable=invalid-name
 
 
 class _SdcV1Actions:
@@ -86,45 +85,44 @@ class _SdcV1Actions:
     SubscriptionEnd = Prefixes.WSE.namespace + '/SubscriptionEnd'
 
 
-# Dependency injection: This dictionary defines which component implementations the sdc client will use.
-DefaultSdcClientComponents = {
-    'MsgFactoryClass': SoapMessageFactory,
-    'MsgReaderClass': MessageReader,
-    'NotificationsReceiverClass': NotificationsReceiverDispatcherThread,
-    'NotificationsHandlerClass': SOAPNotificationsHandler,
-    'SubscriptionManagerClass': SubscriptionClient,
-    'OperationsManagerClass': OperationsManager,
-    'ServiceHandlers': {'ContainmentTreeService': CTreeServiceClient,
-                        'GetService': GetServiceClient,
-                        'StateEventService': StateEventClient,
-                        'ContextService': ContextServiceClient,
-                        'WaveformService': WaveformClient,
-                        'SetService': SetServiceClient,
-                        'DescriptionEventService': DescriptionEventClient,
-                        'LocalizationService': LocalizationServiceClient,
-                        }
-}
+default_sdc_device_components = SdcDeviceComponents(
+    MsgFactoryClass=SoapMessageFactory,
+    MsgReaderClass=MessageReader,
+    SdcDeviceHandlerClass=SdcHandlerFull,
+    OperationsFactory=get_operation_class,
+    ScoOperationsRegistryClass=ScoOperationsRegistry,
+    SubscriptionsManagerClass=SubscriptionsManager,
+    ServiceHandlers={'ContainmentTreeService': ContainmentTreeService,
+                     'GetService': GetService,
+                     'StateEventService': StateEventService,
+                     'ContextService': ContextService,
+                     'WaveformService': WaveformService,
+                     'SetService': SetService,
+                     'DescriptionEventService': DescriptionEventService,
+                     'LocalizationService': LocalizationService}
+)
 
-# Dependency injection: This dictionary defines which component implementations the sdc device will use.
-DefaultSdcDeviceComponents = {
-    'MsgFactoryClass': SoapMessageFactory,
-    'MsgReaderClass': MessageReader,
-    'SdcDeviceHandlerClass': SdcHandlerFull,
-    'OperationsFactory': get_operation_class,
-    'ScoOperationsRegistryClass': ScoOperationsRegistry,
-    'SubscriptionsManagerClass': SubscriptionsManager,
-    'ServiceHandlers': {'ContainmentTreeService': ContainmentTreeService,
-                        'GetService': GetService,
-                        'StateEventService': StateEventService,
-                        'ContextService': ContextService,
-                        'WaveformService': WaveformService,
-                        'SetService': SetService,
-                        'DescriptionEventService': DescriptionEventService,
-                        'LocalizationService': LocalizationService,
-                        }
-}
+default_sdc_client_components = SdcClientComponents(
+    MsgFactoryClass=SoapMessageFactory,
+    MsgReaderClass=MessageReader,
+    NotificationsReceiverClass=NotificationsReceiverDispatcherThread,
+    NotificationsHandlerClass=SOAPNotificationsHandler,
+    SubscriptionManagerClass=SubscriptionClient,
+    OperationsManagerClass=OperationsManager,
+    ServiceHandlers={'ContainmentTreeService': CTreeServiceClient,
+                     'GetService': GetServiceClient,
+                     'StateEventService': StateEventClient,
+                     'ContextService': ContextServiceClient,
+                     'WaveformService': WaveformClient,
+                     'SetService': SetServiceClient,
+                     'DescriptionEventService': DescriptionEventClient,
+                     'LocalizationService': LocalizationServiceClient,
+                     }
+
+)
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
+
 
 class SchemaPathsSdc:
     MetaDataExchangeSchemaFile = os.path.join(schemaFolder, 'MetadataExchange.xsd')
@@ -168,6 +166,6 @@ class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     get_descriptor_container_class = get_descriptor_container_class
     get_state_container_class = get_state_container_class
     Actions = _SdcV1Actions
-    DefaultSdcDeviceComponents = DefaultSdcDeviceComponents
-    DefaultSdcClientComponents = DefaultSdcClientComponents
+    DefaultSdcDeviceComponents = default_sdc_device_components
+    DefaultSdcClientComponents = default_sdc_client_components
     SchemaFilePaths = SchemaPathsSdc

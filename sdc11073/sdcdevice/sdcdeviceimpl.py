@@ -8,19 +8,33 @@ from ..location import SdcLocation
 class SdcDevice:
     defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extension_string='System'),)
 
-    def __init__(self, ws_discovery, model, device, device_mdib_container, my_uuid=None,
+    def __init__(self, ws_discovery, this_model, this_device, device_mdib_container, my_uuid=None,
                  validate=True, roleProvider=None, ssl_context=None,
                  max_subscription_duration=7200, log_prefix='', specific_components=None,
                  chunked_messages=False):  # pylint:disable=too-many-arguments
+        """
+
+        :param ws_discovery: a WsDiscovers instance
+        :param model: a pysoap.soapenvelope.DPWSThisModel instance
+        :param device: a pysoap.soapenvelope.DPWSThisDevice instance
+        :param device_mdib_container: a DeviceMdibContainer instance
+        :param my_uuid: a string or None
+        :param validate: bool
+        :param roleProvider: handles the operation calls
+        :param ssl_context: if not None, this context is used and https url is used. Otherwise http
+        :param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
+        :param log_prefix: a string
+        :param specific_components: a SdcDeviceComponents instance
+        :param chunked_messages: bool
+        """
         # ssl protocol handling itself is delegated to a handler.
         # Specific protocol versions or behaviours are implemented there.
         self._components = copy.deepcopy(device_mdib_container.sdc_definitions.DefaultSdcDeviceComponents)
         if specific_components is not None:
             # merge specific stuff into _components
-            for key, value in specific_components.items():
-                self._components[key] = value
-        handler_cls = self._components['SdcDeviceHandlerClass']
-        self._handler = handler_cls(my_uuid, ws_discovery, model, device, device_mdib_container, validate,
+            self._components.merge(specific_components)
+        handler_cls = self._components.SdcDeviceHandlerClass
+        self._handler = handler_cls(my_uuid, ws_discovery, this_model, this_device, device_mdib_container, validate,
                                     roleProvider, ssl_context, max_subscription_duration,
                                     self._components,
                                     log_prefix=log_prefix, chunked_messages=chunked_messages)
