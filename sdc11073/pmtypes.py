@@ -304,9 +304,9 @@ class _CodedValueBase(PropertyBasedPMType):
         if self.CodingSystem is None:
             return 'CodedValue({})'.format(self.Code)
         elif self.CodingSystemVersion is None:
-            return 'CodedValue({}, codingsystem={})'.format(self.Code, self.CodingSystem)
+            return 'CodedValue({}, codingsystem="{}")'.format(self.Code, self.CodingSystem)
         else:
-            return 'CodedValue({}, codingsystem={}, codingsystemversion={})'.format(self.Code, self.CodingSystem, self.CodingSystemVersion)
+            return 'CodedValue({}, codingsystem="{}", codingsystemversion="{}")'.format(self.Code, self.CodingSystem, self.CodingSystemVersion)
 
     @classmethod
     def fromNode(cls, node):
