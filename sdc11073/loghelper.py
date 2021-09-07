@@ -42,9 +42,9 @@ def basic_logging_setup(root_logger_name='sdc', level=logging.INFO, log_file_nam
     reset_handlers(root_logger_name)
     logger = logging.getLogger(root_logger_name)
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
+#    stream_handler = logging.StreamHandler()
+#    stream_handler.setFormatter(formatter)
+#    logger.addHandler(stream_handler)
     if log_file_name:
         file_handler = logging.handlers.RotatingFileHandler(log_file_name,
                                                             maxBytes=5000000,

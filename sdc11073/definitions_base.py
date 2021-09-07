@@ -1,13 +1,19 @@
 import os
 import urllib
 from dataclasses import dataclass
-
+from lxml.etree import QName
+from typing import Type, Callable, List, Any
+#from .sdcdevice.sdc_handlers import AbstractServiceFactory
+#from .sdcdevice import SdcDevice
+from .pysoap.msgfactory import AbstractMessageFactory
+from .pysoap.msgreader import AbstractMessageReader
 from lxml import etree as etree_
-
+from .wsdiscovery import Scope
 from . import loghelper
 from .namespaces import Prefixes
 from .namespaces import dpwsTag
-
+#from .mdib.devicemdib import DeviceMdibContainer
+from .sdcdevice.sdc_handlers import HostedServices
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
 
@@ -27,13 +33,13 @@ class ProtocolsRegistry(type):
 # Dependency injection: This class defines which component implementations the sdc client will use.
 @dataclass()
 class SdcClientComponents:
-    MsgFactoryClass: type = None
-    MsgReaderClass: type = None
-    NotificationsReceiverClass: type = None
-    NotificationsHandlerClass: type = None
-    SubscriptionManagerClass: type = None
-    OperationsManagerClass: type = None
-    ServiceHandlers: dict = None
+    msg_factory_class: type = None
+    msg_reader_class: type = None
+    notifications_receiver_class: type = None
+    notifications_handler_class: type = None
+    subscription_manager_class: type = None
+    operations_manager_class: type = None
+    service_handlers: dict = None
 
     def merge(self, other):
         def _merge(attrname):
@@ -41,43 +47,47 @@ class SdcClientComponents:
             if other_value:
                 setattr(self, attrname, other_value)
 
-        _merge('MsgFactoryClass')
-        _merge('MsgReaderClass')
-        _merge('NotificationsReceiverClass')
-        _merge('NotificationsHandlerClass')
-        _merge('SubscriptionManagerClass')
-        _merge('OperationsManagerClass')
-        if other.ServiceHandlers:
-            for key, value in other.ServiceHandlers.items():
-                self.ServiceHandlers[key] = value
+        _merge('msg_factory_class')
+        _merge('msg_reader_class')
+        _merge('notifications_receiver_class')
+        _merge('notifications_handler_class')
+        _merge('subscription_manager_class')
+        _merge('operations_manager_class')
+        if other.service_handlers:
+            for key, value in other.service_handlers.items():
+                self.service_handlers[key] = value
 
 
 # Dependency injection: This class defines which component implementations the sdc device will use.
 @dataclass()
 class SdcDeviceComponents:
-    MsgFactoryClass: type = None
-    MsgReaderClass: type = None
-    SdcDeviceHandlerClass: type = None
-    OperationsFactory: type = None
-    ScoOperationsRegistryClass: type = None
-    SubscriptionsManagerClass: type = None
-    ServiceHandlers: dict = None
+    msg_factory_class: Type[AbstractMessageFactory] = None
+    msg_reader_class: Type[AbstractMessageReader] = None
+    services_factory: Callable[[Any, dict, Any], HostedServices] = None
+    operation_cls_getter: Callable[[QName], type] = None
+    sco_operations_registry_class: type = None
+    subscriptions_manager_class: type = None
+    role_provider_class: type = None
+    scopes_factory: Callable[[Any], List[Scope]] = None
+    service_handlers: dict = None
 
     def merge(self, other):
-        def _merge(attrname):
-            other_value = getattr(other, attrname)
+        def _merge(attr_name):
+            other_value = getattr(other, attr_name)
             if other_value:
-                setattr(self, attrname, other_value)
+                setattr(self, attr_name, other_value)
 
-        _merge('MsgFactoryClass')
-        _merge('MsgReaderClass')
-        _merge('SdcDeviceHandlerClass')
-        _merge('OperationsFactory')
-        _merge('ScoOperationsRegistryClass')
-        _merge('SubscriptionsManagerClass')
-        if other.ServiceHandlers:
-            for key, value in other.ServiceHandlers.items():
-                self.ServiceHandlers[key] = value
+        _merge('msg_factory_class')
+        _merge('msg_reader_class')
+        _merge('services_factory')
+        _merge('operation_cls_getter')
+        _merge('sco_operations_registry_class')
+        _merge('subscriptions_manager_class')
+        _merge('role_provider_class')
+        _merge('scopes_factory')
+        if other.service_handlers:
+            for key, value in other.service_handlers.items():
+                self.service_handlers[key] = value
 
 
 # definitions that group all relevant dependencies for BICEPS versions

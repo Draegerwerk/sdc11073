@@ -1,5 +1,6 @@
 import copy
 import weakref
+from abc import abstractmethod, ABC
 
 from lxml import etree as etree_
 
@@ -9,13 +10,32 @@ from ..namespaces import Prefixes
 from ..namespaces import msgTag, wseTag, QN_TYPE, DocNamespaceHelper
 from ..namespaces import nsmap, domTag
 
+class AbstractMessageFactory(ABC):
+    @abstractmethod
+    def __init__(self, sdc_definitions, logger):
+        """Constructor"""
 
-class SoapMessageFactory:
+    @abstractmethod
+    def register_mdib(self, mdib):
+        """Factory sometimes must know the mdib data (e.g. Set service, activate method).
+        :param mdib: the current mdib
+        """
+
+class SoapMessageFactory(AbstractMessageFactory):
 
     def __init__(self, sdc_definitions, logger):
         self._logger = logger
         self._sdc_definitions = sdc_definitions
         self._mdib_wref = None
+
+    def register_mdib(self, mdib):
+        """Factory sometimes must know the mdib data (e.g. Set service, activate method).
+        :param mdib: the current mdib
+        """
+        if mdib is not None and self._mdib_wref is not None:
+            raise RuntimeError('SoapMessageFactory has already an registered mdib')
+        self._mdib_wref = None if mdib is None else weakref.ref(mdib)
+
 
     @staticmethod
     def mk_getmetadata_envelope(addr_to):
@@ -25,14 +45,6 @@ class SoapMessageFactory:
                                    addr_to=addr_to))
         soap_envelope.add_body_element(etree_.Element('{http://schemas.xmlsoap.org/ws/2004/09/mex}GetMetadata'))
         return soap_envelope
-
-    def register_mdib(self, mdib):
-        """Client sometimes must know the mdib data (e.g. Set service, activate method).
-        :param mdib: the current mdib
-        """
-        if mdib is not None and self._mdib_wref is not None:
-            raise RuntimeError('SoapMessageFactory has already an registered mdib')
-        self._mdib_wref = None if mdib is None else weakref.ref(mdib)
 
     def mk_getdescriptor_envelope(self, addr_to, port_type, requested_handles):
         """
@@ -306,7 +318,6 @@ class SoapMessageFactory:
                 argument_node = etree_.SubElement(body_node, msgTag('Argument'))
                 arg_val = etree_.SubElement(argument_node, msgTag('ArgValue'))
                 arg_val.text = argument
-        tmp = etree_.tostring(body_node)
         soap_envelope = self._mk_soapenvelope(addr_to, port_type, 'Activate', body_node)
         return soap_envelope
 

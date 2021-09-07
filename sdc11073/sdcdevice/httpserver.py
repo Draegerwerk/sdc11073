@@ -46,42 +46,42 @@ class HostedServiceDispatcher(AbstractDispatcher):
         self.sdc_definitions = sdc_definitions
         self._logger = logger
         self.hosted_service_by_url = {}  # lookup for requests
-        self.hosted_services = []
+        self._hosted_services = []
 
     def register_hosted_service(self, hosted_service):
-        path = hosted_service.epr
+        path = hosted_service.path
         if path.endswith('/'):
             path = path[:-1]
         if path in self.hosted_service_by_url:
             raise RuntimeError('Path "{}" already registered'.format(path))
         self.hosted_service_by_url[path] = hosted_service
-        self.hosted_services.append(hosted_service)
+        self._hosted_services.append(hosted_service)
 
     def on_post(self, path: str, headers, request: str) -> [str, None]:
-        """Method converts the http request into a soap envelope and calls dispatch_soap_request.
-           Return of dispatch_soap_request (soap envelope) is converted back to a string."""
+        """Method converts the http request into a soap envelope and calls dispatch_post_request.
+           Return of dispatch_post_request (soap envelope) is converted back to a string."""
         commlog.get_communication_logger().log_soap_request_in(request, 'POST')
         normalized_request = self.sdc_definitions.normalize_xml_text(request)
         # execute the method
         envelope = pysoap.soapenvelope.ReceivedSoap12Envelope(normalized_request)
-        response = self._dispatch_soap_request(path, headers, envelope)
+        response = self._dispatch_post_request(path, headers, envelope)
         normalized_response_xml_string = response.as_xml()
         return self.sdc_definitions.denormalize_xml_text(normalized_response_xml_string)
 
-    def _dispatch_soap_request(self, path, header, envelope):
+    def _dispatch_post_request(self, path, header, envelope):
         # path is a string like /0105a018-8f4c-4199-9b04-aff4835fd8e9/StateEvent, without http:/servername:port
         hosted_service = self.hosted_service_by_url.get(path)
         if not hosted_service:
             raise InvalidPathError(envelope, path)
         try:
-            return hosted_service.dispatch_soap_request(path, header, envelope)
+            return hosted_service.dispatch_post_request(path, header, envelope)
         except InvalidActionError as ex:
             # error: no handler for this action; log this error with all known pathes, the re-raise
             all_actions = []
-            for dispatcher in self.hosted_services:
-                all_actions.extend(', '.join([dispatcher.epr, k]) for k in dispatcher.get_actions())
+            for dispatcher in self._hosted_services:
+                all_actions.extend(', '.join([dispatcher.path, k]) for k in dispatcher.get_actions())
 
-            txt = 'HostedServiceDispatcher.dispatch_soap_request: {} , known=\n{}'.format(ex, '\n'.join(all_actions))
+            txt = 'HostedServiceDispatcher.dispatch_post_request: {} , known=\n{}'.format(ex, '\n'.join(all_actions))
             self._logger.error(txt)
             raise
 

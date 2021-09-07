@@ -24,6 +24,7 @@ from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.httpserver import DeviceHttpServerThread
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.loghelper import basic_logging_setup
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
@@ -39,57 +40,45 @@ SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequen
 NOTIFICATION_TIMEOUT = 5  # also jenkins related value
 
 
-def mklogger(logFolder=None):
-    import logging.handlers
-    applog = logging.getLogger('sdc')
-    if len(applog.handlers) == 0:
-        ch = logging.StreamHandler()
-        # create formatter
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        # add formatter to ch
-        ch.setFormatter(formatter)
-        # add ch to logger
-        applog.addHandler(ch)
-        if logFolder is not None:
-            ch2 = logging.handlers.RotatingFileHandler(os.path.join(logFolder, 'sdcclient.log'),
-                                                       maxBytes=5000000,
-                                                       backupCount=2)
-            ch2.setLevel(logging.INFO)
-            ch2.setFormatter(formatter)
-            # add ch to logger
-            applog.addHandler(ch2)
-
-    applog.setLevel(logging.INFO)
-
-    # change log level for some loggers
-    #        logging.getLogger('sdc.client').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.client.soap').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.client.dispatch').setLevel(logging.INFO)
-    #        logging.getLogger('sdc.client.subscrMgr').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.client.mdib').setLevel(logging.INFO)
-    #        logging.getLogger('sdc.client.wf').setLevel(logging.INFO)
-    #        logging.getLogger('sdc.client.Set').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.device').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.device.soap').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.device.mdib').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.device.ContextService').setLevel(logging.DEBUG)
-
-    logging.getLogger('sdc.discover').setLevel(logging.WARN)
-
-    return applog
-
-
-def setupModule():
-    mklogger()
+# def mklogger(logFolder=None):
+#     import logging.handlers
+#     applog = logging.getLogger('sdc')
+#     if len(applog.handlers) == 0:
+#         ch = logging.StreamHandler()
+#         # create formatter
+#         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+#         # add formatter to ch
+#         ch.setFormatter(formatter)
+#         # add ch to logger
+#         applog.addHandler(ch)
+#         if logFolder is not None:
+#             ch2 = logging.handlers.RotatingFileHandler(os.path.join(logFolder, 'sdcclient.log'),
+#                                                        maxBytes=5000000,
+#                                                        backupCount=2)
+#             ch2.setLevel(logging.INFO)
+#             ch2.setFormatter(formatter)
+#             # add ch to logger
+#             applog.addHandler(ch2)
+#
+#     applog.setLevel(logging.INFO)
+#
+#     logging.getLogger('sdc.discover').setLevel(logging.WARN)
+#
+#     return applog
+#
+#
+# def setupModule():
+#     mklogger()
 
 
 class Test_Client_SomeDevice(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        mklogger()
+    # @classmethod
+    # def setUpClass(cls):
+    #     mklogger()
 
     def setUp(self):
+        basic_logging_setup()
+
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
@@ -781,7 +770,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         setMetricStateOperationDescriptorContainer.Type = pmtypes.CodedValue(999998)
         sdcDevice.mdib.descriptions.add_object(setMetricStateOperationDescriptorContainer)
         op = sdcDevice.product_roles.metric_provider.make_operation_instance(
-            setMetricStateOperationDescriptorContainer, sdcDevice.sco_operations_registry.operations_factory)
+            setMetricStateOperationDescriptorContainer, sdcDevice.sco_operations_registry.operation_cls_getter)
         sdcDevice.sco_operations_registry.register_operation(op)
         sdcDevice.mdib.mk_state_containers_for_all_descriptors()
         setService = sdcClient.client('Set')
@@ -826,7 +815,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         setComponentStateOperationDescriptorContainer.Type = pmtypes.CodedValue(999998)
         sdcDevice.mdib.descriptions.add_object(setComponentStateOperationDescriptorContainer)
         op = sdcDevice.product_roles.make_operation_instance(setComponentStateOperationDescriptorContainer,
-                                                             sdcDevice.sco_operations_registry.operations_factory)
+                                                             sdcDevice.sco_operations_registry.operation_cls_getter)
         sdcDevice.sco_operations_registry.register_operation(op)
         sdcDevice.mdib.mk_state_containers_for_all_descriptors()
         setService = sdcClient.client('Set')
@@ -866,7 +855,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def test_getSupportedLanguages(self):
         sdcDevice = self.sdc_device
         sdcClient = self.sdc_client
-        storage = sdcDevice._handler._localization_dispatcher.localization_storage
+        storage = sdcDevice.localization_storage
         storage.add(pmtypes.LocalizedText('bla', lang='de-de', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS),
                     pmtypes.LocalizedText('foo', lang='en-en', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS)
                     )
@@ -879,7 +868,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def test_getLocalizedTexts(self):
         sdcDevice = self.sdc_device
         sdcClient = self.sdc_client
-        storage = sdcDevice._handler._localization_dispatcher.localization_storage
+        storage = sdcDevice.localization_storage
         storage.add(pmtypes.LocalizedText('bla_a', lang='de-de', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS))
         storage.add(pmtypes.LocalizedText('foo_a', lang='en-en', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS))
         storage.add(pmtypes.LocalizedText('bla_b', lang='de-de', ref='b', version=1, textWidth=pmtypes.T_TextWidth.XS))
@@ -1364,11 +1353,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
 
 class Test_DeviceCommonHttpServer(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        mklogger()
+    # @classmethod
+    # def setUpClass(cls):
+    #     mklogger()
 
     def setUp(self):
+        basic_logging_setup()
+
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
@@ -1378,7 +1369,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
 
         # common http server for both devices, borrow ssl context from device
         self.httpserver = DeviceHttpServerThread(
-            my_ipaddress='0.0.0.0', ssl_context=self.sdcDevice_1._handler._ssl_context,
+            my_ipaddress='0.0.0.0', ssl_context=self.sdcDevice_1._ssl_context,
             supported_encodings=compression.CompressionHandler.available_encodings[:],
             log_prefix='hppt_srv')
         self.httpserver.start()
@@ -1472,11 +1463,12 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
 
 
 class Test_Client_SomeDevice_chunked(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        mklogger()
+    # @classmethod
+    # def setUpClass(cls):
+    #     mklogger()
 
     def setUp(self):
+        basic_logging_setup()
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
@@ -1563,5 +1555,5 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
             sdcDevice.stop_all()
 
 
-def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(Test_Client_SomeDevice)
+# def suite():
+#     return unittest.TestLoader().loadTestsFromTestCase(Test_Client_SomeDevice)

@@ -351,7 +351,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 updated_states = [s.mk_copy() for s in descr_updated_states]
                 self._sdc_device.send_descriptor_updates(mdib_version, updated=updated, created=created,
                                                          deleted=deleted,
-                                                         updated_states=updated_states)
+                                                         states=updated_states)
             if len(metric_updates) > 0:
                 updates = [s.mk_copy() for s in metric_updates]
                 self._sdc_device.send_metric_state_updates(mdib_version, updates)
@@ -550,18 +550,18 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
     def update_retrievability_lists(self):
         """This method updates internal lists, based on current mdib descriptors. """
-        del self._retrievability_episodic[:]
-        self.retrievability_periodic.clear()
-        for descr in self.descriptions.objects:
-            if descr.retrievability is None:
-                return
-            for r_by in descr.retrievability.By:
-                if r_by.Method == RetrievabilityMethod.EPISODIC:
-                    self._retrievability_episodic.append(descr.handle)
-                elif r_by.Method == RetrievabilityMethod.PERIODIC:
-                    period_float = r_by.UpdatePeriod
-                    period_ms = int(period_float * 1000.0)
-                    self.retrievability_periodic[period_ms].append(descr.handle)
+        with self.mdib_lock:
+            del self._retrievability_episodic[:]
+            self.retrievability_periodic.clear()
+            for descr in self.descriptions.objects:
+                if descr.retrievability is not None:
+                    for r_by in descr.retrievability.By:
+                        if r_by.Method == RetrievabilityMethod.EPISODIC:
+                            self._retrievability_episodic.append(descr.handle)
+                        elif r_by.Method == RetrievabilityMethod.PERIODIC:
+                            period_float = r_by.UpdatePeriod
+                            period_ms = int(period_float * 1000.0)
+                            self.retrievability_periodic[period_ms].append(descr.handle)
 
     @classmethod
     def from_mdib_file(cls, path,
@@ -601,7 +601,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     break
         if protocol_definition is None:
             raise ValueError('cannot create instance, no known BICEPS schema version identified')
-        msg_reader_cls = protocol_definition.DefaultSdcDeviceComponents.MsgReaderClass
+        msg_reader_cls = protocol_definition.DefaultSdcDeviceComponents.msg_reader_class
         mdib = cls(protocol_definition, log_prefix=log_prefix)
         root = msg_reader_cls.get_mdib_root_node(mdib.sdc_definitions, xml_text)
         mdib.biceps_schema.message_schema.assertValid(root)

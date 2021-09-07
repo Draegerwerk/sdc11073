@@ -17,19 +17,19 @@ class GenericPatientContextProvider(GenericContextProvider):
         if descriptor_containers is not None and len(descriptor_containers) == 1:
             self._patient_context_descriptor_container = descriptor_containers[0]
 
-    def make_operation_instance(self, operation_descriptor_container, operations_factory):
+    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         if self._patient_context_descriptor_container and operation_descriptor_container.OperationTarget == self._patient_context_descriptor_container.handle:
             pc_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                        operations_factory,
+                                                                        operation_cls_getter,
                                                                         current_argument_handler=self._set_context_state)
             self._set_patient_context_operations.append(pc_operation)
             return pc_operation
         return None
 
-    # def make_missing_operations(self, operations_factory):
+    # def make_missing_operations(self, operation_cls_getter):
     #     ops = []
     #     if self._patient_context_descriptor_container and not self._set_patient_context_operations:
-    #         set_context_state_op_cls = operations_factory(namespaces.domTag('SetContextStateOperationDescriptor'))
+    #         set_context_state_op_cls = operation_cls_getter(namespaces.domTag('SetContextStateOperationDescriptor'))
     #
     #         pc_operation = self._mk_operation(set_context_state_op_cls,
     #                                           handle='opSetPatCtx',
@@ -41,10 +41,10 @@ class GenericPatientContextProvider(GenericContextProvider):
 
 class PatientContextProvider(GenericPatientContextProvider):
     """This Implementation adds operations to mdib if they do not exist."""
-    def make_missing_operations(self, operations_factory):
+    def make_missing_operations(self, operation_cls_getter):
         ops = []
         if self._patient_context_descriptor_container and not self._set_patient_context_operations:
-            set_context_state_op_cls = operations_factory(namespaces.domTag('SetContextStateOperationDescriptor'))
+            set_context_state_op_cls = operation_cls_getter(namespaces.domTag('SetContextStateOperationDescriptor'))
 
             pc_operation = self._mk_operation(set_context_state_op_cls,
                                               handle='opSetPatCtx',

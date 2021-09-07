@@ -19,7 +19,7 @@ class GenericMetricProvider(ProviderRole):
         super().__init__(log_prefix)
         self.activation_state_can_remove_metric_value = activation_state_can_remove_metric_value
 
-    def make_operation_instance(self, operation_descriptor_container, operations_factory):
+    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         ''' Can handle following cases:
         SetValueOperation, target = NumericMetricDescriptor: => handler = _set_numeric_value
         SetStringOperation, target = (Enum)StringMetricDescriptor: => handler = _set_string
@@ -36,7 +36,7 @@ class GenericMetricProvider(ProviderRole):
 
         if operation_descriptor_container.NODETYPE == domTag('SetValueOperationDescriptor'):
             if op_target_descriptor_container.NODETYPE == domTag('NumericMetricDescriptor'):
-                op_cls = operations_factory(domTag('SetValueOperationDescriptor'))
+                op_cls = operation_cls_getter(domTag('SetValueOperationDescriptor'))
                 return self._mk_operation(op_cls,
                                           handle=operation_descriptor_container.handle,
                                           operation_target_handle=operation_target_handle,
@@ -46,7 +46,7 @@ class GenericMetricProvider(ProviderRole):
         if operation_descriptor_container.NODETYPE == domTag('SetStringOperationDescriptor'):
             if op_target_descriptor_container.NODETYPE in (domTag('StringMetricDescriptor'),
                                                            domTag('EnumStringMetricDescriptor')):
-                op_cls = operations_factory(domTag('SetStringOperationDescriptor'))
+                op_cls = operation_cls_getter(domTag('SetStringOperationDescriptor'))
                 return self._mk_operation(op_cls,
                                           handle=operation_descriptor_container.handle,
                                           operation_target_handle=operation_target_handle,
@@ -54,7 +54,7 @@ class GenericMetricProvider(ProviderRole):
                                           current_argument_handler=self._set_string)
             return None
         if operation_descriptor_container.NODETYPE == domTag('SetMetricStateOperationDescriptor'):
-            op_cls = operations_factory(domTag('SetMetricStateOperationDescriptor'))
+            op_cls = operation_cls_getter(domTag('SetMetricStateOperationDescriptor'))
             operation = self._mk_operation(op_cls,
                                            handle=operation_descriptor_container.handle,
                                            operation_target_handle=operation_target_handle,

@@ -182,7 +182,7 @@ class SdcClient:
         self._logger.info('SdcClient for {} uses own IP Address {}', self._device_location, self._my_ipaddress)
         self.metadata = None
         self.host_description = None
-        self._hosted_services = {}  # lookup by service id
+        self.hosted_services = {}  # lookup by service id
         self._validate = validate
         try:
             self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)
@@ -202,9 +202,9 @@ class SdcClient:
         self.peer_certificate = None
         self.binary_peer_certificate = None
         self.all_subscribed = False
-        msg_reader_cls = self._components.MsgReaderClass
+        msg_reader_cls = self._components.msg_reader_class
         self.msg_reader = msg_reader_cls(self._logger, 'msg_reader')
-        msg_factory_cls = self._components.MsgFactoryClass
+        msg_factory_cls = self._components.msg_factory_class
         self._msg_factory = msg_factory_cls(self.sdc_definitions, self._logger)
 
     def _register_mdib(self, mdib):
@@ -320,7 +320,7 @@ class SdcClient:
                             self.sdc_definitions.Actions.PeriodicOperationalStateReport}
 
         # start subscription manager
-        subscription_manager_class = self._components.SubscriptionManagerClass
+        subscription_manager_class = self._components.subscription_manager_class
         self._subscription_mgr = subscription_manager_class(self._msg_factory,
                                                             self._notifications_dispatcher_thread.base_url,
                                                             log_prefix=self.log_prefix,
@@ -338,7 +338,7 @@ class SdcClient:
                 not_subscribed_actions_set = set(not_subscribed_actions)
 
         # start operationInvoked subscription and tell all
-        operations_manager_class = self._components.OperationsManagerClass
+        operations_manager_class = self._components.operations_manager_class
         self._operations_manager = operations_manager_class(self.log_prefix)
 
         for client in self._service_clients.values():
@@ -457,7 +457,7 @@ class SdcClient:
             h_descr = HostedServiceDescription(
                 hosted.service_id, endpoint_reference,
                 self._validate, self._biceps_schema, self._msg_factory, self.log_prefix)
-            self._hosted_services[hosted.service_id] = h_descr
+            self.hosted_services[hosted.service_id] = h_descr
             h_descr.read_metadata(soap_client)
             for _, porttype in ns_types:
                 hosted_service_client = self._mk_hosted_service_client(porttype, soap_client, hosted)
@@ -465,7 +465,7 @@ class SdcClient:
                 h_descr.services[porttype] = hosted_service_client
 
     def _mk_hosted_service_client(self, port_type, soap_client, hosted):
-        cls = self._components.ServiceHandlers[port_type]
+        cls = self._components.service_handlers[port_type]
         return cls(soap_client, self._msg_factory, hosted, port_type, self._validate,
                    self.sdc_definitions, self._biceps_schema, self.log_prefix)
 
@@ -473,8 +473,8 @@ class SdcClient:
         ssl_context = self._ssl_context if self._device_uses_https else None
 
         # create Event Server
-        notifications_receiver_class = self._components.NotificationsReceiverClass  # thread
-        notifications_handler_class = self._components.NotificationsHandlerClass
+        notifications_receiver_class = self._components.notifications_receiver_class  # thread
+        notifications_handler_class = self._components.notifications_handler_class
         self._notifications_dispatcher_thread = notifications_receiver_class(
             self._my_ipaddress,
             ssl_context,

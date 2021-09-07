@@ -1,6 +1,7 @@
 import copy
 
 from lxml import etree as etree_
+from abc import abstractmethod, ABC
 
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
@@ -9,8 +10,13 @@ from sdc11073 import pmtypes
 class MdibStructureError(Exception):
     pass
 
+class AbstractMessageReader(ABC):
+    @abstractmethod
+    def __init__(self, logger, log_prefix=''):
+        """Constructor"""
 
-class MessageReader:
+
+class MessageReader(AbstractMessageReader):
     """ This class does all the conversions from DOM trees (body of SOAP messages) to MDIB objects."""
 
     def __init__(self, logger, log_prefix=''):

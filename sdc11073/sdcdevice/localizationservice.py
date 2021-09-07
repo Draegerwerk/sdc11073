@@ -206,9 +206,9 @@ class LocalizationService(DPWSPortTypeImpl):
 
     def __init__(self, port_type_string, sdc_device):
         super().__init__(port_type_string, sdc_device)
-        self.register_action_callback(self._mdib.sdc_definitions.Actions.GetLocalizedText,
+        self.register_action_handler(self._mdib.sdc_definitions.Actions.GetLocalizedText,
                                       self._on_get_localized_text)
-        self.register_action_callback(self._mdib.sdc_definitions.Actions.GetSupportedLanguages,
+        self.register_action_handler(self._mdib.sdc_definitions.Actions.GetSupportedLanguages,
                                       self._on_get_supported_languages)
         self.localization_storage = LocalizationStorage()
 

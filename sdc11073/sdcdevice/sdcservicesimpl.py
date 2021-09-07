@@ -42,20 +42,24 @@ def etree_from_file(path):
 
 
 class SOAPActionDispatcher:
-    def __init__(self, log_prefix=None):
+    """This is a soap envelope forwarder.
+    It can register handlers for action strings and forwards soap envelope to registered handlers, based on the
+    action address of the soap envelope."""
+    def __init__(self, path, log_prefix=None):
+        self.path = path
         self._soap_action_callbacks = {}
         self._get_callbacks = {}
         self._logger = loghelper.get_logger_adapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
 
-    def register_action_callback(self, action, func):
+    def register_action_handler(self, action, func):
         self._soap_action_callbacks[action] = func
 
-    def register_get_callback(self, path, query, func):
+    def register_get_handler(self, path, query, func):
         if path.endswith('/'):
             path = path[:-1]
         self._get_callbacks[(path, query)] = func
 
-    def dispatch_soap_request(self, path, http_header, envelope):
+    def dispatch_post_request(self, path, http_header, envelope):
         begin = time.monotonic()
         action = envelope.address.action
         func = self.get_action_handler(action)
@@ -94,8 +98,8 @@ class SOAPActionDispatcher:
 class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
     """ receiver of all messages"""
 
-    def __init__(self, sub_dispatchers=None):
-        super().__init__()
+    def __init__(self, path, sub_dispatchers=None):
+        super().__init__(path)
         self._sub_dispatchers = sub_dispatchers or []  # chained SOAPActionDispatcher
 
     def get_action_handler(self, action):
@@ -123,17 +127,16 @@ class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
 class EventService(_SOAPActionDispatcherWithSubDispatchers):
     """ A service that offers subscriptions"""
 
-    def __init__(self, sdc_device, sub_dispatchers, offered_subscriptions):
-        super().__init__(sub_dispatchers)
+    def __init__(self, sdc_device, path, sub_dispatchers, offered_subscriptions):
+        super().__init__(path, sub_dispatchers)
 
         self._sdc_device = sdc_device
         self._subscriptions_manager = sdc_device.subscriptions_manager
         self._offered_subscriptions = offered_subscriptions
-        self.register_action_callback('{}/Subscribe'.format(Prefixes.WSE.namespace), self._on_subscribe)
-        self.register_action_callback('{}/Unsubscribe'.format(Prefixes.WSE.namespace), self._on_unsubscribe)
-        self.register_action_callback('{}/GetStatus'.format(Prefixes.WSE.namespace), self._on_get_status)
-        self.register_action_callback('{}/Renew'.format(Prefixes.WSE.namespace), self._on_renew_status)
-        self.epr = None
+        self.register_action_handler('{}/Subscribe'.format(Prefixes.WSE.namespace), self._on_subscribe)
+        self.register_action_handler('{}/Unsubscribe'.format(Prefixes.WSE.namespace), self._on_unsubscribe)
+        self.register_action_handler('{}/GetStatus'.format(Prefixes.WSE.namespace), self._on_get_status)
+        self.register_action_handler('{}/Renew'.format(Prefixes.WSE.namespace), self._on_renew_status)
 
     def _on_subscribe(self, http_header, envelope):
         subscription_filter_nodes = envelope.body_node.xpath(
@@ -145,10 +148,10 @@ class EventService(_SOAPActionDispatcherWithSubDispatchers):
         for subscription_filter in subscription_filters.split():
             if subscription_filter not in self._offered_subscriptions:
                 raise Exception('{}::{}: "{}" is not in offered subscriptions: {}'.format(self.__class__.__name__,
-                                                                                          self.epr,
+                                                                                          self.path,
                                                                                           subscription_filter,
                                                                                           self._offered_subscriptions))
-        returned_envelope = self._subscriptions_manager.on_subscribe_request(http_header, envelope, self.epr)
+        returned_envelope = self._subscriptions_manager.on_subscribe_request(http_header, envelope, self.path)
         self._validate_eventing_response(returned_envelope)
         return returned_envelope
 
@@ -192,37 +195,37 @@ class EventService(_SOAPActionDispatcherWithSubDispatchers):
 class DPWSHostedService(EventService):
     """ An Endpoint (url) with one or more DPWS Types"""
 
-    def __init__(self, sdc_device, base_urls, path_suffix, sub_dispatchers, offered_subscriptions):
+    def __init__(self, sdc_device, path_suffix, sub_dispatchers, offered_subscriptions):
         """
         :param base_urls: urlparse.SplitResult instances. They define the base addresses of this service
         """
-        super().__init__(sdc_device, sub_dispatchers, offered_subscriptions)
-
-        self._base_urls = base_urls
+        path = f'/{sdc_device.path_prefix}/{path_suffix}'
+        super().__init__(sdc_device, path, sub_dispatchers, offered_subscriptions)
+        self._sdc_device = sdc_device
+        self._path_suffix = path_suffix
         self._mdib = sdc_device.mdib
         self._my_port_types = [p.port_type_string for p in sub_dispatchers]
         self._wsdl_string = self._mk_wsdl_string()
-        my_uuid = base_urls[0].path
         for sub_dispatcher in sub_dispatchers:
             sub_dispatcher.hosting_service = self
-        self.epr = '/{}/{}'.format(my_uuid, path_suffix)  # end point reference
+        self.path = f'/{sdc_device.path_prefix}/{path_suffix}'
+        self.register_action_handler('{}/GetMetadata/Request'.format(Prefixes.WSX.namespace), self._on_get_metadata)
+        self.register_get_handler(path=self.path, query='wsdl', func=self._on_get_wsdl)
+
+    def mk_dpws_hosted(self):
         endpoint_references_list = []
-        for addr in base_urls:
+        for addr in self._sdc_device.base_urls:
             endpoint_references_list.append(
-                pysoap.soapenvelope.WsaEndpointReferenceType('{}/{}'.format(addr.geturl(), path_suffix)))
-        porttype_ns = sdc_device.mdib.sdc_definitions.PortTypeNamespace
+                pysoap.soapenvelope.WsaEndpointReferenceType('{}/{}'.format(addr.geturl(), self._path_suffix)))
+        porttype_ns = self._mdib.sdc_definitions.PortTypeNamespace
         # little bit ugly: normalize_xml_text needs bytes, not string. and it looks for namespace in "".
-        _normalized = sdc_device.mdib.sdc_definitions.normalize_xml_text(b'"' + porttype_ns.encode('utf-8') + b'"')
+        _normalized = self._mdib.sdc_definitions.normalize_xml_text(b'"' + porttype_ns.encode('utf-8') + b'"')
         porttype_ns = _normalized[1:-1].decode('utf-8')
-        # porttype_ns = sdc_device.mdib.sdc_definitions.normalize_xml_text(b'"' + porttype_ns.encode('utf-8') + b'"')[
-        #               1:-1].decode('utf-8')
-        self.hosted_inf = pysoap.soapenvelope.DPWSHosted(
+        dpws_hosted = pysoap.soapenvelope.DPWSHosted(
             endpoint_references_list=endpoint_references_list,
             types_list=[etree_.QName(porttype_ns, p) for p in self._my_port_types],
             service_id=self._my_port_types[0])
-
-        self.register_action_callback('{}/GetMetadata/Request'.format(Prefixes.WSX.namespace), self._on_get_metadata)
-        self.register_get_callback(path=self.epr, query='wsdl', func=self._on_get_wsdl)
+        return dpws_hosted
 
     def _on_get_wsdl(self):
         """ return wsdl"""
@@ -301,7 +304,7 @@ class DPWSHostedService(EventService):
                                               attrib={'Type': '{}/host'.format(Prefixes.DPWS.namespace)})
         self._sdc_device.dpws_host.as_etree_subnode(relationship_node)
 
-        self.hosted_inf.as_etree_subnode(relationship_node)
+        self.mk_dpws_hosted().as_etree_subnode(relationship_node)
 
         metadata_section_node = etree_.SubElement(metadata_node,
                                                   wsxTag('MetadataSection'),
@@ -310,22 +313,23 @@ class DPWSHostedService(EventService):
                                           wsxTag('Location'))
         # determine the correct location of wsdl, depending on call
         host = http_header['Host']  # this is the address that was called.
-        my_base_urls = [u for u in self._base_urls if u.netloc == host]
-        my_base_url = my_base_urls[0] if len(my_base_urls) > 0 else self._base_urls[0]
+        all_base_urls = self._sdc_device.base_urls
+        my_base_urls = [u for u in all_base_urls if u.netloc == host]
+        my_base_url = my_base_urls[0] if len(my_base_urls) > 0 else all_base_urls[0]
         location_node.text = '{}://{}{}/?wsdl'.format(my_base_url.scheme,
                                                       my_base_url.netloc,
-                                                      self.epr)
+                                                      self.path)
         response.add_body_element(metadata_node)
         response.validate_body(self._mdib.biceps_schema.mex_schema)
         return response
 
     def __repr__(self):
-        return '{} epr={} Porttypes={}'.format(self.__class__.__name__, self.epr,
+        return '{} path={} Porttypes={}'.format(self.__class__.__name__, self.path,
                                                [dp.port_type_string for dp in self._sub_dispatchers])
 
 
 class DPWSPortTypeImpl(SOAPActionDispatcher):
-    """ Base class of all PortType implementations"""
+    """ Base class of all PortType implementations. It main responsibility is creation of wsdl information."""
     WSDLOperationBindings = ()  # overwrite in derived classes
     WSDLMessageDescriptions = ()  # overwrite in derived classes
 
@@ -334,7 +338,8 @@ class DPWSPortTypeImpl(SOAPActionDispatcher):
         :param port_type_string: port type without namespace, e.g 'Get'
         :param sdcDevice:
         """
-        super().__init__()
+        path = None # ?
+        super().__init__(path)
         self.port_type_string = port_type_string
         self._sdc_device = sdc_device
         self._mdib = sdc_device.mdib
@@ -503,10 +508,10 @@ class GetService(DPWSPortTypeImpl):
 
     def __init__(self, port_type_string, sdcDevice):
         super().__init__(port_type_string, sdcDevice)
-        actions = self._mdib.sdc_definitions.Actions
-        self.register_action_callback(actions.GetMdState, self._on_get_md_state)
-        self.register_action_callback(actions.GetMdib, self._on_get_mdib)
-        self.register_action_callback(actions.GetMdDescription, self._on_get_md_description)
+        actions = self._sdc_device.mdib.sdc_definitions.Actions
+        self.register_action_handler(actions.GetMdState, self._on_get_md_state)
+        self.register_action_handler(actions.GetMdib, self._on_get_mdib)
+        self.register_action_handler(actions.GetMdDescription, self._on_get_md_description)
 
     def _on_get_md_state(self, http_header, request):  # pylint:disable=unused-argument
         self._logger.debug('_on_get_md_state')
@@ -617,8 +622,8 @@ class ContainmentTreeService(DPWSPortTypeImpl):
     def __init__(self, port_type_string, sdcDevice):
         super().__init__(port_type_string, sdcDevice)
         actions = self._mdib.sdc_definitions.Actions
-        self.register_action_callback(actions.GetContainmentTree, self._on_get_containment_tree)
-        self.register_action_callback(actions.GetDescriptor, self._on_get_descriptor)
+        self.register_action_handler(actions.GetContainmentTree, self._on_get_containment_tree)
+        self.register_action_handler(actions.GetDescriptor, self._on_get_descriptor)
 
     def _on_get_containment_tree(self, http_header, request):
         # ToDo: implement, currently method only raises a soap fault
@@ -667,12 +672,12 @@ class SetService(DPWSPortTypeImpl):
     def __init__(self, port_type_string, sdcDevice):
         super().__init__(port_type_string, sdcDevice)
         actions = self._mdib.sdc_definitions.Actions
-        self.register_action_callback(actions.Activate, self._on_activate)
-        self.register_action_callback(actions.SetValue, self._on_set_value)
-        self.register_action_callback(actions.SetString, self._on_set_string)
-        self.register_action_callback(actions.SetMetricState, self._on_set_metric_state)
-        self.register_action_callback(actions.SetAlertState, self._on_set_alert_state)
-        self.register_action_callback(actions.SetComponentState, self._on_set_component_state)
+        self.register_action_handler(actions.Activate, self._on_activate)
+        self.register_action_handler(actions.SetValue, self._on_set_value)
+        self.register_action_handler(actions.SetString, self._on_set_string)
+        self.register_action_handler(actions.SetMetricState, self._on_set_metric_state)
+        self.register_action_handler(actions.SetAlertState, self._on_set_alert_state)
+        self.register_action_handler(actions.SetComponentState, self._on_set_component_state)
 
     def _on_activate(self, http_header, request):  # pylint:disable=unused-argument
         """Handler for Active calls.
@@ -875,8 +880,8 @@ class ContextService(DPWSPortTypeImpl):
     def __init__(self, port_type_string, sdcDevice):
         super().__init__(port_type_string, sdcDevice)
         actions = self._mdib.sdc_definitions.Actions
-        self.register_action_callback(actions.SetContextState, self._on_set_context_state)
-        self.register_action_callback(actions.GetContextStates, self._on_get_context_states)
+        self.register_action_handler(actions.SetContextState, self._on_set_context_state)
+        self.register_action_handler(actions.GetContextStates, self._on_get_context_states)
 
     def _on_set_context_state(self, http_header, request):  # pylint:disable=unused-argument
         """ enqueues an operation and returns a 'wait' reponse."""

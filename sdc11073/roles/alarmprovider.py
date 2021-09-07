@@ -33,7 +33,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         self._stop_worker.set()
         self._worker_thread.join()
 
-    def make_operation_instance(self, operation_descriptor_container, operations_factory):
+    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         operation_target_handle = operation_descriptor_container.OperationTarget
         operation_target_descr = self._mdib.descriptions.handle.get_one(operation_target_handle)  # descriptor container
         if operation_descriptor_container.NODETYPE == namespaces.domTag('SetValueOperationDescriptor'):
@@ -46,7 +46,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 # ActivationState, Presence and ActualSignalGenerationDelay
                 # if stricter checking needed, one might add it
                 operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                         operations_factory,
+                                                                         operation_cls_getter,
                                                                          current_argument_handler=self._set_alert_signal_state)
 
                 self._logger.info(
@@ -369,6 +369,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
     def _update_alert_system_state_current_alerts(self):
         """ updates AlertSystemState present alarms list"""
         states_needing_update = self._get_alert_system_states_needing_update()
+        self._logger.debug(f'{len(states_needing_update)} states_needing_update')
         if len(states_needing_update) > 0:
             try:
                 with self._mdib.transaction_manager() as mgr:

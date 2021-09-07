@@ -19,12 +19,12 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
         self._set_global_audio_pause_operations = []
         self._cancel_global_audio_pause_operations = []
 
-    def make_operation_instance(self, operation_descriptor_container, operations_factory):
+    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         if operation_descriptor_container.coding == MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE.coding:
             self._logger.info('instantiating "set audio pause" operation from existing descriptor handle={}'.format(
                 operation_descriptor_container.handle))
             set_ap_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                            operations_factory,
+                                                                            operation_cls_getter,
                                                                             current_request_handler=self._set_global_audio_pause)
             self._set_global_audio_pause_operations.append(set_ap_operation)
             return set_ap_operation
@@ -33,7 +33,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
             self._logger.info('instantiating "cancel audio pause" operation from existing descriptor handle={}'.format(
                 operation_descriptor_container.handle))
             cancel_ap_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                               operations_factory,
+                                                                               operation_cls_getter,
                                                                                current_request_handler=self._cancel_global_audio_pause)
 
             self._cancel_global_audio_pause_operations.append(cancel_ap_operation)
@@ -172,11 +172,11 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
 
 class AudioPauseProvider(GenericAudioPauseProvider):
     """This Implementation adds operations to mdib if they do not exist."""
-    def make_missing_operations(self, operations_factory):
+    def make_missing_operations(self, operation_cls_getter):
         ops = []
         operation_target_container = self._mdib.descriptions.NODETYPE.get_one(
             domTag('MdsDescriptor'))  # the operation target is the mds itself
-        activate_op_cls = operations_factory(domTag('ActivateOperationDescriptor'))
+        activate_op_cls = operation_cls_getter(domTag('ActivateOperationDescriptor'))
         if not self._set_global_audio_pause_operations:
             self._logger.info('adding "set audio pause" operation, no descriptor in mdib (looked for code = {})'.format(
                 nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE))

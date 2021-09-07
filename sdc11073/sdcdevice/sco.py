@@ -102,10 +102,10 @@ class ScoOperationsRegistry:
     Such VMDs potentially have their own SCO. In every other case, SCO operations are modeled in pm:MdsDescriptor/pm:Sco.
     """
 
-    def __init__(self, subscriptions_mgr, operations_factory, mdib, handle='_sco', log_prefix=None):
+    def __init__(self, subscriptions_mgr, operation_cls_getter, mdib, handle='_sco', log_prefix=None):
         self._worker = None
         self._subscriptions_mgr = subscriptions_mgr
-        self.operations_factory = operations_factory
+        self.operation_cls_getter = operation_cls_getter
         self._mdib = mdib
         self._log_prefix = log_prefix
         self._logger = loghelper.get_logger_adapter('sdc.device.op_reg', log_prefix)

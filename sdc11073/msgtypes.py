@@ -28,6 +28,8 @@ class RetrievabilityInfo(PropertyBasedPMType):
         obj.update_from_node(node)
         return obj
 
+    def __repr__(self):
+        return f'{self.__class__.__name__} {self.Method} period={self.UpdatePeriod}'
 
 class Retrievability(PropertyBasedPMType):
     By = cp.SubElementListProperty(msgTag('By'), value_class=RetrievabilityInfo)

@@ -13,7 +13,7 @@ class GenericContextProvider(providerbase.ProviderRole):
         self._op_target_descr_types = op_target_descr_types
         self._forced_new_state_type = forced_new_state_typ
 
-    def make_operation_instance(self, operation_descriptor_container, operations_factory):
+    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         """Create a handler for SetContextStateOperationDescriptor if type of operation target
         matches opTargetDescriptorTypes"""
         if operation_descriptor_container.NODETYPE == namespaces.domTag('SetContextStateOperationDescriptor'):
@@ -23,7 +23,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                     op_target_descr_container.NODETYPE not in self._op_target_descr_types):
                 return None  # we do not handle this target type
             return self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                operations_factory,
+                                                                operation_cls_getter,
                                                                 current_argument_handler=self._set_context_state)
         return None
 

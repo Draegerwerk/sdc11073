@@ -17,7 +17,7 @@ from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist, WSDiscoverySingleAdapter, Scope
-
+from sdc11073.definitions_base import SdcDeviceComponents
 loopback_adapter = 'Loopback Pseudo-Interface 1' if os.name == 'nt' else 'lo'
 
 SEARCH_TIMEOUT = 2  # in real world applications this timeout is too short, 10 seconds is a good value.
@@ -27,7 +27,7 @@ here = os.path.dirname(__file__)
 my_mdib_path = os.path.join(here, '70041_MDIB_Final.xml')
 
 
-def createGenericDevice(wsdiscovery_instance, location, mdibPath, role_provider=None):
+def createGenericDevice(wsdiscovery_instance, location, mdibPath, specific_components=None):
     my_mdib = DeviceMdibContainer.from_mdib_file(mdibPath)
     my_uuid = uuid.uuid4()
     dpwsModel = DPWSThisModel(manufacturer='Draeger',
@@ -45,7 +45,7 @@ def createGenericDevice(wsdiscovery_instance, location, mdibPath, role_provider=
                           dpwsDevice,
                           my_mdib,
                           my_uuid=my_uuid,
-                          roleProvider=role_provider)
+                          specific_components=specific_components)
     for desc in sdcDevice.mdib.descriptions.objects:
         desc.SafetyClassification = pmtypes.SafetyClassification.MED_A
     sdcDevice.start_all(start_rtsample_loop=False)
@@ -243,7 +243,7 @@ class Test_Tutorial(unittest.TestCase):
                 self.operation2_called = 0
                 self.operation2_args = None
 
-            def make_operation_instance(self, operation_descriptor_container, operations_factory):
+            def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
                 """ if the role provider is responsible for handling of calls to this operation_descriptor_container,
                  it creates an operation instance and returns it. Otherwise it returns None"""
                 if operation_descriptor_container.coding == MY_CODE_1.coding:
@@ -254,12 +254,12 @@ class Test_Tutorial(unittest.TestCase):
                     # The following line shows how to provide your callback (in this case self._handle_operation_1).
                     # This callback is called when a consumer calls the operation.
                     operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                         operations_factory,
+                                                                         operation_cls_getter,
                                                                          current_argument_handler=self._handle_operation_1)
                     return operation
                 elif operation_descriptor_container.coding == MY_CODE_2.coding:
                     operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                         operations_factory,
+                                                                         operation_cls_getter,
                                                                          current_argument_handler=self._handle_operation_2)
                     return operation
                 else:
@@ -291,13 +291,13 @@ class Test_Tutorial(unittest.TestCase):
                 self.operation3_args = None
                 self.operation3_called = 0
 
-            def make_operation_instance(self, operation_descriptor_container, operations_factory):
+            def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
                 if operation_descriptor_container.coding == MY_CODE_3.coding:
                     self._logger.info(
                         'instantiating operation 3 from existing descriptor handle={}'.format(
                             operation_descriptor_container.handle))
                     operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                         operations_factory,
+                                                                         operation_cls_getter,
                                                                          current_argument_handler=self._handle_operation_3)
                     return operation
                 else:
@@ -333,15 +333,15 @@ class Test_Tutorial(unittest.TestCase):
         self.my_wsdiscoveries.append(my_wsDiscovery)
         my_wsDiscovery.start()
 
-        my_product_impl = MyProductImpl(log_prefix='p1')
-
+        #my_product_impl = MyProductImpl(log_prefix='p1')
+        specific_components = SdcDeviceComponents(role_provider_class=MyProductImpl)
         # use the minimalistic mdib from reference test:
         _here = os.path.dirname(__file__)
         mdib_path = os.path.join(_here, '../examples/ReferenceTest/reference_mdib.xml')
         my_genericDevice = createGenericDevice(my_wsDiscovery,
                                                self.my_location,
                                                mdib_path,
-                                               role_provider=my_product_impl)
+                                               specific_components=specific_components)
 
         self.my_devices.append(my_genericDevice)
 
@@ -359,6 +359,7 @@ class Test_Tutorial(unittest.TestCase):
         myMdib = ClientMdibContainer(my_client)
         myMdib.init_mdib()
 
+        my_product_impl = my_genericDevice.product_roles
         # call activate operation:
         # As a client NEVER! use the handle of the operation directly, always use the code(s) to identify things.
         # Handles are random values without any meaning, they are only unique id's in the mdib.

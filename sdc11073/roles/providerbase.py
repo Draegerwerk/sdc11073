@@ -17,13 +17,13 @@ class ProviderRole:
         self._mdib = mdib
 
     def make_operation_instance(self, operation_descriptor_container,  # pylint: disable=unused-argument
-                                operations_factory):  # pylint: disable=unused-argument
+                                operation_cls_getter):  # pylint: disable=unused-argument
         """returns a callable for this operation or None.
         If a mdib already has operations defined, this method can connect a handler to a given operation descriptor.
         Use case: initialization from an existing mdib"""
         return None
 
-    def make_missing_operations(self, operations_factory):  # pylint: disable=unused-argument
+    def make_missing_operations(self, operation_cls_getter):  # pylint: disable=unused-argument
         """
         This method is called after all existing operations from mdib have been registered.
         If a role provider needs to add operations beyond that, it can do it here.
@@ -76,7 +76,7 @@ class ProviderRole:
                 state.MetricValue.Validity = pmtypes.MeasurementValidity.VALID
 
     def _mk_operation_from_operation_descriptor(self, operation_descriptor_container,
-                                                operations_factory,
+                                                operation_cls_getter,
                                                 current_argument_handler=None,
                                                 current_request_handler=None):
         """
@@ -85,7 +85,7 @@ class ProviderRole:
         :param current_request_handler: the handler that shall be called by operation
         :return: instance of cls
         """
-        cls = operations_factory(operation_descriptor_container.NODETYPE)
+        cls = operation_cls_getter(operation_descriptor_container.NODETYPE)
         operation = self._mk_operation(cls,
                                        operation_descriptor_container.handle,
                                        operation_descriptor_container.OperationTarget,

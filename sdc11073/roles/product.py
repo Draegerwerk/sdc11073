@@ -15,7 +15,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
     Responsible for SetComponentState Operations
     """
 
-    def make_operation_instance(self, operation_descriptor_container, operations_factory):
+    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         """ Can handle following cases:
         SetComponentStateOperationDescriptor, target = any AbstractComponentDescriptor: => handler = _set_component_state
         """
@@ -29,7 +29,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
                                                            namespaces.domTag('ClockDescriptor'),
                                                            namespaces.domTag('ScoDescriptor'),
                                                            ):
-                op_cls = operations_factory(namespaces.domTag('SetComponentStateOperationDescriptor'))
+                op_cls = operation_cls_getter(namespaces.domTag('SetComponentStateOperationDescriptor'))
                 operation = self._mk_operation(op_cls,
                                                handle=operation_descriptor_container.handle,
                                                operation_target_handle=operation_target_handle,
@@ -44,7 +44,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
                                                            namespaces.domTag('ScoDescriptor'),
                                                            ):
                 # no generic handler to be called!
-                op_cls = operations_factory(namespaces.domTag('ActivateOperationDescriptor'))
+                op_cls = operation_cls_getter(namespaces.domTag('ActivateOperationDescriptor'))
                 return self._mk_operation(op_cls,
                                           handle=operation_descriptor_container.handle,
                                           operation_target_handle=operation_target_handle,
@@ -112,7 +112,7 @@ class BaseProduct:
         self._register_existing_mdib_operations(sco)
 
         for role_handler in self._all_providers_sorted():
-            operations = role_handler.make_missing_operations(sco.operations_factory)
+            operations = role_handler.make_missing_operations(sco.operation_cls_getter)
             for operation in operations:
                 sco.register_operation(operation)
 
@@ -143,7 +143,7 @@ class BaseProduct:
         for role_handler in self._all_providers_sorted():
             role_handler.stop()
 
-    def make_operation_instance(self, operation_descriptor_container, operations_factory):
+    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         """ try to get an operation for this operation_descriptor_container ( given in mdib) """
         operation_target_handle = operation_descriptor_container.OperationTarget
         operation_target_descr = self._mdib.descriptions.handle.get_one(operation_target_handle,
@@ -155,7 +155,7 @@ class BaseProduct:
                     operation_descriptor_container.handle, operation_target_handle))
             return None
         for role_handler in self._all_providers_sorted():
-            operation = role_handler.make_operation_instance(operation_descriptor_container, operations_factory)
+            operation = role_handler.make_operation_instance(operation_descriptor_container, operation_cls_getter)
             if operation is not None:
                 self._logger.info('{} provided operation for {}'.format(role_handler.__class__.__name__,
                                                                         operation_descriptor_container))
@@ -171,7 +171,7 @@ class BaseProduct:
             if registered_op is None:
                 self._logger.info('found unregistered {} in mdib, handle={}, code={} target={}'.format(
                     descriptor.NODETYPE.localname, descriptor.Handle, descriptor.Type, descriptor.OperationTarget))
-                operation = self.make_operation_instance(descriptor, sco.operations_factory)
+                operation = self.make_operation_instance(descriptor, sco.operation_cls_getter)
                 if operation is not None:
                     sco.register_operation(operation)
 
