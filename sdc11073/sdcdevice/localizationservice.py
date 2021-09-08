@@ -212,13 +212,13 @@ class LocalizationService(DPWSPortTypeImpl):
                                       self._on_get_supported_languages)
         self.localization_storage = LocalizationStorage()
 
-    def _on_get_localized_text(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_get_localized_text(self, request_data):  # pylint:disable=unused-argument
         self._logger.debug('_on_get_localized_text')
-        requested_handles = request.body_node.xpath('*/msg:Ref/text()', namespaces=nsmap)  # handle strings 0...n
-        requested_versions = request.body_node.xpath('*/msg:Version/text()', namespaces=nsmap)  # unsigned long int 0..1
-        requested_langs = request.body_node.xpath('*/msg:Lang/text()', namespaces=nsmap)  # unsigned long int 0..n
-        text_widths = request.body_node.xpath('*/msg:TextWidth/text()', namespaces=nsmap)  # strings 0..n
-        number_of_lines = request.body_node.xpath('*/msg:NumberOfLines/text()', namespaces=nsmap)  # int 0..n
+        requested_handles = request_data.envelope.body_node.xpath('*/msg:Ref/text()', namespaces=nsmap)  # handle strings 0...n
+        requested_versions = request_data.envelope.body_node.xpath('*/msg:Version/text()', namespaces=nsmap)  # unsigned long int 0..1
+        requested_langs = request_data.envelope.body_node.xpath('*/msg:Lang/text()', namespaces=nsmap)  # unsigned long int 0..n
+        text_widths = request_data.envelope.body_node.xpath('*/msg:TextWidth/text()', namespaces=nsmap)  # strings 0..n
+        number_of_lines = request_data.envelope.body_node.xpath('*/msg:NumberOfLines/text()', namespaces=nsmap)  # int 0..n
         # make integers for text_widths and number_of_lines
         i_tws = [_tw2i(w) for w in text_widths]
         i_nls = [int(l) for l in number_of_lines]
@@ -239,7 +239,7 @@ class LocalizationService(DPWSPortTypeImpl):
         nsmapper = self._mdib.nsmapper
         response_envelope = pysoap.soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        reply_address = request.address.mk_reply_address(action=self._get_action_string('GetLocalizedTextResponse'))
+        reply_address = request_data.envelope.address.mk_reply_address(action=self._get_action_string('GetLocalizedTextResponse'))
         response_envelope.add_header_object(reply_address)
         response_node = etree_.Element(msgTag('GetLocalizedTextResponse'))
         response_node.set('MdibVersion', str(self._mdib.mdib_version))
@@ -250,14 +250,14 @@ class LocalizationService(DPWSPortTypeImpl):
         response_envelope.add_body_element((response_node))
         return response_envelope
 
-    def _on_get_supported_languages(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_get_supported_languages(self, request_data):  # pylint:disable=unused-argument
         self._logger.debug('_on_get_supported_languages')
         languages = self.localization_storage.get_supported_languages()
 
         nsmapper = self._mdib.nsmapper
         response_envelope = pysoap.soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        reply_address = request.address.mk_reply_address(
+        reply_address = request_data.envelope.address.mk_reply_address(
             action=self._get_action_string('GetSupportedLanguagesResponse'))
         response_envelope.add_header_object(reply_address)
         response_node = etree_.Element(msgTag('GetSupportedLanguagesResponse'))

@@ -45,8 +45,8 @@ class SOAPActionDispatcher:
     """This is a soap envelope forwarder.
     It can register handlers for action strings and forwards soap envelope to registered handlers, based on the
     action address of the soap envelope."""
-    def __init__(self, path, log_prefix=None):
-        self.path = path
+    def __init__(self, path_element, log_prefix=None):
+        self.path_element = path_element
         self._soap_action_callbacks = {}
         self._get_callbacks = {}
         self._logger = loghelper.get_logger_adapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
@@ -54,28 +54,23 @@ class SOAPActionDispatcher:
     def register_action_handler(self, action, func):
         self._soap_action_callbacks[action] = func
 
-    def register_get_handler(self, path, query, func):
-        if path.endswith('/'):
-            path = path[:-1]
-        self._get_callbacks[(path, query)] = func
+    def register_get_handler(self, path_element, func):
+        self._get_callbacks[path_element] = func
 
-    def dispatch_post_request(self, path, http_header, envelope):
+    def dispatch_post_request(self, request_data):
         begin = time.monotonic()
-        action = envelope.address.action
+        action = request_data.envelope.address.action
         func = self.get_action_handler(action)
         if func is None:
-            raise InvalidActionError(envelope)
-        returned_envelope = func(http_header, envelope)
+            raise InvalidActionError(request_data.envelope)
+        returned_envelope = func(request_data)
         duration = time.monotonic() - begin
-        self._logger.debug('incoming soap action "{}" to {}: duration={:.3f}sec.', action, path, duration)
+        self._logger.debug('incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements, duration)
         return returned_envelope
 
-    def dispatch_get_request(self, parse_result, http_header):  # pylint:disable=unused-argument
+    def dispatch_get_request(self, request_data):  # pylint:disable=unused-argument
         begin = time.monotonic()
-        path = parse_result.path
-        if path.endswith('/'):
-            path = path[:-1]
-        key = (path, parse_result.query)
+        key = request_data.current
         func = self._get_callbacks.get(key)
         if func is not None:
             self._logger.debug('dispatch_get_request:path="{}" ,function="{}"', key, func.__name__)
@@ -127,8 +122,8 @@ class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
 class EventService(_SOAPActionDispatcherWithSubDispatchers):
     """ A service that offers subscriptions"""
 
-    def __init__(self, sdc_device, path, sub_dispatchers, offered_subscriptions):
-        super().__init__(path, sub_dispatchers)
+    def __init__(self, sdc_device, path_element, sub_dispatchers, offered_subscriptions):
+        super().__init__(path_element, sub_dispatchers)
 
         self._sdc_device = sdc_device
         self._subscriptions_manager = sdc_device.subscriptions_manager
@@ -138,8 +133,8 @@ class EventService(_SOAPActionDispatcherWithSubDispatchers):
         self.register_action_handler('{}/GetStatus'.format(Prefixes.WSE.namespace), self._on_get_status)
         self.register_action_handler('{}/Renew'.format(Prefixes.WSE.namespace), self._on_renew_status)
 
-    def _on_subscribe(self, http_header, envelope):
-        subscription_filter_nodes = envelope.body_node.xpath(
+    def _on_subscribe(self, request_data):
+        subscription_filter_nodes = request_data.envelope.body_node.xpath(
             "//wse:Filter[@Dialect='{}/Action']".format(Prefixes.DPWS.namespace),
             namespaces=nsmap)
         if len(subscription_filter_nodes) != 1:
@@ -148,33 +143,31 @@ class EventService(_SOAPActionDispatcherWithSubDispatchers):
         for subscription_filter in subscription_filters.split():
             if subscription_filter not in self._offered_subscriptions:
                 raise Exception('{}::{}: "{}" is not in offered subscriptions: {}'.format(self.__class__.__name__,
-                                                                                          self.path,
+                                                                                          self.path_element,
                                                                                           subscription_filter,
                                                                                           self._offered_subscriptions))
-        returned_envelope = self._subscriptions_manager.on_subscribe_request(http_header, envelope, self.path)
+        returned_envelope = self._subscriptions_manager.on_subscribe_request(request_data)
         self._validate_eventing_response(returned_envelope)
         return returned_envelope
 
-    def _on_unsubscribe(self, http_header, envelope):  # pylint:disable=unused-argument
-
-        returned_envelope = self._subscriptions_manager.on_unsubscribe_request(envelope)
+    def _on_unsubscribe(self, request_data):
+        returned_envelope = self._subscriptions_manager.on_unsubscribe_request(request_data)
         self._validate_eventing_response(returned_envelope)
         return returned_envelope
 
-    def _on_get_status(self, http_header, envelope):  # pylint:disable=unused-argument
-        returned_envelope = self._subscriptions_manager.on_get_status_request(envelope)
+    def _on_get_status(self, request_data):
+        returned_envelope = self._subscriptions_manager.on_get_status_request(request_data)
         self._validate_eventing_response(returned_envelope)
         return returned_envelope
 
-    def _on_renew_status(self, http_header, envelope):  # pylint:disable=unused-argument
-        returned_envelope = self._subscriptions_manager.on_renew_request(envelope)
+    def _on_renew_status(self, request_data):
+        returned_envelope = self._subscriptions_manager.on_renew_request(request_data)
         self._validate_eventing_response(returned_envelope)
         return returned_envelope
 
     def _validate_eventing_response(self, returned_envelope):
         body = returned_envelope.body_node
-        # body = root.find(s12Tag('Body'))
-        body_node_children = list(body) # list(returned_envelope.body_node)
+        body_node_children = list(body)
         if len(body_node_children) == 0:
             return
         if body_node_children[0].tag == s12Tag('Fault'):
@@ -195,28 +188,29 @@ class EventService(_SOAPActionDispatcherWithSubDispatchers):
 class DPWSHostedService(EventService):
     """ An Endpoint (url) with one or more DPWS Types"""
 
-    def __init__(self, sdc_device, path_suffix, sub_dispatchers, offered_subscriptions):
+    def __init__(self, sdc_device, path_element, sub_dispatchers, offered_subscriptions):
         """
-        :param base_urls: urlparse.SplitResult instances. They define the base addresses of this service
+
+        :param sdc_device:
+        :param path_element:
+        :param sub_dispatchers:
+        :param offered_subscriptions:
         """
-        path = f'/{sdc_device.path_prefix}/{path_suffix}'
-        super().__init__(sdc_device, path, sub_dispatchers, offered_subscriptions)
+        super().__init__(sdc_device, path_element, sub_dispatchers, offered_subscriptions)
         self._sdc_device = sdc_device
-        self._path_suffix = path_suffix
         self._mdib = sdc_device.mdib
         self._my_port_types = [p.port_type_string for p in sub_dispatchers]
         self._wsdl_string = self._mk_wsdl_string()
         for sub_dispatcher in sub_dispatchers:
             sub_dispatcher.hosting_service = self
-        self.path = f'/{sdc_device.path_prefix}/{path_suffix}'
         self.register_action_handler('{}/GetMetadata/Request'.format(Prefixes.WSX.namespace), self._on_get_metadata)
-        self.register_get_handler(path=self.path, query='wsdl', func=self._on_get_wsdl)
+        self.register_get_handler('?wsdl', func=self._on_get_wsdl)
 
     def mk_dpws_hosted(self):
         endpoint_references_list = []
         for addr in self._sdc_device.base_urls:
             endpoint_references_list.append(
-                pysoap.soapenvelope.WsaEndpointReferenceType('{}/{}'.format(addr.geturl(), self._path_suffix)))
+                pysoap.soapenvelope.WsaEndpointReferenceType('{}/{}'.format(addr.geturl(), self.path_element)))
         porttype_ns = self._mdib.sdc_definitions.PortTypeNamespace
         # little bit ugly: normalize_xml_text needs bytes, not string. and it looks for namespace in "".
         _normalized = self._mdib.sdc_definitions.normalize_xml_text(b'"' + porttype_ns.encode('utf-8') + b'"')
@@ -285,10 +279,12 @@ class DPWSHostedService(EventService):
         remove_annotations_xslt = etree_.XSLT(remove_annotations_doc)
         return remove_annotations_xslt(root_node).getroot()
 
-    def _on_get_metadata(self, http_header, request):
+    def _on_get_metadata(self, request_data):
         _nsm = self._mdib.nsmapper
+        consumed_path_elements = request_data.consumed_path_elements
+        http_header = request_data.http_header
         response = pysoap.soapenvelope.Soap12Envelope(_nsm.doc_ns_map)
-        reply_address = request.address.mk_reply_address(
+        reply_address = request_data.envelope.address.mk_reply_address(
             'http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Response')
         response.add_header_object(reply_address)
 
@@ -316,15 +312,15 @@ class DPWSHostedService(EventService):
         all_base_urls = self._sdc_device.base_urls
         my_base_urls = [u for u in all_base_urls if u.netloc == host]
         my_base_url = my_base_urls[0] if len(my_base_urls) > 0 else all_base_urls[0]
-        location_node.text = '{}://{}{}/?wsdl'.format(my_base_url.scheme,
+        location_node.text = '{}://{}/{}/?wsdl'.format(my_base_url.scheme,
                                                       my_base_url.netloc,
-                                                      self.path)
+                                                      '/'.join(consumed_path_elements))
         response.add_body_element(metadata_node)
         response.validate_body(self._mdib.biceps_schema.mex_schema)
         return response
 
     def __repr__(self):
-        return '{} path={} Porttypes={}'.format(self.__class__.__name__, self.path,
+        return '{} path={} Porttypes={}'.format(self.__class__.__name__, self.path_element,
                                                [dp.port_type_string for dp in self._sub_dispatchers])
 
 
@@ -513,9 +509,9 @@ class GetService(DPWSPortTypeImpl):
         self.register_action_handler(actions.GetMdib, self._on_get_mdib)
         self.register_action_handler(actions.GetMdDescription, self._on_get_md_description)
 
-    def _on_get_md_state(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_get_md_state(self, request_data):
         self._logger.debug('_on_get_md_state')
-        requested_handles = self._sdc_device.msg_reader.read_getmdstate_request(request)
+        requested_handles = self._sdc_device.msg_reader.read_getmdstate_request(request_data.envelope)
         if len(requested_handles) > 0:
             self._logger.info('_on_get_md_state requested Handles:{}', requested_handles)
 
@@ -545,15 +541,15 @@ class GetService(DPWSPortTypeImpl):
                                   len(state_containers))
 
             response_envelope = self._sdc_device.msg_factory.mk_getmdstate_response_envelope(
-                request, self._mdib, state_containers)
+                request_data.envelope, self._mdib, state_containers)
         self._logger.debug('_on_get_md_state returns {}', lambda: response_envelope.as_xml(pretty=False))
         response_envelope.validate_body(self._bmm_schema)
         return response_envelope
 
-    def _on_get_mdib(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_get_mdib(self, request_data):  # pylint:disable=unused-argument
         self._logger.debug('_on_get_mdib')
         response_envelope = self._sdc_device.msg_factory.mk_getmdib_response_envelope(
-            request, self._mdib, self._sdc_device.contextstates_in_getmdib)
+            request_data.envelope, self._mdib, self._sdc_device.contextstates_in_getmdib)
 
         self._logger.debug('_on_get_mdib returns {}', lambda: response_envelope.as_xml(pretty=False))
         try:
@@ -563,7 +559,7 @@ class GetService(DPWSPortTypeImpl):
             raise
         return response_envelope
 
-    def _on_get_md_description(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_get_md_description(self, request_data):  # pylint:disable=unused-argument
         """
         MdDescription comprises the requested set of MDS descriptors. Which MDS descriptors are included depends on the msg:GetMdDescription/msg:HandleRef list:
         - If the HANDLE reference list is empty, all MDS descriptors SHALL be included in the result list.
@@ -574,11 +570,11 @@ class GetService(DPWSPortTypeImpl):
         # => if at least one handle matches any descriptor, the one mds is returned, otherwise empty payload
 
         self._logger.debug('_on_get_md_description')
-        requested_handles = self._sdc_device.msg_reader.read_getmddescription_request(request)
+        requested_handles = self._sdc_device.msg_reader.read_getmddescription_request(request_data.envelope)
         if len(requested_handles) > 0:
             self._logger.info('_on_get_md_description requested Handles:{}', requested_handles)
         response_envelope = self._sdc_device.msg_factory.mk_getmddescription_response_envelope(
-            request, self._sdc_device.mdib, requested_handles
+            request_data.envelope, self._sdc_device.mdib, requested_handles
         )
         self._logger.debug('_on_get_md_description returns {}', lambda: response_envelope.as_xml(pretty=False))
         response_envelope.validate_body(self._bmm_schema)
@@ -625,13 +621,13 @@ class ContainmentTreeService(DPWSPortTypeImpl):
         self.register_action_handler(actions.GetContainmentTree, self._on_get_containment_tree)
         self.register_action_handler(actions.GetDescriptor, self._on_get_descriptor)
 
-    def _on_get_containment_tree(self, http_header, request):
+    def _on_get_containment_tree(self, request_data):
         # ToDo: implement, currently method only raises a soap fault
-        raise FunctionNotImplementedError(request)
+        raise FunctionNotImplementedError(request_data.envelope)
 
-    def _on_get_descriptor(self, http_header, request):
+    def _on_get_descriptor(self, request_data):
         # ToDo: implement, currently method only raises a soap fault
-        raise FunctionNotImplementedError(request)
+        raise FunctionNotImplementedError(request_data.envelope)
 
     def add_wsdl_port_type(self, parent_node):
         port_type = self._mk_port_type_node(parent_node)
@@ -679,50 +675,50 @@ class SetService(DPWSPortTypeImpl):
         self.register_action_handler(actions.SetAlertState, self._on_set_alert_state)
         self.register_action_handler(actions.SetComponentState, self._on_set_component_state)
 
-    def _on_activate(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_activate(self, request_data):  # pylint:disable=unused-argument
         """Handler for Active calls.
         It enques an operation and generates the expected operation invoked report. """
-        argument = request.body_node.xpath('*/msg:Argument/msg:ArgValue/text()', namespaces=nsmap)
-        return self._handle_operation_request(request, 'ActivateResponse', argument)
+        argument = request_data.envelope.body_node.xpath('*/msg:Argument/msg:ArgValue/text()', namespaces=nsmap)
+        return self._handle_operation_request(request_data.envelope, 'ActivateResponse', argument)
 
-    def _on_set_value(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_set_value(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetValue calls.
         It enqueues an operation and generates the expected operation invoked report. """
         self._logger.info('_on_set_value')
-        value_nodes = request.body_node.xpath('*/msg:RequestedNumericValue', namespaces=nsmap)
+        value_nodes = request_data.envelope.body_node.xpath('*/msg:RequestedNumericValue', namespaces=nsmap)
         if value_nodes:
             argument = float(value_nodes[0].text)
         else:
             argument = None
-        ret = self._handle_operation_request(request, 'SetValueResponse', argument)
+        ret = self._handle_operation_request(request_data.envelope, 'SetValueResponse', argument)
         self._logger.info('_on_set_value done')
         return ret
 
-    def _on_set_string(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_set_string(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetString calls.
         It enqueues an operation and generates the expected operation invoked report."""
         self._logger.debug('_on_set_string')
-        string_node = request.body_node.xpath('*/msg:RequestedStringValue', namespaces=nsmap)
+        string_node = request_data.envelope.body_node.xpath('*/msg:RequestedStringValue', namespaces=nsmap)
         if string_node:
             argument = str(string_node[0].text)
         else:
             argument = None
-        return self._handle_operation_request(request, 'SetStringResponse', argument)
+        return self._handle_operation_request(request_data.envelope, 'SetStringResponse', argument)
 
-    def _on_set_metric_state(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_set_metric_state(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetMetricState calls.
         It enqueues an operation and generates the expected operation invoked report."""
         self._logger.debug('_on_set_metric_state')
-        proposed_state_nodes = request.body_node.xpath('*/msg:ProposedMetricState', namespaces=nsmap)
+        proposed_state_nodes = request_data.envelope.body_node.xpath('*/msg:ProposedMetricState', namespaces=nsmap)
         msg_reader = self._mdib.msg_reader
         argument = [msg_reader.mk_statecontainer_from_node(m, self._mdib) for m in proposed_state_nodes]
-        return self._handle_operation_request(request, 'SetMetricStateResponse', argument)
+        return self._handle_operation_request(request_data.envelope, 'SetMetricStateResponse', argument)
 
-    def _on_set_alert_state(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_set_alert_state(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetMetricState calls.
         It enqueues an operation and generates the expected operation invoked report."""
         self._logger.debug('_on_set_alert_state')
-        proposed_state_nodes = request.body_node.xpath('*/msg:ProposedAlertState', namespaces=nsmap)
+        proposed_state_nodes = request_data.envelope.body_node.xpath('*/msg:ProposedAlertState', namespaces=nsmap)
         if len(proposed_state_nodes) > 1:  # schema allows exactly one ProposedAlertState:
             raise ValueError(
                 'only one ProposedAlertState argument allowed, found {}'.format(len(proposed_state_nodes)))
@@ -731,16 +727,16 @@ class SetService(DPWSPortTypeImpl):
         msg_reader = self._mdib.msg_reader
         argument = msg_reader.mk_statecontainer_from_node(proposed_state_nodes[0], self._mdib)
 
-        return self._handle_operation_request(request, 'SetAlertStateResponse', argument)
+        return self._handle_operation_request(request_data.envelope, 'SetAlertStateResponse', argument)
 
-    def _on_set_component_state(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_set_component_state(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetMetricState calls.
         It enqueues an operation and generates the expected operation invoked report."""
         self._logger.debug('_on_set_component_state')
-        proposed_state_nodes = request.body_node.xpath('*/msg:ProposedComponentState', namespaces=nsmap)
+        proposed_state_nodes = request_data.envelope.body_node.xpath('*/msg:ProposedComponentState', namespaces=nsmap)
         msg_reader = self._mdib.msg_reader
         argument = [msg_reader.mk_statecontainer_from_node(p, self._mdib) for p in proposed_state_nodes]
-        return self._handle_operation_request(request, 'SetComponentStateResponse', argument)
+        return self._handle_operation_request(request_data.envelope, 'SetComponentStateResponse', argument)
 
     def _handle_operation_request(self, request, response_name, argument):
         """
@@ -883,11 +879,11 @@ class ContextService(DPWSPortTypeImpl):
         self.register_action_handler(actions.SetContextState, self._on_set_context_state)
         self.register_action_handler(actions.GetContextStates, self._on_get_context_states)
 
-    def _on_set_context_state(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_set_context_state(self, request_data):
         """ enqueues an operation and returns a 'wait' reponse."""
         response = pysoap.soapenvelope.Soap12Envelope(
             self._mdib.nsmapper.partial_map(Prefixes.S12, Prefixes.PM, Prefixes.WSA, Prefixes.MSG))
-        reply_address = request.address.mk_reply_address(action=self._get_action_string('SetContextStateResponse'))
+        reply_address = request_data.envelope.address.mk_reply_address(action=self._get_action_string('SetContextStateResponse'))
         response.add_header_object(reply_address)
         reply_body_node = etree_.Element(msgTag('SetContextStateResponse'),
                                          nsmap=Prefixes.partial_map(Prefixes.MSG),
@@ -900,7 +896,7 @@ class ContextService(DPWSPortTypeImpl):
 
         error_texts = []
 
-        operation_handle_refs = request.body_node.xpath('msg:SetContextState/msg:OperationHandleRef/text()',
+        operation_handle_refs = request_data.envelope.body_node.xpath('msg:SetContextState/msg:OperationHandleRef/text()',
                                                         namespaces=nsmap)
         if len(operation_handle_refs) == 1:
             operation_handle_ref = operation_handle_refs[0]
@@ -921,11 +917,11 @@ class ContextService(DPWSPortTypeImpl):
                                                          msgTag('InvocationErrorMessage'))
             operation_error_msg_node.text = '; '.join(error_texts)
         else:
-            proposed_context_state_nodes = request.body_node.xpath('*/msg:ProposedContextState',
+            proposed_context_state_nodes = request_data.envelope.body_node.xpath('*/msg:ProposedContextState',
                                                                    namespaces=nsmap)
             msg_reader = self._mdib.msg_reader
             argument = [msg_reader.mk_statecontainer_from_node(p, self._mdib) for p in proposed_context_state_nodes]
-            transaction_id = self._sdc_device.enqueue_operation(operation, request, argument)
+            transaction_id = self._sdc_device.enqueue_operation(operation, request_data.envelope, argument)
             transaction_id_node.text = str(transaction_id)
             invocation_state_node.text = pmtypes.InvocationState.WAIT
 
@@ -933,15 +929,15 @@ class ContextService(DPWSPortTypeImpl):
         response.validate_body(self._bmm_schema)
         return response
 
-    def _on_get_context_states(self, http_header, request):  # pylint:disable=unused-argument
+    def _on_get_context_states(self, request_data,):
         self._logger.debug('_on_get_context_states')
-        requested_handles = request.body_node.xpath('*/msg:HandleRef/text()', namespaces=nsmap)
+        requested_handles = request_data.envelope.body_node.xpath('*/msg:HandleRef/text()', namespaces=nsmap)
         if len(requested_handles) > 0:
             self._logger.info('_on_get_context_states requested Handles:{}', requested_handles)
         nsmapper = self._mdib.nsmapper
         response = pysoap.soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        reply_address = request.address.mk_reply_address(action=self._get_action_string('GetContextStatesResponse'))
+        reply_address = request_data.envelope.address.mk_reply_address(action=self._get_action_string('GetContextStatesResponse'))
         response.add_header_object(reply_address)
         response_node = etree_.Element(msgTag('GetContextStatesResponse'))
         with self._mdib.mdib_lock:

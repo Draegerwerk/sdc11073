@@ -1,7 +1,6 @@
 import copy
 import datetime
 import logging
-import os
 import sys
 import time
 import unittest
@@ -16,6 +15,7 @@ from sdc11073 import namespaces
 from sdc11073 import observableproperties
 from sdc11073 import pmtypes
 from sdc11073.location import SdcLocation
+from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ClientMdibContainer
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import ReceivedSoapFault
@@ -23,8 +23,10 @@ from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.httpserver import DeviceHttpServerThread
+from sdc11073.sdcdevice.subscriptionmgr import SubscriptionsManagerReferenceParam
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
-from sdc11073.loghelper import basic_logging_setup
+from sdc11073.definitions_base import SdcDeviceComponents
+
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
@@ -40,42 +42,7 @@ SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequen
 NOTIFICATION_TIMEOUT = 5  # also jenkins related value
 
 
-# def mklogger(logFolder=None):
-#     import logging.handlers
-#     applog = logging.getLogger('sdc')
-#     if len(applog.handlers) == 0:
-#         ch = logging.StreamHandler()
-#         # create formatter
-#         formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-#         # add formatter to ch
-#         ch.setFormatter(formatter)
-#         # add ch to logger
-#         applog.addHandler(ch)
-#         if logFolder is not None:
-#             ch2 = logging.handlers.RotatingFileHandler(os.path.join(logFolder, 'sdcclient.log'),
-#                                                        maxBytes=5000000,
-#                                                        backupCount=2)
-#             ch2.setLevel(logging.INFO)
-#             ch2.setFormatter(formatter)
-#             # add ch to logger
-#             applog.addHandler(ch2)
-#
-#     applog.setLevel(logging.INFO)
-#
-#     logging.getLogger('sdc.discover').setLevel(logging.WARN)
-#
-#     return applog
-#
-#
-# def setupModule():
-#     mklogger()
-
-
 class Test_Client_SomeDevice(unittest.TestCase):
-    # @classmethod
-    # def setUpClass(cls):
-    #     mklogger()
-
     def setUp(self):
         basic_logging_setup()
 
@@ -1463,10 +1430,6 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
 
 
 class Test_Client_SomeDevice_chunked(unittest.TestCase):
-    # @classmethod
-    # def setUpClass(cls):
-    #     mklogger()
-
     def setUp(self):
         basic_logging_setup()
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
@@ -1555,5 +1518,79 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
             sdcDevice.stop_all()
 
 
-# def suite():
-#     return unittest.TestLoader().loadTestsFromTestCase(Test_Client_SomeDevice)
+class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
+    def setUp(self):
+        basic_logging_setup()
+        sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
+        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd.start()
+        location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
+        specific_components=SdcDeviceComponents(subscriptions_manager_class=SubscriptionsManagerReferenceParam)
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<Final> ',
+                                                    specific_components=specific_components,
+                                                    chunked_messages=True)
+        # in order to test correct handling of default namespaces, we make participant model the default namespace
+        nsmapper = self.sdc_device.mdib.nsmapper
+        nsmapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
+        self.sdc_device.start_all()
+        self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+        self.sdc_device.set_location(location, self._locValidators)
+
+        time.sleep(0.5)  # allow full init of devices
+
+        xAddr = self.sdc_device.get_xaddrs()
+        self.sdc_client = SdcClient(xAddr[0],
+                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                    ssl_context=None,
+                                    validate=CLIENT_VALIDATE,
+                                    log_prefix='<Final> ',
+                                    chunked_requests=True)
+        self.sdc_client.start_all()
+
+        self._all_cl_dev = [(self.sdc_client, self.sdc_device)]
+
+        time.sleep(1)
+        sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))
+        time.sleep(0.5)
+        self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
+
+    def tearDown(self):
+        sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
+        self.log_watcher.setPaused(True)
+        for sdcClient, sdcDevice in self._all_cl_dev:
+            sdcClient.stop_all()
+            sdcDevice.stop_all()
+        self.wsd.stop()
+        try:
+            self.log_watcher.check()
+        except loghelper.LogWatchException as ex:
+            sys.stderr.write(repr(ex))
+            raise
+        sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
+
+    def test_BasicConnect(self):
+        # simply check that correct top node is returned
+        cl_getService = self.sdc_client.client('Get')
+        node = cl_getService.get_md_description_node()
+        self.assertEqual(node.tag, str(namespaces.msgTag('GetMdDescriptionResponse')))
+
+        node = cl_getService.get_mdib_node()
+        self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
+
+        node = cl_getService.get_md_state_node()
+        self.assertEqual(node.tag, str(namespaces.msgTag('GetMdStateResponse')))
+
+        contextService = self.sdc_client.client('Context')
+        node = contextService.get_context_states_node()
+        self.assertEqual(node.tag, str(namespaces.msgTag('GetContextStatesResponse')))
+
+    def test_renew_getStatus(self):
+        """ If renew and get_status work, then reference parameters based dispatching works. """
+        for s in self.sdc_client._subscription_mgr.subscriptions.values():
+            remaining_seconds = s.renew(1)  # one minute
+            self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
+            remaining_seconds = s.get_status()
+            self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
+

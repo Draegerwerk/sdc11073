@@ -17,11 +17,10 @@ from .sdcclient.subscription import SOAPNotificationsHandler
 from .sdcclient.subscription import SubscriptionClient, NotificationsReceiverDispatcherThread
 from .sdcdevice.localizationservice import LocalizationService
 from .sdcdevice.sco import get_operation_class, ScoOperationsRegistry
-#from .sdcdevice.sdc_handlers import DefaultServiceFactory
 from .sdcdevice.sdc_handlers import mk_scopes, mk_all_services
 from .sdcdevice.sdcservicesimpl import ContextService, WaveformService, DescriptionEventService
 from .sdcdevice.sdcservicesimpl import GetService, SetService, StateEventService, ContainmentTreeService
-from .sdcdevice.subscriptionmgr import SubscriptionsManager
+from .sdcdevice.subscriptionmgr import SubscriptionsManagerPath
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
@@ -94,7 +93,7 @@ default_sdc_device_components = SdcDeviceComponents(
     services_factory= mk_all_services,
     operation_cls_getter=get_operation_class,
     sco_operations_registry_class=ScoOperationsRegistry,
-    subscriptions_manager_class=SubscriptionsManager,
+    subscriptions_manager_class=SubscriptionsManagerPath,
     role_provider_class=MinimalProduct,
     scopes_factory = mk_scopes,
     service_handlers={'ContainmentTreeService': ContainmentTreeService,

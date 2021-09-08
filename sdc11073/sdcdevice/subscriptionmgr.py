@@ -41,6 +41,19 @@ class _RoundTripData:
     def __repr__(self):
         return 'min={:.4f} max={:.4f} avg={:.4f} absmax={:.4f}'.format(self.min, self.max, self.avg, self.abs_max)
 
+def _mk_dispatch_identifier(reference_parameter_node, path_suffix):
+    if path_suffix == '':
+        path_suffix = None
+    if reference_parameter_node is None:
+        return None, path_suffix
+    return reference_parameter_node.text, path_suffix
+
+
+def _mk_dispatch_identifier_from_request(request_data):
+    identifier_node = request_data.envelope.header_node.find(_DevSubscription.IDENT_TAG, namespaces=nsmap)
+    path_suffix = '/'.join(request_data.path_elements)  # not consumed path elements
+    return _mk_dispatch_identifier(identifier_node, path_suffix)
+
 
 class _DevSubscription:
     MAX_NOTIFY_ERRORS = 1
@@ -68,8 +81,10 @@ class _DevSubscription:
         self.end_to_ref_nodes = []
         if end_to_ref_node is not None:
             self.end_to_ref_nodes = list(end_to_ref_node)  # all children
-        self.my_identifier = etree_.Element(self.IDENT_TAG)
-        self.my_identifier.text = uuid.uuid4().urn
+        self.identifier_uuid = uuid.uuid4()
+        self.reference_parameter = None # etree node, used for reference parameters based dispatching
+        self.path_suffix = None # used for path based dispatching
+
 
         self._max_subscription_duration = max_subscription_duration
         self._started = None
@@ -195,8 +210,11 @@ class _DevSubscription:
                                                nsmap=Prefixes.partial_map(Prefixes.WSE, Prefixes.WSA, Prefixes.XML))
         subscription_manager_node = etree_.SubElement(subscription_end_node, wseTag('SubscriptionManager'))
         # child of Subscriptionmanager is the endpoint reference of the subscription manager (wsa:EndpointReferenceType)
-        reference_parameters_node = etree_.Element(wsaTag('ReferenceParameters'))
-        reference_parameters_node.append(copy.copy(self.my_identifier))
+        if self.reference_parameter:
+            reference_parameters_node = etree_.Element(wsaTag('ReferenceParameters'))
+            reference_parameters_node.append(copy.copy(self.reference_parameter))
+        else:
+            reference_parameters_node = None
         epr = WsaEndpointReferenceType(address=my_addr, reference_parameters_node=reference_parameters_node)
         epr.as_etree_subnode(subscription_manager_node)
 
@@ -230,10 +248,10 @@ class _DevSubscription:
             ref_ident = ', '.join([node.text for node in self.notify_ref_nodes])
         except TypeError:
             ref_ident = '<unknown>'
-        return 'Subscription(notify_to={} idnt={}, my_identifier={}, expires={}, filter={})'.format(
+        return 'Subscription(notify_to={} idnt={}, my identifier={}, expires={}, filter={})'.format(
             self.notify_to_address,
             ref_ident,
-            self.my_identifier.text,
+            self.identifier_uuid.hex,
             self.remaining_seconds,
             short_filter_string(self._filters))
 
@@ -276,7 +294,8 @@ class _DevSubscription:
         return tuple([f.split('/')[-1] for f in self._filters])
 
 
-class SubscriptionsManager:
+class _SubscriptionsManagerBase:
+    """This implementation uses ReferenceParameters to identify subscriptions."""
     BodyNodePrefixes = [Prefixes.PM, Prefixes.MSG, Prefixes.XSI, Prefixes.EXT, Prefixes.XML]
     NotificationPrefixes = [Prefixes.PM, Prefixes.S12, Prefixes.WSA, Prefixes.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
@@ -294,7 +313,10 @@ class SubscriptionsManager:
         self._supported_encodings = supported_encodings
         self._max_subscription_duration = max_subscription_duration or self.DEFAULT_MAX_SUBSCR_DURATION
         self._subscriptions = multikey.MultiKeyLookup()
-        self._subscriptions.add_index('identifier', multikey.UIndexDefinition(lambda obj: obj.my_identifier.text))
+        self._subscriptions.add_index(
+            'dispatch_identifier',
+            multikey.UIndexDefinition(lambda obj: _mk_dispatch_identifier(obj.reference_parameter, obj.path_suffix)))
+        self._subscriptions.add_index('identifier', multikey.UIndexDefinition(lambda obj: obj.identifier_uuid.hex))
         self._subscriptions.add_index('netloc', multikey.IndexDefinition(
             lambda obj: obj._url.netloc))  # pylint:disable=protected-access
         self.base_urls = None
@@ -302,12 +324,14 @@ class SubscriptionsManager:
     def set_base_urls(self, base_urls):
         self.base_urls = base_urls
 
-    def on_subscribe_request(self, http_header, envelope, epr_path):
-        accepted_encodings = CompressionHandler.parse_header(http_header.get('Accept-Encoding'))
-        subscr = _DevSubscription.from_soap_envelope(
+    def _mk_subscription_instance(self, envelope, accepted_encodings):
+        return _DevSubscription.from_soap_envelope(
             envelope, self._ssl_context, self.biceps_parser, accepted_encodings,
             self._max_subscription_duration, self.base_urls)
 
+    def on_subscribe_request(self, request_data):
+        accepted_encodings = CompressionHandler.parse_header(request_data.http_header.get('Accept-Encoding'))
+        subscr = self._mk_subscription_instance(request_data.envelope, accepted_encodings)
         # assign a soap client
         key = subscr._url.netloc  # pylint:disable=protected-access
         soap_client = self.soap_clients.get(key)
@@ -324,18 +348,22 @@ class SubscriptionsManager:
         self._logger.info('new {}', subscr)
 
         response = Soap12Envelope(Prefixes.partial_map(*self.NotificationPrefixes))
-        reply_address = envelope.address.mk_reply_address(
+        reply_address = request_data.envelope.address.mk_reply_address(
             'http://schemas.xmlsoap.org/ws/2004/08/eventing/SubscribeResponse')
         response.add_header_object(reply_address)
         subscribe_response_node = etree_.Element(wseTag('SubscribeResponse'))
         subscription_manager_node = etree_.SubElement(subscribe_response_node, wseTag('SubscriptionManager'))
-        # child of Subscriptionmanager is the endpoint reference of the subscription manager (wsa:EndpointReferenceType)
-        reference_parameters_node = etree_.Element(wsaTag('ReferenceParameters'))
-        reference_parameters_node.append(copy.copy(subscr.my_identifier))
-        if epr_path.startswith('/'):
-            epr_path = epr_path[1:]
-        my_addr = '{}://{}/{}'.format(self.base_urls[0].scheme, self.base_urls[0].netloc, epr_path)
-        epr = WsaEndpointReferenceType(address=my_addr, reference_parameters_node=reference_parameters_node)
+        # child of subscription manager is the endpoint reference of the subscription manager (wsa:EndpointReferenceType)
+        if subscr.reference_parameter is not None:
+            reference_parameters_node = etree_.Element(wsaTag('ReferenceParameters'))
+            reference_parameters_node.append(copy.copy(subscr.reference_parameter))
+        else:
+            reference_parameters_node = None
+        path = '/'.join(request_data.consumed_path_elements)
+        path_suffix = '' if subscr.path_suffix is None else f'/{subscr.path_suffix}'
+        subscription_address = f'{self.base_urls[0].scheme}://{self.base_urls[0].netloc}/{path}{path_suffix}'
+        epr = WsaEndpointReferenceType(address=subscription_address,
+                                       reference_parameters_node=reference_parameters_node)
         epr.as_etree_subnode(subscription_manager_node)
         expires_node = etree_.SubElement(subscribe_response_node, wseTag('Expires'))
         expires_node.text = subscr.expire_string  # simply confirm request
@@ -343,36 +371,85 @@ class SubscriptionsManager:
         self._logger.debug('on_subscribe_request returns {}', lambda: response.as_xml(pretty=False))
         return response
 
-    def on_unsubscribe_request(self, envelope):
-        ident = envelope.header_node.find(_DevSubscription.IDENT_TAG, namespaces=nsmap)
-        if ident is not None:
-            ident_text = ident.text
-            subscr = self._subscriptions.identifier.get_one(ident_text, allow_none=True)
-            if subscr is None:
-                self._logger.warn('unsubscribe: no object found for id={}', ident_text)
-            else:
-                subscr.close()
-                with self._subscriptions.lock:
-                    self._subscriptions.remove_object(subscr)
-                self._logger.info('unsubscribe: object found and removed (Xaddr = {}, filter = {})',
-                                  subscr.notify_to_address,
-                                  subscr._filters)  # pylint: disable=protected-access
-                # now check if we can close the soap client
-                key = subscr._url.netloc  # pylint: disable=protected-access
-                subscriptions_with_same_soap_client = self._subscriptions.netloc.get(key, [])
-                if len(subscriptions_with_same_soap_client) == 0:
-                    self.soap_clients[key].close()
-                    del self.soap_clients[key]
-                    self._logger.info('unsubscribe: closed soap client to {})', key)
+    def on_unsubscribe_request(self, request_data):
+        subscr = self._get_subscription_for_request(request_data)
+        if subscr is None:
+            self._logger.warn('unsubscribe: no object found for id={}',
+                              _mk_dispatch_identifier_from_request(request_data))
+            response = SoapFault(request_data.envelope,
+                                 code='Receiver',
+                                 reason='unknown Subscription identifier',
+                                 subCode=wseTag('InvalidMessage')
+                                 )
         else:
-            self._logger.error('unsubscribe request did not contain an identifier!!!: {}',
-                               envelope.as_xml(pretty=True))
+            subscr.close()
+            with self._subscriptions.lock:
+                self._subscriptions.remove_object(subscr)
+            self._logger.info('unsubscribe: object found and removed (Xaddr = {}, filter = {})',
+                              subscr.notify_to_address,
+                              subscr._filters)  # pylint: disable=protected-access
+            # now check if we can close the soap client
+            key = subscr._url.netloc  # pylint: disable=protected-access
+            subscriptions_with_same_soap_client = self._subscriptions.netloc.get(key, [])
+            if len(subscriptions_with_same_soap_client) == 0:
+                self.soap_clients[key].close()
+                del self.soap_clients[key]
+                self._logger.info('unsubscribe: closed soap client to {})', key)
+            response = Soap12Envelope(nsmap)
+            reply_address = request_data.envelope.address.mk_reply_address(
+                'http://schemas.xmlsoap.org/ws/2004/08/eventing/UnsubscribeResponse')
+            response.add_header_object(reply_address)
+            # response has empty body
+        return response
 
-        response = Soap12Envelope(nsmap)
-        reply_address = envelope.address.mk_reply_address(
-            'http://schemas.xmlsoap.org/ws/2004/08/eventing/UnsubscribeResponse')
-        response.add_header_object(reply_address)
-        # response has empty body
+    def on_get_status_request(self, request_data):
+        self._logger.debug('on_get_status_request {}', lambda: request_data.envelope.as_xml(pretty=True))
+        subscr = self._get_subscription_for_request(request_data)
+        if subscr is None:
+            response = SoapFault(request_data.envelope,
+                                 code='Receiver',
+                                 reason='unknown Subscription identifier',
+                                 subCode=wseTag('InvalidMessage')
+                                 )
+        else:
+            response = Soap12Envelope(Prefixes.partial_map(*self.NotificationPrefixes))
+            reply_address = request_data.envelope.address.mk_reply_address(
+                'http://schemas.xmlsoap.org/ws/2004/08/eventing/GetStatusResponse')
+            response.add_header_object(reply_address)
+            renew_response_node = etree_.Element(wseTag('GetStatusResponse'))
+            expires_node = etree_.SubElement(renew_response_node, wseTag('Expires'))
+            expires_node.text = subscr.expire_string  # simply confirm request
+            response.add_body_element(renew_response_node)
+        return response
+
+    def on_renew_request(self, request_data):
+        expires = request_data.envelope.body_node.xpath('wse:Renew/wse:Expires/text()', namespaces=nsmap)
+        if len(expires) == 0:
+            expires = None
+            self._logger.debug('on_renew_request: no requested duration found, allowing max.')
+        else:
+            expires = isoduration.parse_duration(str(expires[0]))
+            self._logger.debug('on_renew_request {} seconds', expires)
+
+        subscr = self._get_subscription_for_request(request_data)
+        if subscr is None:
+            response = SoapFault(request_data.envelope,
+                                 code='Receiver',
+                                 reason='unknown Subscription identifier',
+                                 subCode=wseTag('UnableToRenew')
+                                 )
+
+        else:
+            subscr.renew(expires)
+
+            response = Soap12Envelope(Prefixes.partial_map(*self.NotificationPrefixes))
+            reply_address = request_data.envelope.address.mk_reply_address(
+                'http://schemas.xmlsoap.org/ws/2004/08/eventing/RenewResponse')
+            response.add_header_object(reply_address)
+            renew_response_node = etree_.Element(wseTag('RenewResponse'))
+            expires_node = etree_.SubElement(renew_response_node, wseTag('Expires'))
+            expires_node.text = subscr.expire_string
+            response.add_body_element(renew_response_node)
         return response
 
     def notify_operation(self, operation, transaction_id, invocation_state,
@@ -389,63 +466,8 @@ class SubscriptionsManager:
         body_node = self._msg_factory.mk_operation_invoked_report_body(ns_map, mdib_version, sequence_id,
                                                                        operation_handle_ref, transaction_id,
                                                                        invocation_state, error, error_message)
-        # for s in subscribers:
-        #     self._logger.info('notify_operation: sending report to {}', s.notify_to_address)
-        #     self._send_notification_report(s, body_bode, action, Prefixes.partial_map(*self.NotificationPrefixes))
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'notify_operation')
         self._do_housekeeping()
-
-    def on_get_status_request(self, envelope):
-        self._logger.debug('on_get_status_request {}', lambda: envelope.as_xml(pretty=True))
-        subscr = self._get_subscription_for_request(envelope)
-        if subscr is None:
-            response = SoapFault(envelope,
-                                 code='Receiver',
-                                 reason='unknown Subscription identifier',
-                                 subCode=wseTag('InvalidMessage')
-                                 )
-
-        else:
-            response = Soap12Envelope(Prefixes.partial_map(*self.NotificationPrefixes))
-            reply_address = envelope.address.mk_reply_address(
-                'http://schemas.xmlsoap.org/ws/2004/08/eventing/GetStatusResponse')
-            response.add_header_object(reply_address)
-            renew_response_node = etree_.Element(wseTag('GetStatusResponse'))
-            expires_node = etree_.SubElement(renew_response_node, wseTag('Expires'))
-            expires_node.text = subscr.expire_string  # simply confirm request
-            response.add_body_element(renew_response_node)
-        return response
-
-    def on_renew_request(self, envelope):
-        # identifierNode = envelope.header_node.find(_DevSubscription.IDENT_TAG, namespaces=nsmap)
-        expires = envelope.body_node.xpath('wse:Renew/wse:Expires/text()', namespaces=nsmap)
-        if len(expires) == 0:
-            expires = None
-            self._logger.debug('on_renew_request: no requested duration found, allowing max.')
-        else:
-            expires = isoduration.parse_duration(str(expires[0]))
-            self._logger.debug('on_renew_request {} seconds', expires)
-
-        subscr = self._get_subscription_for_request(envelope)
-        if subscr is None:
-            response = SoapFault(envelope,
-                                 code='Receiver',
-                                 reason='unknown Subscription identifier',
-                                 subCode=wseTag('UnableToRenew')
-                                 )
-
-        else:
-            subscr.renew(expires)
-
-            response = Soap12Envelope(Prefixes.partial_map(*self.NotificationPrefixes))
-            reply_address = envelope.address.mk_reply_address(
-                'http://schemas.xmlsoap.org/ws/2004/08/eventing/RenewResponse')
-            response.add_header_object(reply_address)
-            renew_response_node = etree_.Element(wseTag('RenewResponse'))
-            expires_node = etree_.SubElement(renew_response_node, wseTag('Expires'))
-            expires_node.text = subscr.expire_string
-            response.add_body_element(renew_response_node)
-        return response
 
     def send_episodic_metric_report(self, states, nsmapper, mdib_version, sequence_id):
         action = self.sdc_definitions.Actions.EpisodicMetricReport
@@ -660,20 +682,14 @@ class SubscriptionsManager:
         with self._subscriptions.lock:
             return [s for s in self._subscriptions.objects if s.matches(action)]
 
-    def _get_subscription_for_request(self, envelope):
-        request_name = envelope.body_node[0].tag
-        identifier_node = envelope.header_node.find(_DevSubscription.IDENT_TAG, namespaces=nsmap)
-        if identifier_node is None:
-            raise RuntimeError(f'no Identifier found in {request_name}')
-        identifier = identifier_node.text
+    def _get_subscription_for_request(self, request_data):
+        request_name = request_data.envelope.body_node[0].tag
+        dispatch_identifier = _mk_dispatch_identifier_from_request(request_data)
         with self._subscriptions.lock:
-            subscr = [s for s in self._subscriptions.objects if s.my_identifier.text == identifier]
-        if len(subscr) == 1:
-            return subscr[0]
-        if len(subscr) == 0:
-            self._logger.error('on {}: unknown Subscription identifier "{}"', request_name, identifier)
-            return None
-        raise RuntimeError(f'Have {len(subscr)} subscriptions with identifier "{identifier}"!')
+            subscr = self._subscriptions.dispatch_identifier.get_one(dispatch_identifier)
+            if subscr is None:
+                self._logger.error('on {}: unknown Subscription identifier "{}"', request_name, dispatch_identifier)
+            return subscr
 
     def _do_housekeeping(self):
         """ remove expired or invalid subscriptions"""
@@ -714,7 +730,8 @@ class SubscriptionsManager:
         with self._subscriptions.lock:
             for subscription in self._subscriptions.objects:
                 if subscription.max_roundtrip_time > 0:
-                    ret[(subscription.notify_to_address, subscription.short_filter_names())] = subscription.get_roundtrip_stats()
+                    ret[(subscription.notify_to_address,
+                         subscription.short_filter_names())] = subscription.get_roundtrip_stats()
         return ret
 
     def get_client_round_trip_times(self):
@@ -733,3 +750,22 @@ class SubscriptionsManager:
             all_values = [stat.values for stat in stats]
             ret[key] = _RoundTripData(all_values, max([s.max for s in stats]), )
         return ret
+
+
+class SubscriptionsManagerPath(_SubscriptionsManagerBase):
+    """This implementation uses path dispatching to identify subscriptions."""
+
+    def _mk_subscription_instance(self, envelope, accepted_encodings):
+        subscription = super()._mk_subscription_instance( envelope, accepted_encodings)
+        subscription.path_suffix = subscription.identifier_uuid.hex
+        return subscription
+
+class SubscriptionsManagerReferenceParam(_SubscriptionsManagerBase):
+    """This implementation uses reference parameters to identify subscriptions."""
+
+    def _mk_subscription_instance(self, envelope, accepted_encodings):
+        subscription = super()._mk_subscription_instance( envelope, accepted_encodings)
+        # add  a reference parameter
+        subscription.reference_parameter = etree_.Element(_DevSubscription.IDENT_TAG)
+        subscription.reference_parameter.text = subscription.identifier_uuid.hex
+        return subscription

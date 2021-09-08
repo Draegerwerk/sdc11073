@@ -98,7 +98,7 @@ class SomeDevice(SdcDevice):
 
     """
     def __init__(self, wsdiscovery, mdib_xml_string, my_uuid=None,
-                 validate=True, ssl_context=None, log_prefix='',
+                 validate=True, ssl_context=None, log_prefix='', specific_components=None,
                  chunked_messages=False):
         model = DPWSThisModel(manufacturer='Draeger CoC Systems',
                               manufacturer_url='www.draeger.com',
@@ -109,7 +109,6 @@ class SomeDevice(SdcDevice):
         device = DPWSThisDevice(friendly_name='Py SomeDevice',
                                 firmware_version='0.99',
                                 serial_number='12345')
-#        log_prefix = '' if not ident else '<{}>:'.format(ident)
         device_mdib_container = DeviceMdibContainer.from_string(mdib_xml_string, log_prefix=log_prefix)
         # set Metadata
         mdsDescriptor = device_mdib_container.descriptions.NODETYPE.get_one(namespaces.domTag('MdsDescriptor'))
@@ -119,11 +118,13 @@ class SomeDevice(SdcDevice):
         mdsDescriptor.MetaData.ModelNumber = '0.99'
         super(SomeDevice, self).__init__(wsdiscovery, model, device, device_mdib_container, my_uuid, validate,
                                          ssl_context=ssl_context, log_prefix=log_prefix,
+                                         specific_components=specific_components,
                                          chunked_messages=chunked_messages)
 
     @classmethod
     def from_mdib_file(cls, wsdiscovery, my_uuid, mdib_xml_path,
-                 validate=True, ssl_context=None, log_level=logging.INFO, log_prefix='', chunked_messages=False):
+                 validate=True, ssl_context=None, log_level=logging.INFO, log_prefix='',
+                       specific_components=None, chunked_messages=False):
         """
         An alternative constructor for the class
         """
@@ -134,4 +135,5 @@ class SomeDevice(SdcDevice):
         with open(mdib_xml_path, 'rb') as f:
             mdib_xml_string = f.read()
         return cls(wsdiscovery, mdib_xml_string, my_uuid, validate, ssl_context, log_prefix=log_prefix,
+                   specific_components=specific_components,
                    chunked_messages=chunked_messages)

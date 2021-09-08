@@ -263,15 +263,6 @@ class ThreadingHTTPServer(HTTPServer):
                     self.logger.warn('error closing socket for notifications from {}: {}', client_addr, ex)
 
 
-class AbstractDispatcher(ABC):
-    @abstractmethod
-    def on_post(self, path: str, headers, request: str) -> [str, None]:
-        pass
-
-    @abstractmethod
-    def on_get(self, path: str, headers) -> str:
-        pass
-
 
 class HttpServerThreadBase(threading.Thread):
 
@@ -287,7 +278,7 @@ class HttpServerThreadBase(threading.Thread):
         :param ssl_context: a ssl.SslContext instance or None
         :param supported_encodings: a list of strings
         :param request_handler_cls: a class derived from HTTPRequestHandler
-        :param dispatcher: a AbstractDispatcher instance
+        :param dispatcher: a Dispatcher instance
         :param logger: a python logger
         :param chunked_responses:
         """

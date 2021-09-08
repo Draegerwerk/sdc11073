@@ -73,7 +73,7 @@ class SdcDevice:
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
 
         # host dispatcher provides data of the sdc device itself.
-        self._host_dispatcher = SOAPActionDispatcher(f'/{self.path_prefix}')
+        self._host_dispatcher = SOAPActionDispatcher(None)
         self._host_dispatcher.register_action_handler('{}/Get'.format(Prefixes.WXF.namespace), self._on_get_metadata)
         self._host_dispatcher.register_action_handler('{}/Probe'.format(Prefixes.WSD.namespace), self._on_probe_request)
 
@@ -138,11 +138,11 @@ class SdcDevice:
             return self.hosted_services.localization_service.localization_storage
         return None
 
-    def _on_get_metadata(self, http_header, request):  # pylint: disable=unused-argument
+    def _on_get_metadata(self, request_data):  # pylint: disable=unused-argument
         self._logger.info('_on_get_metadata')
         _nsm = self._mdib.nsmapper
         response = pysoap.soapenvelope.Soap12Envelope(_nsm.doc_ns_map)
-        reply_address = request.address.mk_reply_address('{}/GetResponse'.format(Prefixes.WXF.namespace))
+        reply_address = request_data.envelope.address.mk_reply_address('{}/GetResponse'.format(Prefixes.WXF.namespace))
         reply_address.addr_to = WSA_ANONYMOUS
         reply_address.message_id = uuid.uuid4().urn
         response.add_header_object(reply_address)

@@ -15,7 +15,7 @@ from .. import commlog
 from .. import etc, isoduration
 from .. import loghelper
 from .. import observableproperties as properties
-from ..httprequesthandler import HTTPRequestHandler, AbstractDispatcher, HttpServerThreadBase
+from ..httprequesthandler import HTTPRequestHandler, HttpServerThreadBase
 from ..namespaces import nsmap as _global_nsmap
 from ..namespaces import wseTag, wsaTag
 
@@ -374,7 +374,7 @@ class _DispatchError(Exception):
         self.error_text = error_text
 
 
-class SOAPNotificationsDispatcher(AbstractDispatcher):
+class SOAPNotificationsDispatcher:
     """ receiver of all notifications"""
 
     def __init__(self, log_prefix, sdc_definitions):
