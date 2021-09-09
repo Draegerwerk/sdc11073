@@ -14,7 +14,7 @@ from .. import loghelper
 from .. import netconn
 from .. import observableproperties as properties
 from ..definitions_base import ProtocolsRegistry, SchemaValidators
-from ..namespaces import Prefixes
+from ..namespaces import Prefixes, msgTag
 from ..namespaces import nsmap
 from ..pysoap.soapclient import SoapClient
 from ..pysoap.soapenvelope import WsAddress, Soap12Envelope, DPWSEnvelope, MetaDataSection
@@ -119,6 +119,161 @@ def sort_ip_addresses(adresses, ref_ip):
     return adresses
 
 
+class NotificationsDispatcherBase:
+    def __init__(self, sdc_client, logger):
+        self._sdc_client = sdc_client
+        self._logger = logger
+        self._lookup = self._mk_lookup()
+
+    def _mk_lookup(self):
+        raise NotImplementedError
+
+    def on_notification(self, envelope):
+        self._sdc_client.state_event_report = envelope  # update observable
+
+    def _on_operation_invoked_report(self, envelope):
+        ret = self._sdc_client.operations_manager.on_operation_invoked_report(envelope)
+        report = envelope.body_node.xpath('msg:OperationInvokedReport', namespaces=nsmap)
+        self._sdc_client.operation_invoked_report = report[0]  # update observable
+        return ret
+
+    def _on_waveform_report(self, envelope):
+        try:
+            waveform_node = envelope.body_node[0]  # the msg:WaveformStreamReport node
+        except IndexError:
+            waveform_node = None
+
+        if waveform_node is None:
+            self._logger.error('WaveformStream does not contain msg:WaveformStream!', envelope)
+
+        self._sdc_client.waveform_report = waveform_node  # update observable
+
+    def _on_episodic_metric_report(self, envelope):
+        report = self._get_report(envelope, 'EpisodicMetricReport')
+        if report is not None:
+            self._sdc_client.episodic_metric_report = report
+
+    def _on_periodic_metric_report(self, envelope):
+        report = self._get_report(envelope, 'PeriodicMetricReport')
+        if report is not None:
+            self._sdc_client.periodic_metric_report = report
+
+    def _on_episodic_alert_report(self, envelope):
+        report = self._get_report(envelope, 'EpisodicAlertReport')
+        if report is not None:
+            self._sdc_client.episodic_alert_report = report
+
+    def _on_periodic_alert_report(self, envelope):
+        report = self._get_report(envelope, 'PeriodicAlertReport')
+        if report is not None:
+            self._sdc_client.periodic_alert_report = report
+
+    def _on_episodic_component_report(self, envelope):
+        report = self._get_report(envelope, 'EpisodicComponentReport')
+        if report is not None:
+            self._sdc_client.episodic_component_report = report
+
+    def _on_periodic_component_report(self, envelope):
+        report = self._get_report(envelope, 'PeriodicComponentReport')
+        if report is not None:
+            self._sdc_client.periodic_component_report = report
+
+    def _on_episodic_operational_state_report(self, envelope):
+        report = self._get_report(envelope, 'EpisodicOperationalStateReport')
+        if report is not None:
+            self._sdc_client.episodic_operational_state_report = report
+
+    def _on_periodic_operational_state_report(self, envelope):
+        report = self._get_report(envelope, 'PeriodicOperationalStateReport')
+        if report is not None:
+            self._sdc_client.periodic_operational_state_report = report
+
+    def _on_episodic_context_report(self, envelope):
+        report = self._get_report(envelope, 'EpisodicContextReport')
+        if report is not None:
+            self._sdc_client.episodic_context_report = report
+
+    def _on_periodic_context_report(self, envelope):
+        report = self._get_report(envelope, 'PeriodicContextReport')
+        if report is not None:
+            self._sdc_client.periodic_context_report = report
+
+    def _on_description_report(self, envelope):
+        report = self._get_report(envelope, 'DescriptionModificationReport')
+        if report is not None:
+            self._sdc_client.description_modification_report = report
+
+    def _get_report(self, envelope, name):
+        reports = envelope.body_node.xpath(f'msg:{name}', namespaces=nsmap)
+        if len(reports) == 1:
+            self._logger.debug('_get_report {}', name)
+            return reports[0]
+        if len(reports) > 1:
+            self._logger.error('report contains {} elements of msg:{}!', len(reports), name)
+        else:
+            self._logger.error('report does not contain msg:{}!', name)
+        return None
+
+
+class NotificationsDispatcherByBody(NotificationsDispatcherBase):
+    def _mk_lookup(self):
+        return {
+            msgTag('EpisodicMetricReport'): self._on_episodic_metric_report,
+            msgTag('EpisodicAlertReport'): self._on_episodic_alert_report,
+            msgTag('EpisodicComponentReport'): self._on_episodic_component_report,
+            msgTag('EpisodicOperationalStateReport'): self._on_episodic_operational_state_report,
+            msgTag('WaveformStream'): self._on_waveform_report,
+            msgTag('OperationInvokedReport'): self._on_operation_invoked_report,
+            msgTag('EpisodicContextReport'): self._on_episodic_context_report,
+            msgTag('DescriptionModificationReport'): self._on_description_report,
+            msgTag('PeriodicMetricReport'): self._on_periodic_metric_report,
+            msgTag('PeriodicAlertReport'): self._on_periodic_alert_report,
+            msgTag('PeriodicComponentReport'): self._on_periodic_component_report,
+            msgTag('PeriodicOperationalStateReport'): self._on_periodic_operational_state_report,
+            msgTag('PeriodicContextReport'): self._on_periodic_context_report,
+        }
+
+    def on_notification(self, envelope):
+        """ dispatch by message body"""
+        super().on_notification(envelope)
+        message = envelope.body_node[0].tag
+        q_name = etree_.QName(message)
+        method = self._lookup.get(q_name)
+        if method is None:
+            raise RuntimeError('unknown message {}'.format(q_name))
+        method(envelope)
+
+
+class NotificationsDispatcherByAction(NotificationsDispatcherBase):
+    def _mk_lookup(self):
+        actions = self._sdc_client.sdc_definitions.Actions
+
+        return {
+            actions.EpisodicMetricReport: self._on_episodic_metric_report,
+            actions.EpisodicAlertReport: self._on_episodic_alert_report,
+            actions.EpisodicComponentReport: self._on_episodic_component_report,
+            actions.EpisodicOperationalStateReport: self._on_episodic_operational_state_report,
+            actions.Waveform: self._on_waveform_report,
+            actions.OperationInvokedReport: self._on_operation_invoked_report,
+            actions.EpisodicContextReport: self._on_episodic_context_report,
+            actions.DescriptionModificationReport: self._on_description_report,
+            actions.PeriodicMetricReport: self._on_periodic_metric_report,
+            actions.PeriodicAlertReport: self._on_periodic_alert_report,
+            actions.PeriodicComponentReport: self._on_periodic_component_report,
+            actions.PeriodicOperationalStateReport: self._on_periodic_operational_state_report,
+            actions.PeriodicContextReport: self._on_periodic_context_report,
+        }
+
+    def on_notification(self, envelope):
+        """ dispatch by message body"""
+        super().on_notification(envelope)
+        action = envelope.address.action
+        method = self._lookup.get(action)
+        if method is None:
+            raise RuntimeError('unknown message {}'.format(action))
+        method(envelope)
+
+
 class SdcClient:
     """ The SdcClient can be used with a known device location.
     The location is typically the result of a wsdiscovery process.
@@ -177,7 +332,7 @@ class SdcClient:
         self.log_prefix = log_prefix
         self.chunked_requests = chunked_requests
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
-        self._logger_wf = loghelper.get_logger_adapter('sdc.client.wf', self.log_prefix)  # waveform logger
+        # self._logger_wf = loghelper.get_logger_adapter('sdc.client.wf', self.log_prefix)  # waveform logger
         self._my_ipaddress = self._find_best_own_ip_address()
         self._logger.info('SdcClient for {} uses own IP Address {}', self._device_location, self._my_ipaddress)
         self.metadata = None
@@ -195,7 +350,7 @@ class SdcClient:
 
         self._compression_methods = compression.CompressionHandler.available_encodings[:]
         self._subscription_mgr = None
-        self._operations_manager = None
+        self.operations_manager = None
         self._service_clients = {}
         self._mdib = None
         self._soap_clients = {}  # all http connections that this client holds
@@ -206,6 +361,8 @@ class SdcClient:
         self.msg_reader = msg_reader_cls(self._logger, 'msg_reader')
         msg_factory_cls = self._components.msg_factory_class
         self._msg_factory = msg_factory_cls(self.sdc_definitions, self._logger)
+        notifications_dispatcher_cls = self._components.notifications_dispatcher_class
+        self._notifications_dispatcher = notifications_dispatcher_cls(self, self._logger)
 
     def _register_mdib(self, mdib):
         """ SdcClient sometimes must know the mdib data (e.g. Set service, activate method)."""
@@ -339,10 +496,10 @@ class SdcClient:
 
         # start operationInvoked subscription and tell all
         operations_manager_class = self._components.operations_manager_class
-        self._operations_manager = operations_manager_class(self.log_prefix)
+        self.operations_manager = operations_manager_class(self.log_prefix)
 
         for client in self._service_clients.values():
-            client.set_operations_manager(self._operations_manager)
+            client.set_operations_manager(self.operations_manager)
 
         # start all subscriptions
         # group subscriptions per hosted service
@@ -359,7 +516,7 @@ class SdcClient:
                     subscribe_actions -= set(periodic_actions)
                 try:
                     self._subscribe(dpws_hosted, subscribe_actions,
-                                    self._on_any_state_event_report)
+                                    self._notifications_dispatcher.on_notification)
                 except Exception as ex:
                     self.all_subscribed = False  # => do not log errors when mdib versions are missing in notifications
                     self._logger.error('start_all: could not subscribe: error = {}, actions= {}',
@@ -481,7 +638,7 @@ class SdcClient:
             log_prefix=self.log_prefix,
             sdc_definitions=self.sdc_definitions,
             supported_encodings=self._compression_methods,
-            soap_notifications_handler_class=notifications_handler_class,
+            notifications_handler_class=notifications_handler_class,
             async_dispatch=async_dispatch)
 
         self._notifications_dispatcher_thread.start()
@@ -492,129 +649,9 @@ class SdcClient:
         if self._notifications_dispatcher_thread is not None:
             self._notifications_dispatcher_thread.stop(close_all_connections)
 
-    def _on_any_state_event_report(self, envelope):
-        """ dispatch by message body"""
-        self.state_event_report = envelope  # update observable
-        message = envelope.body_node[0].tag
-        if message.endswith('EpisodicMetricReport'):
-            return self._on_episodic_metric_report(envelope)
-        if message.endswith('EpisodicAlertReport'):
-            return self._on_episodic_alert_report(envelope)
-        if message.endswith('EpisodicComponentReport'):
-            return self._on_episodic_component_report(envelope)
-        if message.endswith('EpisodicOperationalStateReport'):
-            return self._on_episodic_operational_state_report(envelope)
-        if message.endswith('EpisodicContextReport'):
-            return self._on_episodic_context_report(envelope)
-        if message.endswith('WaveformStream') or message.endswith(
-                'WaveformStreamReport'):  # different names in Draft6 and Final
-            return self._on_waveform_report(envelope)
-        if message.endswith('OperationInvokedReport'):
-            return self._on_operation_invoked_report(envelope)
-        if message.endswith('EpisodicContextReport'):
-            return self._on_episodic_context_report(envelope)
-        if message.endswith('DescriptionModificationReport'):
-            return self._on_description_report(envelope)
-        if message.endswith('PeriodicMetricReport'):
-            return self._on_periodic_metric_report(envelope)
-        if message.endswith('PeriodicAlertReport'):
-            return self._on_periodic_alert_report(envelope)
-        if message.endswith('PeriodicComponentReport'):
-            return self._on_periodic_component_report(envelope)
-        if message.endswith('PeriodicOperationalStateReport'):
-            return self._on_periodic_operational_state_report(envelope)
-        if message.endswith('PeriodicContextReport'):
-            return self._on_periodic_context_report(envelope)
-        raise RuntimeError('unknown message {}'.format(message))
-
-    def _on_operation_invoked_report(self, envelope):
-        ret = self._operations_manager.on_operation_invoked_report(envelope)
-        report = envelope.body_node.xpath('msg:OperationInvokedReport', namespaces=nsmap)
-        self.operation_invoked_report = report[0]  # update observable
-        return ret
-
-    def _on_waveform_report(self, envelope):
-        try:
-            waveform_node = envelope.body_node[0]  # the msg:WaveformStreamReport node
-        except IndexError:
-            waveform_node = None
-
-        if waveform_node is not None:
-            self._logger_wf.debug('_on_waveform_report')
-        else:
-            self._logger_wf.error('WaveformStream does not contain msg:WaveformStream!', envelope)
-
-        self.waveform_report = waveform_node  # update observable
-
-    def _get_report(self, envelope, name):
-        reports = envelope.body_node.xpath(f'msg:{name}', namespaces=nsmap)
-        if len(reports) == 1:
-            self._logger.debug('_get_report {}', name)
-            return reports[0]
-        if len(reports) > 1:
-            self._logger.error('report contains {} elements of msg:{}!', len(reports), name)
-        else:
-            self._logger.error('report does not contain msg:{}!', name)
-        return None
-
-    def _on_episodic_metric_report(self, envelope):
-        report = self._get_report(envelope, 'EpisodicMetricReport')
-        if report is not None:
-            self.episodic_metric_report = report
-
-    def _on_periodic_metric_report(self, envelope):
-        report = self._get_report(envelope, 'PeriodicMetricReport')
-        if report is not None:
-            self.periodic_metric_report = report
-
-    def _on_episodic_alert_report(self, envelope):
-        report = self._get_report(envelope, 'EpisodicAlertReport')
-        if report is not None:
-            self.episodic_alert_report = report
-
-    def _on_periodic_alert_report(self, envelope):
-        report = self._get_report(envelope, 'PeriodicAlertReport')
-        if report is not None:
-            self.periodic_alert_report = report
-
-    def _on_episodic_component_report(self, envelope):
-        report = self._get_report(envelope, 'EpisodicComponentReport')
-        if report is not None:
-            self.episodic_component_report = report
-
-    def _on_periodic_component_report(self, envelope):
-        report = self._get_report(envelope, 'PeriodicComponentReport')
-        if report is not None:
-            self.periodic_component_report = report
-
-    def _on_episodic_operational_state_report(self, envelope):
-        report = self._get_report(envelope, 'EpisodicOperationalStateReport')
-        if report is not None:
-            self.episodic_operational_state_report = report
-
-    def _on_periodic_operational_state_report(self, envelope):
-        report = self._get_report(envelope, 'PeriodicOperationalStateReport')
-        if report is not None:
-            self.periodic_operational_state_report = report
-
-    def _on_episodic_context_report(self, envelope):
-        report = self._get_report(envelope, 'EpisodicContextReport')
-        if report is not None:
-            self.episodic_context_report = report
-
-    def _on_periodic_context_report(self, envelope):
-        report = self._get_report(envelope, 'PeriodicContextReport')
-        if report is not None:
-            self.periodic_context_report = report
-
-    def _on_description_report(self, envelope):
-        report = self._get_report(envelope, 'DescriptionModificationReport')
-        if report is not None:
-            self.description_modification_report = report
-
-    def _on_subscription_end(self, envelope):
-        self.state_event_report = envelope  # update observable
-        self._subscription_mgr.on_subscription_end(envelope)
+    def _on_subscription_end(self, request_data):
+        self.state_event_report = request_data.envelope  # update observable
+        self._subscription_mgr.on_subscription_end(request_data)
 
     def __str__(self):
         return 'SdcClient to {} {} on {}'.format(self.host_description.this_device,

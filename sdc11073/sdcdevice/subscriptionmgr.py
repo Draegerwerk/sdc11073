@@ -41,6 +41,7 @@ class _RoundTripData:
     def __repr__(self):
         return 'min={:.4f} max={:.4f} avg={:.4f} absmax={:.4f}'.format(self.min, self.max, self.avg, self.abs_max)
 
+
 def _mk_dispatch_identifier(reference_parameter_node, path_suffix):
     if path_suffix == '':
         path_suffix = None
@@ -71,20 +72,23 @@ class _DevSubscription:
         self.mode = mode
         self.base_urls = base_urls
         self.notify_to_address = notify_to_address
-        self._url = urllib.parse.urlparse(notify_to_address)
+        self._notify_to_url = urllib.parse.urlparse(notify_to_address)
 
         self.notify_ref_nodes = []
         if notify_ref_node is not None:
             self.notify_ref_nodes = list(notify_ref_node)  # all children
 
         self.end_to_address = end_to_address
+        if end_to_address is not None:
+            self._end_to_url = urllib.parse.urlparse(end_to_address)
+        else:
+            self._end_to_url = None
         self.end_to_ref_nodes = []
         if end_to_ref_node is not None:
             self.end_to_ref_nodes = list(end_to_ref_node)  # all children
         self.identifier_uuid = uuid.uuid4()
-        self.reference_parameter = None # etree node, used for reference parameters based dispatching
-        self.path_suffix = None # used for path based dispatching
-
+        self.reference_parameter = None  # etree node, used for reference parameters based dispatching
+        self.path_suffix = None  # used for path based dispatching
 
         self._max_subscription_duration = max_subscription_duration
         self._started = None
@@ -178,7 +182,7 @@ class _DevSubscription:
         try:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
 
-            self._soap_client.post_soap_envelope_to(self._url.path, soap_envelope, response_factory=None,
+            self._soap_client.post_soap_envelope_to(self._notify_to_url.path, soap_envelope, response_factory=None,
                                                     msg='send_notification_report {}'.format(action))
             try:
                 roundtrip_time = roundtrip_timer.result(0)
@@ -228,7 +232,8 @@ class _DevSubscription:
         envelope.add_body_element(subscription_end_node)
         rep = self._mk_end_report(envelope, action)
         try:
-            self._soap_client.post_soap_envelope_to(self._url.path, rep, response_factory=lambda x, schema: x,
+            url = self._end_to_url or self._notify_to_url
+            self._soap_client.post_soap_envelope_to(url.path, rep, response_factory=lambda x, schema: x,
                                                     msg='send_notification_end_message {}'.format(action))
             self._notify_errors = 0
             self._is_connection_error = False
@@ -318,7 +323,7 @@ class _SubscriptionsManagerBase:
             multikey.UIndexDefinition(lambda obj: _mk_dispatch_identifier(obj.reference_parameter, obj.path_suffix)))
         self._subscriptions.add_index('identifier', multikey.UIndexDefinition(lambda obj: obj.identifier_uuid.hex))
         self._subscriptions.add_index('netloc', multikey.IndexDefinition(
-            lambda obj: obj._url.netloc))  # pylint:disable=protected-access
+            lambda obj: obj._notify_to_url.netloc))  # pylint:disable=protected-access
         self.base_urls = None
 
     def set_base_urls(self, base_urls):
@@ -333,7 +338,7 @@ class _SubscriptionsManagerBase:
         accepted_encodings = CompressionHandler.parse_header(request_data.http_header.get('Accept-Encoding'))
         subscr = self._mk_subscription_instance(request_data.envelope, accepted_encodings)
         # assign a soap client
-        key = subscr._url.netloc  # pylint:disable=protected-access
+        key = subscr._notify_to_url.netloc  # pylint:disable=protected-access
         soap_client = self.soap_clients.get(key)
         if soap_client is None:
             soap_client = SoapClient(key, loghelper.get_logger_adapter('sdc.device.soap', self.log_prefix),
@@ -389,7 +394,7 @@ class _SubscriptionsManagerBase:
                               subscr.notify_to_address,
                               subscr._filters)  # pylint: disable=protected-access
             # now check if we can close the soap client
-            key = subscr._url.netloc  # pylint: disable=protected-access
+            key = subscr._notify_to_url.netloc  # pylint: disable=protected-access
             subscriptions_with_same_soap_client = self._subscriptions.netloc.get(key, [])
             if len(subscriptions_with_same_soap_client) == 0:
                 self.soap_clients[key].close()
@@ -756,15 +761,16 @@ class SubscriptionsManagerPath(_SubscriptionsManagerBase):
     """This implementation uses path dispatching to identify subscriptions."""
 
     def _mk_subscription_instance(self, envelope, accepted_encodings):
-        subscription = super()._mk_subscription_instance( envelope, accepted_encodings)
+        subscription = super()._mk_subscription_instance(envelope, accepted_encodings)
         subscription.path_suffix = subscription.identifier_uuid.hex
         return subscription
+
 
 class SubscriptionsManagerReferenceParam(_SubscriptionsManagerBase):
     """This implementation uses reference parameters to identify subscriptions."""
 
     def _mk_subscription_instance(self, envelope, accepted_encodings):
-        subscription = super()._mk_subscription_instance( envelope, accepted_encodings)
+        subscription = super()._mk_subscription_instance(envelope, accepted_encodings)
         # add  a reference parameter
         subscription.reference_parameter = etree_.Element(_DevSubscription.IDENT_TAG)
         subscription.reference_parameter.text = subscription.identifier_uuid.hex

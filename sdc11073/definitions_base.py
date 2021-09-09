@@ -1,19 +1,19 @@
 import os
 import urllib
 from dataclasses import dataclass
-from lxml.etree import QName
 from typing import Type, Callable, List, Any
-#from .sdcdevice.sdc_handlers import AbstractServiceFactory
-#from .sdcdevice import SdcDevice
-from .pysoap.msgfactory import AbstractMessageFactory
-from .pysoap.msgreader import AbstractMessageReader
+
 from lxml import etree as etree_
-from .wsdiscovery import Scope
+from lxml.etree import QName
+
 from . import loghelper
 from .namespaces import Prefixes
 from .namespaces import dpwsTag
-#from .mdib.devicemdib import DeviceMdibContainer
+from .pysoap.msgfactory import AbstractMessageFactory
+from .pysoap.msgreader import AbstractMessageReader
 from .sdcdevice.sdc_handlers import HostedServices
+from .wsdiscovery import Scope
+
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
 
@@ -37,6 +37,7 @@ class SdcClientComponents:
     msg_reader_class: type = None
     notifications_receiver_class: type = None
     notifications_handler_class: type = None
+    notifications_dispatcher_class: type = None
     subscription_manager_class: type = None
     operations_manager_class: type = None
     service_handlers: dict = None

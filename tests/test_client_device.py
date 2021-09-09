@@ -1526,7 +1526,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
         location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
-        specific_components=SdcDeviceComponents(subscriptions_manager_class=SubscriptionsManagerReferenceParam)
+        specific_components = SdcDeviceComponents(subscriptions_manager_class=SubscriptionsManagerReferenceParam)
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<Final> ',
                                                     specific_components=specific_components,
                                                     chunked_messages=True)

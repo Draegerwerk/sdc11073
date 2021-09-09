@@ -45,6 +45,7 @@ class SOAPActionDispatcher:
     """This is a soap envelope forwarder.
     It can register handlers for action strings and forwards soap envelope to registered handlers, based on the
     action address of the soap envelope."""
+
     def __init__(self, path_element, log_prefix=None):
         self.path_element = path_element
         self._soap_action_callbacks = {}
@@ -65,7 +66,8 @@ class SOAPActionDispatcher:
             raise InvalidActionError(request_data.envelope)
         returned_envelope = func(request_data)
         duration = time.monotonic() - begin
-        self._logger.debug('incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements, duration)
+        self._logger.debug('incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements,
+                           duration)
         return returned_envelope
 
     def dispatch_get_request(self, request_data):  # pylint:disable=unused-argument
@@ -313,15 +315,15 @@ class DPWSHostedService(EventService):
         my_base_urls = [u for u in all_base_urls if u.netloc == host]
         my_base_url = my_base_urls[0] if len(my_base_urls) > 0 else all_base_urls[0]
         location_node.text = '{}://{}/{}/?wsdl'.format(my_base_url.scheme,
-                                                      my_base_url.netloc,
-                                                      '/'.join(consumed_path_elements))
+                                                       my_base_url.netloc,
+                                                       '/'.join(consumed_path_elements))
         response.add_body_element(metadata_node)
         response.validate_body(self._mdib.biceps_schema.mex_schema)
         return response
 
     def __repr__(self):
         return '{} path={} Porttypes={}'.format(self.__class__.__name__, self.path_element,
-                                               [dp.port_type_string for dp in self._sub_dispatchers])
+                                                [dp.port_type_string for dp in self._sub_dispatchers])
 
 
 class DPWSPortTypeImpl(SOAPActionDispatcher):
@@ -334,7 +336,7 @@ class DPWSPortTypeImpl(SOAPActionDispatcher):
         :param port_type_string: port type without namespace, e.g 'Get'
         :param sdcDevice:
         """
-        path = None # ?
+        path = None  # ?
         super().__init__(path)
         self.port_type_string = port_type_string
         self._sdc_device = sdc_device
@@ -883,7 +885,8 @@ class ContextService(DPWSPortTypeImpl):
         """ enqueues an operation and returns a 'wait' reponse."""
         response = pysoap.soapenvelope.Soap12Envelope(
             self._mdib.nsmapper.partial_map(Prefixes.S12, Prefixes.PM, Prefixes.WSA, Prefixes.MSG))
-        reply_address = request_data.envelope.address.mk_reply_address(action=self._get_action_string('SetContextStateResponse'))
+        reply_address = request_data.envelope.address.mk_reply_address(
+            action=self._get_action_string('SetContextStateResponse'))
         response.add_header_object(reply_address)
         reply_body_node = etree_.Element(msgTag('SetContextStateResponse'),
                                          nsmap=Prefixes.partial_map(Prefixes.MSG),
@@ -896,8 +899,9 @@ class ContextService(DPWSPortTypeImpl):
 
         error_texts = []
 
-        operation_handle_refs = request_data.envelope.body_node.xpath('msg:SetContextState/msg:OperationHandleRef/text()',
-                                                        namespaces=nsmap)
+        operation_handle_refs = request_data.envelope.body_node.xpath(
+            'msg:SetContextState/msg:OperationHandleRef/text()',
+            namespaces=nsmap)
         if len(operation_handle_refs) == 1:
             operation_handle_ref = operation_handle_refs[0]
             operation = self._sdc_device.get_operation_by_handle(operation_handle_ref)
@@ -918,7 +922,7 @@ class ContextService(DPWSPortTypeImpl):
             operation_error_msg_node.text = '; '.join(error_texts)
         else:
             proposed_context_state_nodes = request_data.envelope.body_node.xpath('*/msg:ProposedContextState',
-                                                                   namespaces=nsmap)
+                                                                                 namespaces=nsmap)
             msg_reader = self._mdib.msg_reader
             argument = [msg_reader.mk_statecontainer_from_node(p, self._mdib) for p in proposed_context_state_nodes]
             transaction_id = self._sdc_device.enqueue_operation(operation, request_data.envelope, argument)
@@ -929,7 +933,7 @@ class ContextService(DPWSPortTypeImpl):
         response.validate_body(self._bmm_schema)
         return response
 
-    def _on_get_context_states(self, request_data,):
+    def _on_get_context_states(self, request_data, ):
         self._logger.debug('_on_get_context_states')
         requested_handles = request_data.envelope.body_node.xpath('*/msg:HandleRef/text()', namespaces=nsmap)
         if len(requested_handles) > 0:
@@ -937,7 +941,8 @@ class ContextService(DPWSPortTypeImpl):
         nsmapper = self._mdib.nsmapper
         response = pysoap.soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        reply_address = request_data.envelope.address.mk_reply_address(action=self._get_action_string('GetContextStatesResponse'))
+        reply_address = request_data.envelope.address.mk_reply_address(
+            action=self._get_action_string('GetContextStatesResponse'))
         response.add_header_object(reply_address)
         response_node = etree_.Element(msgTag('GetContextStatesResponse'))
         with self._mdib.mdib_lock:

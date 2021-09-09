@@ -358,3 +358,26 @@ class HttpServerThreadBase(threading.Thread):
                 if thread.is_alive():
                     self.logger.warn('could not end client thread for notifications from {}', client_addr)
             del self.httpd.threads[:]
+
+
+class RequestData:
+    """This class holds all information about the processing of a http request together"""
+    def __init__(self, http_header, path, request=None):
+        self.http_header = http_header
+        self.request = request
+        self.consumed_path_elements = []
+        if path.startswith('/'):
+            path = path[1:]
+        self.path_elements = path.split('/')
+        self.envelope = None
+
+    def consume_current_path_element(self):
+        if len(self.path_elements) == 0:
+            return None
+        self.consumed_path_elements.append(self.path_elements[0])
+        self.path_elements = self.path_elements[1:]
+        return self.consumed_path_elements[-1]
+
+    @property
+    def current(self):
+        return self.path_elements[0] if len(self.path_elements) > 0 else None

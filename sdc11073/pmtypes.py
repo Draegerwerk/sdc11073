@@ -317,8 +317,8 @@ class CodedValue(PropertyBasedPMType):
         if self.CodingSystem is None:
             return f'CodedValue({self.Code})'
         if self.CodingSystemVersion is None:
-            return f'CodedValue({self.Code}, codingsystem={self.CodingSystem})'
-        return f'CodedValue({self.Code}, codingsystem={self.CodingSystem}, codingsystemversion={self.CodingSystemVersion})'
+            return f'CodedValue({self.Code}, codingsystem="{self.CodingSystem}")'
+        return f'CodedValue({self.Code}, codingsystem="{self.CodingSystem}", codingsystemversion="{self.CodingSystemVersion}")'
 
     def equals(self, other, raise_exception=True):
         """

@@ -6,29 +6,8 @@ from .. import loghelper
 from .. import pysoap
 from ..httprequesthandler import HTTPRequestHandler, mkchunks
 from ..httprequesthandler import HttpServerThreadBase
+from ..httprequesthandler import RequestData
 
-
-class RequestData:
-    """This class keeps all information about the processing of a request together"""
-    def __init__(self, http_header, path, request=None):
-        self.http_header = http_header
-        self.request = request
-        self.consumed_path_elements = []
-        if path.startswith('/'):
-            path = path[1:]
-        self.path_elements = path.split('/')
-        self.envelope = None
-
-    def consume_current_path_element(self):
-        if len(self.path_elements) == 0:
-            return None
-        self.consumed_path_elements.append(self.path_elements[0])
-        self.path_elements = self.path_elements[1:]
-        return self.consumed_path_elements[-1]
-
-    @property
-    def current(self):
-        return self.path_elements[0] if len(self.path_elements) > 0 else None
 
 class DevicesDispatcher:
     """ Dispatch to one of the registered devices, based on url"""
@@ -168,7 +147,8 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             # make an error 500 response with the soap fault as content
             self.server.logger.error(traceback.format_exc())
             # we must create a soapEnvelope in order to generate a SoapFault
-            dev_dispatcher = devices_dispatcher.get_device_dispatcher(self.path)
+            request_data = RequestData(self.headers, self.path, request)
+            dev_dispatcher = devices_dispatcher.get_device_dispatcher(request_data.current)
             normalized_request = dev_dispatcher.sdc_definitions.normalize_xml_text(request)
             envelope = pysoap.soapenvelope.ReceivedSoap12Envelope(normalized_request)
 

@@ -1,7 +1,7 @@
 import copy
+from abc import abstractmethod, ABC
 
 from lxml import etree as etree_
-from abc import abstractmethod, ABC
 
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
@@ -9,6 +9,7 @@ from sdc11073 import pmtypes
 
 class MdibStructureError(Exception):
     pass
+
 
 class AbstractMessageReader(ABC):
     @abstractmethod

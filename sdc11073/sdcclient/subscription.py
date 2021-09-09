@@ -1,6 +1,5 @@
 import copy
 import http.client
-import queue
 import threading
 import time
 import traceback
@@ -10,12 +9,10 @@ import uuid
 from lxml import etree as etree_
 
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
-from sdc11073.pysoap.soapenvelope import ReceivedSoap12Envelope, SoapResponseException
-from .. import commlog
+from sdc11073.pysoap.soapenvelope import SoapResponseException
 from .. import etc, isoduration
 from .. import loghelper
 from .. import observableproperties as properties
-from ..httprequesthandler import HTTPRequestHandler, HttpServerThreadBase
 from ..namespaces import nsmap as _global_nsmap
 from ..namespaces import wseTag, wsaTag
 
@@ -28,7 +25,7 @@ class _ClSubscription:
     notification = properties.ObservableProperty()
     IDENT_TAG = etree_.QName('http.local.com', 'MyClIdentifier')
 
-    def __init__(self, msg_factory, dpws_hosted, actions, notification_url, end_to_url, ident):
+    def __init__(self, msg_factory, dpws_hosted, actions, notification_url, end_to_url, log_prefix):
         """
         :param serviceClient:
         :param filter_:
@@ -38,28 +35,31 @@ class _ClSubscription:
         self.dpws_hosted = dpws_hosted
         self._actions = actions
         self._filter = ' '.join(actions)
-        self._notification_url = notification_url
         self.is_subscribed = False
         self.expire_at = None
         self.expire_minutes = None
         self.dev_reference_param = None
-        self.notify_to_identifier = etree_.Element(self.IDENT_TAG)
-        self.notify_to_identifier.text = uuid.uuid4().urn
 
-        self._end_to_url = end_to_url
-        self.end_to_identifier = etree_.Element(self.IDENT_TAG)
-        self.end_to_identifier.text = uuid.uuid4().urn
+        self.notification_url = notification_url
+        self.notify_to_identifier = None
+        # self.notify_to_identifier = etree_.Element(self.IDENT_TAG)
+        # self.notify_to_identifier.text = uuid.uuid4().urn
+
+        self.end_to_url = end_to_url
+        self.end_to_identifier = None
+        # self.end_to_identifier = etree_.Element(self.IDENT_TAG)
+        # self.end_to_identifier.text = uuid.uuid4().urn
 
         self._subscription_manager_address = None
-        self._logger = loghelper.get_logger_adapter('sdc.client.subscr', ident)
+        self._logger = loghelper.get_logger_adapter('sdc.client.subscr', log_prefix)
         self.event_counter = 0  # for display purpose, we count notifications
-        self.cl_ident = ident
+        self.cl_ident = log_prefix
         self._device_epr = urllib.parse.urlparse(self.dpws_hosted.endpoint_references[0].address).path
 
     def _mk_subscribe_envelope(self, subscribe_epr, expire_minutes):
         return self._msg_factory.mk_subscribe_envelope(
-            subscribe_epr, self._notification_url, self.notify_to_identifier,
-            self._end_to_url, self.end_to_identifier, expire_minutes, self._filter)
+            subscribe_epr, self.notification_url, self.notify_to_identifier,
+            self.end_to_url, self.end_to_identifier, expire_minutes, self._filter)
 
     def _handle_subscribe_response(self, envelope):
         # Check content of response; raise Error if subscription was not successful
@@ -246,9 +246,9 @@ class _ClSubscription:
     def remaining_subscription_seconds(self):
         return self.expire_at - time.time()
 
-    def on_notification(self, envelope):
+    def on_notification(self, request_data):
         self.event_counter += 1
-        self.notification = envelope
+        self.notification = request_data.envelope
 
     @property
     def short_filter_string(self):
@@ -262,17 +262,22 @@ class _ClSubscription:
             self.event_counter)
 
 
-class SubscriptionClient(threading.Thread):
-    """ Factory for Subscription objects, thread that automatically renews expiring subscriptions.
-    :param notification_url: the destination url for notifications.
-    :param end_to_url: if given the destination url for end subscription notifications; if not given, the notification_url is used.
-    :param check_interval: the interval (in seconds ) for get_status requests. Defaults to SUBSCRIPTION_CHECK_INTERVAL
-    :param ident: a string that is used in log output; defaults to empty string
-     """
+class ClientSubscriptionManager(threading.Thread):
+    """
+     Factory for Subscription objects. It automatically renews expiring subscriptions.
+    """
     all_subscriptions_okay = properties.ObservableProperty(True)  # a boolean
     keep_alive_with_renew = True  # enable as workaround if checkstatus is not supported
 
     def __init__(self, msg_factory, notification_url, end_to_url=None, check_interval=None, log_prefix=''):
+        """
+
+        :param msg_factory:
+        :param notification_url:
+        :param end_to_url:
+        :param check_interval:
+        :param log_prefix:
+        """
         super().__init__(name='SubscriptionClient{}'.format(log_prefix))
         self.daemon = True
         self._msg_factory = msg_factory
@@ -321,16 +326,24 @@ class SubscriptionClient(threading.Thread):
             self._logger.info('terminating subscriptions check loop! self._run={}', self._run)
 
     def mk_subscription(self, dpws_hosted, filters):
-        subscription = _ClSubscription(self._msg_factory, dpws_hosted, filters, self._notification_url,
-                                       self._end_to_url,
-                                       self.log_prefix)
+        notification_url = f'{self._notification_url}{uuid.uuid4().hex}'
+        end_to_url = f'{self._end_to_url}{uuid.uuid4().hex}'
+        subscription = _ClSubscription(self._msg_factory, dpws_hosted, filters, notification_url,
+                                       end_to_url, self.log_prefix)
         filter_ = ' '.join(filters)
         with self._subscriptions_lock:
             self.subscriptions[filter_] = subscription
         return subscription
 
-    def on_subscription_end(self, envelope):
-        subscr_ident_list = envelope.header_node.findall(_ClSubscription.IDENT_TAG, namespaces=_global_nsmap)
+    def _find_subscription(self, request_data, log_prefix):
+        for subscription in self.subscriptions.values():
+            if subscription.end_to_url.endswith(request_data.current):
+                return subscription
+        self._logger.warn('{}: have no subscription for identifier = {}', log_prefix, request_data.current)
+        return None
+
+    def on_subscription_end(self, request_data):
+        envelope = request_data.envelope
         statuus = envelope.body_node.xpath('wse:SubscriptionEnd/wse:Status/text()', namespaces=_global_nsmap)
         reasons = envelope.body_node.xpath('wse:SubscriptionEnd/wse:Reason/text()', namespaces=_global_nsmap)
         if statuus:
@@ -342,18 +355,12 @@ class SubscriptionClient(threading.Thread):
                 info += ' reason = {}'.format(reasons[0])
             else:
                 info += ' reasons = {}'.format(reasons)
-        if not subscr_ident_list:
-            self._logger.warn('on_subscription_end: did not find any identifier in message')
-            return
-        subscr_ident = subscr_ident_list[0]
-        for subscription in self.subscriptions.values():
-            if subscr_ident.text == subscription.end_to_identifier.text:
-                self._logger.info('on_subscription_end: received Subscription End for {} {}',
-                                  subscription.short_filter_string,
-                                  info)
-                subscription.is_subscribed = False
-                return
-        self._logger.warn('on_subscription_end: have no subscription for identifier = {}', subscr_ident.text)
+        subscription = self._find_subscription(request_data, 'on_subscription_end')
+        if subscription is not None:
+            self._logger.info('on_subscription_end: received Subscription End for {} {}',
+                              subscription.short_filter_string,
+                              info)
+            subscription.is_subscribed = False
 
     def unsubscribe_all(self):
         with self._subscriptions_lock:
@@ -367,156 +374,28 @@ class SubscriptionClient(threading.Thread):
                                       traceback.format_stack())
 
 
-class _DispatchError(Exception):
-    def __init__(self, http_error_code, error_text):
-        super().__init__()
-        self.http_error_code = http_error_code
-        self.error_text = error_text
+class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):
+    def mk_subscription(self, dpws_hosted, filters):
+        subscription = _ClSubscription(self._msg_factory, dpws_hosted, filters, self._notification_url,
+                                       self._end_to_url, self.log_prefix)
+        subscription.notify_to_identifier = etree_.Element(_ClSubscription.IDENT_TAG)
+        subscription.notify_to_identifier.text = uuid.uuid4().urn
+        subscription.end_to_identifier = etree_.Element(_ClSubscription.IDENT_TAG)
+        subscription.end_to_identifier.text = uuid.uuid4().urn
 
+        filter_ = ' '.join(filters)
+        with self._subscriptions_lock:
+            self.subscriptions[filter_] = subscription
+        return subscription
 
-class SOAPNotificationsDispatcher:
-    """ receiver of all notifications"""
-
-    def __init__(self, log_prefix, sdc_definitions):
-        self._logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', log_prefix)
-        self.log_prefix = log_prefix
-        self._sdc_definitions = sdc_definitions
-        self.methods = {}
-
-    def register_function(self, action, func):
-        self.methods[action] = func
-
-    def on_post(self, path: str, headers, request: str) -> [str, None]:
-        return self._dispatch(path, request)
-
-    def on_get(self, path: str, headers) -> str:
-        return ''
-
-    def _dispatch(self, path, xml):
-        start = time.time()
-        normalized_xml = self._sdc_definitions.normalize_xml_text(xml)
-        request = ReceivedSoap12Envelope(normalized_xml)
-        try:
-            action = request.address.action
-        except AttributeError:
-            raise _DispatchError(404, 'no action in request')
-        self._logger.debug('received notification path={}, action = {}', path, action)
-
-        try:
-            func = self.methods[action]
-        except KeyError:
-            self._logger.error('action "{}" not registered. Known:{}'.format(action, self.methods.keys()))
-            raise _DispatchError(404, 'action not registered')
-
-        func(request)
-        duration = time.time() - start
-        if duration > 0.005:
-            self._logger.debug('action {}: duration = {:.4f}sec', action, duration)
-        return ''
-
-
-class SOAPNotificationsDispatcherThreaded(SOAPNotificationsDispatcher):
-
-    def __init__(self, ident, biceps_schema):
-        super().__init__(ident, biceps_schema)
-        self._queue = queue.Queue(1000)
-        self._worker = threading.Thread(target=self._readqueue)
-        self._worker.daemon = True
-        self._worker.start()
-
-    def dispatch(self, path, xml):
-        normalized_xml = self._sdc_definitions.normalize_xml_text(xml)
-        request = ReceivedSoap12Envelope(normalized_xml)
-        try:
-            action = request.address.action
-        except AttributeError:
-            raise _DispatchError(404, 'no action in request')
-        self._logger.debug('received notification path={}, action = {}', path, action)
-
-        try:
-            func = self.methods[action]
-        except KeyError:
-            self._logger.error(
-                'action "{}" not registered. Known:{}'.format(action, self.methods.keys()))
-            raise _DispatchError(404, 'action not registered')
-        self._queue.put((func, request, action))
-        return ''
-
-    def _readqueue(self):
-        while True:
-            func, request, action = self._queue.get()
-            try:
-                func(request)
-            except Exception:
-                self._logger.error(
-                    'method {} for action "{}" failed:{}'.format(func.__name__, action, traceback.format_exc()))
-
-
-class SOAPNotificationsHandler(HTTPRequestHandler):
-    disable_nagle_algorithm = True
-    wbufsize = 0xffff  # 64k buffer to prevent tiny packages
-    RESPONSE_COMPRESS_MINSIZE = 256  # bytes, compress response it it is larger than this value (and other side supports compression)
-
-    def do_POST(self):  # pylint: disable=invalid-name
-        """SOAP POST gateway"""
-        self.server.logger.debug('notification do_POST incoming')  # pylint: disable=protected-access
-        dispatcher = self.server.dispatcher
-        response_string = ''
-        if dispatcher is None:
-            # close this connection
-            self.close_connection = True  # pylint: disable=attribute-defined-outside-init
-            self.server.logger.warn(
-                'received a POST request, but no dispatcher => returning 404 ')  # pylint:disable=protected-access
-            self.send_response(404)  # not found
-        else:
-            request_bytes = self._read_request()
-
-            self.server.logger.debug('notification {} bytes', request_bytes)  # pylint: disable=protected-access
-            # execute the method
-            commlog.get_communication_logger().log_soap_subscription_msg_in(request_bytes)
-            try:
-                response_string = self.server.dispatcher.on_post(self.path, self.headers, request_bytes)
-                if response_string is None:
-                    response_string = ''
-                self.send_response(202, b'Accepted')
-            except _DispatchError as ex:
-                self.server.logger.error('received a POST request, but got _DispatchError => returning {}',
-                                         ex.http_error_code)  # pylint:disable=protected-access
-                self.send_response(ex.http_error_code, ex.error_text)
-            except Exception as ex:
-                self.server.logger.error(
-                    'received a POST request, but got Exception "{}"=> returning {}\n{}', ex, 500,
-                    traceback.format_exc())  # pylint:disable=protected-access
-                self.send_response(500, b'server error in dispatch')
-        response_bytes = response_string.encode('utf-8')
-        if len(response_bytes) > self.RESPONSE_COMPRESS_MINSIZE:
-            response_bytes = self._compress_if_required(response_bytes)
-
-        self.send_header("Content-Type", "application/soap+xml; charset=utf-8")
-        self.send_header("Content-Length", len(response_bytes))  # this is necessary for correct keep-alive handling!
-        self.end_headers()
-        self.wfile.write(response_bytes)
-
-
-class NotificationsReceiverDispatcherThread(HttpServerThreadBase):
-    def __init__(self, my_ipaddress, ssl_context, log_prefix, sdc_definitions, supported_encodings,
-                 soap_notifications_handler_class=None, async_dispatch=True):
-        """
-        This thread receives all notifications from the connected device.
-        :param my_ipaddress:
-        :param ssl_context:
-        :param log_prefix:
-        :param sdc_definitions:
-        :param supported_encodings:
-        :param soap_notifications_handler_class:
-        :param async_dispatch:
-        """
-        logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', log_prefix)
-        request_handler = soap_notifications_handler_class or SOAPNotificationsHandler
-        if async_dispatch:
-            dispatcher = SOAPNotificationsDispatcherThreaded(log_prefix, sdc_definitions)
-        else:
-            dispatcher = SOAPNotificationsDispatcher(log_prefix, sdc_definitions)
-        super().__init__(my_ipaddress, ssl_context, supported_encodings,
-                         request_handler, dispatcher,
-                         logger, chunked_responses=False)
+    def _find_subscription(self, request_data, log_prefix):
+        subscr_ident_list = request_data.envelope.header_node.findall(_ClSubscription.IDENT_TAG,
+                                                                      namespaces=_global_nsmap)
+        if not subscr_ident_list:
+            return None
+        subscr_ident = subscr_ident_list[0]
+        for subscription in self.subscriptions.values():
+            if subscr_ident.text == subscription.end_to_identifier.text:
+                return subscription
+        self._logger.warn('{}}: have no subscription for identifier = {}', log_prefix, subscr_ident.text)
+        return None

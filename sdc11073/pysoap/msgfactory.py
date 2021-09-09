@@ -379,11 +379,17 @@ class SoapMessageFactory(AbstractMessageFactory):
         soap_envelope.set_address(soapenvelope.WsAddress(
             action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Subscribe',
             addr_to=addr_to))
+        if notify_to_identifier is None:
+            notify_to = soapenvelope.WsaEndpointReferenceType(notifyto_url, reference_parameters_node=None)
+        else:
+            notify_to = soapenvelope.WsaEndpointReferenceType(notifyto_url,
+                                                              reference_parameters_node=[notify_to_identifier])
 
-        notify_to = soapenvelope.WsaEndpointReferenceType(notifyto_url,
-                                                          reference_parameters_node=[notify_to_identifier])
-        end_to = soapenvelope.WsaEndpointReferenceType(endto_url,
-                                                       reference_parameters_node=[endto_identifier])
+        if endto_identifier is None:
+            end_to = soapenvelope.WsaEndpointReferenceType(endto_url, reference_parameters_node=None)
+        else:
+            end_to = soapenvelope.WsaEndpointReferenceType(endto_url,
+                                                           reference_parameters_node=[endto_identifier])
 
         body = soapenvelope.WsSubscribe(notify_to=notify_to,
                                         end_to=end_to,

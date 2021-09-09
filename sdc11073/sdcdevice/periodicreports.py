@@ -1,11 +1,13 @@
 import threading
+import time
 from collections import namedtuple
 from functools import reduce
-import time
+
 from . import intervaltimer
 from ..loghelper import get_logger_adapter
 
 PeriodicStates = namedtuple('PeriodicStates', 'mdib_version states')
+
 
 class PeriodicReportsNullHandler:
     def __init__(self):
@@ -38,7 +40,7 @@ class PeriodicReportsHandler:
         self._periodic_reports_interval = fixed_interval
         self._mdib = mdib
         self._subscriptions_manager = subscriptions_manager
-        #self._logger = logger
+        # self._logger = logger
         self._logger = get_logger_adapter('sdc.device.pReports')
         self._periodic_reports_lock = threading.Lock()
         self._periodic_reports_thread = None
@@ -112,7 +114,8 @@ class PeriodicReportsHandler:
                      (self._periodic_alert_reports, mgr.send_periodic_alert_report, 'alert'),
                      (self._periodic_component_state_reports, mgr.send_periodic_component_state_report, 'component'),
                      (self._periodic_context_state_reports, mgr.send_periodic_context_report, 'context'),
-                     (self._periodic_operational_state_reports, mgr.send_periodic_operational_state_report, 'operational'),
+                     (self._periodic_operational_state_reports, mgr.send_periodic_operational_state_report,
+                      'operational'),
                      ]:
                 tmp = None
                 with self._periodic_reports_lock:
@@ -171,7 +174,8 @@ class PeriodicReportsHandler:
                 operational_states = [self._mdib.states.descriptorHandle.get_one(h).mk_copy() for h in operationals]
                 context_states = []
                 for context in contexts:
-                    print (f'context.Handle {context} = {len(self._mdib.context_states.descriptorHandle.get(context, []))} states')
+                    print(
+                        f'context.Handle {context} = {len(self._mdib.context_states.descriptorHandle.get(context, []))} states')
                     context_states.extend(
                         [st.mk_copy() for st in self._mdib.context_states.descriptorHandle.get(context, [])])
             self._logger.debug('   _periodic_reports_send_loop {} metric_states', len(metric_states))
@@ -199,4 +203,3 @@ class PeriodicReportsHandler:
                 periodic_states = PeriodicStates(mdib_version, context_states)
                 self._subscriptions_manager.send_periodic_context_report(
                     [periodic_states], self._mdib.nsmapper, sequence_id)
-

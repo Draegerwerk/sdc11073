@@ -11,10 +11,11 @@ from .pysoap.msgreader import MessageReader
 from .roles.product import MinimalProduct
 from .sdcclient.hostedservice import CTreeServiceClient, DescriptionEventClient, ContextServiceClient, WaveformClient
 from .sdcclient.hostedservice import GetServiceClient, SetServiceClient, StateEventClient
+from .sdcclient.httpserver import SOAPNotificationsHandler, NotificationsReceiver
 from .sdcclient.localizationservice import LocalizationServiceClient
+from .sdcclient.sdcclientimpl import NotificationsDispatcherByBody, NotificationsDispatcherByAction
 from .sdcclient.operations import OperationsManager
-from .sdcclient.subscription import SOAPNotificationsHandler
-from .sdcclient.subscription import SubscriptionClient, NotificationsReceiverDispatcherThread
+from .sdcclient.subscription import ClientSubscriptionManager
 from .sdcdevice.localizationservice import LocalizationService
 from .sdcdevice.sco import get_operation_class, ScoOperationsRegistry
 from .sdcdevice.sdc_handlers import mk_scopes, mk_all_services
@@ -89,13 +90,12 @@ class _SdcV1Actions:
 default_sdc_device_components = SdcDeviceComponents(
     msg_factory_class=SoapMessageFactory,
     msg_reader_class=MessageReader,
-    #service_factory_class=DefaultServiceFactory,
-    services_factory= mk_all_services,
+    services_factory=mk_all_services,
     operation_cls_getter=get_operation_class,
     sco_operations_registry_class=ScoOperationsRegistry,
     subscriptions_manager_class=SubscriptionsManagerPath,
     role_provider_class=MinimalProduct,
-    scopes_factory = mk_scopes,
+    scopes_factory=mk_scopes,
     service_handlers={'ContainmentTreeService': ContainmentTreeService,
                       'GetService': GetService,
                       'StateEventService': StateEventService,
@@ -109,9 +109,10 @@ default_sdc_device_components = SdcDeviceComponents(
 default_sdc_client_components = SdcClientComponents(
     msg_factory_class=SoapMessageFactory,
     msg_reader_class=MessageReader,
-    notifications_receiver_class=NotificationsReceiverDispatcherThread,
+    notifications_receiver_class=NotificationsReceiver,
     notifications_handler_class=SOAPNotificationsHandler,
-    subscription_manager_class=SubscriptionClient,
+    notifications_dispatcher_class=NotificationsDispatcherByBody,
+    subscription_manager_class=ClientSubscriptionManager,
     operations_manager_class=OperationsManager,
     service_handlers={'ContainmentTreeService': CTreeServiceClient,
                       'GetService': GetServiceClient,

@@ -752,4 +752,3 @@ class DescriptorFactory:
         if add_to_mdib:
             self._mdib.add_descriptor(obj)
         return obj
-
