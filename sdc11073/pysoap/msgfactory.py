@@ -10,10 +10,12 @@ from ..namespaces import Prefixes
 from ..namespaces import msgTag, wseTag, QN_TYPE, DocNamespaceHelper
 from ..namespaces import nsmap, domTag
 
+
 class AbstractMessageFactory(ABC):
-    @abstractmethod
     def __init__(self, sdc_definitions, logger):
-        """Constructor"""
+        self._logger = logger
+        self._sdc_definitions = sdc_definitions
+        self._mdib_wref = None
 
     @abstractmethod
     def register_mdib(self, mdib):
@@ -21,12 +23,8 @@ class AbstractMessageFactory(ABC):
         :param mdib: the current mdib
         """
 
-class SoapMessageFactory(AbstractMessageFactory):
 
-    def __init__(self, sdc_definitions, logger):
-        self._logger = logger
-        self._sdc_definitions = sdc_definitions
-        self._mdib_wref = None
+class SoapMessageFactory(AbstractMessageFactory):
 
     def register_mdib(self, mdib):
         """Factory sometimes must know the mdib data (e.g. Set service, activate method).
@@ -35,7 +33,6 @@ class SoapMessageFactory(AbstractMessageFactory):
         if mdib is not None and self._mdib_wref is not None:
             raise RuntimeError('SoapMessageFactory has already an registered mdib')
         self._mdib_wref = None if mdib is None else weakref.ref(mdib)
-
 
     @staticmethod
     def mk_getmetadata_envelope(addr_to):

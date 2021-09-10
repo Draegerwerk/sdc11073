@@ -9,80 +9,70 @@ from ..httprequesthandler import HttpServerThreadBase
 from ..httprequesthandler import RequestData
 
 
-class DevicesDispatcher:
-    """ Dispatch to one of the registered devices, based on url"""
+class PathElementDispatcher:
+    """ Dispatch to one of the registered sub_dispatchers, based on path element"""
 
     def __init__(self, logger):
         self._logger = logger
-        self.device_by_url = {}  # lookup for requests
+        self.sub_dispatchers = {}  # lookup for requests
 
-    def register_device_dispatcher(self, path, dispatcher):
-        if path.startswith('/'):
-            path = path[1:]
-        if path.endswith('/'):
-            path = path[:-1]
-        if path in self.device_by_url:
-            raise RuntimeError('Path "{}" already registered'.format(path))
-        self.device_by_url[path] = dispatcher
+    def register_dispatcher(self, path_element, dispatcher):
+        if path_element in self.sub_dispatchers:
+            raise RuntimeError('Path-element "{}" already registered'.format(path_element))
+        self.sub_dispatchers[path_element] = dispatcher
 
-    def get_device_dispatcher(self, path_element):
-        dispatcher = self.device_by_url.get(path_element)
+    def get_dispatcher(self, path_element):
+        dispatcher = self.sub_dispatchers.get(path_element)
         if dispatcher is None:
             raise HTTPRequestHandlingError(status=404, reason='not found', soap_fault=b'client error')
         return dispatcher
 
-    def on_post(self, path: str, headers, request: str) -> [str, None]:
-        request_data = RequestData(headers, path, request)
-        dispatcher = self.get_device_dispatcher(request_data.consume_current_path_element())
+    def on_post(self, request_data) -> [str, None]:
+        dispatcher = self.get_dispatcher(request_data.consume_current_path_element())
         return dispatcher.on_post(request_data)
 
-    def on_get(self, path: str, headers) -> str:
-        request_data = RequestData(headers, path)
-        dispatcher = self.get_device_dispatcher(request_data.consume_current_path_element())
+    def on_get(self, request_data) -> str:
+        dispatcher = self.get_dispatcher(request_data.consume_current_path_element())
         return dispatcher.on_get(request_data)
 
 
-class HostedServiceDispatcher:
+class HostedServiceDispatcher(PathElementDispatcher):
     """ receiver of all messages"""
 
     def __init__(self, sdc_definitions, logger):
+        super().__init__(logger)
         self.sdc_definitions = sdc_definitions
-        self._logger = logger
-        self.hosted_service_by_url = {}  # lookup for requests
         self._hosted_services = []
 
     def register_hosted_service(self, hosted_service):
-        path = hosted_service.path_element
-        if path in self.hosted_service_by_url:
-            raise RuntimeError('Path "{}" already registered'.format(path))
-        self.hosted_service_by_url[path] = hosted_service
+        path_element = hosted_service.path_element
+        self.register_dispatcher(path_element, hosted_service)
         self._hosted_services.append(hosted_service)
 
     def on_post(self, request_data) -> [str, None]:
-        """Method converts the http request into a soap envelope and calls dispatch_post_request.
-           Return of dispatch_post_request (soap envelope) is converted back to a string."""
+        """Method converts the http request into a soap envelope and calls on_post.
+           Returned soap envelope is converted back to a string."""
         commlog.get_communication_logger().log_soap_request_in(request_data.request, 'POST')
         normalized_request = self.sdc_definitions.normalize_xml_text(request_data.request)
         # execute the method
         request_data.envelope = pysoap.soapenvelope.ReceivedSoap12Envelope(normalized_request)
-        response = self._dispatch_post_request(request_data)
-        normalized_response_xml_string = response.as_xml()
+        response_envelope = self._dispatch_post_request(request_data)
+        normalized_response_xml_string = response_envelope.as_xml()
         return self.sdc_definitions.denormalize_xml_text(normalized_response_xml_string)
 
     def _dispatch_post_request(self, request_data):
-        # path is a string like /0105a018-8f4c-4199-9b04-aff4835fd8e9/StateEvent, without http:/servername:port
-        hosted_service = self.hosted_service_by_url.get(request_data.consume_current_path_element())
+        hosted_service = self.get_dispatcher(request_data.consume_current_path_element())
         if not hosted_service:
             raise InvalidPathError(request_data.envelope, request_data.consumed_path_elements)
         try:
-            return hosted_service.dispatch_post_request(request_data)
+            return hosted_service.on_post(request_data)
         except InvalidActionError as ex:
             # error: no handler for this action; log this error with all known pathes, the re-raise
             all_actions = []
             for dispatcher in self._hosted_services:
-                all_actions.extend(', '.join([dispatcher.path_element or '', k]) for k in dispatcher.get_actions())
+                all_actions.extend(', '.join([dispatcher.path_element or '', str(k)]) for k in dispatcher.get_keys())
 
-            txt = 'HostedServiceDispatcher.dispatch_post_request: {} , known=\n{}'.format(ex, '\n'.join(all_actions))
+            txt = 'HostedServiceDispatcher.on_post: {} , known=\n{}'.format(ex, '\n'.join(all_actions))
             self._logger.error(txt)
             raise
 
@@ -92,12 +82,12 @@ class HostedServiceDispatcher:
         return self.sdc_definitions.denormalize_xml_text(response_string)
 
     def _dispatch_get_request(self, request_data):
-        dispatcher = self.hosted_service_by_url.get(request_data.consume_current_path_element())
+        dispatcher = self.get_dispatcher(request_data.consume_current_path_element())
         if dispatcher is None:
             raise KeyError(
-                'HostedServiceDispatcher.dispatch_get_request: unknown path "{}", known = {}'.format(
-                    request_data.consumed_path_elements, self.hosted_service_by_url.keys()))
-        response_string = dispatcher.dispatch_get_request(request_data)
+                'HostedServiceDispatcher.on_get: unknown path "{}", known = {}'.format(
+                    request_data.consumed_path_elements, self.sub_dispatchers.keys()))
+        response_string = dispatcher.on_get(request_data)
         return self.sdc_definitions.denormalize_xml_text(response_string)
 
 
@@ -109,6 +99,8 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 
     def do_POST(self):  # pylint: disable=invalid-name
         """SOAP POST gateway"""
+        request = self._read_request()
+        request_data = RequestData(self.headers, self.path, request)
         try:
             devices_dispatcher = self.server.dispatcher
             if devices_dispatcher is None:
@@ -117,11 +109,10 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
                 response_xml_string = b'received a POST request, but have no dispatcher'
                 self.send_response(404)  # not found
             else:
-                request = self._read_request()
                 commlog.get_communication_logger().log_soap_request_in(request, 'POST')
                 try:
                     # delegate handling to on_post method of dispatcher
-                    response_xml_string = devices_dispatcher.on_post(self.path, self.headers, request)
+                    response_xml_string = devices_dispatcher.on_post(request_data)
                     http_status = 200
                     http_reason = 'Ok'
                     # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
@@ -147,8 +138,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             # make an error 500 response with the soap fault as content
             self.server.logger.error(traceback.format_exc())
             # we must create a soapEnvelope in order to generate a SoapFault
-            request_data = RequestData(self.headers, self.path, request)
-            dev_dispatcher = devices_dispatcher.get_device_dispatcher(request_data.current)
+            dev_dispatcher = devices_dispatcher.get_dispatcher(request_data.current)
             normalized_request = dev_dispatcher.sdc_definitions.normalize_xml_text(request)
             envelope = pysoap.soapenvelope.ReceivedSoap12Envelope(normalized_request)
 
@@ -164,10 +154,11 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 
     def do_GET(self):  # pylint: disable=invalid-name
         parsed_path = urllib.parse.urlparse(self.path)
+        request_data = RequestData(self.headers, self.path)
         try:
             # GET has no content, log it to document duration of processing
             commlog.get_communication_logger().log_soap_request_in('', 'GET')
-            response_string = self.server.dispatcher.on_get(self.path, self.headers)
+            response_string = self.server.dispatcher.on_get(request_data)
             self.send_response(200, 'Ok')
             response_string = self._compress_if_required(response_string)
             commlog.get_communication_logger().log_soap_response_out(response_string, 'GET')
@@ -197,7 +188,7 @@ class DeviceHttpServerThread(HttpServerThreadBase):
         """
         logger = loghelper.get_logger_adapter('sdc.device.httpsrv', log_prefix)
         request_handler = _SdcServerRequestHandler
-        dispatcher = DevicesDispatcher(logger)
+        dispatcher = PathElementDispatcher(logger)
         super().__init__(my_ipaddress, ssl_context, supported_encodings,
                          request_handler, dispatcher,
                          logger, chunked_responses=chunked_responses)

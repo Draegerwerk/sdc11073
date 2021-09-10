@@ -7,7 +7,7 @@ from lxml import etree as etree_
 
 from . import httpserver
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
-from .sdcservicesimpl import SOAPActionDispatcher
+from .hostedserviceimpl import SoapMessageHandler
 from .waveforms import WaveformSender
 from .. import compression
 from .. import loghelper
@@ -73,19 +73,19 @@ class SdcDevice:
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
 
         # host dispatcher provides data of the sdc device itself.
-        self._host_dispatcher = SOAPActionDispatcher(None)
-        self._host_dispatcher.register_action_handler('{}/Get'.format(Prefixes.WXF.namespace), self._on_get_metadata)
-        self._host_dispatcher.register_action_handler('{}/Probe'.format(Prefixes.WSD.namespace), self._on_probe_request)
+        self._host_dispatcher = SoapMessageHandler(None, get_key_method=self._components.msg_dispatch_method)
+        self._host_dispatcher.register_post_handler('{}/Get'.format(Prefixes.WXF.namespace), self._on_get_metadata)
+        self._host_dispatcher.register_post_handler('{}/Probe'.format(Prefixes.WSD.namespace), self._on_probe_request)
+        self._host_dispatcher.register_post_handler(wsdTag('Probe'), self._on_probe_request)
 
         # dpws host is needed in metadata
         self.dpws_host = pysoap.soapenvelope.DPWSHost(
             endpoint_references_list=[pysoap.soapenvelope.WsaEndpointReferenceType(self.epr)],
             types_list=self._mdib.sdc_definitions.MedicalDeviceTypesFilter)
 
-        self._url_dispatcher = httpserver.HostedServiceDispatcher(self._mdib.sdc_definitions, self._logger)
+        self._hosted_service_dispatcher = httpserver.HostedServiceDispatcher(self._mdib.sdc_definitions, self._logger)
 
-        # register two addresses for hostDispatcher: '' and /<uuid>
-        self._url_dispatcher.register_hosted_service(self._host_dispatcher)
+        self._hosted_service_dispatcher.register_hosted_service(self._host_dispatcher)
 
         # these are initialized in _setup_components:
         self.msg_reader = None
@@ -125,10 +125,10 @@ class SdcDevice:
 
         services_factory = self._components.services_factory
         self.hosted_services = services_factory(self,
-                                                self._components.service_handlers,
+                                                self._components,
                                                 self._mdib.sdc_definitions)
         for dpws_service in self.hosted_services.dpws_hosted_services:
-            self._url_dispatcher.register_hosted_service(dpws_service)
+            self._hosted_service_dispatcher.register_hosted_service(dpws_service)
         self.product_roles = self._components.role_provider_class(self._log_prefix)
         self.product_roles.init_operations(self._mdib, self._sco_operations_registry)
 
@@ -212,7 +212,7 @@ class SdcDevice:
 
         # add all hosted services:
         for service in self.hosted_services.dpws_hosted_services:
-            service.mk_dpws_hosted().as_etree_subnode(relationship_node)
+            service.mk_dpws_hosted_instance().as_etree_subnode(relationship_node)
             self._validate_dpws(relationship_node[-1])
         return metadata_node
 
@@ -287,10 +287,6 @@ class SdcDevice:
     def enqueue_operation(self, operation, request, argument):
         return self._sco_operations_registry.enqueue_operation(operation, request, argument)
 
-    def dispatch_get_request(self, parse_result, headers):
-        ''' device itself can also handle GET requests. This is the handler'''
-        return self._host_dispatcher.dispatch_get_request(parse_result, headers)
-
     def start_all(self, start_rtsample_loop=True, periodic_reports_interval=None, shared_http_server=None):
         """
 
@@ -332,7 +328,7 @@ class SdcDevice:
                 raise RuntimeError('Cannot start device, start event of http server not set.')
 
         host_ips = self._wsdiscovery.get_active_addresses()
-        self._http_server_thread.dispatcher.register_device_dispatcher(self.path_prefix, self._url_dispatcher)
+        self._http_server_thread.dispatcher.register_dispatcher(self.path_prefix, self._hosted_service_dispatcher)
         if len(host_ips) == 0:
             self._logger.error('Cannot start device, there is no IP address to bind it to.')
             raise RuntimeError('Cannot start device, there is no IP address to bind it to.')

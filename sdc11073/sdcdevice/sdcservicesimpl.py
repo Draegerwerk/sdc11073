@@ -1,16 +1,15 @@
-import time
 import traceback
 from collections import namedtuple, OrderedDict
-from io import BytesIO
 
 from lxml import etree as etree_
 
-from .exceptions import InvalidActionError, FunctionNotImplementedError
+from .exceptions import FunctionNotImplementedError
+from .hostedserviceimpl import WSP_NS, WSDL_S12
 from .. import loghelper
 from .. import pmtypes
 from .. import pysoap
 from ..namespaces import Prefixes
-from ..namespaces import msgTag, domTag, s12Tag, wsxTag, wseTag, dpwsTag, mdpwsTag, nsmap
+from ..namespaces import msgTag, domTag, wseTag, dpwsTag, mdpwsTag, nsmap
 
 _msg_prefix = Prefixes.MSG.prefix
 
@@ -19,333 +18,38 @@ _wsdl_message = etree_.QName(_wsdl_ns, 'message')
 _wsdl_part = etree_.QName(_wsdl_ns, 'part')
 _wsdl_operation = etree_.QName(_wsdl_ns, 'operation')
 
-_WSP_NS = 'http://www.w3.org/ns/ws-policy'
-_MDPWS_NS = 'http://www.w3.org/ns/ws-policy'
-_WSP_PREFIX = 'wsp'
-
-# DiscoveryType, only used in SDC
-_DISCOVERY_TYPE_NS = "http://standards.ieee.org/downloads/11073/11073-10207-2017"
-
-_WSDL_S12 = "http://schemas.xmlsoap.org/wsdl/soap12/"  # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
-
 # WSDL Generation:
 # types to allow declaration of a wsdl data per service
 WSDLMessageDescription = namedtuple('WSDLMessageDescription', 'name parameters ')
 WSDLOperationBinding = namedtuple('WSDLOperationBinding', 'name input output')
 
 
-def etree_from_file(path):
-    parser = etree_.ETCompatXMLParser(resolve_entities=False)
-    with open(path, 'rb') as opened_file:
-        xml_text = opened_file.read()
-    return etree_.fromstring(xml_text, parser=parser, base_url=path)
-
-
-class SOAPActionDispatcher:
-    """This is a soap envelope forwarder.
-    It can register handlers for action strings and forwards soap envelope to registered handlers, based on the
-    action address of the soap envelope."""
-
-    def __init__(self, path_element, log_prefix=None):
-        self.path_element = path_element
-        self._soap_action_callbacks = {}
-        self._get_callbacks = {}
-        self._logger = loghelper.get_logger_adapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
-
-    def register_action_handler(self, action, func):
-        self._soap_action_callbacks[action] = func
-
-    def register_get_handler(self, path_element, func):
-        self._get_callbacks[path_element] = func
-
-    def dispatch_post_request(self, request_data):
-        begin = time.monotonic()
-        action = request_data.envelope.address.action
-        func = self.get_action_handler(action)
-        if func is None:
-            raise InvalidActionError(request_data.envelope)
-        returned_envelope = func(request_data)
-        duration = time.monotonic() - begin
-        self._logger.debug('incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements,
-                           duration)
-        return returned_envelope
-
-    def dispatch_get_request(self, request_data):  # pylint:disable=unused-argument
-        begin = time.monotonic()
-        key = request_data.current
-        func = self._get_callbacks.get(key)
-        if func is not None:
-            self._logger.debug('dispatch_get_request:path="{}" ,function="{}"', key, func.__name__)
-            result = func()
-            duration = time.monotonic() - begin
-            self._logger.debug('dispatch_get_request:duration="{:.4f}"', duration)
-            return result
-        self._logger.error('dispatch_get_request:path="{}" ,no handler found!', key)
-        raise KeyError('dispatch_get_request:path="{}" ,no handler found!'.format(key))
-
-    def get_action_handler(self, action):
-        """ returns a callable or None"""
-        return self._soap_action_callbacks.get(action)
-
-    def get_actions(self):
-        """ returns a list of action strings that can be handled."""
-        return list(self._soap_action_callbacks.keys())
-
-
-class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
-    """ receiver of all messages"""
-
-    def __init__(self, path, sub_dispatchers=None):
-        super().__init__(path)
-        self._sub_dispatchers = sub_dispatchers or []  # chained SOAPActionDispatcher
-
-    def get_action_handler(self, action):
-        """ returns a callable or None"""
-        func = self._soap_action_callbacks.get(action)
-        if func is not None:
-            return func
-        for sub_dispatcher in self._sub_dispatchers:
-            func = sub_dispatcher.get_action_handler(action)
-            if func is not None:
-                return func
-        return None
-
-    def get_actions(self):
-        """ returns a list of action strings that can be handled."""
-        actions = list(self._soap_action_callbacks.keys())
-        for sub_dispatcher in self._sub_dispatchers:
-            actions.extend(sub_dispatcher.get_actions())
-        return actions
-
-    def __repr__(self):
-        return '{} actions={}'.format(self.__class__.__name__, self._soap_action_callbacks.keys())
-
-
-class EventService(_SOAPActionDispatcherWithSubDispatchers):
-    """ A service that offers subscriptions"""
-
-    def __init__(self, sdc_device, path_element, sub_dispatchers, offered_subscriptions):
-        super().__init__(path_element, sub_dispatchers)
-
-        self._sdc_device = sdc_device
-        self._subscriptions_manager = sdc_device.subscriptions_manager
-        self._offered_subscriptions = offered_subscriptions
-        self.register_action_handler('{}/Subscribe'.format(Prefixes.WSE.namespace), self._on_subscribe)
-        self.register_action_handler('{}/Unsubscribe'.format(Prefixes.WSE.namespace), self._on_unsubscribe)
-        self.register_action_handler('{}/GetStatus'.format(Prefixes.WSE.namespace), self._on_get_status)
-        self.register_action_handler('{}/Renew'.format(Prefixes.WSE.namespace), self._on_renew_status)
-
-    def _on_subscribe(self, request_data):
-        subscription_filter_nodes = request_data.envelope.body_node.xpath(
-            "//wse:Filter[@Dialect='{}/Action']".format(Prefixes.DPWS.namespace),
-            namespaces=nsmap)
-        if len(subscription_filter_nodes) != 1:
-            raise Exception
-        subscription_filters = subscription_filter_nodes[0].text
-        for subscription_filter in subscription_filters.split():
-            if subscription_filter not in self._offered_subscriptions:
-                raise Exception('{}::{}: "{}" is not in offered subscriptions: {}'.format(self.__class__.__name__,
-                                                                                          self.path_element,
-                                                                                          subscription_filter,
-                                                                                          self._offered_subscriptions))
-        returned_envelope = self._subscriptions_manager.on_subscribe_request(request_data)
-        self._validate_eventing_response(returned_envelope)
-        return returned_envelope
-
-    def _on_unsubscribe(self, request_data):
-        returned_envelope = self._subscriptions_manager.on_unsubscribe_request(request_data)
-        self._validate_eventing_response(returned_envelope)
-        return returned_envelope
-
-    def _on_get_status(self, request_data):
-        returned_envelope = self._subscriptions_manager.on_get_status_request(request_data)
-        self._validate_eventing_response(returned_envelope)
-        return returned_envelope
-
-    def _on_renew_status(self, request_data):
-        returned_envelope = self._subscriptions_manager.on_renew_request(request_data)
-        self._validate_eventing_response(returned_envelope)
-        return returned_envelope
-
-    def _validate_eventing_response(self, returned_envelope):
-        body = returned_envelope.body_node
-        body_node_children = list(body)
-        if len(body_node_children) == 0:
-            return
-        if body_node_children[0].tag == s12Tag('Fault'):
-            schema = self._s12_schema
-        else:
-            schema = self._evt_schema
-        returned_envelope.validate_body(schema)
-
-    @property
-    def _evt_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.biceps_schema.eventing_schema
-
-    @property
-    def _s12_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.biceps_schema.soap12_schema
-
-
-class DPWSHostedService(EventService):
-    """ An Endpoint (url) with one or more DPWS Types"""
-
-    def __init__(self, sdc_device, path_element, sub_dispatchers, offered_subscriptions):
-        """
-
-        :param sdc_device:
-        :param path_element:
-        :param sub_dispatchers:
-        :param offered_subscriptions:
-        """
-        super().__init__(sdc_device, path_element, sub_dispatchers, offered_subscriptions)
-        self._sdc_device = sdc_device
-        self._mdib = sdc_device.mdib
-        self._my_port_types = [p.port_type_string for p in sub_dispatchers]
-        self._wsdl_string = self._mk_wsdl_string()
-        for sub_dispatcher in sub_dispatchers:
-            sub_dispatcher.hosting_service = self
-        self.register_action_handler('{}/GetMetadata/Request'.format(Prefixes.WSX.namespace), self._on_get_metadata)
-        self.register_get_handler('?wsdl', func=self._on_get_wsdl)
-
-    def mk_dpws_hosted(self):
-        endpoint_references_list = []
-        for addr in self._sdc_device.base_urls:
-            endpoint_references_list.append(
-                pysoap.soapenvelope.WsaEndpointReferenceType('{}/{}'.format(addr.geturl(), self.path_element)))
-        porttype_ns = self._mdib.sdc_definitions.PortTypeNamespace
-        # little bit ugly: normalize_xml_text needs bytes, not string. and it looks for namespace in "".
-        _normalized = self._mdib.sdc_definitions.normalize_xml_text(b'"' + porttype_ns.encode('utf-8') + b'"')
-        porttype_ns = _normalized[1:-1].decode('utf-8')
-        dpws_hosted = pysoap.soapenvelope.DPWSHosted(
-            endpoint_references_list=endpoint_references_list,
-            types_list=[etree_.QName(porttype_ns, p) for p in self._my_port_types],
-            service_id=self._my_port_types[0])
-        return dpws_hosted
-
-    def _on_get_wsdl(self):
-        """ return wsdl"""
-        self._logger.debug('_onGetWsdl returns {}', self._wsdl_string)
-        return self._wsdl_string
-
-    def _mk_wsdl_string(self):
-        sdc_definitions = self._sdc_device.mdib.sdc_definitions
-        my_nsmap = Prefixes.partial_map(
-            Prefixes.MSG, Prefixes.PM, Prefixes.WSA, Prefixes.WSE, Prefixes.DPWS, Prefixes.MDPWS)
-        my_nsmap['tns'] = Prefixes.SDC.namespace
-        my_nsmap['dt'] = _DISCOVERY_TYPE_NS
-        porttype_prefix = 'tns'
-        my_nsmap['wsdl'] = _wsdl_ns
-        my_nsmap['s12'] = _WSDL_S12
-        my_nsmap[_WSP_PREFIX] = _WSP_NS
-        wsdl_definitions = etree_.Element(etree_.QName(_wsdl_ns, 'definitions'),
-                                          nsmap=my_nsmap,
-                                          attrib={'targetNamespace': sdc_definitions.PortTypeNamespace})
-
-        types = etree_.SubElement(wsdl_definitions, etree_.QName(_wsdl_ns, 'types'))
-        # remove annotations from schemas, this reduces wsdl size from 280kb to 100kb!
-        ext_schema_ = etree_from_file(sdc_definitions.SchemaFilePaths.ExtensionPointSchemaFile)
-        ext_schema = self._remove_annotations(ext_schema_)
-        pm_schema_ = etree_from_file(sdc_definitions.SchemaFilePaths.ParticipantModelSchemaFile)
-        participant_schema = self._remove_annotations(pm_schema_)
-        bmm_schema_ = etree_from_file(sdc_definitions.SchemaFilePaths.MessageModelSchemaFile)
-        message_schema = self._remove_annotations(bmm_schema_)
-        types.append(ext_schema)
-        types.append(participant_schema)
-        types.append(message_schema)
-        # append all message nodes
-        for sub_dispatcher in self._sub_dispatchers:
-            sub_dispatcher.add_wsdl_messages(wsdl_definitions)
-        for sub_dispatcher in self._sub_dispatchers:
-            sub_dispatcher.add_wsdl_port_type(wsdl_definitions)
-        for sub_dispatcher in self._sub_dispatchers:
-            sub_dispatcher.add_wsdl_binding(wsdl_definitions, porttype_prefix)
-        self._mdib.biceps_schema.wsdl_schema.assertValid(wsdl_definitions)
-        return sdc_definitions.denormalize_xml_text(etree_.tostring(wsdl_definitions))
-
-    @staticmethod
-    def _remove_annotations(root_node):
-        remove_annotations_string = b'''<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
-                                      xmlns:xs="http://www.w3.org/2001/XMLSchema">
-          <xsl:output method="xml" indent="yes"/>
-
-          <xsl:template match="@* | node()">
-            <xsl:copy>
-              <xsl:apply-templates select="@* | node()"/>
-            </xsl:copy>
-          </xsl:template>
-
-          <xsl:template match="xs:annotation" />
-        </xsl:stylesheet>'''
-        remove_annotations_doc = etree_.parse(BytesIO(remove_annotations_string))
-        remove_annotations_xslt = etree_.XSLT(remove_annotations_doc)
-        return remove_annotations_xslt(root_node).getroot()
-
-    def _on_get_metadata(self, request_data):
-        _nsm = self._mdib.nsmapper
-        consumed_path_elements = request_data.consumed_path_elements
-        http_header = request_data.http_header
-        response = pysoap.soapenvelope.Soap12Envelope(_nsm.doc_ns_map)
-        reply_address = request_data.envelope.address.mk_reply_address(
-            'http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Response')
-        response.add_header_object(reply_address)
-
-        metadata_node = etree_.Element(wsxTag('Metadata'), nsmap=_nsm.doc_ns_map)
-
-        # Relationship
-        metadata_section_node = etree_.SubElement(metadata_node,
-                                                  wsxTag('MetadataSection'),
-                                                  attrib={'Dialect': '{}/Relationship'.format(Prefixes.DPWS.namespace)})
-
-        relationship_node = etree_.SubElement(metadata_section_node,
-                                              dpwsTag('Relationship'),
-                                              attrib={'Type': '{}/host'.format(Prefixes.DPWS.namespace)})
-        self._sdc_device.dpws_host.as_etree_subnode(relationship_node)
-
-        self.mk_dpws_hosted().as_etree_subnode(relationship_node)
-
-        metadata_section_node = etree_.SubElement(metadata_node,
-                                                  wsxTag('MetadataSection'),
-                                                  attrib={'Dialect': _wsdl_ns})
-        location_node = etree_.SubElement(metadata_section_node,
-                                          wsxTag('Location'))
-        # determine the correct location of wsdl, depending on call
-        host = http_header['Host']  # this is the address that was called.
-        all_base_urls = self._sdc_device.base_urls
-        my_base_urls = [u for u in all_base_urls if u.netloc == host]
-        my_base_url = my_base_urls[0] if len(my_base_urls) > 0 else all_base_urls[0]
-        location_node.text = '{}://{}/{}/?wsdl'.format(my_base_url.scheme,
-                                                       my_base_url.netloc,
-                                                       '/'.join(consumed_path_elements))
-        response.add_body_element(metadata_node)
-        response.validate_body(self._mdib.biceps_schema.mex_schema)
-        return response
-
-    def __repr__(self):
-        return '{} path={} Porttypes={}'.format(self.__class__.__name__, self.path_element,
-                                                [dp.port_type_string for dp in self._sub_dispatchers])
-
-
-class DPWSPortTypeImpl(SOAPActionDispatcher):
-    """ Base class of all PortType implementations. It main responsibility is creation of wsdl information."""
+class DPWSPortTypeImpl:
+    """ Base class of all PortType implementations. Its resposibilities are:
+        - handling of messages
+        - creation of wsdl information.
+        Handlers are registered in the hosting service instance. """
     WSDLOperationBindings = ()  # overwrite in derived classes
     WSDLMessageDescriptions = ()  # overwrite in derived classes
 
-    def __init__(self, port_type_string, sdc_device):
+    def __init__(self, port_type_string, sdc_device, log_prefix=None):
         """
         :param port_type_string: port type without namespace, e.g 'Get'
-        :param sdcDevice:
+        :param sdc_device:
         """
-        path = None  # ?
-        super().__init__(path)
         self.port_type_string = port_type_string
         self._sdc_device = sdc_device
         self._mdib = sdc_device.mdib
+        self._logger = loghelper.get_logger_adapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
         self.hosting_service = None  # the parent
 
-    def _get_action_string(self, method_name):
-        actions_lookup = self._mdib.sdc_definitions.Actions
-        return getattr(actions_lookup, method_name)
+    def register_handlers(self, hosting_service):
+        """Register callbacks in hosting_service"""
+        self.hosting_service = hosting_service
+
+    @property
+    def actions(self):  # just a shortcut
+        return self._mdib.sdc_definitions.Actions
 
     @property
     def _bmm_schema(self):
@@ -379,8 +83,7 @@ class DPWSPortTypeImpl(SOAPActionDispatcher):
         return port_type
 
     def __repr__(self):
-        return '{} Porttype={} actions={}'.format(self.__class__.__name__, self.port_type_string,
-                                                  self._soap_action_callbacks.keys())
+        return '{} Porttype={}'.format(self.__class__.__name__, self.port_type_string)
 
     def add_wsdl_messages(self, parent_node):
         """
@@ -424,70 +127,22 @@ class DPWSPortTypeImpl(SOAPActionDispatcher):
         wsdl_binding = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'binding'),
                                          attrib={'name': self.port_type_string + 'Binding',
                                                  'type': '{}:{}'.format(porttype_prefix, self.port_type_string)})
-        etree_.SubElement(wsdl_binding, etree_.QName(_WSDL_S12, 'binding'),
+        etree_.SubElement(wsdl_binding, etree_.QName(WSDL_S12, 'binding'),
                           attrib={'style': 'document', 'transport': 'http://schemas.xmlsoap.org/soap/http'})
         _add_policy_dpws_profile(wsdl_binding)
         for wsdl_op in self.WSDLOperationBindings:
             wsdl_operation = etree_.SubElement(wsdl_binding, etree_.QName(_wsdl_ns, 'operation'),
                                                attrib={'name': wsdl_op.name})
-            etree_.SubElement(wsdl_operation, etree_.QName(_WSDL_S12, 'operation'),
+            etree_.SubElement(wsdl_operation, etree_.QName(WSDL_S12, 'operation'),
                               attrib={'soapAction': '{}/{}/{}'.format(v_ref.ActionsNamespace,
                                                                       self.port_type_string,
                                                                       wsdl_op.name)})
             if wsdl_op.input is not None:
                 wsdl_input = etree_.SubElement(wsdl_operation, etree_.QName(_wsdl_ns, 'input'))
-                etree_.SubElement(wsdl_input, etree_.QName(_WSDL_S12, 'body'), attrib={'use': wsdl_op.input})
+                etree_.SubElement(wsdl_input, etree_.QName(WSDL_S12, 'body'), attrib={'use': wsdl_op.input})
             if wsdl_op.output is not None:
                 wsdl_output = etree_.SubElement(wsdl_operation, etree_.QName(_wsdl_ns, 'output'))
-                etree_.SubElement(wsdl_output, etree_.QName(_WSDL_S12, 'body'), attrib={'use': wsdl_op.output})
-
-
-def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_message_name, fault):
-    elem = etree_.SubElement(parent_node, _wsdl_operation, attrib={'name': operation_name})
-    if input_message_name is not None:
-        etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'input'),
-                          attrib={'message': '{}:{}'.format('tns', input_message_name),
-                                  })
-    if output_message_name is not None:
-        etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'output'),
-                          attrib={'message': '{}:{}'.format('tns', output_message_name),
-                                  })
-    if fault is not None:
-        fault_name, message_name, _ = fault  # unpack 3 parameters
-        etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'fault'),
-                          attrib={'name': fault_name,
-                                  'message': '{}:{}'.format('tns', message_name),
-                                  })
-    return elem
-
-
-def mk_wsdl_two_way_operation(parent_node, operation_name, input_message_name=None, output_message_name=None,
-                              fault=None):
-    # has input and output
-    input_msg_name = input_message_name or operation_name  # defaults to operation name
-    output_msg_name = output_message_name or operation_name + 'Response'  # defaults to operation name + "Response"
-    return _mk_wsdl_operation(parent_node, operation_name=operation_name, input_message_name=input_msg_name,
-                              output_message_name=output_msg_name, fault=fault)
-
-
-def _mk_wsdl_one_way_operation(parent_node, operation_name, output_message_name=None, fault=None):
-    # has only output
-    output_msg_name = output_message_name or operation_name  # defaults to operation name
-    return _mk_wsdl_operation(parent_node, operation_name=operation_name, input_message_name=None,
-                              output_message_name=output_msg_name, fault=fault)
-
-
-def _add_policy_dpws_profile(parent_node):
-    """
-    :param parent_node:
-    :return: <wsp:Policy>
-            <dpws:Profile wsp:Optional="true"/>
-            <mdpws:Profile wsp:Optional="true"/>
-          </wsp:Policy>
-    """
-    wsp_policy_node = etree_.SubElement(parent_node, etree_.QName(_WSP_NS, 'Policy'), attrib=None)
-    _ = etree_.SubElement(wsp_policy_node, dpwsTag('Profile'), attrib={etree_.QName(_WSP_NS, 'Optional'): 'true'})
-    _ = etree_.SubElement(wsp_policy_node, mdpwsTag('Profile'), attrib={etree_.QName(_WSP_NS, 'Optional'): 'true'})
+                etree_.SubElement(wsdl_output, etree_.QName(WSDL_S12, 'body'), attrib={'use': wsdl_op.output})
 
 
 class GetService(DPWSPortTypeImpl):
@@ -504,12 +159,15 @@ class GetService(DPWSPortTypeImpl):
                              WSDLOperationBinding('GetMdib', 'literal', 'literal'),
                              WSDLOperationBinding('GetMdDescription', 'literal', 'literal'),)
 
-    def __init__(self, port_type_string, sdcDevice):
-        super().__init__(port_type_string, sdcDevice)
+    def register_handlers(self, hosting_service):
+        super().register_handlers(hosting_service)
         actions = self._sdc_device.mdib.sdc_definitions.Actions
-        self.register_action_handler(actions.GetMdState, self._on_get_md_state)
-        self.register_action_handler(actions.GetMdib, self._on_get_mdib)
-        self.register_action_handler(actions.GetMdDescription, self._on_get_md_description)
+        hosting_service.register_post_handler(actions.GetMdState, self._on_get_md_state)
+        hosting_service.register_post_handler(actions.GetMdib, self._on_get_mdib)
+        hosting_service.register_post_handler(actions.GetMdDescription, self._on_get_md_description)
+        hosting_service.register_post_handler(msgTag('GetMdState'), self._on_get_md_state)
+        hosting_service.register_post_handler(msgTag('GetMdib'), self._on_get_mdib)
+        hosting_service.register_post_handler(msgTag('GetMdDescription'), self._on_get_md_description)
 
     def _on_get_md_state(self, request_data):
         self._logger.debug('_on_get_md_state')
@@ -617,11 +275,13 @@ class ContainmentTreeService(DPWSPortTypeImpl):
     WSDLOperationBindings = (WSDLOperationBinding('GetDescriptor', 'literal', 'literal'),
                              WSDLOperationBinding('GetContainmentTree', 'literal', 'literal'))
 
-    def __init__(self, port_type_string, sdcDevice):
-        super().__init__(port_type_string, sdcDevice)
+    def register_handlers(self, hosting_service):
+        super().register_handlers(hosting_service)
         actions = self._mdib.sdc_definitions.Actions
-        self.register_action_handler(actions.GetContainmentTree, self._on_get_containment_tree)
-        self.register_action_handler(actions.GetDescriptor, self._on_get_descriptor)
+        hosting_service.register_post_handler(actions.GetContainmentTree, self._on_get_containment_tree)
+        hosting_service.register_post_handler(actions.GetDescriptor, self._on_get_descriptor)
+        hosting_service.register_post_handler(msgTag('GetContainmentTree'), self._on_get_containment_tree)
+        hosting_service.register_post_handler(msgTag('GetDescriptor'), self._on_get_descriptor)
 
     def _on_get_containment_tree(self, request_data):
         # ToDo: implement, currently method only raises a soap fault
@@ -667,15 +327,21 @@ class SetService(DPWSPortTypeImpl):
                              WSDLOperationBinding('OperationInvokedReport', None, 'literal'),
                              )
 
-    def __init__(self, port_type_string, sdcDevice):
-        super().__init__(port_type_string, sdcDevice)
+    def register_handlers(self, hosting_service):
+        super().register_handlers(hosting_service)
         actions = self._mdib.sdc_definitions.Actions
-        self.register_action_handler(actions.Activate, self._on_activate)
-        self.register_action_handler(actions.SetValue, self._on_set_value)
-        self.register_action_handler(actions.SetString, self._on_set_string)
-        self.register_action_handler(actions.SetMetricState, self._on_set_metric_state)
-        self.register_action_handler(actions.SetAlertState, self._on_set_alert_state)
-        self.register_action_handler(actions.SetComponentState, self._on_set_component_state)
+        hosting_service.register_post_handler(actions.Activate, self._on_activate)
+        hosting_service.register_post_handler(actions.SetValue, self._on_set_value)
+        hosting_service.register_post_handler(actions.SetString, self._on_set_string)
+        hosting_service.register_post_handler(actions.SetMetricState, self._on_set_metric_state)
+        hosting_service.register_post_handler(actions.SetAlertState, self._on_set_alert_state)
+        hosting_service.register_post_handler(actions.SetComponentState, self._on_set_component_state)
+        hosting_service.register_post_handler(msgTag('Activate'), self._on_activate)
+        hosting_service.register_post_handler(msgTag('SetValue'), self._on_set_value)
+        hosting_service.register_post_handler(msgTag('SetString'), self._on_set_string)
+        hosting_service.register_post_handler(msgTag('SetMetricState'), self._on_set_metric_state)
+        hosting_service.register_post_handler(msgTag('SetAlertState'), self._on_set_alert_state)
+        hosting_service.register_post_handler(msgTag('SetComponentState'), self._on_set_component_state)
 
     def _on_activate(self, request_data):  # pylint:disable=unused-argument
         """Handler for Active calls.
@@ -748,8 +414,9 @@ class SetService(DPWSPortTypeImpl):
         :param argument:
         :return:
         """
+        action = getattr(self.actions, response_name)
         response = pysoap.soapenvelope.Soap12Envelope(self._mdib.nsmapper.partial_map(Prefixes.S12, Prefixes.WSA))
-        reply_address = request.address.mk_reply_address(action=self._get_action_string(response_name))
+        reply_address = request.address.mk_reply_address(action=action)
         response.add_header_object(reply_address)
         reply_body_node = etree_.Element(msgTag(response_name),
                                          attrib={'SequenceId': self._mdib.sequence_id,
@@ -875,18 +542,21 @@ class ContextService(DPWSPortTypeImpl):
                              WSDLOperationBinding('PeriodicContextReport', None, 'literal'),
                              )
 
-    def __init__(self, port_type_string, sdcDevice):
-        super().__init__(port_type_string, sdcDevice)
+    def register_handlers(self, hosting_service):
+        super().register_handlers(hosting_service)
         actions = self._mdib.sdc_definitions.Actions
-        self.register_action_handler(actions.SetContextState, self._on_set_context_state)
-        self.register_action_handler(actions.GetContextStates, self._on_get_context_states)
+        hosting_service.register_post_handler(actions.SetContextState, self._on_set_context_state)
+        hosting_service.register_post_handler(actions.GetContextStates, self._on_get_context_states)
+        hosting_service.register_post_handler(msgTag('SetContextState'), self._on_set_context_state)
+        hosting_service.register_post_handler(msgTag('GetContextStates'), self._on_get_context_states)
 
     def _on_set_context_state(self, request_data):
         """ enqueues an operation and returns a 'wait' reponse."""
         response = pysoap.soapenvelope.Soap12Envelope(
             self._mdib.nsmapper.partial_map(Prefixes.S12, Prefixes.PM, Prefixes.WSA, Prefixes.MSG))
         reply_address = request_data.envelope.address.mk_reply_address(
-            action=self._get_action_string('SetContextStateResponse'))
+            # action=self._get_action_string('SetContextStateResponse'))
+            action=self.actions.SetContextStateResponse)
         response.add_header_object(reply_address)
         reply_body_node = etree_.Element(msgTag('SetContextStateResponse'),
                                          nsmap=Prefixes.partial_map(Prefixes.MSG),
@@ -933,7 +603,7 @@ class ContextService(DPWSPortTypeImpl):
         response.validate_body(self._bmm_schema)
         return response
 
-    def _on_get_context_states(self, request_data, ):
+    def _on_get_context_states(self, request_data):
         self._logger.debug('_on_get_context_states')
         requested_handles = request_data.envelope.body_node.xpath('*/msg:HandleRef/text()', namespaces=nsmap)
         if len(requested_handles) > 0:
@@ -942,7 +612,8 @@ class ContextService(DPWSPortTypeImpl):
         response = pysoap.soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
         reply_address = request_data.envelope.address.mk_reply_address(
-            action=self._get_action_string('GetContextStatesResponse'))
+            # action=self._get_action_string('GetContextStatesResponse'))
+            action=self.actions.GetContextStatesResponse)
         response.add_header_object(reply_address)
         response_node = etree_.Element(msgTag('GetContextStatesResponse'))
         with self._mdib.mdib_lock:
@@ -1004,3 +675,53 @@ class DescriptionEventService(DPWSPortTypeImpl):
     def add_wsdl_port_type(self, parent_node):
         port_type = self._mk_port_type_node(parent_node, True)
         _mk_wsdl_one_way_operation(port_type, operation_name='DescriptionModificationReport')
+
+
+def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_message_name, fault):
+    elem = etree_.SubElement(parent_node, _wsdl_operation, attrib={'name': operation_name})
+    if input_message_name is not None:
+        etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'input'),
+                          attrib={'message': '{}:{}'.format('tns', input_message_name),
+                                  })
+    if output_message_name is not None:
+        etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'output'),
+                          attrib={'message': '{}:{}'.format('tns', output_message_name),
+                                  })
+    if fault is not None:
+        fault_name, message_name, _ = fault  # unpack 3 parameters
+        etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'fault'),
+                          attrib={'name': fault_name,
+                                  'message': '{}:{}'.format('tns', message_name),
+                                  })
+    return elem
+
+
+def mk_wsdl_two_way_operation(parent_node, operation_name, input_message_name=None, output_message_name=None,
+                              fault=None):
+    # has input and output
+    input_msg_name = input_message_name or operation_name  # defaults to operation name
+    output_msg_name = output_message_name or operation_name + 'Response'  # defaults to operation name + "Response"
+    return _mk_wsdl_operation(parent_node, operation_name=operation_name, input_message_name=input_msg_name,
+                              output_message_name=output_msg_name, fault=fault)
+
+
+def _mk_wsdl_one_way_operation(parent_node, operation_name, output_message_name=None, fault=None):
+    # has only output
+    output_msg_name = output_message_name or operation_name  # defaults to operation name
+    return _mk_wsdl_operation(parent_node, operation_name=operation_name, input_message_name=None,
+                              output_message_name=output_msg_name, fault=fault)
+
+
+def _add_policy_dpws_profile(parent_node):
+    """
+    :param parent_node:
+    :return: <wsp:Policy>
+            <dpws:Profile wsp:Optional="true"/>
+            <mdpws:Profile wsp:Optional="true"/>
+          </wsp:Policy>
+    """
+    wsp_policy_node = etree_.SubElement(parent_node, etree_.QName(WSP_NS, 'Policy'), attrib=None)
+    _ = etree_.SubElement(wsp_policy_node, dpwsTag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
+    _ = etree_.SubElement(wsp_policy_node, mdpwsTag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
+
+

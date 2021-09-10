@@ -204,13 +204,17 @@ class LocalizationService(DPWSPortTypeImpl):
     WSDLOperationBindings = (WSDLOperationBinding('GetLocalizedText', 'literal', 'literal'),
                              WSDLOperationBinding('GetSupportedLanguages', 'literal', 'literal'),)
 
-    def __init__(self, port_type_string, sdc_device):
-        super().__init__(port_type_string, sdc_device)
-        self.register_action_handler(self._mdib.sdc_definitions.Actions.GetLocalizedText,
-                                     self._on_get_localized_text)
-        self.register_action_handler(self._mdib.sdc_definitions.Actions.GetSupportedLanguages,
-                                     self._on_get_supported_languages)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.localization_storage = LocalizationStorage()
+
+    def register_handlers(self, hosting_service):
+        super().register_handlers(hosting_service)
+        actions = self._mdib.sdc_definitions.Actions
+        hosting_service.register_post_handler(actions.GetLocalizedText, self._on_get_localized_text)
+        hosting_service.register_post_handler(actions.GetSupportedLanguages, self._on_get_supported_languages)
+        hosting_service.register_post_handler(msgTag('GetLocalizedText'), self._on_get_localized_text)
+        hosting_service.register_post_handler(msgTag('GetSupportedLanguages'), self._on_get_supported_languages)
 
     def _on_get_localized_text(self, request_data):  # pylint:disable=unused-argument
         self._logger.debug('_on_get_localized_text')
@@ -244,7 +248,7 @@ class LocalizationService(DPWSPortTypeImpl):
         response_envelope = pysoap.soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
         reply_address = request_data.envelope.address.mk_reply_address(
-            action=self._get_action_string('GetLocalizedTextResponse'))
+            action=self.actions.GetLocalizedTextResponse)
         response_envelope.add_header_object(reply_address)
         response_node = etree_.Element(msgTag('GetLocalizedTextResponse'))
         response_node.set('MdibVersion', str(self._mdib.mdib_version))
@@ -263,7 +267,7 @@ class LocalizationService(DPWSPortTypeImpl):
         response_envelope = pysoap.soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
         reply_address = request_data.envelope.address.mk_reply_address(
-            action=self._get_action_string('GetSupportedLanguagesResponse'))
+            action=self.actions.GetSupportedLanguagesResponse)
         response_envelope.add_header_object(reply_address)
         response_node = etree_.Element(msgTag('GetSupportedLanguagesResponse'))
         response_node.set('MdibVersion', str(self._mdib.mdib_version))

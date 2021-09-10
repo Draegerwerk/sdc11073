@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from typing import List, Tuple
 from typing import Type
 
-from .sdcservicesimpl import DPWSHostedService, DPWSPortTypeImpl
+from .hostedserviceimpl import DPWSHostedService
+from .sdcservicesimpl import DPWSPortTypeImpl
 from .. import pmtypes
 from .. import wsdiscovery
 from ..location import SdcLocation
@@ -80,16 +81,17 @@ class HostedServices:
 
 
 
-def mk_all_services(sdc_device, service_handlers_lookup, sdc_definitions) -> HostedServices:
+def mk_all_services(sdc_device, components, sdc_definitions) -> HostedServices:
     # register all services with their endpoint references acc. to sdc standard
     actions = sdc_definitions.Actions
-
+    service_handlers_lookup = components.service_handlers
     cls = service_handlers_lookup['GetService']
     get_service = cls('GetService', sdc_device)
     cls = service_handlers_lookup['LocalizationService']
     localization_service = cls('LocalizationService', sdc_device)
     offered_subscriptions = []
     get_service_hosted = DPWSHostedService(sdc_device, 'Get',
+                                           components.msg_dispatch_method,
                                            [get_service, localization_service],
                                            offered_subscriptions)
 
@@ -119,6 +121,7 @@ def mk_all_services(sdc_device, service_handlers_lookup, sdc_definitions) -> Hos
                              ]
 
     sdc_service_hosted = DPWSHostedService(sdc_device, 'StateEvent',
+                                           components.msg_dispatch_method,
                                            [context_service,
                                             description_event_service,
                                             state_event_service,
@@ -129,13 +132,16 @@ def mk_all_services(sdc_device, service_handlers_lookup, sdc_definitions) -> Hos
     set_dispatcher = cls('SetService', sdc_device)
     offered_subscriptions = [actions.OperationInvokedReport]
 
-    set_service_hosted = DPWSHostedService(sdc_device, 'Set', [set_dispatcher],
+    set_service_hosted = DPWSHostedService(sdc_device, 'Set',
+                                           components.msg_dispatch_method,
+                                           [set_dispatcher],
                                            offered_subscriptions)
 
     cls = service_handlers_lookup['ContainmentTreeService']
     containment_tree_dispatcher = cls('ContainmentTreeService', sdc_device)
     offered_subscriptions = []
     containment_tree_service_hosted = DPWSHostedService(sdc_device, 'ContainmentTree',
+                                                        components.msg_dispatch_method,
                                                         [containment_tree_dispatcher],
                                                         offered_subscriptions)
     dpws_services = (get_service_hosted,
@@ -155,14 +161,17 @@ def mk_all_services(sdc_device, service_handlers_lookup, sdc_definitions) -> Hos
     return hosted_services
 
 
-def mk_minimal_services_plus_loc(sdc_device, service_handlers_lookup, sdc_definitions) -> HostedServices:
+def mk_minimal_services_plus_loc(sdc_device, components, sdc_definitions) -> HostedServices:
     """"This example function instantiates only GetService and LocalizationService"""
+    service_handlers_lookup = components.service_handlers
+
     cls = service_handlers_lookup['GetService']
     get_service = cls('GetService', sdc_device)
     cls = service_handlers_lookup['LocalizationService']
     localization_service = cls('LocalizationService', sdc_device)
     offered_subscriptions = []
     get_service_hosted = DPWSHostedService(sdc_device, 'Get',
+                                           components.msg_dispatch_method,
                                            [get_service, localization_service],
                                            offered_subscriptions)
 

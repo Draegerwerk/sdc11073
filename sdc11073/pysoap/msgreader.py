@@ -1,5 +1,6 @@
 import copy
 from abc import abstractmethod, ABC
+from typing import List
 
 from lxml import etree as etree_
 
@@ -12,17 +13,30 @@ class MdibStructureError(Exception):
 
 
 class AbstractMessageReader(ABC):
-    @abstractmethod
     def __init__(self, logger, log_prefix=''):
-        """Constructor"""
+        self._logger = logger
+        self._log_prefix = log_prefix
+
+    @staticmethod
+    @abstractmethod
+    def read_getmddescription_request(request)-> List[str]:
+        """ returns a list of handles"""
+
+    @abstractmethod
+    def read_mddescription(self, node, mdib):
+        """ returns DescriptorContainer instances"""
+
+    @abstractmethod
+    def read_getmdstate_request(request)-> List[str]:
+        """ returns a list of handles"""
+
+    @abstractmethod
+    def read_mdstate(self, node, mdib, additional_descriptor_containers=None):
+        """ returns StateContainer instances"""
 
 
 class MessageReader(AbstractMessageReader):
     """ This class does all the conversions from DOM trees (body of SOAP messages) to MDIB objects."""
-
-    def __init__(self, logger, log_prefix=''):
-        self._logger = logger
-        self._log_prefix = log_prefix
 
     @staticmethod
     def get_mdib_root_node(sdc_definitions, xml_text):
@@ -44,7 +58,7 @@ class MessageReader(AbstractMessageReader):
         return root
 
     @staticmethod
-    def read_getmddescription_request(request):
+    def read_getmddescription_request(request)-> List[str]:
         """
         :param request: a soap envelope
         :return : a list of requested Handles
@@ -80,7 +94,7 @@ class MessageReader(AbstractMessageReader):
         return descriptions
 
     @staticmethod
-    def read_getmdstate_request(request):
+    def read_getmdstate_request(request)-> List[str]:
         """
         :param request: a soap envelope
         :return : a list of requested Handles

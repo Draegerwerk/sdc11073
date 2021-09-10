@@ -31,7 +31,7 @@ class SOAPNotificationsDispatcher:
         request_data = RequestData(headers, path, request)
         return self._dispatch(request_data)
 
-    def on_get(self, path: str, headers) -> str:
+    def on_get(self, path: str, headers) -> str: # pylint: disable=unused-argument
         return ''
 
     def _dispatch(self, request_data):

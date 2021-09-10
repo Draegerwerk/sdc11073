@@ -16,7 +16,7 @@ from ..definitions_sdc import SDC_v1_Definitions
 from ..etc import apply_map
 from ..msgtypes import RetrievabilityMethod
 from ..namespaces import domTag
-
+from ..pysoap.msgreader import MessageReader
 
 class DeviceMdibContainer(mdibbase.MdibContainer):
     """Device side implementation of an mdib.
@@ -601,7 +601,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     break
         if protocol_definition is None:
             raise ValueError('cannot create instance, no known BICEPS schema version identified')
-        msg_reader_cls = protocol_definition.DefaultSdcDeviceComponents.msg_reader_class
+        msg_reader_cls = MessageReader  # use soap message reader
         mdib = cls(protocol_definition, log_prefix=log_prefix)
         root = msg_reader_cls.get_mdib_root_node(mdib.sdc_definitions, xml_text)
         mdib.biceps_schema.message_schema.assertValid(root)

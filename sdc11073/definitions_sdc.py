@@ -19,6 +19,7 @@ from .sdcclient.subscription import ClientSubscriptionManager
 from .sdcdevice.localizationservice import LocalizationService
 from .sdcdevice.sco import get_operation_class, ScoOperationsRegistry
 from .sdcdevice.sdc_handlers import mk_scopes, mk_all_services
+from .sdcdevice.hostedserviceimpl import by_msg_tag
 from .sdcdevice.sdcservicesimpl import ContextService, WaveformService, DescriptionEventService
 from .sdcdevice.sdcservicesimpl import GetService, SetService, StateEventService, ContainmentTreeService
 from .sdcdevice.subscriptionmgr import SubscriptionsManagerPath
@@ -56,8 +57,6 @@ class _SdcV1Actions:
     GetMdStateResponse = _ActionsNamespace + '/GetService/GetMdStateResponse'
     GetMdDescription = _ActionsNamespace + '/GetService/GetMdDescription'
     GetMdDescriptionResponse = _ActionsNamespace + '/GetService/GetMdDescriptionResponse'
-    GetContainmentTree = _ActionsNamespace + '/GetService/GetContainmentTree'
-    GetContainmentTreeResponse = _ActionsNamespace + '/GetService/GetContainmentTreeResponse'
     GetContextStates = _ActionsNamespace + '/ContextService/GetContextStates'
     GetContextStatesResponse = _ActionsNamespace + '/ContextService/GetContextStatesResponse'
     GetContextStatesByIdentification = _ActionsNamespace + '/ContextService/GetContextStatesByIdentification'
@@ -96,6 +95,7 @@ default_sdc_device_components = SdcDeviceComponents(
     subscriptions_manager_class=SubscriptionsManagerPath,
     role_provider_class=MinimalProduct,
     scopes_factory=mk_scopes,
+    msg_dispatch_method=by_msg_tag,
     service_handlers={'ContainmentTreeService': ContainmentTreeService,
                       'GetService': GetService,
                       'StateEventService': StateEventService,

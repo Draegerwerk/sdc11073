@@ -1,7 +1,6 @@
 import socket
 import threading
 import traceback
-from abc import ABC, abstractmethod
 from http.server import BaseHTTPRequestHandler
 from http.server import HTTPServer
 from io import BytesIO
@@ -352,7 +351,7 @@ class HttpServerThreadBase(threading.Thread):
         self.httpd.server_close()
         if close_all_connections:
             for thr in self.httpd.threads:
-                thread, request, client_addr = thr
+                thread, _, client_addr = thr
                 if thread.is_alive():
                     thread.join(1)
                 if thread.is_alive():

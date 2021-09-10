@@ -1,7 +1,7 @@
 import os
 import urllib
 from dataclasses import dataclass
-from typing import Type, Callable, List, Any
+from typing import Type, Callable, List, Any, ForwardRef
 
 from lxml import etree as etree_
 from lxml.etree import QName
@@ -69,7 +69,8 @@ class SdcDeviceComponents:
     sco_operations_registry_class: type = None
     subscriptions_manager_class: type = None
     role_provider_class: type = None
-    scopes_factory: Callable[[Any], List[Scope]] = None
+    scopes_factory: Callable[[ForwardRef('DeviceMdib')], List[Scope]] = None
+    msg_dispatch_method: Callable[[ForwardRef('RequestData')], str] = None
     service_handlers: dict = None
 
     def merge(self, other):

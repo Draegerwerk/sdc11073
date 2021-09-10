@@ -66,7 +66,8 @@ class TestDeviceServices(unittest.TestCase):
         path = self.sdc_device.path_prefix + '/Get'
         getEnv = self._mkGetRequest(self.sdc_device, getService.port_type_string, 'GetMdib', path)
         http_header = {}
-        response_string = dispatcher.on_post(path, http_header, getEnv.as_xml())
+        #response_string = dispatcher.on_post(path, http_header, getEnv.as_xml())
+        response_string = dispatcher.on_post(RequestData(http_header, path, getEnv.as_xml()))
         self.assertTrue('/{}/GetMdibResponse'.format(getService.port_type_string).encode('utf-8') in response_string)
 
         contextService = self.sdc_device.hosted_services.context_service
@@ -74,7 +75,8 @@ class TestDeviceServices(unittest.TestCase):
         getEnv = self._mkGetRequest(self.sdc_device, contextService.port_type_string, 'GetContextStates',
                                     path)
         http_header = {}
-        response_string = dispatcher.on_post(path, http_header, getEnv.as_xml())
+        #response_string = dispatcher.on_post(path, http_header, getEnv.as_xml())
+        response_string = dispatcher.on_post(RequestData(http_header, path,  getEnv.as_xml()))
         self.assertTrue(
             '/{}/GetContextStatesResponse'.format(contextService.port_type_string).encode('utf-8') in response_string)
 
@@ -95,7 +97,7 @@ class TestDeviceServices(unittest.TestCase):
         http_header = {}
         request = RequestData(http_header, path)
         request.envelope = ReceivedSoap12Envelope(get_env.as_xml())
-        response = getService.dispatch_post_request(request)
+        response = getService.hosting_service.on_post(request)
         response.validate_body(self.sdc_device.mdib.biceps_schema.message_schema)
 
     def test_getMdDescription(self):
@@ -105,7 +107,7 @@ class TestDeviceServices(unittest.TestCase):
         http_header = {}
         request = RequestData(http_header, path)
         request.envelope = ReceivedSoap12Envelope(get_env.as_xml())
-        response = getService.dispatch_post_request(request)
+        response = getService.hosting_service.on_post(request)
         response.validate_body(self.sdc_device.mdib.biceps_schema.message_schema)
 
     def test_changeAlarmPrio(self):
@@ -121,7 +123,7 @@ class TestDeviceServices(unittest.TestCase):
         http_header = {}
         request = RequestData(http_header, path)
         request.envelope = ReceivedSoap12Envelope(get_env.as_xml())
-        response = getService.dispatch_post_request(request)
+        response = getService.hosting_service.on_post(request)
         response.validate_body(self.sdc_device.mdib.biceps_schema.message_schema)
 
     def test_getContextStates(self):
@@ -137,7 +139,7 @@ class TestDeviceServices(unittest.TestCase):
         http_header = {}
         request = RequestData(http_header, path)
         request.envelope = ReceivedSoap12Envelope(get_env.as_xml())
-        response = contextService.dispatch_post_request(request)
+        response = contextService.hosting_service.on_post(request)
         print(response.as_xml(pretty=True))
         response.validate_body(self.sdc_device.mdib.biceps_schema.message_schema)
         _ns = self.sdc_device.mdib.nsmapper  # shortcut
