@@ -7,9 +7,6 @@ import traceback
 import ssl
 import urllib
 from lxml import etree as etree_
-from cryptography import x509
-from cryptography.hazmat import backends
-from cryptography.x509 import extensions
 
 import sdc11073
 from .. import observableproperties as properties
@@ -432,23 +429,6 @@ class SdcClient(object):
         del self._compression_methods[:]
         self._compression_methods.extend(compression_methods)
 
-    def get_peer_cert_extended_key_usages(self):
-        _url = urllib.parse.urlparse(self._devicelocation)
-        if self._sslContext is not None and _url.scheme == 'https':
-            wsc = self._getSoapClient(self._devicelocation)
-            if wsc.isClosed():
-                wsc.connect()
-            sock = wsc.sock
-            binary_peer_cert = sock.getpeercert(binary_form=True)
-            if binary_peer_cert:
-                cert = x509.load_der_x509_certificate(binary_peer_cert, backends.default_backend())
-                try:
-                    ext_key_usage = cert.extensions.get_extension_for_class(extensions.ExtendedKeyUsage)
-                    return [e for e in ext_key_usage.value]
-                except Exception as ex:
-                    self._logger.warn('Unable to read EKU:{}'.format(repr(ex)))
-        return list()
-
     def getMetaData(self):
         _url = urllib.parse.urlparse(self._devicelocation)
         wsc = self._getSoapClient(self._devicelocation)
@@ -458,8 +438,7 @@ class SdcClient(object):
                 wsc.connect()
             sock = wsc.sock
             self.peerCertificate = sock.getpeercert(binary_form=False)
-            self._logger.info('Peer Certificate: {}', self.peerCertificate)
-            self._logger.info('Peer Certificate Extended Key Usages: {}', self.get_peer_cert_extended_key_usages())
+            self.binary_peer_cert = sock.getpeercert(binary_form=True)
 
         soapEnvelope = Soap12Envelope(nsmap)
         soapEnvelope.setAddress(WsAddress(action='{}/Get'.format(Prefix.WXF.namespace),
