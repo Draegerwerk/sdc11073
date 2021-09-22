@@ -53,19 +53,19 @@ class DPWSPortTypeImpl:
 
     @property
     def _bmm_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.biceps_schema.message_schema
+        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.schema_validators.message_schema
 
     @property
     def _mex_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.biceps_schema.mex_schema
+        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.schema_validators.mex_schema
 
     @property
     def _evt_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.biceps_schema.eventing_schema
+        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.schema_validators.eventing_schema
 
     @property
     def _s12_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.biceps_schema.soap12_schema
+        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.schema_validators.soap12_schema
 
     def add_wsdl_port_type(self, parent_node):
         raise NotImplementedError

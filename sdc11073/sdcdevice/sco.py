@@ -13,151 +13,11 @@ import sys
 import threading
 import time
 import traceback
-
+from abc import ABC, abstractmethod
 from .. import loghelper
 from .. import observableproperties as properties
 from ..namespaces import domTag, msgTag
 from ..pmtypes import InvocationState, SafetyClassification
-
-
-class _OperationsWorker(threading.Thread):
-    """ Thread that enqueues and processes all operations.
-    It manages transaction ids for all operations.
-    Progress notifications are sent via subscription manager."""
-
-    def __init__(self, subscriptions_mgr, mdib, log_prefix):
-        """
-        :param subscriptions_mgr: subscriptionsmgr.notify_operation is called in order to notify all subscribers of OperationInvokeReport Events
-        """
-        super().__init__(name='DeviceOperationsWorker')
-        self.daemon = True
-        self._subscriptions_mgr = subscriptions_mgr
-        self._mdib = mdib
-        self._operations_queue = queue.Queue(10)  # spooled operations
-        self._transaction_id = 1
-        self._transaction_id_lock = threading.Lock()
-        self._logger = loghelper.get_logger_adapter('sdc.device.op_worker', log_prefix)
-
-    def enqueue_operation(self, operation, request, argument):
-        """ enqueues operation "operation".
-        :param operation: a callable with signature operation(request, mdib)
-        :param request: the soapEnvelope of the request
-        :param argument: parsed argument for the operation handler
-        @return: a transaction Id
-        """
-        with self._transaction_id_lock:
-            transaction_id = self._transaction_id
-            self._transaction_id += 1
-        self._operations_queue.put((transaction_id, operation, request, argument), timeout=1)
-        return transaction_id
-
-    def run(self):
-        while True:
-            try:
-                from_queue = self._operations_queue.get()
-                if from_queue == 'stop_sco':
-                    self._logger.info('stop request found. Terminating now.')
-                    return
-                tr_id, operation, request, argument = from_queue  # unpack tuple
-                time.sleep(0.001)
-                self._logger.info('{}: starting operation "{}"', operation.__class__.__name__, operation.handle)
-                # duplicate the WAIT response to the operation request as notification. Standard requires this.
-                self._subscriptions_mgr.notify_operation(
-                    operation, tr_id, InvocationState.WAIT,
-                    self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version)
-                time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
-                self._subscriptions_mgr.notify_operation(
-                    operation, tr_id, InvocationState.START,
-                    self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version)
-                try:
-                    operation.execute_operation(request, argument)
-                    self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
-                                      operation.handle)
-                    self._subscriptions_mgr.notify_operation(
-                        operation, tr_id, InvocationState.FINISHED,
-                        self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version)
-                except Exception as ex:
-                    self._logger.info('{}: error executing operation "{}": {}', operation.__class__.__name__,
-                                      operation.handle, traceback.format_exc())
-                    self._subscriptions_mgr.notify_operation(
-                        operation, tr_id, InvocationState.FAILED,
-                        self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version,
-                        error='Oth', error_message=repr(ex))
-
-            except Exception as ex:
-                self._logger.error('{}: unexpected error while handling operation "{}": {}',
-                                   operation.__class__.__name__, operation.handle, traceback.format_exc())
-
-    def stop(self):
-        self._operations_queue.put('stop_sco')  # a dummy request to stop the thread
-        self.join(timeout=1)
-
-
-class ScoOperationsRegistry:
-    """ Registry for Sco operations.
-    from BICEPS:
-    A service control object to define remote control operations. Any pm:AbstractOperationDescriptor/@OperationTarget
-    within this SCO SHALL only reference this or child descriptors within the CONTAINMENT TREE.
-    NOTE - In modular systems, dynamically plugged-in modules would typically be modeled as VMDs.
-    Such VMDs potentially have their own SCO. In every other case, SCO operations are modeled in pm:MdsDescriptor/pm:Sco.
-    """
-
-    def __init__(self, subscriptions_mgr, operation_cls_getter, mdib, handle='_sco', log_prefix=None):
-        self._worker = None
-        self._subscriptions_mgr = subscriptions_mgr
-        self.operation_cls_getter = operation_cls_getter
-        self._mdib = mdib
-        self._log_prefix = log_prefix
-        self._logger = loghelper.get_logger_adapter('sdc.device.op_reg', log_prefix)
-        self._registered_operations = {}  # lookup by handle
-        self._handle = handle
-
-        # find the Sco of the Mds, this will be the default sco for new operations
-        mds_descriptor_container = mdib.descriptions.NODETYPE.get_one(domTag('MdsDescriptor'))
-        sco_containers = mdib.descriptions.find(parent_handle=mds_descriptor_container.handle).find(
-            NODETYPE=domTag('ScoDescriptor')).objects
-        if len(sco_containers) == 1:
-            self._logger.info('found Sco node in mds, using it')
-            self._mds_sco_descriptor_container = sco_containers[0]
-        else:
-            self._logger.info('not found Sco node in mds, creating it')
-            # create sco and add to mdib
-            cls = mdib.sdc_definitions.get_descriptor_container_class(domTag('ScoDescriptor'))
-            self._mds_sco_descriptor_container = cls(mdib.nsmapper, self._handle, mds_descriptor_container.handle)
-            mdib.descriptions.add_object(self._mds_sco_descriptor_container)
-
-    def register_operation(self, operation, sco_descriptor_container=None):
-        self._logger.info('register operation "{}"', operation)
-        if operation.handle in self._registered_operations:
-            self._logger.info('handle {} is already registered, will re-use it', operation.handle)
-        parent_container = sco_descriptor_container or self._mds_sco_descriptor_container
-        operation.set_mdib(self._mdib, parent_container)
-        self._registered_operations[operation.handle] = operation
-
-    def unregister_operation_by_handle(self, operation_handle):
-        del self._registered_operations[operation_handle]
-
-    def get_operation_by_handle(self, operation_handle):
-        return self._registered_operations.get(operation_handle)
-
-    def enqueue_operation(self, operation, request, argument):
-        """ enqueues operation "operation".
-        :param operation: a callable with signature operation(request, mdib)
-        :param request: the soapEnvelope of the request
-        @return: a transaction Id
-        """
-        return self._worker.enqueue_operation(operation, request, argument)
-
-    def start_worker(self):
-        if self._worker is not None:
-            raise RuntimeError('SCO worker is already running')
-        self._worker = _OperationsWorker(self._subscriptions_mgr, self._mdib, self._log_prefix)
-        self._worker.start()
-
-    def stop_worker(self):
-        if self._worker is not None:
-            self._worker.stop()
-            self._worker = None
 
 
 class OperationDefinition:
@@ -415,3 +275,184 @@ def get_operation_class(q_name):
     :param qNameType: a QName instance
     """
     return _operation_lookup_by_type.get(q_name)
+
+
+class _OperationsWorker(threading.Thread):
+    """ Thread that enqueues and processes all operations.
+    It manages transaction ids for all operations.
+    Progress notifications are sent via subscription manager."""
+
+    def __init__(self, subscriptions_mgr, mdib, log_prefix):
+        """
+        :param subscriptions_mgr: subscriptionsmgr.notify_operation is called in order to notify all subscribers of OperationInvokeReport Events
+        """
+        super().__init__(name='DeviceOperationsWorker')
+        self.daemon = True
+        self._subscriptions_mgr = subscriptions_mgr
+        self._mdib = mdib
+        self._operations_queue = queue.Queue(10)  # spooled operations
+        self._transaction_id = 1
+        self._transaction_id_lock = threading.Lock()
+        self._logger = loghelper.get_logger_adapter('sdc.device.op_worker', log_prefix)
+
+    def enqueue_operation(self, operation, request, argument):
+        """ enqueues operation "operation".
+        :param operation: a callable with signature operation(request, mdib)
+        :param request: the soapEnvelope of the request
+        :param argument: parsed argument for the operation handler
+        @return: a transaction Id
+        """
+        with self._transaction_id_lock:
+            transaction_id = self._transaction_id
+            self._transaction_id += 1
+        self._operations_queue.put((transaction_id, operation, request, argument), timeout=1)
+        return transaction_id
+
+    def run(self):
+        while True:
+            try:
+                from_queue = self._operations_queue.get()
+                if from_queue == 'stop_sco':
+                    self._logger.info('stop request found. Terminating now.')
+                    return
+                tr_id, operation, request, argument = from_queue  # unpack tuple
+                time.sleep(0.001)
+                self._logger.info('{}: starting operation "{}"', operation.__class__.__name__, operation.handle)
+                # duplicate the WAIT response to the operation request as notification. Standard requires this.
+                self._subscriptions_mgr.notify_operation(
+                    operation, tr_id, InvocationState.WAIT,
+                    self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version)
+                time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
+                self._subscriptions_mgr.notify_operation(
+                    operation, tr_id, InvocationState.START,
+                    self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version)
+                try:
+                    operation.execute_operation(request, argument)
+                    self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
+                                      operation.handle)
+                    self._subscriptions_mgr.notify_operation(
+                        operation, tr_id, InvocationState.FINISHED,
+                        self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version)
+                except Exception as ex:
+                    self._logger.info('{}: error executing operation "{}": {}', operation.__class__.__name__,
+                                      operation.handle, traceback.format_exc())
+                    self._subscriptions_mgr.notify_operation(
+                        operation, tr_id, InvocationState.FAILED,
+                        self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version,
+                        error='Oth', error_message=repr(ex))
+
+            except Exception as ex:
+                self._logger.error('{}: unexpected error while handling operation "{}": {}',
+                                   operation.__class__.__name__, operation.handle, traceback.format_exc())
+
+    def stop(self):
+        self._operations_queue.put('stop_sco')  # a dummy request to stop the thread
+        self.join(timeout=1)
+
+
+class AbstractScoOperationsRegistry(ABC):
+    @abstractmethod
+    def __init__(self, subscriptions_mgr, operation_cls_getter, mdib, handle='_sco', log_prefix=None):
+        """Constructor"""
+
+    @abstractmethod
+    def register_operation(self, operation: OperationDefinition, sco_descriptor_container=None) -> None:
+        """
+
+        :param operation: OperationDefinition
+        :param sco_descriptor_container: a descriptor container
+        :return:
+        """
+
+    @abstractmethod
+    def unregister_operation_by_handle(self, operation_handle: str) -> None:
+        """
+
+        :param operation_handle:
+        :return:
+        """
+
+    @abstractmethod
+    def get_operation_by_handle(self, operation_handle: str) -> OperationDefinition:
+        """
+
+        :param operation_handle:
+        :return:
+        """
+
+    @abstractmethod
+    def enqueue_operation(self, operation: OperationDefinition, request, argument):
+        """ enqueues operation "operation".
+        :param operation: a callable with signature operation(request, mdib)
+        :param request: the soapEnvelope of the request
+        @return: a transaction Id
+        """
+
+
+class ScoOperationsRegistry(AbstractScoOperationsRegistry):
+    """ Registry for Sco operations.
+    from BICEPS:
+    A service control object to define remote control operations. Any pm:AbstractOperationDescriptor/@OperationTarget
+    within this SCO SHALL only reference this or child descriptors within the CONTAINMENT TREE.
+    NOTE - In modular systems, dynamically plugged-in modules would typically be modeled as VMDs.
+    Such VMDs potentially have their own SCO. In every other case, SCO operations are modeled in pm:MdsDescriptor/pm:Sco.
+    """
+
+    def __init__(self, subscriptions_mgr, operation_cls_getter, mdib, handle='_sco', log_prefix=None):
+        self._worker = None
+        self._subscriptions_mgr = subscriptions_mgr
+        self.operation_cls_getter = operation_cls_getter
+        self._mdib = mdib
+        self._log_prefix = log_prefix
+        self._logger = loghelper.get_logger_adapter('sdc.device.op_reg', log_prefix)
+        self._registered_operations = {}  # lookup by handle
+        self._handle = handle
+
+        # find the Sco of the Mds, this will be the default sco for new operations
+        mds_descriptor_container = mdib.descriptions.NODETYPE.get_one(domTag('MdsDescriptor'))
+        sco_containers = mdib.descriptions.find(parent_handle=mds_descriptor_container.handle).find(
+            NODETYPE=domTag('ScoDescriptor')).objects
+        if len(sco_containers) == 1:
+            self._logger.info('found Sco node in mds, using it')
+            self._mds_sco_descriptor_container = sco_containers[0]
+        else:
+            self._logger.info('not found Sco node in mds, creating it')
+            # create sco and add to mdib
+            cls = mdib.sdc_definitions.get_descriptor_container_class(domTag('ScoDescriptor'))
+            self._mds_sco_descriptor_container = cls(mdib.nsmapper, self._handle, mds_descriptor_container.handle)
+            mdib.descriptions.add_object(self._mds_sco_descriptor_container)
+
+    def register_operation(self, operation, sco_descriptor_container=None):
+        self._logger.info('register operation "{}"', operation)
+        if operation.handle in self._registered_operations:
+            self._logger.info('handle {} is already registered, will re-use it', operation.handle)
+        parent_container = sco_descriptor_container or self._mds_sco_descriptor_container
+        operation.set_mdib(self._mdib, parent_container)
+        self._registered_operations[operation.handle] = operation
+
+    def unregister_operation_by_handle(self, operation_handle):
+        del self._registered_operations[operation_handle]
+
+    def get_operation_by_handle(self, operation_handle):
+        return self._registered_operations.get(operation_handle)
+
+    def enqueue_operation(self, operation, request, argument):
+        """ enqueues operation "operation".
+        :param operation: a callable with signature operation(request, mdib)
+        :param request: the soapEnvelope of the request
+        @return: a transaction Id
+        """
+        return self._worker.enqueue_operation(operation, request, argument)
+
+    def start_worker(self):
+        if self._worker is not None:
+            raise RuntimeError('SCO worker is already running')
+        self._worker = _OperationsWorker(self._subscriptions_mgr, self._mdib, self._log_prefix)
+        self._worker.start()
+
+    def stop_worker(self):
+        if self._worker is not None:
+            self._worker.stop()
+            self._worker = None
+
+

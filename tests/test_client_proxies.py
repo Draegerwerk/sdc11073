@@ -31,7 +31,7 @@ class TestClientProxies(unittest.TestCase):
 
             print(soapEnvelope.as_xml(pretty=True))
 
-            soapEnvelope.validate_body(sdcClient._biceps_schema.message_schema)
+            soapEnvelope.validate_body(sdcClient._schema_validators.message_schema)
 
     def test_Set_setNumericValue(self):
         for sdcClient in self._allclients:
@@ -40,7 +40,7 @@ class TestClientProxies(unittest.TestCase):
             soapEnvelope = setServiceClient._mk_requested_numeric_value_envelope(operation_handle='123',
                                                                                  requested_numeric_value=42.42)
             print(soapEnvelope.as_xml(pretty=True))
-            soapEnvelope.validate_body(sdcClient._biceps_schema.message_schema)
+            soapEnvelope.validate_body(sdcClient._schema_validators.message_schema)
 
     def test_Set_setString(self):
         for sdcClient in self._allclients:
@@ -49,7 +49,7 @@ class TestClientProxies(unittest.TestCase):
             soapEnvelope = setServiceClient._mk_requested_string_envelope(operation_handle='123',
                                                                           requested_string='aaa42.42')
             print(soapEnvelope.as_xml(pretty=True))
-            soapEnvelope.validate_body(sdcClient._biceps_schema.message_schema)
+            soapEnvelope.validate_body(sdcClient._schema_validators.message_schema)
 
     def test_Set_setAlertState(self):
         for sdcClient in self._allclients:
@@ -71,7 +71,7 @@ class TestClientProxies(unittest.TestCase):
                 soapEnvelope = setServiceClient._mk_set_alert_envelope(operation_handle='op123',
                                                                        proposed_alert_states=[alertState])
                 print(soapEnvelope.as_xml(pretty=True))
-                soapEnvelope.validate_body(sdcClient._biceps_schema.message_schema)
+                soapEnvelope.validate_body(sdcClient._schema_validators.message_schema)
 
     def test_Set_setMetricState(self):
         for sdcClient in self._allclients:
@@ -93,7 +93,7 @@ class TestClientProxies(unittest.TestCase):
                 soapEnvelope = setServiceClient._mk_set_metric_state_envelope(operation_handle='op123',
                                                                               proposed_metric_states=[metricState])
                 print(soapEnvelope.as_xml(pretty=True))
-                soapEnvelope.validate_body(sdcClient._biceps_schema.message_schema)
+                soapEnvelope.validate_body(sdcClient._schema_validators.message_schema)
 
     def test_sortIpaddresses(self):
         #              to be sorted            refIp     expected result

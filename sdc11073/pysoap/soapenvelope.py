@@ -666,7 +666,7 @@ class AdressingFault(_SoapFaultBase):
 
 class ReceivedSoap12Envelope:
     """Represents a received soap envelope"""
-    __slots__ = ('msg_node', 'raw_data', 'address', '_doc_root', 'header_node', 'body_node')
+    __slots__ = ('msg_node', 'msg_name', 'raw_data', 'address', '_doc_root', 'header_node', 'body_node')
 
     def __init__(self, xml_string):
         parser = etree_.ETCompatXMLParser(resolve_entities=False)
@@ -677,15 +677,16 @@ class ReceivedSoap12Envelope:
             raise
         self.raw_data = xml_string
         self.header_node = None
-        self.body_node = None
         self.address = None
         self.header_node = self._doc_root.find('s12:Header', nsmap)
         self.body_node = self._doc_root.find('s12:Body', nsmap)
         self.address = WsAddress.from_etree_node(self.header_node)
         try:
             self.msg_node = self.body_node[0]
+            self.msg_name = etree_.QName(self.msg_node.tag)
         except IndexError:  # body has no content, this can happen
             self.msg_node = None
+            self.msg_name = None
 
     def as_xml(self, pretty=False):
         tmp = BytesIO()

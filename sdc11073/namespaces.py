@@ -144,3 +144,15 @@ def text_to_qname(text, doc_nsmap):
         return etree_.QName(doc_nsmap[prefix], name)
     except KeyError:
         raise KeyError('Cannot make QName for {}, prefix is not in nsmap: {}'.format(text, doc_nsmap.keys()))
+
+class EventingActions:
+    Subscribe = Prefixes.WSE.namespace + '/Subscribe'
+    SubscribeResponse = Prefixes.WSE.namespace + '/SubscribeResponse'
+    SubscriptionEnd = Prefixes.WSE.namespace + '/SubscriptionEnd'
+    Unsubscribe = Prefixes.WSE.namespace + '/Unsubscribe'
+    UnsubscribeResponse = Prefixes.WSE.namespace + '/UnsubscribeResponse'
+    Renew = Prefixes.WSE.namespace + '/Renew'
+    RenewResponse = Prefixes.WSE.namespace + '/RenewResponse'
+    GetStatus = Prefixes.WSE.namespace + '/GetStatus'
+    GetStatusResponse = Prefixes.WSE.namespace + '/GetStatusResponse'
+

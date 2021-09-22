@@ -1,3 +1,4 @@
+from __future__ import annotations
 import copy
 import http.client
 import socket
@@ -5,7 +6,10 @@ import time
 import traceback
 import urllib
 import uuid
+from abc import ABC, abstractmethod
 from collections import deque, defaultdict
+
+from typing import ForwardRef, List, Iterable, TYPE_CHECKING
 
 from lxml import etree as etree_
 
@@ -15,10 +19,19 @@ from .. import multikey
 from .. import observableproperties
 from ..compression import CompressionHandler
 from ..etc import apply_map, short_filter_string
+from ..namespaces import EventingActions
 from ..namespaces import Prefixes
 from ..namespaces import xmlTag, wseTag, wsaTag, msgTag, nsmap, DocNamespaceHelper
+from ..pmtypes import InvocationError, InvocationState
 from ..pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from ..pysoap.soapenvelope import Soap12Envelope, SoapFault, WsAddress, WsaEndpointReferenceType
+
+if TYPE_CHECKING:
+    from ssl import SSLContext
+    from ..definitions_base import BaseDefinitions, SchemaValidators
+    from ..pysoap.msgfactory import AbstractMessageFactory
+    from ..httprequesthandler import RequestData
+
 
 MAX_ROUNDTRIP_VALUES = 20
 
@@ -51,7 +64,13 @@ def _mk_dispatch_identifier(reference_parameter_node, path_suffix):
 
 
 def _mk_dispatch_identifier_from_request(request_data):
-    identifier_node = request_data.envelope.header_node.find(_DevSubscription.IDENT_TAG, namespaces=nsmap)
+    """ReferenceParameters and remaining path are both used to identify subscription"""
+    reference_parameters_node = request_data.envelope.header_node.find(wsaTag('ReferenceParameters'), namespaces=nsmap)
+    if reference_parameters_node is None:
+        identifier_node = None
+    else:
+        identifier_node = reference_parameters_node[0]
+        # identifier_node = request_data.envelope.header_node.find(_DevSubscription.IDENT_TAG, namespaces=nsmap)
     path_suffix = '/'.join(request_data.path_elements)  # not consumed path elements
     return _mk_dispatch_identifier(identifier_node, path_suffix)
 
@@ -61,7 +80,7 @@ class _DevSubscription:
     IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
 
     def __init__(self, mode, base_urls, notify_to_address, notify_ref_node, end_to_address, end_to_ref_node, expires,
-                 max_subscription_duration, filter_, ssl_context, biceps_schema,
+                 max_subscription_duration, filter_, ssl_context, schema_validators,
                  accepted_encodings):  # pylint:disable=too-many-arguments
         """
         :param notify_to_address: dom node of Subscribe Request
@@ -96,7 +115,7 @@ class _DevSubscription:
         self.renew(expires)  # sets self._started and self._expireseconds
         self._filters = filter_.split()
         self._ssl_context = ssl_context
-        self._biceps_schema = biceps_schema
+        self._schema_validators = schema_validators
 
         self._accepted_encodings = accepted_encodings  # these encodings does the other side accept
         self._soap_client = None
@@ -261,7 +280,7 @@ class _DevSubscription:
             short_filter_string(self._filters))
 
     @classmethod
-    def from_soap_envelope(cls, envelope, ssl_context, biceps_schema, accepted_encodings, max_subscription_duration,
+    def from_soap_envelope(cls, envelope, ssl_context, schema_validators, accepted_encodings, max_subscription_duration,
                            base_urls):
         end_to_address = None
         end_to_ref_node = []
@@ -288,7 +307,7 @@ class _DevSubscription:
         filter_ = envelope.body_node.xpath('wse:Subscribe/wse:Filter/text()', namespaces=nsmap)[0]
 
         return cls(str(mode), base_urls, notify_to_address, notify_ref_node, end_to_address, end_to_ref_node,
-                   expires, max_subscription_duration, str(filter_), ssl_context, biceps_schema, accepted_encodings)
+                   expires, max_subscription_duration, str(filter_), ssl_context, schema_validators, accepted_encodings)
 
     def get_roundtrip_stats(self):
         if len(self.last_roundtrip_times) > 0:
@@ -299,16 +318,268 @@ class _DevSubscription:
         return tuple([f.split('/')[-1] for f in self._filters])
 
 
-class _SubscriptionsManagerBase:
+class AbstractSubscriptionsManager(ABC):
+    @abstractmethod
+    def __init__(self, ssl_context: SSLContext,
+                 sdc_definitions: BaseDefinitions,
+                 schema_validators: SchemaValidators,
+                 msg_factory: AbstractMessageFactory,
+                 supported_encodings: List[str],
+                 max_subscription_duration: [float, None]=None,
+                 log_prefix: str =None,
+                 chunked_messages: bool=False):
+        """
+
+        :param ssl_context:
+        :param sdc_definitions:
+        :param schema_validators:
+        :param msg_factory:
+        :param supported_encodings:
+        :param max_subscription_duration:
+        :param log_prefix:
+        :param chunked_messages:
+        """
+
+    @abstractmethod
+    def on_subscribe_request(self, request_data: RequestData) -> Soap12Envelope:
+        """
+
+        :param request_data: the request
+        :return: a response
+        """
+
+    @abstractmethod
+    def on_unsubscribe_request(self, request_data: RequestData) -> Soap12Envelope:
+        """
+
+        :param request_data: the request
+        :return: a response
+        """
+
+    @abstractmethod
+    def on_get_status_request(self, request_data: RequestData) -> Soap12Envelope:
+        """
+
+        :param request_data: the request
+        :return: a response
+        """
+
+    @abstractmethod
+    def on_renew_request(self, request_data: RequestData) -> Soap12Envelope:
+        """
+
+        :param request_data: the request
+        :return: a response
+        """
+
+    @abstractmethod
+    def end_all_subscriptions(self, send_subscription_end: bool) -> None:
+        """
+
+        :param send_subscription_end:
+        :return:
+        """
+
+    @abstractmethod
+    def notify_operation(self, operation: ForwardRef('OperationDefinition'),
+                         transaction_id: int,
+                         invocation_state: InvocationState,
+                         nsmapper: DocNamespaceHelper,
+                         sequence_id: str,
+                         mdib_version: int,
+                         error: [InvocationError, None] = None,
+                         error_message: [str, None] = None) -> None:
+        """
+
+        :param operation:
+        :param transaction_id:
+        :param invocation_state:
+        :param nsmapper:
+        :param sequence_id:
+        :param mdib_version:
+        :param error:
+        :param error_message:
+        :return:
+        """
+
+    @abstractmethod
+    def send_episodic_metric_report(self, states: Iterable[ForwardRef('AbstractStateContainer')],
+                                    nsmapper: DocNamespaceHelper,
+                                    mdib_version: int,
+                                    sequence_id: str) -> None:
+        """
+
+        :param states:
+        :param nsmapper:
+        :param mdib_version:
+        :param sequence_id:
+        :return:
+        """
+
+    @abstractmethod
+    def send_periodic_metric_report(self, periodic_states_list: Iterable[ForwardRef('PeriodicStates')],
+                                    nsmapper: DocNamespaceHelper,
+                                    sequence_id: str) -> None:
+        """
+
+        :param periodic_states_list:
+        :param nsmapper:
+        :param sequence_id:
+        :return:
+        """
+
+    @abstractmethod
+    def send_episodic_alert_report(self, states: Iterable[ForwardRef('AbstractStateContainer')],
+                                   nsmapper: DocNamespaceHelper,
+                                   mdib_version: int,
+                                   sequence_id: str) -> None:
+        """
+
+        :param states:
+        :param nsmapper:
+        :param mdib_version:
+        :param sequence_id:
+        :return:
+        """
+
+    @abstractmethod
+    def send_periodic_alert_report(self, periodic_states_list: Iterable[ForwardRef('PeriodicStates')],
+                                   nsmapper: DocNamespaceHelper,
+                                   sequence_id: str) -> None:
+        """
+
+        :param periodic_states_list:
+        :param nsmapper:
+        :param sequence_id:
+        :return:
+        """
+
+    @abstractmethod
+    def send_episodic_operational_state_report(self, states: Iterable[ForwardRef('AbstractStateContainer')],
+                                               nsmapper: DocNamespaceHelper,
+                                               mdib_version: int,
+                                               sequence_id: str) -> None:
+        """
+
+        :param states:
+        :param nsmapper:
+        :param mdib_version:
+        :param sequence_id:
+        :return:
+        """
+
+    @abstractmethod
+    def send_periodic_operational_state_report(self, periodic_states_list: Iterable[ForwardRef('PeriodicStates')],
+                                               nsmapper: DocNamespaceHelper,
+                                               sequence_id: str) -> None:
+        """
+
+        :param periodic_states_list:
+        :param nsmapper:
+        :param sequence_id:
+        :return:
+        """
+
+    @abstractmethod
+    def send_episodic_component_state_report(self, states: Iterable[ForwardRef('AbstractStateContainer')],
+                                             nsmapper: DocNamespaceHelper,
+                                             mdib_version: int,
+                                             sequence_id: str) -> None:
+        """
+
+        :param states:
+        :param nsmapper:
+        :param mdib_version:
+        :param sequence_id:
+        :return:
+        """
+
+    @abstractmethod
+    def send_periodic_component_state_report(self, periodic_states_list: Iterable[ForwardRef('PeriodicStates')],
+                                             nsmapper: DocNamespaceHelper,
+                                             sequence_id: str) -> None:
+        """
+
+        :param periodic_states_list:
+        :param nsmapper:
+        :param sequence_id:
+        :return:
+        """
+
+    @abstractmethod
+    def send_episodic_context_report(self, states: Iterable[ForwardRef('AbstractContextStateContainer')],
+                                     nsmapper: DocNamespaceHelper,
+                                     mdib_version: int,
+                                     sequence_id: str) -> None:
+        """
+
+        :param states:
+        :param nsmapper:
+        :param mdib_version:
+        :param sequence_id:
+        :return:
+        """
+
+    @abstractmethod
+    def send_periodic_context_report(self, periodic_states_list: Iterable[ForwardRef('PeriodicStates')],
+                                     nsmapper: DocNamespaceHelper,
+                                     sequence_id: str) -> None:
+        """
+
+        :param periodic_states_list:
+        :param nsmapper:
+        :param sequence_id:
+        :return:
+        """
+
+    @abstractmethod
+    def send_realtime_samples_report(self,
+                                     realtime_sample_statesList: Iterable[
+                                         ForwardRef('RealTimeSampleArrayMetricStateContainer')],
+                                     nsmapper: DocNamespaceHelper,
+                                     mdib_version: int,
+                                     sequence_id: str) -> None:
+        """
+
+        :param realtime_sample_statesList:
+        :param nsmapper:
+        :param mdib_version:
+        :param sequence_id:
+        :return:
+        """
+
+    @abstractmethod
+    def send_descriptor_updates(self,
+                                updated: Iterable[ForwardRef('AbstractDescriptorContainer')],
+                                created: Iterable[ForwardRef('AbstractDescriptorContainer')],
+                                deleted: Iterable[ForwardRef('AbstractDescriptorContainer')],
+                                updated_states: Iterable[ForwardRef('AbstractStateContainer')],
+                                nsmapper: DocNamespaceHelper,
+                                mdib_version: int,
+                                sequence_id: str):
+        """
+
+        :param updated:
+        :param created:
+        :param deleted:
+        :param updated_states:
+        :param nsmapper:
+        :param mdib_version:
+        :param sequence_id:
+        :return:
+        """
+
+
+class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
     """This implementation uses ReferenceParameters to identify subscriptions."""
     BodyNodePrefixes = [Prefixes.PM, Prefixes.MSG, Prefixes.XSI, Prefixes.EXT, Prefixes.XML]
     NotificationPrefixes = [Prefixes.PM, Prefixes.S12, Prefixes.WSA, Prefixes.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
-    def __init__(self, ssl_context, sdc_definitions, biceps_parser, msg_factory, supported_encodings,
+    def __init__(self, ssl_context, sdc_definitions, schema_validators, msg_factory, supported_encodings,
                  max_subscription_duration=None, log_prefix=None, chunked_messages=False):
         self._ssl_context = ssl_context
-        self.biceps_parser = biceps_parser
+        self.schema_validators = schema_validators
         self.sdc_definitions = sdc_definitions
         self._msg_factory = msg_factory
         self.log_prefix = log_prefix
@@ -331,7 +602,7 @@ class _SubscriptionsManagerBase:
 
     def _mk_subscription_instance(self, envelope, accepted_encodings):
         return _DevSubscription.from_soap_envelope(
-            envelope, self._ssl_context, self.biceps_parser, accepted_encodings,
+            envelope, self._ssl_context, self.schema_validators, accepted_encodings,
             self._max_subscription_duration, self.base_urls)
 
     def on_subscribe_request(self, request_data):
@@ -353,8 +624,7 @@ class _SubscriptionsManagerBase:
         self._logger.info('new {}', subscr)
 
         response = Soap12Envelope(Prefixes.partial_map(*self.NotificationPrefixes))
-        reply_address = request_data.envelope.address.mk_reply_address(
-            'http://schemas.xmlsoap.org/ws/2004/08/eventing/SubscribeResponse')
+        reply_address = request_data.envelope.address.mk_reply_address(EventingActions.SubscribeResponse)
         response.add_header_object(reply_address)
         subscribe_response_node = etree_.Element(wseTag('SubscribeResponse'))
         subscription_manager_node = etree_.SubElement(subscribe_response_node, wseTag('SubscriptionManager'))
@@ -401,8 +671,7 @@ class _SubscriptionsManagerBase:
                 del self.soap_clients[key]
                 self._logger.info('unsubscribe: closed soap client to {})', key)
             response = Soap12Envelope(nsmap)
-            reply_address = request_data.envelope.address.mk_reply_address(
-                'http://schemas.xmlsoap.org/ws/2004/08/eventing/UnsubscribeResponse')
+            reply_address = request_data.envelope.address.mk_reply_address(EventingActions.UnsubscribeResponse)
             response.add_header_object(reply_address)
             # response has empty body
         return response
@@ -418,8 +687,7 @@ class _SubscriptionsManagerBase:
                                  )
         else:
             response = Soap12Envelope(Prefixes.partial_map(*self.NotificationPrefixes))
-            reply_address = request_data.envelope.address.mk_reply_address(
-                'http://schemas.xmlsoap.org/ws/2004/08/eventing/GetStatusResponse')
+            reply_address = request_data.envelope.address.mk_reply_address(EventingActions.GetStatusResponse)
             response.add_header_object(reply_address)
             renew_response_node = etree_.Element(wseTag('GetStatusResponse'))
             expires_node = etree_.SubElement(renew_response_node, wseTag('Expires'))
@@ -448,14 +716,21 @@ class _SubscriptionsManagerBase:
             subscr.renew(expires)
 
             response = Soap12Envelope(Prefixes.partial_map(*self.NotificationPrefixes))
-            reply_address = request_data.envelope.address.mk_reply_address(
-                'http://schemas.xmlsoap.org/ws/2004/08/eventing/RenewResponse')
+            reply_address = request_data.envelope.address.mk_reply_address(EventingActions.RenewResponse)
             response.add_header_object(reply_address)
             renew_response_node = etree_.Element(wseTag('RenewResponse'))
             expires_node = etree_.SubElement(renew_response_node, wseTag('Expires'))
             expires_node.text = subscr.expire_string
             response.add_body_element(renew_response_node)
         return response
+
+    def end_all_subscriptions(self, send_subscription_end):
+        action = EventingActions.SubscriptionEnd
+        with self._subscriptions.lock:
+            if send_subscription_end:
+                apply_map(lambda subscription: subscription.send_notification_end_message(action),
+                          self._subscriptions.objects)
+            self._subscriptions.clear()
 
     def notify_operation(self, operation, transaction_id, invocation_state,
                          nsmapper, sequence_id, mdib_version,
@@ -499,31 +774,6 @@ class _SubscriptionsManagerBase:
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_metric_report')
         self._do_housekeeping()
 
-    def send_episodic_operational_state_report(self, states, nsmapper, mdib_version, sequence_id):
-        action = self.sdc_definitions.Actions.EpisodicOperationalStateReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending episodic operational state report {}', states)
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
-        body_node = self._msg_factory.mk_episodic_operational_state_report_body(
-            states, ns_map, mdib_version, sequence_id)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_operational_state_report')
-        self._do_housekeeping()
-
-    def send_periodic_operational_state_report(self, periodic_states_list, nsmapper, sequence_id):
-        action = self.sdc_definitions.Actions.PeriodicOperationalStateReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
-                           len(periodic_states_list))
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
-        body_node = self._msg_factory.mk_periodic_operational_state_report_body(
-            periodic_states_list, ns_map, periodic_states_list[-1].mdib_version, sequence_id)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_operational_state_report')
-        self._do_housekeeping()
-
     def send_episodic_alert_report(self, states, nsmapper, mdib_version, sequence_id):
         action = self.sdc_definitions.Actions.EpisodicAlertReport
         subscribers = self._get_subscriptions_for_action(action)
@@ -547,6 +797,31 @@ class _SubscriptionsManagerBase:
         body_node = self._msg_factory.mk_periodic_alert_report_body(
             periodic_states_list, ns_map, periodic_states_list[-1].mdib_version, sequence_id)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_alert_report')
+        self._do_housekeeping()
+
+    def send_episodic_operational_state_report(self, states, nsmapper, mdib_version, sequence_id):
+        action = self.sdc_definitions.Actions.EpisodicOperationalStateReport
+        subscribers = self._get_subscriptions_for_action(action)
+        if not subscribers:
+            return
+        self._logger.debug('sending episodic operational state report {}', states)
+        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
+        body_node = self._msg_factory.mk_episodic_operational_state_report_body(
+            states, ns_map, mdib_version, sequence_id)
+        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_operational_state_report')
+        self._do_housekeeping()
+
+    def send_periodic_operational_state_report(self, periodic_states_list, nsmapper, sequence_id):
+        action = self.sdc_definitions.Actions.PeriodicOperationalStateReport
+        subscribers = self._get_subscriptions_for_action(action)
+        if not subscribers:
+            return
+        self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
+                           len(periodic_states_list))
+        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
+        body_node = self._msg_factory.mk_periodic_operational_state_report_body(
+            periodic_states_list, ns_map, periodic_states_list[-1].mdib_version, sequence_id)
+        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_operational_state_report')
         self._do_housekeeping()
 
     def send_episodic_component_state_report(self, states, nsmapper, mdib_version, sequence_id):
@@ -611,32 +886,6 @@ class _SubscriptionsManagerBase:
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, None)
         self._do_housekeeping()
 
-    def end_all_subscriptions(self, send_subscription_end):
-        action = self.sdc_definitions.Actions.SubscriptionEnd
-        with self._subscriptions.lock:
-            if send_subscription_end:
-                apply_map(lambda subscription: subscription.send_notification_end_message(action),
-                          self._subscriptions.objects)
-                # for subscr in self._subscriptions.objects:
-                #     subscr.send_notification_end_message(action)
-            self._subscriptions.clear()
-
-    @staticmethod
-    def _mk_descriptor_updates_report_part(parent_node, modification_type, descriptors, updated_states):
-        """ Helper that creates ReportPart."""
-        # This method creates one ReportPart for every descriptor.
-        # An optimization is possible by grouping all descriptors with the same parent handle into one ReportPart.
-        # This is not implemented, and I think it is not needed.
-        for descriptor in descriptors:
-            report_part = etree_.SubElement(parent_node, msgTag('ReportPart'),
-                                            attrib={'ModificationType': modification_type})
-            if descriptor.parent_handle is not None:  # only Mds can have None
-                report_part.set('ParentDescriptor', descriptor.parent_handle)
-            report_part.append(descriptor.mk_descriptor_node(tag=msgTag('Descriptor')))
-            related_state_containers = [s for s in updated_states if s.descriptorHandle == descriptor.handle]
-            state_name = msgTag('State')
-            report_part.extend([state.mk_state_node(state_name) for state in related_state_containers])
-
     def send_descriptor_updates(self, updated, created, deleted, updated_states, nsmapper, mdib_version, sequence_id):
         action = self.sdc_definitions.Actions.DescriptionModificationReport
         subscribers = self._get_subscriptions_for_action(action)
@@ -653,6 +902,22 @@ class _SubscriptionsManagerBase:
 
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_descriptor_updates')
         self._do_housekeeping()
+
+    @staticmethod
+    def _mk_descriptor_updates_report_part(parent_node, modification_type, descriptors, updated_states):
+        """ Helper that creates ReportPart."""
+        # This method creates one ReportPart for every descriptor.
+        # An optimization is possible by grouping all descriptors with the same parent handle into one ReportPart.
+        # This is not implemented, and I think it is not needed.
+        for descriptor in descriptors:
+            report_part = etree_.SubElement(parent_node, msgTag('ReportPart'),
+                                            attrib={'ModificationType': modification_type})
+            if descriptor.parent_handle is not None:  # only Mds can have None
+                report_part.set('ParentDescriptor', descriptor.parent_handle)
+            report_part.append(descriptor.mk_descriptor_node(tag=msgTag('Descriptor')))
+            related_state_containers = [s for s in updated_states if s.descriptorHandle == descriptor.handle]
+            state_name = msgTag('State')
+            report_part.extend([state.mk_state_node(state_name) for state in related_state_containers])
 
     def _send_to_subscribers(self, subscribers, body_node, action, nsmapper, what):
         for subscriber in subscribers:

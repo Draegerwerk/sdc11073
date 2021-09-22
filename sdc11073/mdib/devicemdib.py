@@ -604,7 +604,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         msg_reader_cls = MessageReader  # use soap message reader
         mdib = cls(protocol_definition, log_prefix=log_prefix)
         root = msg_reader_cls.get_mdib_root_node(mdib.sdc_definitions, xml_text)
-        mdib.biceps_schema.message_schema.assertValid(root)
+        mdib.schema_validators.message_schema.assertValid(root)
 
         mdib.nsmapper.use_doc_prefixes(root.nsmap)
         msg_reader = msg_reader_cls(mdib._logger)

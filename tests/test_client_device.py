@@ -21,11 +21,12 @@ from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import ReceivedSoapFault
 from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.sdcclient import SdcClient
+from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.httpserver import DeviceHttpServerThread
 from sdc11073.sdcdevice.subscriptionmgr import SubscriptionsManagerReferenceParam
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
-from sdc11073.definitions_base import SdcDeviceComponents
+from sdc11073.definitions_base import SdcDeviceComponents, SdcClientComponents
 
 from tests.mockstuff import SomeDevice
 
@@ -67,7 +68,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE)
-        self.sdc_client.start_all(subscribe_periodic_reports=True)
+        self.sdc_client.start_all(subscribe_periodic_reports=True, async_dispatch=False)
 
         self._all_cl_dev = [(self.sdc_client, self.sdc_device)]
 
@@ -276,9 +277,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(cl_state1.StateVersion, 2)  # this is the 2nd state update after init
 
             # verify that client also got a PeriodicMetricReport
-            periodic_report = coll2.result(timeout=NOTIFICATION_TIMEOUT)
-            state_nodes = periodic_report.xpath('//msg:MetricState', namespaces=namespaces.nsmap)
-            self.assertGreaterEqual(len(state_nodes), 1)
+            message_data = coll2.result(timeout=NOTIFICATION_TIMEOUT)
+            states = sdcClient.msg_reader.read_periodicmetric_report(message_data, cl_mdib)
+            #periodic_report = message_data.raw_data.msg_node
+            #state_nodes = periodic_report.xpath('//msg:MetricState', namespaces=namespaces.nsmap)
+            self.assertGreaterEqual(len(states), 1)
 
     def test_component_state_reports(self):
         for sdcClient, sdcDevice in self._all_cl_dev:
@@ -306,9 +309,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
             cl_state1 = cl_mdib.states.descriptorHandle.get_one(parent_handle)
             self.assertEqual(cl_state1.diff(st), [])
             # verify that client also got a PeriodicMetricReport
-            periodic_report = coll2.result(timeout=NOTIFICATION_TIMEOUT)
-            state_nodes = periodic_report.xpath('//msg:ComponentState', namespaces=namespaces.nsmap)
-            self.assertGreaterEqual(len(state_nodes), 1)
+            message_data = coll2.result(timeout=NOTIFICATION_TIMEOUT)
+            #state_nodes = periodic_report.xpath('//msg:ComponentState', namespaces=namespaces.nsmap)
+            #self.assertGreaterEqual(len(state_nodes), 1)
+            states = sdcClient.msg_reader.read_periodic_component_report(message_data, cl_mdib)
+            self.assertGreaterEqual(len(states), 1)
 
     def test_alert_reports(self):
         """ verify that the client receives correct EpisodicAlertReports and PeriodicAlertReports"""
@@ -362,9 +367,12 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.assertEqual(clientStateContainer.diff(st), [])
 
             # verify that client also got a PeriodicAlertReport
-            periodic_report = coll2.result(timeout=NOTIFICATION_TIMEOUT)
-            state_nodes = periodic_report.xpath('//msg:AlertState', namespaces=namespaces.nsmap)
-            self.assertGreaterEqual(len(state_nodes), 1)
+            message_data = coll2.result(timeout=NOTIFICATION_TIMEOUT)
+            #state_nodes = periodic_report.xpath('//msg:AlertState', namespaces=namespaces.nsmap)
+            #self.assertGreaterEqual(len(state_nodes), 1)
+            states = sdcClient.msg_reader.read_periodicalert_report(message_data, clientMdib)
+            self.assertGreaterEqual(len(states), 1)
+
             pass
 
     def test_setPatientContextOperation(self):
@@ -406,14 +414,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
             proposedContext.CoreData.Race = pmtypes.CodedValue('somerace')
             future = context.set_context_state(operation_handle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
-            state = result.state
+            state = result.invocation_state
             self.assertEqual(state, pmtypes.InvocationState.FAILED)
 
             # insert a new patient with correct handle, this shall succeed
             proposedContext.Handle = patientDescriptorContainer.handle
             future = context.set_context_state(operation_handle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
-            state = result.state
+            state = result.invocation_state
             self.assertEqual(state, pmtypes.InvocationState.FINISHED)
             self.assertTrue(result.error in ('', 'Unspec'))
             self.assertEqual(result.errorMsg, '')
@@ -441,7 +449,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             proposedContext.CoreData.Givenname = 'Karla'
             future = context.set_context_state(operation_handle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
-            state = result.state
+            state = result.invocation_state
             self.assertEqual(state, pmtypes.InvocationState.FINISHED)
             patientContextStateContainer = clientMdib.context_states.handle.get_one(patientContextStateContainer.Handle)
             self.assertEqual(patientContextStateContainer.CoreData.Givenname, 'Karla')
@@ -462,7 +470,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             proposedContext.CoreData.Race = pmtypes.CodedValue('somerace')
             future = context.set_context_state(operation_handle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
-            state = result.state
+            state = result.invocation_state
             self.assertEqual(state, pmtypes.InvocationState.FINISHED)
             self.assertTrue(result.error in ('', 'Unspec'))
             self.assertEqual(result.errorMsg, '')
@@ -501,7 +509,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             proposedContext.CoreData.Givenname = 'Karl123'
             future = context.set_context_state(operation_handle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
-            state = result.state
+            state = result.invocation_state
             self.assertEqual(state, pmtypes.InvocationState.FINISHED)
             myPatient2 = sdcDevice.mdib.context_states.handle.get_one(myPatient.Handle)
             self.assertEqual(myPatient2.CoreData.Givenname, 'Karl123')
@@ -627,7 +635,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         operation = sdcDevice.mdib.descriptions.coding.get_one(coding)
         future = setService.activate(operation_handle=operation.handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.state
+        state = result.invocation_state
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
         time.sleep(0.5)  # allow notifications to arrive
         # the whole tests only makes sense if there is an alert system
@@ -643,7 +651,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         operation = sdcDevice.mdib.descriptions.coding.get_one(coding)
         future = setService.activate(operation_handle=operation.handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.state
+        state = result.invocation_state
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
         time.sleep(0.5)  # allow notifications to arrive
         # the whole tests only makes sense if there is an alert system
@@ -672,7 +680,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             print('ntp server', value)
             future = setService.set_string(operation_handle=operation_handle, requested_string=value)
             result = future.result(timeout=SET_TIMEOUT)
-            state = result.state
+            state = result.invocation_state
             self.assertEqual(state, pmtypes.InvocationState.FINISHED)
             self.assertTrue(result.error in ('', 'Unspec'))
             self.assertEqual(result.errorMsg, '')
@@ -707,7 +715,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             print('time zone', value)
             future = setService.set_string(operation_handle=operation_handle, requested_string=value)
             result = future.result(timeout=SET_TIMEOUT)
-            state = result.state
+            state = result.invocation_state
             self.assertEqual(state, pmtypes.InvocationState.FINISHED)
             self.assertTrue(result.error in ('', 'Unspec'))
             self.assertEqual(result.errorMsg, '')
@@ -754,7 +762,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         future = setService.set_metric_state(operation_handle=operation_handle,
                                              proposed_metric_states=[proposedMetricState])
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.state
+        state = result.invocation_state
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
         self.assertTrue(result.error in ('', 'Unspec'))
         self.assertEqual(result.errorMsg, '')
@@ -800,7 +808,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         future = setService.set_component_state(operation_handle=operation_handle,
                                                 proposed_component_states=[proposedComponentState])
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.state
+        state = result.invocation_state
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
         self.assertTrue(result.error in ('', 'Unspec'))
         self.assertEqual(result.errorMsg, '')
@@ -1540,11 +1548,13 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         xAddr = self.sdc_device.get_xaddrs()
+        specific_components = SdcClientComponents(subscription_manager_class=ClientSubscriptionManagerReferenceParams)
         self.sdc_client = SdcClient(xAddr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
                                     log_prefix='<Final> ',
+                                    specific_components=specific_components,
                                     chunked_requests=True)
         self.sdc_client.start_all()
 
@@ -1594,3 +1604,10 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
             remaining_seconds = s.get_status()
             self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
 
+    def test_subscriptionEnd(self):
+        for _, sdcDevice in self._all_cl_dev:
+            sdcDevice.stop_all()
+        time.sleep(1)
+        for sdcClient, _ in self._all_cl_dev:
+            sdcClient.stop_all()
+        self._all_cl_dev = []

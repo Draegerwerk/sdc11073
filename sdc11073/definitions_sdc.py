@@ -83,7 +83,6 @@ class _SdcV1Actions:
     GetDescriptorResponse = _ActionsNamespace + '/ContainmentTreeService/GetDescriptorResponse'
     GetContainmentTree = _ActionsNamespace + '/ContainmentTreeService/GetContainmentTree'
     GetContainmentTreeResponse = _ActionsNamespace + '/ContainmentTreeService/GetContainmentTreeResponse'
-    SubscriptionEnd = Prefixes.WSE.namespace + '/SubscriptionEnd'
 
 
 default_sdc_device_components = SdcDeviceComponents(
@@ -124,8 +123,6 @@ default_sdc_client_components = SdcClientComponents(
                       'LocalizationService': LocalizationServiceClient,
                       }
 )
-
-schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
 
 class SchemaPathsSdc:

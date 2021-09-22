@@ -109,7 +109,7 @@ class SdcDevice:
         cls = self._components.subscriptions_manager_class
         self._subscriptions_manager = cls(self._ssl_context,
                                           self._mdib.sdc_definitions,
-                                          self._mdib.biceps_schema,
+                                          self._mdib.schema_validators,
                                           self.msg_factory,
                                           self._compression_methods,
                                           self._max_subscription_duration,
@@ -148,7 +148,7 @@ class SdcDevice:
         response.add_header_object(reply_address)
         metadata_node = self._mk_metadata_node()
         response.add_body_element(metadata_node)
-        response.validate_body(self.mdib.biceps_schema.mex_schema)
+        response.validate_body(self.mdib.schema_validators.mex_schema)
         self._logger.debug('returned meta data = {}', response.as_xml(pretty=False))
         return response
 
@@ -174,7 +174,7 @@ class SdcDevice:
         if not self.shall_validate:
             return
         try:
-            self.mdib.biceps_schema.dpws_schema.assertValid(node)
+            self.mdib.schema_validators.dpws_schema.assertValid(node)
         except etree_.DocumentInvalid as ex:
             tmp_str = etree_.tostring(node, pretty_print=True).decode('utf-8')
             self._logger.error('invalid dpws: {}\ndata = {}', ex, tmp_str)

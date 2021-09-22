@@ -22,8 +22,8 @@ class TestDeviceWaveform(unittest.TestCase):
     
     def setUp(self):
         self.mdib = sdc11073.mdib.DeviceMdibContainer(SDC_v1_Definitions)
-        self.domSchema = self.mdib.biceps_schema.participant_schema
-        self.msgSchema = self.mdib.biceps_schema.message_schema
+        self.domSchema = self.mdib.schema_validators.participant_schema
+        self.msgSchema = self.mdib.schema_validators.message_schema
 
         # this structure is not realistic, but sufficient for what we need here.
         desc = dc.MdsDescriptorContainer(self.mdib.nsmapper,
@@ -119,7 +119,8 @@ class TestDeviceWaveform(unittest.TestCase):
         self.wsDiscovery = mockstuff.MockWsDiscovery(['5.6.7.8'])
         self.sdcDevice = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, self._model, self._device, self.mdib)
         self.sdcDevice.start_all()
-        testSubscr = mockstuff.TestDevSubscription(self.sdcDevice.mdib.sdc_definitions.Actions.Waveform, self.sdcDevice.mdib.biceps_schema)
+        testSubscr = mockstuff.TestDevSubscription(self.sdcDevice.mdib.sdc_definitions.Actions.Waveform,
+                                                   self.sdcDevice.mdib.schema_validators)
         self.sdcDevice.subscriptions_manager._subscriptions. add_object(testSubscr)
 
         time.sleep(3)

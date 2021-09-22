@@ -2,7 +2,6 @@ import queue
 import threading
 import time
 import traceback
-from sdc11073.pysoap.soapenvelope import ReceivedSoap12Envelope
 from .. import commlog
 from .. import loghelper
 from ..httprequesthandler import HTTPRequestHandler, HttpServerThreadBase, RequestData
@@ -14,34 +13,42 @@ class _DispatchError(Exception):
         self.http_error_code = http_error_code
         self.error_text = error_text
 
+class ReceivedNotification(RequestData):
+    def __init__(self, http_header, path, request=None):
+        super().__init__(http_header,path, request)
+        self.message_data = None
+
+
 
 class SOAPNotificationsDispatcher:
     """ receiver of all notifications"""
 
-    def __init__(self, log_prefix, sdc_definitions):
+    def __init__(self, log_prefix, sdc_definitions, msg_reader):
         self._logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', log_prefix)
         self.log_prefix = log_prefix
         self._sdc_definitions = sdc_definitions
+        self._msg_reader = msg_reader
         self.methods = {}
 
     def register_function(self, action, func):
         self.methods[action] = func
 
     def on_post(self, path: str, headers, request: str) -> [str, None]:
-        request_data = RequestData(headers, path, request)
+        request_data = ReceivedNotification(headers, path, request)
         return self._dispatch(request_data)
 
     def on_get(self, path: str, headers) -> str: # pylint: disable=unused-argument
         return ''
 
+    def _fill_request_data(self, request_data):
+        """set action and msg_name and envelope"""
+        request_data.message_data = self._msg_reader.read_received_message(
+            self._sdc_definitions, request_data.request)
+
     def _dispatch(self, request_data):
         start = time.time()
-        normalized_xml = self._sdc_definitions.normalize_xml_text(request_data.request)
-        request_data.envelope = ReceivedSoap12Envelope(normalized_xml)
-        try:
-            action = request_data.envelope.address.action
-        except AttributeError:
-            raise _DispatchError(404, 'no action in request')
+        self._fill_request_data(request_data)
+        action = request_data.message_data.action
         self._logger.debug('received notification path={}, action = {}', request_data.path_elements, action)
 
         try:
@@ -59,32 +66,28 @@ class SOAPNotificationsDispatcher:
 
 class SOAPNotificationsDispatcherThreaded(SOAPNotificationsDispatcher):
 
-    def __init__(self, ident, biceps_schema):
-        super().__init__(ident, biceps_schema)
+    def __init__(self, ident, sdc_definitions, msg_reader):
+        super().__init__(ident, sdc_definitions, msg_reader)
         self._queue = queue.Queue(1000)
-        self._worker = threading.Thread(target=self._readqueue)
+        self._worker = threading.Thread(target=self._read_queue)
         self._worker.daemon = True
         self._worker.start()
 
-    def dispatch(self, request_data):
-        normalized_xml = self._sdc_definitions.normalize_xml_text(request_data.request)
-        request_data.envelope = ReceivedSoap12Envelope(normalized_xml)
-        try:
-            action = request_data.envelope.address.action
-        except AttributeError:
-            raise _DispatchError(404, 'no action in request')
-        self._logger.debug('received notification path={}, action = {}', request_data.path, action)
-
+    def _dispatch(self, request_data):
+        self._fill_request_data(request_data)
+        action = request_data.message_data.action
         try:
             func = self.methods[action]
         except KeyError:
             self._logger.error(
                 'action "{}" not registered. Known:{}'.format(action, self.methods.keys()))
             raise _DispatchError(404, 'action not registered')
+        except:
+            raise
         self._queue.put((func, request_data, action))
         return ''
 
-    def _readqueue(self):
+    def _read_queue(self):
         while True:
             func, request, action = self._queue.get()
             try:
@@ -141,7 +144,8 @@ class SOAPNotificationsHandler(HTTPRequestHandler):
 
 
 class NotificationsReceiver(HttpServerThreadBase):
-    def __init__(self, my_ipaddress, ssl_context, log_prefix, sdc_definitions, supported_encodings,
+    def __init__(self, my_ipaddress, ssl_context, log_prefix, sdc_definitions, msg_reader,
+                 supported_encodings,
                  notifications_handler_class, async_dispatch=True):
         """
         This thread receives all notifications from the connected device.
@@ -156,9 +160,9 @@ class NotificationsReceiver(HttpServerThreadBase):
         logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', log_prefix)
         request_handler = notifications_handler_class
         if async_dispatch:
-            dispatcher = SOAPNotificationsDispatcherThreaded(log_prefix, sdc_definitions)
+            dispatcher = SOAPNotificationsDispatcherThreaded(log_prefix, sdc_definitions, msg_reader)
         else:
-            dispatcher = SOAPNotificationsDispatcher(log_prefix, sdc_definitions)
+            dispatcher = SOAPNotificationsDispatcher(log_prefix, sdc_definitions, msg_reader)
         super().__init__(my_ipaddress, ssl_context, supported_encodings,
                          request_handler, dispatcher,
                          logger, chunked_responses=False)

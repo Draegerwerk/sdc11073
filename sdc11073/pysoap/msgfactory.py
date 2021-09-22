@@ -9,6 +9,7 @@ from .. import isoduration
 from ..namespaces import Prefixes
 from ..namespaces import msgTag, wseTag, QN_TYPE, DocNamespaceHelper
 from ..namespaces import nsmap, domTag
+from ..namespaces import EventingActions
 
 
 class AbstractMessageFactory(ABC):
@@ -374,7 +375,7 @@ class SoapMessageFactory(AbstractMessageFactory):
                               expire_minutes, subscribe_filter):
         soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
         soap_envelope.set_address(soapenvelope.WsAddress(
-            action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Subscribe',
+            action=EventingActions.Subscribe,
             addr_to=addr_to))
         if notify_to_identifier is None:
             notify_to = soapenvelope.WsaEndpointReferenceType(notifyto_url, reference_parameters_node=None)
@@ -397,7 +398,7 @@ class SoapMessageFactory(AbstractMessageFactory):
 
     def mk_renew_envelope(self, addr_to, dev_reference_param, expire_minutes):
         soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
-        soap_envelope.set_address(soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Renew',
+        soap_envelope.set_address(soapenvelope.WsAddress(action=EventingActions.Renew,
                                                          addr_to=addr_to))
         self._add_device_references(soap_envelope, dev_reference_param)
         renew_node = etree_.Element(wseTag('Renew'), nsmap=Prefixes.partial_map(Prefixes.WSE))
@@ -409,7 +410,7 @@ class SoapMessageFactory(AbstractMessageFactory):
     def mk_getstatus_envelope(self, addr_to, dev_reference_param):
         soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
         soap_envelope.set_address(
-            soapenvelope.WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/GetStatus',
+            soapenvelope.WsAddress(action=EventingActions.GetStatus,
                                    addr_to=addr_to))
         self._add_device_references(soap_envelope, dev_reference_param)
         body_node = etree_.Element(wseTag('GetStatus'))
@@ -419,7 +420,8 @@ class SoapMessageFactory(AbstractMessageFactory):
     def mk_unsubscribe_envelope(self, addr_to, dev_reference_param):
         soap_envelope = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
         soap_envelope.set_address(soapenvelope.WsAddress(
-            action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Unsubscribe', addr_to=addr_to))
+            action=EventingActions.Unsubscribe,
+            addr_to=addr_to))
         self._add_device_references(soap_envelope, dev_reference_param)
         soap_envelope.add_body_element(etree_.Element(wseTag('Unsubscribe')))
         return soap_envelope

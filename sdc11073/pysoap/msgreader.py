@@ -1,25 +1,47 @@
 import copy
+import urllib
 from abc import abstractmethod, ABC
+from collections import namedtuple
 from typing import List
 
 from lxml import etree as etree_
 
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
+from .. import isoduration
+from sdc11073.pysoap.soapenvelope import ReceivedSoap12Envelope
 
+
+# from sdc11073.sdcclient.operations import OperationResult
 
 class MdibStructureError(Exception):
     pass
 
 
+OperationResult = namedtuple('OperationResult', 'transaction_id invocation_state error errorMsg soapEnvelope')
+SubscriptionEndResult = namedtuple('SubscriptionEndResult', 'status_list, reason_list, reference_parameter_list')
+
+
 class AbstractMessageReader(ABC):
+    class ReceivedMessageData:
+        """This class contains all data of a received Message"""
+
+        def __init__(self, raw_data):
+            self.raw_data = raw_data  # e g. a soap envelope
+            self.mdib_version = None
+            self.sequence_id = None
+            self.action = None
+            self.msg_name = None
+            self.descriptor_containers = None
+            self.state_containers = None
+
     def __init__(self, logger, log_prefix=''):
         self._logger = logger
         self._log_prefix = log_prefix
 
     @staticmethod
     @abstractmethod
-    def read_getmddescription_request(request)-> List[str]:
+    def read_getmddescription_request(request) -> List[str]:
         """ returns a list of handles"""
 
     @abstractmethod
@@ -27,7 +49,7 @@ class AbstractMessageReader(ABC):
         """ returns DescriptorContainer instances"""
 
     @abstractmethod
-    def read_getmdstate_request(request)-> List[str]:
+    def read_getmdstate_request(request) -> List[str]:
         """ returns a list of handles"""
 
     @abstractmethod
@@ -35,8 +57,34 @@ class AbstractMessageReader(ABC):
         """ returns StateContainer instances"""
 
 
+
+
 class MessageReader(AbstractMessageReader):
     """ This class does all the conversions from DOM trees (body of SOAP messages) to MDIB objects."""
+
+    def read_received_message(self, sdc_definitions, xml_text):
+        normalized_xml = sdc_definitions.normalize_xml_text(xml_text)
+        envelope = ReceivedSoap12Envelope(normalized_xml)
+        return self.mk_received_message(envelope)
+        # data = self.ReceivedMessageData(envelope)
+        # data.action = envelope.address.action
+        # q_name = envelope.msg_name
+        # data.msg_name = q_name.localname if q_name else None
+        # if envelope.msg_node is not None:
+        #     data.mdib_version = int(envelope.msg_node.get('MdibVersion', '0'))
+        #     data.sequence_id = envelope.msg_node.get('SequenceId')
+        # return data
+
+    def mk_received_message(self, envelope):
+        data = self.ReceivedMessageData(envelope)
+        data.action = envelope.address.action
+        q_name = envelope.msg_name
+        data.msg_name = q_name.localname if q_name else None
+        if envelope.msg_node is not None:
+            data.mdib_version = int(envelope.msg_node.get('MdibVersion', '0'))
+            data.sequence_id = envelope.msg_node.get('SequenceId')
+        return data
+
 
     @staticmethod
     def get_mdib_root_node(sdc_definitions, xml_text):
@@ -58,7 +106,7 @@ class MessageReader(AbstractMessageReader):
         return root
 
     @staticmethod
-    def read_getmddescription_request(request)-> List[str]:
+    def read_getmddescription_request(request) -> List[str]:
         """
         :param request: a soap envelope
         :return : a list of requested Handles
@@ -94,7 +142,7 @@ class MessageReader(AbstractMessageReader):
         return descriptions
 
     @staticmethod
-    def read_getmdstate_request(request)-> List[str]:
+    def read_getmdstate_request(request) -> List[str]:
         """
         :param request: a soap envelope
         :return : a list of requested Handles
@@ -214,7 +262,17 @@ class MessageReader(AbstractMessageReader):
                 containers.append(self.mk_statecontainer_from_node(child_node, mdib))
         return containers
 
-    def read_waveform_report(self, report_node, mdib):
+    def read_notification(self, message_data, mdib):
+        """Fill message_data with state containers and descriptor containers from notification"""
+        actions = mdib.sdc_definitions.Actions
+        if message_data.action == actions.Waveform:
+            message_data.state_containers = self.read_waveform_report(message_data.raw_data.msg_node, mdib)
+        pass
+
+    def read_waveform_report(self, message_data, mdib):
+        return self._read_waveform_report(message_data.raw_data.msg_node, mdib)
+
+    def _read_waveform_report(self, report_node, mdib):
         """
         Parses a waveform report
         :param report_node: A waveform report etree
@@ -227,7 +285,13 @@ class MessageReader(AbstractMessageReader):
                 states.append(self._mk_realtime_sample_array_states(samplearray, mdib))
         return states
 
-    def read_episodicmetric_report(self, report_node, mdib):
+    def read_periodicmetric_report(self, message_data, mdib):
+        return self._read_episodicmetric_report(message_data.raw_data.msg_node, mdib)
+
+    def read_episodicmetric_report(self, message_data, mdib):
+        return self._read_episodicmetric_report(message_data.raw_data.msg_node, mdib)
+
+    def _read_episodicmetric_report(self, report_node, mdib):
         """
         Parses an episodic metric report
         :param report_node:  An episodic metric report etree
@@ -239,7 +303,13 @@ class MessageReader(AbstractMessageReader):
             states.extend(self._mk_statecontainers_from_reportpart(reportpart_node, mdib))
         return states
 
-    def read_episodicalert_report(self, report_node, mdib):
+    def read_periodicalert_report(self, message_data, mdib):
+        return self._read_episodic_alert_report_node(message_data.raw_data.msg_node, mdib)
+
+    def read_episodicalert_report(self, message_data, mdib):
+        return self._read_episodic_alert_report_node(message_data.raw_data.msg_node, mdib)
+
+    def _read_episodic_alert_report_node(self, report_node, mdib):
         """
         Parses an episodic alert report
         :param report_node:  An episodic alert report etree
@@ -251,7 +321,10 @@ class MessageReader(AbstractMessageReader):
             states.append(self.mk_statecontainer_from_node(alert, mdib))
         return states
 
-    def read_operationalstate_report(self, report_node, mdib):
+    def read_operationalstate_report(self, message_data, mdib):
+        return self.read_operational_state_report_node(message_data.raw_data.msg_node, mdib)
+
+    def read_operational_state_report_node(self, report_node, mdib):
         """
         Parses an operational state report
         :param report_node:  An operational state report etree
@@ -263,7 +336,10 @@ class MessageReader(AbstractMessageReader):
             states.append(self.mk_statecontainer_from_node(found_node, mdib))
         return states
 
-    def read_episodic_context_report(self, report_node, mdib):
+    def read_episodic_context_report(self, message_data, mdib):
+        return self._read_episodic_context_report(message_data.raw_data.msg_node, mdib)
+
+    def _read_episodic_context_report(self, report_node, mdib):
         """
         Parses an episodic context report
         :param report_node:  An episodic context report etree
@@ -275,7 +351,13 @@ class MessageReader(AbstractMessageReader):
             states.extend(self._mk_statecontainers_from_reportpart(found_node, mdib))
         return states
 
-    def read_episodic_component_report(self, report_node, mdib):
+    def read_periodic_component_report(self, message_data, mdib):
+        return self._read_episodic_component_report(message_data.raw_data.msg_node, mdib)
+
+    def read_episodic_component_report(self, message_data, mdib):
+        return self._read_episodic_component_report(message_data.raw_data.msg_node, mdib)
+
+    def _read_episodic_component_report(self, report_node, mdib):
         """
         Parses an episodic component report
         :param report_node:  An episodic component report etree
@@ -287,7 +369,10 @@ class MessageReader(AbstractMessageReader):
             states.append(self.mk_statecontainer_from_node(found_node, mdib))
         return states
 
-    def read_description_modification_report(self, report_node, mdib):
+    def read_description_modification_report(self, message_data, mdib):
+        return self._read_description_modification_report(message_data.raw_data.msg_node, mdib)
+
+    def _read_description_modification_report(self, report_node, mdib):
         """
         Parses a description modification report
         :param report_node:  A description modification report etree
@@ -314,3 +399,101 @@ class MessageReader(AbstractMessageReader):
                                                                    descriptors[modification_type][0])
                 descriptors[modification_type][1].append(state_container)
         return descriptors_list
+
+    def read_operation_response(self, message_data):
+        return self._read_operation_response(message_data.raw_data)
+
+    @staticmethod
+    def _read_operation_response(envelope):
+        transaction_id = envelope.msg_node.xpath('msg:InvocationInfo/msg:TransactionId/text()',
+                                                 namespaces=namespaces.nsmap)[0]
+        invocation_state = envelope.msg_node.xpath('msg:InvocationInfo/msg:InvocationState/text()',
+                                                   namespaces=namespaces.nsmap)[0]
+        errors = envelope.msg_node.xpath('msg:InvocationInfo/msg:InvocationError/text()',
+                                         namespaces=namespaces.nsmap)
+        error_msgs = envelope.msg_node.xpath('msg:InvocationInfo/msg:InvocationErrorMessage/text()',
+                                             namespaces=namespaces.nsmap)
+        return OperationResult(int(transaction_id), invocation_state, ''.join(errors), ''.join(error_msgs), envelope)
+
+    def read_operation_invoked_report(self, message_data):
+        return self._read_operation_invoked_report(message_data.raw_data)
+
+    @staticmethod
+    def _read_operation_invoked_report(envelope):
+        transaction_id = envelope.msg_node.xpath('msg:ReportPart/msg:InvocationInfo/msg:TransactionId/text()',
+                                                 namespaces=namespaces.nsmap)[0]
+        invocation_state = envelope.msg_node.xpath('msg:ReportPart/msg:InvocationInfo/msg:InvocationState/text()',
+                                                   namespaces=namespaces.nsmap)[0]
+        errors = envelope.msg_node.xpath('msg:ReportPart/msg:InvocationInfo/msg:InvocationError/text()',
+                                         namespaces=namespaces.nsmap)
+        error_msgs = envelope.msg_node.xpath('msg:ReportPart/msg:InvocationInfo/msg:InvocationErrorMessage/text()',
+                                             namespaces=namespaces.nsmap)
+        return OperationResult(int(transaction_id), invocation_state, ''.join(errors), ''.join(error_msgs), envelope)
+
+    def read_subscribe_response(self, message_data):
+        return self.read_subscribe_response_envelope(message_data.raw_data)
+
+    def read_subscribe_response_envelope(self, envelope):
+        msg_node = envelope.msg_node
+        if msg_node.tag == namespaces.wseTag('SubscribeResponse'):
+            address = msg_node.xpath('wse:SubscriptionManager/wsa:Address/text()', namespaces=namespaces.nsmap)
+            reference_params = msg_node.xpath('wse:SubscriptionManager/wsa:ReferenceParameters',
+                                              namespaces=namespaces.nsmap)
+            expires = msg_node.xpath('wse:Expires/text()', namespaces=namespaces.nsmap)
+
+            subscription_manager_address = urllib.parse.urlparse(address[0])
+            expire_seconds = isoduration.parse_duration(expires[0])
+            return subscription_manager_address, reference_params, expire_seconds
+        return None
+
+    def read_renew_request(self, request_data):
+        expires = request_data.envelope.body_node.xpath('wse:Renew/wse:Expires/text()', namespaces=namespaces.nsmap)
+        if len(expires) == 0:
+            expires = None
+        else:
+            expires = isoduration.parse_duration(str(expires[0]))
+
+        reference_parameters_node = request_data.envelope.header_node.find(namespaces.wsaTag('ReferenceParameters'),
+                                                                           namespaces=namespaces.nsmap)
+        if reference_parameters_node is None:
+            identifier_node = None
+        else:
+            identifier_node = reference_parameters_node[0]
+            #identifier_node = request_data.envelope.header_node.find(_DevSubscription.IDENT_TAG, namespaces=nsmap)
+        path_suffix = '/'.join(request_data.path_elements)  # not consumed path elements
+        #return _mk_dispatch_identifier(identifier_node, path_suffix)
+
+
+    def read_renew_response_envelope(self, envelope):
+        expires = envelope.body_node.xpath('wse:RenewResponse/wse:Expires/text()', namespaces=namespaces.nsmap)
+        if len(expires) == 0:
+            return None
+        expire_seconds = isoduration.parse_duration(expires[0])
+        return expire_seconds
+
+    def read_get_status_response_envelope(self, envelope):
+        expires = envelope.body_node.xpath('wse:GetStatusResponse/wse:Expires/text()', namespaces=namespaces.nsmap)
+        if len(expires) == 0:
+            return None
+        expire_seconds = isoduration.parse_duration(expires[0])
+        return expire_seconds
+
+    def read_subscription_end_message(self, message_data):
+        return self._read_subscription_end_message(message_data.raw_data)
+
+    def _read_subscription_end_message(self, envelope):
+        status_list = envelope.body_node.xpath('wse:SubscriptionEnd/wse:Status/text()', namespaces=namespaces.nsmap)
+        reason_list = envelope.body_node.xpath('wse:SubscriptionEnd/wse:Reason/text()', namespaces=namespaces.nsmap)
+        reference_params_node = envelope.address.reference_parameters_node
+        if reference_params_node is None:
+            reference_parameters = None
+        else:
+            reference_parameters = reference_params_node[:]
+        #subscr_ident_list = envelope.header_node.findall(_ClSubscription.IDENT_TAG, namespaces=namespaces.nsmap)
+
+        return SubscriptionEndResult(status_list, reason_list, reference_parameters)
+
+    @staticmethod
+    def read_wsdl(wsdl_string):
+        """ make am ElementTree instance"""
+        return etree_.fromstring(wsdl_string, parser=etree_.ETCompatXMLParser(resolve_entities=False))

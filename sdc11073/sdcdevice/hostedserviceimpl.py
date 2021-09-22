@@ -161,11 +161,11 @@ class EventService(SoapMessageHandler):
 
     @property
     def _evt_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.biceps_schema.eventing_schema
+        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.schema_validators.eventing_schema
 
     @property
     def _s12_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.biceps_schema.soap12_schema
+        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.schema_validators.soap12_schema
 
 
 class DPWSHostedService(EventService):
@@ -243,7 +243,7 @@ class DPWSHostedService(EventService):
             _port_type_impl.add_wsdl_port_type(wsdl_definitions)
         for _port_type_impl in self._port_type_impls:
             _port_type_impl.add_wsdl_binding(wsdl_definitions, porttype_prefix)
-        self._mdib.biceps_schema.wsdl_schema.assertValid(wsdl_definitions)
+        self._mdib.schema_validators.wsdl_schema.assertValid(wsdl_definitions)
         return sdc_definitions.denormalize_xml_text(etree_.tostring(wsdl_definitions))
 
     @staticmethod
@@ -301,7 +301,7 @@ class DPWSHostedService(EventService):
                                                        my_base_url.netloc,
                                                        '/'.join(consumed_path_elements))
         response.add_body_element(metadata_node)
-        response.validate_body(self._mdib.biceps_schema.mex_schema)
+        response.validate_body(self._mdib.schema_validators.mex_schema)
         return response
 
     def __repr__(self):

@@ -14,8 +14,10 @@ from .. import loghelper
 from .. import netconn
 from .. import observableproperties as properties
 from ..definitions_base import ProtocolsRegistry, SchemaValidators
-from ..namespaces import Prefixes, msgTag
+
+from ..namespaces import Prefixes
 from ..namespaces import nsmap
+from ..namespaces import EventingActions
 from ..pysoap.soapclient import SoapClient
 from ..pysoap.soapenvelope import WsAddress, Soap12Envelope, DPWSEnvelope, MetaDataSection
 
@@ -48,11 +50,12 @@ class HostDescription:
 class HostedServiceDescription:
     VALIDATE_MEX = False  # workaraound as long as validation error due to missing dpws schema is not solved
 
-    def __init__(self, service_id, endpoint_address, validate, biceps_schema, msg_factory, log_prefix=''):
+    def __init__(self, service_id, endpoint_address, validate, schema_validators, msg_reader, msg_factory, log_prefix=''):
         self._endpoint_address = endpoint_address
         self.service_id = service_id
         self._validate = validate
-        self._biceps_schema = biceps_schema
+        self._schema_validators = schema_validators
+        self._msg_reader = msg_reader
         self._msg_factory = msg_factory
         self.log_prefix = log_prefix
         self.metadata = None
@@ -64,7 +67,7 @@ class HostedServiceDescription:
 
     @property
     def _mex_schema(self):
-        return None if not self._validate else self._biceps_schema.mex_schema
+        return None if not self._validate else self._schema_validators.mex_schema
 
     def read_metadata(self, soap_client):
         soap_envelope = self._msg_factory.mk_getmetadata_envelope(self._endpoint_address)
@@ -84,8 +87,7 @@ class HostedServiceDescription:
         self.wsdl_string = soap_client.get_url(actual_path, msg='{}:getwsdl'.format(self.log_prefix))
         commlog.get_communication_logger().log_wsdl(self.wsdl_string, self.service_id)
         try:
-            self.wsdl = etree_.fromstring(self.wsdl_string, parser=etree_.ETCompatXMLParser(
-                resolve_entities=False))  # make am ElementTree instance
+            self.wsdl = self._msg_reader.read_wsdl(self.wsdl_string)
         except etree_.XMLSyntaxError as ex:
             self._logger.error(
                 'could not read wsdl from {}: error={}, data=\n{}'.format(actual_path, ex, self.wsdl_string))
@@ -128,120 +130,102 @@ class NotificationsDispatcherBase:
     def _mk_lookup(self):
         raise NotImplementedError
 
-    def on_notification(self, envelope):
-        self._sdc_client.state_event_report = envelope  # update observable
+    def on_notification(self, message_data):
+        # make Container objects
+        assert(isinstance(message_data, self._sdc_client.msg_reader.ReceivedMessageData))
+        self._sdc_client.state_event_report = message_data  # update observable
 
-    def _on_operation_invoked_report(self, envelope):
-        ret = self._sdc_client.operations_manager.on_operation_invoked_report(envelope)
-        report = envelope.body_node.xpath('msg:OperationInvokedReport', namespaces=nsmap)
-        self._sdc_client.operation_invoked_report = report[0]  # update observable
-        return ret
+    def _on_operation_invoked_report(self, message_data):
+        self._sdc_client.operation_invoked_report = message_data  # update observable
 
-    def _on_waveform_report(self, envelope):
-        try:
-            waveform_node = envelope.body_node[0]  # the msg:WaveformStreamReport node
-        except IndexError:
-            waveform_node = None
+    def _on_waveform_report(self, message_data):
+        self._sdc_client.waveform_report = message_data  # update observable
 
-        if waveform_node is None:
-            self._logger.error('WaveformStream does not contain msg:WaveformStream!', envelope)
+    def _on_episodic_metric_report(self, message_data):
+        self._sdc_client.episodic_metric_report = message_data
 
-        self._sdc_client.waveform_report = waveform_node  # update observable
+    def _on_periodic_metric_report(self, message_data):
+        self._sdc_client.periodic_metric_report = message_data
 
-    def _on_episodic_metric_report(self, envelope):
-        report = self._get_report(envelope, 'EpisodicMetricReport')
-        if report is not None:
-            self._sdc_client.episodic_metric_report = report
+    def _on_episodic_alert_report(self, message_data):
+        self._sdc_client.episodic_alert_report = message_data
 
-    def _on_periodic_metric_report(self, envelope):
-        report = self._get_report(envelope, 'PeriodicMetricReport')
-        if report is not None:
-            self._sdc_client.periodic_metric_report = report
+    def _on_periodic_alert_report(self, message_data):
+        self._sdc_client.periodic_alert_report = message_data
 
-    def _on_episodic_alert_report(self, envelope):
-        report = self._get_report(envelope, 'EpisodicAlertReport')
-        if report is not None:
-            self._sdc_client.episodic_alert_report = report
+    def _on_episodic_component_report(self, message_data):
+        self._sdc_client.episodic_component_report = message_data
 
-    def _on_periodic_alert_report(self, envelope):
-        report = self._get_report(envelope, 'PeriodicAlertReport')
-        if report is not None:
-            self._sdc_client.periodic_alert_report = report
+    def _on_periodic_component_report(self, message_data):
+        self._sdc_client.periodic_component_report = message_data
 
-    def _on_episodic_component_report(self, envelope):
-        report = self._get_report(envelope, 'EpisodicComponentReport')
-        if report is not None:
-            self._sdc_client.episodic_component_report = report
+    def _on_episodic_operational_state_report(self, message_data):
+        self._sdc_client.episodic_operational_state_report = message_data
 
-    def _on_periodic_component_report(self, envelope):
-        report = self._get_report(envelope, 'PeriodicComponentReport')
-        if report is not None:
-            self._sdc_client.periodic_component_report = report
+    def _on_periodic_operational_state_report(self, message_data):
+        self._sdc_client.periodic_operational_state_report = message_data
 
-    def _on_episodic_operational_state_report(self, envelope):
-        report = self._get_report(envelope, 'EpisodicOperationalStateReport')
-        if report is not None:
-            self._sdc_client.episodic_operational_state_report = report
+    def _on_episodic_context_report(self, message_data):
+        self._sdc_client.episodic_context_report = message_data
 
-    def _on_periodic_operational_state_report(self, envelope):
-        report = self._get_report(envelope, 'PeriodicOperationalStateReport')
-        if report is not None:
-            self._sdc_client.periodic_operational_state_report = report
+    def _on_periodic_context_report(self, message_data):
+        self._sdc_client.periodic_context_report = message_data
 
-    def _on_episodic_context_report(self, envelope):
-        report = self._get_report(envelope, 'EpisodicContextReport')
-        if report is not None:
-            self._sdc_client.episodic_context_report = report
-
-    def _on_periodic_context_report(self, envelope):
-        report = self._get_report(envelope, 'PeriodicContextReport')
-        if report is not None:
-            self._sdc_client.periodic_context_report = report
-
-    def _on_description_report(self, envelope):
-        report = self._get_report(envelope, 'DescriptionModificationReport')
-        if report is not None:
-            self._sdc_client.description_modification_report = report
-
-    def _get_report(self, envelope, name):
-        reports = envelope.body_node.xpath(f'msg:{name}', namespaces=nsmap)
-        if len(reports) == 1:
-            self._logger.debug('_get_report {}', name)
-            return reports[0]
-        if len(reports) > 1:
-            self._logger.error('report contains {} elements of msg:{}!', len(reports), name)
-        else:
-            self._logger.error('report does not contain msg:{}!', name)
-        return None
+    def _on_description_report(self, message_data):
+        self._sdc_client.description_modification_report = message_data
 
 
 class NotificationsDispatcherByBody(NotificationsDispatcherBase):
     def _mk_lookup(self):
         return {
-            msgTag('EpisodicMetricReport'): self._on_episodic_metric_report,
-            msgTag('EpisodicAlertReport'): self._on_episodic_alert_report,
-            msgTag('EpisodicComponentReport'): self._on_episodic_component_report,
-            msgTag('EpisodicOperationalStateReport'): self._on_episodic_operational_state_report,
-            msgTag('WaveformStream'): self._on_waveform_report,
-            msgTag('OperationInvokedReport'): self._on_operation_invoked_report,
-            msgTag('EpisodicContextReport'): self._on_episodic_context_report,
-            msgTag('DescriptionModificationReport'): self._on_description_report,
-            msgTag('PeriodicMetricReport'): self._on_periodic_metric_report,
-            msgTag('PeriodicAlertReport'): self._on_periodic_alert_report,
-            msgTag('PeriodicComponentReport'): self._on_periodic_component_report,
-            msgTag('PeriodicOperationalStateReport'): self._on_periodic_operational_state_report,
-            msgTag('PeriodicContextReport'): self._on_periodic_context_report,
+            'EpisodicMetricReport': self._on_episodic_metric_report,
+            'EpisodicAlertReport': self._on_episodic_alert_report,
+            'EpisodicComponentReport': self._on_episodic_component_report,
+            'EpisodicOperationalStateReport': self._on_episodic_operational_state_report,
+            'WaveformStream': self._on_waveform_report,
+            'OperationInvokedReport': self._on_operation_invoked_report,
+            'EpisodicContextReport': self._on_episodic_context_report,
+            'DescriptionModificationReport': self._on_description_report,
+            'PeriodicMetricReport': self._on_periodic_metric_report,
+            'PeriodicAlertReport': self._on_periodic_alert_report,
+            'PeriodicComponentReport': self._on_periodic_component_report,
+            'PeriodicOperationalStateReport': self._on_periodic_operational_state_report,
+            'PeriodicContextReport': self._on_periodic_context_report,
         }
 
-    def on_notification(self, envelope):
+    def on_notification(self, message_data):
         """ dispatch by message body"""
-        super().on_notification(envelope)
-        message = envelope.body_node[0].tag
-        q_name = etree_.QName(message)
-        method = self._lookup.get(q_name)
+        super().on_notification(message_data)
+        method = self._lookup.get(message_data.msg_name)
         if method is None:
-            raise RuntimeError('unknown message {}'.format(q_name))
-        method(envelope)
+            raise RuntimeError('unknown message {}'.format(message_data.msg_name))
+        method(message_data)
+
+# class NotificationsDispatcherByBody(NotificationsDispatcherBase):
+#     def _mk_lookup(self):
+#         return {
+#             'EpisodicMetricReport': self._sdc_client.episodic_metric_report,
+#             'EpisodicAlertReport': self._sdc_client.episodic_alert_report,
+#             'EpisodicComponentReport': self._sdc_client.episodic_component_report,
+#             'EpisodicOperationalStateReport': self._sdc_client.episodic_operational_state_report,
+#             'WaveformStream': self._sdc_client.waveform_report,
+#             'OperationInvokedReport': self._sdc_client.operation_invoked_report,
+#             'EpisodicContextReport': self._sdc_client.episodic_context_report,
+#             'DescriptionModificationReport': self._sdc_client.description_modification_report,
+#             'PeriodicMetricReport': self._sdc_client.periodic_metric_report,
+#             'PeriodicAlertReport': self._sdc_client.periodic_alert_report,
+#             'PeriodicComponentReport': self._sdc_client.periodic_component_report,
+#             'PeriodicOperationalStateReport': self._sdc_client.periodic_operational_state_report,
+#             'PeriodicContextReport': self._sdc_client.periodic_context_report,
+#         }
+#
+#     def on_notification(self, message_data):
+#         """ dispatch by message body"""
+#         super().on_notification(message_data)
+#         observable = self._lookup.get(message_data.msg_name)
+#         if observable is None:
+#             raise RuntimeError('unknown message {}'.format(message_data.msg_name))
+#         observable = message_data
 
 
 class NotificationsDispatcherByAction(NotificationsDispatcherBase):
@@ -325,7 +309,7 @@ class SdcClient:
         self._components = copy.deepcopy(sdc_definitions.DefaultSdcClientComponents)
         if specific_components is not None:
             self._components.merge(specific_components)
-        self._biceps_schema = SchemaValidators(self.sdc_definitions)
+        self._schema_validators = SchemaValidators(self.sdc_definitions)
         splitted = urllib.parse.urlsplit(self._device_location)
         self._device_uses_https = splitted.scheme.lower() == 'https'
 
@@ -370,7 +354,7 @@ class SdcClient:
             raise RuntimeError('SdcClient has already an registered mdib')
         self._mdib = None if mdib is None else weakref.ref(mdib)
         if mdib is not None:
-            mdib.biceps_schema = self._biceps_schema
+            mdib.schema_validators = self._schema_validators
         if self.client('Set') is not None:
             self.client('Set').register_mdib(mdib)
         if self.client('Context') is not None:
@@ -379,7 +363,7 @@ class SdcClient:
 
     @property
     def mdib(self):
-        return self._mdib()
+        return None if self._mdib is None else self._mdib()
 
     @property
     def my_ipaddress(self):
@@ -406,7 +390,7 @@ class SdcClient:
         for action in actions:
             self._notifications_dispatcher_thread.dispatcher.register_function(action, subscription.on_notification)
         if callback is not None:
-            properties.bind(subscription, notification=callback)
+            properties.bind(subscription, notification_data=callback)
         subscription.subscribe()
         return subscription
 
@@ -478,7 +462,8 @@ class SdcClient:
 
         # start subscription manager
         subscription_manager_class = self._components.subscription_manager_class
-        self._subscription_mgr = subscription_manager_class(self._msg_factory,
+        self._subscription_mgr = subscription_manager_class(self.msg_reader,
+                                                            self._msg_factory,
                                                             self._notifications_dispatcher_thread.base_url,
                                                             log_prefix=self.log_prefix,
                                                             check_interval=subscriptions_check_interval)
@@ -496,8 +481,8 @@ class SdcClient:
 
         # start operationInvoked subscription and tell all
         operations_manager_class = self._components.operations_manager_class
-        self.operations_manager = operations_manager_class(self.log_prefix)
-
+        self.operations_manager = operations_manager_class(self.msg_reader, self.log_prefix)
+        properties.bind(self, operation_invoked_report=self.operations_manager.on_operation_invoked_report)
         for client in self._service_clients.values():
             client.set_operations_manager(self.operations_manager)
 
@@ -524,7 +509,7 @@ class SdcClient:
 
         # register callback for end of subscription
         self._notifications_dispatcher_thread.dispatcher.register_function(
-            self.sdc_definitions.Actions.SubscriptionEnd, self._on_subscription_end)
+            EventingActions.SubscriptionEnd, self._on_subscription_end)
 
         # connect self.is_connected observable to all_subscriptions_okay observable in subscriptionsmanager
         def set_is_connected(is_ok):
@@ -613,7 +598,7 @@ class SdcClient:
             ns_types = [t.split(':') for t in hosted.types]
             h_descr = HostedServiceDescription(
                 hosted.service_id, endpoint_reference,
-                self._validate, self._biceps_schema, self._msg_factory, self.log_prefix)
+                self._validate, self._schema_validators, self.msg_reader, self._msg_factory, self.log_prefix)
             self.hosted_services[hosted.service_id] = h_descr
             h_descr.read_metadata(soap_client)
             for _, porttype in ns_types:
@@ -624,7 +609,7 @@ class SdcClient:
     def _mk_hosted_service_client(self, port_type, soap_client, hosted):
         cls = self._components.service_handlers[port_type]
         return cls(soap_client, self._msg_factory, hosted, port_type, self._validate,
-                   self.sdc_definitions, self._biceps_schema, self.log_prefix)
+                   self.sdc_definitions, self._schema_validators, self.log_prefix)
 
     def _start_event_sink(self, async_dispatch):
         ssl_context = self._ssl_context if self._device_uses_https else None
@@ -637,6 +622,7 @@ class SdcClient:
             ssl_context,
             log_prefix=self.log_prefix,
             sdc_definitions=self.sdc_definitions,
+            msg_reader=self.msg_reader,
             supported_encodings=self._compression_methods,
             notifications_handler_class=notifications_handler_class,
             async_dispatch=async_dispatch)

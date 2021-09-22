@@ -176,7 +176,7 @@ class MdibContainer:
         :param sdc_definitions: a class derived from Definitions_Base
         """
         self.sdc_definitions = sdc_definitions
-        self.biceps_schema = SchemaValidators(sdc_definitions)  # used for validation
+        self.schema_validators = SchemaValidators(sdc_definitions)  # used for validation
         self._logger = None  # must to be instantiated by derived class
         self.nsmapper = DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file
         self.mdib_version = 0

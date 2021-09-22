@@ -220,7 +220,7 @@ class Test_Tutorial(unittest.TestCase):
         future = contextService.set_context_state(operation_handle=my_operation.handle,
                                                 proposed_context_states=[proposedPatient])
         result = future.result(timeout=5)
-        self.assertEqual(result.state, pmtypes.InvocationState.FINISHED)
+        self.assertEqual(result.invocation_state, pmtypes.InvocationState.FINISHED)
 
     def test_operation_handler(self):
         """ This example shows how to implement own handlers for operations and it shows multiple ways how a client can

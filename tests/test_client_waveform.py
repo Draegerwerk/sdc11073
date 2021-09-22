@@ -101,12 +101,9 @@ class TestClientWaveform(unittest.TestCase):
     def test_basic_handling(self):
         ''' call _onWaveformReport method directly. Verify that observable is a WaveformStream Element'''
 
-        # same test for draft10 version
         cl = self.sdc_client
-        soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope(WfReport.encode('utf-8'))
-        soapenvelope.validate_body(cl._biceps_schema.message_schema)
-        cl._notifications_dispatcher.on_notification(soapenvelope)
-        self.assertEqual(cl.waveform_report.tag, namespaces.msgTag('WaveformStream'))
+        data = cl.msg_reader.read_received_message(definitions_sdc.SDC_v1_Definitions, WfReport.encode('utf-8'))
+        cl._notifications_dispatcher.on_notification(data)
 
     def test_stream_handling(self):
         ''' Connect a mdib with client. Call _onWaveformReport method directly. Verify that observable is a WaveformStream Element'''
@@ -127,7 +124,8 @@ class TestClientWaveform(unittest.TestCase):
                     sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.from_node(
                         clientmdib.nsmapper, element, None))  # None = no parent handle
             soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope(wfReport.encode('utf-8'))
-            cl._notifications_dispatcher.on_notification(soapenvelope)
+            received_message_data = cl.msg_reader.mk_received_message(soapenvelope)
+            cl._notifications_dispatcher.on_notification(received_message_data)
 
             # verify that all handles of reported RealTimeSampleArrays are present
             for handle in my_handles:
@@ -160,7 +158,8 @@ class TestClientWaveform(unittest.TestCase):
 
             # add another Report (with identical data, but that is not relevant here)
             soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope(wfReport.encode('utf-8'))
-            cl._notifications_dispatcher.on_notification(soapenvelope)
+            received_message_data = cl.msg_reader.mk_received_message(soapenvelope)
+            cl._notifications_dispatcher.on_notification(received_message_data)
             # verify only that array length is 2*bigger now
             for handle in my_handles:
                 current_samples = SAMPLES[handle]
@@ -171,7 +170,8 @@ class TestClientWaveform(unittest.TestCase):
             # add a lot more data, verify that length limitation is working
             for i in range(100):
                 soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope(wfReport.encode('utf-8'))
-                cl._notifications_dispatcher.on_notification(soapenvelope)
+                received_message_data = cl.msg_reader.mk_received_message(soapenvelope)
+                cl._notifications_dispatcher.on_notification(received_message_data)
             # verify only that array length is limited
             for handle in my_handles:
                 current_samples = SAMPLES[handle]

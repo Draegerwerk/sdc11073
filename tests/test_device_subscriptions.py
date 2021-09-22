@@ -89,7 +89,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
     def test_waveformSubscription(self):
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.Waveform,
-                                                       sdcDevice.mdib.biceps_schema)
+                                                       sdcDevice.mdib.schema_validators)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 
             tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.01)
@@ -108,76 +108,12 @@ class TestDeviceSubscriptions(unittest.TestCase):
             expected_action = sdcDevice.mdib.sdc_definitions.Actions.Waveform
             self.assertEqual(in_report.address.action, expected_action)
 
-    def test_episodicMetricReportSubscription(self):
-        ''' verify that a subscription response is valid'''
-        notify_to = 'http://localhost:123'
-        end_to = 'http://localhost:124'
-        hosted = sdc11073.pysoap.soapenvelope.DPWSHosted(
-            endpoint_references_list=[sdc11073.pysoap.soapenvelope.WsaEndpointReferenceType('http://1.2.3.4:6000')],
-            types_list=['Get'],
-            service_id=123)
-        for sdcDevice in self._allDevices:
-            clSubscr = sdc11073.sdcclient.subscription._ClSubscription(SoapMessageFactory(None, None),
-                                                                       dpws_hosted=hosted,
-                                                                       actions=[
-                                                                           sdcDevice.mdib.sdc_definitions.Actions.EpisodicMetricReport],
-                                                                       notification_url=notify_to,
-                                                                       end_to_url=end_to,
-                                                                       log_prefix='')
-            subscrRequest = clSubscr._mk_subscribe_envelope(subscribe_epr='http://otherdevice:123/bla',
-                                                            expire_minutes=59)
-            subscrRequest.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
-            self._verify_proper_namespaces(subscrRequest)
-
-            http_header = {}
-            # avoid instantiation of new soap client by pretenting there is one already
-            sdcDevice.subscriptions_manager.soap_clients['localhost:123'] = 'dummy'
-            request = RequestData(http_header, 'http://abc.com:123/def')
-            request.envelope = ReceivedSoap12Envelope(subscrRequest.as_xml())
-            response = sdcDevice.subscriptions_manager.on_subscribe_request(request)
-
-            self._verify_proper_namespaces(response)
-            response.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
-            clSubscr._handle_subscribe_response(ReceivedSoap12Envelope(response.as_xml()))
-
-            # verify that devices subscription contains the subscription identifier of the client Subscription object
-            devSubscr = list(sdcDevice.subscriptions_manager._subscriptions.objects)[0]
-            # self.assertEqual(devSubscr.notify_to_address, notify_to)
-            # self.assertEqual(devSubscr.notify_ref_nodes[0].text, clSubscr.notify_to_identifier.text)
-            # self.assertEqual(devSubscr.end_to_address, end_to)
-            # self.assertEqual(devSubscr.end_to_ref_nodes[0].text, clSubscr.end_to_identifier.text)
-
-            # check renew
-            renewRequest = clSubscr._mk_renew_envelope(expire_minutes=59)
-            renewRequest.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
-            print(renewRequest.as_xml(pretty=True))
-
-            request = RequestData(http_header, 'http://abc.com:123/def')
-            request.path_elements = [devSubscr.path_suffix]
-            request.envelope = ReceivedSoap12Envelope(renewRequest.as_xml())
-
-            response = sdcDevice.subscriptions_manager.on_renew_request(request)
-            print(response.as_xml(pretty=True))
-            response.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
-
-            # check getstatus
-            getStatusRequest = clSubscr._mk_get_status_envelope()
-            getStatusRequest.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
-            print(getStatusRequest.as_xml(pretty=True))
-
-            request = RequestData(http_header, 'http://abc.com:123/def')
-            request.path_elements = [devSubscr.path_suffix]
-            request.envelope = ReceivedSoap12Envelope(getStatusRequest.as_xml())
-            response = sdcDevice.subscriptions_manager.on_get_status_request(request)
-            print(response.as_xml(pretty=True))
-            response.validate_body(sdcDevice.mdib.biceps_schema.eventing_schema)
-
     def test_episodicMetricReportEvent(self):
         ''' verify that an event message is sent to subscriber and that message is valid'''
         # directly inject a subscription event, this test is not about starting subscriptions
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.EpisodicMetricReport,
-                                                       sdcDevice.mdib.biceps_schema)
+                                                       sdcDevice.mdib.schema_validators)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 
             descriptorHandle = '0x34F00100'  # '0x34F04380'
@@ -193,7 +129,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             response = testSubscr.reports[0]
             self._verify_proper_namespaces(response)
             print(response.as_xml(pretty=True))
-            response.validate_body(sdcDevice.mdib.biceps_schema.message_schema)
+            response.validate_body(sdcDevice.mdib.schema_validators.message_schema)
 
             # verify that header contains the identifier of client subscription
             env = ReceivedSoap12Envelope(response.as_xml())
@@ -206,7 +142,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
         # directly inject a subscription event, this test is not about starting subscriptions
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.EpisodicContextReport,
-                                                       sdcDevice.mdib.biceps_schema)
+                                                       sdcDevice.mdib.schema_validators)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
             patientContextDescriptor = sdcDevice.mdib.descriptions.NODETYPE.get_one(
                 namespaces.domTag('PatientContextDescriptor'))
@@ -217,12 +153,12 @@ class TestDeviceSubscriptions(unittest.TestCase):
             self.assertEqual(len(testSubscr.reports), 1)
             response = testSubscr.reports[0]
             self._verify_proper_namespaces(response)
-            response.validate_body(sdcDevice.mdib.biceps_schema.message_schema)
+            response.validate_body(sdcDevice.mdib.schema_validators.message_schema)
 
     def test_notifyOperation(self):
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.OperationInvokedReport,
-                                                       sdcDevice.mdib.biceps_schema)
+                                                       sdcDevice.mdib.schema_validators)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 
             class DummyOperation:

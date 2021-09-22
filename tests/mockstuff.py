@@ -51,26 +51,26 @@ class TestDevSubscription(_DevSubscription):
     identifier = '0815'
     expires = 60
     notifyRef = 'a ref string'
-    def __init__(self, filter_, biceps_schema):
+    def __init__(self, filter_, schema_validators):
         notify_ref_node = etree_.Element(namespaces.wseTag('References'))
         identNode = etree_.SubElement(notify_ref_node, namespaces.wseTag('Identifier'))
         identNode.text = self.notifyRef
         base_urls = [ urllib.parse.SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
 
-        super(TestDevSubscription, self).__init__(mode=self.mode, 
-                                                  notify_to_address=self.notify_to,
-                                                  notify_ref_node=notify_ref_node,
-                                                  end_to_address=None,
-                                                  end_to_ref_node=None,
-                                                  expires=self.expires,
-                                                  max_subscription_duration=42,
-                                                  filter_=filter_,
-                                                  ssl_context=None,
-                                                  biceps_schema=biceps_schema,
-                                                  accepted_encodings=None,
-                                                  base_urls=base_urls)
+        super().__init__(mode=self.mode,
+                         notify_to_address=self.notify_to,
+                         notify_ref_node=notify_ref_node,
+                         end_to_address=None,
+                         end_to_ref_node=None,
+                         expires=self.expires,
+                         max_subscription_duration=42,
+                         filter_=filter_,
+                         ssl_context=None,
+                         schema_validators=schema_validators,
+                         accepted_encodings=None,
+                         base_urls=base_urls)
         self.reports = []
-        self.message_schema = biceps_schema.message_schema
+        self.message_schema = schema_validators.message_schema
         
         
     def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):

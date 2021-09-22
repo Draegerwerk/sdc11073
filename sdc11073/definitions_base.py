@@ -1,7 +1,8 @@
+from __future__ import annotations
 import os
 import urllib
 from dataclasses import dataclass
-from typing import Type, Callable, List, Any, ForwardRef
+from typing import Type, Callable, List, Any, TYPE_CHECKING #ForwardRef
 
 from lxml import etree as etree_
 from lxml.etree import QName
@@ -9,10 +10,16 @@ from lxml.etree import QName
 from . import loghelper
 from .namespaces import Prefixes
 from .namespaces import dpwsTag
-from .pysoap.msgfactory import AbstractMessageFactory
-from .pysoap.msgreader import AbstractMessageReader
-from .sdcdevice.sdc_handlers import HostedServices
 from .wsdiscovery import Scope
+
+if TYPE_CHECKING:
+    from .pysoap.msgfactory import AbstractMessageFactory
+    from .pysoap.msgreader import AbstractMessageReader
+    from .sdcdevice.sdc_handlers import HostedServices
+    from .sdcdevice.sco import AbstractScoOperationsRegistry
+    from .sdcdevice.subscriptionmgr import AbstractSubscriptionsManager
+    from .mdib.devicemdib import DeviceMdibContainer
+    from .httprequesthandler import RequestData
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
@@ -23,10 +30,10 @@ class ProtocolsRegistry(type):
     """
     protocols = []
 
-    def __new__(cls, name, *arg, **kwarg):
-        new_cls = super().__new__(cls, name, *arg, **kwarg)
+    def __new__(mcs, name, *arg, **kwarg):
+        new_cls = super().__new__(mcs, name, *arg, **kwarg)
         if name != 'BaseDefinitions':  # ignore the base class itself
-            cls.protocols.append(new_cls)
+            mcs.protocols.append(new_cls)
         return new_cls
 
 
@@ -66,11 +73,11 @@ class SdcDeviceComponents:
     msg_reader_class: Type[AbstractMessageReader] = None
     services_factory: Callable[[Any, dict, Any], HostedServices] = None
     operation_cls_getter: Callable[[QName], type] = None
-    sco_operations_registry_class: type = None
-    subscriptions_manager_class: type = None
+    sco_operations_registry_class: Type[AbstractScoOperationsRegistry] = None
+    subscriptions_manager_class: Type[AbstractSubscriptionsManager] = None
     role_provider_class: type = None
-    scopes_factory: Callable[[ForwardRef('DeviceMdib')], List[Scope]] = None
-    msg_dispatch_method: Callable[[ForwardRef('RequestData')], str] = None
+    scopes_factory: Callable[[DeviceMdibContainer], List[Scope]] = None
+    msg_dispatch_method: Callable[[RequestData], str] = None
     service_handlers: dict = None
 
     def merge(self, other):

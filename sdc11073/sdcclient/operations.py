@@ -1,19 +1,16 @@
 import weakref
-from collections import namedtuple
 from concurrent.futures import Future
 from threading import Lock
 
 from .. import loghelper
-from ..namespaces import nsmap
 from ..pmtypes import InvocationState
-
-OperationResult = namedtuple('OperationResult', 'state error errorMsg soapEnvelope')
 
 
 class OperationsManager:
     nonFinalOperationStates = (InvocationState.WAIT, InvocationState.START)
 
-    def __init__(self, log_prefix):
+    def __init__(self, msg_reader, log_prefix):
+        self._msg_reader = msg_reader
         self.log_prefix = log_prefix
         self._logger = loghelper.get_logger_adapter('sdc.client.op_mgr', log_prefix)
         self._transactions = {}
@@ -32,61 +29,40 @@ class OperationsManager:
             result_envelope = hosted_service_client.post_soap_envelope(envelope,
                                                                        msg='call Operation',
                                                                        request_manipulator=request_manipulator)
-            transaction_id = \
-                result_envelope.msg_node.xpath('msg:InvocationInfo/msg:TransactionId/text()', namespaces=nsmap)[0]
-            invocation_state = \
-                result_envelope.msg_node.xpath('msg:InvocationInfo/msg:InvocationState/text()', namespaces=nsmap)[0]
+            operation_invoked_report = self._msg_reader._read_operation_response(result_envelope)
 
-            if invocation_state in self.nonFinalOperationStates:
-                self._transactions[int(transaction_id)] = weakref.ref(ret)
-                self._logger.info('call_operation: transaction_id {} registered, state={}', transaction_id,
-                                  invocation_state)
+            if operation_invoked_report.invocation_state in self.nonFinalOperationStates:
+                self._transactions[operation_invoked_report.transaction_id] = weakref.ref(ret)
+                self._logger.info('call_operation: transaction_id {} registered, state={}',
+                                  operation_invoked_report.transaction_id, operation_invoked_report.invocation_state)
             else:
-                errors = result_envelope.msg_node.xpath('msg:InvocationInfo/msg:InvocationError/text()',
-                                                        namespaces=nsmap)
-                error = '' if len(errors) == 0 else str(errors[0])
-                error_msgs = result_envelope.msg_node.xpath('msg:InvocationInfo/msg:InvocationErrorMessage/text()',
-                                                            namespaces=nsmap)
-                error_msg = '' if len(error_msgs) == 0 else str(error_msgs[0])
-
-                result = OperationResult(invocation_state, error, error_msg, result_envelope)
-                self._logger.debug('Result of Operation: {}', result)
-                ret.set_result(result)
+                self._logger.debug('Result of Operation: {}', operation_invoked_report)
+                ret.set_result(operation_invoked_report)
         return ret
 
-    def on_operation_invoked_report(self, envelope):
-        self._logger.debug('on_operation_invoked_report: response= {}', lambda: envelope.as_xml(pretty=True))
-        transaction_id = \
-            envelope.msg_node.xpath('msg:ReportPart/msg:InvocationInfo/msg:TransactionId/text()', namespaces=nsmap)[
-                0]
-        operation_state = \
-            envelope.msg_node.xpath('msg:ReportPart/msg:InvocationInfo/msg:InvocationState/text()',
-                                    namespaces=nsmap)[0]
+    def on_operation_invoked_report(self, message_data):
+        operation_invoked_report = self._msg_reader.read_operation_invoked_report(message_data)
         self._logger.debug('{}on_operation_invoked_report: got transaction_id {} state {}', self.log_prefix,
-                           transaction_id,
-                           operation_state)
-        if operation_state in self.nonFinalOperationStates:
+                           operation_invoked_report.transaction_id,
+                           operation_invoked_report.invocation_state)
+        if operation_invoked_report.invocation_state in self.nonFinalOperationStates:
             self._logger.debug('nonFinal state detected, ignoring message...')
             return
         with self._transactions_lock:
-            future_ref = self._transactions.pop(int(transaction_id), None)
+            future_ref = self._transactions.pop(operation_invoked_report.transaction_id, None)
         if future_ref is None:
             # this was not my transaction
-            self._logger.debug('transaction_id {} is not registered!', transaction_id)
+            self._logger.debug('transaction_id {} is not registered!', operation_invoked_report.transaction_id)
             return
         future_obj = future_ref()
         if future_obj is None:
             # client gave up.
-            self._logger.debug('transaction_id {} given up', transaction_id)
+            self._logger.debug('transaction_id {} given up', operation_invoked_report.transaction_id)
             return
-        errors = envelope.msg_node.xpath('msg:ReportPart/msg:InvocationInfo/msg:InvocationError/text()',
-                                         namespaces=nsmap)
-        error_msgs = envelope.msg_node.xpath(
-            'msg:ReportPart/msg:InvocationInfo/msg:InvocationErrorMessage/text()', namespaces=nsmap)
-        result = OperationResult(operation_state, ''.join(errors), ''.join(error_msgs), envelope)
-        if operation_state == InvocationState.FAILED:
+        if operation_invoked_report.invocation_state == InvocationState.FAILED:
             self._logger.warn('transaction Id {} finished with error: error={}, error-message={}',
-                              transaction_id, result.error, result.errorMsg)
+                              operation_invoked_report.transaction_id, operation_invoked_report.error,
+                              operation_invoked_report.errorMsg)
         else:
-            self._logger.info('transaction Id {} ok', transaction_id)
-        future_obj.set_result(result)
+            self._logger.info('transaction Id {} ok', operation_invoked_report.transaction_id)
+        future_obj.set_result(operation_invoked_report)
