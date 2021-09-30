@@ -19,8 +19,7 @@ class ContainerBase:
     # This is according to the inheritance in BICEPS xml schema
     _props = tuple()  # empty tuple, this base class has no properties
 
-    def __init__(self, nsmapper):
-        self.nsmapper = nsmapper
+    def __init__(self):
         self.node = None
         for dummy_name, cprop in self.sorted_container_properties():
             cprop.init_instance_data(self)
@@ -29,18 +28,18 @@ class ContainerBase:
         """ ignores default value and implied value, e.g. returns None if value is not present in xml"""
         return getattr(self.__class__, attr_name).get_actual_value(self)
 
-    def mk_node(self, tag, set_xsi_type=False):
+    def mk_node(self, tag, nsmapper, set_xsi_type=False):
         """
         create a etree node from instance data
         :param tag: tag of the newly created node
         :param set_xsi_type:
         :return: etree node
         """
-        node = etree_.Element(tag, nsmap=self.nsmapper.partial_map(Prefixes.PM, Prefixes.MSG, Prefixes.XSI))
-        self.update_node(node, set_xsi_type)
+        node = etree_.Element(tag, nsmap=nsmapper.partial_map(Prefixes.PM, Prefixes.MSG, Prefixes.XSI))
+        self.update_node(node, nsmapper, set_xsi_type)
         return node
 
-    def update_node(self, node, set_xsi_type=False):
+    def update_node(self, node, nsmapper, set_xsi_type=False):
         """
         update node with own data
         :param node: node to be updated
@@ -48,7 +47,7 @@ class ContainerBase:
         :return: etree node
         """
         if set_xsi_type and self.NODETYPE is not None:
-            node.set(QN_TYPE, self.nsmapper.docname_from_qname(self.NODETYPE))
+            node.set(QN_TYPE, nsmapper.docname_from_qname(self.NODETYPE))
         for dummy_name, prop in self.sorted_container_properties():
             prop.update_xml_value(self, node)
         return node

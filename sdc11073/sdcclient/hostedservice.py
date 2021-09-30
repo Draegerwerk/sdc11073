@@ -1,9 +1,12 @@
 import urllib
 import weakref
+from collections import namedtuple
 
 from .. import loghelper
 from ..namespaces import DocNamespaceHelper
 from ..pysoap.soapenvelope import ExtendedDocumentInvalid
+
+GetRequestResult = namedtuple('GetRequestResult', 'mdib_version sequence_id result')
 
 
 class HostedServiceClient:
@@ -29,6 +32,7 @@ class HostedServiceClient:
         self._mdib_wref = None
         self._msg_factory = msg_factory
         self.predefined_actions = {}  # calculated actions for subscriptions
+        self._nsmapper = DocNamespaceHelper()
         for action in self.subscribeable_actions:
             self.predefined_actions[action] = self._msg_factory.get_action_string(porttype, action)
 
@@ -66,17 +70,17 @@ class HostedServiceClient:
     def _call_get_method(self, envelope, method, request_manipulator=None):
         self._logger.info('calling {} on {}:{}', method, self._url.netloc, self._url.path)
         envelope.validate_body(self._bmm_schema)
-        result_envelope = self.post_soap_envelope(envelope, msg='get {}'.format(method),
-                                                  request_manipulator=request_manipulator)
+        message_data = self.post_soap_envelope(envelope, msg='get {}'.format(method),
+                                               request_manipulator=request_manipulator)
         try:
-            result_envelope.validate_body(self._bmm_schema)
+            message_data.raw_data.validate_body(self._bmm_schema)
         except ExtendedDocumentInvalid as ex:
             self._logger.error('Validation error: {}', ex)
         except TypeError as ex:
             self._logger.error('Could not validate Body, Type Error :{}', ex)
         except Exception as ex:
-            self._logger.error('Validation error: "{}" msg_node={}', ex, result_envelope.msg_node)
-        return result_envelope
+            self._logger.error('Validation error: "{}" msg_node={}', ex, message_data.raw_data.msg_node)
+        return message_data
 
 
 class GetServiceClient(HostedServiceClient):
@@ -88,15 +92,15 @@ class GetServiceClient(HostedServiceClient):
         envelope = self._msg_factory.mk_getmddescription_envelope(
             self.endpoint_reference.address, self.porttype, requested_handles)
 
-        result_envelope = self._call_get_method(envelope, 'GetMdDescription',
-                                                request_manipulator=request_manipulator)
-        return result_envelope.msg_node
+        message_data = self._call_get_method(envelope, 'GetMdDescription',
+                                             request_manipulator=request_manipulator)
+        return message_data.raw_data.msg_node
 
     def get_mdib(self, request_manipulator=None):
         envelope = self._msg_factory.mk_getmdib_envelope(self.endpoint_reference.address, self.porttype)
 
-        result_envelope = self._call_get_method(envelope, 'GetMdib', request_manipulator=request_manipulator)
-        return result_envelope
+        message_data = self._call_get_method(envelope, 'GetMdib', request_manipulator=request_manipulator)
+        return message_data.raw_data
 
     def get_mdib_node(self, request_manipulator=None):
         return self.get_mdib(request_manipulator).msg_node
@@ -107,15 +111,20 @@ class GetServiceClient(HostedServiceClient):
         """
         envelope = self._msg_factory.mk_getmdstate_envelope(self.endpoint_reference.address,
                                                             self.porttype, requested_handles)
-        result_envelope = self._call_get_method(envelope, 'GetMdState',
-                                                request_manipulator=request_manipulator)
-        return result_envelope
+        message_data = self._call_get_method(envelope, 'GetMdState',
+                                             request_manipulator=request_manipulator)
+        states = message_data.msg_reader.read_get_mdstate_response(message_data)
+        return GetRequestResult(message_data.mdib_version, message_data.sequence_id, states)
 
     def get_md_state_node(self, requested_handles=None, request_manipulator=None):
         """
         :param requested_handles: None if all states shall be requested, otherwise a list of handles
         """
-        return self.get_md_state(requested_handles, request_manipulator=request_manipulator).msg_node
+        envelope = self._msg_factory.mk_getmdstate_envelope(self.endpoint_reference.address,
+                                                            self.porttype, requested_handles)
+        message_data = self._call_get_method(envelope, 'GetMdState',
+                                             request_manipulator=request_manipulator)
+        return message_data.raw_data.msg_node
 
 
 class SetServiceClient(HostedServiceClient):
@@ -194,7 +203,8 @@ class SetServiceClient(HostedServiceClient):
         tmp = ', '.join(['{}(descriptorHandle={})'.format(st.__class__.__name__, st.descriptorHandle)
                          for st in proposed_component_states])
         self._logger.info('set_component_state {}', tmp)
-        envelope = self._msg_factory.mk_setcomponentstate_envelope(self.endpoint_reference.address, self.porttype,
+        envelope = self._msg_factory.mk_setcomponentstate_envelope(self._nsmapper, self.endpoint_reference.address,
+                                                                   self.porttype,
                                                                    operation_handle, proposed_component_states)
         self._logger.debug('set_component_state sends {}', lambda: envelope.as_xml(pretty=True))
         return self._call_operation(envelope, request_manipulator=request_manipulator)
@@ -210,19 +220,21 @@ class SetServiceClient(HostedServiceClient):
             self.endpoint_reference.address, self.porttype, operation_handle, requested_string)
 
     def _mk_set_alert_envelope(self, operation_handle, proposed_alert_states):
-        return self._msg_factory.mk_setalert_envelope(
-            self.endpoint_reference.address, self.porttype, operation_handle, proposed_alert_states)
+        return self._msg_factory.mk_setalert_envelope(self._nsmapper,
+                                                      self.endpoint_reference.address, self.porttype, operation_handle,
+                                                      proposed_alert_states)
 
     def _mk_set_metric_state_envelope(self, operation_handle, proposed_metric_states):
         """create soap envelope, but do not send it. Used for unit testing
         :param proposedMetricState: a list of AbstractMetricStateContainer or derived classes """
-        return self._msg_factory.mk_setmetricstate_envelope(
-            self.endpoint_reference.address, self.porttype, operation_handle, proposed_metric_states)
+        return self._msg_factory.mk_setmetricstate_envelope(self._nsmapper,
+                                                            self.endpoint_reference.address, self.porttype,
+                                                            operation_handle, proposed_metric_states)
 
 
 class CTreeServiceClient(HostedServiceClient):
 
-    def get_descriptor_node(self, handles, request_manipulator=None):
+    def get_descriptor(self, handles, request_manipulator=None):
         """
 
         :param handles: a list of strings
@@ -230,11 +242,12 @@ class CTreeServiceClient(HostedServiceClient):
         """
         envelope = self._msg_factory.mk_getdescriptor_envelope(
             self.endpoint_reference.address, self.porttype, handles)
-        result_envelope = self._call_get_method(
-            envelope, 'GetMdState', request_manipulator=request_manipulator)
-        return result_envelope.msg_node
+        message_data = self._call_get_method(
+            envelope, 'GetDescriptor', request_manipulator=request_manipulator)
+        descriptors = message_data.msg_reader.read_get_descriptor_response(message_data)
+        return GetRequestResult(message_data.mdib_version, message_data.sequence_id, descriptors)
 
-    def get_containment_tree_nodes(self, handles, request_manipulator=None):
+    def get_containment_tree(self, handles, request_manipulator=None):
         """
 
         :param handles: a list of strings
@@ -242,9 +255,10 @@ class CTreeServiceClient(HostedServiceClient):
         """
         envelope = self._msg_factory.mk_getcontainmenttree_envelope(
             self.endpoint_reference.address, self.porttype, handles)
-        result_envelope = self._call_get_method(
+        message_data = self._call_get_method(
             envelope, 'GetContainmentTree', request_manipulator=request_manipulator)
-        return result_envelope.msg_node
+        descriptors = message_data.msg_reader.read_get_containment_tree_response(message_data)
+        return GetRequestResult(message_data.mdib_version, message_data.sequence_id, descriptors)
 
 
 class StateEventClient(HostedServiceClient):
@@ -280,7 +294,7 @@ class ContextServiceClient(HostedServiceClient):
         context_descriptor_container = mdib.descriptions.handle.get_one(descriptor_handle)
         if handle is None:
             cls = self._sdc_definitions.get_state_container_class(context_descriptor_container.STATE_QNAME)
-            obj = cls(nsmapper=DocNamespaceHelper(), descriptor_container=context_descriptor_container)
+            obj = cls(descriptor_container=context_descriptor_container)
             obj.Handle = descriptor_handle  # this indicates that this is a new context state
         else:
             _obj = mdib.context_states.handle.get_one(handle)
@@ -296,20 +310,22 @@ class ContextServiceClient(HostedServiceClient):
                                                                      st.Handle)
                          for st in proposed_context_states])
         self._logger.info('set_context_state {}', tmp)
-        envelope = self._msg_factory.mk_setcontextstate_envelope(
-            self.endpoint_reference.address, self.porttype, operation_handle, proposed_context_states)
+        envelope = self._msg_factory.mk_setcontextstate_envelope(self._nsmapper,
+                                                                 self.endpoint_reference.address, self.porttype,
+                                                                 operation_handle, proposed_context_states)
         return self._call_operation(envelope, request_manipulator=request_manipulator)
 
-    def get_context_states_node(self, handles=None, request_manipulator=None):
+    def get_context_states(self, handles=None, request_manipulator=None):
         """
         :param handles: a list of handles
         """
         envelope = self._msg_factory.mk_getcontextstates_envelope(
             self.endpoint_reference.address, self.porttype, handles)
-        result_envelope = self._call_get_method(
+        message_data = self._call_get_method(
             envelope, 'GetContextStates', request_manipulator=request_manipulator)
-        result_envelope.validate_body(self._bmm_schema)
-        return result_envelope.msg_node
+        message_data.raw_data.validate_body(self._bmm_schema)
+        context_state_containers = message_data.msg_reader.read_context_states(message_data)
+        return GetRequestResult(message_data.mdib_version, message_data.sequence_id, context_state_containers)
 
     def get_context_state_by_identification(self, identifications, context_type=None, request_manipulator=None):
         """
@@ -319,10 +335,11 @@ class ContextServiceClient(HostedServiceClient):
         """
         envelope = self._msg_factory.mk_getcontextstates_by_identification_envelope(
             self.endpoint_reference.address, self.porttype, identifications)
-        result_envelope = self._call_get_method(
+        message_data = self._call_get_method(
             envelope, 'GetContextStatesByIdentification', request_manipulator=request_manipulator)
-        result_envelope.validate_body(self._bmm_schema)
-        return result_envelope.msg_node
+        message_data.raw_data.validate_body(self._bmm_schema)
+        context_state_containers = message_data.msg_reader.read_context_states(message_data)
+        return GetRequestResult(message_data.mdib_version, message_data.sequence_id, context_state_containers)
 
 
 class WaveformClient(HostedServiceClient):

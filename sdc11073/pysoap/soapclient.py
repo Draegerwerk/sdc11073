@@ -9,8 +9,6 @@ import time
 import traceback
 from threading import Lock
 
-from lxml.etree import XMLSyntaxError  # pylint: disable=no-name-in-module
-
 from . import soapenvelope
 from .. import commlog
 from .. import observableproperties
@@ -57,7 +55,7 @@ class SoapClient:
 
     roundtrip_time = observableproperties.ObservableProperty()
 
-    def __init__(self, netloc, logger, ssl_context, sdc_definitions, supported_encodings=None,
+    def __init__(self, netloc, logger, ssl_context, sdc_definitions, msg_reader, supported_encodings=None,
                  request_encodings=None, chunked_requests=False):
         """ Connects to one url
         :param netloc: the location of the service (domainname:port) ###url of the service
@@ -75,6 +73,7 @@ class SoapClient:
         self._log = logger
         self._ssl_context = ssl_context
         self._sdc_definitions = sdc_definitions
+        self._msg_reader = msg_reader
         self._netloc = netloc
         self._http_connection = None  # connect later on demand
         self.__class__._usedSoapClients += 1  # pylint: disable=protected-access
@@ -156,18 +155,11 @@ class SoapClient:
             xml_response = self._send_soap_request(path, xml_request, msg)
         finally:
             self.roundtrip_time = time.perf_counter() - started  # set roundtrip time even if method raises an exception
-        if not xml_response: # empty response
+        if not xml_response:  # empty response
             return None
-        normalized_xml_response = self._sdc_definitions.normalize_xml_text(xml_response)
-        my_response_factory = response_factory or soapenvelope.ReceivedSoap12Envelope
-        try:
-            response_envelope = my_response_factory(normalized_xml_response)
-            if schema is not None:
-                response_envelope.validate_body(schema)
-            return response_envelope
-        except XMLSyntaxError as ex:
-            self._log.error('{} XMLSyntaxError in string: "{}"', msg, normalized_xml_response)
-            raise RuntimeError('{} in "{}"'.format(ex, normalized_xml_response))
+
+        message_data = self._msg_reader.read_received_message(xml_response, response_factory)
+        return message_data
 
     def _send_soap_request(self, path, xml, msg):
         """Send SOAP request using HTTP"""
@@ -199,11 +191,9 @@ class SoapClient:
 
         self._log.debug("{}:POST to netloc='{}' path='{}'", msg, self._netloc, path)
         response = None
-        content = None
 
         def send_request():
             do_reopen = False
-            success = False
             try:
                 self._http_connection.request('POST', path, body=xml, headers=headers)
                 return True, do_reopen  # success = True
@@ -218,12 +208,13 @@ class SoapClient:
                 if ex.errno in (10053, 10054):
                     self._log.warn("{}: could not send request to {}, OSError={!r}", msg, self.netloc, ex)
                 else:
-                    self._log.warn("{}: could not send request to {}, OSError={}", msg, self.netloc, traceback.format_exc())
+                    self._log.warn("{}: could not send request to {}, OSError={}", msg, self.netloc,
+                                   traceback.format_exc())
                 do_reopen = True
             except Exception as ex:
                 self._log.warn("{}: POST to netloc='{}' path='{}': could not send request, error={!r}\n{}", msg,
                                self._netloc, path, ex, traceback.format_exc())
-            return success, do_reopen
+            return False, do_reopen  # success = False
 
         def get_response():
             try:

@@ -1,5 +1,5 @@
 from . import alarmprovider
-from .audiopauseprovider import GenericAudioPauseProvider, AudioPauseProvider
+from .audiopauseprovider import AudioPauseProvider
 from . import clockprovider
 from . import contextprovider
 from . import metricprovider
@@ -210,8 +210,8 @@ class BaseProduct:
                 state_cls = mdib.get_state_class_for_descriptor(tr_item.new)
                 if not state_cls.isMultiState:
                     if not transaction.has_state(tr_item.new.handle):
-                        state = state_cls(mdib.nsmapper, tr_item.new)
-                        state.set_node_member()
+                        state = state_cls(tr_item.new)
+                        state.set_node_member(self._mdib.nsmapper)
                         transaction.add_state(state)
 
 

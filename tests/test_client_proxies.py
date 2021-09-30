@@ -55,14 +55,10 @@ class TestClientProxies(unittest.TestCase):
         for sdcClient in self._allclients:
             descriptorClass = sdcClient.sdc_definitions.get_descriptor_container_class(
                 sdc11073.namespaces.domTag('AlertSignalDescriptor'))
-            descr = descriptorClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
-                                    handle='123',
-                                    parent_handle='456',
-                                    )
+            descr = descriptorClass(handle='123', parent_handle='456')
             stateClass = sdcClient.sdc_definitions.get_state_container_class(
                 sdc11073.namespaces.domTag('AlertSignalState'))
-            alertState = stateClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
-                                    descriptor_container=descr)
+            alertState = stateClass(descriptor_container=descr)
 
             setServiceClient = sdcClient._mk_hosted_service_client(port_type='SetService', soap_client=None,
                                                                    hosted=self.hosted)
@@ -77,14 +73,10 @@ class TestClientProxies(unittest.TestCase):
         for sdcClient in self._allclients:
             descriptorClass = sdcClient.sdc_definitions.get_descriptor_container_class(
                 sdc11073.namespaces.domTag('NumericMetricDescriptor'))
-            descr = descriptorClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
-                                    handle='123',
-                                    parent_handle='456',
-                                    )
+            descr = descriptorClass(handle='123', parent_handle='456')
             stateClass = sdcClient.sdc_definitions.get_state_container_class(
                 sdc11073.namespaces.domTag('NumericMetricState'))
-            metricState = stateClass(nsmapper=sdc11073.namespaces.DocNamespaceHelper(),
-                                     descriptor_container=descr)
+            metricState = stateClass(descriptor_container=descr)
             setServiceClient = sdcClient._mk_hosted_service_client(port_type='SetService', soap_client=None,
                                                                    hosted=self.hosted)
             for state in list(ComponentActivation):

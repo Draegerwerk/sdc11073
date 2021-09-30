@@ -16,7 +16,6 @@ from ..definitions_sdc import SDC_v1_Definitions
 from ..etc import apply_map
 from ..msgtypes import RetrievabilityMethod
 from ..namespaces import domTag
-from ..pysoap.msgreader import MessageReader
 
 class DeviceMdibContainer(mdibbase.MdibContainer):
     """Device side implementation of an mdib.
@@ -178,16 +177,15 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                             if new_state is None:
                                 raise ValueError(
                                     f'state deleted? that should not be possible! handle = {descriptor_container.handle}')
-                            new_state.descriptor_container = descriptor_container
+                            new_state.set_descriptor_container(descriptor_container)
                             new_state.update_descriptor_version()
                         else:
                             old_state = self.states.descriptorHandle.get_one(descriptor_container.handle,
                                                                              allow_none=True)
                             if old_state is not None:
                                 new_state = old_state.mk_copy()
-                                new_state.descriptor_container = descriptor_container
+                                new_state.set_descriptor_container(descriptor_container)
                                 new_state.increment_state_version()
-                                new_state.update_descriptor_version()
                                 update_dict[descriptor_container.handle] = TrItem(old_state, new_state)
                         if new_state is not None:
                             descr_updated_states.append(new_state)
@@ -267,7 +265,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     try:
                         if set_determination_time and newstate.isAlertCondition:
                             newstate.DeterminationTime = time.time()
-                        newstate.set_node_member()
+                        newstate.set_node_member(self.nsmapper)
                         # replace the old container with the new one
                         self.states.remove_object_no_lock(oldstate)
                         self.states.add_object_no_lock(newstate)
@@ -279,12 +277,11 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             # handle component state states
         if len(mgr.component_state_updates) > 0:
             with self.mdib_lock:
-                # self.mdib_version += 1
                 self._logger.debug('transaction_manager: component State updates = {}', mgr.component_state_updates)
                 for value in mgr.component_state_updates.values():
                     oldstate, newstate = value.old, value.new
                     try:
-                        newstate.set_node_member()
+                        newstate.set_node_member(self.nsmapper)
                         # replace the old container with the new one
                         self.states.remove_object_no_lock(oldstate)
                         self.states.add_object_no_lock(newstate)
@@ -304,7 +301,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                         # replace the old container with the new one
                         self.context_states.remove_object_no_lock(oldstate)
                         self.context_states.add_object_no_lock(newstate)
-                        newstate.set_node_member()
+                        newstate.set_node_member(self.nsmapper)
                     except RuntimeError:
                         self._logger.warn('transaction_manager: {} did not exist before!! really??', newstate)
                         raise
@@ -317,7 +314,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 for value in mgr.operational_state_updates.values():
                     oldstate, newstate = value.old, value.new
                     try:
-                        newstate.set_node_member()
+                        newstate.set_node_member(self.nsmapper)
                         self.states.remove_object_no_lock(oldstate)
                         self.states.add_object_no_lock(newstate)
                         op_updates.append(newstate)
@@ -334,7 +331,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 for value in mgr.rt_sample_state_updates.values():
                     oldstate, newstate = value.old, value.new
                     try:
-                        newstate.set_node_member()
+                        newstate.set_node_member(self.nsmapper)
                         self.states.remove_object_no_lock(oldstate)
                         self.states.add_object_no_lock(newstate)
                         rt_updates.append(newstate)
@@ -381,7 +378,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             self._logger.debug('transaction_manager: rtSample updates = {}', mgr.rt_sample_state_updates)
             for value in mgr.rt_sample_state_updates.values():
                 try:
-                    value.new.set_node_member()
+                    value.new.set_node_member(self.nsmapper)
                     updates.append(value.new)
                 except RuntimeError:
                     self._logger.warn('transaction_manager: {} did not exist before!! really??', value.new)
@@ -390,7 +387,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             updates = [s.mk_copy() for s in updates]
             if self._sdc_device is not None:
                 self._sdc_device.send_realtime_samples_state_updates(self.mdib_version, updates)
-
         mgr.mdib_version = self.mdib_version
 
     def set_sdc_device(self, sdc_device):
@@ -421,6 +417,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
             self._current_location = mgr.get_state(descriptor_container.handle)  # this creates a new location state
             self._current_location.update_from_sdc_location(sdc_location)
+            self._current_location.set_node_member(self.nsmapper)
             if validators is not None:
                 self._current_location.Validator = validators
 
@@ -446,6 +443,14 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         :param adjust_state_version: if True, and an object with the same handle was already in this mdib,
            the state version is set to last version + 1.
         """
+        if state_container.descriptor_container is None:
+            descriptor_container = None
+            if self._current_transaction is not None:
+                descriptor_container = self._current_transaction.descriptor_updates.get(state_container.DescriptorHandle).new
+            if descriptor_container is None:
+                descriptor_container = self.descriptions.handle.get_one(state_container.DescriptorHandle)
+            state_container.set_descriptor_container(descriptor_container)
+
         if self._current_transaction is not None:
             self._current_transaction.add_state(state_container, adjust_state_version)
         else:
@@ -470,11 +475,10 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         :param mds_node: a node representing data of a complete mds
         :return: None
         """
-        descriptor_containers = self.msg_reader.read_mddescription(mds_node, self)
+        descriptor_containers = self.msg_reader.read_mddescription(mds_node)
         apply_map(self.add_descriptor, descriptor_containers)
 
-        state_containers = self.msg_reader.read_mdstate(
-            mds_node, self, additional_descriptor_containers=descriptor_containers)
+        state_containers = self.msg_reader.read_mdstate(mds_node)
         apply_map(self.add_state, state_containers)
         self.mk_state_containers_for_all_descriptors()
 
@@ -487,8 +491,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         if q_name not in child_node_types:
             self._logger.info('creating a LocationContextDescriptor')
             descr_cls = self.sdc_definitions.get_descriptor_container_class(q_name)
-            descr_container = descr_cls(self.nsmapper,
-                                        handle=uuid.uuid4().hex, parent_handle=system_context_container.handle)
+            descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_container.handle)
             descr_container.SafetyClassification = pmtypes.SafetyClassification.INF
             self.add_descriptor(descr_container)
 
@@ -533,7 +536,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 if state_cls.isMultiState:
                     pass  # nothing to do, it is allowed to have no state
                 else:
-                    state = state_cls(self.nsmapper, descr)
+                    state = state_cls(descr)
                     # add some initial values where needed
                     if state.isAlertCondition:
                         state.DeterminationTime = time.time()
@@ -542,7 +545,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                         state.SelfCheckCount = 1
                     elif state.NODETYPE == domTag('ClockState'):
                         state.LastSet = time.time()
-                    state.set_node_member()
+                    state.set_node_member(self.nsmapper)
                     if self._current_transaction is not None:
                         self._current_transaction.add_state(state)
                     else:
@@ -592,7 +595,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         :return: instance
         """
         # get protocol definition that matches xml_text
-        protocol_definition = None
         if protocol_definition is None:
             for definition_cls in ProtocolsRegistry.protocols:
                 if definition_cls.ParticipantModelNamespace is not None and definition_cls.ParticipantModelNamespace.encode(
@@ -601,17 +603,17 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     break
         if protocol_definition is None:
             raise ValueError('cannot create instance, no known BICEPS schema version identified')
-        msg_reader_cls = MessageReader  # use soap message reader
+        msg_reader_cls = protocol_definition.DefaultSdcDeviceComponents.msg_reader_class
         mdib = cls(protocol_definition, log_prefix=log_prefix)
         root = msg_reader_cls.get_mdib_root_node(mdib.sdc_definitions, xml_text)
         mdib.schema_validators.message_schema.assertValid(root)
 
         mdib.nsmapper.use_doc_prefixes(root.nsmap)
-        msg_reader = msg_reader_cls(mdib._logger)
+        msg_reader = msg_reader_cls(protocol_definition, mdib._logger, log_prefix)
         # first make descriptions and add them to mdib, and then make states (they need already existing descriptions)
-        descriptor_containers = msg_reader.read_mddescription(root, mdib)
+        descriptor_containers = msg_reader.read_mddescription(root)
         mdib.add_description_containers(descriptor_containers)
-        state_containers = msg_reader.read_mdstate(root, mdib)
+        state_containers = msg_reader.read_mdstate(root)
         mdib.add_state_containers(state_containers)
         mdib.mk_state_containers_for_all_descriptors()
         mdib.update_retrievability_lists()
@@ -623,10 +625,7 @@ class DescriptorFactory:
         self._mdib = mdib
 
     def _create_descriptor_container(self, cls, handle, parent_handle, coded_value, safety_classification):
-        obj = cls(nsmapper=self._mdib.nsmapper,
-                  handle=handle,
-                  parent_handle=parent_handle,
-                  )
+        obj = cls(handle=handle, parent_handle=parent_handle)
         obj.SafetyClassification = safety_classification
         obj.Type = coded_value
         return obj

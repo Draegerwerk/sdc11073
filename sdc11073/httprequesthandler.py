@@ -262,7 +262,6 @@ class ThreadingHTTPServer(HTTPServer):
                     self.logger.warn('error closing socket for notifications from {}: {}', client_addr, ex)
 
 
-
 class HttpServerThreadBase(threading.Thread):
 
     def __init__(self, my_ipaddress, ssl_context, supported_encodings,
@@ -361,6 +360,7 @@ class HttpServerThreadBase(threading.Thread):
 
 class RequestData:
     """This class holds all information about the processing of a http request together"""
+
     def __init__(self, http_header, path, request=None):
         self.http_header = http_header
         self.request = request
@@ -368,7 +368,11 @@ class RequestData:
         if path.startswith('/'):
             path = path[1:]
         self.path_elements = path.split('/')
-        self.envelope = None
+        self.message_data = None
+
+    @property
+    def envelope(self):
+        raise AttributeError('no envelope')
 
     def consume_current_path_element(self):
         if len(self.path_elements) == 0:

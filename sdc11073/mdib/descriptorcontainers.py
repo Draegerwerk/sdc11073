@@ -41,7 +41,7 @@ def sorted_child_declarations(obj):
     return ret
 
 
-def make_descriptor_node(descriptor_container, tag, set_xsi_type=True, connect_child_descriptors=False):
+def make_descriptor_node(descriptor_container, tag, nsmapper, set_xsi_type=True, connect_child_descriptors=False):
     """
     Creates a lxml etree node from instance data.
     :param descriptor_container: a descriptor container instance
@@ -51,19 +51,19 @@ def make_descriptor_node(descriptor_container, tag, set_xsi_type=True, connect_c
     :return: an etree node
     """
     if set_xsi_type:
-        namespace_map = descriptor_container.nsmapper.partial_map(Prefixes.PM, Prefixes.XSI)
+        namespace_map = nsmapper.partial_map(Prefixes.PM, Prefixes.XSI)
     else:
         namespace_map = descriptor_container.nsmapper.partial_map(Prefixes.PM)
     node = etree_.Element(tag,
                           attrib={'Handle': descriptor_container.handle},
                           nsmap=namespace_map)
-    descriptor_container.update_node(node, set_xsi_type)  # create all
+    descriptor_container.update_node(node, nsmapper, set_xsi_type)  # create all
     if connect_child_descriptors:
         # append all children, then bring them in correct order
         for node_type, child_list in descriptor_container.child_containers_by_type.items():
             child_tag = descriptor_container.tag_name_for_child_descriptor(node_type)
             for child in child_list:
-                child_node = make_descriptor_node(child, child_tag, connect_child_descriptors=True)
+                child_node = make_descriptor_node(child, child_tag, nsmapper, connect_child_descriptors=True)
                 node.append(child_node)
     descriptor_container.sort_child_nodes(node)
     return node
@@ -112,8 +112,10 @@ class AbstractDescriptorContainer(ContainerBase):
     STATE_QNAME = None
     extension_class_lookup = {msgTag('Retrievability'): msgtypes.Retrievability}
 
-    def __init__(self, nsmapper, handle, parent_handle):
-        super().__init__(nsmapper)
+    #def __init__(self, nsmapper, handle, parent_handle):
+    #    super().__init__(nsmapper)
+    def __init__(self, handle, parent_handle):
+        super().__init__()
         self.parent_handle = parent_handle
         self.handle = handle
         self.child_containers_by_type = defaultdict(list)
@@ -182,7 +184,7 @@ class AbstractDescriptorContainer(ContainerBase):
                     ret.append('{}={}, other={}'.format('parent_handle', my_value, other_value))
         return None if len(ret) == 0 else ret
 
-    def mk_descriptor_node(self, tag, set_xsi_type=True, connect_child_descriptors=False):
+    def mk_descriptor_node(self, tag, nsmapper, set_xsi_type=True, connect_child_descriptors=False):
         """
         Creates a lxml etree node from instance data.
         :param set_xsi_type:
@@ -190,7 +192,7 @@ class AbstractDescriptorContainer(ContainerBase):
         :param connect_child_descriptors: if True, the whole sub-tree is included
         :return: an etree node
         """
-        return make_descriptor_node(self, tag, set_xsi_type, connect_child_descriptors)
+        return make_descriptor_node(self, tag, nsmapper, set_xsi_type, connect_child_descriptors)
 
     def tag_name_for_child_descriptor(self, node_type):
         for child in sorted_child_declarations(self):
@@ -232,9 +234,8 @@ class AbstractDescriptorContainer(ContainerBase):
                                                                              self.DescriptorVersion, self.parent_handle)
 
     @classmethod
-    def from_node(cls, nsmapper, node, parent_handle):
-        obj = cls(nsmapper,
-                  handle=None,  # will be determined in constructor from node value
+    def from_node(cls, node, parent_handle):
+        obj = cls(handle=None,  # will be determined in constructor from node value
                   parent_handle=parent_handle)
         obj.update_from_node(node)
         return obj

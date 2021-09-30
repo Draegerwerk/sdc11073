@@ -285,10 +285,9 @@ class MdibContainer:
         :param state_containers: a list of StateContainer objects.
         """
         for state_container in state_containers:
-            if state_container.descriptor_container is not None:
-                self._logger.debug('add_state_containers: new state {}', state_container)
-            else:
-                self._logger.warn('add_state_containers: new state {}, but has no descriptor!', state_container)
+            if state_container.descriptor_container is None:
+                state_container.set_descriptor_container(
+                    self.descriptions.handle.get_one(state_container.DescriptorHandle))
 
             my_multikey = self.context_states if state_container.isContextState else self.states
             try:
@@ -312,7 +311,9 @@ class MdibContainer:
                                              attrib={'DescriptionVersion': str(self.mddescription_version)},
                                              nsmap=doc_nsmap)
         for root_container in root_containers:
-            node = root_container.mk_descriptor_node(tag=domTag('Mds'), connect_child_descriptors=True)
+            node = root_container.mk_descriptor_node(tag=domTag('Mds'),
+                                                     nsmapper=self.nsmapper,
+                                                     connect_child_descriptors=True)
             md_description_node.append(node)
         return md_description_node
 
@@ -335,12 +336,12 @@ class MdibContainer:
         tag = domTag('State')
         for state_container in self.states.objects:
             try:
-                md_state_node.append(state_container.mk_state_node(tag))
+                md_state_node.append(state_container.mk_state_node(tag, self.nsmapper))
             except RuntimeError:
                 self._logger.error('State {} has no descriptor_container', state_container.descriptorHandle)
         if add_context_states:
             for state_container in self.context_states.objects:
-                md_state_node.append(state_container.mk_state_node(tag))
+                md_state_node.append(state_container.mk_state_node(tag, self.nsmapper))
         return mdib_node
 
     def reconstruct_md_description(self):
@@ -447,7 +448,7 @@ class MdibContainer:
                     descriptor_container.__class__.__name__,
                     descriptor_container.NODETYPE,
                     descriptor_container.nodeType))
-        return cls(self.nsmapper, descriptor_container)
+        return cls(descriptor_container)
 
     def get_operation_descriptors(self):
         """

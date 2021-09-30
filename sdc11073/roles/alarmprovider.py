@@ -76,7 +76,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         for alert_condition in self._mdib.states.NODETYPE.get(namespaces.domTag('AlertSignalState'), []):
             if alert_condition.Location == 'Rem':
                 alert_condition.ActivationState = AlertActivation.OFF
-                alert_condition.set_node_member()
+                alert_condition.set_node_member(self._mdib.nsmapper)
             else:
                 alert_signal_descr = self._mdib.descriptions.handle.get_one(alert_condition.descriptorHandle)
                 # ConditionSignaled can be None, in that case do nothing
@@ -86,7 +86,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                         allow_none=True)
                     if alert_condition_state and alert_condition.ActivationState != alert_condition_state.ActivationState:
                         alert_condition.ActivationState = alert_condition_state.ActivationState
-                        alert_condition.set_node_member()
+                        alert_condition.set_node_member(self._mdib.nsmapper)
 
     @staticmethod
     def _get_descriptor(handle, mdib, transaction):
@@ -251,68 +251,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             else:
                 transaction.unget_state(ss_fallback)
 
-    #
-    # def _activateAlertSystem(self, operation_descriptor_container, _):
-    #     self._setAlertSystemActivationState(operation_descriptor_container.OperationTarget, AlertActivation.ON)
-    #
-    # def _deactivateAlertSystem(self, operation_descriptor_container, _):
-    #     self._setAlertSystemActivationState(operation_descriptor_container.OperationTarget, AlertActivation.OFF)
-    #
-    # def _setAlertSystemActivationState(self, handle, alertActivationState):
-    #     """
-    #     R0116: The activation state of pm:AlertSystemState SHALL result in an activation state of
-    #         pm:AlertConditionState and pm:AlertSignalState
-    #     """
-    #     alertConditions, alertSignals = [], []
-    #     for child in self._mdib.descriptions.parent_handle.get(handle, []):
-    #         if child.isAlertSignalDescriptor:
-    #             alertSignals.append(child.handle)
-    #         elif child.isAlertConditionDescriptor:
-    #             alertConditions.append(child.handle)
-    #
-    #     with self._mdib.transaction_manager() as mgr:
-    #         state = mgr.get_state(handle)
-    #         state.ActivationState = alertActivationState
-    #         for alertConditionHandle in alertConditions:
-    #             self._setAlertConditionActivationState(mgr, alertConditionHandle, alertActivationState)
-    #         for alertSignalHandle in alertSignals:
-    #             self._setAlertSignalActivationState(mgr, alertSignalHandle, alertActivationState)
-    #
-    # def _activateAlertCondition(self, operation_descriptor_container, _):
-    #     with self._mdib.transaction_manager() as mgr:
-    #         self._setAlertConditionActivationState(mgr, operation_descriptor_container.OperationTarget,
-    #                                                AlertActivation.ON)
-    #
-    # def _deactivateAlertCondition(self, operation_descriptor_container, _):
-    #     with self._mdib.transaction_manager() as mgr:
-    #         self._setAlertConditionActivationState(mgr, operation_descriptor_container.OperationTarget,
-    #                                                AlertActivation.OFF)
-    #
-    # def _setAlertConditionActivationState(self, mgr, handle, alertActivationState):
-    #     state = mgr.get_state(handle)
-    #     state.ActivationState = alertActivationState
-    #
-    # def _activateAlertSignal(self, operation_descriptor_container, _):
-    #     operation_target_handle = operation_descriptor_container.OperationTarget
-    #     with self._mdib.transaction_manager() as mgr:
-    #         self._setAlertSignalActivationState(mgr, operation_target_handle, AlertActivation.ON)
-    #
-    # def _deactivateAlertSignal(self, operation_descriptor_container, _):
-    #     operation_target_handle = operation_descriptor_container.OperationTarget
-    #     with self._mdib.transaction_manager() as mgr:
-    #         self._setAlertSignalActivationState(mgr, operation_target_handle, AlertActivation.OFF)
-    #
-    # def _setAlertSignalActivationState(self, mgr, handle, alertActivationState):
-    #     self._last_set_alert_signal_state[handle] = time.time()
-    #     state = mgr.get_state(handle)
-    #     state.ActivationState = alertActivationState
-    #     descr = self._mdib.descriptions.handle.get_one(handle)
-    #     if descr.SignalDelegationSupported:
-    #         if alertActivationState == AlertActivation.ON:
-    #             self._pause_fallback_alert_signals(descr, None, mgr)
-    #         else:
-    #             self._activate_fallback_alert_signals(descr, None, mgr)
-    #
     def _set_alert_signal_state(self, operation_descriptor_container, value):
         operation_target_handle = operation_descriptor_container.OperationTarget
         self._last_set_alert_signal_state[operation_target_handle] = time.time()

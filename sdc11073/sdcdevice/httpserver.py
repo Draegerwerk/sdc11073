@@ -1,5 +1,6 @@
 import traceback
 import urllib
+
 from .exceptions import HTTPRequestHandlingError, InvalidPathError, InvalidActionError
 from .. import commlog
 from .. import loghelper
@@ -39,9 +40,10 @@ class PathElementDispatcher:
 class HostedServiceDispatcher(PathElementDispatcher):
     """ receiver of all messages"""
 
-    def __init__(self, sdc_definitions, logger):
+    def __init__(self, msg_reader, logger):
         super().__init__(logger)
-        self.sdc_definitions = sdc_definitions
+        self._msg_reader = msg_reader
+        self.sdc_definitions = msg_reader.sdc_definitions
         self._hosted_services = []
 
     def register_hosted_service(self, hosted_service):
@@ -53,9 +55,7 @@ class HostedServiceDispatcher(PathElementDispatcher):
         """Method converts the http request into a soap envelope and calls on_post.
            Returned soap envelope is converted back to a string."""
         commlog.get_communication_logger().log_soap_request_in(request_data.request, 'POST')
-        normalized_request = self.sdc_definitions.normalize_xml_text(request_data.request)
-        # execute the method
-        request_data.envelope = pysoap.soapenvelope.ReceivedSoap12Envelope(normalized_request)
+        request_data.message_data = self._msg_reader.read_received_message(request_data.request)
         response_envelope = self._dispatch_post_request(request_data)
         normalized_response_xml_string = response_envelope.as_xml()
         return self.sdc_definitions.denormalize_xml_text(normalized_response_xml_string)
@@ -63,7 +63,7 @@ class HostedServiceDispatcher(PathElementDispatcher):
     def _dispatch_post_request(self, request_data):
         hosted_service = self.get_dispatcher(request_data.consume_current_path_element())
         if not hosted_service:
-            raise InvalidPathError(request_data.envelope, request_data.consumed_path_elements)
+            raise InvalidPathError(request_data.request_data.envelope, request_data.consumed_path_elements)
         try:
             return hosted_service.on_post(request_data)
         except InvalidActionError as ex:

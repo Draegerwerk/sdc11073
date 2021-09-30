@@ -6,15 +6,15 @@ from typing import List
 from lxml import etree as etree_
 
 from . import httpserver
-from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 from .hostedserviceimpl import SoapMessageHandler
+from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 from .waveforms import WaveformSender
 from .. import compression
 from .. import loghelper
 from .. import pmtypes
 from .. import pysoap
 from ..location import SdcLocation
-from ..namespaces import Prefixes, WSA_ANONYMOUS, DocNamespaceHelper, wsdTag, wsxTag, dpwsTag, nsmap
+from ..namespaces import Prefixes, WSA_ANONYMOUS, DocNamespaceHelper, wsdTag
 
 
 class SdcDevice:
@@ -76,20 +76,24 @@ class SdcDevice:
         self._host_dispatcher = SoapMessageHandler(None, get_key_method=self._components.msg_dispatch_method)
         self._host_dispatcher.register_post_handler('{}/Get'.format(Prefixes.WXF.namespace), self._on_get_metadata)
         self._host_dispatcher.register_post_handler('{}/Probe'.format(Prefixes.WSD.namespace), self._on_probe_request)
-        self._host_dispatcher.register_post_handler(wsdTag('Probe'), self._on_probe_request)
+        self._host_dispatcher.register_post_handler('Probe', self._on_probe_request)
 
         # dpws host is needed in metadata
         self.dpws_host = pysoap.soapenvelope.DPWSHost(
             endpoint_references_list=[pysoap.soapenvelope.WsaEndpointReferenceType(self.epr)],
             types_list=self._mdib.sdc_definitions.MedicalDeviceTypesFilter)
 
-        self._hosted_service_dispatcher = httpserver.HostedServiceDispatcher(self._mdib.sdc_definitions, self._logger)
+        self.msg_reader = self._components.msg_reader_class(self._mdib.sdc_definitions,
+                                                            self._logger,
+                                                            self._log_prefix)
+        self.msg_factory = self._components.msg_factory_class(sdc_definitions=self._mdib.sdc_definitions,
+                                                              logger=self._logger)
+
+        self._hosted_service_dispatcher = httpserver.HostedServiceDispatcher(self.msg_reader, self._logger)
 
         self._hosted_service_dispatcher.register_hosted_service(self._host_dispatcher)
 
         # these are initialized in _setup_components:
-        self.msg_reader = None
-        self.msg_factory = None
         self._subscriptions_manager = None
         self._sco_operations_registry = None
         self._service_factory = None
@@ -101,16 +105,13 @@ class SdcDevice:
         self.base_urls = []  # will be set after httpserver is started
 
     def _setup_components(self):
-        self.msg_reader = self._components.msg_reader_class(self._logger)
-
-        self.msg_factory = self._components.msg_factory_class(sdc_definitions=self._mdib.sdc_definitions,
-                                                              logger=self._logger)
 
         cls = self._components.subscriptions_manager_class
         self._subscriptions_manager = cls(self._ssl_context,
                                           self._mdib.sdc_definitions,
                                           self._mdib.schema_validators,
                                           self.msg_factory,
+                                          self.msg_reader,
                                           self._compression_methods,
                                           self._max_subscription_duration,
                                           log_prefix=self._log_prefix,
@@ -141,14 +142,11 @@ class SdcDevice:
     def _on_get_metadata(self, request_data):  # pylint: disable=unused-argument
         self._logger.info('_on_get_metadata')
         _nsm = self._mdib.nsmapper
-        response = pysoap.soapenvelope.Soap12Envelope(_nsm.doc_ns_map)
-        reply_address = request_data.envelope.address.mk_reply_address('{}/GetResponse'.format(Prefixes.WXF.namespace))
-        reply_address.addr_to = WSA_ANONYMOUS
-        reply_address.message_id = uuid.uuid4().urn
-        response.add_header_object(reply_address)
-        metadata_node = self._mk_metadata_node()
-        response.add_body_element(metadata_node)
-        response.validate_body(self.mdib.schema_validators.mex_schema)
+        dpws_schema = self.mdib.schema_validators.dpws_schema if self.shall_validate else None
+
+        response = self.msg_factory.mk_get_metadata_response_envelope(
+            request_data.message_data, self.device, self.model, self.dpws_host,
+            self.hosted_services.dpws_hosted_services, dpws_schema, self._mdib.nsmapper)
         self._logger.debug('returned meta data = {}', response.as_xml(pretty=False))
         return response
 
@@ -169,52 +167,6 @@ class SdcDevice:
         xaddrs.text = ' '.join(self.get_xaddrs())
         response.add_body_element(probe_match_node)
         return response
-
-    def _validate_dpws(self, node):
-        if not self.shall_validate:
-            return
-        try:
-            self.mdib.schema_validators.dpws_schema.assertValid(node)
-        except etree_.DocumentInvalid as ex:
-            tmp_str = etree_.tostring(node, pretty_print=True).decode('utf-8')
-            self._logger.error('invalid dpws: {}\ndata = {}', ex, tmp_str)
-            raise
-
-    def _mk_metadata_node(self):
-        metadata_node = etree_.Element(wsxTag('Metadata'),
-                                       nsmap=self._mdib.nsmapper.doc_ns_map)
-
-        # ThisModel
-        metadata_section_node = etree_.SubElement(metadata_node,
-                                                  wsxTag('MetadataSection'),
-                                                  attrib={'Dialect': '{}/ThisModel'.format(nsmap['dpws'])})
-        self.model.as_etree_subnode(metadata_section_node)
-        self._validate_dpws(metadata_section_node[-1])
-
-        # ThisDevice
-        metadata_section_node = etree_.SubElement(metadata_node,
-                                                  wsxTag('MetadataSection'),
-                                                  attrib={'Dialect': '{}/ThisDevice'.format(nsmap['dpws'])})
-        self.device.as_etree_subnode(metadata_section_node)
-
-        self._validate_dpws(metadata_section_node[-1])
-
-        # Relationship
-        metadata_section_node = etree_.SubElement(metadata_node,
-                                                  wsxTag('MetadataSection'),
-                                                  attrib={'Dialect': '{}/Relationship'.format(nsmap['dpws'])})
-        relationship_node = etree_.SubElement(metadata_section_node,
-                                              dpwsTag('Relationship'),
-                                              attrib={'Type': '{}/host'.format(nsmap['dpws'])})
-
-        self.dpws_host.as_etree_subnode(relationship_node)
-        self._validate_dpws(relationship_node[-1])
-
-        # add all hosted services:
-        for service in self.hosted_services.dpws_hosted_services:
-            service.mk_dpws_hosted_instance().as_etree_subnode(relationship_node)
-            self._validate_dpws(relationship_node[-1])
-        return metadata_node
 
     def set_location(self, location: SdcLocation,
                      validators: List[pmtypes.InstanceIdentifier] = defaultInstanceIdentifiers,

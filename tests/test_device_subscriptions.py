@@ -88,7 +88,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
     def test_waveformSubscription(self):
         for sdcDevice in self._allDevices:
-            testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.Waveform,
+            testSubscr = mockstuff.TestDevSubscription([sdcDevice.mdib.sdc_definitions.Actions.Waveform],
                                                        sdcDevice.mdib.schema_validators)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 
@@ -112,7 +112,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
         ''' verify that an event message is sent to subscriber and that message is valid'''
         # directly inject a subscription event, this test is not about starting subscriptions
         for sdcDevice in self._allDevices:
-            testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.EpisodicMetricReport,
+            testSubscr = mockstuff.TestDevSubscription([sdcDevice.mdib.sdc_definitions.Actions.EpisodicMetricReport],
                                                        sdcDevice.mdib.schema_validators)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 
@@ -141,7 +141,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
         ''' verify that an event message is sent to subscriber and that message is valid'''
         # directly inject a subscription event, this test is not about starting subscriptions
         for sdcDevice in self._allDevices:
-            testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.EpisodicContextReport,
+            testSubscr = mockstuff.TestDevSubscription([sdcDevice.mdib.sdc_definitions.Actions.EpisodicContextReport],
                                                        sdcDevice.mdib.schema_validators)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
             patientContextDescriptor = sdcDevice.mdib.descriptions.NODETYPE.get_one(
@@ -157,7 +157,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
     def test_notifyOperation(self):
         for sdcDevice in self._allDevices:
-            testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.OperationInvokedReport,
+            testSubscr = mockstuff.TestDevSubscription([sdcDevice.mdib.sdc_definitions.Actions.OperationInvokedReport],
                                                        sdcDevice.mdib.schema_validators)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 
@@ -169,9 +169,9 @@ class TestDeviceSubscriptions(unittest.TestCase):
             sdcDevice.subscriptions_manager.notify_operation(dummy_operation,
                                                              123,
                                                              pmtypes.InvocationState.FINISHED,
-                                                             sdcDevice.mdib.nsmapper,
-                                                             sequence_id='urn:uuid:abc',
                                                              mdib_version=1234,
+                                                             sequence_id='urn:uuid:abc',
+                                                             nsmapper=sdcDevice.mdib.nsmapper,
                                                              error=pmtypes.InvocationError.UNSPECIFIED,
                                                              error_message='')
             self.assertEqual(len(testSubscr.reports), 1)

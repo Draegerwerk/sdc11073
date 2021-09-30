@@ -46,15 +46,23 @@ class IndexDefinition(dict):
         self._index_none_values = index_none_values
 
     def get_one(self, key, allow_none=False):
-        try:
+        """
+        returns one object instead of a list (like get method does)
+        It raises a ValueError if there are multiple values available for the key.
+        It raises a KeyError if allow_none is False and the key is not present.
+        :param key:
+        :param allow_none:
+        :return:
+        """
+        if allow_none:
+            result = self.get(key)
+            if result is None:
+                return result
+        else:
             result = self[key]
-            if len(result) > 1:
-                raise RuntimeError('get_one: key "{}" has {} objects'.format(key, len(result)))
-            return result[0]
-        except KeyError:
-            if allow_none:
-                return None
-            raise RuntimeError('key "{}" not found'.format(key))
+        if len(result) > 1:
+            raise ValueError('get_one: key "{}" has {} objects'.format(key, len(result)))
+        return result[0]
 
     def getOne(self, key, allowNone=False):  # pylint: disable=invalid-name
         warnings.warn('use get_one', DeprecationWarning)

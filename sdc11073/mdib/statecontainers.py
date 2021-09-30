@@ -31,21 +31,36 @@ class AbstractStateContainer(ContainerBase):
 
     stateVersion = StateVersion  # lower case for backwards compatibility
 
-    def __init__(self, nsmapper, descriptor_container):
-        super().__init__(nsmapper)
-        self.descriptor_container = descriptor_container
-        # pylint: disable=invalid-name
+    def __init__(self, descriptor_container):
+        super().__init__()
+        self._descriptor_container = descriptor_container
+        if descriptor_container is not None:
+            # pylint: disable=invalid-name
+            self.DescriptorHandle = descriptor_container.handle
+            self.DescriptorVersion = descriptor_container.DescriptorVersion
+            # pylint: enable=invalid-name
+
+    @property
+    def descriptor_container(self):
+        return self._descriptor_container
+
+    def set_descriptor_container(self, descriptor_container):
+        if descriptor_container is None:
+            self._descriptor_container = None
+            return
+        if self.DescriptorHandle is not None and  self.DescriptorHandle != descriptor_container.handle:
+            raise ValueError(f'handle mismatch, "{self.DescriptorHandle}" != "{descriptor_container.handle}"')
         self.DescriptorHandle = descriptor_container.handle
         self.DescriptorVersion = descriptor_container.DescriptorVersion
-        # pylint: enable=invalid-name
+        self._descriptor_container = descriptor_container
 
-    def set_node_member(self):
-        self.node = self.mk_state_node(domTag('State'))
+    def set_node_member(self, nsmapper):
+        self.node = self.mk_state_node(domTag('State'), nsmapper, update_descriptor_version=False)
 
-    def mk_state_node(self, tag, update_descriptor_version=True, set_xsi_type=True):
+    def mk_state_node(self, tag, nsmapper, update_descriptor_version=True, set_xsi_type=True):
         if update_descriptor_version:
             self.update_descriptor_version()
-        node = super().mk_node(tag, set_xsi_type=set_xsi_type)
+        node = super().mk_node(tag, nsmapper, set_xsi_type=set_xsi_type)
         node.set('DescriptorHandle', self.descriptorHandle)
         return node
 
@@ -343,8 +358,13 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
         super().__init__(*args, **kwargs)
         self.last_updated = time.time()
 
-        if self.descriptor_container.SignalDelegationSupported:
+        if self.descriptor_container is not None and self.descriptor_container.SignalDelegationSupported:
             # Delegable signals should have location Remote according to BICEPS
+            self.Location = pmtypes.AlertSignalPrimaryLocation.REMOTE  # pylint: disable=invalid-name
+
+    def set_descriptor_container(self, descriptor_container):
+        super().set_descriptor_container(descriptor_container)
+        if descriptor_container is not None and descriptor_container.SignalDelegationSupported:
             self.Location = pmtypes.AlertSignalPrimaryLocation.REMOTE  # pylint: disable=invalid-name
 
 
@@ -377,8 +397,8 @@ class AbstractMultiStateContainer(AbstractStateContainer):
     Handle = cp.StringAttributeProperty('Handle', is_optional=False)
     _props = ('Handle',)
 
-    def __init__(self, nsmapper, descriptor_container):
-        super().__init__(nsmapper, descriptor_container)
+    def __init__(self, descriptor_container):
+        super().__init__(descriptor_container)
         self.Handle = uuid.uuid4().hex  # pylint: disable=invalid-name
         self._handle_is_generated = True
 
@@ -393,10 +413,10 @@ class AbstractMultiStateContainer(AbstractStateContainer):
                     self.Handle, other.Handle))
         super().update_from_other_container(other, skipped_properties)
 
-    def mk_state_node(self, tag, update_descriptor_version=True, set_xsi_type=True):
+    def mk_state_node(self, tag, nsmapper, update_descriptor_version=True, set_xsi_type=True):
         if self.Handle is None:
             self.Handle = uuid.uuid4().hex
-        return super().mk_state_node(tag, update_descriptor_version, set_xsi_type)
+        return super().mk_state_node(tag, nsmapper, update_descriptor_version, set_xsi_type)
 
     def __repr__(self):
         return '{} descriptorHandle="{}" handle="{}" type={}'.format(self.__class__.__name__, self.descriptorHandle,
@@ -412,8 +432,8 @@ class AbstractContextStateContainer(AbstractMultiStateContainer):
                                                   implied_py_value=pmtypes.ContextAssociation.NO_ASSOCIATION)
     BindingMdibVersion = cp.IntegerAttributeProperty('BindingMdibVersion')
     UnbindingMdibVersion = cp.IntegerAttributeProperty('UnbindingMdibVersion')
-    BindingStartTime = cp.TimestampAttributeProperty('BindingStartTime')  # time.time() value (float)
-    BindingEndTime = cp.TimestampAttributeProperty('BindingEndTime')  # time.time() value (float)
+    BindingStartTime = cp.TimestampAttributeProperty('BindingStartTime')
+    BindingEndTime = cp.TimestampAttributeProperty('BindingEndTime')
     _props = ('Validator', 'Identification', 'ContextAssociation', 'BindingMdibVersion', 'UnbindingMdibVersion',
               'BindingStartTime', 'BindingEndTime')
 
@@ -442,15 +462,14 @@ class LocationContextStateContainer(AbstractContextStateContainer):
             extension_string = None
         self.Identification = [pmtypes.InstanceIdentifier(root=sdc_location.root, extension_string=extension_string)]
         # pylint: enable=invalid-name
-        self.set_node_member()
 
     @staticmethod
     def _mk_extension_string(sdc_location):
         return sdc_location.mk_extension_string()
 
     @classmethod
-    def from_sdc_location(cls, nsmapper, descriptor_container, handle, sdc_location):
-        obj = cls(nsmapper, descriptor_container)
+    def from_sdc_location(cls, descriptor_container, handle, sdc_location):
+        obj = cls(descriptor_container)
         obj.Handle = handle
         obj.update_from_sdc_location(sdc_location)
         return obj

@@ -7,7 +7,7 @@ from sdc11073.sdcdevice.subscriptionmgr import _DevSubscription
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
-
+from sdc11073.pysoap.msgreader import SubscribeRequest
 from sdc11073.sdcdevice import  SdcDevice
 from lxml import etree as etree_
 portsLock = threading.Lock()
@@ -56,19 +56,8 @@ class TestDevSubscription(_DevSubscription):
         identNode = etree_.SubElement(notify_ref_node, namespaces.wseTag('Identifier'))
         identNode.text = self.notifyRef
         base_urls = [ urllib.parse.SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
-
-        super().__init__(mode=self.mode,
-                         notify_to_address=self.notify_to,
-                         notify_ref_node=notify_ref_node,
-                         end_to_address=None,
-                         end_to_ref_node=None,
-                         expires=self.expires,
-                         max_subscription_duration=42,
-                         filter_=filter_,
-                         ssl_context=None,
-                         schema_validators=schema_validators,
-                         accepted_encodings=None,
-                         base_urls=base_urls)
+        subscribe_request = SubscribeRequest(None, filter_, self.notify_to, notify_ref_node, None, None, self.mode, self.expires)
+        super().__init__(subscribe_request,base_urls, 42, None, schema_validators)
         self.reports = []
         self.message_schema = schema_validators.message_schema
         
@@ -82,9 +71,6 @@ class TestDevSubscription(_DevSubscription):
                          reference_parameters_node=None)
         rep = msg_factory.mk_notification_report(addr, body_node, self.notify_ref_nodes, doc_nsmap)
 
-#        soapEnvelope = Soap12Envelope(doc_nsmap)
-#        soapEnvelope.add_body_element(body_node)
-#        rep = msg_factory._mk_notification_report(soapEnvelope, action)
         try:
             rep.validate_body(self.message_schema)
         except:

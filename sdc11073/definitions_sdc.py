@@ -5,21 +5,20 @@ from lxml import etree as etree_
 from .definitions_base import BaseDefinitions, SdcClientComponents, SdcDeviceComponents
 from .mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
 from .mdib.statecontainers import get_container_class as get_state_container_class
-from .namespaces import Prefixes
-from .pysoap.msgfactory import SoapMessageFactory
-from .pysoap.msgreader import MessageReader
+from .pysoap.msgfactory import MessageFactoryDevice, MessageFactoryClient
+from .pysoap.msgreader import MessageReaderClient, MessageReaderDevice
 from .roles.product import MinimalProduct
 from .sdcclient.hostedservice import CTreeServiceClient, DescriptionEventClient, ContextServiceClient, WaveformClient
 from .sdcclient.hostedservice import GetServiceClient, SetServiceClient, StateEventClient
 from .sdcclient.httpserver import SOAPNotificationsHandler, NotificationsReceiver
 from .sdcclient.localizationservice import LocalizationServiceClient
-from .sdcclient.sdcclientimpl import NotificationsDispatcherByBody, NotificationsDispatcherByAction
 from .sdcclient.operations import OperationsManager
+from .sdcclient.sdcclientimpl import NotificationsDispatcherByBody
 from .sdcclient.subscription import ClientSubscriptionManager
+from .sdcdevice.hostedserviceimpl import by_msg_tag
 from .sdcdevice.localizationservice import LocalizationService
 from .sdcdevice.sco import get_operation_class, ScoOperationsRegistry
 from .sdcdevice.sdc_handlers import mk_scopes, mk_all_services
-from .sdcdevice.hostedserviceimpl import by_msg_tag
 from .sdcdevice.sdcservicesimpl import ContextService, WaveformService, DescriptionEventService
 from .sdcdevice.sdcservicesimpl import GetService, SetService, StateEventService, ContainmentTreeService
 from .sdcdevice.subscriptionmgr import SubscriptionsManagerPath
@@ -86,8 +85,8 @@ class _SdcV1Actions:
 
 
 default_sdc_device_components = SdcDeviceComponents(
-    msg_factory_class=SoapMessageFactory,
-    msg_reader_class=MessageReader,
+    msg_factory_class=MessageFactoryDevice,
+    msg_reader_class=MessageReaderDevice,
     services_factory=mk_all_services,
     operation_cls_getter=get_operation_class,
     sco_operations_registry_class=ScoOperationsRegistry,
@@ -106,8 +105,8 @@ default_sdc_device_components = SdcDeviceComponents(
 )
 
 default_sdc_client_components = SdcClientComponents(
-    msg_factory_class=SoapMessageFactory,
-    msg_reader_class=MessageReader,
+    msg_factory_class=MessageFactoryClient,
+    msg_reader_class=MessageReaderClient,
     notifications_receiver_class=NotificationsReceiver,
     notifications_handler_class=SOAPNotificationsHandler,
     notifications_dispatcher_class=NotificationsDispatcherByBody,

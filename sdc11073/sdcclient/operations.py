@@ -26,10 +26,10 @@ class OperationsManager:
         '''
         ret = Future()
         with self._transactions_lock:
-            result_envelope = hosted_service_client.post_soap_envelope(envelope,
-                                                                       msg='call Operation',
-                                                                       request_manipulator=request_manipulator)
-            operation_invoked_report = self._msg_reader._read_operation_response(result_envelope)
+            message_data = hosted_service_client.post_soap_envelope(envelope,
+                                                                    msg='call Operation',
+                                                                    request_manipulator=request_manipulator)
+            operation_invoked_report = message_data.msg_reader.read_operation_response(message_data)
 
             if operation_invoked_report.invocation_state in self.nonFinalOperationStates:
                 self._transactions[operation_invoked_report.transaction_id] = weakref.ref(ret)

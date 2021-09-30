@@ -47,7 +47,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                     proposed_st.BindingMdibVersion = self._mdib.mdib_version
                     proposed_st.BindingStartTime = time.time()
                     proposed_st.ContextAssociation = ContextAssociation.ASSOCIATED
-                    proposed_st.set_node_member()
+                    proposed_st.set_node_member(self._mdib.nsmapper)
                     self._logger.info('new {}, handle={}', proposed_st.NODETYPE.localname, proposed_st.Handle)
                     mgr.add_state(proposed_st)
 

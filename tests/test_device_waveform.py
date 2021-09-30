@@ -26,16 +26,10 @@ class TestDeviceWaveform(unittest.TestCase):
         self.msgSchema = self.mdib.schema_validators.message_schema
 
         # this structure is not realistic, but sufficient for what we need here.
-        desc = dc.MdsDescriptorContainer(self.mdib.nsmapper,
-                                         handle='42',
-                                         parent_handle=None,
-                                         )
+        desc = dc.MdsDescriptorContainer(handle='42', parent_handle=None)
         self.mdib.descriptions.add_object(desc)
         for h in HANDLES:
-            desc = dc.RealTimeSampleArrayMetricDescriptorContainer(self.mdib.nsmapper,
-                                                                   handle=h,
-                                                                   parent_handle='42',
-                                                                   )
+            desc = dc.RealTimeSampleArrayMetricDescriptorContainer(handle=h, parent_handle='42')
             desc.SamplePeriod = 0.1
             desc.unit=pmtypes.CodedValue('abc')
             desc.MetricAvailability=pmtypes.MetricAvailability.CONTINUOUS
@@ -119,7 +113,7 @@ class TestDeviceWaveform(unittest.TestCase):
         self.wsDiscovery = mockstuff.MockWsDiscovery(['5.6.7.8'])
         self.sdcDevice = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, self._model, self._device, self.mdib)
         self.sdcDevice.start_all()
-        testSubscr = mockstuff.TestDevSubscription(self.sdcDevice.mdib.sdc_definitions.Actions.Waveform,
+        testSubscr = mockstuff.TestDevSubscription([self.sdcDevice.mdib.sdc_definitions.Actions.Waveform],
                                                    self.sdcDevice.mdib.schema_validators)
         self.sdcDevice.subscriptions_manager._subscriptions. add_object(testSubscr)
 
@@ -127,17 +121,3 @@ class TestDeviceWaveform(unittest.TestCase):
         print (testSubscr.reports[-2].as_xml(pretty=True))
         print (testSubscr.reports[-1].as_xml(pretty=True))
         self.assertGreater(len(testSubscr.reports), 20)
-        
-
-def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(TestDeviceWaveform)
-
-
-if __name__ == '__main__':
-    _logger = logging.Logger('sdc.device.subscrMgr')
-    _logger.setLevel(logging.DEBUG)
-
-#    unittest.TextTestRunner(verbosity=2).run(suite())
-
-    unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('test_device_waveform.TestDeviceWaveform.test_waveformSubscription'))
-#    unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('test_device_waveform.TestDeviceWaveform.test_waveformGeneratorHandling'))

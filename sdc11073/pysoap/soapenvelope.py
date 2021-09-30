@@ -103,9 +103,8 @@ class WsAddress:
         """
 
         :param action: xs:anyURI string, required
-        :param message_id: xs:anyURI string or None or False; default is None
+        :param message_id: xs:anyURI string or None; default is None
                           if None, a message_id is generated automatically
-                          if False, no message ID is generated ( makes only sense for testing )
         :param addr_to: xs:anyURI string, optional
         :param relates_to: xs:anyURI string, 0...n
         :param addr_from: WsaEndpointReferenceType instance, optional
@@ -115,10 +114,7 @@ class WsAddress:
         :param relationship_type: a QName, optional
         """
         self.action = action
-        if message_id == False:
-            self.message_id = None
-        else:
-            self.message_id = message_id or uuid.uuid4().urn
+        self.message_id = message_id or uuid.uuid4().urn
         self.addr_to = addr_to
         self.relates_to = relates_to
         self.addr_from = addr_from
@@ -731,7 +727,6 @@ class DPWSEnvelope(ReceivedSoap12Envelope):
                         for hosted_node in relationship.findall('dpws:Hosted', nsmap):
                             hosted = DPWSHosted.from_etree_node(hosted_node)
                             self.hosted[hosted.service_id] = hosted
-
 
 
 class ReceivedSoapFault(ReceivedSoap12Envelope):

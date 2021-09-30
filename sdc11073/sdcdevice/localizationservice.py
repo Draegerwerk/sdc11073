@@ -1,13 +1,9 @@
 from collections import defaultdict
 
-from lxml import etree as etree_
-
 from .sdcservicesimpl import DPWSPortTypeImpl
 from .sdcservicesimpl import WSDLMessageDescription, WSDLOperationBinding
 from .sdcservicesimpl import mk_wsdl_two_way_operation
-from .. import pysoap
 from ..namespaces import Prefixes
-from ..namespaces import msgTag, nsmap
 
 _msg = Prefixes.MSG.prefix
 
@@ -213,70 +209,38 @@ class LocalizationService(DPWSPortTypeImpl):
         actions = self._mdib.sdc_definitions.Actions
         hosting_service.register_post_handler(actions.GetLocalizedText, self._on_get_localized_text)
         hosting_service.register_post_handler(actions.GetSupportedLanguages, self._on_get_supported_languages)
-        hosting_service.register_post_handler(msgTag('GetLocalizedText'), self._on_get_localized_text)
-        hosting_service.register_post_handler(msgTag('GetSupportedLanguages'), self._on_get_supported_languages)
+        hosting_service.register_post_handler('GetLocalizedText', self._on_get_localized_text)
+        hosting_service.register_post_handler('GetSupportedLanguages', self._on_get_supported_languages)
 
-    def _on_get_localized_text(self, request_data):  # pylint:disable=unused-argument
+    def _on_get_localized_text(self, request_data):
         self._logger.debug('_on_get_localized_text')
-        requested_handles = request_data.envelope.body_node.xpath('*/msg:Ref/text()',
-                                                                  namespaces=nsmap)  # handle strings 0...n
-        requested_versions = request_data.envelope.body_node.xpath('*/msg:Version/text()',
-                                                                   namespaces=nsmap)  # unsigned long int 0..1
-        requested_langs = request_data.envelope.body_node.xpath('*/msg:Lang/text()',
-                                                                namespaces=nsmap)  # unsigned long int 0..n
-        text_widths = request_data.envelope.body_node.xpath('*/msg:TextWidth/text()', namespaces=nsmap)  # strings 0..n
-        number_of_lines = request_data.envelope.body_node.xpath('*/msg:NumberOfLines/text()',
-                                                                namespaces=nsmap)  # int 0..n
+        localized_texts_request = self._sdc_device.msg_reader.read_get_localized_text_request(request_data.message_data)
         # make integers for text_widths and number_of_lines
-        i_tws = [_tw2i(w) for w in text_widths]
-        i_nls = [int(l) for l in number_of_lines]
+        i_tws = [_tw2i(w) for w in localized_texts_request.text_widths]
+        i_nls = [int(l) for l in localized_texts_request.number_of_lines]
 
-        if len(requested_versions) > 0:
+        if len(localized_texts_request.requested_versions) > 0:
             # If the referenced text is not available in the specific version, then
             # msg:GetLocalizedTextResponse/msg:Text is empty
-            requested_version = int(requested_versions[0])
+            requested_version = int(localized_texts_request.requested_versions[0])
         else:
             requested_version = None
 
-        texts = self.localization_storage.filter_localized_texts(requested_handles,
+        texts = self.localization_storage.filter_localized_texts(localized_texts_request.requested_handles,
                                                                  requested_version,
-                                                                 requested_langs,
+                                                                 localized_texts_request.requested_langs,
                                                                  i_tws, i_nls)
-
-        # create the response
-        nsmapper = self._mdib.nsmapper
-        response_envelope = pysoap.soapenvelope.Soap12Envelope(
-            nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        reply_address = request_data.envelope.address.mk_reply_address(
-            action=self.actions.GetLocalizedTextResponse)
-        response_envelope.add_header_object(reply_address)
-        response_node = etree_.Element(msgTag('GetLocalizedTextResponse'))
-        response_node.set('MdibVersion', str(self._mdib.mdib_version))
-        response_node.set('SequenceId', self._mdib.sequence_id)
-
-        for text in texts:
-            response_node.append(text.as_etree_node(msgTag('Text'), nsmap=None))
-        response_envelope.add_body_element((response_node))
+        response_envelope = self._sdc_device.msg_factory.mk_get_localized_texts_response_envelope(
+            request_data.message_data, self.actions.GetLocalizedTextResponse,
+            self._mdib.mdib_version, self._mdib.sequence_id, texts, self._mdib.nsmapper)
         return response_envelope
 
-    def _on_get_supported_languages(self, request_data):  # pylint:disable=unused-argument
+    def _on_get_supported_languages(self, request_data):
         self._logger.debug('_on_get_supported_languages')
         languages = self.localization_storage.get_supported_languages()
-
-        nsmapper = self._mdib.nsmapper
-        response_envelope = pysoap.soapenvelope.Soap12Envelope(
-            nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        reply_address = request_data.envelope.address.mk_reply_address(
-            action=self.actions.GetSupportedLanguagesResponse)
-        response_envelope.add_header_object(reply_address)
-        response_node = etree_.Element(msgTag('GetSupportedLanguagesResponse'))
-        response_node.set('MdibVersion', str(self._mdib.mdib_version))
-        response_node.set('SequenceId', self._mdib.sequence_id)
-
-        for lang in languages:
-            node = etree_.SubElement(response_node, msgTag('Lang'))
-            node.text = lang
-        response_envelope.add_body_element(response_node)
+        response_envelope = self._sdc_device.msg_factory.mk_get_supported_languages_response_envelope(
+            request_data.message_data, self.actions.GetSupportedLanguagesResponse,
+            self._mdib.mdib_version, self._mdib.sequence_id, languages, self._mdib.nsmapper)
         return response_envelope
 
     def add_wsdl_port_type(self, parent_node):

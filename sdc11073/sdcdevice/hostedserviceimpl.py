@@ -6,7 +6,7 @@ from lxml import etree as etree_
 from .exceptions import InvalidActionError
 from .. import loghelper
 from ..namespaces import Prefixes
-from ..namespaces import wseTag, wsxTag, dpwsTag, s12Tag, nsmap
+from ..namespaces import wsxTag, dpwsTag, s12Tag
 from ..pysoap.soapenvelope import DPWSHosted, WsaEndpointReferenceType, Soap12Envelope
 
 _wsdl_ns = Prefixes.WSDL.namespace
@@ -22,16 +22,15 @@ WSDL_S12 = "http://schemas.xmlsoap.org/wsdl/soap12/"  # old soap 12 namespace, u
 
 def by_action(request_data):
     """returns the action string of the request"""
-    return request_data.envelope.address.action
+    return request_data.message_data.action
 
 
 def by_msg_tag(request_data):
     """returns Qname of the message if the soap body is not empty, otherwise the action string"""
-    try:
-        message = request_data.envelope.body_node[0].tag
-        return etree_.QName(message)
-    except IndexError:
-        return by_action(request_data)
+    ret = request_data.message_data.msg_name
+    if ret is None:
+        ret = by_action(request_data)
+    return ret
 
 
 def etree_from_file(path):
@@ -64,10 +63,10 @@ class SoapMessageHandler:
 
     def on_post(self, request_data):
         begin = time.monotonic()
-        action = request_data.envelope.address.action
+        action = request_data.message_data.action
         func = self.get_post_handler(request_data)
         if func is None:
-            raise InvalidActionError(request_data.envelope)
+            raise InvalidActionError(request_data.message_data.raw_data)
         returned_envelope = func(request_data)
         duration = time.monotonic() - begin
         self._logger.debug('incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements,
@@ -111,25 +110,21 @@ class EventService(SoapMessageHandler):
         self.register_post_handler('{}/Unsubscribe'.format(Prefixes.WSE.namespace), self._on_unsubscribe)
         self.register_post_handler('{}/GetStatus'.format(Prefixes.WSE.namespace), self._on_get_status)
         self.register_post_handler('{}/Renew'.format(Prefixes.WSE.namespace), self._on_renew_status)
-        self.register_post_handler(wseTag('Subscribe'), self._on_subscribe)
-        self.register_post_handler(wseTag('Unsubscribe'), self._on_unsubscribe)
-        self.register_post_handler(wseTag('GetStatus'), self._on_get_status)
-        self.register_post_handler(wseTag('Renew'), self._on_renew_status)
+        self.register_post_handler('Subscribe', self._on_subscribe)
+        self.register_post_handler('Unsubscribe', self._on_unsubscribe)
+        self.register_post_handler('GetStatus', self._on_get_status)
+        self.register_post_handler('Renew', self._on_renew_status)
 
     def _on_subscribe(self, request_data):
-        subscription_filter_nodes = request_data.envelope.body_node.xpath(
-            "//wse:Filter[@Dialect='{}/Action']".format(Prefixes.DPWS.namespace),
-            namespaces=nsmap)
-        if len(subscription_filter_nodes) != 1:
-            raise Exception
-        subscription_filters = subscription_filter_nodes[0].text
-        for subscription_filter in subscription_filters.split():
+        subscribe_request = self._sdc_device.msg_reader.read_subscribe_request(request_data)
+        for subscription_filter in subscribe_request.subscription_filters:
             if subscription_filter not in self._offered_subscriptions:
                 raise Exception('{}::{}: "{}" is not in offered subscriptions: {}'.format(self.__class__.__name__,
                                                                                           self.path_element,
                                                                                           subscription_filter,
                                                                                           self._offered_subscriptions))
-        returned_envelope = self._subscriptions_manager.on_subscribe_request(request_data)
+
+        returned_envelope = self._subscriptions_manager.on_subscribe_request(request_data, subscribe_request)
         self._validate_eventing_response(returned_envelope)
         return returned_envelope
 
@@ -186,7 +181,7 @@ class DPWSHostedService(EventService):
         self._my_port_types = [p.port_type_string for p in port_type_impls]
         self._wsdl_string = self._mk_wsdl_string()
         self.register_post_handler('{}/GetMetadata/Request'.format(Prefixes.WSX.namespace), self._on_get_metadata)
-        self.register_post_handler(wsxTag('GetMetadata'), self._on_get_metadata)
+        self.register_post_handler('GetMetadata', self._on_get_metadata)
         self.register_get_handler('?wsdl', func=self._on_get_wsdl)
         for port_type_impl in port_type_impls:
             port_type_impl.register_handlers(self)
@@ -269,7 +264,7 @@ class DPWSHostedService(EventService):
         consumed_path_elements = request_data.consumed_path_elements
         http_header = request_data.http_header
         response = Soap12Envelope(_nsm.doc_ns_map)
-        reply_address = request_data.envelope.address.mk_reply_address(
+        reply_address = request_data.message_data.raw_data.address.mk_reply_address(
             'http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Response')
         response.add_header_object(reply_address)
 

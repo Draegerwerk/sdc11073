@@ -14,6 +14,7 @@ import threading
 import time
 import traceback
 from abc import ABC, abstractmethod
+
 from .. import loghelper
 from .. import observableproperties as properties
 from ..namespaces import domTag, msgTag
@@ -51,9 +52,6 @@ class OperationDefinition:
         # A HANDLE reference this operation is targeted to. In case of a single state this is the HANDLE of the descriptor.
         # In case that multiple states may belong to one descriptor (pm:AbstractMultiState), OperationTarget is the HANDLE
         # of one of the state instances (if the state is modified by the operation).
-        # self._operationDescriptorQName = operationDescriptorQName
-        # self._operationStateQName = operationStateQName
-
         self._safety_classification = safety_classification
         self._coded_value = coded_value
         self.calls = []  # record when operation was called
@@ -70,12 +68,12 @@ class OperationDefinition:
     def operation_target_storage(self):
         return self._mdib.states
 
-    def execute_operation(self, request, argument):  # pylint: disable=unused-argument
+    def execute_operation(self, request, operation_request):  # pylint: disable=unused-argument
         """ This is the code that executes the operation itself.
         A handler that executes the operation must be bound to observable "current_request"."""
         self.calls.append((time.time(), request))
         self.current_request = request
-        self.current_argument = argument
+        self.current_argument = operation_request.argument
 
     def set_mdib(self, mdib, parent_descriptor_container):
         """ The operation needs to know the mdib that it operates on.
@@ -91,19 +89,18 @@ class OperationDefinition:
             self._logger.info('descriptor for operation "{}" is already present, re-using it'.format(self._handle))
         else:
             cls = mdib.sdc_definitions.get_descriptor_container_class(self.OP_DESCR_QNAME)
-            self._descriptor_container = cls(
-                mdib.nsmapper, self._handle, parent_descriptor_container.handle)
+            self._descriptor_container = cls(self._handle, parent_descriptor_container.handle)
             self._init_operation_descriptor_container()
             mdib.descriptions.add_object(self._descriptor_container)
 
         self._operation_state_container = self._mdib.states.descriptorHandle.get_one(self._handle, allow_none=True)
         if self._operation_state_container is not None:
             self._logger.info('operation state for operation "{}" is already present, re-using it'.format(self._handle))
-            self._operation_state_container.set_node_member()
+            self._operation_state_container.set_node_member(self._mdib.nsmapper)
         else:
             cls = mdib.sdc_definitions.get_state_container_class(self.OP_STATE_QNAME)
-            self._operation_state_container = cls(mdib.nsmapper, self._descriptor_container)
-            self._operation_state_container.set_node_member()
+            self._operation_state_container = cls(self._descriptor_container)
+            self._operation_state_container.set_node_member(self._mdib.nsmapper)
             mdib.states.add_object(self._operation_state_container)
 
         # now add the object that is target of operation
@@ -125,7 +122,7 @@ class OperationDefinition:
         else:
             self._operation_target_container = self._mdib.mk_state_container_from_descriptor(
                 operation_target_descriptor)
-            self._operation_target_container.set_node_member()
+            self._operation_target_container.set_node_member(self._mdib.nsmapper)
             self._logger.info('creating {} DescriptorHandle = {}', self._operation_target_container.__class__.__name__,
                               self._operation_target_handle)
             if self._operation_target_container is not None:
@@ -321,24 +318,24 @@ class _OperationsWorker(threading.Thread):
                 # duplicate the WAIT response to the operation request as notification. Standard requires this.
                 self._subscriptions_mgr.notify_operation(
                     operation, tr_id, InvocationState.WAIT,
-                    self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version)
+                    self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper)
                 time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
                 self._subscriptions_mgr.notify_operation(
                     operation, tr_id, InvocationState.START,
-                    self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version)
+                    self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper)
                 try:
                     operation.execute_operation(request, argument)
                     self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
                                       operation.handle)
                     self._subscriptions_mgr.notify_operation(
                         operation, tr_id, InvocationState.FINISHED,
-                        self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version)
+                        self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper)
                 except Exception as ex:
                     self._logger.info('{}: error executing operation "{}": {}', operation.__class__.__name__,
                                       operation.handle, traceback.format_exc())
                     self._subscriptions_mgr.notify_operation(
                         operation, tr_id, InvocationState.FAILED,
-                        self._mdib.nsmapper, self._mdib.sequence_id, self._mdib.mdib_version,
+                        self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper,
                         error='Oth', error_message=repr(ex))
 
             except Exception as ex:
@@ -419,7 +416,7 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
             self._logger.info('not found Sco node in mds, creating it')
             # create sco and add to mdib
             cls = mdib.sdc_definitions.get_descriptor_container_class(domTag('ScoDescriptor'))
-            self._mds_sco_descriptor_container = cls(mdib.nsmapper, self._handle, mds_descriptor_container.handle)
+            self._mds_sco_descriptor_container = cls(self._handle, mds_descriptor_container.handle)
             mdib.descriptions.add_object(self._mds_sco_descriptor_container)
 
     def register_operation(self, operation, sco_descriptor_container=None):
@@ -454,5 +451,3 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
         if self._worker is not None:
             self._worker.stop()
             self._worker = None
-
-

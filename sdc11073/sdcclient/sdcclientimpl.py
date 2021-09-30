@@ -14,15 +14,14 @@ from .. import loghelper
 from .. import netconn
 from .. import observableproperties as properties
 from ..definitions_base import ProtocolsRegistry, SchemaValidators
-
+from ..namespaces import EventingActions
 from ..namespaces import Prefixes
 from ..namespaces import nsmap
-from ..namespaces import EventingActions
 from ..pysoap.soapclient import SoapClient
 from ..pysoap.soapenvelope import WsAddress, Soap12Envelope, DPWSEnvelope, MetaDataSection
 
 
-def _mk_soap_client(scheme, netloc, logger, ssl_context, sdc_definitions, supported_encodings=None,
+def _mk_soap_client(scheme, netloc, logger, ssl_context, sdc_definitions, msg_reader, supported_encodings=None,
                     request_encodings=None, chunked_requests=False):
     if scheme == 'https':
         _ssl_context = ssl_context
@@ -30,6 +29,7 @@ def _mk_soap_client(scheme, netloc, logger, ssl_context, sdc_definitions, suppor
         _ssl_context = None
     return SoapClient(netloc, logger, ssl_context=_ssl_context,
                       sdc_definitions=sdc_definitions,
+                      msg_reader=msg_reader,
                       supported_encodings=supported_encodings,
                       request_encodings=request_encodings,
                       chunked_requests=chunked_requests)
@@ -50,7 +50,8 @@ class HostDescription:
 class HostedServiceDescription:
     VALIDATE_MEX = False  # workaraound as long as validation error due to missing dpws schema is not solved
 
-    def __init__(self, service_id, endpoint_address, validate, schema_validators, msg_reader, msg_factory, log_prefix=''):
+    def __init__(self, service_id, endpoint_address, validate, schema_validators, msg_reader, msg_factory,
+                 log_prefix=''):
         self._endpoint_address = endpoint_address
         self.service_id = service_id
         self._validate = validate
@@ -75,7 +76,7 @@ class HostedServiceDescription:
             soap_envelope.validate_body(self._mex_schema)
         endpoint_envelope = soap_client.post_soap_envelope_to(self._url.path,
                                                               soap_envelope,
-                                                              msg='<{}> read_metadata'.format(self.service_id))
+                                                              msg='<{}> read_metadata'.format(self.service_id)).raw_data
         if self.VALIDATE_MEX:
             endpoint_envelope.validate_body(self._mex_schema)
         self.metadata = MetaDataSection.from_etree_node(endpoint_envelope.body_node)
@@ -132,7 +133,6 @@ class NotificationsDispatcherBase:
 
     def on_notification(self, message_data):
         # make Container objects
-        assert(isinstance(message_data, self._sdc_client.msg_reader.ReceivedMessageData))
         self._sdc_client.state_event_report = message_data  # update observable
 
     def _on_operation_invoked_report(self, message_data):
@@ -200,32 +200,6 @@ class NotificationsDispatcherByBody(NotificationsDispatcherBase):
         if method is None:
             raise RuntimeError('unknown message {}'.format(message_data.msg_name))
         method(message_data)
-
-# class NotificationsDispatcherByBody(NotificationsDispatcherBase):
-#     def _mk_lookup(self):
-#         return {
-#             'EpisodicMetricReport': self._sdc_client.episodic_metric_report,
-#             'EpisodicAlertReport': self._sdc_client.episodic_alert_report,
-#             'EpisodicComponentReport': self._sdc_client.episodic_component_report,
-#             'EpisodicOperationalStateReport': self._sdc_client.episodic_operational_state_report,
-#             'WaveformStream': self._sdc_client.waveform_report,
-#             'OperationInvokedReport': self._sdc_client.operation_invoked_report,
-#             'EpisodicContextReport': self._sdc_client.episodic_context_report,
-#             'DescriptionModificationReport': self._sdc_client.description_modification_report,
-#             'PeriodicMetricReport': self._sdc_client.periodic_metric_report,
-#             'PeriodicAlertReport': self._sdc_client.periodic_alert_report,
-#             'PeriodicComponentReport': self._sdc_client.periodic_component_report,
-#             'PeriodicOperationalStateReport': self._sdc_client.periodic_operational_state_report,
-#             'PeriodicContextReport': self._sdc_client.periodic_context_report,
-#         }
-#
-#     def on_notification(self, message_data):
-#         """ dispatch by message body"""
-#         super().on_notification(message_data)
-#         observable = self._lookup.get(message_data.msg_name)
-#         if observable is None:
-#             raise RuntimeError('unknown message {}'.format(message_data.msg_name))
-#         observable = message_data
 
 
 class NotificationsDispatcherByAction(NotificationsDispatcherBase):
@@ -342,7 +316,7 @@ class SdcClient:
         self.binary_peer_certificate = None
         self.all_subscribed = False
         msg_reader_cls = self._components.msg_reader_class
-        self.msg_reader = msg_reader_cls(self._logger, 'msg_reader')
+        self.msg_reader = msg_reader_cls(self.sdc_definitions, self._logger, 'msg_reader')
         msg_factory_cls = self._components.msg_factory_class
         self._msg_factory = msg_factory_cls(self.sdc_definitions, self._logger)
         notifications_dispatcher_cls = self._components.notifications_dispatcher_class
@@ -554,7 +528,7 @@ class SdcClient:
 
         self.metadata = wsc.post_soap_envelope_to(_url.path, envelope,
                                                   response_factory=DPWSEnvelope,
-                                                  msg='getMetadata')
+                                                  msg='getMetadata').raw_data
         self.host_description = HostDescription(self.metadata)
         self._logger.debug('HostDescription: {}', self.host_description)
 
@@ -585,6 +559,7 @@ class SdcClient:
                                           loghelper.get_logger_adapter('sdc.client.soap', self.log_prefix),
                                           ssl_context=self._ssl_context,
                                           sdc_definitions=self.sdc_definitions,
+                                          msg_reader=self.msg_reader,
                                           supported_encodings=self._compression_methods,
                                           chunked_requests=self.chunked_requests)
             self._soap_clients[key] = soap_client
@@ -621,7 +596,7 @@ class SdcClient:
             self._my_ipaddress,
             ssl_context,
             log_prefix=self.log_prefix,
-            sdc_definitions=self.sdc_definitions,
+            # sdc_definitions=self.sdc_definitions,
             msg_reader=self.msg_reader,
             supported_encodings=self._compression_methods,
             notifications_handler_class=notifications_handler_class,
@@ -636,7 +611,7 @@ class SdcClient:
             self._notifications_dispatcher_thread.stop(close_all_connections)
 
     def _on_subscription_end(self, request_data):
-        self.state_event_report = request_data.envelope  # update observable
+        self.state_event_report = request_data.message_data.raw_data  # update observable
         self._subscription_mgr.on_subscription_end(request_data)
 
     def __str__(self):

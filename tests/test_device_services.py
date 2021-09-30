@@ -31,6 +31,8 @@ class TestDeviceServices(unittest.TestCase):
         self.sdc_device = mockstuff.SomeDevice.from_mdib_file(self.wsDiscovery, my_uuid, '70041_MDIB_Final.xml')
         self.sdc_device.start_all()
         self._alldevices = (self.sdc_device,)
+        self.msg_reader = self.sdc_device.msg_reader
+
         print('############### setUp done {} ##############'.format(self._testMethodName))
 
     def tearDown(self):
@@ -49,9 +51,8 @@ class TestDeviceServices(unittest.TestCase):
         action = '{}/{}/{}'.format(ns, porttype, method)
         body_node = etree_.Element(msgTag(method))
         soapEnvelope = Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.MSG))
-        identifier = uuid.uuid4().urn
-        soapEnvelope.add_header_object(WsAddress(message_id=identifier,
-                                                 action=action,
+        #identifier = uuid.uuid4().urn
+        soapEnvelope.add_header_object(WsAddress(action=action,
                                                  addr_to=path))
         soapEnvelope.add_body_element(body_node)
 
@@ -86,7 +87,7 @@ class TestDeviceServices(unittest.TestCase):
         get_env = self._mkGetRequest(self.sdc_device, getService.port_type_string, 'GetMdib', path)
         http_header = {}
         request = RequestData(http_header, path)
-        request.envelope = ReceivedSoap12Envelope(get_env.as_xml())
+        request.message_data = self.msg_reader.read_received_message(get_env.as_xml())
         response = getService._on_get_mdib(request)
         response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
 
@@ -96,7 +97,7 @@ class TestDeviceServices(unittest.TestCase):
         get_env = self._mkGetRequest(self.sdc_device, getService.port_type_string, 'GetMdState', path)
         http_header = {}
         request = RequestData(http_header, path)
-        request.envelope = ReceivedSoap12Envelope(get_env.as_xml())
+        request.message_data = self.msg_reader.read_received_message(get_env.as_xml())
         response = getService.hosting_service.on_post(request)
         response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
 
@@ -106,7 +107,7 @@ class TestDeviceServices(unittest.TestCase):
         get_env = self._mkGetRequest(self.sdc_device, getService.port_type_string, 'GetMdDescription', path)
         http_header = {}
         request = RequestData(http_header, path)
-        request.envelope = ReceivedSoap12Envelope(get_env.as_xml())
+        request.message_data = self.msg_reader.read_received_message(get_env.as_xml())
         response = getService.hosting_service.on_post(request)
         response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
 
@@ -122,7 +123,7 @@ class TestDeviceServices(unittest.TestCase):
         #receivedEnv = ReceivedSoap12Envelope(getEnv.as_xml())
         http_header = {}
         request = RequestData(http_header, path)
-        request.envelope = ReceivedSoap12Envelope(get_env.as_xml())
+        request.message_data = self.msg_reader.read_received_message(get_env.as_xml())
         response = getService.hosting_service.on_post(request)
         response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
 
@@ -138,7 +139,7 @@ class TestDeviceServices(unittest.TestCase):
                                     path)
         http_header = {}
         request = RequestData(http_header, path)
-        request.envelope = ReceivedSoap12Envelope(get_env.as_xml())
+        request.message_data = self.msg_reader.read_received_message(get_env.as_xml())
         response = contextService.hosting_service.on_post(request)
         print(response.as_xml(pretty=True))
         response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
@@ -174,24 +175,3 @@ class TestDeviceServices(unittest.TestCase):
                     for k in action_keys:
                         action = i.attrib[k]
                         self.assertTrue(action.startswith(SDC_v1_Definitions.ActionsNamespace))
-
-    def test_metadata(self):
-        """
-        verifies that
-        - 7 hosted services exist ( one per port type)
-        - every port type has BICEPS Message Model as namespace
-        """
-        dev = self.sdc_device
-        metadata_node = dev._mk_metadata_node()
-        print(etree_.tostring(metadata_node))
-        dpws_hosted = metadata_node.xpath('//dpws:Hosted',
-                                          namespaces={'dpws': 'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01'})
-        self.assertEqual(len(dpws_hosted), 4)  #
-        for h in dpws_hosted:
-            dpws_types = h.xpath('dpws:Types', namespaces={'dpws': 'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01'})
-            for t in dpws_types:
-                txt = t.text
-                port_types = txt.split()
-                for p in port_types:
-                    ns, value = p.split(':')
-                    self.assertEqual(metadata_node.nsmap[ns], _sdc_ns)

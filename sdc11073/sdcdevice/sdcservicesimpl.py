@@ -7,9 +7,8 @@ from .exceptions import FunctionNotImplementedError
 from .hostedserviceimpl import WSP_NS, WSDL_S12
 from .. import loghelper
 from .. import pmtypes
-from .. import pysoap
 from ..namespaces import Prefixes
-from ..namespaces import msgTag, domTag, wseTag, dpwsTag, mdpwsTag, nsmap
+from ..namespaces import domTag, wseTag, dpwsTag, mdpwsTag
 
 _msg_prefix = Prefixes.MSG.prefix
 
@@ -165,19 +164,21 @@ class GetService(DPWSPortTypeImpl):
         hosting_service.register_post_handler(actions.GetMdState, self._on_get_md_state)
         hosting_service.register_post_handler(actions.GetMdib, self._on_get_mdib)
         hosting_service.register_post_handler(actions.GetMdDescription, self._on_get_md_description)
-        hosting_service.register_post_handler(msgTag('GetMdState'), self._on_get_md_state)
-        hosting_service.register_post_handler(msgTag('GetMdib'), self._on_get_mdib)
-        hosting_service.register_post_handler(msgTag('GetMdDescription'), self._on_get_md_description)
+        hosting_service.register_post_handler('GetMdState', self._on_get_md_state)
+        hosting_service.register_post_handler('GetMdib', self._on_get_mdib)
+        hosting_service.register_post_handler('GetMdDescription', self._on_get_md_description)
 
     def _on_get_md_state(self, request_data):
         self._logger.debug('_on_get_md_state')
-        requested_handles = self._sdc_device.msg_reader.read_getmdstate_request(request_data.envelope)
+        requested_handles = self._sdc_device.msg_reader.read_getmdstate_request(request_data.message_data)
         if len(requested_handles) > 0:
             self._logger.info('_on_get_md_state requested Handles:{}', requested_handles)
 
         # get the requested state containers from mdib
         state_containers = []
         with self._mdib.mdib_lock:
+            mdib_version = self._mdib.mdib_version
+            sequence_id = self._mdib.sequence_id
             if len(requested_handles) == 0:
                 # MessageModel: If the HANDLE reference list is empty, all states in the MDIB SHALL be included in the result list.
                 state_containers.extend(self._mdib.states.objects)
@@ -189,7 +190,7 @@ class GetService(DPWSPortTypeImpl):
                         try:
                             # If a HANDLE reference does match a multi state HANDLE, the corresponding multi state SHALL be included in the result list
                             state_containers.append(self._mdib.context_states.handle.get_one(handle))
-                        except RuntimeError:
+                        except (KeyError, ValueError):
                             # If a HANDLE reference does match a descriptor HANDLE, all states that belong to the corresponding descriptor SHALL be included in the result list
                             state_containers.extend(self._mdib.states.descriptorHandle.get(handle, []))
                             state_containers.extend(self._mdib.context_states.descriptorHandle.get(handle, []))
@@ -200,16 +201,17 @@ class GetService(DPWSPortTypeImpl):
                 self._logger.info('_on_get_md_state requested Handles:{} found {} states', requested_handles,
                                   len(state_containers))
 
-            response_envelope = self._sdc_device.msg_factory.mk_getmdstate_response_envelope(
-                request_data.envelope, self._mdib, state_containers)
+            response_envelope = self._sdc_device.msg_factory.mk_get_mdstate_response_envelope(
+                request_data.message_data, self.actions.GetMdStateResponse,
+                mdib_version, sequence_id, state_containers, self._mdib.nsmapper)
         self._logger.debug('_on_get_md_state returns {}', lambda: response_envelope.as_xml(pretty=False))
         response_envelope.validate_body(self._bmm_schema)
         return response_envelope
 
-    def _on_get_mdib(self, request_data):  # pylint:disable=unused-argument
+    def _on_get_mdib(self, request_data):
         self._logger.debug('_on_get_mdib')
-        response_envelope = self._sdc_device.msg_factory.mk_getmdib_response_envelope(
-            request_data.envelope, self._mdib, self._sdc_device.contextstates_in_getmdib)
+        response_envelope = self._sdc_device.msg_factory.mk_get_mdib_response_envelope(
+            request_data.message_data, self._mdib, self._sdc_device.contextstates_in_getmdib)
 
         self._logger.debug('_on_get_mdib returns {}', lambda: response_envelope.as_xml(pretty=False))
         try:
@@ -219,7 +221,7 @@ class GetService(DPWSPortTypeImpl):
             raise
         return response_envelope
 
-    def _on_get_md_description(self, request_data):  # pylint:disable=unused-argument
+    def _on_get_md_description(self, request_data):
         """
         MdDescription comprises the requested set of MDS descriptors. Which MDS descriptors are included depends on the msg:GetMdDescription/msg:HandleRef list:
         - If the HANDLE reference list is empty, all MDS descriptors SHALL be included in the result list.
@@ -230,11 +232,11 @@ class GetService(DPWSPortTypeImpl):
         # => if at least one handle matches any descriptor, the one mds is returned, otherwise empty payload
 
         self._logger.debug('_on_get_md_description')
-        requested_handles = self._sdc_device.msg_reader.read_getmddescription_request(request_data.envelope)
+        requested_handles = self._sdc_device.msg_reader.read_getmddescription_request(request_data.message_data)
         if len(requested_handles) > 0:
             self._logger.info('_on_get_md_description requested Handles:{}', requested_handles)
         response_envelope = self._sdc_device.msg_factory.mk_getmddescription_response_envelope(
-            request_data.envelope, self._sdc_device.mdib, requested_handles
+            request_data.message_data, self._sdc_device.mdib, requested_handles
         )
         self._logger.debug('_on_get_md_description returns {}', lambda: response_envelope.as_xml(pretty=False))
         response_envelope.validate_body(self._bmm_schema)
@@ -280,16 +282,16 @@ class ContainmentTreeService(DPWSPortTypeImpl):
         actions = self._mdib.sdc_definitions.Actions
         hosting_service.register_post_handler(actions.GetContainmentTree, self._on_get_containment_tree)
         hosting_service.register_post_handler(actions.GetDescriptor, self._on_get_descriptor)
-        hosting_service.register_post_handler(msgTag('GetContainmentTree'), self._on_get_containment_tree)
-        hosting_service.register_post_handler(msgTag('GetDescriptor'), self._on_get_descriptor)
+        hosting_service.register_post_handler('GetContainmentTree', self._on_get_containment_tree)
+        hosting_service.register_post_handler('GetDescriptor', self._on_get_descriptor)
 
     def _on_get_containment_tree(self, request_data):
         # ToDo: implement, currently method only raises a soap fault
-        raise FunctionNotImplementedError(request_data.envelope)
+        raise FunctionNotImplementedError(request_data.message_data.raw_data)
 
     def _on_get_descriptor(self, request_data):
         # ToDo: implement, currently method only raises a soap fault
-        raise FunctionNotImplementedError(request_data.envelope)
+        raise FunctionNotImplementedError(request_data.message_data.raw_data)
 
     def add_wsdl_port_type(self, parent_node):
         port_type = self._mk_port_type_node(parent_node)
@@ -297,7 +299,39 @@ class ContainmentTreeService(DPWSPortTypeImpl):
         mk_wsdl_two_way_operation(port_type, operation_name='GetContainmentTree')
 
 
-class SetService(DPWSPortTypeImpl):
+class ServiceWithOperations(DPWSPortTypeImpl):
+    def _handle_operation_request(self, message_data, response_name, operation_request):
+        """
+        It enqueues an operation and generate the expected operation invoked report.
+        :param request:
+        :param response_name:
+        :param operation_request:
+        :return:
+        """
+        action = getattr(self.actions, response_name)
+        invocation_error = None
+        error_text = None
+        operation = self._sdc_device.get_operation_by_handle(operation_request.operation_handle)
+        if operation is None:
+            error_text = f'operation "{operation_request.operation_handle}" not known'
+            self._logger.warn('_handle_operation_request: error = {}'.format(error_text))
+            transaction_id = 0
+            invocation_state = pmtypes.InvocationState.FAILED
+            invocation_error = pmtypes.InvocationError.INVALID_VALUE
+        else:
+            transaction_id = self._sdc_device.enqueue_operation(operation, message_data.raw_data, operation_request)
+            self._logger.info(f'_handle_operation_request: enqueued, transaction id = {transaction_id}')
+            invocation_state = pmtypes.InvocationState.WAIT
+
+        response = self._sdc_device.msg_factory.mk_operation_response_envelope(
+            message_data, action, response_name, self._mdib.mdib_version, self._mdib.sequence_id,
+            transaction_id, invocation_state, invocation_error, error_text, self._mdib.nsmapper)
+
+        response.validate_body(self._bmm_schema)
+        return response
+
+
+class SetService(ServiceWithOperations):
     WSDLMessageDescriptions = (WSDLMessageDescription('Activate', ('{}:Activate'.format(_msg_prefix),)),
                                WSDLMessageDescription('ActivateResponse', ('{}:ActivateResponse'.format(_msg_prefix),)),
                                WSDLMessageDescription('SetString', ('{}:SetString'.format(_msg_prefix),)),
@@ -336,29 +370,30 @@ class SetService(DPWSPortTypeImpl):
         hosting_service.register_post_handler(actions.SetMetricState, self._on_set_metric_state)
         hosting_service.register_post_handler(actions.SetAlertState, self._on_set_alert_state)
         hosting_service.register_post_handler(actions.SetComponentState, self._on_set_component_state)
-        hosting_service.register_post_handler(msgTag('Activate'), self._on_activate)
-        hosting_service.register_post_handler(msgTag('SetValue'), self._on_set_value)
-        hosting_service.register_post_handler(msgTag('SetString'), self._on_set_string)
-        hosting_service.register_post_handler(msgTag('SetMetricState'), self._on_set_metric_state)
-        hosting_service.register_post_handler(msgTag('SetAlertState'), self._on_set_alert_state)
-        hosting_service.register_post_handler(msgTag('SetComponentState'), self._on_set_component_state)
+        hosting_service.register_post_handler('Activate', self._on_activate)
+        hosting_service.register_post_handler('SetValue', self._on_set_value)
+        hosting_service.register_post_handler('SetString', self._on_set_string)
+        hosting_service.register_post_handler('SetMetricState', self._on_set_metric_state)
+        hosting_service.register_post_handler('SetAlertState', self._on_set_alert_state)
+        hosting_service.register_post_handler('SetComponentState', self._on_set_component_state)
 
     def _on_activate(self, request_data):  # pylint:disable=unused-argument
         """Handler for Active calls.
         It enques an operation and generates the expected operation invoked report. """
-        argument = request_data.envelope.body_node.xpath('*/msg:Argument/msg:ArgValue/text()', namespaces=nsmap)
-        return self._handle_operation_request(request_data.envelope, 'ActivateResponse', argument)
+        operation_request = self._sdc_device.msg_reader.read_activate_request(request_data.message_data)
+        operation_descriptor = self._mdib.descriptions.handle.get_one(operation_request.operation_handle)
+        # convert arguments to python types; need operation descriptor for this.
+        operation_request = self._sdc_device.msg_reader.convert_activate_arguments(operation_descriptor,
+                                                                                   operation_request)
+        return self._handle_operation_request(request_data.message_data, 'ActivateResponse',
+                                              operation_request)
 
     def _on_set_value(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetValue calls.
         It enqueues an operation and generates the expected operation invoked report. """
         self._logger.info('_on_set_value')
-        value_nodes = request_data.envelope.body_node.xpath('*/msg:RequestedNumericValue', namespaces=nsmap)
-        if value_nodes:
-            argument = float(value_nodes[0].text)
-        else:
-            argument = None
-        ret = self._handle_operation_request(request_data.envelope, 'SetValueResponse', argument)
+        operation_request = self._sdc_device.msg_reader.read_set_value_request(request_data.message_data)
+        ret = self._handle_operation_request(request_data.message_data, 'SetValueResponse', operation_request)
         self._logger.info('_on_set_value done')
         return ret
 
@@ -366,104 +401,36 @@ class SetService(DPWSPortTypeImpl):
         """Handler for SetString calls.
         It enqueues an operation and generates the expected operation invoked report."""
         self._logger.debug('_on_set_string')
-        string_node = request_data.envelope.body_node.xpath('*/msg:RequestedStringValue', namespaces=nsmap)
-        if string_node:
-            argument = str(string_node[0].text)
-        else:
-            argument = None
-        return self._handle_operation_request(request_data.envelope, 'SetStringResponse', argument)
+        operation_request = self._sdc_device.msg_reader.read_set_string_request(request_data.message_data)
+        return self._handle_operation_request(request_data.message_data, 'SetStringResponse',
+                                              operation_request)
 
     def _on_set_metric_state(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetMetricState calls.
         It enqueues an operation and generates the expected operation invoked report."""
         self._logger.debug('_on_set_metric_state')
-        proposed_state_nodes = request_data.envelope.body_node.xpath('*/msg:ProposedMetricState', namespaces=nsmap)
-        msg_reader = self._mdib.msg_reader
-        argument = [msg_reader.mk_statecontainer_from_node(m, self._mdib) for m in proposed_state_nodes]
-        return self._handle_operation_request(request_data.envelope, 'SetMetricStateResponse', argument)
+        operation_request = self._sdc_device.msg_reader.read_set_metric_state_request(request_data.message_data)
+        return self._handle_operation_request(request_data.message_data,
+                                              'SetMetricStateResponse',
+                                              operation_request)
 
     def _on_set_alert_state(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetMetricState calls.
         It enqueues an operation and generates the expected operation invoked report."""
         self._logger.debug('_on_set_alert_state')
-        proposed_state_nodes = request_data.envelope.body_node.xpath('*/msg:ProposedAlertState', namespaces=nsmap)
-        if len(proposed_state_nodes) > 1:  # schema allows exactly one ProposedAlertState:
-            raise ValueError(
-                'only one ProposedAlertState argument allowed, found {}'.format(len(proposed_state_nodes)))
-        if len(proposed_state_nodes) == 0:
-            raise ValueError('no ProposedAlertState argument found')
-        msg_reader = self._mdib.msg_reader
-        argument = msg_reader.mk_statecontainer_from_node(proposed_state_nodes[0], self._mdib)
-
-        return self._handle_operation_request(request_data.envelope, 'SetAlertStateResponse', argument)
+        operation_request = self._sdc_device.msg_reader.read_set_alert_state_request(request_data.message_data)
+        return self._handle_operation_request(request_data.message_data,
+                                              'SetAlertStateResponse',
+                                              operation_request)
 
     def _on_set_component_state(self, request_data):  # pylint:disable=unused-argument
-        """Handler for SetMetricState calls.
+        """Handler for SetComponentState calls.
         It enqueues an operation and generates the expected operation invoked report."""
         self._logger.debug('_on_set_component_state')
-        proposed_state_nodes = request_data.envelope.body_node.xpath('*/msg:ProposedComponentState', namespaces=nsmap)
-        msg_reader = self._mdib.msg_reader
-        argument = [msg_reader.mk_statecontainer_from_node(p, self._mdib) for p in proposed_state_nodes]
-        return self._handle_operation_request(request_data.envelope, 'SetComponentStateResponse', argument)
-
-    def _handle_operation_request(self, request, response_name, argument):
-        """
-        It enqueues an operation and generate the expected operation invoked report.
-        :param request:
-        :param responseName:
-        :param argument:
-        :return:
-        """
-        action = getattr(self.actions, response_name)
-        response = pysoap.soapenvelope.Soap12Envelope(self._mdib.nsmapper.partial_map(Prefixes.S12, Prefixes.WSA))
-        reply_address = request.address.mk_reply_address(action=action)
-        response.add_header_object(reply_address)
-        reply_body_node = etree_.Element(msgTag(response_name),
-                                         attrib={'SequenceId': self._mdib.sequence_id,
-                                                 'MdibVersion': str(self._mdib.mdib_version)},
-                                         nsmap=Prefixes.partial_map(Prefixes.MSG))
-        invocation_info_node = etree_.SubElement(reply_body_node, msgTag('InvocationInfo'))
-
-        transaction_id_node = etree_.SubElement(invocation_info_node, msgTag('TransactionId'))
-        invocation_state_node = etree_.SubElement(invocation_info_node, msgTag('InvocationState'))
-
-        error_texts = []
-
-        operation_handle_refs = request.body_node.xpath('*/msg:OperationHandleRef/text()', namespaces=nsmap)
-        operation = None
-        if len(operation_handle_refs) == 1:
-            operation_handle_ref = operation_handle_refs[0]
-            operation = self._sdc_device.get_operation_by_handle(operation_handle_ref)
-            if operation is None:
-                error_texts.append('operation not known: "{}"'.format(operation_handle_ref))
-            else:
-                request_tag = request.body_node[0].tag
-                if request_tag != operation.OP_QNAME:
-                    self._logger.error(f'operation types mismatch operation handle ={operation_handle_ref}!')
-                    error_texts.append(
-                        f'mismatch Operation {operation_handle_ref}: expect {operation.OP_QNAME}, got {request_tag}')
-        else:
-            error_texts.append('no OperationHandleRef found in Request')
-
-        if error_texts:
-            self._logger.warn('_handle_operation_request: error_texts = {}'.format(error_texts))
-
-            invocation_state_node.text = pmtypes.InvocationState.FAILED
-            transaction_id_node.text = '0'
-            operation_error_node = etree_.SubElement(invocation_info_node, msgTag('InvocationError'))
-            operation_error_node.text = pmtypes.InvocationError.INVALID_VALUE
-            operation_error_msg_node = etree_.SubElement(invocation_info_node,
-                                                         msgTag('InvocationErrorMessage'))
-            operation_error_msg_node.text = '; '.join(error_texts)
-        else:
-            self._logger.info('_handle_operation_request: enqueued')
-            transaction_id = self._sdc_device.enqueue_operation(operation, request, argument)
-            transaction_id_node.text = str(transaction_id)
-            invocation_state_node.text = pmtypes.InvocationState.WAIT
-
-        response.add_body_element(reply_body_node)
-        response.validate_body(self._bmm_schema)
-        return response
+        operation_request = self._sdc_device.msg_reader.read_set_component_state_request(request_data.message_data)
+        return self._handle_operation_request(request_data.message_data,
+                                              'SetComponentStateResponse',
+                                              operation_request)
 
     def add_wsdl_port_type(self, parent_node):
         port_type = self._mk_port_type_node(parent_node, True)
@@ -524,7 +491,7 @@ class StateEventService(DPWSPortTypeImpl):
         _mk_wsdl_one_way_operation(port_type, operation_name='EpisodicMetricReport')
 
 
-class ContextService(DPWSPortTypeImpl):
+class ContextService(ServiceWithOperations):
     WSDLMessageDescriptions = (WSDLMessageDescription('SetContextState', ('{}:SetContextState'.format(_msg_prefix),)),
                                WSDLMessageDescription('SetContextStateResponse',
                                                       ('{}:SetContextStateResponse'.format(_msg_prefix),)),
@@ -547,78 +514,23 @@ class ContextService(DPWSPortTypeImpl):
         actions = self._mdib.sdc_definitions.Actions
         hosting_service.register_post_handler(actions.SetContextState, self._on_set_context_state)
         hosting_service.register_post_handler(actions.GetContextStates, self._on_get_context_states)
-        hosting_service.register_post_handler(msgTag('SetContextState'), self._on_set_context_state)
-        hosting_service.register_post_handler(msgTag('GetContextStates'), self._on_get_context_states)
+        hosting_service.register_post_handler('SetContextState', self._on_set_context_state)
+        hosting_service.register_post_handler('GetContextStates', self._on_get_context_states)
 
     def _on_set_context_state(self, request_data):
-        """ enqueues an operation and returns a 'wait' reponse."""
-        response = pysoap.soapenvelope.Soap12Envelope(
-            self._mdib.nsmapper.partial_map(Prefixes.S12, Prefixes.PM, Prefixes.WSA, Prefixes.MSG))
-        reply_address = request_data.envelope.address.mk_reply_address(
-            # action=self._get_action_string('SetContextStateResponse'))
-            action=self.actions.SetContextStateResponse)
-        response.add_header_object(reply_address)
-        reply_body_node = etree_.Element(msgTag('SetContextStateResponse'),
-                                         nsmap=Prefixes.partial_map(Prefixes.MSG),
-                                         attrib={'SequenceId': self._mdib.sequence_id,
-                                                 'MdibVersion': str(self._mdib.mdib_version)})
-        invocation_info_node = etree_.SubElement(reply_body_node,
-                                                 msgTag('InvocationInfo'))
-        transaction_id_node = etree_.SubElement(invocation_info_node, msgTag('TransactionId'))
-        invocation_state_node = etree_.SubElement(invocation_info_node, msgTag('InvocationState'))
-
-        error_texts = []
-
-        operation_handle_refs = request_data.envelope.body_node.xpath(
-            'msg:SetContextState/msg:OperationHandleRef/text()',
-            namespaces=nsmap)
-        if len(operation_handle_refs) == 1:
-            operation_handle_ref = operation_handle_refs[0]
-            operation = self._sdc_device.get_operation_by_handle(operation_handle_ref)
-            if operation is None:
-                error_texts.append('operation "{}" not known'.format(operation_handle_ref))
-        elif len(operation_handle_refs) > 1:
-            error_texts.append('multiple OperationHandleRefs found: "{}"'.format(operation_handle_refs))
-        else:
-            error_texts.append('no OperationHandleRef found')
-
-        if error_texts:
-            invocation_state_node.text = pmtypes.InvocationState.FAILED
-            transaction_id_node.text = '0'
-            operation_error_node = etree_.SubElement(invocation_info_node, msgTag('InvocationError'))
-            operation_error_node.text = pmtypes.InvocationError.INVALID_VALUE
-            operation_error_msg_node = etree_.SubElement(invocation_info_node,
-                                                         msgTag('InvocationErrorMessage'))
-            operation_error_msg_node.text = '; '.join(error_texts)
-        else:
-            proposed_context_state_nodes = request_data.envelope.body_node.xpath('*/msg:ProposedContextState',
-                                                                                 namespaces=nsmap)
-            msg_reader = self._mdib.msg_reader
-            argument = [msg_reader.mk_statecontainer_from_node(p, self._mdib) for p in proposed_context_state_nodes]
-            transaction_id = self._sdc_device.enqueue_operation(operation, request_data.envelope, argument)
-            transaction_id_node.text = str(transaction_id)
-            invocation_state_node.text = pmtypes.InvocationState.WAIT
-
-        response.add_body_element(reply_body_node)
-        response.validate_body(self._bmm_schema)
-        return response
+        operation_request = self._sdc_device.msg_reader.read_set_context_state_request(request_data.message_data)
+        return self._handle_operation_request(request_data.message_data,
+                                              'SetContextStateResponse',
+                                              operation_request)
 
     def _on_get_context_states(self, request_data):
         self._logger.debug('_on_get_context_states')
-        requested_handles = request_data.envelope.body_node.xpath('*/msg:HandleRef/text()', namespaces=nsmap)
+        requested_handles = self._sdc_device.msg_reader.read_get_context_states_request(request_data.message_data)
         if len(requested_handles) > 0:
             self._logger.info('_on_get_context_states requested Handles:{}', requested_handles)
-        nsmapper = self._mdib.nsmapper
-        response = pysoap.soapenvelope.Soap12Envelope(
-            nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        reply_address = request_data.envelope.address.mk_reply_address(
-            # action=self._get_action_string('GetContextStatesResponse'))
-            action=self.actions.GetContextStatesResponse)
-        response.add_header_object(reply_address)
-        response_node = etree_.Element(msgTag('GetContextStatesResponse'))
         with self._mdib.mdib_lock:
-            response_node.set('MdibVersion', str(self._mdib.mdib_version))
-            response_node.set('SequenceId', self._mdib.sequence_id)
+            mdib_version = self._mdib.mdib_version
+            sequence_id = self._mdib.sequence_id
             if len(requested_handles) == 0:
                 # MessageModel: If the HANDLE reference list is empty, all states in the MDIB SHALL be included in the result list.
                 context_state_containers = list(self._mdib.context_states.objects)
@@ -645,16 +557,9 @@ class ContextService(DPWSPortTypeImpl):
                         for state in tmp:
                             context_state_containers_lookup[state.Handle] = state
                 context_state_containers = context_state_containers_lookup.values()
-            tag = msgTag('ContextState')
-            if context_state_containers:
-                for container in context_state_containers:
-                    node = container.mk_state_node(tag)
-                    response_node.append(node)
-                    node.tag = msgTag('ContextState')
-        response.add_body_element(response_node)
-        self._logger.debug('_on_get_context_states returns {}', lambda: response.as_xml(pretty=False))
-        response.validate_body(self._bmm_schema)
-        return response
+        return self._sdc_device.msg_factory.mk_get_context_states_response_envelope(
+            request_data.message_data, self.actions.GetContextStatesResponse, mdib_version, sequence_id,
+            context_state_containers, self._mdib.nsmapper)
 
     def add_wsdl_port_type(self, parent_node):
         port_type = self._mk_port_type_node(parent_node, True)
@@ -723,5 +628,3 @@ def _add_policy_dpws_profile(parent_node):
     wsp_policy_node = etree_.SubElement(parent_node, etree_.QName(WSP_NS, 'Policy'), attrib=None)
     _ = etree_.SubElement(wsp_policy_node, dpwsTag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
     _ = etree_.SubElement(wsp_policy_node, mdpwsTag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
-
-

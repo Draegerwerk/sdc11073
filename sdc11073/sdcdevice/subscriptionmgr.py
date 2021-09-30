@@ -1,5 +1,5 @@
 from __future__ import annotations
-import copy
+
 import http.client
 import socket
 import time
@@ -8,7 +8,6 @@ import urllib
 import uuid
 from abc import ABC, abstractmethod
 from collections import deque, defaultdict
-
 from typing import ForwardRef, List, Iterable, TYPE_CHECKING
 
 from lxml import etree as etree_
@@ -17,21 +16,20 @@ from .. import isoduration
 from .. import loghelper
 from .. import multikey
 from .. import observableproperties
-from ..compression import CompressionHandler
 from ..etc import apply_map, short_filter_string
-from ..namespaces import EventingActions
 from ..namespaces import Prefixes
-from ..namespaces import xmlTag, wseTag, wsaTag, msgTag, nsmap, DocNamespaceHelper
+from ..namespaces import wseTag, DocNamespaceHelper
 from ..pmtypes import InvocationError, InvocationState
 from ..pysoap.soapclient import SoapClient, HTTPReturnCodeError
-from ..pysoap.soapenvelope import Soap12Envelope, SoapFault, WsAddress, WsaEndpointReferenceType
+from ..pysoap.soapenvelope import SoapFault, WsAddress
 
 if TYPE_CHECKING:
     from ssl import SSLContext
     from ..definitions_base import BaseDefinitions, SchemaValidators
     from ..pysoap.msgfactory import AbstractMessageFactory
     from ..httprequesthandler import RequestData
-
+    from ..pysoap.msgreader import SubscribeRequest
+    from ..pysoap.soapenvelope import Soap12Envelope
 
 MAX_ROUNDTRIP_VALUES = 20
 
@@ -63,48 +61,34 @@ def _mk_dispatch_identifier(reference_parameter_node, path_suffix):
     return reference_parameter_node.text, path_suffix
 
 
-def _mk_dispatch_identifier_from_request(request_data):
-    """ReferenceParameters and remaining path are both used to identify subscription"""
-    reference_parameters_node = request_data.envelope.header_node.find(wsaTag('ReferenceParameters'), namespaces=nsmap)
-    if reference_parameters_node is None:
-        identifier_node = None
-    else:
-        identifier_node = reference_parameters_node[0]
-        # identifier_node = request_data.envelope.header_node.find(_DevSubscription.IDENT_TAG, namespaces=nsmap)
-    path_suffix = '/'.join(request_data.path_elements)  # not consumed path elements
-    return _mk_dispatch_identifier(identifier_node, path_suffix)
-
-
 class _DevSubscription:
     MAX_NOTIFY_ERRORS = 1
     IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
 
-    def __init__(self, mode, base_urls, notify_to_address, notify_ref_node, end_to_address, end_to_ref_node, expires,
-                 max_subscription_duration, filter_, ssl_context, schema_validators,
-                 accepted_encodings):  # pylint:disable=too-many-arguments
+    def __init__(self, subscribe_request, base_urls, max_subscription_duration, ssl_context, schema_validators):
         """
         :param notify_to_address: dom node of Subscribe Request
         :param end_to_address: dom node of Subscribe Request
         :param expires: seconds as float
         :param filter: a space separated list of actions, or only one action
         """
-        self.mode = mode
+        self.mode = subscribe_request.mode
         self.base_urls = base_urls
-        self.notify_to_address = notify_to_address
-        self._notify_to_url = urllib.parse.urlparse(notify_to_address)
+        self.notify_to_address = subscribe_request.notify_to_address
+        self._notify_to_url = urllib.parse.urlparse(subscribe_request.notify_to_address)
 
         self.notify_ref_nodes = []
-        if notify_ref_node is not None:
-            self.notify_ref_nodes = list(notify_ref_node)  # all children
+        if subscribe_request.notify_ref_node is not None:
+            self.notify_ref_nodes = list(subscribe_request.notify_ref_node)  # all children
 
-        self.end_to_address = end_to_address
-        if end_to_address is not None:
-            self._end_to_url = urllib.parse.urlparse(end_to_address)
+        self.end_to_address = subscribe_request.end_to_address
+        if self.end_to_address is not None:
+            self._end_to_url = urllib.parse.urlparse(self.end_to_address)
         else:
             self._end_to_url = None
         self.end_to_ref_nodes = []
-        if end_to_ref_node is not None:
-            self.end_to_ref_nodes = list(end_to_ref_node)  # all children
+        if subscribe_request.end_to_ref_node is not None:
+            self.end_to_ref_nodes = list(subscribe_request.end_to_ref_node)  # all children
         self.identifier_uuid = uuid.uuid4()
         self.reference_parameter = None  # etree node, used for reference parameters based dispatching
         self.path_suffix = None  # used for path based dispatching
@@ -112,12 +96,12 @@ class _DevSubscription:
         self._max_subscription_duration = max_subscription_duration
         self._started = None
         self._expireseconds = None
-        self.renew(expires)  # sets self._started and self._expireseconds
-        self._filters = filter_.split()
+        self.renew(subscribe_request.expires)  # sets self._started and self._expireseconds
+        self._filters = subscribe_request.subscription_filters
         self._ssl_context = ssl_context
         self._schema_validators = schema_validators
 
-        self._accepted_encodings = accepted_encodings  # these encodings does the other side accept
+        self._accepted_encodings = subscribe_request.accepted_encodings  # these encodings does the other side accept
         self._soap_client = None
 
         self._notify_errors = 0
@@ -171,23 +155,6 @@ class _DevSubscription:
                 return True
         return False
 
-    def _mk_end_report(self, envelope, action):
-        to_addr = self.end_to_address or self.notify_to_address
-        addr = WsAddress(addr_to=to_addr,
-                         action=action,
-                         addr_from=None,
-                         reply_to=None,
-                         fault_to=None,
-                         reference_parameters_node=None)
-        envelope.set_address(addr)
-        ref_nodes = self.end_to_ref_nodes or self.notify_ref_nodes
-        for ident_node in ref_nodes:
-            ident_node_ = copy.copy(ident_node)
-            # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
-            ident_node_.set(wsaTag('IsReferenceParameter'), 'true')
-            envelope.add_header_element(ident_node_)
-        return envelope
-
     def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
         if not self.is_valid:
             return
@@ -201,7 +168,7 @@ class _DevSubscription:
         try:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
 
-            self._soap_client.post_soap_envelope_to(self._notify_to_url.path, soap_envelope, response_factory=None,
+            self._soap_client.post_soap_envelope_to(self._notify_to_url.path, soap_envelope,
                                                     msg='send_notification_report {}'.format(action))
             try:
                 roundtrip_time = roundtrip_timer.result(0)
@@ -219,41 +186,19 @@ class _DevSubscription:
             self._is_connection_error = True
             raise
 
-    def send_notification_end_message(self, action, code='SourceShuttingDown', reason='Event source going off line.'):
-        doc_nsmap = DocNamespaceHelper().doc_ns_map
+    def send_notification_end_message(self, msg_factory, code='SourceShuttingDown',
+                                      reason='Event source going off line.'):
         my_addr = '{}:{}/{}'.format(self.base_urls[0].scheme, self.base_urls[0].netloc, self.base_urls[0].path)
 
         if not self.is_valid:
             return
         if self._soap_client is None:
             return
-        envelope = Soap12Envelope(doc_nsmap)
-
-        subscription_end_node = etree_.Element(wseTag('SubscriptionEnd'),
-                                               nsmap=Prefixes.partial_map(Prefixes.WSE, Prefixes.WSA, Prefixes.XML))
-        subscription_manager_node = etree_.SubElement(subscription_end_node, wseTag('SubscriptionManager'))
-        # child of Subscriptionmanager is the endpoint reference of the subscription manager (wsa:EndpointReferenceType)
-        if self.reference_parameter:
-            reference_parameters_node = etree_.Element(wsaTag('ReferenceParameters'))
-            reference_parameters_node.append(copy.copy(self.reference_parameter))
-        else:
-            reference_parameters_node = None
-        epr = WsaEndpointReferenceType(address=my_addr, reference_parameters_node=reference_parameters_node)
-        epr.as_etree_subnode(subscription_manager_node)
-
-        # remark: optionally one could add own address and identifier here ...
-        status_node = etree_.SubElement(subscription_end_node, wseTag('Status'))
-        status_node.text = 'wse:{}'.format(code)
-        reason_node = etree_.SubElement(subscription_end_node, wseTag('Reason'),
-                                        attrib={xmlTag('lang'): 'en-US'})
-        reason_node.text = reason
-
-        envelope.add_body_element(subscription_end_node)
-        rep = self._mk_end_report(envelope, action)
+        envelope = msg_factory.mk_notification_end_report(self, my_addr, code, reason)
         try:
             url = self._end_to_url or self._notify_to_url
-            self._soap_client.post_soap_envelope_to(url.path, rep, response_factory=lambda x, schema: x,
-                                                    msg='send_notification_end_message {}'.format(action))
+            self._soap_client.post_soap_envelope_to(url.path, envelope,
+                                                    msg='send_notification_end_message')
             self._notify_errors = 0
             self._is_connection_error = False
             self._is_closed = True
@@ -279,36 +224,6 @@ class _DevSubscription:
             self.remaining_seconds,
             short_filter_string(self._filters))
 
-    @classmethod
-    def from_soap_envelope(cls, envelope, ssl_context, schema_validators, accepted_encodings, max_subscription_duration,
-                           base_urls):
-        end_to_address = None
-        end_to_ref_node = []
-        end_to_addresses = envelope.body_node.xpath('wse:Subscribe/wse:EndTo', namespaces=nsmap)
-        if len(end_to_addresses) == 1:
-            end_to_node = end_to_addresses[0]
-            end_to_address = end_to_node.xpath('wsa:Address/text()', namespaces=nsmap)[0]
-            end_to_ref_node = end_to_node.find('wsa:ReferenceParameters', namespaces=nsmap)
-
-        # determine (mandatory) notification address
-        delivery_node = envelope.body_node.xpath('wse:Subscribe/wse:Delivery', namespaces=nsmap)[0]
-        notify_to_node = delivery_node.find('wse:NotifyTo', namespaces=nsmap)
-        notify_to_address = notify_to_node.xpath('wsa:Address/text()', namespaces=nsmap)[0]
-        notify_ref_node = notify_to_node.find('wsa:ReferenceParameters', namespaces=nsmap)
-
-        mode = delivery_node.get('Mode')  # mandatory attribute
-
-        expires_nodes = envelope.body_node.xpath('wse:Subscribe/wse:Expires/text()', namespaces=nsmap)
-        if len(expires_nodes) == 0:
-            expires = None
-        else:
-            expires = isoduration.parse_duration(str(expires_nodes[0]))
-
-        filter_ = envelope.body_node.xpath('wse:Subscribe/wse:Filter/text()', namespaces=nsmap)[0]
-
-        return cls(str(mode), base_urls, notify_to_address, notify_ref_node, end_to_address, end_to_ref_node,
-                   expires, max_subscription_duration, str(filter_), ssl_context, schema_validators, accepted_encodings)
-
     def get_roundtrip_stats(self):
         if len(self.last_roundtrip_times) > 0:
             return _RoundTripData(self.last_roundtrip_times, self.max_roundtrip_time)
@@ -325,9 +240,9 @@ class AbstractSubscriptionsManager(ABC):
                  schema_validators: SchemaValidators,
                  msg_factory: AbstractMessageFactory,
                  supported_encodings: List[str],
-                 max_subscription_duration: [float, None]=None,
-                 log_prefix: str =None,
-                 chunked_messages: bool=False):
+                 max_subscription_duration: [float, None] = None,
+                 log_prefix: str = None,
+                 chunked_messages: bool = False):
         """
 
         :param ssl_context:
@@ -341,7 +256,7 @@ class AbstractSubscriptionsManager(ABC):
         """
 
     @abstractmethod
-    def on_subscribe_request(self, request_data: RequestData) -> Soap12Envelope:
+    def on_subscribe_request(self, request_data: RequestData, subscribe_request: SubscribeRequest) -> Soap12Envelope:
         """
 
         :param request_data: the request
@@ -384,9 +299,9 @@ class AbstractSubscriptionsManager(ABC):
     def notify_operation(self, operation: ForwardRef('OperationDefinition'),
                          transaction_id: int,
                          invocation_state: InvocationState,
-                         nsmapper: DocNamespaceHelper,
-                         sequence_id: str,
                          mdib_version: int,
+                         sequence_id: str,
+                         nsmapper: DocNamespaceHelper,
                          error: [InvocationError, None] = None,
                          error_message: [str, None] = None) -> None:
         """
@@ -576,12 +491,13 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
     NotificationPrefixes = [Prefixes.PM, Prefixes.S12, Prefixes.WSA, Prefixes.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
-    def __init__(self, ssl_context, sdc_definitions, schema_validators, msg_factory, supported_encodings,
+    def __init__(self, ssl_context, sdc_definitions, schema_validators, msg_factory, msg_reader, supported_encodings,
                  max_subscription_duration=None, log_prefix=None, chunked_messages=False):
         self._ssl_context = ssl_context
         self.schema_validators = schema_validators
         self.sdc_definitions = sdc_definitions
         self._msg_factory = msg_factory
+        self._msg_reader = msg_reader
         self.log_prefix = log_prefix
         self._logger = loghelper.get_logger_adapter('sdc.device.subscrMgr', self.log_prefix)
         self._chunked_messages = chunked_messages
@@ -600,140 +516,93 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
     def set_base_urls(self, base_urls):
         self.base_urls = base_urls
 
-    def _mk_subscription_instance(self, envelope, accepted_encodings):
-        return _DevSubscription.from_soap_envelope(
-            envelope, self._ssl_context, self.schema_validators, accepted_encodings,
-            self._max_subscription_duration, self.base_urls)
+    def _mk_subscription_instance(self, subscribe_request):
+        return _DevSubscription(subscribe_request, self.base_urls, self._max_subscription_duration,
+                                self._ssl_context, self.schema_validators)
 
-    def on_subscribe_request(self, request_data):
-        accepted_encodings = CompressionHandler.parse_header(request_data.http_header.get('Accept-Encoding'))
-        subscr = self._mk_subscription_instance(request_data.envelope, accepted_encodings)
+    def on_subscribe_request(self, request_data, subscribe_request):
+        subscr = self._mk_subscription_instance(subscribe_request)
         # assign a soap client
         key = subscr._notify_to_url.netloc  # pylint:disable=protected-access
         soap_client = self.soap_clients.get(key)
         if soap_client is None:
             soap_client = SoapClient(key, loghelper.get_logger_adapter('sdc.device.soap', self.log_prefix),
                                      ssl_context=self._ssl_context, sdc_definitions=self.sdc_definitions,
+                                     msg_reader=self._msg_reader,
                                      supported_encodings=self._supported_encodings,
-                                     request_encodings=accepted_encodings,
+                                     request_encodings=subscribe_request.accepted_encodings,
                                      chunked_requests=self._chunked_messages)
             self.soap_clients[key] = soap_client
         subscr.set_soap_client(soap_client)
         with self._subscriptions.lock:
             self._subscriptions.add_object(subscr)
         self._logger.info('new {}', subscr)
-
-        response = Soap12Envelope(Prefixes.partial_map(*self.NotificationPrefixes))
-        reply_address = request_data.envelope.address.mk_reply_address(EventingActions.SubscribeResponse)
-        response.add_header_object(reply_address)
-        subscribe_response_node = etree_.Element(wseTag('SubscribeResponse'))
-        subscription_manager_node = etree_.SubElement(subscribe_response_node, wseTag('SubscriptionManager'))
-        # child of subscription manager is the endpoint reference of the subscription manager (wsa:EndpointReferenceType)
-        if subscr.reference_parameter is not None:
-            reference_parameters_node = etree_.Element(wsaTag('ReferenceParameters'))
-            reference_parameters_node.append(copy.copy(subscr.reference_parameter))
-        else:
-            reference_parameters_node = None
-        path = '/'.join(request_data.consumed_path_elements)
-        path_suffix = '' if subscr.path_suffix is None else f'/{subscr.path_suffix}'
-        subscription_address = f'{self.base_urls[0].scheme}://{self.base_urls[0].netloc}/{path}{path_suffix}'
-        epr = WsaEndpointReferenceType(address=subscription_address,
-                                       reference_parameters_node=reference_parameters_node)
-        epr.as_etree_subnode(subscription_manager_node)
-        expires_node = etree_.SubElement(subscribe_response_node, wseTag('Expires'))
-        expires_node.text = subscr.expire_string  # simply confirm request
-        response.add_body_element(subscribe_response_node)
-        self._logger.debug('on_subscribe_request returns {}', lambda: response.as_xml(pretty=False))
+        response = self._msg_factory.mk_subscribe_response_envelope(request_data, subscr, self.base_urls)
         return response
 
     def on_unsubscribe_request(self, request_data):
-        subscr = self._get_subscription_for_request(request_data)
-        if subscr is None:
-            self._logger.warn('unsubscribe: no object found for id={}',
-                              _mk_dispatch_identifier_from_request(request_data))
-            response = SoapFault(request_data.envelope,
+        subscription = self._get_subscription_for_request(request_data)
+        if subscription is None:
+            response = SoapFault(request_data.message_data.raw_data,
                                  code='Receiver',
                                  reason='unknown Subscription identifier',
                                  subCode=wseTag('InvalidMessage')
                                  )
         else:
-            subscr.close()
+            subscription.close()
             with self._subscriptions.lock:
-                self._subscriptions.remove_object(subscr)
+                self._subscriptions.remove_object(subscription)
             self._logger.info('unsubscribe: object found and removed (Xaddr = {}, filter = {})',
-                              subscr.notify_to_address,
-                              subscr._filters)  # pylint: disable=protected-access
+                              subscription.notify_to_address,
+                              subscription._filters)  # pylint: disable=protected-access
             # now check if we can close the soap client
-            key = subscr._notify_to_url.netloc  # pylint: disable=protected-access
+            key = subscription._notify_to_url.netloc  # pylint: disable=protected-access
             subscriptions_with_same_soap_client = self._subscriptions.netloc.get(key, [])
             if len(subscriptions_with_same_soap_client) == 0:
                 self.soap_clients[key].close()
                 del self.soap_clients[key]
                 self._logger.info('unsubscribe: closed soap client to {})', key)
-            response = Soap12Envelope(nsmap)
-            reply_address = request_data.envelope.address.mk_reply_address(EventingActions.UnsubscribeResponse)
-            response.add_header_object(reply_address)
-            # response has empty body
+            response = self._msg_factory.mk_unsubscribe_response_envelope(request_data)
         return response
 
     def on_get_status_request(self, request_data):
-        self._logger.debug('on_get_status_request {}', lambda: request_data.envelope.as_xml(pretty=True))
-        subscr = self._get_subscription_for_request(request_data)
-        if subscr is None:
-            response = SoapFault(request_data.envelope,
+        self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.raw_data.as_xml(pretty=True))
+        subscription = self._get_subscription_for_request(request_data)
+        if subscription is None:
+            response = SoapFault(request_data.message_data.raw_data,
                                  code='Receiver',
                                  reason='unknown Subscription identifier',
                                  subCode=wseTag('InvalidMessage')
                                  )
         else:
-            response = Soap12Envelope(Prefixes.partial_map(*self.NotificationPrefixes))
-            reply_address = request_data.envelope.address.mk_reply_address(EventingActions.GetStatusResponse)
-            response.add_header_object(reply_address)
-            renew_response_node = etree_.Element(wseTag('GetStatusResponse'))
-            expires_node = etree_.SubElement(renew_response_node, wseTag('Expires'))
-            expires_node.text = subscr.expire_string  # simply confirm request
-            response.add_body_element(renew_response_node)
+            response = self._msg_factory.mk_getstatus_response_envelope(request_data, subscription.remaining_seconds)
         return response
 
     def on_renew_request(self, request_data):
-        expires = request_data.envelope.body_node.xpath('wse:Renew/wse:Expires/text()', namespaces=nsmap)
-        if len(expires) == 0:
-            expires = None
-            self._logger.debug('on_renew_request: no requested duration found, allowing max.')
-        else:
-            expires = isoduration.parse_duration(str(expires[0]))
-            self._logger.debug('on_renew_request {} seconds', expires)
-
-        subscr = self._get_subscription_for_request(request_data)
-        if subscr is None:
-            response = SoapFault(request_data.envelope,
+        reader = request_data.message_data.msg_reader
+        expires = reader.read_renew_request(request_data.message_data)
+        subscription = self._get_subscription_for_request(request_data)
+        if subscription is None:
+            response = SoapFault(request_data.message_data.raw_data,
                                  code='Receiver',
                                  reason='unknown Subscription identifier',
                                  subCode=wseTag('UnableToRenew')
                                  )
 
         else:
-            subscr.renew(expires)
-
-            response = Soap12Envelope(Prefixes.partial_map(*self.NotificationPrefixes))
-            reply_address = request_data.envelope.address.mk_reply_address(EventingActions.RenewResponse)
-            response.add_header_object(reply_address)
-            renew_response_node = etree_.Element(wseTag('RenewResponse'))
-            expires_node = etree_.SubElement(renew_response_node, wseTag('Expires'))
-            expires_node.text = subscr.expire_string
-            response.add_body_element(renew_response_node)
+            subscription.renew(expires)
+            response = self._msg_factory.mk_renew_response_envelope(request_data, subscription.remaining_seconds)
         return response
 
     def end_all_subscriptions(self, send_subscription_end):
-        action = EventingActions.SubscriptionEnd
         with self._subscriptions.lock:
             if send_subscription_end:
-                apply_map(lambda subscription: subscription.send_notification_end_message(action),
+                apply_map(lambda subscription: subscription.send_notification_end_message(self._msg_factory),
                           self._subscriptions.objects)
             self._subscriptions.clear()
 
     def notify_operation(self, operation, transaction_id, invocation_state,
-                         nsmapper, sequence_id, mdib_version,
+                         mdib_version, sequence_id, nsmapper,
                          error=None, error_message=None):
         operation_handle_ref = operation.handle
         self._logger.info(
@@ -742,10 +611,9 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         action = self.sdc_definitions.Actions.OperationInvokedReport
         subscribers = self._get_subscriptions_for_action(action)
 
-        ns_map = nsmapper.partial_map(Prefixes.MSG, Prefixes.PM)
-        body_node = self._msg_factory.mk_operation_invoked_report_body(ns_map, mdib_version, sequence_id,
+        body_node = self._msg_factory.mk_operation_invoked_report_body(mdib_version, sequence_id,
                                                                        operation_handle_ref, transaction_id,
-                                                                       invocation_state, error, error_message)
+                                                                       invocation_state, error, error_message, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'notify_operation')
         self._do_housekeeping()
 
@@ -755,9 +623,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         if not subscribers:
             return
         self._logger.debug('sending episodic metric report {}', states)
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
         body_node = self._msg_factory.mk_episodic_metric_report_body(
-            states, ns_map, mdib_version, sequence_id)
+            mdib_version, sequence_id, states, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_metric_report')
         self._do_housekeeping()
 
@@ -768,9 +635,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
             return
         self._logger.debug('sending periodic metric report, contains last {} episodic updates',
                            len(periodic_states_list))
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
         body_node = self._msg_factory.mk_periodic_metric_report_body(
-            periodic_states_list, ns_map, periodic_states_list[-1].mdib_version, sequence_id)
+            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_metric_report')
         self._do_housekeeping()
 
@@ -780,9 +646,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         if not subscribers:
             return
         self._logger.debug('sending episodic alert report {}', states)
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
         body_node = self._msg_factory.mk_episodic_alert_report_body(
-            states, ns_map, mdib_version, sequence_id)
+            mdib_version, sequence_id, states, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_alert_report')
         self._do_housekeeping()
 
@@ -793,9 +658,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
             return
         self._logger.debug('sending periodic alert report, contains last {} episodic updates',
                            len(periodic_states_list))
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
         body_node = self._msg_factory.mk_periodic_alert_report_body(
-            periodic_states_list, ns_map, periodic_states_list[-1].mdib_version, sequence_id)
+            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_alert_report')
         self._do_housekeeping()
 
@@ -805,9 +669,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         if not subscribers:
             return
         self._logger.debug('sending episodic operational state report {}', states)
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
         body_node = self._msg_factory.mk_episodic_operational_state_report_body(
-            states, ns_map, mdib_version, sequence_id)
+            mdib_version, sequence_id, states, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_operational_state_report')
         self._do_housekeeping()
 
@@ -818,9 +681,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
             return
         self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
                            len(periodic_states_list))
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
         body_node = self._msg_factory.mk_periodic_operational_state_report_body(
-            periodic_states_list, ns_map, periodic_states_list[-1].mdib_version, sequence_id)
+            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_operational_state_report')
         self._do_housekeeping()
 
@@ -830,9 +692,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         if not subscribers:
             return
         self._logger.debug('sending episodic component report {}', states)
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
         body_node = self._msg_factory.mk_episodic_component_state_report_body(
-            states, ns_map, mdib_version, sequence_id)
+            mdib_version, sequence_id, states, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_component_state_report')
         self._do_housekeeping()
 
@@ -843,9 +704,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
             return
         self._logger.debug('sending periodic component report, contains last {} episodic updates',
                            len(periodic_states_list))
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
         body_node = self._msg_factory.mk_periodic_component_state_report_body(
-            periodic_states_list, ns_map, periodic_states_list[-1].mdib_version, sequence_id)
+            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_component_state_report')
         self._do_housekeeping()
 
@@ -855,9 +715,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         if not subscribers:
             return
         self._logger.debug('sending episodic context report {}', states)
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
         body_node = self._msg_factory.mk_episodic_context_report_body(
-            states, ns_map, mdib_version, sequence_id)
+            mdib_version, sequence_id, states, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_context_report')
         self._do_housekeeping()
 
@@ -868,9 +727,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
             return
         self._logger.debug('sending periodic context report, contains last {} episodic updates',
                            len(periodic_states_list))
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
         body_node = self._msg_factory.mk_periodic_context_report_body(
-            periodic_states_list, ns_map, periodic_states_list[-1].mdib_version, sequence_id)
+            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_context_report')
         self._do_housekeeping()
 
@@ -880,9 +738,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         if not subscribers:
             return
         self._logger.debug('sending real time samples report {}', realtime_sample_states)
-        ns_map = nsmapper.partial_map(*self.BodyNodePrefixes)
         body_node = self._msg_factory.mk_realtime_samples_report_body(
-            realtime_sample_states, ns_map, mdib_version, sequence_id)
+            mdib_version, sequence_id, realtime_sample_states, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, None)
         self._do_housekeeping()
 
@@ -892,32 +749,10 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         if not subscribers:
             return
         self._logger.debug('sending DescriptionModificationReport upd={} crt={} del={}', updated, created, deleted)
-        body_node = etree_.Element(msgTag('DescriptionModificationReport'),
-                                   attrib={'SequenceId': sequence_id,
-                                           'MdibVersion': str(mdib_version)},
-                                   nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM))
-        self._mk_descriptor_updates_report_part(body_node, 'Upt', updated, updated_states)
-        self._mk_descriptor_updates_report_part(body_node, 'Crt', created, updated_states)
-        self._mk_descriptor_updates_report_part(body_node, 'Del', deleted, updated_states)
-
+        body_node = self._msg_factory.mk_description_modification_report_body(
+            mdib_version, sequence_id, updated, created, deleted, updated_states, nsmapper)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_descriptor_updates')
         self._do_housekeeping()
-
-    @staticmethod
-    def _mk_descriptor_updates_report_part(parent_node, modification_type, descriptors, updated_states):
-        """ Helper that creates ReportPart."""
-        # This method creates one ReportPart for every descriptor.
-        # An optimization is possible by grouping all descriptors with the same parent handle into one ReportPart.
-        # This is not implemented, and I think it is not needed.
-        for descriptor in descriptors:
-            report_part = etree_.SubElement(parent_node, msgTag('ReportPart'),
-                                            attrib={'ModificationType': modification_type})
-            if descriptor.parent_handle is not None:  # only Mds can have None
-                report_part.set('ParentDescriptor', descriptor.parent_handle)
-            report_part.append(descriptor.mk_descriptor_node(tag=msgTag('Descriptor')))
-            related_state_containers = [s for s in updated_states if s.descriptorHandle == descriptor.handle]
-            state_name = msgTag('State')
-            report_part.extend([state.mk_state_node(state_name) for state in related_state_containers])
 
     def _send_to_subscribers(self, subscribers, body_node, action, nsmapper, what):
         for subscriber in subscribers:
@@ -953,13 +788,15 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
             return [s for s in self._subscriptions.objects if s.matches(action)]
 
     def _get_subscription_for_request(self, request_data):
-        request_name = request_data.envelope.body_node[0].tag
-        dispatch_identifier = _mk_dispatch_identifier_from_request(request_data)
+        reader = request_data.message_data.msg_reader
+        identifier = reader.read_identifier(request_data.message_data)
+        path_suffix = '/'.join(request_data.path_elements)  # not consumed path elements
+        dispatch_identifier = _mk_dispatch_identifier(identifier, path_suffix)
         with self._subscriptions.lock:
-            subscr = self._subscriptions.dispatch_identifier.get_one(dispatch_identifier)
-            if subscr is None:
-                self._logger.error('on {}: unknown Subscription identifier "{}"', request_name, dispatch_identifier)
-            return subscr
+            subscription = self._subscriptions.dispatch_identifier.get_one(dispatch_identifier, allow_none=True)
+        if subscription is None:
+            self._logger.error('unknown Subscription identifier "{}"', dispatch_identifier)
+        return subscription
 
     def _do_housekeeping(self):
         """ remove expired or invalid subscriptions"""
@@ -1025,8 +862,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
 class SubscriptionsManagerPath(_SubscriptionsManagerBase):
     """This implementation uses path dispatching to identify subscriptions."""
 
-    def _mk_subscription_instance(self, envelope, accepted_encodings):
-        subscription = super()._mk_subscription_instance(envelope, accepted_encodings)
+    def _mk_subscription_instance(self, subscribe_request):
+        subscription = super()._mk_subscription_instance(subscribe_request)
         subscription.path_suffix = subscription.identifier_uuid.hex
         return subscription
 
@@ -1034,8 +871,8 @@ class SubscriptionsManagerPath(_SubscriptionsManagerBase):
 class SubscriptionsManagerReferenceParam(_SubscriptionsManagerBase):
     """This implementation uses reference parameters to identify subscriptions."""
 
-    def _mk_subscription_instance(self, envelope, accepted_encodings):
-        subscription = super()._mk_subscription_instance(envelope, accepted_encodings)
+    def _mk_subscription_instance(self, subscribe_request):
+        subscription = super()._mk_subscription_instance(subscribe_request)
         # add  a reference parameter
         subscription.reference_parameter = etree_.Element(_DevSubscription.IDENT_TAG)
         subscription.reference_parameter.text = subscription.identifier_uuid.hex
