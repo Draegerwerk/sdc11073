@@ -66,7 +66,7 @@ class SoapMessageHandler:
         action = request_data.message_data.action
         func = self.get_post_handler(request_data)
         if func is None:
-            raise InvalidActionError(request_data.message_data.raw_data)
+            raise InvalidActionError(request_data.message_data.p_msg)
         returned_envelope = func(request_data)
         duration = time.monotonic() - begin
         self._logger.debug('incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements,
@@ -264,7 +264,7 @@ class DPWSHostedService(EventService):
         consumed_path_elements = request_data.consumed_path_elements
         http_header = request_data.http_header
         response = Soap12Envelope(_nsm.doc_ns_map)
-        reply_address = request_data.message_data.raw_data.address.mk_reply_address(
+        reply_address = request_data.message_data.p_msg.address.mk_reply_address(
             'http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Response')
         response.add_header_object(reply_address)
 

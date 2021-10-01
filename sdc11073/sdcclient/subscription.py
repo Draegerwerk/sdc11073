@@ -84,9 +84,9 @@ class _ClSubscription:
                 response_data = message_data.msg_reader.read_subscribe_response(message_data)
             except AttributeError:
                 self._logger.error('Subscribe response has unexpected content: {}',
-                                   message_data.raw_data.as_xml(pretty=True))
+                                   message_data.p_msg.as_xml(pretty=True))
                 self.is_subscribed = False
-                raise SoapResponseException(message_data.raw_data)
+                raise SoapResponseException(message_data.p_msg)
 
             if response_data is not None:
                 self._handle_subscribe_response(*response_data)
@@ -114,7 +114,7 @@ class _ClSubscription:
         try:
             message_data = self.dpws_hosted.soap_client.post_soap_envelope_to(
                 self._subscription_manager_address.path, envelope, msg='renew')
-            self._logger.debug('{}', message_data.raw_data.as_xml(pretty=True))
+            self._logger.debug('{}', message_data.p_msg.as_xml(pretty=True))
         except HTTPReturnCodeError as ex:
             self.is_subscribed = False
             self._logger.error('could not renew: {}'.format(HTTPReturnCodeError))
@@ -132,7 +132,7 @@ class _ClSubscription:
             else:
                 self.is_subscribed = False
                 self._logger.warn('renew failed: {}',
-                                  etree_.tostring(message_data.raw_data.body_node, pretty_print=True))
+                                  etree_.tostring(message_data.p_msg.body_node, pretty_print=True))
 
     def unsubscribe(self):
         if not self.is_subscribed:
@@ -148,9 +148,9 @@ class _ClSubscription:
         if response_action == EventingActions.UnsubscribeResponse:
             self._logger.info('unsubscribe: end of subscription {} was confirmed.', self._filter)
         else:
-            self._logger.error('unsubscribe: unexpected response action: {}', message_data.raw_data.as_xml(pretty=True))
+            self._logger.error('unsubscribe: unexpected response action: {}', message_data.p_msg.as_xml(pretty=True))
             raise RuntimeError(
-                'unsubscribe: unexpected response action: {}'.format(message_data.raw_data.as_xml(pretty=True)))
+                'unsubscribe: unexpected response action: {}'.format(message_data.p_msg.as_xml(pretty=True)))
 
     def _mk_get_status_envelope(self):
         return self._msg_factory.mk_getstatus_envelope(
@@ -179,8 +179,8 @@ class _ClSubscription:
             expire_seconds = message_data.msg_reader.read_get_status_response(message_data)
             if expire_seconds is None:
                 self._logger.warn('get_status for {}: Could not find "Expires" node! get_status={} ', self._filter,
-                                  message_data.raw_data.rawdata)
-                raise SoapResponseException(message_data.raw_data)
+                                  message_data.p_msg.rawdata)
+                raise SoapResponseException(message_data.p_msg)
 
             else:
                 self._logger.debug('get_status for {}: Expires in {} seconds, counter = {}', self._filter,
@@ -223,7 +223,7 @@ class _ClSubscription:
     def on_notification(self, request_data):
         self.event_counter += 1
         self.notification_data = request_data.message_data
-        self.notification_msg = request_data.message_data.raw_data
+        self.notification_msg = request_data.message_data.p_msg
 
     @property
     def short_filter_string(self):
@@ -366,7 +366,7 @@ class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):
         return subscription
 
     def _find_subscription(self, request_data, reference_parameters, log_prefix):
-        subscr_ident_list = request_data.message_data.raw_data.header_node.findall(_ClSubscription.IDENT_TAG,
+        subscr_ident_list = request_data.message_data.p_msg.header_node.findall(_ClSubscription.IDENT_TAG,
                                                                                    namespaces=_global_nsmap)
         if not subscr_ident_list:
             return None

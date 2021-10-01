@@ -73,13 +73,13 @@ class HostedServiceClient:
         message_data = self.post_soap_envelope(envelope, msg='get {}'.format(method),
                                                request_manipulator=request_manipulator)
         try:
-            message_data.raw_data.validate_body(self._bmm_schema)
+            message_data.p_msg.validate_body(self._bmm_schema)
         except ExtendedDocumentInvalid as ex:
             self._logger.error('Validation error: {}', ex)
         except TypeError as ex:
             self._logger.error('Could not validate Body, Type Error :{}', ex)
         except Exception as ex:
-            self._logger.error('Validation error: "{}" msg_node={}', ex, message_data.raw_data.msg_node)
+            self._logger.error('Validation error: "{}" msg_node={}', ex, message_data.p_msg.msg_node)
         return message_data
 
 
@@ -94,13 +94,13 @@ class GetServiceClient(HostedServiceClient):
 
         message_data = self._call_get_method(envelope, 'GetMdDescription',
                                              request_manipulator=request_manipulator)
-        return message_data.raw_data.msg_node
+        return message_data.p_msg.msg_node
 
     def get_mdib(self, request_manipulator=None):
         envelope = self._msg_factory.mk_getmdib_envelope(self.endpoint_reference.address, self.porttype)
 
         message_data = self._call_get_method(envelope, 'GetMdib', request_manipulator=request_manipulator)
-        return message_data.raw_data
+        return message_data.p_msg
 
     def get_mdib_node(self, request_manipulator=None):
         return self.get_mdib(request_manipulator).msg_node
@@ -124,7 +124,7 @@ class GetServiceClient(HostedServiceClient):
                                                             self.porttype, requested_handles)
         message_data = self._call_get_method(envelope, 'GetMdState',
                                              request_manipulator=request_manipulator)
-        return message_data.raw_data.msg_node
+        return message_data.p_msg.msg_node
 
 
 class SetServiceClient(HostedServiceClient):
@@ -323,7 +323,7 @@ class ContextServiceClient(HostedServiceClient):
             self.endpoint_reference.address, self.porttype, handles)
         message_data = self._call_get_method(
             envelope, 'GetContextStates', request_manipulator=request_manipulator)
-        message_data.raw_data.validate_body(self._bmm_schema)
+        message_data.p_msg.validate_body(self._bmm_schema)
         context_state_containers = message_data.msg_reader.read_context_states(message_data)
         return GetRequestResult(message_data.mdib_version, message_data.sequence_id, context_state_containers)
 
@@ -337,7 +337,7 @@ class ContextServiceClient(HostedServiceClient):
             self.endpoint_reference.address, self.porttype, identifications)
         message_data = self._call_get_method(
             envelope, 'GetContextStatesByIdentification', request_manipulator=request_manipulator)
-        message_data.raw_data.validate_body(self._bmm_schema)
+        message_data.p_msg.validate_body(self._bmm_schema)
         context_state_containers = message_data.msg_reader.read_context_states(message_data)
         return GetRequestResult(message_data.mdib_version, message_data.sequence_id, context_state_containers)
 

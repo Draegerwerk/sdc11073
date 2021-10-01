@@ -445,7 +445,7 @@ class MessageFactoryDevice(SoapMessageFactory):
                 raise
 
         response = soapenvelope.Soap12Envelope(nsmapper.doc_ns_map)
-        reply_address = message_data.raw_data.address.mk_reply_address('{}/GetResponse'.format(Prefixes.WXF.namespace))
+        reply_address = message_data.p_msg.address.mk_reply_address('{}/GetResponse'.format(Prefixes.WXF.namespace))
         reply_address.addr_to = WSA_ANONYMOUS
         reply_address.message_id = uuid.uuid4().urn
         response.add_header_object(reply_address)
@@ -485,7 +485,7 @@ class MessageFactoryDevice(SoapMessageFactory):
         return response
 
     def mk_get_mdib_response_envelope(self, message_data, mdib, include_contextstates):
-        request = message_data.raw_data
+        request = message_data.p_msg
         nsmapper = mdib.nsmapper
         response_envelope = soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
@@ -510,7 +510,7 @@ class MessageFactoryDevice(SoapMessageFactory):
 
     def mk_getmddescription_response_envelope(self, message_data, mdib, requested_handles):
         """For simplification reason this implementation returns either all descriptors or none."""
-        request = message_data.raw_data
+        request = message_data.p_msg
         return_all = len(requested_handles) == 0  # if we have handles, we need to check them
         my_namespaces = mdib.nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.MSG, Prefixes.PM)
         response_envelope = soapenvelope.Soap12Envelope(my_namespaces)
@@ -542,7 +542,7 @@ class MessageFactoryDevice(SoapMessageFactory):
 
     def mk_get_mdstate_response_envelope(self, message_data, action, mdib_version, sequence_id, state_containers,
                                          nsmapper):
-        request = message_data.raw_data
+        request = message_data.p_msg
         response_envelope = soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
         reply_address = request.address.mk_reply_address(
@@ -563,7 +563,7 @@ class MessageFactoryDevice(SoapMessageFactory):
                                                 nsmapper):
         response = soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        reply_address = message_data.raw_data.address.mk_reply_address(
+        reply_address = message_data.p_msg.address.mk_reply_address(
             action=action)
         response.add_header_object(reply_address)
         response_node = etree_.Element(msgTag('GetContextStatesResponse'))
@@ -581,7 +581,7 @@ class MessageFactoryDevice(SoapMessageFactory):
                                                  nsmapper):
         response_envelope = soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        reply_address = message_data.raw_data.address.mk_reply_address(action=action)
+        reply_address = message_data.p_msg.address.mk_reply_address(action=action)
         response_envelope.add_header_object(reply_address)
         response_node = etree_.Element(msgTag('GetLocalizedTextResponse'))
         response_node.set('MdibVersion', str(mdib_version))
@@ -596,7 +596,7 @@ class MessageFactoryDevice(SoapMessageFactory):
                                                      nsmapper):
         response_envelope = soapenvelope.Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
-        reply_address = message_data.raw_data.address.mk_reply_address(action=action)
+        reply_address = message_data.p_msg.address.mk_reply_address(action=action)
         response_envelope.add_header_object(reply_address)
         response_node = etree_.Element(msgTag('GetSupportedLanguagesResponse'))
         response_node.set('MdibVersion', str(mdib_version))
@@ -611,7 +611,7 @@ class MessageFactoryDevice(SoapMessageFactory):
     def mk_subscribe_response_envelope(self, request_data, subscription, base_urls):
         response = soapenvelope.Soap12Envelope(
             Prefixes.partial_map(Prefixes.PM, Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
-        reply_address = request_data.message_data.raw_data.address.mk_reply_address(EventingActions.SubscribeResponse)
+        reply_address = request_data.message_data.p_msg.address.mk_reply_address(EventingActions.SubscribeResponse)
         response.add_header_object(reply_address)
         subscribe_response_node = etree_.Element(wseTag('SubscribeResponse'))
         subscription_manager_node = etree_.SubElement(subscribe_response_node, wseTag('SubscriptionManager'))
@@ -636,14 +636,14 @@ class MessageFactoryDevice(SoapMessageFactory):
     def mk_unsubscribe_response_envelope(self, request_data):
         response = soapenvelope.Soap12Envelope(
             Prefixes.partial_map(Prefixes.PM, Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
-        reply_address = request_data.message_data.raw_data.address.mk_reply_address(EventingActions.UnsubscribeResponse)
+        reply_address = request_data.message_data.p_msg.address.mk_reply_address(EventingActions.UnsubscribeResponse)
         response.add_header_object(reply_address)
         # response has empty body
         return response
 
     def mk_renew_response_envelope(self, request_data, remaining_seconds):
         response = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
-        reply_address = request_data.message_data.raw_data.address.mk_reply_address(EventingActions.RenewResponse)
+        reply_address = request_data.message_data.p_msg.address.mk_reply_address(EventingActions.RenewResponse)
         response.add_header_object(reply_address)
         renew_response_node = etree_.Element(wseTag('RenewResponse'))
         expires_node = etree_.SubElement(renew_response_node, wseTag('Expires'))
@@ -653,7 +653,7 @@ class MessageFactoryDevice(SoapMessageFactory):
 
     def mk_getstatus_response_envelope(self, request_data, remaining_seconds):
         response = soapenvelope.Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.WSE))
-        reply_address = request_data.message_data.raw_data.address.mk_reply_address(EventingActions.GetStatusResponse)
+        reply_address = request_data.message_data.p_msg.address.mk_reply_address(EventingActions.GetStatusResponse)
         response.add_header_object(reply_address)
         renew_response_node = etree_.Element(wseTag('GetStatusResponse'))
         expires_node = etree_.SubElement(renew_response_node, wseTag('Expires'))
@@ -705,7 +705,7 @@ class MessageFactoryDevice(SoapMessageFactory):
     def mk_operation_response_envelope(self, message_data, action, response_name, mdib_version,
                                        sequence_id, transaction_id, invocation_state, invocation_error, error_text,
                                        nsmapper):
-        request = message_data.raw_data
+        request = message_data.p_msg
         response = soapenvelope.Soap12Envelope(nsmapper.partial_map(Prefixes.S12, Prefixes.MSG, Prefixes.WSA))
         reply_address = request.address.mk_reply_address(action=action)
         response.add_header_object(reply_address)

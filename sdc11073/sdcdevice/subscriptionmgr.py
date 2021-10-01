@@ -543,7 +543,7 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
     def on_unsubscribe_request(self, request_data):
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            response = SoapFault(request_data.message_data.raw_data,
+            response = SoapFault(request_data.message_data.p_msg,
                                  code='Receiver',
                                  reason='unknown Subscription identifier',
                                  subCode=wseTag('InvalidMessage')
@@ -566,10 +566,10 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         return response
 
     def on_get_status_request(self, request_data):
-        self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.raw_data.as_xml(pretty=True))
+        self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.p_msg.as_xml(pretty=True))
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            response = SoapFault(request_data.message_data.raw_data,
+            response = SoapFault(request_data.message_data.p_msg,
                                  code='Receiver',
                                  reason='unknown Subscription identifier',
                                  subCode=wseTag('InvalidMessage')
@@ -583,7 +583,7 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         expires = reader.read_renew_request(request_data.message_data)
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            response = SoapFault(request_data.message_data.raw_data,
+            response = SoapFault(request_data.message_data.p_msg,
                                  code='Receiver',
                                  reason='unknown Subscription identifier',
                                  subCode=wseTag('UnableToRenew')

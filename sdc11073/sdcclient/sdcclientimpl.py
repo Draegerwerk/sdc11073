@@ -76,7 +76,7 @@ class HostedServiceDescription:
             soap_envelope.validate_body(self._mex_schema)
         endpoint_envelope = soap_client.post_soap_envelope_to(self._url.path,
                                                               soap_envelope,
-                                                              msg='<{}> read_metadata'.format(self.service_id)).raw_data
+                                                              msg='<{}> read_metadata'.format(self.service_id)).p_msg
         if self.VALIDATE_MEX:
             endpoint_envelope.validate_body(self._mex_schema)
         self.metadata = MetaDataSection.from_etree_node(endpoint_envelope.body_node)
@@ -528,7 +528,7 @@ class SdcClient:
 
         self.metadata = wsc.post_soap_envelope_to(_url.path, envelope,
                                                   response_factory=DPWSEnvelope,
-                                                  msg='getMetadata').raw_data
+                                                  msg='getMetadata').p_msg
         self.host_description = HostDescription(self.metadata)
         self._logger.debug('HostDescription: {}', self.host_description)
 
@@ -611,7 +611,7 @@ class SdcClient:
             self._notifications_dispatcher_thread.stop(close_all_connections)
 
     def _on_subscription_end(self, request_data):
-        self.state_event_report = request_data.message_data.raw_data  # update observable
+        self.state_event_report = request_data.message_data.p_msg  # update observable
         self._subscription_mgr.on_subscription_end(request_data)
 
     def __str__(self):

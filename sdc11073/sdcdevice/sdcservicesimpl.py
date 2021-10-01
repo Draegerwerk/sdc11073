@@ -287,11 +287,11 @@ class ContainmentTreeService(DPWSPortTypeImpl):
 
     def _on_get_containment_tree(self, request_data):
         # ToDo: implement, currently method only raises a soap fault
-        raise FunctionNotImplementedError(request_data.message_data.raw_data)
+        raise FunctionNotImplementedError(request_data.message_data.p_msg)
 
     def _on_get_descriptor(self, request_data):
         # ToDo: implement, currently method only raises a soap fault
-        raise FunctionNotImplementedError(request_data.message_data.raw_data)
+        raise FunctionNotImplementedError(request_data.message_data.p_msg)
 
     def add_wsdl_port_type(self, parent_node):
         port_type = self._mk_port_type_node(parent_node)
@@ -319,7 +319,7 @@ class ServiceWithOperations(DPWSPortTypeImpl):
             invocation_state = pmtypes.InvocationState.FAILED
             invocation_error = pmtypes.InvocationError.INVALID_VALUE
         else:
-            transaction_id = self._sdc_device.enqueue_operation(operation, message_data.raw_data, operation_request)
+            transaction_id = self._sdc_device.enqueue_operation(operation, message_data.p_msg, operation_request)
             self._logger.info(f'_handle_operation_request: enqueued, transaction id = {transaction_id}')
             invocation_state = pmtypes.InvocationState.WAIT
 
