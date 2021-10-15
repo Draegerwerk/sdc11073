@@ -19,6 +19,8 @@ class StringEnum(str, enum.Enum):
 
 class PropertyBasedPMType:
     """ Base class that assumes all data is defined as containerproperties and _props lists all property names."""
+    def __init__(self):
+        pass
 
     def as_etree_node(self, qname, nsmap):
         node = etree_.Element(qname, nsmap=nsmap)
@@ -113,11 +115,11 @@ class T_TextWidth(StringEnum):     #pylint: disable=invalid-name
 
 
 class LocalizedText(PropertyBasedPMType):
-    text = cp.NodeTextProperty()  # this is the text of the node. Here attribute is lower case!
+    text = cp.LocalizedTextContentProperty()  # this is the text of the node. Here attribute is lower case!
     #pylint: disable=invalid-name
-    Ref = cp.StringAttributeProperty('Ref')
+    Ref = cp.LocalizedTextRefAttributeProperty('Ref')
     Lang = cp.StringAttributeProperty('Lang')
-    Version = cp.IntegerAttributeProperty('Version')
+    Version = cp.ReferencedVersionAttributeProperty('Version')
     TextWidth = cp.EnumAttributeProperty('TextWidth', enum_cls=T_TextWidth)
     #pylint: enable=invalid-name
     _props = ['text', 'Ref', 'Lang', 'Version', 'TextWidth']
@@ -223,7 +225,7 @@ class T_Translation(PropertyBasedPMType):
     """
     #pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
-    Code = cp.StringAttributeProperty('Code', is_optional=False)
+    Code = cp.CodeIdentifierAttributeProperty('Code', is_optional=False)
     CodingSystem = cp.StringAttributeProperty('CodingSystem', implied_py_value=DEFAULT_CODING_SYSTEM)
     CodingSystemVersion = cp.StringAttributeProperty('CodingSystemVersion')
     #pylint: enable=invalid-name
@@ -278,10 +280,10 @@ class CodedValue(PropertyBasedPMType):
     CodingSystemName = cp.SubElementListProperty(domTag('CodingSystemName'), value_class=LocalizedText)
     ConceptDescription = cp.SubElementListProperty(domTag('ConceptDescription'), value_class=LocalizedText)
     Translation = cp.SubElementListProperty(domTag('Translation'), value_class=T_Translation)
-    Code = cp.StringAttributeProperty('Code', is_optional=False)
+    Code = cp.CodeIdentifierAttributeProperty('Code', is_optional=False)
     CodingSystem = cp.StringAttributeProperty('CodingSystem', implied_py_value=DEFAULT_CODING_SYSTEM)
     CodingSystemVersion = cp.StringAttributeProperty('CodingSystemVersion')
-    SymbolicCodeName = cp.StringAttributeProperty('SymbolicCodeName')
+    SymbolicCodeName = cp.SymbolicCodeNameAttributeProperty('SymbolicCodeName')
     #pylint: enable=invalid-name
     _props = ['ext_Extension', 'CodingSystemName', 'ConceptDescription', 'Translation',
               'Code', 'CodingSystem', 'CodingSystemVersion', 'SymbolicCodeName']
@@ -428,9 +430,9 @@ class InstanceIdentifier(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
     Type = cp.SubElementProperty(domTag('Type'), value_class=CodedValue)
     IdentifierName = cp.SubElementListProperty(domTag('IdentifierName'), value_class=LocalizedText)
-    Root = cp.StringAttributeProperty('Root',
+    Root = cp.AnyURIAttributeProperty('Root',
                                       defaultPyValue='biceps.uri.unk')  # xsd:anyURI string, default is defined in R0135
-    Extension = cp.StringAttributeProperty('Extension')  # a xsd:string
+    Extension = cp.ExtensionAttributeProperty('Extension')  # a xsd:string
     #pylint: enable=invalid-name
     _props = ('ext_Extension', 'Type', 'IdentifierName', 'Root', 'Extension')
 
@@ -466,14 +468,14 @@ class OperatingJurisdiction(InstanceIdentifier):
 
 class Range(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    ext_Extension = cp.ExtensionNodeProperty()
+    Extension = cp.ExtensionNodeProperty()
     Lower = cp.DecimalAttributeProperty('Lower')  # optional, an integer or float
     Upper = cp.DecimalAttributeProperty('Upper')  # optional, an integer or float
     StepWidth = cp.DecimalAttributeProperty('StepWidth')  # optional, an integer or float
     RelativeAccuracy = cp.DecimalAttributeProperty('RelativeAccuracy')  # optional, an integer or float
     AbsoluteAccuracy = cp.DecimalAttributeProperty('AbsoluteAccuracy')  # optional, an integer or float
     # pylint: enable=invalid-name
-    _props = ['ext_Extension', 'Lower', 'Upper', 'StepWidth', 'RelativeAccuracy', 'AbsoluteAccuracy']
+    _props = ['Extension', 'Lower', 'Upper', 'StepWidth', 'RelativeAccuracy', 'AbsoluteAccuracy']
 
     def __init__(self, lower=None, upper=None, step_width=None, relative_accuracy=None, absolute_accuracy=None):
         """
@@ -582,8 +584,8 @@ class GenerationMode(StringEnum):
 class T_MetricQuality(PropertyBasedPMType):
     # pylint: disable=invalid-name
     Validity = cp.EnumAttributeProperty('Validity', enum_cls=MeasurementValidity)
-    Mode = cp.EnumAttributeProperty('Mode', implied_py_value='Real', enum_cls=GenerationMode)  # pm:GenerationMode
-    Qi = cp.DecimalAttributeProperty('Qi', implied_py_value=1)  # pm:QualityIndicator
+    Mode = cp.EnumAttributeProperty('Mode', implied_py_value='Real', enum_cls=GenerationMode)
+    Qi = cp.QualityIndicatorAttributeProperty('Qi', implied_py_value=1)
     # pylint: enable=invalid-name
     _props = ('Validity', 'Mode', 'Qi')
 
@@ -1233,7 +1235,7 @@ class AbstractMetricDescriptorRelation(PropertyBasedPMType):
     Identification = cp.SubElementProperty(domTag('Identification'), value_class=InstanceIdentifier,
                                            is_optional=True)
     Kind = cp.EnumAttributeProperty('Kind', enum_cls=AbstractMetricDescriptorRelationKindEnum, is_optional=False)
-    Entries = cp.NodeAttributeListProperty('Entries')
+    Entries = cp.EntryRefListAttributeProperty('Entries')
     # pylint: enable=invalid-name
     _props = ['Code', 'Identification', 'Kind', 'Entries']
 
@@ -1333,6 +1335,8 @@ class MetaData(PropertyBasedPMType):
     _props = ['Udi', 'LotNumber', 'Manufacturer', 'ManufactureDate', 'ExpirationDate',
               'ModelName', 'ModelNumber', 'SerialNumber']
 
+    def __init__(self):
+        pass
 
 ###################################################################################
 # following : classes that serve only as name spaces
