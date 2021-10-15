@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - removed warning if in sdc client a notification receiver thread could not be terminated 
   within a second. This can happen because closing of a socket can take some time. 
 - removed dependencies lz4 and cryptography
+- fixed issue #45: Update list of properties for AbstractOperationDescriptorContainer class
 
 ## [1.1.2] - 2021-08-23
 ### Fixed
