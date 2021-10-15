@@ -25,7 +25,7 @@
             "level":"INFO"
         },
         "sdc.discover": {
-            "level": "DEBUG"
+            "level": "INFO"
         },
         "sdc.discover.monitor": {
             "level": null

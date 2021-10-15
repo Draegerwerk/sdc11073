@@ -146,7 +146,7 @@ def run_ref_test():
             try:
                 res = fut.result(timeout=10)
                 print(res)
-                if res.state != sdc11073.pmtypes.InvocationState.FINISHED:
+                if res.invocation_state != sdc11073.pmtypes.InvocationState.FINISHED:
                     print('set string operation {} did not finish with "Fin":{}'.format(s.handle, res))
                     results.append('### Test 9(SetString) ### failed')
                 else:
@@ -172,7 +172,7 @@ def run_ref_test():
             try:
                 res = fut.result(timeout=10)
                 print(res)
-                if res.state != sdc11073.pmtypes.InvocationState.FINISHED:
+                if res.invocation_state != sdc11073.pmtypes.InvocationState.FINISHED:
                     print('set value operation {} did not finish with "Fin":{}'.format(s.handle, res))
                 else:
                     print('set value operation {} ok:{}'.format(s.handle, res))
@@ -196,7 +196,7 @@ def run_ref_test():
             try:
                 res = fut.result(timeout=10)
                 print(res)
-                if res.state != sdc11073.pmtypes.InvocationState.FINISHED:
+                if res.invocation_state != sdc11073.pmtypes.InvocationState.FINISHED:
                     print('set string operation {} did not finish with "Fin":{}'.format(s.handle, res))
                     results.append('### Test 9(Activate) ### failed')
                 else:

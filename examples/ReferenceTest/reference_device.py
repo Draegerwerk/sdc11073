@@ -64,7 +64,7 @@ if __name__ == '__main__':
                                                  ssl_passwd=ssl_passwd)
     else:
         ssl_context = None
-    sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.SdcDevice(wsd, my_uuid, dpwsModel, dpwsDevice, my_mdib,
+    sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.SdcDevice(wsd, dpwsModel, dpwsDevice, my_mdib, my_uuid,
                                                            ssl_context=ssl_context)
     sdcDevice.start_all()
 
@@ -101,11 +101,11 @@ if __name__ == '__main__':
             stringOperation = oneContainer
     with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
         state = mgr.get_state(valueOperation.OperationTarget)
-        if not state.metricValue:
-            state.mkMetricValue()
+        if not state.MetricValue:
+            state.mk_metric_value()
         state = mgr.get_state(stringOperation.OperationTarget)
-        if not state.metricValue:
-            state.mkMetricValue()
+        if not state.MetricValue:
+            state.mk_metric_value()
     print("Running forever, CTRL-C to  exit")
     try:
         currentValue = 0
@@ -113,9 +113,9 @@ if __name__ == '__main__':
             if metric:
                 with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                     state = mgr.get_state(metric.handle)
-                    if not state.metricValue:
-                        state.mkMetricValue()
-                    state.metricValue.Value = currentValue
+                    if not state.MetricValue:
+                        state.mk_metric_value()
+                    state.MetricValue.Value = currentValue
                     currentValue += 1
             else:
                 print("Metric not found in MDIB!")
