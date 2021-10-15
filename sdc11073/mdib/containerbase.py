@@ -107,8 +107,12 @@ class ContainerBase:
             else:
                 if isinstance(my_value, float) or isinstance(other_value, float):
                     # cast both to float, if one is a Decimal Exception might be thrown
-                    if abs((float(my_value) - float(other_value)) / float(my_value)) > 1e-6:  # 1e-6 is good enough
-                        ret.append('{}={}, other={}'.format(name, my_value, other_value))
+                    try:
+                        if abs((float(my_value) - float(other_value)) / float(my_value)) > 1e-6:  # 1e-6 is good enough
+                            ret.append('{}={}, other={}'.format(name, my_value, other_value))
+                    except ZeroDivisionError:
+                        if abs((float(my_value) - float(other_value))) > 1e-6:  # 1e-6 is good enough
+                            ret.append('{}={}, other={}'.format(name, my_value, other_value))
                 elif my_value != other_value:
                     ret.append('{}={}, other={}'.format(name, my_value, other_value))
         # check also if other has a different list of properties
@@ -117,7 +121,7 @@ class ContainerBase:
         surplus_names = other_property_names - my_property_names
         if surplus_names:
             ret.append(f'other has more data elements:{surplus_names}')
-        return ret
+        return None if len(ret) == 0 else ret
 
     def is_equal(self, other):
         return len(self.diff(other)) == 0
