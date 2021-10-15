@@ -795,7 +795,8 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         with self._subscriptions.lock:
             subscription = self._subscriptions.dispatch_identifier.get_one(dispatch_identifier, allow_none=True)
         if subscription is None:
-            self._logger.error('unknown Subscription identifier "{}"', dispatch_identifier)
+            self._logger.error('{}: unknown Subscription identifier "{}" from {}',
+                               request_data.message_data.msg_name, dispatch_identifier, request_data.peer_name)
         return subscription
 
     def _do_housekeeping(self):

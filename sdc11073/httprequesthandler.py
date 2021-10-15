@@ -361,9 +361,10 @@ class HttpServerThreadBase(threading.Thread):
 class RequestData:
     """This class holds all information about the processing of a http request together"""
 
-    def __init__(self, http_header, path, request=None):
+    def __init__(self, http_header, path, peer_name, request=None):
         self.http_header = http_header
         self.request = request
+        self.peer_name = peer_name  # for logging
         self.consumed_path_elements = []
         if path.startswith('/'):
             path = path[1:]

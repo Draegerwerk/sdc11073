@@ -100,7 +100,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
     def do_POST(self):  # pylint: disable=invalid-name
         """SOAP POST gateway"""
         request = self._read_request()
-        request_data = RequestData(self.headers, self.path, request)
+        request_data = RequestData(self.headers, self.path, self.connection.getpeername(), request)
         try:
             devices_dispatcher = self.server.dispatcher
             if devices_dispatcher is None:
@@ -154,7 +154,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 
     def do_GET(self):  # pylint: disable=invalid-name
         parsed_path = urllib.parse.urlparse(self.path)
-        request_data = RequestData(self.headers, self.path)
+        request_data = RequestData(self.headers, self.path, self.connection.getpeername())
         try:
             # GET has no content, log it to document duration of processing
             commlog.get_communication_logger().log_soap_request_in('', 'GET')
