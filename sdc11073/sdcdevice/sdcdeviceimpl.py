@@ -150,10 +150,10 @@ class SdcDevice:
         self._logger.debug('returned meta data = {}', response.as_xml(pretty=False))
         return response
 
-    def _on_probe_request(self, http_header, request):  # pylint: disable=unused-argument
+    def _on_probe_request(self, request):
         _nsm = DocNamespaceHelper()
         response = pysoap.soapenvelope.Soap12Envelope(_nsm.doc_ns_map)
-        reply_address = request.address.mk_reply_address('{}/ProbeMatches'.format(Prefixes.WSD.namespace))
+        reply_address = request.message_data.p_msg.address.mk_reply_address('{}/ProbeMatches'.format(Prefixes.WSD.namespace))
         reply_address.addr_to = WSA_ANONYMOUS
         reply_address.message_id = uuid.uuid4().urn
         response.add_header_object(reply_address)

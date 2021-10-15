@@ -17,7 +17,7 @@ class _DispatchError(Exception):
 
 class ReceivedNotification(RequestData):
     def __init__(self, http_header, path, request=None):
-        super().__init__(http_header, path, request)
+        super().__init__(http_header, path, None, request)
         self.message_data = None
 
 
