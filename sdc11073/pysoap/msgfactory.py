@@ -449,7 +449,7 @@ class MessageFactoryDevice(SoapMessageFactory):
         reply_address.addr_to = WSA_ANONYMOUS
         reply_address.message_id = uuid.uuid4().urn
         response.add_header_object(reply_address)
-        metadata_node = etree_.Element(wsxTag('Metadata'), nsmap=nsmapper.partial_map(Prefixes.SDC))
+        metadata_node = etree_.Element(wsxTag('Metadata'), nsmap=nsmapper.partial_map(Prefixes.SDC, Prefixes.DPWS))
 
         # ThisModel
         metadata_section_node = etree_.SubElement(metadata_node,

@@ -32,12 +32,11 @@ class ReceivedMessageData:
     def __init__(self, reader_instance, parsed_message):
         self.msg_reader = reader_instance  #
         self.p_msg = parsed_message  # parsed message, e g. a Soap12Envelope
-        self.mdib_version = None
-        self.sequence_id = None
+        self.instance_id = None  # a number
+        self.sequence_id = None  # a string
+        self.mdib_version = None # a number
         self.action = None
         self.msg_name = None
-        self.descriptor_containers = None
-        self.state_containers = None
 
 
 class AbstractMessageReader(ABC):
@@ -472,6 +471,8 @@ class MessageReaderDevice(MessageReader):
             raise Exception
         subscription_filters = subscription_filter_nodes[0].text.split()
         end_to_addresses = envelope.body_node.xpath('wse:Subscribe/wse:EndTo', namespaces=namespaces.nsmap)
+        end_to_address = None
+        end_to_ref_node = None
         if len(end_to_addresses) == 1:
             end_to_node = end_to_addresses[0]
             end_to_address = end_to_node.xpath('wsa:Address/text()', namespaces=namespaces.nsmap)[0]
