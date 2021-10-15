@@ -307,7 +307,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             # verify that client automatically got the state (via EpisodicComponentReport )
             cl_state1 = cl_mdib.states.descriptorHandle.get_one(parent_handle)
-            self.assertEqual(cl_state1.diff(st), [])
+            self.assertEqual(cl_state1.diff(st), None)
             # verify that client also got a PeriodicMetricReport
             message_data = coll2.result(timeout=NOTIFICATION_TIMEOUT)
             states = sdcClient.msg_reader.read_periodic_component_report(message_data)
@@ -341,7 +341,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 coll.result(timeout=NOTIFICATION_TIMEOUT)
                 clientStateContainer = client_mdib.states.descriptorHandle.get_one(
                     descriptorHandle)  # this shall be updated by notification
-                self.assertEqual(clientStateContainer.diff(st), [])
+                self.assertEqual(clientStateContainer.diff(st), None)
 
             # pick an AlertSignal for testing
             alertConditionDescr = sdcDevice.mdib.states.NODETYPE[namespaces.domTag('AlertSignalState')][0]
@@ -362,7 +362,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 coll.result(timeout=NOTIFICATION_TIMEOUT)
                 clientStateContainer = client_mdib.states.descriptorHandle.get_one(
                     descriptorHandle)  # this shall be updated by notification
-                self.assertEqual(clientStateContainer.diff(st), [])
+                self.assertEqual(clientStateContainer.diff(st), None)
 
             # verify that client also got a PeriodicAlertReport
             message_data = coll2.result(timeout=NOTIFICATION_TIMEOUT)

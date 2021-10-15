@@ -68,7 +68,7 @@ class TestDeviceServices(unittest.TestCase):
         getEnv = self._mkGetRequest(self.sdc_device, getService.port_type_string, 'GetMdib', path)
         http_header = {}
         #response_string = dispatcher.on_post(path, http_header, getEnv.as_xml())
-        response_string = dispatcher.on_post(RequestData(http_header, path, getEnv.as_xml()))
+        response_string = dispatcher.on_post(RequestData(http_header, path, 'foo', getEnv.as_xml()))
         self.assertTrue('/{}/GetMdibResponse'.format(getService.port_type_string).encode('utf-8') in response_string)
 
         contextService = self.sdc_device.hosted_services.context_service
@@ -77,7 +77,7 @@ class TestDeviceServices(unittest.TestCase):
                                     path)
         http_header = {}
         #response_string = dispatcher.on_post(path, http_header, getEnv.as_xml())
-        response_string = dispatcher.on_post(RequestData(http_header, path,  getEnv.as_xml()))
+        response_string = dispatcher.on_post(RequestData(http_header, path, 'foo', getEnv.as_xml()))
         self.assertTrue(
             '/{}/GetContextStatesResponse'.format(contextService.port_type_string).encode('utf-8') in response_string)
 
@@ -86,7 +86,7 @@ class TestDeviceServices(unittest.TestCase):
         path = '123'
         get_env = self._mkGetRequest(self.sdc_device, getService.port_type_string, 'GetMdib', path)
         http_header = {}
-        request = RequestData(http_header, path)
+        request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(get_env.as_xml())
         response = getService._on_get_mdib(request)
         response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
@@ -96,7 +96,7 @@ class TestDeviceServices(unittest.TestCase):
         path = '123'
         get_env = self._mkGetRequest(self.sdc_device, getService.port_type_string, 'GetMdState', path)
         http_header = {}
-        request = RequestData(http_header, path)
+        request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(get_env.as_xml())
         response = getService.hosting_service.on_post(request)
         response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
@@ -106,7 +106,7 @@ class TestDeviceServices(unittest.TestCase):
         path = '123'
         get_env = self._mkGetRequest(self.sdc_device, getService.port_type_string, 'GetMdDescription', path)
         http_header = {}
-        request = RequestData(http_header, path)
+        request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(get_env.as_xml())
         response = getService.hosting_service.on_post(request)
         response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
@@ -122,7 +122,7 @@ class TestDeviceServices(unittest.TestCase):
         get_env = self._mkGetRequest(self.sdc_device, getService.port_type_string, 'GetMdDescription', path)
         #receivedEnv = ReceivedSoap12Envelope(getEnv.as_xml())
         http_header = {}
-        request = RequestData(http_header, path)
+        request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(get_env.as_xml())
         response = getService.hosting_service.on_post(request)
         response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
@@ -138,7 +138,7 @@ class TestDeviceServices(unittest.TestCase):
         get_env = self._mkGetRequest(self.sdc_device, contextService.port_type_string, 'GetContextStates',
                                     path)
         http_header = {}
-        request = RequestData(http_header, path)
+        request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(get_env.as_xml())
         response = contextService.hosting_service.on_post(request)
         print(response.as_xml(pretty=True))
