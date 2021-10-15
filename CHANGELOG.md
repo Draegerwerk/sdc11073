@@ -4,6 +4,10 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2021-10-15
+### Fixed
+- fixed possible Exception in SampleArrayValue.__eq__
+
 ## [1.1.3] - 2021-09-10
 ### Fixed
 - removed warning if in sdc client a notification receiver thread could not be terminated 

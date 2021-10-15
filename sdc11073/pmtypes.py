@@ -1,4 +1,4 @@
-''' Implementation of some data types used in Participant Model'''
+""" Implementation of some data types used in Participant Model"""
 from collections import namedtuple
 import traceback
 import inspect
@@ -7,7 +7,6 @@ import enum
 from lxml import etree as etree_
 from sdc11073 import namespaces
 from .mdib import containerproperties  as cp
-from decimal import Decimal
 from math import isclose
 '''
 Interface of  pmTypes:
@@ -19,7 +18,7 @@ asEtreeNode: returns an etree node that represents the object
 
 
 class PropertyBasedPMType(object):
-    ''' Base class that assumes all data is defined as containerproperties and _props lists all property names.'''
+    """ Base class that assumes all data is defined as containerproperties and _props lists all property names."""
 
     def asEtreeNode(self, qname, nsmap):
         node = etree_.Element(qname, nsmap=nsmap)
@@ -41,10 +40,10 @@ class PropertyBasedPMType(object):
 
 
     def _sortedContainerProperties(self):
-        '''
+        """
         @return: a list of (name, object) tuples of all GenericProperties ( and subclasses)
         list is created based on _props lists of classes
-        ''' 
+        """
         ret = []
         classes = inspect.getmro(self.__class__)
         for cls in reversed(classes):
@@ -80,7 +79,7 @@ class PropertyBasedPMType(object):
 
     @classmethod
     def fromNode(cls, node):
-        ''' default fromNode Constructor that provides no arguments for class __init__'''
+        """ default fromNode Constructor that provides no arguments for class __init__"""
         obj = cls()
         obj.updateFromNode(node)
         return obj
@@ -110,13 +109,13 @@ class LocalizedText(PropertyBasedPMType):
     _props = ['text', 'Ref', 'Lang', 'Version', 'TextWidth']
     ''' Represents a LocalizedText type in the Participant Model. '''
     def __init__(self, text, lang=None, ref=None, version=None, textWidth = None):
-        '''
+        """
         @param text: a string
         @param lang: a string or None
         @param ref: a string or None
         @param version: an int or None
         @param textWidth: xs, s, m, l, xl, xxl or None
-        '''
+        """
         self.text = text
         self.Lang = lang
         self.Ref = ref
@@ -141,13 +140,13 @@ DefaultCodingSystem = 'urn:oid:1.2.840.10004.1.1.1.0.0.1' # ISO/IEC 11073-10101
 
 
 class NotCompareableVersionError(Exception):
-    ''' This exception says that two coded values cannot be compared, because one has a coding system version, the other one not.
-    In that case it is not possible to decide if they are equal.'''
+    """ This exception says that two coded values cannot be compared, because one has a coding system version, the other one not.
+    In that case it is not possible to decide if they are equal."""
     pass
 
 _CodingBase = namedtuple('_CodingBase', 'code codingSystem codingSystemVersion')
 class Coding(_CodingBase):
-    ''' Immutable representation of a coding. Can be used as key in dictionaries'''
+    """ Immutable representation of a coding. Can be used as key in dictionaries"""
 
 
     def __new__(cls, code, codingSystem=DefaultCodingSystem, codingSystemVersion=None):
@@ -157,10 +156,10 @@ class Coding(_CodingBase):
                                           codingSystemVersion)
 
     def equals(self, other, raiseNotComparableException=False):
-        ''' different compare method to __eq__, overwriting this one makes Coding unhashable!
+        """ different compare method to __eq__, overwriting this one makes Coding unhashable!
          other can be an int, a string, or a Coding.
          Simple comparision with int or string only works if self.codingSystem == DefaultCodingSystem
-         and self.codingSystemVersion is None'''
+         and self.codingSystemVersion is None"""
         if isinstance(other, int):
             other = str(other)
         if isinstance(other, str):
@@ -194,7 +193,7 @@ class Coding(_CodingBase):
 
     @classmethod
     def fromNode(cls, node):
-        ''' Read Code and CodingSystem attributes of a node (CodedValue). '''
+        """ Read Code and CodingSystem attributes of a node (CodedValue). """
         code = node.get('Code')
         codingSystem = node.get('CodingSystem', DefaultCodingSystem)
         codingSystemVersion = node.get('CodingSystemVersion')
@@ -207,9 +206,9 @@ def mkCoding(code, codingSystem=DefaultCodingSystem, codingSystemVersion=None):
 
 
 class T_Translation(PropertyBasedPMType):
-    '''
+    """
     Translation is part of CodedValue in BICEPS FINAL
-    '''
+    """
     ext_Extension = cp.ExtensionNodeProperty()
     Code = cp.NodeAttributeProperty('Code')
     CodingSystem = cp.NodeAttributeProperty('CodingSystem', impliedPyValue=DefaultCodingSystem)
@@ -218,12 +217,12 @@ class T_Translation(PropertyBasedPMType):
     _props = ['ext_Extension', 'Code', 'CodingSystem', 'CodingSystemVersion']
 
     def __init__(self, code=None, codingsystem=None, codingSystemVersion=None):
-        '''
+        """
 
         @param code: a string or an int
-        @param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
+        @param codingsystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
         @param codingSystemVersion: a string, min. length = 1
-        '''
+        """
         self.Code = str(code)
         self.CodingSystem = codingsystem
         self.CodingSystemVersion = codingSystemVersion
@@ -245,7 +244,7 @@ class T_Translation(PropertyBasedPMType):
             self.coding = None
 
     def __eq__(self, other):
-        ''' other can be an int, a string, a CodedValue like object (has "coding" member) or a Coding'''
+        """ other can be an int, a string, a CodedValue like object (has "coding" member) or a Coding"""
         if hasattr(other, 'coding'):
             return self.coding.equals(other.coding)
         else:
@@ -276,14 +275,14 @@ class _CodedValueBase(PropertyBasedPMType):
     codingSystem = CodingSystem
 
     def __init__(self, code, codingsystem=None, codingSystemVersion=None, codingSystemNames=None, conceptDescriptions=None, symbolicCodeName=None):
-        '''
+        """
         @param code: a string or an int
-        @param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None 
+        @param codingsystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
         @param codingSystemVersion: a string, min. length = 1
         @param codingSystemNames: a list of LocalizedText objects or None
         @param conceptDescriptions: a list of LocalizedText objects or None
         @param symbolicCodeName: a string, min. length = 1 or None
-        '''
+        """
         self.Code = str(code)
         self.CodingSystem = codingsystem
         self.CodingSystemVersion = codingSystemVersion
@@ -322,7 +321,7 @@ class CodedWithTranslations(_CodedValueBase):
     _props = ['Translation']
 
     def __eq__(self, other):
-        ''' other can be an int, a string, a CodedValue like object (has "coding" member) or a Coding'''
+        """ other can be an int, a string, a CodedValue like object (has "coding" member) or a Coding"""
         if hasattr(other, 'coding'):
             return self.coding == other.coding
         else:
@@ -335,22 +334,22 @@ class CodedValue(_CodedValueBase):
     _props = ['Translation']
 
     def __eq__(self, other):
-        ''' This operator handles not comparable versions as different versions
+        """ This operator handles not comparable versions as different versions
 
         :param other: int, str or another CodedValue
-        '''
+        """
         return self.equals(other, raiseNotComparableException=False)
 
 
     def equals(self, other, raiseNotComparableException=True):
-        '''
+        """
         Compare this CodedValue with another one.
         A simplified compare with an int or string is also possible, it assumes DefaultCodingSystem and no CodingSystemVersion
         :param other: int, str or another CodedValue
         :param raiseNotComparableException: if False, not comparable versions are handled as different versions
                         if True, a NotCompareableVersionError is thrown if any of the Codings are not comparable
         :return: boolean
-        '''
+        """
         if isinstance(other, self.__class__):
                 # Two CodedValue objects C1 and C2 are equivalent, if there exists a CodedValue object T1 in C1/pm:Translation
                 # and a CodedValue object T2 in C2/pm:Translation such that T1 and T2 are equivalent, C1 and T2 are equivalent, or C2 and T1 are equivalent.
@@ -420,11 +419,11 @@ class OperationGroup(PropertyBasedPMType):
     _props = ['ext_Extension', 'Type', 'OperatingMode', 'Operations']
 
     def __init__(self, codedValue=None, operatingMode=None, operations=None):
-        '''
-        @param OperatingMode:  xsd:string string
+        """
         @param codedValue: a CodedValue instances or None
-        @param Operations: a xsd:string
-        '''
+        @param operatingMode:  xsd:string string
+        @param operations: a xsd:string
+        """
         self.Type = codedValue
         self.OperatingMode = operatingMode
         self.Operations = operations
@@ -450,12 +449,12 @@ class InstanceIdentifier(PropertyBasedPMType):
     _props=('ext_Extension', 'Type', 'IdentifierName', 'Root', 'Extension')
 
     def __init__(self, root, type_codedValue=None, identifierNames=None, extensionString=None):
-        '''
+        """
         @param root:  xsd:anyURI string
         @param type_codedValue: a CodedValue instances or None
         @param identifierNames: a list of LocalizedText instances or None
         @param extensionString: a xsd:string
-        '''
+        """
         self.Root = root
         self.Type = type_codedValue
         self.IdentifierName = [] if identifierNames is None else identifierNames
@@ -490,13 +489,13 @@ class Range(PropertyBasedPMType):
     _props= ['ext_Extension', 'Lower', 'Upper', 'StepWidth', 'RelativeAccuracy', 'AbsoluteAccuracy']
     
     def __init__(self, lower=None, upper=None, stepWidth=None, relativeAccuracy=None, absoluteAccuracy=None):
-        '''
+        """
         @param lower: The including lower bound of the range. A value as float or integer, can be None
         @param upper: The including upper bound of the range. A value as float or integer, can be None
         @param stepWidth: The numerical distance between two values in the range of the given upper and lower bound. A value as float or integer, can be None
         @param relativeAccuracy: Maximum relative error in relation to the correct value within the given range. A value as float or integer, can be None
         @param absoluteAccuracy: Maximum absolute error in relation to the correct value within the given range. A value as float or integer, can be None
-        '''
+        """
         self.Lower = lower
         self.Upper = upper
         self.StepWidth = stepWidth
@@ -517,10 +516,10 @@ class Measurement(PropertyBasedPMType):
     _props = ['ext_Extension', 'MeasurementUnit', 'MeasuredValue']
     
     def __init__(self, value, unit):
-        '''
+        """
         @param value: a value as string, float or integer
         @param unit: a CodedValue instance
-        '''
+        """
         self.MeasuredValue = value
         self.MeasurementUnit = unit
     
@@ -550,11 +549,11 @@ class AllowedValue(PropertyBasedPMType):
     value = Value
     
     def __init__(self, valueString, typeCoding=None):
-        '''One AllowedValue of a EnumStringMetricDescriptor. It has up to two sub elements "Value" and "Type"(optional).
+        """One AllowedValue of a EnumStringMetricDescriptor. It has up to two sub elements "Value" and "Type"(optional).
         A StringEnumMetricDescriptor has a list of AllowedValues.
         @param valueString: a string
         @param typeCoding: an optional CodedValue instance
-        '''
+        """
         self.Value = valueString
         self.Type = typeCoding
 
@@ -572,7 +571,7 @@ class AllowedValue(PropertyBasedPMType):
     
 
 class AbstractMetricValue(PropertyBasedPMType):
-    ''' This is the base class for metric values inside metric states'''
+    """ This is the base class for metric values inside metric states"""
     ext_Extension = cp.ExtensionNodeProperty()
     StartTime = cp.TimestampAttributeProperty('StartTime') # time.time() value (float)
     StopTime = cp.TimestampAttributeProperty('StopTime') # time.time() value (float)
@@ -627,7 +626,7 @@ class NumericMetricValue(AbstractMetricValue):
                                                                      self.DeterminationTime)
 
     def __eq__(self, other):
-        ''' compares all properties, special handling of Value member'''
+        """ compares all properties, special handling of Value member"""
         try:
             for name, dummy in self._sortedContainerProperties():
                 if name == 'Value':
@@ -704,15 +703,20 @@ class SampleArrayValue(AbstractMetricValue):
 
 
     def __eq__(self, other):
-        ''' compares all properties, special handling of Value member'''
+        """ compares all properties, special handling of Value member"""
         try:
             for name, dummy in self._sortedContainerProperties():
                 if name == 'Samples':
-                    ownsample = getattr(self, name)
-                    othersample = getattr(other, name)
-                    if len(ownsample) != len(othersample):
+                    own_sample = getattr(self, name)
+                    other_sample = getattr(other, name)
+                    # avoid None values; treat None and empty list as equal
+                    if own_sample is None:
+                        own_sample = []
+                    if other_sample is None:
+                        other_sample = []
+                    if len(own_sample) != len(other_sample):
                         return False
-                    for pair in zip(ownsample, othersample):
+                    for pair in zip(own_sample, other_sample):
                         # check if more than 0.01 off
                         diff = pair[0] - pair[1]
                         if abs(diff) < 0.01:
@@ -733,35 +737,35 @@ class SampleArrayValue(AbstractMetricValue):
 
 
 class RemedyInfo(PropertyBasedPMType):
-    '''An Element that has
+    """An Element that has
          0..1 Subelement "Extension" (not handled here)
-         0..n SubElements "Description" type=pm:LocalizedText.'''
+         0..n SubElements "Description" type=pm:LocalizedText."""
     ext_Extension = cp.ExtensionNodeProperty()
     Description = cp.SubElementListProperty([namespaces.domTag('Description')], cls = LocalizedText)
     _props = ['ext_Extension', 'Description']
 
     def __init__(self, descriptions=None):
-        '''
-        @param descriptions : a list of LocalizedText objects or None 
-        '''
+        """
+        @param descriptions : a list of LocalizedText objects or None
+        """
         if descriptions:
             self.Description = descriptions
         
 
 
 class CauseInfo(PropertyBasedPMType):
-    '''An Element that has
+    """An Element that has
          0..1 Subelement "RemedyInfo", type = pm:RemedyInfo
-         0..n SubElements "Description" type=pm:LocalizedText.'''
+         0..n SubElements "Description" type=pm:LocalizedText."""
     ext_Extension = cp.ExtensionNodeProperty()
     RemedyInfo = cp.SubElementProperty([namespaces.domTag('RemedyInfo')], valueClass=RemedyInfo)
     Description = cp.SubElementListProperty([namespaces.domTag('Description')], cls = LocalizedText)
     _props = ['ext_Extension', 'RemedyInfo', 'Description']
     def __init__(self, remedyInfo, descriptions):
-        '''
+        """
         @param remedyInfo: a RemedyInfo instance or None
-        @param descriptions : a list of LocalizedText objects or None 
-        '''
+        @param descriptions : a list of LocalizedText objects or None
+        """
         self.RemedyInfo = remedyInfo
         self.Description = descriptions
 
@@ -782,17 +786,17 @@ class CauseInfo(PropertyBasedPMType):
 
 
 class Argument(PropertyBasedPMType):
-    '''An Element that has
+    """An Element that has
          1 Subelement "ArgName", type = pm:CodedValue
-         1 SubElement "Arg" type=QName.'''
+         1 SubElement "Arg" type=QName."""
     ArgName = cp.SubElementProperty([namespaces.domTag('ArgName')], valueClass=CodedValue)
     Arg = cp.NodeTextQNameProperty([namespaces.domTag('Arg')])
     _props = ['ArgName', 'Arg']
     def __init__(self, argName, arg):
-        '''
+        """
         @param argName: a CodedValue instance
-        @param arg : etree_.QName instance 
-        '''
+        @param arg : etree_.QName instance
+        """
         self.ArgName = argName
         self.Arg = arg
         
@@ -812,19 +816,19 @@ class Argument(PropertyBasedPMType):
 
 
 class PhysicalConnectorInfo(PropertyBasedPMType):
-    '''PhysicalConnectorInfo defines a number in order to allow to guide the clinical user for a failure,
+    """PhysicalConnectorInfo defines a number in order to allow to guide the clinical user for a failure,
     e.g., in case of a disconnection of a sensor or an ultrasonic handpiece.
-    Only in BICEPS final!'''
+    Only in BICEPS final!"""
     ext_Extension = cp.ExtensionNodeProperty()
     Label = cp.SubElementListProperty([namespaces.domTag('Label')], cls = LocalizedText) # A human-readable label that describes the physical connector.
     Number = cp.IntegerAttributeProperty('Number')# Number designates the connector number of the physical connector.
     _props = ['ext_Extension', 'Label', 'Number']
 
     def __init__(self, labels, number):
-        '''
+        """
         @param labels: a  list of LocalizedText
         @param number : an integer
-        '''
+        """
         self.Label = labels
         self.Number = number
 
@@ -845,10 +849,10 @@ class SystemSignalActivation(PropertyBasedPMType):
     _props = ['Manifestation', 'State']
 
     def __init__(self, manifestation, state):
-        '''
+        """
         @param manifestation: a pmtypes.AlertSignalManifestation value
         @param state : a pmtypes.AlertActivation value
-        '''
+        """
         self.Manifestation = manifestation
         self.State = state
 
@@ -869,11 +873,11 @@ class ProductionSpecification(PropertyBasedPMType):
     _props = ['SpecType', 'ProductionSpec', 'ComponentId']
 
     def __init__(self, spectype, productionspec, componentid=None):
-        '''
+        """
         @param spectype: a pmtypes.CodedValue value
         @param productionspec: a string
         @param componentid : a pmtypes.InstanceIdentifier value
-        '''
+        """
         self.SpecType = spectype
         self.ProductionSpec = productionspec
         self.ComponentId = componentid
@@ -911,10 +915,10 @@ class PersonReference(PropertyBasedPMType):
     _props = ['ext_Extension', 'Identification', 'Name']
 
     def __init__(self, identifications=None, name=None):
-        '''
+        """
         :param identifications: a list of InstanceIdentifier objects
         :param name: a BaseDemographics object
-        '''
+        """
         if identifications:
             self.Identification = identifications
         self.Name = name
@@ -967,11 +971,11 @@ class ClinicalInfo(PropertyBasedPMType):
     _props = ['Type', 'Description', 'RelatedMeasurement']
 
     def __init__(self, typecode=None, descriptions=None, relatedmeasurements=None):
-        '''
+        """
         :param typecode: a CodedValue Instance
         :param descriptions: a list of LocalizedText objects
         :param relatedmeasurements: a list of Measurement objects
-        '''
+        """
         self.Type = typecode
         if descriptions:
             self.Description = descriptions
@@ -1014,13 +1018,13 @@ class OrderDetail(PropertyBasedPMType):
     _props = ['Start', 'End', 'Performer', 'Service', 'ImagingProcedure']
 
     def __init__(self, start=None, end=None, performer=None, service=None, imagingprocedure=None):
-        '''
+        """
         :param start: a xsd:DateTime string
         :param end: a xsd:DateTime string
         :param performer: a list of PersonParticipation objects
         :param service: a list of CodedValue objects
         @param imagingprocedure: a list of ImagingProcedure objects
-        '''
+        """
         self.Start = start
         self.End = end
         if performer:
@@ -1040,11 +1044,11 @@ class RequestedOrderDetail(OrderDetail):
 
     def __init__(self, start=None, end=None, performer=None, service=None, imagingprocedure=None,
                  referringphysician=None, requestingphysician=None, placerordernumber=None):
-        '''
+        """
         :param referringphysician:  a PersonReference
         :param requestingphysician: a PersonReference
         :param placerordernumber:   an InstanceIdentifier
-        '''
+        """
         super(RequestedOrderDetail, self).__init__(start, end, performer, service, imagingprocedure)
         self.ReferringPhysician = referringphysician
         self.RequestingPhysician = requestingphysician
@@ -1106,10 +1110,10 @@ class T_Selector(PropertyBasedPMType):
     text = cp.NodeTextProperty()
     _props = ['Id', 'text']
     def __init__(self, id_, text):
-        '''
-        @param id: a string
-        @param text : a string 
-        '''
+        """
+        @param id_: a string
+        @param text : a string
+        """
         self.Id = id_
         self.text = text
         
@@ -1130,11 +1134,11 @@ class T_DualChannelDef(PropertyBasedPMType):
     _props = ['Selector', 'Algorithm', 'Transform']
     
     def __init__(self, selectors, algorithm=None, transform=None):
-        '''
+        """
         @param selectors: a list of Selector objects
-        @param algorithm : a string 
-        @param transform : a string 
-        '''
+        @param algorithm : a string
+        @param transform : a string
+        """
         self.Selector = selectors
         self.Algorithm = algorithm
         self.Transform = transform
@@ -1155,11 +1159,9 @@ class T_SafetyContextDef(PropertyBasedPMType):
     _props = ['Selector',]
     
     def __init__(self, selectors):
-        '''
+        """
         @param selectors: a list of Selector objects
-        @param algorithm : a string 
-        @param transform : a string 
-        '''
+        """
         self.Selector = selectors
         
 
@@ -1197,13 +1199,13 @@ class T_Udi(PropertyBasedPMType):
     _props = ['DeviceIdentifier', 'HumanReadableForm', 'Issuer', 'Jurisdiction']
 
     def __init__(self, device_identifier=None, humanreadable_form=None, issuer=None, jurisdiction=None):
-        '''
+        """
         UDI fragments as defined by the FDA. (Only used in BICEPS Final)
         :param device_identifier: a string
         :param humanreadable_form: a string
         :param issuer: an InstanceIdentifier
         :param jurisdiction: an InstanceIdentifier (optional)
-        '''
+        """
         self.DeviceIdentifier = device_identifier
         self.HumanReadableForm = humanreadable_form
         self.Issuer = issuer
@@ -1311,8 +1313,8 @@ class MetricCategory(StringEnum):
 
 
 class MeasurementValidity(StringEnum):
-    '''Level of validity of a measured value.
-    Used in BICEPS Final'''
+    """Level of validity of a measured value.
+    Used in BICEPS Final"""
     VALID = 'Vld'
     VALIDATED_DATA = 'Vldated'
     MEASUREMENT_ONGOING = 'Ong'
@@ -1342,7 +1344,7 @@ class InvocationError(StringEnum):
 
 
 class GenerationMode(StringEnum):
-    '''Describes whether METRIC data is generated by real measurements or under unreal settings (demo or test data).'''
+    """Describes whether METRIC data is generated by real measurements or under unreal settings (demo or test data)."""
     REAL = 'Real'                  # Real Data. A value that is generated under real conditions
     TEST = 'Test'                  # Test Data. A value that is arbitrary and is for testing purposes only
     DEMO = 'Demo'                  # Demo Data. A value that is arbitrary and is for demonstration purposes only
