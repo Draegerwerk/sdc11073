@@ -95,11 +95,11 @@ class AbstractDescriptorContainer(ContainerBase):
 
     node = properties.ObservableProperty()  # the etree node
 
-    Handle = cp.StringAttributeProperty('Handle', is_optional=False)
+    Handle = cp.HandleAttributeProperty('Handle', is_optional=False)
     handle = Handle
     Extension = cp.ExtensionNodeProperty()
-    DescriptorVersion = cp.IntegerAttributeProperty('DescriptorVersion',
-                                                    defaultPyValue=0)  # optional, integer, defaults to 0
+    DescriptorVersion = cp.VersionCounterAttributeProperty('DescriptorVersion',
+                                                           defaultPyValue=0)  # optional, integer, defaults to 0
     SafetyClassification = cp.EnumAttributeProperty('SafetyClassification',
                                                     implied_py_value=pmtypes.SafetyClassification.INF,
                                                     enum_cls=pmtypes.SafetyClassification)  # optional
@@ -435,7 +435,7 @@ class DistributionSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorC
 
 class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
     isOperationalDescriptor = True
-    OperationTarget = cp.StringAttributeProperty('OperationTarget', is_optional=False)
+    OperationTarget = cp.HandleAttributeProperty('OperationTarget', is_optional=False)
     MaxTimeToFinish = cp.DurationAttributeProperty('MaxTimeToFinish')  # optional  xsd:duration
     InvocationEffectiveTimeout = cp.DurationAttributeProperty('InvocationEffectiveTimeout')  # optional  xsd:duration
     Retriggerable = cp.BooleanAttributeProperty('Retriggerable', implied_py_value=True)  # optional
@@ -530,7 +530,7 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
     isAlertConditionDescriptor = True
     NODETYPE = domTag('AlertConditionDescriptor')
     STATE_QNAME = domTag('AlertConditionState')
-    Source = cp.SubElementTextListProperty(domTag('Source'))  # a list of 0...n pm:HandleRef elements
+    Source = cp.SubElementHandleRefListProperty(domTag('Source'))  # a list of 0...n pm:HandleRef elements
     CauseInfo = cp.SubElementListProperty(domTag('CauseInfo'), value_class=pmtypes.CauseInfo)
     Kind = cp.EnumAttributeProperty('Kind', defaultPyValue=pmtypes.AlertConditionKind.OTHER,
                                     enum_cls=pmtypes.AlertConditionKind, is_optional=False)
@@ -561,7 +561,7 @@ class AlertSignalDescriptorContainer(AbstractAlertDescriptorContainer):
     isAlertSignalDescriptor = True
     NODETYPE = domTag('AlertSignalDescriptor')
     STATE_QNAME = domTag('AlertSignalState')
-    ConditionSignaled = cp.StringAttributeProperty('ConditionSignaled')
+    ConditionSignaled = cp.HandleAttributeProperty('ConditionSignaled')
     Manifestation = cp.EnumAttributeProperty('Manifestation', enum_cls=pmtypes.AlertSignalManifestation,
                                              is_optional=False)
     Latching = cp.BooleanAttributeProperty('Latching', defaultPyValue=False, is_optional=False)

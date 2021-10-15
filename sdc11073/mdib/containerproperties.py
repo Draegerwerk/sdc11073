@@ -193,6 +193,35 @@ class StringAttributeProperty(AttributeProperty):
         super().__init__(attribute_name, None, defaultPyValue, implied_py_value, is_optional)
 
 
+class AnyURIAttributeProperty(StringAttributeProperty):
+    pass
+
+
+class CodeIdentifierAttributeProperty(StringAttributeProperty):
+    pass
+
+class HandleAttributeProperty(StringAttributeProperty):
+    pass
+
+class HandleRefAttributeProperty(StringAttributeProperty):
+    pass
+
+class SymbolicCodeNameAttributeProperty(StringAttributeProperty):
+    pass
+
+
+class ExtensionAttributeProperty(StringAttributeProperty):
+    pass
+
+
+class LocalizedTextRefAttributeProperty(StringAttributeProperty):
+    pass
+
+
+class TimeZoneAttributeProperty(StringAttributeProperty):
+    pass
+
+
 class EnumAttributeProperty(AttributeProperty):
     """ XML Representation is a string, Python representation is a enum."""
 
@@ -262,13 +291,14 @@ class CurrentTimestampAttributeProperty(AttributeProperty):
 
 
 class DecimalAttributeProperty(AttributeProperty):
-    """ XML notation is integer in milliseconds.
-    Python is a float in seconds."""
-
     def __init__(self, attribute_name, defaultPyValue=None, implied_py_value=None, is_optional=True):
         super().__init__(attribute_name, value_converter=DecimalConverter,
                          defaultPyValue=defaultPyValue, implied_py_value=implied_py_value, is_optional=is_optional)
 
+
+class QualityIndicatorAttributeProperty(DecimalAttributeProperty):
+    """BICEPS: A value between 0 and 1 """
+    pass
 
 class DurationAttributeProperty(AttributeProperty):
     """ XML notation is integer in milliseconds.
@@ -286,6 +316,13 @@ class IntegerAttributeProperty(AttributeProperty):
     def __init__(self, attribute_name, defaultPyValue=None, implied_py_value=None, is_optional=True):
         super().__init__(attribute_name, value_converter=IntegerConverter,
                          defaultPyValue=defaultPyValue, implied_py_value=implied_py_value, is_optional=is_optional)
+
+
+class VersionCounterAttributeProperty(IntegerAttributeProperty):
+    pass
+
+class ReferencedVersionAttributeProperty(VersionCounterAttributeProperty):
+    pass
 
 
 class BooleanAttributeProperty(AttributeProperty):
@@ -378,6 +415,8 @@ class NodeAttributeListProperty(AttributeProperty):
 class HandleRefListAttributeProperty(NodeAttributeListProperty):
     pass
 
+class EntryRefListAttributeProperty(NodeAttributeListProperty):
+    pass
 
 class OperationRefListAttributeProperty(NodeAttributeListProperty):
     pass
@@ -459,8 +498,8 @@ class NodeTextProperty(_NodeProperty):
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
             sub_node.text = py_value
 
-    def __str__(self):
-        return f'{self.__class__.__name__} in subelement {self._sub_element_name}'
+    def __repr__(self):
+        return f'{self.__class__.__name__} in sub-element {self._sub_element_name}'
 
 
 class NodeEnumTextProperty(NodeTextProperty):
@@ -509,6 +548,8 @@ class NodeTextQNameProperty(_NodeProperty):
             value = namespaces.docname_from_qname(py_value, sub_node.nsmap)
             sub_node.text = value
 
+class LocalizedTextContentProperty(NodeTextProperty):
+    pass
 
 class _ExtensionLocalValue:
     def __init__(self, value):
@@ -724,6 +765,11 @@ class SubElementTextListProperty(_ElementListProperty):
 
     def __str__(self):
         return f'{self.__class__.__name__} in subelement {self._sub_element_name}'
+
+
+class SubElementHandleRefListProperty(SubElementTextListProperty):
+    """ List of Handles"""
+    pass
 
 
 class SubElementWithSubElementListProperty(SubElementProperty):

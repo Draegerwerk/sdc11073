@@ -22,12 +22,12 @@ class AbstractStateContainer(ContainerBase):
     isMultiState = False
     isContextState = False
 
-    ext_Extension = cp.ExtensionNodeProperty()
-    DescriptorHandle = cp.StringAttributeProperty('DescriptorHandle', is_optional=False)
+    Extension = cp.ExtensionNodeProperty()
+    DescriptorHandle = cp.HandleAttributeProperty('DescriptorHandle', is_optional=False)
     descriptorHandle = DescriptorHandle
-    DescriptorVersion = cp.IntegerAttributeProperty('DescriptorVersion', defaultPyValue=0)
-    StateVersion = cp.IntegerAttributeProperty('StateVersion', defaultPyValue=0)
-    _props = ('ext_Extension', 'DescriptorHandle', 'DescriptorVersion', 'StateVersion')
+    DescriptorVersion = cp.ReferencedVersionAttributeProperty('DescriptorVersion', defaultPyValue=0)
+    StateVersion = cp.VersionCounterAttributeProperty('StateVersion', defaultPyValue=0)
+    _props = ('Extension', 'DescriptorHandle', 'DescriptorVersion', 'StateVersion')
 
     stateVersion = StateVersion  # lower case for backwards compatibility
 
@@ -282,7 +282,7 @@ class ClockStateContainer(AbstractDeviceComponentStateContainer):
     RemoteSync = cp.BooleanAttributeProperty('RemoteSync', defaultPyValue=True, is_optional=False)
     Accuracy = cp.DecimalAttributeProperty('Accuracy')
     LastSet = cp.TimestampAttributeProperty('LastSet')
-    TimeZone = cp.StringAttributeProperty('TimeZone')  # a time zone string
+    TimeZone = cp.TimeZoneAttributeProperty('TimeZone')  # a time zone string
     CriticalUse = cp.BooleanAttributeProperty('CriticalUse', implied_py_value=False)  # optional
     _props = ('ActiveSyncProtocol', 'ReferenceSource', 'DateAndTime', 'RemoteSync', 'Accuracy', 'LastSet', 'TimeZone',
               'CriticalUse')
@@ -294,7 +294,7 @@ class SystemContextStateContainer(AbstractDeviceComponentStateContainer):
 
 
 class BatteryStateContainer(AbstractDeviceComponentStateContainer):
-    class ChargeStatus(pmtypes.StringEnum):
+    class T_ChargeStatus(pmtypes.StringEnum):
         FULL = 'Ful'
         CHARGING = 'ChB'
         DISCHARGING = 'DisChB'
@@ -310,7 +310,7 @@ class BatteryStateContainer(AbstractDeviceComponentStateContainer):
     RemainingBatteryTime = cp.SubElementProperty(domTag('RemainingBatteryTime'),
                                                  value_class=pmtypes.Measurement,
                                                  is_optional=True)
-    ChargeStatus = cp.EnumAttributeProperty('ChargeStatus', enum_cls=ChargeStatus)
+    ChargeStatus = cp.EnumAttributeProperty('ChargeStatus', enum_cls=T_ChargeStatus)
     ChargeCycles = cp.IntegerAttributeProperty('ChargeCycles')  # Number of charge/discharge cycles.
     _props = (
         'CapacityRemaining', 'Voltage', 'Current', 'Temperature', 'RemainingBatteryTime', 'ChargeStatus',
@@ -394,7 +394,7 @@ class LimitAlertConditionStateContainer(AlertConditionStateContainer):
 
 class AbstractMultiStateContainer(AbstractStateContainer):
     isMultiState = True
-    Handle = cp.StringAttributeProperty('Handle', is_optional=False)
+    Handle = cp.HandleAttributeProperty('Handle', is_optional=False)
     _props = ('Handle',)
 
     def __init__(self, descriptor_container):
@@ -430,8 +430,8 @@ class AbstractContextStateContainer(AbstractMultiStateContainer):
     ContextAssociation = cp.EnumAttributeProperty('ContextAssociation',
                                                   enum_cls=pmtypes.ContextAssociation,
                                                   implied_py_value=pmtypes.ContextAssociation.NO_ASSOCIATION)
-    BindingMdibVersion = cp.IntegerAttributeProperty('BindingMdibVersion')
-    UnbindingMdibVersion = cp.IntegerAttributeProperty('UnbindingMdibVersion')
+    BindingMdibVersion = cp.ReferencedVersionAttributeProperty('BindingMdibVersion')
+    UnbindingMdibVersion = cp.ReferencedVersionAttributeProperty('UnbindingMdibVersion')
     BindingStartTime = cp.TimestampAttributeProperty('BindingStartTime')
     BindingEndTime = cp.TimestampAttributeProperty('BindingEndTime')
     _props = ('Validator', 'Identification', 'ContextAssociation', 'BindingMdibVersion', 'UnbindingMdibVersion',
