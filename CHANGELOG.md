@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.4] - 2021-10-15
 ### Fixed
 - fixed possible Exception in SampleArrayValue.__eq__
+- fixed issue #30: Remove or clarify sdc11073/ca
+- fixed issue #29: Allow disabling plain connections entirely
 
 ## [1.1.3] - 2021-09-10
 ### Fixed

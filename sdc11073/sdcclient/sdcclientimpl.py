@@ -31,19 +31,6 @@ MetaDataSection = sdc11073.pysoap.soapenvelope.MetaDataSection
 SoapResponseException = sdc11073.pysoap.soapenvelope.SoapResponseException
 
 
-def _mkSoapClient(scheme, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
-                  requestEncodings=None, chunked_requests=False):
-    if scheme == 'https':
-        _sslContext = sslContext
-    else:
-        _sslContext = None
-    return  sdc11073.pysoap.soapclient.SoapClient(netloc, logger, sslContext=_sslContext,
-                                                  sdc_definitions=sdc_definitions,
-                                                  supportedEncodings=supportedEncodings,
-                                                  requestEncodings=requestEncodings,
-                                                  chunked_requests=chunked_requests)
-
-
 # default ssl context data
 here = os.path.dirname(__file__)
 caFolder = os.path.join(os.path.dirname(here), 'ca')
@@ -194,11 +181,11 @@ class SdcClient(object):
         @param devicelocation: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         @param deviceType: a QName that defines the device type, e.g. '{http://standards.ieee.org/downloads/11073/11073-20702-2016}MedicalDevice'
                           can be None, in that case value from pysdc.xmlparsing.Final is used
-        @param sslEvents: define if HTTP server of client uses https
+        @param sslEvents: define if client uses https
              sslEvents='auto': use https if Xaddress of device is https
              sslEvents=True: always use https
              sslEvents=False: use only http 
-        @param sslContext: if not None, this context is used. Otherwise a sSSLContext is automatically generated.
+        @param sslContext: the ssl context that shall be used for https connections. If None, https is not possible.
         @param my_ipAddress: This address is used for the http server that receives notifications. 
              If value is None, best own address is determined automatically (recommended).  
         '''
@@ -470,16 +457,31 @@ class SdcClient(object):
     def _getSoapClient(self, address):
         _url = urllib.parse.urlparse(address)
         key = (_url.scheme, _url.netloc)
-        soapClient = self._soapClients.get(key)
-        if soapClient is None:
-            soapClient = _mkSoapClient(_url.scheme, _url.netloc,
-                                       loghelper.getLoggerAdapter('sdc.client.soap', self.log_prefix),
-                                       sslContext=self._sslContext,
-                                       sdc_definitions=self.sdc_definitions,
-                                       supportedEncodings=self._compression_methods,
-                                       chunked_requests=self.chunked_requests)
-            self._soapClients[key] = soapClient
-        return soapClient
+        soap_client = self._soapClients.get(key)
+        if soap_client is None:
+            use_ssl = True
+            if self._sslEvents == 'auto' and _url.scheme == 'http':
+                use_ssl = False
+            elif self._sslEvents is False:  # no https
+                if _url.scheme == 'https':
+                    raise RuntimeError('client expects http url, but other side uses https')
+                use_ssl = False
+            else:  # only https
+                if _url.scheme == 'http':
+                    raise RuntimeError('client expects https url, but other side uses http')
+            if use_ssl and self.self._sslContext is None:
+                    raise RuntimeError('missing ssl context for https connection')
+            soap_client = sdc11073.pysoap.soapclient.SoapClient(
+                _url.netloc,
+                logger=loghelper.getLoggerAdapter('sdc.client.soap', self.log_prefix),
+                sslContext=self._sslContext if use_ssl else None,
+                sdc_definitions=self.sdc_definitions,
+                supportedEncodings=self._compression_methods,
+                requestEncodings=None,
+                chunked_requests=self.chunked_requests)
+
+            self._soapClients[key] = soap_client
+        return soap_client
 
     def _mkHostedServices(self):
         for hosted in self.metaData.hosted.values():
