@@ -462,15 +462,11 @@ class SdcClient(object):
             use_ssl = True
             if self._sslEvents == 'auto' and _url.scheme == 'http':
                 use_ssl = False
-            elif self._sslEvents is False:  # no https
-                if _url.scheme == 'https':
-                    raise RuntimeError('client expects http url, but other side uses https')
+            elif self._sslEvents is False:  # no ssl
                 use_ssl = False
-            else:  # only https
-                if _url.scheme == 'http':
-                    raise RuntimeError('client expects https url, but other side uses http')
-            if use_ssl and self._sslContext is None:
-                    raise RuntimeError('missing ssl context for https connection')
+            else:  # only ssl
+                if self._sslContext is None:
+                   raise RuntimeError('missing ssl context for ssl connection')
             soap_client = sdc11073.pysoap.soapclient.SoapClient(
                 _url.netloc,
                 logger=loghelper.getLoggerAdapter('sdc.client.soap', self.log_prefix),
