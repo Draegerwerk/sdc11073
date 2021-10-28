@@ -41,7 +41,7 @@ class OperationDefinition:
         :param safetyClassification: one of pmtypes.SafetyClassification values
         :param codedValue: a pmtypes.CodedValue instance
         """
-        self._logger = loghelper.get_logger_adapter('sdc.device.op.{}'.format(self.__class__.__name__), log_prefix)
+        self._logger = loghelper.get_logger_adapter(f'sdc.device.op.{self.__class__.__name__}', log_prefix)
         self._mdib = None
         self._descriptor_container = None
         self._operation_state_container = None
@@ -86,7 +86,7 @@ class OperationDefinition:
         self._descriptor_container = self._mdib.descriptions.handle.get_one(self._handle, allow_none=True)
         if self._descriptor_container is not None:
             # there is already a descriptor
-            self._logger.info('descriptor for operation "{}" is already present, re-using it'.format(self._handle))
+            self._logger.info('descriptor for operation "{}" is already present, re-using it', self._handle)
         else:
             cls = mdib.sdc_definitions.get_descriptor_container_class(self.OP_DESCR_QNAME)
             self._descriptor_container = cls(self._handle, parent_descriptor_container.handle)
@@ -95,7 +95,7 @@ class OperationDefinition:
 
         self._operation_state_container = self._mdib.states.descriptorHandle.get_one(self._handle, allow_none=True)
         if self._operation_state_container is not None:
-            self._logger.info('operation state for operation "{}" is already present, re-using it'.format(self._handle))
+            self._logger.info('operation state for operation "{}" is already present, re-using it',self._handle)
             self._operation_state_container.set_node_member(self._mdib.nsmapper)
         else:
             cls = mdib.sdc_definitions.get_state_container_class(self.OP_STATE_QNAME)
@@ -117,8 +117,8 @@ class OperationDefinition:
         self._operation_target_container = self._mdib.states.descriptorHandle.get_one(self._operation_target_handle,
                                                                                       allow_none=True)  # pylint:disable=protected-access
         if self._operation_target_container is not None:
-            self._logger.info('operation target state for operation "{}" is already present, re-using it'.format(
-                self._operation_target_handle))
+            self._logger.info('operation target state for operation "{}" is already present, re-using it',
+                              self._operation_target_handle)
         else:
             self._operation_target_container = self._mdib.mk_state_container_from_descriptor(
                 operation_target_descriptor)
@@ -145,8 +145,7 @@ class OperationDefinition:
         return properties.ValuesCollector(self, 'current_value', number_of_values)
 
     def __str__(self):
-        return '{} handle={} operation-target={}'.format(self.__class__.__name__, self._handle,
-                                                         self._operation_target_handle)
+        return f'{self.__class__.__name__} handle={self._handle} operation-target={self._operation_target_handle}'
 
 
 class _SetStringOperation(OperationDefinition):
@@ -337,8 +336,7 @@ class _OperationsWorker(threading.Thread):
                         operation, tr_id, InvocationState.FAILED,
                         self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper,
                         error='Oth', error_message=repr(ex))
-
-            except Exception as ex:
+            except Exception:
                 self._logger.error('{}: unexpected error while handling operation "{}": {}',
                                    operation.__class__.__name__, operation.handle, traceback.format_exc())
 

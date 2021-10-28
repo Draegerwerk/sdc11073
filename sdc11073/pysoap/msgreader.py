@@ -12,6 +12,8 @@ from .soapenvelope import ReceivedSoap12Envelope
 from .. import isoduration
 from ..compression import CompressionHandler
 
+# pylint: disable=no-self-use
+
 
 class MdibStructureError(Exception):
     pass
@@ -34,7 +36,7 @@ class ReceivedMessageData:
         self.p_msg = parsed_message  # parsed message, e g. a Soap12Envelope
         self.instance_id = None  # a number
         self.sequence_id = None  # a string
-        self.mdib_version = None # a number
+        self.mdib_version = None  # a number
         self.action = None
         self.msg_name = None
 
@@ -102,6 +104,15 @@ class MessageReader(AbstractMessageReader):
             root = found_nodes[0]
         return root
 
+    def read_get_mdib_response(self, received_message_data):
+        descriptors = self.read_mddescription(received_message_data.p_msg.msg_node)
+        states = self.read_mdstate(received_message_data.p_msg.msg_node)
+        return descriptors, states
+
+    def read_get_mddescription_response(self, received_message_data):
+        descriptors = self.read_mddescription(received_message_data.p_msg.msg_node)
+        return descriptors
+
     def read_mddescription(self, node):
         """
         Parses a GetMdDescriptionResponse or the MdDescription part of GetMdibResponse
@@ -110,6 +121,8 @@ class MessageReader(AbstractMessageReader):
         """
         descriptions = []
         found_nodes = node.xpath('//dom:MdDescription', namespaces=namespaces.nsmap)
+        if not found_nodes:
+            found_nodes = node.xpath('//msg:MdDescription', namespaces=namespaces.nsmap)
         if not found_nodes:
             raise ValueError('no MdDescription node found in tree')
         mddescription_node = found_nodes[0]
@@ -267,7 +280,7 @@ class MessageReaderClient(MessageReader):
     def read_periodicmetric_report(self, message_data):
         return self._read_metric_report(message_data.p_msg.msg_node)
 
-    def read_episodicmetric_report(self, message_data):
+    def read_episodic_metric_report(self, message_data):
         return self._read_metric_report(message_data.p_msg.msg_node)
 
     def _read_metric_report(self, report_node):
@@ -282,10 +295,10 @@ class MessageReaderClient(MessageReader):
             states.extend(self._mk_statecontainers_from_reportpart2(reportpart_node))
         return states
 
-    def read_episodicalert_report(self, message_data):
+    def read_episodic_alert_report(self, message_data):
         return self._read_alert_report_node(message_data.p_msg.msg_node)
 
-    def read_periodicalert_report(self, message_data):
+    def read_periodic_alert_report(self, message_data):
         return self._read_alert_report_node(message_data.p_msg.msg_node)
 
     def _read_alert_report_node(self, report_node):
@@ -308,7 +321,7 @@ class MessageReaderClient(MessageReader):
         """
         states = []
         found_nodes = message_data.p_msg.msg_node.xpath('msg:ReportPart/msg:OperationState',
-                                                           namespaces=namespaces.nsmap)
+                                                        namespaces=namespaces.nsmap)
         for found_node in found_nodes:
             states.append(self.mk_statecontainer_from_node(found_node))
         return states
@@ -371,8 +384,8 @@ class MessageReaderClient(MessageReader):
                                              d.handle == state_container.DescriptorHandle]
                 if len(corresponding_descriptors) == 0:
                     raise MdibStructureError(
-                        'new state {}: descriptor with handle "{}" does not exist!'.format(
-                            state_container.NODETYPE.localname, state_container.DescriptorHandle))
+                        f'new state {state_container.NODETYPE.localname}: descriptor '
+                        f'with handle "{state_container.DescriptorHandle}" does not exist!')
                 descriptor_container = corresponding_descriptors[0]
                 state_container.set_descriptor_container(descriptor_container)
                 descriptors[modification_type][1].append(state_container)
@@ -423,7 +436,7 @@ class MessageReaderClient(MessageReader):
     @staticmethod
     def read_renew_response(message_data: ReceivedMessageData) -> float:
         expires = message_data.p_msg.body_node.xpath('wse:RenewResponse/wse:Expires/text()',
-                                                        namespaces=namespaces.nsmap)
+                                                     namespaces=namespaces.nsmap)
         if len(expires) == 0:
             return None
         expire_seconds = isoduration.parse_duration(expires[0])
@@ -432,7 +445,7 @@ class MessageReaderClient(MessageReader):
     @staticmethod
     def read_get_status_response(message_data: ReceivedMessageData) -> float:
         expires = message_data.p_msg.body_node.xpath('wse:GetStatusResponse/wse:Expires/text()',
-                                                        namespaces=namespaces.nsmap)
+                                                     namespaces=namespaces.nsmap)
         if len(expires) == 0:
             return None
         expire_seconds = isoduration.parse_duration(expires[0])
@@ -465,7 +478,7 @@ class MessageReaderDevice(MessageReader):
         accepted_encodings = CompressionHandler.parse_header(request_data.http_header.get('Accept-Encoding'))
 
         subscription_filter_nodes = envelope.body_node.xpath(
-            "//wse:Filter[@Dialect='{}/Action']".format(namespaces.Prefixes.DPWS.namespace),
+            f"//wse:Filter[@Dialect='{namespaces.Prefixes.DPWS.namespace}/Action']",
             namespaces=namespaces.nsmap)
         if len(subscription_filter_nodes) != 1:
             raise Exception
@@ -501,8 +514,7 @@ class MessageReaderDevice(MessageReader):
         expires = message_data.p_msg.body_node.xpath('wse:Renew/wse:Expires/text()', namespaces=namespaces.nsmap)
         if len(expires) == 0:
             return None
-        else:
-            return isoduration.parse_duration(str(expires[0]))
+        return isoduration.parse_duration(str(expires[0]))
 
     @staticmethod
     def read_identifier(message_data):
@@ -533,13 +545,13 @@ class MessageReaderDevice(MessageReader):
 
     def _operation_handle(self, message_data):
         operation_handle_refs = message_data.p_msg.body_node.xpath('*/msg:OperationHandleRef/text()',
-                                                                      namespaces=namespaces.nsmap)
+                                                                   namespaces=namespaces.nsmap)
 
         return operation_handle_refs[0]
 
     def read_activate_request(self, message_data: ReceivedMessageData) -> OperationRequest:
         argument_strings = message_data.p_msg.body_node.xpath('*/msg:Argument/msg:ArgValue/text()',
-                                                                 namespaces=namespaces.nsmap)
+                                                              namespaces=namespaces.nsmap)
         return OperationRequest(self._operation_handle(message_data), argument_strings)
 
     def convert_activate_arguments(self, operation_descriptor, operation_request):
@@ -548,7 +560,7 @@ class MessageReaderDevice(MessageReader):
 
     def read_set_value_request(self, message_data: ReceivedMessageData) -> OperationRequest:
         value_nodes = message_data.p_msg.body_node.xpath('*/msg:RequestedNumericValue',
-                                                            namespaces=namespaces.nsmap)
+                                                         namespaces=namespaces.nsmap)
         if value_nodes:
             argument = float(value_nodes[0].text)
         else:
@@ -557,7 +569,7 @@ class MessageReaderDevice(MessageReader):
 
     def read_set_string_request(self, message_data: ReceivedMessageData) -> OperationRequest:
         string_node = message_data.p_msg.body_node.xpath('*/msg:RequestedStringValue',
-                                                            namespaces=namespaces.nsmap)
+                                                         namespaces=namespaces.nsmap)
         if string_node:
             argument = str(string_node[0].text)
         else:
@@ -566,16 +578,16 @@ class MessageReaderDevice(MessageReader):
 
     def read_set_metric_state_request(self, message_data: ReceivedMessageData) -> OperationRequest:
         proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedMetricState',
-                                                                     namespaces=namespaces.nsmap)
+                                                                  namespaces=namespaces.nsmap)
         proposed_states = [self.mk_statecontainer_from_node(m) for m in proposed_state_nodes]
         return OperationRequest(self._operation_handle(message_data), proposed_states)
 
     def read_set_alert_state_request(self, message_data: ReceivedMessageData) -> OperationRequest:
         proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedAlertState',
-                                                                     namespaces=namespaces.nsmap)
+                                                                  namespaces=namespaces.nsmap)
         if len(proposed_state_nodes) > 1:  # schema allows exactly one ProposedAlertState:
             raise ValueError(
-                'only one ProposedAlertState argument allowed, found {}'.format(len(proposed_state_nodes)))
+                f'only one ProposedAlertState argument allowed, found {len(proposed_state_nodes)}')
         if len(proposed_state_nodes) == 0:
             raise ValueError('no ProposedAlertState argument found')
         proposed_states = [self.mk_statecontainer_from_node(m) for m in proposed_state_nodes]
@@ -583,7 +595,7 @@ class MessageReaderDevice(MessageReader):
 
     def read_set_component_state_request(self, message_data: ReceivedMessageData) -> OperationRequest:
         proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedComponentState',
-                                                                     namespaces=namespaces.nsmap)
+                                                                  namespaces=namespaces.nsmap)
         proposed_states = [self.mk_statecontainer_from_node(m) for m in proposed_state_nodes]
         return OperationRequest(self._operation_handle(message_data), proposed_states)
 
@@ -594,7 +606,7 @@ class MessageReaderDevice(MessageReader):
 
     def read_set_context_state_request(self, message_data: ReceivedMessageData) -> OperationRequest:
         proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedContextState',
-                                                                     namespaces=namespaces.nsmap)
+                                                                  namespaces=namespaces.nsmap)
         proposed_states = [self.mk_statecontainer_from_node(m) for m in proposed_state_nodes]
         return OperationRequest(self._operation_handle(message_data), proposed_states)
 

@@ -40,11 +40,7 @@ def basic_logging_setup(root_logger_name='sdc', level=logging.INFO, log_file_nam
     logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=level)
     reset_log_levels(root_logger_name)
     reset_handlers(root_logger_name)
-    logger = logging.getLogger(root_logger_name)
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-#    stream_handler = logging.StreamHandler()
-#    stream_handler.setFormatter(formatter)
-#    logger.addHandler(stream_handler)
     if log_file_name:
         file_handler = logging.handlers.RotatingFileHandler(log_file_name,
                                                             maxBytes=5000000,
@@ -131,7 +127,7 @@ class LogWatchException(Exception):
         self.issues = issues
 
     def __repr__(self):
-        return 'LogWatchException: {}'.format(self.issues)
+        return f'LogWatchException: {self.issues}'
 
 
 class _LogIssue:
@@ -144,10 +140,9 @@ class _LogIssue:
             del self.call_stack[-1]
 
     def __repr__(self):
-        return 'log msg="{}" level={} thread="{}"; call-stack:\n{}'.format(self.record.msg,
-                                                                           self.record.levelname,
-                                                                           self.record.threadName or self.record.thread,
-                                                                           ''.join(self.call_stack))
+        call_stack = ''.join(self.call_stack)
+        return f'log msg="{self.record.msg}" level={self.record.levelname} ' \
+               f'thread="{self.record.threadName or self.record.thread}"; call-stack:\n{call_stack}'
 
 
 class LogWatcherHandler(logging.Handler):

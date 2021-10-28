@@ -49,10 +49,8 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                                                                          operation_cls_getter,
                                                                          current_argument_handler=self._set_alert_signal_state)
 
-                self._logger.info(
-                    'GenericAlarmProvider: added handler "self._setAlertState" for {} target= {} '.format(
-                        operation_descriptor_container,
-                        operation_target_descr))
+                self._logger.info(f'GenericAlarmProvider: added handler "self._setAlertState" '
+                                  f'for {operation_descriptor_container} target= {operation_target_descr} ')
                 return operation
 
         return None  # None == no handler for this operation instantiated
@@ -99,7 +97,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             # it is not part of this transaction
             descriptor = mdib.descriptions.handle.get_one(handle, allow_none=True)
         if descriptor is None:
-            raise KeyError('there is no descriptor for {}'.format(handle))
+            raise KeyError(f'there is no descriptor for {handle}')
         return descriptor
 
     @staticmethod
@@ -155,11 +153,11 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 # it is not part of this transaction
                 alert_state = mdib.states.descriptorHandle.get_one(descriptor_handle, allow_none=True)
             if alert_state is None:
-                raise RuntimeError('there is no alert state for {}'.format(descriptor_handle))
+                raise RuntimeError(f'there is no alert state for {descriptor_handle}')
             return alert_state
 
         for state in alert_system_states:
-            all_child_descriptors = mdib.descriptions.parent_handle.get(state.descriptorHandle, list())
+            all_child_descriptors = mdib.descriptions.parent_handle.get(state.descriptorHandle, [])
             all_child_descriptors.extend(
                 [i.new for i in transaction.descriptor_updates.values() if
                  i.new.parent_handle == state.descriptorHandle])
@@ -289,7 +287,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         states_needing_update = []
         try:
             all_alert_systems_descr = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('AlertSystemDescriptor'),
-                                                                           list())
+                                                                           [])
             for alert_system_descr in all_alert_systems_descr:
                 alert_system_state = self._mdib.states.descriptorHandle.get_one(alert_system_descr.handle,
                                                                                 allow_none=True)

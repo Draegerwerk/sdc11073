@@ -109,15 +109,46 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                                      trigger_handle='0x34F05501',
                                                      annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
 
+    # def test_BasicConnect(self):
+    #     # simply check that correct top node is returned
+    #     for sdcClient, _ in self._all_cl_dev:
+    #         cl_getService = sdcClient.client('Get')
+    #         node = cl_getService.get_md_description_node()
+    #         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdDescriptionResponse')))
+    #
+    #         node = cl_getService.get_mdib_node()
+    #         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
+    #
+    #         node = cl_getService.get_md_state_node()
+    #         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdStateResponse')))
+    #
+    #         contextService = sdcClient.client('Context')
+    #         # node = contextService.get_context_states_node()
+    #         # self.assertEqual(node.tag, str(namespaces.msgTag('GetContextStatesResponse')))
+    #         result = contextService.get_context_states()
+    #         self.assertGreater(len(result.result), 0)
     def test_BasicConnect(self):
         # simply check that correct top node is returned
         for sdcClient, _ in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
-            node = cl_getService.get_md_description_node()
-            self.assertEqual(node.tag, str(namespaces.msgTag('GetMdDescriptionResponse')))
+            get_result = cl_getService.get_mdib()  # GetResult
+            descriptor_containers, state_containers = get_result.result
+            self.assertGreater(len(descriptor_containers), 0)
+            self.assertGreater(len(state_containers), 0)
 
-            node = cl_getService.get_mdib_node()
-            self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
+            get_result = cl_getService.get_md_description()  # GetResult
+            descriptor_containers = get_result.result
+            self.assertGreater(len(descriptor_containers), 0)
+
+            get_result = cl_getService.get_md_state()  # GetResult
+            state_containers = get_result.result
+            self.assertGreater(len(state_containers), 0)
+
+            #get_mdib_response = cl_getService.get_md_description_node()  # ReceivedMessageData
+            #self.assertGreater(len(descriptor_containers), 0)
+
+            #node = cl_getService.get_mdib_node()
+            #self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
 
             node = cl_getService.get_md_state_node()
             self.assertEqual(node.tag, str(namespaces.msgTag('GetMdStateResponse')))
@@ -366,7 +397,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
             # verify that client also got a PeriodicAlertReport
             message_data = coll2.result(timeout=NOTIFICATION_TIMEOUT)
-            states = sdcClient.msg_reader.read_periodicalert_report(message_data)
+            states = sdcClient.msg_reader.read_periodic_alert_report(message_data)
             self.assertGreaterEqual(len(states), 1)
 
             pass

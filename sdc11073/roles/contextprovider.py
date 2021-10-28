@@ -38,7 +38,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                     old_state_container = operation_instance.operation_target_storage.handle.get_one(
                         proposed_st.Handle, allow_none=True)
                     if old_state_container is None:
-                        raise ValueError('handle {} not found'.format(proposed_st.Handle))
+                        raise ValueError(f'handle {proposed_st.Handle} not found')
                 if old_state_container is None:
                     # this is a new context state
                     # create a new unique handle

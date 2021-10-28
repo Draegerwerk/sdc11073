@@ -10,11 +10,11 @@ from .. import isoduration
 
 CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
 
-DIALECT_ACTION = '{}/Action'.format(Prefixes.DPWS.namespace)
-DIALECT_THIS_MODEL = '{}/ThisModel'.format(Prefixes.DPWS.namespace)
-DIALECT_THIS_DEVICE = '{}/ThisDevice'.format(Prefixes.DPWS.namespace)
-DIALECT_RELATIONSHIP = '{}/Relationship'.format(Prefixes.DPWS.namespace)
-HOST_TYPE = '{}/host'.format(Prefixes.DPWS.namespace)
+DIALECT_ACTION = f'{Prefixes.DPWS.namespace}/Action'
+DIALECT_THIS_MODEL = f'{Prefixes.DPWS.namespace}/ThisModel'
+DIALECT_THIS_DEVICE = f'{Prefixes.DPWS.namespace}/ThisDevice'
+DIALECT_RELATIONSHIP = f'{Prefixes.DPWS.namespace}/Relationship'
+HOST_TYPE = f'{Prefixes.DPWS.namespace}/host'
 
 
 class SoapResponseException(Exception):
@@ -70,7 +70,7 @@ class WsaEndpointReferenceType:
                 self.metadata_node.extend(metadata_node)
 
     def __str__(self):
-        return 'WsaEndpointReferenceType: address={}'.format(self.address)
+        return f'WsaEndpointReferenceType: address={self.address}'
 
     @classmethod
     def from_etree_node(cls, root_node):
@@ -200,7 +200,7 @@ class WsSubscribe:
     """
     from ws-eventing
     """
-    MODE_PUSH = '{}/DeliveryModes/Push'.format(Prefixes.WSE.namespace)
+    MODE_PUSH = f'{Prefixes.WSE.namespace}/DeliveryModes/Push'
     __slots__ = ('delivery_mode', 'notify_to', 'end_to', 'expires', 'filter')
 
     def __init__(self, notify_to,
@@ -251,7 +251,7 @@ class DPWSThisDevice:
         if isinstance(friendly_name, dict):
             self.friendly_name = friendly_name
         else:
-            self.friendly_name = {'': friendly_name}  # localized texts
+            self.friendly_name = {None: friendly_name}  # localized texts
         self.firmware_version = firmware_version
         self.serial_number = serial_number
 
@@ -269,16 +269,25 @@ class DPWSThisDevice:
         for lang, name in self.friendly_name.items():
             friendly_name = etree_.SubElement(this_device, dpwsTag('FriendlyName'))
             friendly_name.text = name
-            friendly_name.set(_LANGUAGE_ATTR, lang)
+            friendly_name.set(_LANGUAGE_ATTR, lang or '') # if lang is None
         firmware_version = etree_.SubElement(this_device, dpwsTag('FirmwareVersion'))
         firmware_version.text = self.firmware_version
         serial_number = etree_.SubElement(this_device, dpwsTag('SerialNumber'))
         serial_number.text = self.serial_number
 
     def __str__(self):
-        return 'DPWSThisDevice: friendly_name={}, firmware_version="{}", serial_number="{}"'.format(self.friendly_name,
-                                                                                                    self.firmware_version,
-                                                                                                    self.serial_number)
+        return f'DPWSThisDevice: friendly_name={self.friendly_name}, ' \
+               f'firmware_version="{self.firmware_version}", ' \
+               f'serial_number="{self.serial_number}"'
+
+    def __eq__(self, other):
+        try:
+            for slot in self.__slots__:
+                if getattr(self, slot) != getattr(other, slot):
+                    return False
+            return True
+        except AttributeError:
+            return False
 
 
 class DPWSThisModel:
@@ -299,9 +308,8 @@ class DPWSThisModel:
         self.presentation_url = presentation_url
 
     def __str__(self):
-        return 'DPWSThisModel: manufacturer={}, model_name="{}", model_number="{}"'.format(self.manufacturer,
-                                                                                           self.model_name,
-                                                                                           self.model_number)
+        return f'DPWSThisModel: manufacturer={self.manufacturer}, model_name="{self.model_name}", ' \
+               f'model_number="{self.model_number}"'
 
     @classmethod
     def from_etree_node(cls, root_node):
@@ -341,6 +349,15 @@ class DPWSThisModel:
         presentation_url = etree_.SubElement(this_model, dpwsTag('PresentationUrl'))
         presentation_url.text = self.presentation_url
 
+    def __eq__(self, other):
+        try:
+            for slot in self.__slots__:
+                if getattr(self, slot) != getattr(other, slot):
+                    return False
+            return True
+        except AttributeError:
+            return False
+
 
 class DPWSHost:
     __slots__ = ('endpoint_references', 'types')
@@ -369,9 +386,9 @@ class DPWSHost:
                 prefix = res.get(qname.namespace)
                 if not prefix:
                     # create a random prefix
-                    prefix = '_dpwsh{}'.format(len(_ns))
+                    prefix = f'_dpwsh{len(_ns)}'
                     _ns[prefix] = qname.namespace
-                types_texts.append('{}:{}'.format(prefix, qname.localname))
+                types_texts.append(f'{prefix}:{qname.localname}')
 
         host_node = etree_.SubElement(root_node, dpwsTag('Host'))  # , nsmap=_ns)
         ep_ref_node = etree_.SubElement(host_node, wsaTag('EndpointReference'))  # , nsmap=_ns)
@@ -394,7 +411,7 @@ class DPWSHost:
         return cls(endpoint_references, types)
 
     def __str__(self):
-        return 'DPWSHost: endpointReference={}, types="{}"'.format(self.endpoint_references, self.types)
+        return f'DPWSHost: endpointReference={self.endpoint_references}, types="{self.types}"'
 
 
 class DPWSHosted:
@@ -430,9 +447,8 @@ class DPWSHosted:
         return cls(endpoint_references, types, service_id)
 
     def __str__(self):
-        return 'DPWSHosted: endpointReference={}, types="{}" service_id="{}"'.format(self.endpoint_references,
-                                                                                     self.types,
-                                                                                     self.service_id)
+        return f'DPWSHosted: endpointReference={self.endpoint_references}, types="{self.types}" ' \
+               f'service_id="{self.service_id}"'
 
 
 class DPWSRelationShip:
@@ -452,8 +468,8 @@ class MetaDataSection:
     def __getattr__(self, attrname):
         try:
             return self._metadata_sections[attrname]
-        except KeyError:
-            raise AttributeError
+        except KeyError as ex:
+            raise AttributeError from ex
 
     @classmethod
     def from_etree_node(cls, root_node):
@@ -491,8 +507,8 @@ def _assert_valid_exception_wrapper(schema, content):
         try:
             schema.assertValid(tmp)
         except etree_.DocumentInvalid as err:
-            msg = "{}\n{}".format(str(err), tmp_str)
-            raise ExtendedDocumentInvalid(msg, error_log=err.error_log)
+            msg = f'{str(err)}\n{tmp_str}'
+            raise ExtendedDocumentInvalid(msg, error_log=err.error_log) from err
 
 
 class Soap12Envelope:
@@ -589,12 +605,12 @@ class Soap12Envelope:
                 used.append(prefix)
         if unused:
             print(root.nsmap, used, xml_doc[:500])  # do not need to see the wohle message
-            raise RuntimeError('unused namespaces:{}, used={}'.format(unused, used))
+            raise RuntimeError(f'unused namespaces:{unused}, used={used}')
 
     def _find_undefined_namespaces(self):
         xml_doc = self.as_xml()
         if b':ns0' in xml_doc:
-            raise RuntimeError('undefined namespaces:{}'.format(xml_doc))
+            raise RuntimeError(f'undefined namespaces:{xml_doc}')
 
 
 class _SoapFaultBase(Soap12Envelope):
@@ -626,7 +642,7 @@ class _SoapFaultBase(Soap12Envelope):
         fault_node = etree_.Element(s12Tag('Fault'))
         code_node = etree_.SubElement(fault_node, s12Tag('Code'))
         value_node = etree_.SubElement(code_node, s12Tag('Value'))
-        value_node.text = 's12:{}'.format(code)
+        value_node.text = f's12:{code}'
         if subCode is not None:
             subcode_node = etree_.SubElement(code_node, s12Tag('Subcode'))
             sub_value_node = etree_.SubElement(subcode_node, s12Tag('Value'))
@@ -647,14 +663,14 @@ class _SoapFaultBase(Soap12Envelope):
 
 
 class SoapFault(_SoapFaultBase):
-    SOAP_FAULT_ACTION = '{}/soap/fault'.format(Prefixes.WSA.namespace)
+    SOAP_FAULT_ACTION = f'{Prefixes.WSA.namespace}/soap/fault'
 
     def __init__(self, request_envelope, code, reason, subCode=None, details=None):
         super().__init__(request_envelope, self.SOAP_FAULT_ACTION, code, reason, subCode, details)
 
 
 class AdressingFault(_SoapFaultBase):
-    ADDRESSING_FAULT_ACTION = '{}/fault'.format(Prefixes.WSA.namespace)
+    ADDRESSING_FAULT_ACTION = f'{Prefixes.WSA.namespace}/fault'
 
     def __init__(self, request_envelope, code, reason, subCode=None, details=None):
         super().__init__(request_envelope, self.ADDRESSING_FAULT_ACTION, code, reason, subCode, details)
@@ -669,7 +685,7 @@ class ReceivedSoap12Envelope:
         try:
             self._doc_root = etree_.fromstring(xml_string, parser=parser)
         except Exception as ex:
-            print('load error "{}" in "{}"'.format(ex, xml_string))
+            print(f'load error "{ex}" in "{xml_string}"')
             raise
         self.raw_data = xml_string
         self.header_node = None
@@ -740,8 +756,8 @@ class ReceivedSoapFault(ReceivedSoap12Envelope):
         self.detail = ', '.join(self.body_node.xpath('s12:Fault/s12:Detail/text()', namespaces=nsmap))
 
     def __repr__(self):
-        return ('ReceivedSoapFault(code="{}", subcode="{}", reason="{}", detail="{}")'.format(self.code, self.subcode,
-                                                                                              self.reason, self.detail))
+        return (f'ReceivedSoapFault(code="{self.code}", subcode="{self.subcode}", '
+                f'reason="{self.reason}", detail="{self.detail}")')
 
 
 class SoapFaultCode:

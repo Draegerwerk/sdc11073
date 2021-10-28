@@ -76,7 +76,6 @@ class TestDeviceServices(unittest.TestCase):
         getEnv = self._mkGetRequest(self.sdc_device, contextService.port_type_string, 'GetContextStates',
                                     path)
         http_header = {}
-        #response_string = dispatcher.on_post(path, http_header, getEnv.as_xml())
         response_string = dispatcher.on_post(RequestData(http_header, path, 'foo', getEnv.as_xml()))
         self.assertTrue(
             '/{}/GetContextStatesResponse'.format(contextService.port_type_string).encode('utf-8') in response_string)

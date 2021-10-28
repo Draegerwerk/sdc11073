@@ -189,13 +189,14 @@ class LocalizationStorage():
 
 
 class LocalizationService(DPWSPortTypeImpl):
-    WSDLMessageDescriptions = (WSDLMessageDescription('GetLocalizedText', ('{}:GetLocalizedText'.format(_msg),)),
+    WSDLMessageDescriptions = (WSDLMessageDescription('GetLocalizedText',
+                                                      (f'{_msg}:GetLocalizedText',)),
                                WSDLMessageDescription('GetLocalizedTextResponse',
-                                                      ('{}:GetLocalizedTextResponse'.format(_msg),)),
+                                                      (f'{_msg}:GetLocalizedTextResponse',)),
                                WSDLMessageDescription('GetSupportedLanguages',
-                                                      ('{}:GetSupportedLanguages'.format(_msg),)),
+                                                      (f'{_msg}:GetSupportedLanguages',)),
                                WSDLMessageDescription('GetSupportedLanguagesResponse',
-                                                      ('{}:GetSupportedLanguagesResponse'.format(_msg),)),
+                                                      (f'{_msg}:GetSupportedLanguagesResponse',)),
                                )
     WSDLOperationBindings = (WSDLOperationBinding('GetLocalizedText', 'literal', 'literal'),
                              WSDLOperationBinding('GetSupportedLanguages', 'literal', 'literal'),)

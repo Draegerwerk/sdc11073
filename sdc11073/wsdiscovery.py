@@ -22,14 +22,14 @@ from typing import Iterable
 from lxml.etree import ETCompatXMLParser, QName, Element, SubElement, tostring, fromstring
 
 from sdc11073.commlog import get_communication_logger
-
+from .netconn import get_ipv4_addresses, get_ip_for_adapter
 # pylint: enable=no-name-in-module
 
-try:
-    from sdc11073.netconn import get_network_adapter_configs
-except ImportError:
-    def get_network_adapter_configs():
-        return []
+# try:
+#     from sdc11073.netconn import get_network_adapter_configs
+# except ImportError:
+#     def get_network_adapter_configs():
+#         return []
 
 BUFFER_SIZE = 0xffff
 APP_MAX_DELAY = 500  # miliseconds
@@ -73,8 +73,6 @@ MATCH_BY_URI = NS_D + '/rfc3986'  # "http://docs.oasis-open.org/ws-dd/ns/discove
 MATCH_BY_UUID = NS_D + '/uuid'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/uuid"
 MATCH_BY_STRCMP = NS_D + '/strcmp0'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/strcmp0"
 
-_IP_BLACKLIST = ('0.0.0.0', None)  # None can happen if an adapter does not have any IP address
-
 # these time constants control the send loop
 SEND_LOOP_IDLE_SLEEP = 0.1
 SEND_LOOP_BUSY_SLEEP = 0.01
@@ -103,16 +101,16 @@ def _types_info(types):
     return [str(t) for t in types] if types else types
 
 
-def _get_network_addresses():
-    """
-    @return: a set of strings
-    """
-    result = []
-    interfaces = get_network_adapter_configs()
-    for interface in interfaces:
-        if interface.ip not in _IP_BLACKLIST:
-            result.append(interface.ip)
-    return result
+# def _get_network_addresses():
+#     """
+#     @return: a set of strings
+#     """
+#     result = []
+#     interfaces = get_network_adapter_configs()
+#     for interface in interfaces:
+#         if interface.ip not in _IP_BLACKLIST:
+#             result.append(interface.ip)
+#     return result
 
 
 def _get_prefix(nsmap, namespace):
@@ -192,11 +190,9 @@ class ProbeResolveMatch:
     metadata_version: str
 
     def __repr__(self):
-        return "ProbeResolveMatch(EPR:%s Types:%s Scopes:%s XAddrs:%s Metadata Version:%s)" % \
-               (self.epr, _types_info(self.types),
-                [str(s) for s in self.scopes],
-                self.x_addrs,
-                self.metadata_version)
+        return f"ProbeResolveMatch(EPR:{self.epr} Types:{_types_info(self.types)} " \
+               f"Scopes:{[str(s) for s in self.scopes]} XAddrs:{self.x_addrs} " \
+               f"Metadata Version:{self.metadata_version})"
 
 
 @dataclass()
@@ -223,8 +219,8 @@ class SoapEnvelope:
 
 
 class _MessageType(Enum):
-    multicast = 1
-    unicast = 2
+    MULTICAST = 1
+    UNICAST = 2
 
 
 @dataclass(frozen=True)
@@ -245,58 +241,21 @@ class Service:
         self.message_number = 0
         self.metadata_version = 1
 
-    # def getTypes(self):
-    #     return self._types
-    #
-    # def setTypes(self, types):
-    #     self._types = types
-    #
-    # def getScopes(self):
-    #     return self._scopes
-    #
-    # def setScopes(self, scopes):
-    #     self._scopes = scopes
-
     def get_x_addrs(self):
         ret = []
         ip_addrs = None
         for x_addr in self._x_addrs:
             if '{ip}' in x_addr:
                 if ip_addrs is None:
-                    ip_addrs = _get_network_addresses()
+                    ip_addrs = get_ipv4_addresses()
                 for ip_addr in ip_addrs:
-                    if ip_addr not in _IP_BLACKLIST:
-                        ret.append(x_addr.format(ip=ip_addr))
+                    ret.append(x_addr.format(ip=ip_addr))
             else:
                 ret.append(x_addr)
         return ret
 
     def set_x_addrs(self, x_addrs):
         self._x_addrs = x_addrs
-
-    # def getEPR(self):
-    #     return self._epr
-    #
-    # def setEPR(self, epr):
-    #     self._epr = epr
-    #
-    # def getInstanceId(self):
-    #     return self._instanceId
-    #
-    # def setInstanceId(self, instanceId):
-    #     self._instanceId = instanceId
-    #
-    # def getMessageNumber(self):
-    #     return self._messageNumber
-    #
-    # def setMessageNumber(self, messageNumber):
-    #     self._messageNumber = messageNumber
-    #
-    # def getMetadataVersion(self):
-    #     return self._metadataVersion
-    #
-    # def setMetadataVersion(self, metadataVersion):
-    #     self._metadataVersion = metadataVersion
 
     def increment_message_number(self):
         self.message_number = self.message_number + 1
@@ -319,21 +278,18 @@ class Service:
         return False
 
     def __repr__(self):
-        return 'Service epr={}, instanceId={} Xaddr={} scopes={} types={}'.format(self.epr, self.instance_id,
-                                                                                  self._x_addrs,
-                                                                                  ', '.join(
-                                                                                      [str(x) for x in self.scopes]),
-                                                                                  ', '.join(
-                                                                                      [str(x) for x in self.types]))
+        scopes_str = ', '.join([str(x) for x in self.scopes])
+        types_str = ', '.join([str(x) for x in self.types])
+        return f'Service epr={self.epr}, instanceId={self.instance_id} Xaddr={self._x_addrs} ' \
+               f'scopes={scopes_str} types={types_str}'
 
     def __str__(self):
-        return 'Service epr={}, instanceId={}\n   Xaddr={}\n   scopes={}\n   types={}'.format(self.epr,
-                                                                                              self.instance_id,
-                                                                                              self._x_addrs,
-                                                                                              ', '.join([str(x) for x in
-                                                                                                         self.scopes]),
-                                                                                              ', '.join([str(x) for x in
-                                                                                                         self.types]))
+        scopes_str = ', '.join([str(x) for x in self.scopes])
+        types_str = ', '.join([str(x) for x in self.types])
+        return f'Service epr={self.epr}, instanceId={self.instance_id}\n' \
+               f'   Xaddr={self._x_addrs}\n' \
+               f'   scopes={scopes_str}\n' \
+               f'   types={types_str}'
 
 
 def match_scope(src, target, match_by):
@@ -710,7 +666,7 @@ class _StopableDaemonThread(threading.Thread):
 
     def __init__(self, name):
         self._quit_event = threading.Event()
-        super(_StopableDaemonThread, self).__init__(name=name)
+        super().__init__(name=name)
         self.daemon = True
 
     def schedule_stop(self):
@@ -730,12 +686,12 @@ class _AddressMonitorThread(threading.Thread):
         self._wsd = wsd
         self._logger = logging.getLogger('sdc.discover.monitor')
         self._quit_event = threading.Event()
-        super(_AddressMonitorThread, self).__init__(name='AddressMonitorThread')
+        super().__init__(name='AddressMonitorThread')
         self.daemon = True
         self._update_addresses()
 
     def _update_addresses(self):
-        addresses = set(_get_network_addresses())
+        addresses = set(get_ipv4_addresses())
 
         disappeared = self._addresses.difference(addresses)
         new = addresses.difference(self._addresses)
@@ -846,14 +802,14 @@ class _NetworkingThread:
                 del self._multi_out_uni_in_sockets[addr]
 
     def add_unicast_message(self, env, addr, port, initial_delay=0):
-        msg = Message(env, addr, port, _MessageType.unicast)
+        msg = Message(env, addr, port, _MessageType.UNICAST)
         self._logger.debug(
             'add_unicast_message: adding message Id %s. delay=%.2f', env.message_id, initial_delay)
         self._repeated_enqueue_msg(msg, initial_delay, UNICAST_UDP_REPEAT, UNICAST_UDP_MIN_DELAY,
                                    UNICAST_UDP_MAX_DELAY, UNICAST_UDP_UPPER_DELAY)
 
     def add_multicast_message(self, env, addr, port, initial_delay=0):
-        msg = Message(env, addr, port, _MessageType.multicast)
+        msg = Message(env, addr, port, _MessageType.MULTICAST)
         self._logger.debug(
             'add_multicast_message: adding message Id %s. delay=%.2f', env.message_id, initial_delay)
         self._repeated_enqueue_msg(msg, initial_delay, MULTICAST_UDP_REPEAT, MULTICAST_UDP_MIN_DELAY,
@@ -968,7 +924,7 @@ class _NetworkingThread:
 
         data = _create_message(msg.env)
 
-        if msg.msg_type == _MessageType.unicast:
+        if msg.msg_type == _MessageType.UNICAST:
             get_communication_logger().log_discovery_msg_out(msg.addr, data)
             self._uni_out_socket.sendto(data, (msg.addr, msg.port))
         else:
@@ -1046,7 +1002,7 @@ def _matches_filter(service, types, scopes, logger=None):
         for ttype in types:
             if not _is_type_in_list(ttype, srv_ty):
                 if logger:
-                    logger.debug('types not matching: {} is not in types list {}'.format(ttype, srv_ty))
+                    logger.debug(f'types not matching: {ttype} is not in types list {srv_ty}')
                 return False
         if logger:
             logger.debug('matching types')
@@ -1055,7 +1011,7 @@ def _matches_filter(service, types, scopes, logger=None):
         for scope in scopes:
             if not _is_scope_in_list(scope, srv_sc):
                 if logger:
-                    logger.debug('scope not matching: {} is not in scopes list {}'.format(scope, srv_sc))
+                    logger.debug(f'scope not matching: {scope} is not in scopes list {srv_sc}')
                 return False
         if logger:
             logger.debug('matching scopes')
@@ -1391,16 +1347,16 @@ class WSDiscoveryBase:
             merged = []
             if len(service.get_x_addrs()) > len(already_known_service.get_x_addrs()):
                 already_known_service.set_x_addrs(service.get_x_addrs())
-                merged.append('XAddr={}'.format(service.get_x_addrs()))
+                merged.append(f'XAddr={service.get_x_addrs()}')
             if len(service.scopes) > len(already_known_service.scopes):
                 already_known_service.scopes = service.scopes
-                merged.append('Scopes={}'.format(service.scopes))
+                merged.append(f'Scopes={service.scopes}')
             if len(service.types) > len(already_known_service.types):
                 already_known_service.types = service.types
-                merged.append('Types={}'.format(service.types))
+                merged.append(f'Types={service.types}')
             if merged:
-                self._logger.info(
-                    'merge from remote Service %s:\n      %r', service.epr, '\n      '.join(merged))
+                tmp = '\n      '.join(merged)
+                self._logger.info(f'merge from remote Service {service.epr}:\n      {tmp}')
 
     def _remove_remote_service(self, epr):
         if epr in self._remote_services:
@@ -1718,7 +1674,7 @@ class WSDiscoveryBlacklist(WSDiscoveryBase):
         :param ignoredAdaptorIPAddresses: an optional list of (own) ip addresses that shall not be used for discovery.
                                           IP addresses are handled as regular expressions.
         """
-        super(WSDiscoveryBlacklist, self).__init__(logger)
+        super().__init__(logger)
         tmp = [] if ignored_adaptor_addresses is None else ignored_adaptor_addresses
         self._ignored_adaptor_addresses = [re.compile(x) for x in tmp]
 
@@ -1740,7 +1696,7 @@ class WSDiscoveryWhitelist(WSDiscoveryBase):
         """
         :param acceptedAdaptorIPAddresses: an optional list of (own) ip addresses that shall not be used for discovery.
         """
-        super(WSDiscoveryWhitelist, self).__init__(logger)
+        super().__init__(logger)
         tmp = [] if accepted_adapter_addresses is None else accepted_adapter_addresses
         self.accepted_adapter_addresses = [re.compile(x) for x in tmp]
 
@@ -1765,26 +1721,28 @@ class WSDiscoverySingleAdapter(WSDiscoveryBase):
         :param force_adapter_name: if True, only this named adapter will be used.
                                  If False, and only one Adapter exists, the one existing adapter is used. (localhost is ignored in this case).
         """
-        super(WSDiscoverySingleAdapter, self).__init__(logger)
+        super().__init__(logger)
+        self._my_ip_address = get_ip_for_adapter(adapter_name)
 
-        all_adapters = get_network_adapter_configs()
-        # try to match name. if it matches, we are already ready.
-        filtered_adapters = [a for a in all_adapters if a.friendly_name == adapter_name]
-        if len(filtered_adapters) == 1:
-            self._my_ip_address = (filtered_adapters[0].ip,)  # a tuple
-            return
-        if force_adapter_name:
-            raise RuntimeError(
-                'No adapter "{}" found. Having {}'.format(adapter_name, [a.friendly_name for a in all_adapters]))
+        # all_adapters = get_network_adapter_configs()
+        # # try to match name. if it matches, we are already ready.
+        # filtered_adapters = [a for a in all_adapters if a.friendly_name == adapter_name]
+        # if len(filtered_adapters) == 1:
+        #     self._my_ip_address = (filtered_adapters[0].ip,)  # a tuple
+        #     return
+        if self._my_ip_address is None:
+            all_adapters = get_ipv4_addresses()
+            all_adapter_names = [ip.nice_name for ip in all_adapters]
+            if force_adapter_name:
+                raise RuntimeError(f'No adapter "{adapter_name}" found. Having {all_adapter_names}')
 
-        # see if there is only one physical adapter. if yes, use it
-        adapters_not_localhost = [a for a in all_adapters if not a.ip.startswith('127.')]
-        if len(adapters_not_localhost) == 1:
-            self._my_ip_address = (adapters_not_localhost[0].ip,)  # a tuple
-        else:
-            raise RuntimeError('No adapter "{}" found. Cannot use default, having {}'.format(adapter_name,
-                                                                                             [a.friendly_name for a in
-                                                                                              all_adapters]))
+            # see if there is only one physical adapter. if yes, use it
+            #adapters_not_localhost = [a for a in all_adapters if not a.ip.startswith('127.')]
+            adapters_not_localhost = [a for a in all_adapters if not a.ip.startswith('127.')]
+            if len(adapters_not_localhost) == 1:
+                self._my_ip_address = (adapters_not_localhost[0].ip,)  # a tuple
+            else:
+                raise RuntimeError(f'No adapter "{adapter_name}" found. Having {all_adapter_names}')
 
     def _is_accepted_address(self, address):
         """ check if any of the regular expressions matches the argument"""

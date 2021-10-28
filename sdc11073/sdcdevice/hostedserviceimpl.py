@@ -53,7 +53,7 @@ class SoapMessageHandler:
         self._post_handlers = {}
         self._get_handlers = {}
         self._get_key_method = get_key_method
-        self._logger = loghelper.get_logger_adapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
+        self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
     def register_post_handler(self, key, func):
         self._post_handlers[key] = func
@@ -83,8 +83,9 @@ class SoapMessageHandler:
             duration = time.monotonic() - begin
             self._logger.debug('on_get:duration="{:.4f}"', duration)
             return result
-        self._logger.error('on_get:path="{}" ,no handler found!', key)
-        raise KeyError('on_get:path="{}" ,no handler found!'.format(key))
+        error_text = f'on_get:path="{key}", no handler found!'
+        self._logger.error(error_text)
+        raise KeyError(error_text)
 
     def get_post_handler(self, request_data):
         key = self._get_key_method(request_data)
@@ -106,10 +107,10 @@ class EventService(SoapMessageHandler):
         self._sdc_device = sdc_device
         self._subscriptions_manager = sdc_device.subscriptions_manager
         self._offered_subscriptions = offered_subscriptions
-        self.register_post_handler('{}/Subscribe'.format(Prefixes.WSE.namespace), self._on_subscribe)
-        self.register_post_handler('{}/Unsubscribe'.format(Prefixes.WSE.namespace), self._on_unsubscribe)
-        self.register_post_handler('{}/GetStatus'.format(Prefixes.WSE.namespace), self._on_get_status)
-        self.register_post_handler('{}/Renew'.format(Prefixes.WSE.namespace), self._on_renew_status)
+        self.register_post_handler(f'{Prefixes.WSE.namespace}/Subscribe', self._on_subscribe)
+        self.register_post_handler(f'{Prefixes.WSE.namespace}/Unsubscribe', self._on_unsubscribe)
+        self.register_post_handler(f'{Prefixes.WSE.namespace}/GetStatus', self._on_get_status)
+        self.register_post_handler(f'{Prefixes.WSE.namespace}/Renew', self._on_renew_status)
         self.register_post_handler('Subscribe', self._on_subscribe)
         self.register_post_handler('Unsubscribe', self._on_unsubscribe)
         self.register_post_handler('GetStatus', self._on_get_status)
@@ -119,10 +120,8 @@ class EventService(SoapMessageHandler):
         subscribe_request = self._sdc_device.msg_reader.read_subscribe_request(request_data)
         for subscription_filter in subscribe_request.subscription_filters:
             if subscription_filter not in self._offered_subscriptions:
-                raise Exception('{}::{}: "{}" is not in offered subscriptions: {}'.format(self.__class__.__name__,
-                                                                                          self.path_element,
-                                                                                          subscription_filter,
-                                                                                          self._offered_subscriptions))
+                raise Exception(f'{self.__class__.__name__}::{self.path_element}: "{subscription_filter}" '
+                                f'is not in offered subscriptions: {self._offered_subscriptions}')
 
         returned_envelope = self._subscriptions_manager.on_subscribe_request(request_data, subscribe_request)
         self._validate_eventing_response(returned_envelope)
@@ -180,7 +179,7 @@ class DPWSHostedService(EventService):
         self._port_type_impls = port_type_impls
         self._my_port_types = [p.port_type_string for p in port_type_impls]
         self._wsdl_string = self._mk_wsdl_string()
-        self.register_post_handler('{}/GetMetadata/Request'.format(Prefixes.WSX.namespace), self._on_get_metadata)
+        self.register_post_handler(f'{Prefixes.WSX.namespace}/GetMetadata/Request', self._on_get_metadata)
         self.register_post_handler('GetMetadata', self._on_get_metadata)
         self.register_get_handler('?wsdl', func=self._on_get_wsdl)
         for port_type_impl in port_type_impls:
@@ -190,7 +189,7 @@ class DPWSHostedService(EventService):
         endpoint_references_list = []
         for addr in self._sdc_device.base_urls:
             endpoint_references_list.append(
-                WsaEndpointReferenceType('{}/{}'.format(addr.geturl(), self.path_element)))
+                WsaEndpointReferenceType(f'{addr.geturl()}/{self.path_element}'))
         porttype_ns = self._mdib.sdc_definitions.PortTypeNamespace
         # little bit ugly: normalize_xml_text needs bytes, not string. and it looks for namespace in "".
         _normalized = self._mdib.sdc_definitions.normalize_xml_text(b'"' + porttype_ns.encode('utf-8') + b'"')
@@ -273,11 +272,11 @@ class DPWSHostedService(EventService):
         # Relationship
         metadata_section_node = etree_.SubElement(metadata_node,
                                                   wsxTag('MetadataSection'),
-                                                  attrib={'Dialect': '{}/Relationship'.format(Prefixes.DPWS.namespace)})
+                                                  attrib={'Dialect': f'{Prefixes.DPWS.namespace}/Relationship'})
 
         relationship_node = etree_.SubElement(metadata_section_node,
                                               dpwsTag('Relationship'),
-                                              attrib={'Type': '{}/host'.format(Prefixes.DPWS.namespace)})
+                                              attrib={'Type': f'{Prefixes.DPWS.namespace}/host'})
         self._sdc_device.dpws_host.as_etree_subnode(relationship_node)
 
         self.mk_dpws_hosted_instance().as_etree_subnode(relationship_node)
@@ -292,13 +291,12 @@ class DPWSHostedService(EventService):
         all_base_urls = self._sdc_device.base_urls
         my_base_urls = [u for u in all_base_urls if u.netloc == host]
         my_base_url = my_base_urls[0] if len(my_base_urls) > 0 else all_base_urls[0]
-        location_node.text = '{}://{}/{}/?wsdl'.format(my_base_url.scheme,
-                                                       my_base_url.netloc,
-                                                       '/'.join(consumed_path_elements))
+        tmp = '/'.join(consumed_path_elements)
+        location_node.text = f'{my_base_url.scheme}://{my_base_url.netloc}/{tmp}/?wsdl'
         response.add_body_element(metadata_node)
         response.validate_body(self._mdib.schema_validators.mex_schema)
         return response
 
     def __repr__(self):
-        return '{} path={} Porttypes={}'.format(self.__class__.__name__, self.path_element,
-                                                [dp.port_type_string for dp in self._port_type_impls])
+        return f'{self.__class__.__name__} path={self.path_element} ' \
+               f'Porttypes={[dp.port_type_string for dp in self._port_type_impls]}'

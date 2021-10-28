@@ -8,7 +8,7 @@ from .. import pmtypes
 class ProviderRole:
     def __init__(self, log_prefix):
         self._mdib = None
-        self._logger = loghelper.get_logger_adapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
+        self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
     def stop(self):
         """ if provider uses worker threads, implement stop method"""
@@ -16,14 +16,14 @@ class ProviderRole:
     def init_operations(self, mdib):
         self._mdib = mdib
 
-    def make_operation_instance(self, operation_descriptor_container,  # pylint: disable=unused-argument
+    def make_operation_instance(self, operation_descriptor_container,  # pylint: disable=unused-argument,no-self-use
                                 operation_cls_getter):  # pylint: disable=unused-argument
         """returns a callable for this operation or None.
         If a mdib already has operations defined, this method can connect a handler to a given operation descriptor.
         Use case: initialization from an existing mdib"""
         return None
 
-    def make_missing_operations(self, operation_cls_getter):  # pylint: disable=unused-argument
+    def make_missing_operations(self, operation_cls_getter):  # pylint: disable=unused-argument, no-self-use
         """
         This method is called after all existing operations from mdib have been registered.
         If a role provider needs to add operations beyond that, it can do it here.
@@ -94,7 +94,8 @@ class ProviderRole:
                                        current_request_handler)
         return operation
 
-    def _mk_operation(self, cls, handle, operation_target_handle, coded_value, current_argument_handler=None,
+    def _mk_operation(self, cls, handle, operation_target_handle, # pylint: disable=no-self-use
+                      coded_value, current_argument_handler=None,
                       current_request_handler=None):
         """
 

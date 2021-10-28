@@ -1,4 +1,4 @@
-import urllib
+from urllib.parse import quote_plus
 from dataclasses import dataclass
 from typing import List, Tuple
 from typing import Type
@@ -37,9 +37,8 @@ def mk_scopes(mdib) -> List[wsdiscovery.Scope]:
             states = mdib.context_states.descriptorHandle.get(descriptor.Handle, [])
             assoc_st = [s for s in states if s.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
             for state in assoc_st:
-                for ident in state.Identification:
-                    scopes.append(wsdiscovery.Scope('{}:/{}/{}'.format(scheme, urllib.parse.quote_plus(ident.Root),
-                                                                       urllib.parse.quote_plus(ident.Extension))))
+                for idnt in state.Identification:
+                    scopes.append(wsdiscovery.Scope(f'{scheme}:/{quote_plus(idnt.Root)}/{quote_plus(idnt.Extension)}'))
 
     scopes.extend(_get_device_component_based_scopes(mdib))
     scopes.append(wsdiscovery.Scope('sdc.mds.pkp:1.2.840.10004.20701.1.1'))  # key purpose Service provider
@@ -62,7 +61,7 @@ def _get_device_component_based_scopes(mdib):
             coding_systems = '' if descriptor.Type.CodingSystem == pmtypes.DEFAULT_CODING_SYSTEM \
                 else descriptor.Type.CodingSystem
             csv = descriptor.Type.CodingSystemVersion or ''
-            scope = wsdiscovery.Scope('sdc.cdc.type:/{}/{}/{}'.format(coding_systems, csv, descriptor.Type.Code))
+            scope = wsdiscovery.Scope(f'sdc.cdc.type:/{coding_systems}/{csv}/{descriptor.Type.Code}')
             scopes.add(scope)
     return scopes
 

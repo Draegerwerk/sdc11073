@@ -1,11 +1,12 @@
 """ A helper for xml name space handling"""
-from functools import partial
 from collections import namedtuple
 from enum import Enum
+from functools import partial
 
 from lxml import etree as etree_
 
 _PrefixNamespaceTuple = namedtuple('_PrefixNamespaceTuple', 'prefix namespace')
+
 
 # these are internally used namespaces, they are not all identical the ones that are used in sdc.
 # it is in the responsibility of the sdc definitions class(es) to convert between internal and external namespaces.
@@ -38,7 +39,8 @@ class Prefixes(_PrefixNamespaceTuple, Enum):
         """
         return dict((v.prefix, v.namespace) for v in prefix)
 
-#Prefix_Namespace = Prefixes
+
+# Prefix_Namespace = Prefixes
 # these are all namespaces used in sdc:
 nsmap = dict((item.prefix, item.namespace) for item in Prefixes)
 
@@ -72,7 +74,7 @@ def docname_from_qname(qname, ns_map):
     prefix = prefixmap[qname.namespace]
     if prefix is None:
         return qname.localname
-    return '{}:{}'.format(prefix, qname.localname)
+    return f'{prefix}:{qname.localname}'
 
 
 class DocNamespaceHelper:
@@ -106,7 +108,7 @@ class DocNamespaceHelper:
         prefix = self._doc_prefix(my_refix_or_namespace)
         if prefix is None:
             return name
-        return '{}:{}'.format(prefix, name)
+        return f'{prefix}:{name}'
 
     def docname_from_qname(self, qname):
         """ returns the docprefix:name string, or only name (if default namespace is used) """
@@ -142,8 +144,9 @@ def text_to_qname(text, doc_nsmap):
     name = elements[-1]
     try:
         return etree_.QName(doc_nsmap[prefix], name)
-    except KeyError:
-        raise KeyError('Cannot make QName for {}, prefix is not in nsmap: {}'.format(text, doc_nsmap.keys()))
+    except KeyError as ex:
+        raise KeyError(f'Cannot make QName for {text}, prefix is not in nsmap: {doc_nsmap.keys()}') from ex
+
 
 class EventingActions:
     Subscribe = Prefixes.WSE.namespace + '/Subscribe'
@@ -155,4 +158,3 @@ class EventingActions:
     RenewResponse = Prefixes.WSE.namespace + '/RenewResponse'
     GetStatus = Prefixes.WSE.namespace + '/GetStatus'
     GetStatusResponse = Prefixes.WSE.namespace + '/GetStatusResponse'
-

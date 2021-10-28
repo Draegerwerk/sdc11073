@@ -44,11 +44,11 @@ class DecimalConverter:
         if isinstance(py_value, float):
             # round value to handle float inaccuracies
             if abs(py_value) >= 100:
-                xml_value = '{:.1f}'.format(round(py_value, 1))
+                xml_value = f'{round(py_value, 1):.1f}'
             elif abs(py_value) >= 10:
-                xml_value = '{:.2f}'.format(round(py_value, 2))
+                xml_value = f'{round(py_value, 2):.2f}'
             else:
-                xml_value = '{:.3f}'.format(round(py_value, 3))
+                xml_value = f'{round(py_value, 3):.3f}'
         elif isinstance(py_value, Decimal):
             # assume Decimal is exact, no rounding errors
             # Decimal has no method to force string representation without exponential notion.

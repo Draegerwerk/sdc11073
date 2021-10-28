@@ -53,10 +53,10 @@ class CommLogger:
         assert ip_type in (T_UDP, T_UDP_MULTICAST, T_HTTP, T_HTTP_REQ, T_HTTP_RESP, T_WSDL)
         assert direction in (D_IN, D_OUT)
         extension = 'wsdl' if ip_type == T_WSDL else 'xml'
-        time_string = '{:06.3f}'.format(time.time())[-8:]
+        time_string = f'{time.time():06.3f}'[-8:]
         self._counter += 1
-        info_text = '-{}'.format(info) if info else ''
-        return '{}-{}-{}{}.{}'.format(time_string, direction, ip_type, info_text, extension)
+        info_text = f'-{info}' if info else ''
+        return f'{time_string}-{direction}-{ip_type}{info_text}.{extension}'
 
     def _write_log(self, ttype, direction, xml, info):
         path = os.path.join(self._log_folder, self._mk_filename(ttype, direction, info))
@@ -101,13 +101,19 @@ class CommLogger:
             self._write_log(T_WSDL, D_IN, wsdl, info=service_name)
 
 
-_default_logger = NullLogger()
+class _LogManager:
+    def __init__(self):
+        self.comm_logger = NullLogger()
+
+    def set_logger(self, comm_logger):
+        self.comm_logger = comm_logger
+
+_MGR = _LogManager()
 
 
 def get_communication_logger():
-    return _default_logger
+    return _MGR.comm_logger
 
 
 def set_communication_logger(comm_logger):
-    global _default_logger
-    _default_logger = comm_logger
+    _MGR.set_logger(comm_logger)

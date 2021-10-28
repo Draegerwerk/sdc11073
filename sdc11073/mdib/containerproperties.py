@@ -10,7 +10,7 @@ from collections import OrderedDict
 
 from lxml import etree as etree_
 
-import sdc11073.namespaces as namespaces
+from sdc11073 import namespaces
 from sdc11073 import isoduration
 from sdc11073.dataconverters import TimestampConverter, DecimalConverter, IntegerConverter, BooleanConverter, \
     DurationConverter, NullConverter
@@ -298,7 +298,6 @@ class DecimalAttributeProperty(AttributeProperty):
 
 class QualityIndicatorAttributeProperty(DecimalAttributeProperty):
     """BICEPS: A value between 0 and 1 """
-    pass
 
 class DurationAttributeProperty(AttributeProperty):
     """ XML notation is integer in milliseconds.
@@ -761,7 +760,7 @@ class SubElementTextListProperty(_ElementListProperty):
                 child.text = val
             except TypeError as ex:
                 # re-raise with better info about data
-                raise TypeError(f'{ex} in {self}')
+                raise TypeError(f'{ex} in {self}') from ex
 
     def __str__(self):
         return f'{self.__class__.__name__} in subelement {self._sub_element_name}'
@@ -769,7 +768,6 @@ class SubElementTextListProperty(_ElementListProperty):
 
 class SubElementHandleRefListProperty(SubElementTextListProperty):
     """ List of Handles"""
-    pass
 
 
 class SubElementWithSubElementListProperty(SubElementProperty):

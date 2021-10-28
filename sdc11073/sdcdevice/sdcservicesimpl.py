@@ -39,7 +39,7 @@ class DPWSPortTypeImpl:
         self.port_type_string = port_type_string
         self._sdc_device = sdc_device
         self._mdib = sdc_device.mdib
-        self._logger = loghelper.get_logger_adapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
+        self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
         self.hosting_service = None  # the parent
 
     def register_handlers(self, hosting_service):
@@ -82,7 +82,7 @@ class DPWSPortTypeImpl:
         return port_type
 
     def __repr__(self):
-        return '{} Porttype={}'.format(self.__class__.__name__, self.port_type_string)
+        return f'{self.__class__.__name__} Porttype={self.port_type_string}'
 
     def add_wsdl_messages(self, parent_node):
         """
@@ -125,7 +125,7 @@ class DPWSPortTypeImpl:
         v_ref = self._sdc_device.mdib.sdc_definitions
         wsdl_binding = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'binding'),
                                          attrib={'name': self.port_type_string + 'Binding',
-                                                 'type': '{}:{}'.format(porttype_prefix, self.port_type_string)})
+                                                 'type': f'{porttype_prefix}:{self.port_type_string}'})
         etree_.SubElement(wsdl_binding, etree_.QName(WSDL_S12, 'binding'),
                           attrib={'style': 'document', 'transport': 'http://schemas.xmlsoap.org/soap/http'})
         _add_policy_dpws_profile(wsdl_binding)
@@ -133,9 +133,7 @@ class DPWSPortTypeImpl:
             wsdl_operation = etree_.SubElement(wsdl_binding, etree_.QName(_wsdl_ns, 'operation'),
                                                attrib={'name': wsdl_op.name})
             etree_.SubElement(wsdl_operation, etree_.QName(WSDL_S12, 'operation'),
-                              attrib={'soapAction': '{}/{}/{}'.format(v_ref.ActionsNamespace,
-                                                                      self.port_type_string,
-                                                                      wsdl_op.name)})
+                              attrib={'soapAction': f'{v_ref.ActionsNamespace}/{self.port_type_string}/{wsdl_op.name}'})
             if wsdl_op.input is not None:
                 wsdl_input = etree_.SubElement(wsdl_operation, etree_.QName(_wsdl_ns, 'input'))
                 etree_.SubElement(wsdl_input, etree_.QName(WSDL_S12, 'body'), attrib={'use': wsdl_op.input})
@@ -145,14 +143,18 @@ class DPWSPortTypeImpl:
 
 
 class GetService(DPWSPortTypeImpl):
-    WSDLMessageDescriptions = (WSDLMessageDescription('GetMdState', ('{}:GetMdState'.format(_msg_prefix),)),
+    WSDLMessageDescriptions = (WSDLMessageDescription('GetMdState',
+                                                      (f'{_msg_prefix}:GetMdState',)),
                                WSDLMessageDescription('GetMdStateResponse',
-                                                      ('{}:GetMdStateResponse'.format(_msg_prefix),)),
-                               WSDLMessageDescription('GetMdib', ('{}:GetMdib'.format(_msg_prefix),)),
-                               WSDLMessageDescription('GetMdibResponse', ('{}:GetMdibResponse'.format(_msg_prefix),)),
-                               WSDLMessageDescription('GetMdDescription', ('{}:GetMdDescription'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:GetMdStateResponse',)),
+                               WSDLMessageDescription('GetMdib',
+                                                      (f'{_msg_prefix}:GetMdib',)),
+                               WSDLMessageDescription('GetMdibResponse',
+                                                      (f'{_msg_prefix}:GetMdibResponse',)),
+                               WSDLMessageDescription('GetMdDescription',
+                                                      (f'{_msg_prefix}:GetMdDescription',)),
                                WSDLMessageDescription('GetMdDescriptionResponse',
-                                                      ('{}:GetMdDescriptionResponse'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:GetMdDescriptionResponse',)),
                                )
     WSDLOperationBindings = (WSDLOperationBinding('GetMdState', 'literal', 'literal'),
                              WSDLOperationBinding('GetMdib', 'literal', 'literal'),
@@ -266,13 +268,14 @@ class GetService(DPWSPortTypeImpl):
 
 
 class ContainmentTreeService(DPWSPortTypeImpl):
-    WSDLMessageDescriptions = (WSDLMessageDescription('GetDescriptor', ('{}:GetDescriptor'.format(_msg_prefix),)),
+    WSDLMessageDescriptions = (WSDLMessageDescription('GetDescriptor',
+                                                      (f'{_msg_prefix}:GetDescriptor',)),
                                WSDLMessageDescription('GetDescriptorResponse',
-                                                      ('{}:GetDescriptorResponse'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:GetDescriptorResponse',)),
                                WSDLMessageDescription('GetContainmentTree',
-                                                      ('{}:GetContainmentTreeResponse'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:GetContainmentTreeResponse',)),
                                WSDLMessageDescription('GetContainmentTreeResponse',
-                                                      ('{}:GetContainmentTreeResponse'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:GetContainmentTreeResponse',)),
                                )
     WSDLOperationBindings = (WSDLOperationBinding('GetDescriptor', 'literal', 'literal'),
                              WSDLOperationBinding('GetContainmentTree', 'literal', 'literal'))
@@ -285,11 +288,11 @@ class ContainmentTreeService(DPWSPortTypeImpl):
         hosting_service.register_post_handler('GetContainmentTree', self._on_get_containment_tree)
         hosting_service.register_post_handler('GetDescriptor', self._on_get_descriptor)
 
-    def _on_get_containment_tree(self, request_data):
+    def _on_get_containment_tree(self, request_data):  # pylint: disable=no-self-use
         # ToDo: implement, currently method only raises a soap fault
         raise FunctionNotImplementedError(request_data.message_data.p_msg)
 
-    def _on_get_descriptor(self, request_data):
+    def _on_get_descriptor(self, request_data):  # pylint: disable=no-self-use
         # ToDo: implement, currently method only raises a soap fault
         raise FunctionNotImplementedError(request_data.message_data.p_msg)
 
@@ -314,7 +317,7 @@ class ServiceWithOperations(DPWSPortTypeImpl):
         operation = self._sdc_device.get_operation_by_handle(operation_request.operation_handle)
         if operation is None:
             error_text = f'operation "{operation_request.operation_handle}" not known'
-            self._logger.warn('_handle_operation_request: error = {}'.format(error_text))
+            self._logger.warn('_handle_operation_request: error = {}', error_text)
             transaction_id = 0
             invocation_state = pmtypes.InvocationState.FAILED
             invocation_error = pmtypes.InvocationError.INVALID_VALUE
@@ -332,25 +335,32 @@ class ServiceWithOperations(DPWSPortTypeImpl):
 
 
 class SetService(ServiceWithOperations):
-    WSDLMessageDescriptions = (WSDLMessageDescription('Activate', ('{}:Activate'.format(_msg_prefix),)),
-                               WSDLMessageDescription('ActivateResponse', ('{}:ActivateResponse'.format(_msg_prefix),)),
-                               WSDLMessageDescription('SetString', ('{}:SetString'.format(_msg_prefix),)),
+    WSDLMessageDescriptions = (WSDLMessageDescription('Activate',
+                                                      (f'{_msg_prefix}:Activate',)),
+                               WSDLMessageDescription('ActivateResponse',
+                                                      (f'{_msg_prefix}:ActivateResponse',)),
+                               WSDLMessageDescription('SetString',
+                                                      (f'{_msg_prefix}:SetString',)),
                                WSDLMessageDescription('SetStringResponse',
-                                                      ('{}:SetStringResponse'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:SetStringResponse',)),
                                WSDLMessageDescription('SetComponentState',
-                                                      ('{}:SetComponentState'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:SetComponentState',)),
                                WSDLMessageDescription('SetComponentStateResponse',
-                                                      ('{}:SetComponentStateResponse'.format(_msg_prefix),)),
-                               WSDLMessageDescription('SetAlertState', ('{}:SetAlertState'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:SetComponentStateResponse',)),
+                               WSDLMessageDescription('SetAlertState',
+                                                      (f'{_msg_prefix}:SetAlertState',)),
                                WSDLMessageDescription('SetAlertStateResponse',
-                                                      ('{}:SetAlertStateResponse'.format(_msg_prefix),)),
-                               WSDLMessageDescription('SetMetricState', ('{}:SetMetricState'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:SetAlertStateResponse',)),
+                               WSDLMessageDescription('SetMetricState',
+                                                      (f'{_msg_prefix}:SetMetricState',)),
                                WSDLMessageDescription('SetMetricStateResponse',
-                                                      ('{}:SetMetricStateResponse'.format(_msg_prefix),)),
-                               WSDLMessageDescription('SetValue', ('{}:SetValue'.format(_msg_prefix),)),
-                               WSDLMessageDescription('SetValueResponse', ('{}:SetValueResponse'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:SetMetricStateResponse',)),
+                               WSDLMessageDescription('SetValue',
+                                                      (f'{_msg_prefix}:SetValue',)),
+                               WSDLMessageDescription('SetValueResponse',
+                                                      (f'{_msg_prefix}:SetValueResponse',)),
                                WSDLMessageDescription('OperationInvokedReport',
-                                                      ('{}:OperationInvokedReport'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:OperationInvokedReport',)),
                                )
     WSDLOperationBindings = (WSDLOperationBinding('Activate', 'literal', 'literal'),  # fault?
                              WSDLOperationBinding('SetString', 'literal', 'literal'),  # fault?
@@ -444,7 +454,8 @@ class SetService(ServiceWithOperations):
 
 
 class WaveformService(DPWSPortTypeImpl):
-    WSDLMessageDescriptions = (WSDLMessageDescription('Waveform', ('{}:WaveformStreamReport'.format(_msg_prefix),)),)
+    WSDLMessageDescriptions = (WSDLMessageDescription('Waveform',
+                                                      (f'{_msg_prefix}:WaveformStreamReport',)),)
     WSDLOperationBindings = (WSDLOperationBinding('Waveform', None, 'literal'),)
 
     def add_wsdl_port_type(self, parent_node):
@@ -454,17 +465,24 @@ class WaveformService(DPWSPortTypeImpl):
 
 class StateEventService(DPWSPortTypeImpl):
     WSDLMessageDescriptions = (
-        WSDLMessageDescription('EpisodicAlertReport', ('{}:EpisodicAlertReport'.format(_msg_prefix),)),
-        WSDLMessageDescription('SystemErrorReport', ('{}:SystemErrorReport'.format(_msg_prefix),)),
-        WSDLMessageDescription('PeriodicAlertReport', ('{}:PeriodicAlertReport'.format(_msg_prefix),)),
-        WSDLMessageDescription('EpisodicComponentReport', ('{}:EpisodicComponentReport'.format(_msg_prefix),)),
+        WSDLMessageDescription('EpisodicAlertReport',
+                               (f'{_msg_prefix}:EpisodicAlertReport',)),
+        WSDLMessageDescription('SystemErrorReport',
+                               (f'{_msg_prefix}:SystemErrorReport',)),
+        WSDLMessageDescription('PeriodicAlertReport',
+                               (f'{_msg_prefix}:PeriodicAlertReport',)),
+        WSDLMessageDescription('EpisodicComponentReport',
+                               (f'{_msg_prefix}:EpisodicComponentReport',)),
         WSDLMessageDescription('PeriodicOperationalStateReport',
-                               ('{}:PeriodicOperationalStateReport'.format(_msg_prefix),)),
-        WSDLMessageDescription('PeriodicComponentReport', ('{}:PeriodicComponentReport'.format(_msg_prefix),)),
+                               (f'{_msg_prefix}:PeriodicOperationalStateReport',)),
+        WSDLMessageDescription('PeriodicComponentReport',
+                               (f'{_msg_prefix}:PeriodicComponentReport',)),
         WSDLMessageDescription('EpisodicOperationalStateReport',
-                               ('{}:EpisodicOperationalStateReport'.format(_msg_prefix),)),
-        WSDLMessageDescription('PeriodicMetricReport', ('{}:PeriodicMetricReport'.format(_msg_prefix),)),
-        WSDLMessageDescription('EpisodicMetricReport', ('{}:EpisodicMetricReport'.format(_msg_prefix),)),
+                               (f'{_msg_prefix}:EpisodicOperationalStateReport',)),
+        WSDLMessageDescription('PeriodicMetricReport',
+                               (f'{_msg_prefix}:PeriodicMetricReport',)),
+        WSDLMessageDescription('EpisodicMetricReport',
+                               (f'{_msg_prefix}:EpisodicMetricReport',)),
     )
 
     WSDLOperationBindings = (WSDLOperationBinding('EpisodicAlertReport', None, 'literal'),
@@ -492,16 +510,18 @@ class StateEventService(DPWSPortTypeImpl):
 
 
 class ContextService(ServiceWithOperations):
-    WSDLMessageDescriptions = (WSDLMessageDescription('SetContextState', ('{}:SetContextState'.format(_msg_prefix),)),
+    WSDLMessageDescriptions = (WSDLMessageDescription('SetContextState',
+                                                      (f'{_msg_prefix}:SetContextState',)),
                                WSDLMessageDescription('SetContextStateResponse',
-                                                      ('{}:SetContextStateResponse'.format(_msg_prefix),)),
-                               WSDLMessageDescription('GetContextStates', ('{}:GetContextStates'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:SetContextStateResponse',)),
+                               WSDLMessageDescription('GetContextStates',
+                                                      (f'{_msg_prefix}:GetContextStates',)),
                                WSDLMessageDescription('GetContextStatesResponse',
-                                                      ('{}:GetContextStatesResponse'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:GetContextStatesResponse',)),
                                WSDLMessageDescription('EpisodicContextReport',
-                                                      ('{}:EpisodicContextReport'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:EpisodicContextReport',)),
                                WSDLMessageDescription('PeriodicContextReport',
-                                                      ('{}:PeriodicContextReport'.format(_msg_prefix),)),
+                                                      (f'{_msg_prefix}:PeriodicContextReport',)),
                                )
     WSDLOperationBindings = (WSDLOperationBinding('SetContextState', 'literal', 'literal'),  # ToDo: generate wsdl:fault
                              WSDLOperationBinding('GetContextStates', 'literal', 'literal'),
@@ -572,7 +592,7 @@ class ContextService(ServiceWithOperations):
 class DescriptionEventService(DPWSPortTypeImpl):
     WSDLMessageDescriptions = (
         WSDLMessageDescription('DescriptionModificationReport',
-                               ('{}:DescriptionModificationReport'.format(_msg_prefix),)),
+                               (f'{_msg_prefix}:DescriptionModificationReport',)),
     )
     WSDLOperationBindings = (WSDLOperationBinding('DescriptionModificationReport', None, 'literal'),
                              )
@@ -586,17 +606,17 @@ def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_m
     elem = etree_.SubElement(parent_node, _wsdl_operation, attrib={'name': operation_name})
     if input_message_name is not None:
         etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'input'),
-                          attrib={'message': '{}:{}'.format('tns', input_message_name),
+                          attrib={'message': f'tns:{input_message_name}',
                                   })
     if output_message_name is not None:
         etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'output'),
-                          attrib={'message': '{}:{}'.format('tns', output_message_name),
+                          attrib={'message': f'tns:{output_message_name}',
                                   })
     if fault is not None:
         fault_name, message_name, _ = fault  # unpack 3 parameters
         etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'fault'),
                           attrib={'name': fault_name,
-                                  'message': '{}:{}'.format('tns', message_name),
+                                  'message': f'tns:{message_name}',
                                   })
     return elem
 

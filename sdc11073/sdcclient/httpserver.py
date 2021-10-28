@@ -37,7 +37,7 @@ class SOAPNotificationsDispatcher:
         request_data = ReceivedNotification(headers, path, request)
         return self._dispatch(request_data)
 
-    def on_get(self, path: str, headers) -> str:  # pylint: disable=unused-argument
+    def on_get(self, path: str, headers) -> str:  # pylint: disable=unused-argument, no-self-use
         return ''
 
     def _fill_request_data(self, request_data):
@@ -52,9 +52,9 @@ class SOAPNotificationsDispatcher:
 
         try:
             func = self.methods[action]
-        except KeyError:
-            self._logger.error('action "{}" not registered. Known:{}'.format(action, self.methods.keys()))
-            raise _DispatchError(404, 'action not registered')
+        except KeyError as ex:
+            self._logger.error(f'action "{action}" not registered. Known:{self.methods.keys()}')
+            raise _DispatchError(404, 'action not registered') from ex
 
         func(request_data)
         duration = time.time() - start
@@ -77,12 +77,10 @@ class SOAPNotificationsDispatcherThreaded(SOAPNotificationsDispatcher):
         action = request_data.message_data.action
         try:
             func = self.methods[action]
-        except KeyError:
+        except KeyError as ex:
             self._logger.error(
-                'action "{}" not registered. Known:{}'.format(action, self.methods.keys()))
-            raise _DispatchError(404, 'action not registered')
-        except:
-            raise
+                f'action "{action}" not registered. Known:{self.methods.keys()}')
+            raise _DispatchError(404, 'action not registered') from ex
         self._queue.put((func, request_data, action))
         return ''
 
@@ -93,7 +91,7 @@ class SOAPNotificationsDispatcherThreaded(SOAPNotificationsDispatcher):
                 func(request)
             except Exception:
                 self._logger.error(
-                    'method {} for action "{}" failed:{}'.format(func.__name__, action, traceback.format_exc()))
+                    f'method {func.__name__} for action "{action}" failed:{traceback.format_exc()}')
 
 
 class SOAPNotificationsHandler(HTTPRequestHandler):

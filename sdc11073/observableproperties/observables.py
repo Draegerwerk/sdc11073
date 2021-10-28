@@ -122,7 +122,7 @@ class ObservableProperty:
         try:
             lookup = obj._property_instance_data
         except AttributeError:
-            obj._property_instance_data = dict()
+            obj._property_instance_data = {}
             lookup = obj._property_instance_data
         # pylint: enable=protected-access
 
@@ -159,7 +159,7 @@ class ObservableProperty:
         self._get_instance_data(obj).unbind_all()
 
     def __repr__(self):
-        return 'ObservableProperty at 0x{1:X}, default value= {0}'.format(self._default_value, id(self))
+        return f'ObservableProperty at 0x{id(self):X}, default value={self._default_value}'
 
 
 def _find_property(obj, name):

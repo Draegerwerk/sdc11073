@@ -154,8 +154,8 @@ class AbstractDescriptorContainer(ContainerBase):
     def update_from_other_container(self, other, skipped_properties=None):
         if other.Handle != self.Handle:
             raise RuntimeError(
-                'Update from a container with different handle is not possible! ' + \
-                'Have "{}", got "{}"'.format(self.Handle, other.Handle))
+                f'Update from a container with different handle is not possible! ' \
+                f'Have "{self.Handle}", got "{other.Handle}"')
         self._update_from_other(other, skipped_properties)
 
     def add_child(self, child_descriptor_container):
@@ -178,10 +178,10 @@ class AbstractDescriptorContainer(ContainerBase):
             try:
                 other_value = other.parent_handle
             except AttributeError:
-                ret.append('{}={}, other does not have this attribute'.format('parent_handle', my_value))
+                ret.append(f'parent_handle={my_value}, other does not have this attribute')
             else:
                 if my_value != other_value:
-                    ret.append('{}={}, other={}'.format('parent_handle', my_value, other_value))
+                    ret.append(f'parent_handle={my_value}, other={other_value}')
         return None if len(ret) == 0 else ret
 
     def mk_descriptor_node(self, tag, nsmapper, set_xsi_type=True, connect_child_descriptors=False):
@@ -212,9 +212,8 @@ class AbstractDescriptorContainer(ContainerBase):
         qnames = [o.child_qname for o in child_decls]
         not_in_order = [n for n in node if n.tag not in qnames]
         if len(not_in_order) > 0:
-            raise ValueError('{}: not in Order:{} node={}, order={}'.format(self.__class__.__name__,
-                                                                            [n.tag for n in not_in_order], node.tag,
-                                                                            [o.localname for o in qnames]))
+            raise ValueError(f'{self.__class__.__name__}: not in Order:{[n.tag for n in not_in_order]} '
+                             f'node={node.tag}, order={[o.localname for o in qnames]}')
         all_child_nodes = node[:]
         for child_node in all_child_nodes:
             node.remove(child_node)
@@ -225,13 +224,13 @@ class AbstractDescriptorContainer(ContainerBase):
 
     def __str__(self):
         name = self.NODETYPE.localname or None
-        return 'Descriptor "{}": handle={} descrVersion={} parent={}'.format(name, self.handle,
-                                                                             self.DescriptorVersion, self.parent_handle)
+        return f'Descriptor "{name}": handle={self.handle} descriptor version={self.DescriptorVersion} ' \
+               f'parent handle={self.parent_handle}'
 
     def __repr__(self):
         name = self.NODETYPE.localname or None
-        return 'Descriptor "{}": handle={} descrVersion={} parent={}'.format(name, self.handle,
-                                                                             self.DescriptorVersion, self.parent_handle)
+        return f'Descriptor "{name}": handle={self.handle} descriptor version={self.DescriptorVersion} ' \
+               f'parent={self.parent_handle}'
 
     @classmethod
     def from_node(cls, node, parent_handle):

@@ -38,7 +38,7 @@ class _MultikeyWithVersionLookup(multikey.MultiKeyLookup):
 
     def __init__(self):
         multikey.MultiKeyLookup.__init__(self)
-        self.handle_version_lookup = dict()
+        self.handle_version_lookup = {}
 
     def remove_object(self, obj):
         if obj is not None:
@@ -181,6 +181,7 @@ class MdibContainer:
         self.nsmapper = DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file
         self.mdib_version = 0
         self.sequence_id = ''  # needs to be set to a reasonable value by derived class
+        self.instance_id = 0
         self.log_prefix = ''
 
         self.descriptions = DescriptorsLookup()
@@ -259,12 +260,12 @@ class MdibContainer:
                 context_by_handle[state_container.descriptorHandle] = state_container
             elif state_container.isSystemContextState or state_container.isMultiState:
                 pass  # ignoring for now
-            elif state_container.NODETYPE == domTag(
-                    'ScoState'):  # special case Draft6 ScoState (is not a component state)
+            elif state_container.NODETYPE == domTag('ScoState'):
+                # special case Draft6 ScoState (is not a component state)
                 pass  # this cannot be updated anyway over the network, but handle it here to avoid runtime error
             else:
                 raise RuntimeError(
-                    'handling of {} has been forgotten to implement!'.format(state_container.__class__.__name__))
+                    f'handling of {state_container.__class__.__name__} has been forgotten to implement!')
 
         # finally update observable properties
         if alert_by_handle:
@@ -389,22 +390,22 @@ class MdibContainer:
         metric_coding = metric_code.coding if hasattr(metric_code, 'coding') else metric_code
 
         vmd = self.descriptions.coding.get_one(vmd_coding)
-        _all_channels = self.descriptions.coding.get(channel_coding, list())
+        _all_channels = self.descriptions.coding.get(channel_coding, [])
         all_channels = [c for c in _all_channels if c.parent_handle == vmd.handle]
         if len(all_channels) == 0:
             return None
         if len(all_channels) > 1:
             raise RuntimeError(
-                'found multiple channel descriptors for vmd={} channel={}'.format(vmd_coding, channel_coding))
+                f'found multiple channel descriptors for vmd={vmd_coding} channel={channel_coding}')
         channel = all_channels[0]
-        _all_metrics = self.descriptions.coding.get(metric_coding, list())
+        _all_metrics = self.descriptions.coding.get(metric_coding, [])
         all_metrics = [m for m in _all_metrics if m.parent_handle == channel.handle]
         if len(all_metrics) == 0:
             return None
         if len(all_metrics) > 1:
             raise RuntimeError(
-                'found multiple channel descriptors for vmd={} channel={} metric={}'.format(vmd_coding, channel_coding,
-                                                                                            metric_coding))
+                f'found multiple channel descriptors for vmd={vmd_coding} '
+                f'channel={channel_coding} metric={metric_coding}')
         return all_metrics[0]
 
     def get_operations_for_metric(self,
@@ -437,17 +438,16 @@ class MdibContainer:
     def get_state_class_for_descriptor(self, descriptor_container):
         state_class_qtype = descriptor_container.STATE_QNAME
         if state_class_qtype is None:
-            raise TypeError('No state association for {}'.format(descriptor_container.__class__.__name__))
+            raise TypeError(f'No state association for {descriptor_container.__class__.__name__}')
         return self.sdc_definitions.get_state_container_class(state_class_qtype)
 
     def mk_state_container_from_descriptor(self, descriptor_container):
         cls = self.get_state_class_for_descriptor(descriptor_container)
         if cls is None:
             raise TypeError(
-                'No state container class for descr={}, name={}, type={}'.format(
-                    descriptor_container.__class__.__name__,
-                    descriptor_container.NODETYPE,
-                    descriptor_container.nodeType))
+                f'No state container class for descr={descriptor_container.__class__.__name__}, '
+                f'name={descriptor_container.NODETYPE}, '
+                f'type={descriptor_container.nodeType}')
         return cls(descriptor_container)
 
     def get_operation_descriptors(self):
@@ -506,7 +506,7 @@ class MdibContainer:
         result = []
 
         def _getchildren(parent):
-            child_containers = self.descriptions.parent_handle.get(parent.handle, list())
+            child_containers = self.descriptions.parent_handle.get(parent.handle, [])
             if not depth_first:
                 result.extend(child_containers)
             apply_map(_getchildren, child_containers)

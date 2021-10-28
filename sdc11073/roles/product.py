@@ -1,11 +1,11 @@
 from . import alarmprovider
-from .audiopauseprovider import AudioPauseProvider
 from . import clockprovider
 from . import contextprovider
 from . import metricprovider
 from . import operationprovider
 from . import patientcontextprovider
 from . import providerbase
+from .audiopauseprovider import AudioPauseProvider
 from .. import loghelper
 from .. import namespaces
 
@@ -74,30 +74,13 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
 
 class BaseProduct:
     def __init__(self, log_prefix):
-        # self.contextstate_provider = contextprovider.GenericContextProvider(log_prefix=log_prefix)  # default handler
-        # self.componentstate_provider = GenericSetComponentStateOperationProvider(log_prefix=log_prefix) # default handler
-        # self.metric_provider = None
-        # self.patientcontext_provider = None
-        # self.alarm_provider = None
-        # self.alarm_provider = None
-        # self.operation_provider = None
-        # self.audiopause_provider = None
-        # self.daynight_provider = None
-        # self.clock_provider = None
-        # self.ensembleContextProvider = None
         self._mdib = None
         self._ordered_providers = []  # order matters, each provider can hide operations of later ones
         # start with most specific providers, end with most general ones
-        self._logger = loghelper.get_logger_adapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
+        self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
     def _all_providers_sorted(self):
         return self._ordered_providers
-        # # specialized roles first, generic roles last
-        # return self._without_none_values([self.audiopause_provider, self.daynight_provider, self.clock_provider,
-        #         self.patientcontext_provider, self.alarm_provider,
-        #         self.metric_provider, self.ensembleContextProvider, self.operation_provider,
-        #         self.contextstate_provider,
-        #         self.componentstate_provider])
 
     @staticmethod
     def _without_none_values(some_list):
@@ -132,7 +115,7 @@ class BaseProduct:
         if not all_mdib_op_handles:
             self._logger.info('this device has no operations in mdib.')
         elif all_not_registered_op_handles:
-            self._logger.info('there are operations without handler! handles = {}', all_not_registered_op_handles)
+            self._logger.info(f'there are operations without handler! handles = {all_not_registered_op_handles}')
         else:
             self._logger.info('there are no operations without handler.')
         mdib.mk_state_containers_for_all_descriptors()
@@ -151,17 +134,16 @@ class BaseProduct:
         if operation_target_descr is None:
             # this operation is incomplete, the operation target does not exist. Registration not possible.
             self._logger.warn(
-                'Operation {}: target {} does not exist, will not register operation'.format(
-                    operation_descriptor_container.handle, operation_target_handle))
+                f'Operation {operation_descriptor_container.handle}: '
+                f'target {operation_target_handle} does not exist, will not register operation')
             return None
         for role_handler in self._all_providers_sorted():
             operation = role_handler.make_operation_instance(operation_descriptor_container, operation_cls_getter)
             if operation is not None:
-                self._logger.info('{} provided operation for {}'.format(role_handler.__class__.__name__,
-                                                                        operation_descriptor_container))
+                self._logger.info(
+                    f'{role_handler.__class__.__name__} provided operation for {operation_descriptor_container}')
                 return operation
-            self._logger.debug(
-                '{}: no handler for {}'.format(operation.__class__.__name__, operation_descriptor_container))
+            self._logger.debug(f'{operation.__class__.__name__}: no handler for {operation_descriptor_container}')
         return None
 
     def _register_existing_mdib_operations(self, sco):
@@ -169,8 +151,9 @@ class BaseProduct:
         for descriptor in operation_descriptor_containers:
             registered_op = sco.get_operation_by_handle(descriptor.handle)
             if registered_op is None:
-                self._logger.info('found unregistered {} in mdib, handle={}, code={} target={}'.format(
-                    descriptor.NODETYPE.localname, descriptor.Handle, descriptor.Type, descriptor.OperationTarget))
+                self._logger.info(
+                    f'found unregistered {descriptor.NODETYPE.localname} in mdib, handle={descriptor.Handle}, '
+                    f'code={descriptor.Type} target={descriptor.OperationTarget}')
                 operation = self.make_operation_instance(descriptor, sco.operation_cls_getter)
                 if operation is not None:
                     sco.register_operation(operation)
@@ -185,7 +168,8 @@ class BaseProduct:
             provider.on_post_commit(mdib, transaction)
         self._remove_states_for_deleted_descriptors(mdib, transaction)
 
-    def _remove_states_for_deleted_descriptors(self, mdib, transaction):
+    @staticmethod
+    def _remove_states_for_deleted_descriptors(mdib, transaction):
         """
         remove states from mdib for deleted descriptors
         :return:

@@ -35,7 +35,7 @@ def mk_ssl_context_from_folder(ca_folder,
         cyphers_file_path = os.path.join(ca_folder, cyphers_file)
         if not os.path.exists(cyphers_file_path):
             raise RuntimeError(f'{cyphers_file_path} not found')
-        with open(cyphers_file_path) as file:
+        with open(cyphers_file_path, encoding='utf-8') as file:
             while True:
                 # allow comment lines, starting with #
                 cyphers = file.readline()

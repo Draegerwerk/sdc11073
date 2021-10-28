@@ -66,7 +66,7 @@ class HTTPReader:
             try:
                 chunk_len = int(chunk_len.strip(), 16)
             except (ValueError, TypeError) as err:
-                raise DechunkError('Could not parse chunk size: %s' % (err,))
+                raise DechunkError('Could not parse chunk size:') from err
 
             bytes_to_read = chunk_len
             while bytes_to_read:
@@ -238,7 +238,7 @@ class ThreadingHTTPServer(HTTPServer):
         """Start a new thread to process the request."""
         thread = threading.Thread(target=self.process_request_thread,
                                   args=(request, client_address),
-                                  name='SubscrRecv{}'.format(client_address))
+                                  name=f'SubscrRecv{client_address}')
         thread.daemon = True
         self.threads.append((thread, request, client_address))
         thread.start()
@@ -313,9 +313,9 @@ class HttpServerThreadBase(threading.Thread):
             self.logger.info('starting http server on {}:{}', self._my_ipaddress, self.my_port)
             if self._ssl_context:
                 self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket)
-                self.base_url = 'https://{}:{}/'.format(self._my_ipaddress, self.my_port)
+                self.base_url = f'https://{self._my_ipaddress}:{self.my_port}/'
             else:
-                self.base_url = 'http://{}:{}/'.format(self._my_ipaddress, self.my_port)
+                self.base_url = f'http://{self._my_ipaddress}:{self.my_port}/'
 
             self.httpd.logger = self.logger  # pylint: disable=attribute-defined-outside-init
             # self.httpd.thread_obj = self  # pylint: disable=attribute-defined-outside-init
@@ -329,7 +329,7 @@ class HttpServerThreadBase(threading.Thread):
         except Exception:
             if not self._stop_requested:
                 self.logger.error(
-                    'Unhandled Exception at thread runtime. Thread will abort! {}'.format(traceback.format_exc()))
+                    f'Unhandled Exception at thread runtime. Thread will abort! {traceback.format_exc()}')
             raise
         finally:
             self.logger.info('http server stopped.')

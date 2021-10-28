@@ -76,24 +76,24 @@ class _ClSubscription:
         # ToDo: check if there is more than one address. In that case a clever selection is needed
         address = self.dpws_hosted.endpoint_references[0].address
         envelope = self._mk_subscribe_envelope(address, expire_minutes)
-        msg = 'subscribe {}'.format(self._filter)
+        msg = f'subscribe {self._filter}'
         try:
             message_data = self.dpws_hosted.soap_client.post_soap_envelope_to(self._device_epr, envelope,
                                                                               msg=msg)
             try:
                 response_data = message_data.msg_reader.read_subscribe_response(message_data)
-            except AttributeError:
+            except AttributeError as ex:
                 self._logger.error('Subscribe response has unexpected content: {}',
                                    message_data.p_msg.as_xml(pretty=True))
                 self.is_subscribed = False
-                raise SoapResponseException(message_data.p_msg)
+                raise SoapResponseException(message_data.p_msg) from ex
 
             if response_data is not None:
                 self._handle_subscribe_response(*response_data)
             else:
                 self._logger.error('could not read subscribe response')
         except HTTPReturnCodeError:
-            self._logger.error('could not subscribe: {}'.format(HTTPReturnCodeError))
+            self._logger.error(f'could not subscribe: {HTTPReturnCodeError}')
 
     def _add_device_references(self, envelope):
         """ add references for requests to device (renew, getstatus, unsubscribe)"""
@@ -117,7 +117,7 @@ class _ClSubscription:
             self._logger.debug('{}', message_data.p_msg.as_xml(pretty=True))
         except HTTPReturnCodeError as ex:
             self.is_subscribed = False
-            self._logger.error('could not renew: {}'.format(HTTPReturnCodeError))
+            self._logger.error('could not renew: {}', ex)
         except (http.client.HTTPException, ConnectionError) as ex:
             self._logger.warn('renew failed: {}', ex)
             self.is_subscribed = False
@@ -129,10 +129,10 @@ class _ClSubscription:
             if expire_seconds is not None:
                 self.expire_at = time.time() + expire_seconds
                 return expire_seconds
-            else:
-                self.is_subscribed = False
-                self._logger.warn('renew failed: {}',
-                                  etree_.tostring(message_data.p_msg.body_node, pretty_print=True))
+            self.is_subscribed = False
+            self._logger.warn('renew failed: {}',
+                              etree_.tostring(message_data.p_msg.body_node, pretty_print=True))
+        return 0
 
     def unsubscribe(self):
         if not self.is_subscribed:
@@ -149,8 +149,7 @@ class _ClSubscription:
             self._logger.info('unsubscribe: end of subscription {} was confirmed.', self._filter)
         else:
             self._logger.error('unsubscribe: unexpected response action: {}', message_data.p_msg.as_xml(pretty=True))
-            raise RuntimeError(
-                'unsubscribe: unexpected response action: {}'.format(message_data.p_msg.as_xml(pretty=True)))
+            raise RuntimeError(f'unsubscribe: unexpected response action: {message_data.p_msg.as_xml(pretty=True)}')
 
     def _mk_get_status_envelope(self):
         return self._msg_factory.mk_getstatus_envelope(
@@ -168,7 +167,7 @@ class _ClSubscription:
                 envelope, msg='get_status')
         except HTTPReturnCodeError as ex:
             self.is_subscribed = False
-            self._logger.error('could not get status: {}'.format(HTTPReturnCodeError))
+            self._logger.error('could not get status: {}', ex)
         except (http.client.HTTPException, ConnectionError) as ex:
             self.is_subscribed = False
             self._logger.warn('get_status: Connection Error {} for subscription {}', ex, self._filter)
@@ -181,12 +180,10 @@ class _ClSubscription:
                 self._logger.warn('get_status for {}: Could not find "Expires" node! get_status={} ', self._filter,
                                   message_data.p_msg.rawdata)
                 raise SoapResponseException(message_data.p_msg)
-
-            else:
-                self._logger.debug('get_status for {}: Expires in {} seconds, counter = {}', self._filter,
-                                   expire_seconds,
-                                   self.event_counter)
-                return expire_seconds
+            self._logger.debug('get_status for {}: Expires in {} seconds, counter = {}',
+                               self._filter, expire_seconds, self.event_counter)
+            return expire_seconds
+        return 0.0
 
     def check_status(self, renew_limit):
         """ Calls get_status and updates internal data.
@@ -230,11 +227,8 @@ class _ClSubscription:
         return etc.short_filter_string(self._actions)
 
     def __str__(self):
-        return 'Subscription of "{}", is_subscribed={}, remaining time = {} sec., count={}'.format(
-            self.short_filter_string,
-            self.is_subscribed,
-            int(self.remaining_subscription_seconds),
-            self.event_counter)
+        return f'Subscription of "{self.short_filter_string}", is_subscribed={self.is_subscribed}, ' \
+               f'remaining time = {int(self.remaining_subscription_seconds)} sec., count={self.event_counter}'
 
 
 class ClientSubscriptionManager(threading.Thread):
@@ -253,7 +247,7 @@ class ClientSubscriptionManager(threading.Thread):
         :param check_interval:
         :param log_prefix:
         """
-        super().__init__(name='SubscriptionClient{}'.format(log_prefix))
+        super().__init__(name=f'SubscriptionClient{log_prefix}')
         self.daemon = True
         self._msg_reader = msg_reader
         self._msg_factory = msg_factory
@@ -321,14 +315,14 @@ class ClientSubscriptionManager(threading.Thread):
     def on_subscription_end(self, request_data):
         subscription_end_result = self._msg_reader.read_subscription_end_message(request_data.message_data)
         if subscription_end_result.status_list:
-            info = ' status={} '.format(subscription_end_result.status_list[0])
+            info = f' status={subscription_end_result.status_list[0]} '
         else:
             info = ''
         if subscription_end_result.reason_list:
             if len(subscription_end_result.reason_list) == 1:
-                info += ' reason = {}'.format(subscription_end_result.reason_list[0])
+                info += f' reason = {subscription_end_result.reason_list[0]}'
             else:
-                info += ' reasons = {}'.format(subscription_end_result.reason_list)
+                info += f' reasons = {subscription_end_result.reason_list}'
         subscription = self._find_subscription(request_data,
                                                subscription_end_result.reference_parameter_list,
                                                'on_subscription_end')
@@ -367,7 +361,7 @@ class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):
 
     def _find_subscription(self, request_data, reference_parameters, log_prefix):
         subscr_ident_list = request_data.message_data.p_msg.header_node.findall(_ClSubscription.IDENT_TAG,
-                                                                                   namespaces=_global_nsmap)
+                                                                                namespaces=_global_nsmap)
         if not subscr_ident_list:
             return None
         subscr_ident = subscr_ident_list[0]

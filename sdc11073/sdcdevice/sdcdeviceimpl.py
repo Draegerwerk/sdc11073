@@ -74,8 +74,8 @@ class SdcDevice:
 
         # host dispatcher provides data of the sdc device itself.
         self._host_dispatcher = SoapMessageHandler(None, get_key_method=self._components.msg_dispatch_method)
-        self._host_dispatcher.register_post_handler('{}/Get'.format(Prefixes.WXF.namespace), self._on_get_metadata)
-        self._host_dispatcher.register_post_handler('{}/Probe'.format(Prefixes.WSD.namespace), self._on_probe_request)
+        self._host_dispatcher.register_post_handler(f'{Prefixes.WXF.namespace}/Get', self._on_get_metadata)
+        self._host_dispatcher.register_post_handler(f'{Prefixes.WSD.namespace}/Probe', self._on_probe_request)
         self._host_dispatcher.register_post_handler('Probe', self._on_probe_request)
 
         # dpws host is needed in metadata
@@ -153,14 +153,14 @@ class SdcDevice:
     def _on_probe_request(self, request):
         _nsm = DocNamespaceHelper()
         response = pysoap.soapenvelope.Soap12Envelope(_nsm.doc_ns_map)
-        reply_address = request.message_data.p_msg.address.mk_reply_address('{}/ProbeMatches'.format(Prefixes.WSD.namespace))
+        reply_address = request.message_data.p_msg.address.mk_reply_address('{Prefixes.WSD.namespace}/ProbeMatches')
         reply_address.addr_to = WSA_ANONYMOUS
         reply_address.message_id = uuid.uuid4().urn
         response.add_header_object(reply_address)
         probe_match_node = etree_.Element(wsdTag('Probematch'),
                                           nsmap=_nsm.doc_ns_map)
         types = etree_.SubElement(probe_match_node, wsdTag('Types'))
-        types.text = '{}:Device {}:MedicalDevice'.format(Prefixes.DPWS.prefix, Prefixes.MDPWS.prefix)
+        types.text = f'{Prefixes.DPWS.prefix}:Device {Prefixes.MDPWS.prefix}:MedicalDevice'
         scopes = etree_.SubElement(probe_match_node, wsdTag('Scopes'))
         scopes.text = ''
         xaddrs = etree_.SubElement(probe_match_node, wsdTag('XAddrs'))
@@ -293,14 +293,13 @@ class SdcDevice:
         self.base_urls = []  # e.g https://192.168.1.5:8888/8c26f673-fdbf-4380-b5ad-9e2454a65b6b; list has one member for each used ip address
         for addr in host_ips:
             self.base_urls.append(
-                urllib.parse.SplitResult(self._urlschema, '{}:{}'.format(addr, port), self.path_prefix, query=None,
-                                         fragment=None))
+                urllib.parse.SplitResult(self._urlschema, f'{addr}:{port}', self.path_prefix, query=None, fragment=None))
 
         for host_ip in host_ips:
             self._logger.info('serving Services on {}:{}', host_ip, port)
         self._subscriptions_manager.set_base_urls(self.base_urls)
 
-    def stop_all(self, close_all_connections=True, send_subscription_end=True):
+    def stop_all(self, send_subscription_end=True):
         self.stop_realtime_sample_loop()
         if self._periodic_reports_handler:
             self._periodic_reports_handler.stop()
@@ -309,7 +308,7 @@ class SdcDevice:
         try:
             self._wsdiscovery.clear_service(self.epr)
         except KeyError:
-            self._logger.info('epr "{}" not known in self._wsdiscovery'.format(self.epr))
+            self._logger.info('epr "{}" not known in self._wsdiscovery', self.epr)
         if self.product_roles is not None:
             self.product_roles.stop()
 
@@ -328,7 +327,7 @@ class SdcDevice:
         port = self._http_server_thread.my_port
         xaddrs = []
         for addr in addresses:
-            xaddrs.append('{}://{}:{}/{}'.format(self._urlschema, addr, port, self.path_prefix))
+            xaddrs.append(f'{self._urlschema}://{addr}:{port}/{self.path_prefix}')
         return xaddrs
 
     def send_metric_state_updates(self, mdib_version, states):

@@ -13,7 +13,7 @@ from ..namespaces import WSA_ANONYMOUS
 from ..namespaces import domTag, msgTag, wseTag, wsaTag, wsxTag, xmlTag, dpwsTag, QN_TYPE
 from ..namespaces import nsmap, DocNamespaceHelper
 
-
+# pylint: disable=no-self-use
 def _handles2params(handles):
     """
     Internal helper, converts handles to dom elements
@@ -86,7 +86,7 @@ class MessageFactoryClient(SoapMessageFactory):
         """
         body_node = etree_.Element(msgTag(method_name))
         ref = etree_.SubElement(body_node, msgTag('OperationHandleRef'),
-                                attrib={QN_TYPE: '{}:HandleRef'.format(Prefixes.PM.prefix)},
+                                attrib={QN_TYPE: f'{Prefixes.PM.prefix}:HandleRef'},
                                 nsmap=Prefixes.partial_map(Prefixes.PM))
         ref.text = operation_handle
         for node in request_nodes:
@@ -171,7 +171,7 @@ class MessageFactoryClient(SoapMessageFactory):
         if requested_handles:
             for handle in requested_handles:
                 requestparams.append(etree_.Element(msgTag('HandleRef'),
-                                                    attrib={QN_TYPE: '{}:HandleRef'.format(Prefixes.MSG.prefix)},
+                                                    attrib={QN_TYPE: f'{Prefixes.MSG.prefix}:HandleRef'},
                                                     nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM)))
                 requestparams[-1].text = handle
         method = 'GetContextStates'
@@ -201,7 +201,7 @@ class MessageFactoryClient(SoapMessageFactory):
         :return: a SoapEnvelope
         """
         requested_value_node = etree_.Element(msgTag('RequestedNumericValue'),
-                                              attrib={QN_TYPE: '{}:decimal'.format(Prefixes.XSD.prefix)})
+                                              attrib={QN_TYPE: f'{Prefixes.XSD.prefix}:decimal'})
         requested_value_node.text = str(requested_numeric_value)
         method = 'SetValue'
         return self._mk_setmethod_envelope(addr_to, port_type, method,
@@ -218,7 +218,7 @@ class MessageFactoryClient(SoapMessageFactory):
         :return: a SoapEnvelope
         """
         requested_string_node = etree_.Element(msgTag('RequestedStringValue'),
-                                               attrib={QN_TYPE: '{}:string'.format(Prefixes.XSD.prefix)})
+                                               attrib={QN_TYPE: f'{Prefixes.XSD.prefix}:string'})
         requested_string_node.text = requested_string
         method = 'SetString'
         return self._mk_setmethod_envelope(addr_to, port_type, method, operation_handle, [requested_string_node],
@@ -417,7 +417,7 @@ class MessageFactoryClient(SoapMessageFactory):
         try:
             return getattr(actions_lookup, method_name)
         except AttributeError:  # fallback, if a definition is missing
-            return '{}/{}/{}'.format(self._sdc_definitions.ActionsNamespace, port_type, method_name)
+            return f'{self._sdc_definitions.ActionsNamespace}/{port_type}/{method_name}'
 
     def _mk_soapenvelope(self, addr_to, port_type, method_name, body_node=None, additional_headers=None):
         action = self.get_action_string(port_type, method_name)
@@ -445,7 +445,7 @@ class MessageFactoryDevice(SoapMessageFactory):
                 raise
 
         response = soapenvelope.Soap12Envelope(nsmapper.doc_ns_map)
-        reply_address = message_data.p_msg.address.mk_reply_address('{}/GetResponse'.format(Prefixes.WXF.namespace))
+        reply_address = message_data.p_msg.address.mk_reply_address(f'{Prefixes.WXF.namespace}/GetResponse')
         reply_address.addr_to = WSA_ANONYMOUS
         reply_address.message_id = uuid.uuid4().urn
         response.add_header_object(reply_address)
@@ -454,14 +454,14 @@ class MessageFactoryDevice(SoapMessageFactory):
         # ThisModel
         metadata_section_node = etree_.SubElement(metadata_node,
                                                   wsxTag('MetadataSection'),
-                                                  attrib={'Dialect': '{}/ThisModel'.format(nsmap['dpws'])})
+                                                  attrib={'Dialect': f'{Prefixes.DPWS.namespace}/ThisModel'})
         this_model.as_etree_subnode(metadata_section_node)
         validate_dpws(metadata_section_node[-1])
 
         # ThisDevice
         metadata_section_node = etree_.SubElement(metadata_node,
                                                   wsxTag('MetadataSection'),
-                                                  attrib={'Dialect': '{}/ThisDevice'.format(nsmap['dpws'])})
+                                                  attrib={'Dialect': f'{Prefixes.DPWS.namespace}/ThisDevice'})
         this_device.as_etree_subnode(metadata_section_node)
 
         validate_dpws(metadata_section_node[-1])
@@ -469,10 +469,10 @@ class MessageFactoryDevice(SoapMessageFactory):
         # Relationship
         metadata_section_node = etree_.SubElement(metadata_node,
                                                   wsxTag('MetadataSection'),
-                                                  attrib={'Dialect': '{}/Relationship'.format(nsmap['dpws'])})
+                                                  attrib={'Dialect': f'{Prefixes.DPWS.namespace}/Relationship'})
         relationship_node = etree_.SubElement(metadata_section_node,
                                               dpwsTag('Relationship'),
-                                              attrib={'Type': '{}/host'.format(nsmap['dpws'])})
+                                              attrib={'Type': f'{Prefixes.DPWS.namespace}/host'})
 
         dpws_host.as_etree_subnode(relationship_node)
         validate_dpws(relationship_node[-1])
@@ -667,7 +667,7 @@ class MessageFactoryDevice(SoapMessageFactory):
         subscription_end_node = etree_.Element(wseTag('SubscriptionEnd'),
                                                nsmap=Prefixes.partial_map(Prefixes.WSE, Prefixes.WSA, Prefixes.XML))
         subscription_manager_node = etree_.SubElement(subscription_end_node, wseTag('SubscriptionManager'))
-        # child of Subscriptionmanager is the endpoint reference of the subscription manager (wsa:EndpointReferenceType)
+        # child of subscription manager is the endpoint reference of the subscription manager (wsa:EndpointReferenceType)
         if subscription.reference_parameter:
             reference_parameters_node = etree_.Element(wsaTag('ReferenceParameters'))
             reference_parameters_node.append(copy.copy(subscription.reference_parameter))
@@ -679,7 +679,7 @@ class MessageFactoryDevice(SoapMessageFactory):
 
         # remark: optionally one could add own address and identifier here ...
         status_node = etree_.SubElement(subscription_end_node, wseTag('Status'))
-        status_node.text = 'wse:{}'.format(code)
+        status_node.text = f'wse:{code}'
         reason_node = etree_.SubElement(subscription_end_node, wseTag('Reason'),
                                         attrib={xmlTag('lang'): 'en-US'})
         reason_node.text = reason

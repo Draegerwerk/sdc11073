@@ -50,7 +50,7 @@ class _RoundTripData:
             self.abs_max = None
 
     def __repr__(self):
-        return 'min={:.4f} max={:.4f} avg={:.4f} absmax={:.4f}'.format(self.min, self.max, self.avg, self.abs_max)
+        return f'min={self.min:.4f} max={self.max:.4f} avg={self.avg:.4f} absmax={self.abs_max:.4f}'
 
 
 def _mk_dispatch_identifier(reference_parameter_node, path_suffix):
@@ -169,7 +169,7 @@ class _DevSubscription:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
 
             self._soap_client.post_soap_envelope_to(self._notify_to_url.path, soap_envelope,
-                                                    msg='send_notification_report {}'.format(action))
+                                                    msg=f'send_notification_report {action}')
             try:
                 roundtrip_time = roundtrip_timer.result(0)
                 self.last_roundtrip_times.append(roundtrip_time)
@@ -188,7 +188,8 @@ class _DevSubscription:
 
     def send_notification_end_message(self, msg_factory, code='SourceShuttingDown',
                                       reason='Event source going off line.'):
-        my_addr = '{}:{}/{}'.format(self.base_urls[0].scheme, self.base_urls[0].netloc, self.base_urls[0].path)
+        url = self.base_urls[0]
+        my_addr = f'{url.scheme}:{url.netloc}/{url.path}'
 
         if not self.is_valid:
             return
@@ -217,12 +218,9 @@ class _DevSubscription:
             ref_ident = ', '.join([node.text for node in self.notify_ref_nodes])
         except TypeError:
             ref_ident = '<unknown>'
-        return 'Subscription(notify_to={} idnt={}, my identifier={}, expires={}, filter={})'.format(
-            self.notify_to_address,
-            ref_ident,
-            self.identifier_uuid.hex,
-            self.remaining_seconds,
-            short_filter_string(self._filters))
+        return f'Subscription(notify_to={self.notify_to_address} ident={ref_ident}, ' \
+               f'my identifier={self.identifier_uuid.hex}, expires={self.remaining_seconds}, ' \
+               f'filter={short_filter_string(self._filters)})'
 
     def get_roundtrip_stats(self):
         if len(self.last_roundtrip_times) > 0:
@@ -449,14 +447,14 @@ class AbstractSubscriptionsManager(ABC):
 
     @abstractmethod
     def send_realtime_samples_report(self,
-                                     realtime_sample_statesList: Iterable[
+                                     realtime_sample_states: Iterable[
                                          ForwardRef('RealTimeSampleArrayMetricStateContainer')],
                                      nsmapper: DocNamespaceHelper,
                                      mdib_version: int,
                                      sequence_id: str) -> None:
         """
 
-        :param realtime_sample_statesList:
+        :param realtime_sample_states_list:
         :param nsmapper:
         :param mdib_version:
         :param sequence_id:

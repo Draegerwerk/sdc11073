@@ -19,8 +19,6 @@ class StringEnum(str, enum.Enum):
 
 class PropertyBasedPMType:
     """ Base class that assumes all data is defined as containerproperties and _props lists all property names."""
-    def __init__(self):
-        pass
 
     def as_etree_node(self, qname, nsmap):
         node = etree_.Element(qname, nsmap=nsmap)
@@ -31,9 +29,9 @@ class PropertyBasedPMType:
         for prop_name, prop in self.sorted_container_properties():
             try:
                 prop.update_xml_value(self, node)
-            except Exception:
+            except Exception as ex:
                 raise RuntimeError(
-                    f'In {self.__class__.__name__}.{prop_name}, {str(prop)} could not update: {traceback.format_exc()}')
+                    f'In {self.__class__.__name__}.{prop_name}, {str(prop)} could not update: {traceback.format_exc()}') from ex
 
     def update_from_node(self, node):
         for dummy, prop in self.sorted_container_properties():
@@ -189,7 +187,7 @@ class Coding(_CodingBase):
                 return True
             if raise_exception:
                 raise NotCompareableVersionError(
-                    'no simple compare, self.codingSystemVersion == {}'.format(self.codingSystemVersion))
+                    f'no simple compare, self.codingSystemVersion == {self.codingSystemVersion}')
             return False
         try:
             if self.code != other.code or self.codingSystem != other.codingSystem:
@@ -199,8 +197,7 @@ class Coding(_CodingBase):
             if self.codingSystemVersion is None or other.codingSystemVersion is None:
                 if raise_exception:
                     raise NotCompareableVersionError(
-                        'my codingSystem = "{}", other = "{}"'.format(self.codingSystemVersion,
-                                                                      other.codingSystemVersion))
+                        f'my codingSystem = "{self.codingSystemVersion}", other = "{other.codingSystemVersion}"')
                 return False
             return False
         except AttributeError:
@@ -248,7 +245,7 @@ class T_Translation(PropertyBasedPMType):
 
     def __repr__(self):
         if self.CodingSystem is None:
-            return 'CodedValue({})'.format(self.Code)
+            return f'CodedValue({self.Code})'
         if self.CodingSystemVersion is None:
             return f'CodedValue({self.Code}, codingsystem={self.CodingSystem})'
         return f'CodedValue({self.Code}, codingsystem={self.CodingSystem}, codingsystemversion={self.CodingSystemVersion})'
@@ -263,8 +260,7 @@ class T_Translation(PropertyBasedPMType):
         """ other can be an int, a string, a CodedValue like object (has "coding" member) or a Coding"""
         if hasattr(other, 'coding'):
             return self.coding.equals(other.coding)
-        else:
-            return self.coding.equals(other)
+        return self.coding.equals(other)
 
     @classmethod
     def from_node(cls, node):
@@ -345,17 +341,14 @@ class CodedValue(PropertyBasedPMType):
                     if left.coding.equals(right.coding, raise_exception):
                         if not raise_exception:
                             return True
-                        else:
-                            found_match = True
+                        found_match = True
                 except NotCompareableVersionError as ex:
                     not_comparables.append(str(ex))
             if not_comparables:
                 raise NotCompareableVersionError(';'.join(not_comparables))
-            else:
-                return found_match
-        else:
-            # simplified compare: compare to 11073 coding system where codes are integers, ignore translations
-            return self.coding.equals(other, raise_exception)
+            return found_match
+        # else simplified compare: compare to 11073 coding system where codes are integers, ignore translations
+        return self.coding.equals(other, raise_exception)
 
     @classmethod
     def from_node(cls, node):
@@ -459,7 +452,7 @@ class InstanceIdentifier(PropertyBasedPMType):
         return ret
 
     def __repr__(self):
-        return 'InstanceIdentifier(root={!r}, Type={} ext={!r})'.format(self.Root, self.Type, self.Extension)
+        return f'InstanceIdentifier(root={self.Root!r}, Type={self.Type} ext={self.Extension!r})'
 
 
 class OperatingJurisdiction(InstanceIdentifier):
@@ -494,7 +487,7 @@ class Range(PropertyBasedPMType):
         # pylint: enable=invalid-name
 
     def __repr__(self):
-        return 'Range (Lower={!r}, Upper={!r})'.format(self.Lower, self.Upper)
+        return f'Range (Lower={self.Lower!r}, Upper={self.Upper!r})'
 
 
 class Measurement(PropertyBasedPMType):
@@ -527,7 +520,7 @@ class Measurement(PropertyBasedPMType):
         return cls(value, unit)
 
     def __repr__(self):
-        return 'Measurement(value={!r}, Unit={!r})'.format(self.MeasuredValue, self.MeasurementUnit)
+        return f'Measurement(value={self.MeasuredValue!r}, Unit={self.MeasurementUnit!r})'
 
 
 class AllowedValue(PropertyBasedPMType):
@@ -589,6 +582,9 @@ class T_MetricQuality(PropertyBasedPMType):
     # pylint: enable=invalid-name
     _props = ('Validity', 'Mode', 'Qi')
 
+    def __init__(self):
+        pass
+
 
 class AbstractMetricValue(PropertyBasedPMType):
     """ This is the base class for metric values inside metric states"""
@@ -637,10 +633,8 @@ class NumericMetricValue(AbstractMetricValue):
     _props = ('Value',)
 
     def __repr__(self):
-        return '{} Validity={} Value={} DeterminationTime={}'.format(self.__class__.__name__,
-                                                                     self.MetricQuality.Validity,
-                                                                     self.Value,
-                                                                     self.DeterminationTime)
+        return f'{self.__class__.__name__} Validity={self.MetricQuality.Validity}' \
+               f' Value={self.Value} DeterminationTime={self.DeterminationTime}'
 
     def __eq__(self, other):
         """ compares all properties, special handling of Value member"""
@@ -657,10 +651,9 @@ class NumericMetricValue(AbstractMetricValue):
                     if abs(my_value - other_value) < 0.001:
                         continue
                     return False
-                else:
-                    if getattr(self, name) == getattr(other, name):
-                        continue
-                    return False
+                if getattr(self, name) == getattr(other, name):
+                    continue
+                return False
             return True
         except AttributeError:
             return False
@@ -677,10 +670,8 @@ class StringMetricValue(AbstractMetricValue):
     _props = ('Value',)
 
     def __repr__(self):
-        return '{} Validity={} Value={} DeterminationTime={}'.format(self.__class__.__name__,
-                                                                     self.MetricQuality.Validity,
-                                                                     self.Value,
-                                                                     self.DeterminationTime)
+        return f'{self.__class__.__name__} Validity={self.MetricQuality.Validity} ' \
+               f'Value={self.Value} DeterminationTime={self.DeterminationTime}'
 
 
 class ApplyAnnotation(PropertyBasedPMType):
@@ -704,8 +695,7 @@ class ApplyAnnotation(PropertyBasedPMType):
         return obj
 
     def __repr__(self):
-        return '{}(AnnotationIndex={}, SampleIndex={})'.format(self.__class__.__name__, self.AnnotationIndex,
-                                                               self.SampleIndex)
+        return f'{self.__class__.__name__}(AnnotationIndex={self.AnnotationIndex}, SampleIndex={self.SampleIndex})'
 
 
 class SampleArrayValue(AbstractMetricValue):
@@ -718,7 +708,7 @@ class SampleArrayValue(AbstractMetricValue):
     _props = ('Samples', 'ApplyAnnotation')
 
     def __repr__(self):
-        return '{} Samples={} ApplyAnnotations={}'.format(self.__class__.__name__, self.Samples, self.ApplyAnnotations)
+        return f'{self.__class__.__name__} Samples={self.Samples} ApplyAnnotations={self.ApplyAnnotations}'
 
     def __eq__(self, other):
         """ compares all properties, special handling of Value member"""
@@ -832,7 +822,7 @@ class ActivateOperationDescriptorArgument(PropertyBasedPMType):
         return cls(arg_name, arg_qname)
 
     def __repr__(self):
-        return 'ActivateOperationDescriptorArgument(argName={}, arg={})'.format(self.ArgName, self.Arg)
+        return f'{self.__class__.__name__}(argName={self.ArgName}, arg={self.Arg})'
 
 
 class PhysicalConnectorInfo(PropertyBasedPMType):
@@ -864,7 +854,7 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
         return obj
 
     def __repr__(self):
-        return 'PhysicalConnectorInfo(label={}, number={})'.format(self.Label, self.Number)
+        return f'{self.__class__.__name__}(label={self.Label}, number={self.Number})'
 
 
 class AlertSignalManifestation(StringEnum):
@@ -906,7 +896,7 @@ class SystemSignalActivation(PropertyBasedPMType):
         return obj
 
     def __repr__(self):
-        return 'SystemSignalActivation(Manifestation={}, State={})'.format(self.Manifestation, self.State)
+        return f'{self.__class__.__name__}(Manifestation={self.Manifestation}, State={self.State})'
 
 
 class ProductionSpecification(PropertyBasedPMType):
@@ -1238,6 +1228,9 @@ class AbstractMetricDescriptorRelation(PropertyBasedPMType):
     Entries = cp.EntryRefListAttributeProperty('Entries')
     # pylint: enable=invalid-name
     _props = ['Code', 'Identification', 'Kind', 'Entries']
+
+    def __init__(self):
+        pass
 
 
 Relation = AbstractMetricDescriptorRelation

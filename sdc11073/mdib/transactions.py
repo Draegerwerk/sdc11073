@@ -16,7 +16,7 @@ class _TransactionBase:
         self.component_state_updates = OrderedDict()
         self.context_state_updates = OrderedDict()
         self.operational_state_updates = OrderedDict()
-        self.rt_sample_state_updates = dict()  # unordered dict for performance
+        self.rt_sample_state_updates = {}  # unordered dict for performance
         self._error = False
         self._closed = False
         self.mdib_version = None
@@ -27,7 +27,7 @@ class _TransactionBase:
         if tr_containers is not None:
             _, new = tr_containers
             if new is None:  # descriptor is deleted in this transaction!
-                raise RuntimeError('The descriptor {} is going to be deleted'.format(descriptor_handle))
+                raise RuntimeError(f'The descriptor {descriptor_handle} is going to be deleted')
             return new
         return self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
 
@@ -110,9 +110,9 @@ class MdibUpdateTransaction(_TransactionBase):
         if adjust_descriptor_version:
             self._device_mdib_container.descriptions.set_version(descriptor_container)
         if descriptor_handle in self.descriptor_updates:
-            raise ValueError('descriptorHandle {} already in updated set!'.format(descriptor_handle))
+            raise ValueError(f'descriptorHandle {descriptor_handle} already in updated set!')
         if descriptor_handle in self._device_mdib_container.descriptions.handle.keys():
-            raise ValueError('cannot create descriptorHandle {}, it already exists!'.format(descriptor_handle))
+            raise ValueError(f'cannot create descriptorHandle {descriptor_handle}, it already exists!')
         self.descriptor_updates[descriptor_handle] = TrItem(None, descriptor_container)
 
     createDescriptor = add_descriptor
@@ -120,7 +120,7 @@ class MdibUpdateTransaction(_TransactionBase):
     @tr_method_wrapper
     def remove_descriptor(self, descriptor_handle):
         if descriptor_handle in self.descriptor_updates:
-            raise ValueError('descriptorHandle {} already in updated set!'.format(descriptor_handle))
+            raise ValueError(f'descriptorHandle {descriptor_handle} already in updated set!')
         orig_descriptor_container = self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
         self.descriptor_updates[descriptor_handle] = TrItem(orig_descriptor_container, None)
 
@@ -132,7 +132,7 @@ class MdibUpdateTransaction(_TransactionBase):
         @return: a copy of the state.
         """
         if descriptor_handle in self.descriptor_updates:
-            raise ValueError('descriptorHandle {} already in updated set!'.format(descriptor_handle))
+            raise ValueError(f'descriptorHandle {descriptor_handle} already in updated set!')
         orig_descriptor_container = self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
         descriptor_container = orig_descriptor_container.mk_copy()
         descriptor_container.increment_descriptor_version()
@@ -184,7 +184,7 @@ class MdibUpdateTransaction(_TransactionBase):
         descriptor_handle = state_container.descriptorHandle
         my_handle = state_container.Handle if state_container.isContextState else state_container.descriptorHandle
         if my_handle in my_updates:
-            raise ValueError('descriptorHandle {} already in updated set!'.format(descriptor_handle))
+            raise ValueError(f'descriptorHandle {descriptor_handle} already in updated set!')
 
         if adjust_state_version:
             my_multi_key.set_version(state_container)
@@ -216,7 +216,7 @@ class MdibUpdateTransaction(_TransactionBase):
         else:
             raise RuntimeError(f'unhandled case {descriptor_container}')
         if descriptor_handle in updates:
-            raise ValueError('descriptorHandle {} already in updated set!'.format(descriptor_handle))
+            raise ValueError(f'descriptorHandle {descriptor_handle} already in updated set!')
         old_state, new_state = self._get_or_mk_state_container(descriptor_handle, adjust_state_version)
         updates[descriptor_handle] = TrItem(old_state, new_state)
         return new_state
@@ -236,7 +236,7 @@ class MdibUpdateTransaction(_TransactionBase):
         """
         lookup_key = (descriptor_handle, context_state_handle)
         if lookup_key in self.context_state_updates:
-            raise ValueError('descriptorHandle {} already in updated set!'.format(lookup_key))
+            raise ValueError(f'descriptorHandle {lookup_key} already in updated set!')
         descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
         if context_state_handle is None:
             old_state_container = None
@@ -262,7 +262,7 @@ class MdibUpdateTransaction(_TransactionBase):
 
     def _get_real_time_sample_array_metric_state(self, descriptor_handle):
         if descriptor_handle in self.rt_sample_state_updates:
-            raise ValueError('descriptorHandle {} already in updated set!'.format(descriptor_handle))
+            raise ValueError(f'descriptorHandle {descriptor_handle} already in updated set!')
         state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_handle,
                                                                                       allow_none=True)
         if state_container is None:
@@ -270,12 +270,12 @@ class MdibUpdateTransaction(_TransactionBase):
             new_state = self._device_mdib_container.mk_state_container_from_descriptor(descriptor_container)
             if not new_state.isRealtimeSampleArrayMetricState:
                 raise ValueError(
-                    'descriptorHandle {} does not reference a RealTimeSampleArrayMetricState'.format(descriptor_handle))
+                    f'descriptorHandle {descriptor_handle} does not reference a RealTimeSampleArrayMetricState')
             self._device_mdib_container.states.add_object(state_container)
         else:
             if not state_container.isRealtimeSampleArrayMetricState:
                 raise ValueError(
-                    'descriptorHandle {} does not reference a RealTimeSampleArrayMetricState'.format(descriptor_handle))
+                    f'descriptorHandle {descriptor_handle} does not reference a RealTimeSampleArrayMetricState')
             new_state = state_container.mk_copy(copy_node=False)
             new_state.increment_state_version()
         self.rt_sample_state_updates[descriptor_handle] = TrItem(state_container, new_state)

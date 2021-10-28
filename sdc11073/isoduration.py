@@ -28,10 +28,10 @@ def parse_duration(date_string):
     Years and month are not supported, values must be zero!
     """
     if not isinstance(date_string, str):
-        raise TypeError("Expecting a string %r" % date_string)
+        raise TypeError(f"Expecting a string {date_string}")
     match = ISO8601_PERIOD_REGEX.match(date_string)
     if not match:
-        raise ValueError("Unable to parse duration string %r" % date_string)
+        raise ValueError(f"Unable to parse duration string {date_string}")
     groups = match.groupdict()
     for key, val in groups.items():
         if key not in ('separator', 'sign'):
@@ -45,7 +45,7 @@ def parse_duration(date_string):
                 # which works with floats.
                 groups[key] = float(groups[key][:-1].replace(',', '.'))
     if groups["years"] != 0 or groups["months"] != 0:
-        raise ValueError("Unable to parse duration string %r (Non zero year or month)" % date_string)
+        raise ValueError(f"Unable to parse duration string {date_string} (Non zero year or month)")
     ret = timedelta(days=groups["days"], hours=groups["hours"],
                     minutes=groups["minutes"], seconds=groups["seconds"],
                     weeks=groups["weeks"])
@@ -150,7 +150,7 @@ def parse_date_time(date_time_str, strict=True):
                 value = GYearMonth(int(year), int(month))
             return value
 
-        raise ValueError('Could not parse date string = "{}"'.format(date_time_string))
+        raise ValueError(f'Could not parse date string = "{date_time_string}"')
     except ValueError:
         return None
 
@@ -158,12 +158,12 @@ def parse_date_time(date_time_str, strict=True):
 def _mk_seconds_string(date_object):
     if date_object.microsecond > 0:
         seconds = float(date_object.second) + float(date_object.microsecond) / 1e6
-        seconds_string = '{:02f}'.format(seconds)
+        seconds_string = f'{seconds:02f}'
         # remove trailing zeros
         while seconds_string[-1] == '0':
             seconds_string = seconds_string[:-1]
     else:
-        seconds_string = '{:02d}'.format(date_object.second)
+        seconds_string = f'{date_object.second:02d}'
     return seconds_string
 
 
@@ -177,27 +177,22 @@ def _mk_tz_string(date_object):
         if tz_seconds != 0:
             minutes, _ = divmod(abs(tz_seconds), 60)
             hours, minutes = divmod(minutes, 60)
-            tz_string = '{}{:02d}:{:02d}'.format('+' if tz_seconds > 0 else '-', hours, minutes)
+            sign = '+' if tz_seconds > 0 else '-'
+            tz_string = f'{sign}{hours:02d}:{minutes:02d}'
     return tz_string
 
 
 def date_time_string(date_object):
     if hasattr(date_object, 'hour'):  # datetime object
-        date_string = '{:4d}-{:02d}-{:02d}T{:02d}:{:02d}:{}{}'.format(date_object.year,
-                                                                      date_object.month,
-                                                                      date_object.day,
-                                                                      date_object.hour,
-                                                                      date_object.minute,
-                                                                      _mk_seconds_string(date_object),
-                                                                      _mk_tz_string(date_object))
+        date_string = f'{date_object.year:4d}-{date_object.month:02d}-{date_object.day:02d}' \
+                      f'T{date_object.hour:02d}:{date_object.minute:02d}' \
+                      f':{_mk_seconds_string(date_object)}{_mk_tz_string(date_object)}'
     elif hasattr(date_object, 'day'):  # date object
-        date_string = '{:4d}-{:02d}-{:02d}'.format(date_object.year,
-                                                   date_object.month,
-                                                   date_object.day)
+        date_string = f'{date_object.year:4d}-{date_object.month:02d}-{date_object.day:02d}'
     elif hasattr(date_object, 'month'):  # GYearMonth object
-        date_string = '{:4d}-{:02d}'.format(date_object.year, date_object.month)
+        date_string = f'{date_object.year:4d}-{date_object.month:02d}'
     elif hasattr(date_object, 'year'):  # GYear object
-        date_string = '{:4d}'.format(date_object.year)
+        date_string = f'{date_object.year:4d}'
     else:
-        raise ValueError('cannot convert {} to ISO8601 datetime string'.format(date_object.__class__.__name__))
+        raise ValueError(f'cannot convert {date_object.__class__.__name__} to ISO8601 datetime string')
     return date_string

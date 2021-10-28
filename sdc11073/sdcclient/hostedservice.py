@@ -1,12 +1,51 @@
 import urllib
 import weakref
-from collections import namedtuple
+from typing import Any
 
 from .. import loghelper
 from ..namespaces import DocNamespaceHelper
+from ..pysoap.msgreader import ReceivedMessageData
 from ..pysoap.soapenvelope import ExtendedDocumentInvalid
 
-GetRequestResult = namedtuple('GetRequestResult', 'mdib_version sequence_id result')
+
+class GetRequestResult:
+    """Like ReceivedMessageData, but plus result ( StateContainers, DescriptorContainers)"""
+
+    def __init__(self, message_data: ReceivedMessageData, result: Any):
+        self._message_data = message_data
+        self._result = result
+
+    @property
+    def msg_reader(self):
+        return self._message_data.msg_reader
+
+    @property
+    def p_msg(self):
+        return self._message_data.p_msg
+
+    @property
+    def instance_id(self):
+        return self._message_data.instance_id
+
+    @property
+    def sequence_id(self):
+        return self._message_data.sequence_id
+
+    @property
+    def mdib_version(self):
+        return self._message_data.mdib_version
+
+    @property
+    def action(self):
+        return self._message_data.action
+
+    @property
+    def msg_name(self):
+        return self._message_data.msg_name
+
+    @property
+    def result(self):
+        return self._result
 
 
 class HostedServiceClient:
@@ -16,13 +55,13 @@ class HostedServiceClient:
 
     def __init__(self, soap_client, msg_factory, dpws_hosted, porttype, validate, sdc_definitions, biceps_parser,
                  log_prefix=''):
-        '''
+        """
         :param simple_xml_hosted_node: a "Hosted" node in a simplexml document
-        '''
+        """
         self.endpoint_reference = dpws_hosted.endpoint_references[0]
         self._url = urllib.parse.urlparse(self.endpoint_reference.address)
         self.porttype = porttype
-        self._logger = loghelper.get_logger_adapter('sdc.client.{}'.format(porttype), log_prefix)
+        self._logger = loghelper.get_logger_adapter(f'sdc.client.{porttype}', log_prefix)
         self._operations_manager = None
         self._validate = validate
         self._sdc_definitions = sdc_definitions
@@ -45,9 +84,9 @@ class HostedServiceClient:
         return None if not self._validate else self._biceps_parser.mex_schema
 
     def register_mdib(self, mdib):
-        ''' Client sometimes must know the mdib data (e.g. Set service, activate method).'''
+        """ Client sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib_wref is not None:
-            raise RuntimeError('Client "{}" has already an registered mdib'.format(self.porttype))
+            raise RuntimeError(f'Client "{self.porttype}" has already an registered mdib')
         self._mdib_wref = None if mdib is None else weakref.ref(mdib)
 
     def set_operations_manager(self, operations_manager):
@@ -61,7 +100,7 @@ class HostedServiceClient:
         return self.predefined_actions.values()
 
     def __repr__(self):
-        return '{} "{}" endpoint = {}'.format(self.__class__.__name__, self.porttype, self.endpoint_reference)
+        return f'{self.__class__.__name__} "{self.porttype}" endpoint = {self.endpoint_reference}'
 
     def post_soap_envelope(self, envelope, msg, request_manipulator=None):
         return self.soap_client.post_soap_envelope_to(self._url.path, envelope, msg=msg,
@@ -70,7 +109,7 @@ class HostedServiceClient:
     def _call_get_method(self, envelope, method, request_manipulator=None):
         self._logger.info('calling {} on {}:{}', method, self._url.netloc, self._url.path)
         envelope.validate_body(self._bmm_schema)
-        message_data = self.post_soap_envelope(envelope, msg='get {}'.format(method),
+        message_data = self.post_soap_envelope(envelope, msg=f'get {method}',
                                                request_manipulator=request_manipulator)
         try:
             message_data.p_msg.validate_body(self._bmm_schema)
@@ -85,6 +124,17 @@ class HostedServiceClient:
 
 class GetServiceClient(HostedServiceClient):
 
+    def get_md_description(self, requested_handles=None, request_manipulator=None):
+        """
+        :param requested_handles: None if all states shall be requested, otherwise a list of handles
+        """
+        envelope = self._msg_factory.mk_getmddescription_envelope(
+            self.endpoint_reference.address, self.porttype, requested_handles)
+        message_data = self._call_get_method(envelope, 'GetMdDescription',
+                                             request_manipulator=request_manipulator)
+        descriptors = message_data.msg_reader.read_get_mddescription_response(message_data)
+        return GetRequestResult(message_data, descriptors)
+
     def get_md_description_node(self, requested_handles=None, request_manipulator=None):
         """
         :param requested_handles: None if all descriptors shall be requested, otherwise a list of handles
@@ -98,12 +148,14 @@ class GetServiceClient(HostedServiceClient):
 
     def get_mdib(self, request_manipulator=None):
         envelope = self._msg_factory.mk_getmdib_envelope(self.endpoint_reference.address, self.porttype)
-
         message_data = self._call_get_method(envelope, 'GetMdib', request_manipulator=request_manipulator)
-        return message_data.p_msg
+        result = message_data.msg_reader.read_get_mdib_response(message_data)
+        return GetRequestResult(message_data, result)
 
     def get_mdib_node(self, request_manipulator=None):
-        return self.get_mdib(request_manipulator).msg_node
+        envelope = self._msg_factory.mk_getmdib_envelope(self.endpoint_reference.address, self.porttype)
+        message_data = self._call_get_method(envelope, 'GetMdib', request_manipulator=request_manipulator)
+        return message_data.p_msg.msg_node
 
     def get_md_state(self, requested_handles=None, request_manipulator=None):
         """
@@ -114,7 +166,7 @@ class GetServiceClient(HostedServiceClient):
         message_data = self._call_get_method(envelope, 'GetMdState',
                                              request_manipulator=request_manipulator)
         states = message_data.msg_reader.read_get_mdstate_response(message_data)
-        return GetRequestResult(message_data.mdib_version, message_data.sequence_id, states)
+        return GetRequestResult(message_data, states)
 
     def get_md_state_node(self, requested_handles=None, request_manipulator=None):
         """
@@ -200,7 +252,7 @@ class SetServiceClient(HostedServiceClient):
         :param proposed_component_states: a list of domainmodel.AbstractDeviceComponentState instances or derived class
         :return: a concurrent.futures.Future
         """
-        tmp = ', '.join(['{}(descriptorHandle={})'.format(st.__class__.__name__, st.descriptorHandle)
+        tmp = ', '.join([f'{st.__class__.__name__} (descriptorHandle={st.descriptorHandle})'
                          for st in proposed_component_states])
         self._logger.info('set_component_state {}', tmp)
         envelope = self._msg_factory.mk_setcomponentstate_envelope(self._nsmapper, self.endpoint_reference.address,
@@ -245,7 +297,7 @@ class CTreeServiceClient(HostedServiceClient):
         message_data = self._call_get_method(
             envelope, 'GetDescriptor', request_manipulator=request_manipulator)
         descriptors = message_data.msg_reader.read_get_descriptor_response(message_data)
-        return GetRequestResult(message_data.mdib_version, message_data.sequence_id, descriptors)
+        return GetRequestResult(message_data, descriptors)
 
     def get_containment_tree(self, handles, request_manipulator=None):
         """
@@ -258,7 +310,7 @@ class CTreeServiceClient(HostedServiceClient):
         message_data = self._call_get_method(
             envelope, 'GetContainmentTree', request_manipulator=request_manipulator)
         descriptors = message_data.msg_reader.read_get_containment_tree_response(message_data)
-        return GetRequestResult(message_data.mdib_version, message_data.sequence_id, descriptors)
+        return GetRequestResult(message_data, descriptors)
 
 
 class StateEventClient(HostedServiceClient):
@@ -305,9 +357,7 @@ class ContextServiceClient(HostedServiceClient):
         """
         @return: a concurrent.futures.Future object
         """
-        tmp = ', '.join(['{}(descriptorHandle={}, handle={})'.format(st.__class__.__name__,
-                                                                     st.descriptorHandle,
-                                                                     st.Handle)
+        tmp = ', '.join([f'{st.__class__.__name__}(descriptorHandle={st.descriptorHandle}, handle={st.Handle})'
                          for st in proposed_context_states])
         self._logger.info('set_context_state {}', tmp)
         envelope = self._msg_factory.mk_setcontextstate_envelope(self._nsmapper,
@@ -325,7 +375,7 @@ class ContextServiceClient(HostedServiceClient):
             envelope, 'GetContextStates', request_manipulator=request_manipulator)
         message_data.p_msg.validate_body(self._bmm_schema)
         context_state_containers = message_data.msg_reader.read_context_states(message_data)
-        return GetRequestResult(message_data.mdib_version, message_data.sequence_id, context_state_containers)
+        return GetRequestResult(message_data, context_state_containers)
 
     def get_context_state_by_identification(self, identifications, context_type=None, request_manipulator=None):
         """
@@ -339,7 +389,7 @@ class ContextServiceClient(HostedServiceClient):
             envelope, 'GetContextStatesByIdentification', request_manipulator=request_manipulator)
         message_data.p_msg.validate_body(self._bmm_schema)
         context_state_containers = message_data.msg_reader.read_context_states(message_data)
-        return GetRequestResult(message_data.mdib_version, message_data.sequence_id, context_state_containers)
+        return GetRequestResult(message_data, context_state_containers)
 
 
 class WaveformClient(HostedServiceClient):

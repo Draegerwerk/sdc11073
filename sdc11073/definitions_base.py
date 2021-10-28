@@ -12,6 +12,7 @@ from .namespaces import Prefixes
 from .namespaces import dpwsTag
 from .wsdiscovery import Scope
 
+# pylint: disable=cyclic-import
 if TYPE_CHECKING:
     from .pysoap.msgfactory import AbstractMessageFactory
     from .pysoap.msgreader import AbstractMessageReader
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from .sdcdevice.subscriptionmgr import AbstractSubscriptionsManager
     from .mdib.devicemdib import DeviceMdibContainer
     from .httprequesthandler import RequestData
+# pylint: enable=cyclic-import
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
@@ -30,10 +32,10 @@ class ProtocolsRegistry(type):
     """
     protocols = []
 
-    def __new__(mcs, name, *arg, **kwarg):
-        new_cls = super().__new__(mcs, name, *arg, **kwarg)
+    def __new__(cls, name, *arg, **kwarg):
+        new_cls = super().__new__(cls, name, *arg, **kwarg)
         if name != 'BaseDefinitions':  # ignore the base class itself
-            mcs.protocols.append(new_cls)
+            cls.protocols.append(new_cls)
         return new_cls
 
 
@@ -134,8 +136,8 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
                                        (cls.ParticipantModelNamespace, Prefixes.PM.namespace),
                                        (cls.ExtensionPointNamespace, Prefixes.EXT.namespace),
                                        (cls.MDPWSNameSpace, Prefixes.MDPWS.namespace)):
-            xml_text = xml_text.replace('"{}"'.format(namespace).encode('utf-8'),
-                                        '"{}"'.format(internal_ns).encode('utf-8'))
+            xml_text = xml_text.replace(f'"{namespace}"'.encode('utf-8'),
+                                        f'"{internal_ns}"'.encode('utf-8'))
         return xml_text
 
     @classmethod
@@ -179,7 +181,7 @@ class SchemaValidators:
         self.wsdl_schema = self._mk_schema(schema_paths.WSDLSchemaFile)
 
     def __str__(self):
-        return '{} {}'.format(self.__class__.__name__, self._definitions.__name__)
+        return f'{self.__class__.__name__} {self._definitions.__name__}'
 
     def _mk_schema(self, path, normalize=False):
         with open(path, 'rb') as _file:

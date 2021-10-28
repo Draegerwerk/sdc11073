@@ -61,7 +61,7 @@ class IndexDefinition(dict):
         else:
             result = self[key]
         if len(result) > 1:
-            raise ValueError('get_one: key "{}" has {} objects'.format(key, len(result)))
+            raise ValueError(f'get_one: key "{key}" has {len(result)} objects')
         return result[0]
 
     def getOne(self, key, allowNone=False):  # pylint: disable=invalid-name
@@ -96,11 +96,11 @@ class UIndexDefinition(IndexDefinition):
         if not self._index_none_values and keys is None:
             return None
         if isinstance(keys, list):
-            raise ValueError('list of keys not allowed in UIndex: obj= {}, keys={}'.format(obj, keys))
+            raise ValueError(f'list of keys not allowed in UIndex: obj={obj}, keys={keys}')
         keys = [keys]
         for k in keys:
             if k in self:
-                raise KeyError('key "{}" in already in this UIndex'.format(k))
+                raise KeyError(f'key "{k}" in already in this UIndex')
             self[k] = [obj]
         return keys
 
@@ -248,14 +248,14 @@ class MultiKeyLookup:
 
     def update_object(self, obj):
         if obj not in self._objects:
-            raise RuntimeError('object {} not known'.format(obj))
+            raise RuntimeError(f'object {obj} not known')
         with self._lock:
             self._rm_indices(obj)
             self._mk_indices(obj)
 
     def update_object_no_lock(self, obj):
         if obj not in self._objects:
-            raise RuntimeError('object {} not known'.format(obj))
+            raise RuntimeError(f'object {obj} not known')
         self._rm_indices(obj)
         self._mk_indices(obj)
 
@@ -266,7 +266,7 @@ class MultiKeyLookup:
     def update_objects_no_lock(self, objs):
         for obj in objs:
             if obj not in self._objects:
-                raise RuntimeError('object {} not known'.format(obj))
+                raise RuntimeError(f'object {obj} not known')
             with self._lock:
                 self._rm_indices(obj)
                 self._mk_indices(obj)

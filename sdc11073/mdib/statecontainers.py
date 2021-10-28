@@ -67,8 +67,8 @@ class AbstractStateContainer(ContainerBase):
     def update_from_other_container(self, other, skipped_properties=None):
         if other.descriptorHandle != self.descriptorHandle:
             raise RuntimeError(
-                'Update from a node with different descriptor handle is not possible! Have "{}", got "{}"'.format(
-                    self.descriptorHandle, other.descriptorHandle))
+                f'Update from a node with different descriptor handle is not possible! '
+                f'Have "{self.descriptorHandle}", got "{other.descriptorHandle}"')
         self._update_from_other(other, skipped_properties)
         self.node = other.node
 
@@ -82,13 +82,12 @@ class AbstractStateContainer(ContainerBase):
 
     def update_descriptor_version(self):
         if self.descriptor_container is None:
-            raise RuntimeError('State {} has no descriptor_container'.format(self))
+            raise RuntimeError(f'State {self} has no descriptor_container')
         if self.descriptor_container.DescriptorVersion != self.DescriptorVersion:
             self.DescriptorVersion = self.descriptor_container.DescriptorVersion
 
     def __repr__(self):
-        return '{} descriptorHandle="{}" StateVersion={}'.format(self.__class__.__name__, self.descriptorHandle,
-                                                                 self.StateVersion)
+        return f'{self.__class__.__name__} descriptorHandle="{self.descriptorHandle}" StateVersion={self.StateVersion}'
 
 
 class AbstractOperationStateContainer(AbstractStateContainer):
@@ -108,6 +107,9 @@ class SetValueOperationStateContainer(AbstractOperationStateContainer):
 class T_AllowedValues(pmtypes.PropertyBasedPMType):  # pylint: disable=invalid-name
     Value = cp.SubElementTextListProperty(domTag('Value'))
     _props = ['Value']
+
+    def __init__(self):
+        pass
 
     def is_empty(self):
         return self.Value is None or len(self.Value) == 0
@@ -168,7 +170,7 @@ class AbstractMetricStateContainerBase(AbstractStateContainer):
             cls = self.__class__._metric_value.value_class  # pylint: disable=protected-access, no-member
             self._metric_value = cls()
             return self._metric_value
-        raise RuntimeError('State (descr-handle="{}") already has a metric value'.format(self.descriptorHandle))
+        raise RuntimeError(f'State (descriptor handle="{self.descriptorHandle}") already has a metric value')
 
 
 class AbstractMetricStateContainer(AbstractMetricStateContainerBase):
@@ -214,10 +216,8 @@ class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
         samples_count = 0
         if self._metric_value is not None and self._metric_value.Samples is not None:
             samples_count = len(self._metric_value.Samples)
-        return '{} descriptorHandle="{}" Activation="{}" Samples={}'.format(self.__class__.__name__,
-                                                                            self.descriptorHandle,
-                                                                            self.ActivationState,
-                                                                            samples_count)
+        return f'{self.__class__.__name__} descriptorHandle="{self.descriptorHandle}" ' \
+               f'Activation="{self.ActivationState}" Samples={samples_count}'
 
 
 class DistributionSampleArrayMetricStateContainer(AbstractMetricStateContainer):
@@ -294,7 +294,7 @@ class SystemContextStateContainer(AbstractDeviceComponentStateContainer):
 
 
 class BatteryStateContainer(AbstractDeviceComponentStateContainer):
-    class T_ChargeStatus(pmtypes.StringEnum):
+    class ChargeStatusEnum(pmtypes.StringEnum):
         FULL = 'Ful'
         CHARGING = 'ChB'
         DISCHARGING = 'DisChB'
@@ -310,7 +310,7 @@ class BatteryStateContainer(AbstractDeviceComponentStateContainer):
     RemainingBatteryTime = cp.SubElementProperty(domTag('RemainingBatteryTime'),
                                                  value_class=pmtypes.Measurement,
                                                  is_optional=True)
-    ChargeStatus = cp.EnumAttributeProperty('ChargeStatus', enum_cls=T_ChargeStatus)
+    ChargeStatus = cp.EnumAttributeProperty('ChargeStatus', enum_cls=ChargeStatusEnum)
     ChargeCycles = cp.IntegerAttributeProperty('ChargeCycles')  # Number of charge/discharge cycles.
     _props = (
         'CapacityRemaining', 'Voltage', 'Current', 'Temperature', 'RemainingBatteryTime', 'ChargeStatus',
@@ -339,8 +339,9 @@ class AlertSystemStateContainer(AbstractAlertStateContainer):
               'PresentTechnicalAlarmConditions')
 
     def __repr__(self):
-        return '{} descriptorHandle="{}" StateVersion={} LastSelfCheck={} SelfCheckCount={}'.format(
-            self.__class__.__name__, self.descriptorHandle, self.StateVersion, self.LastSelfCheck, self.SelfCheckCount)
+        return f'{self.__class__.__name__} descriptorHandle="{self.descriptorHandle}" ' \
+               f'StateVersion={self.StateVersion} LastSelfCheck={self.LastSelfCheck} ' \
+               f'SelfCheckCount={self.SelfCheckCount}'
 
 
 class AlertSignalStateContainer(AbstractAlertStateContainer):
@@ -409,8 +410,7 @@ class AbstractMultiStateContainer(AbstractStateContainer):
             self._handle_is_generated = False
         elif other.Handle != self.Handle:
             raise RuntimeError(
-                'Update from a node with different handle is not possible! Have "{}", got "{}"'.format(
-                    self.Handle, other.Handle))
+                f'Update from a node with different handle is not possible! Have "{self.Handle}", got "{other.Handle}"')
         super().update_from_other_container(other, skipped_properties)
 
     def mk_state_node(self, tag, nsmapper, update_descriptor_version=True, set_xsi_type=True):
@@ -419,8 +419,8 @@ class AbstractMultiStateContainer(AbstractStateContainer):
         return super().mk_state_node(tag, nsmapper, update_descriptor_version, set_xsi_type)
 
     def __repr__(self):
-        return '{} descriptorHandle="{}" handle="{}" type={}'.format(self.__class__.__name__, self.descriptorHandle,
-                                                                     self.Handle, self.NODETYPE)
+        return f'{self.__class__.__name__} descriptorHandle="{self.descriptorHandle}" ' \
+               f'Handle="{self.Handle}" type={self.NODETYPE}'
 
 
 class AbstractContextStateContainer(AbstractMultiStateContainer):

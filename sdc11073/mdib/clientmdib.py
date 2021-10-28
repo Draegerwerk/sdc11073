@@ -201,7 +201,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self._context_mdib_version = None
         self._msg_reader = sdc_client.msg_reader
         # a buffer for notifications that are received before initial getmdib is done
-        self._buffered_notifications = list()
+        self._buffered_notifications = []
         self._buffered_notifications_lock = Lock()
         self.waveform_time_warner = DeterminationTimeWarner()
         self.metric_time_warner = DeterminationTimeWarner()
@@ -220,22 +220,20 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
         get_service = self._sdc_client.client('Get')
         self._logger.info('initializing mdib...')
-        mdib_node = get_service.get_mdib_node()
-        self.nsmapper.use_doc_prefixes(mdib_node.nsmap)
+        response = get_service.get_mdib()  #  GetRequestResult
         self._logger.info('creating description containers...')
-        descriptor_containers = self._msg_reader.read_mddescription(mdib_node)
-        with self.descriptions._lock:  # pylint: disable=protected-access
+        descriptor_containers, state_containers = response.result
+        with self.descriptions.lock:
             self.descriptions.clear()
         self.add_description_containers(descriptor_containers)
         self._logger.info('creating state containers...')
         self.clear_states()
-        state_containers = self._msg_reader.read_mdstate(mdib_node)
         self.add_state_containers(state_containers)
 
-        mdib_version = mdib_node.get('MdibVersion')
-        sequence_id = mdib_node.get('SequenceId')
+        mdib_version = response.mdib_version
+        sequence_id = response.sequence_id
         if mdib_version is not None:
-            self.mdib_version = int(mdib_version)
+            self.mdib_version = mdib_version
             self._logger.info('setting initial mdib version to {}', mdib_version)
         else:
             self._logger.warn('found no mdib version in GetMdib response, assuming "0"')
@@ -346,7 +344,10 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         try:
             self._logger.info('_sync_context_states called')
             context_service = self._sdc_client.client('Context')
-            mdib_version, sequence_id, context_state_containers = context_service.get_context_states()
+            #mdib_version, sequence_id, context_state_containers = context_service.get_context_states()
+            response = context_service.get_context_states()
+            context_state_containers = response.result
+
             devices_context_state_handles = [s.Handle for s in context_state_containers]
             with self.context_states._lock:  # pylint: disable=protected-access
                 for obj in self.context_states.objects:
@@ -361,7 +362,12 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             time.sleep(0.001)
             context_service = self._sdc_client.client('Context')
             self._logger.info('requesting context states...')
-            mdib_version, sequence_id, context_state_containers = context_service.get_context_states(handles)
+            #mdib_version, sequence_id, context_state_containers = context_service.get_context_states(handles)
+            response = context_service.get_context_states(handles)
+            mdib_version = response.mdib_version
+            # sequence_id = response.sequence_id
+            context_state_containers = response.result
+
 
             self._context_mdib_version = mdib_version
             self._logger.debug('_get_context_states: setting _context_mdib_version to {}', self._context_mdib_version)
@@ -454,7 +460,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         metrics_by_handle = {}
         max_age = 0
         min_age = 0
-        state_containers = self._msg_reader.read_episodicmetric_report(received_message_data)
+        state_containers = self._msg_reader.read_episodic_metric_report(received_message_data)
         try:
             with self.mdib_lock:
                 self.mdib_version = new_mdib_version
@@ -518,7 +524,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             return
 
         alert_by_handle = {}
-        state_containers = self._msg_reader.read_episodicalert_report(received_message_data)
+        state_containers = self._msg_reader.read_episodic_alert_report(received_message_data)
         self._logger.debug('_on_episodic_alert_report: received {} alerts', len(state_containers))
         try:
             with self.mdib_lock:
@@ -599,11 +605,11 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         stats = pstats.Stats(self.prof, stream=str_io).sort_stats('cumulative')
         stats.print_stats(30)
         print(str_io.getvalue())
-        print('total number of states: {}'.format(len(self.states._objects)))  # pylint:disable=protected-access
-        print('total number of objIds: {}'.format(len(self.states._object_ids)))  # pylint:disable=protected-access
+        print(f'total number of states: {len(self.states._objects)}')  # pylint:disable=protected-access
+        print(f'total number of objIds: {len(self.states._object_ids)}')  # pylint:disable=protected-access
         for name, refs in self.states._object_ids.items():  # pylint:disable=protected-access
             if len(refs) > 50:
-                print('object {} has {} idx references, {}'.format(name, len(refs), refs))
+                print(f'object {name} has {len(refs)} idx references, {refs}')
 
     def _on_waveform_report(self, received_message_data, is_buffered_report=False):
         # pylint:disable=too-many-locals
@@ -668,7 +674,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 shall_log = self.waveform_time_warner.get_out_of_determination_time_log_state(min_age, max_age,
                                                                                               self.DETERMINATIONTIME_WARN_LIMIT)
                 if shall_log != A_NO_LOG:
-                    tmp = ', '.join('"{}":{:.3f}sec.'.format(k, v) for k, v in waveform_age.items())
+                    tmp = ', '.join(f'"{k}":{v:.3f}sec.' for k, v in waveform_age.items())
                     if shall_log == A_OUT_OF_RANGE:
                         self._logger.warn(
                             '_on_waveform_report mdib_version {}: age of samples outside limit of {} sec.: age={}!',

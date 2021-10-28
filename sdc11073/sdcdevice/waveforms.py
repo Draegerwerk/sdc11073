@@ -32,8 +32,7 @@ class _WaveformGeneratorBase:
     def __init__(self, values_generator, min_value, max_value, waveformperiod, sampleperiod):
         if sampleperiod >= waveformperiod:
             raise ValueError(
-                'please choose a waveformperiod >> sampleperiod. currently use have wp={}, sp={}'.format(waveformperiod,
-                                                                                                         sampleperiod))
+                f'please choose a waveformperiod >> sampleperiod. currently use have wp={waveformperiod}, sp={sampleperiod}')
         self.sampleperiod = sampleperiod
         samples = int(waveformperiod / sampleperiod)
         values = values_generator(min_value, max_value, samples)

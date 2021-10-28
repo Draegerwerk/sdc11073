@@ -19,7 +19,7 @@ class PathElementDispatcher:
 
     def register_dispatcher(self, path_element, dispatcher):
         if path_element in self.sub_dispatchers:
-            raise RuntimeError('Path-element "{}" already registered'.format(path_element))
+            raise RuntimeError(f'Path-element "{path_element}" already registered')
         self.sub_dispatchers[path_element] = dispatcher
 
     def get_dispatcher(self, path_element):
@@ -71,8 +71,8 @@ class HostedServiceDispatcher(PathElementDispatcher):
             all_actions = []
             for dispatcher in self._hosted_services:
                 all_actions.extend(', '.join([dispatcher.path_element or '', str(k)]) for k in dispatcher.get_keys())
-
-            txt = 'HostedServiceDispatcher.on_post: {} , known=\n{}'.format(ex, '\n'.join(all_actions))
+            tmp = '\n'.join(all_actions)
+            txt = f'HostedServiceDispatcher.on_post: {ex} , known=\n{tmp}'
             self._logger.error(txt)
             raise
 
@@ -84,9 +84,8 @@ class HostedServiceDispatcher(PathElementDispatcher):
     def _dispatch_get_request(self, request_data):
         dispatcher = self.get_dispatcher(request_data.consume_current_path_element())
         if dispatcher is None:
-            raise KeyError(
-                'HostedServiceDispatcher.on_get: unknown path "{}", known = {}'.format(
-                    request_data.consumed_path_elements, self.sub_dispatchers.keys()))
+            raise KeyError(f'HostedServiceDispatcher.on_get: unknown path "{request_data.consumed_path_elements}", '
+                           f'known = {self.sub_dispatchers.keys()}')
         response_string = dispatcher.on_get(request_data)
         return self.sdc_definitions.denormalize_xml_text(response_string)
 

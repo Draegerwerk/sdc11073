@@ -43,8 +43,7 @@ class HostDescription:
         self.host = dpws_envelope.host
 
     def __str__(self):
-        return 'HostDescription: this_model = {}, this_device = {}, host = {}'.format(self.this_model, self.this_device,
-                                                                                      self.host)
+        return f'HostDescription: this_model = {self.this_model}, this_device = {self.this_device}, host = {self.host}'
 
 
 class HostedServiceDescription:
@@ -62,7 +61,7 @@ class HostedServiceDescription:
         self.metadata = None
         self.wsdl_string = None
         self.wsdl = None
-        self._logger = loghelper.get_logger_adapter('sdc.client.{}'.format(service_id), log_prefix)
+        self._logger = loghelper.get_logger_adapter(f'sdc.client.{service_id}', log_prefix)
         self._url = urllib.parse.urlparse(endpoint_address)
         self.services = {}
 
@@ -74,9 +73,10 @@ class HostedServiceDescription:
         soap_envelope = self._msg_factory.mk_getmetadata_envelope(self._endpoint_address)
         if self.VALIDATE_MEX:
             soap_envelope.validate_body(self._mex_schema)
-        endpoint_envelope = soap_client.post_soap_envelope_to(self._url.path,
-                                                              soap_envelope,
-                                                              msg='<{}> read_metadata'.format(self.service_id)).p_msg
+        response = soap_client.post_soap_envelope_to(self._url.path,
+                                                     soap_envelope,
+                                                     msg=f'<{self.service_id}> read_metadata')
+        endpoint_envelope = response.p_msg
         if self.VALIDATE_MEX:
             endpoint_envelope.validate_body(self._mex_schema)
         self.metadata = MetaDataSection.from_etree_node(endpoint_envelope.body_node)
@@ -84,17 +84,17 @@ class HostedServiceDescription:
 
     def _read_wsdl(self, soap_client, wsdl_url):
         parsed = urllib.parse.urlparse(wsdl_url)
-        actual_path = parsed.path + '?{}'.format(parsed.query) if parsed.query else parsed.path
-        self.wsdl_string = soap_client.get_url(actual_path, msg='{}:getwsdl'.format(self.log_prefix))
+        actual_path = parsed.path + f'?{parsed.query}' if parsed.query else parsed.path
+        self.wsdl_string = soap_client.get_url(actual_path, msg=f'{self.log_prefix}:getwsdl')
         commlog.get_communication_logger().log_wsdl(self.wsdl_string, self.service_id)
         try:
             self.wsdl = self._msg_reader.read_wsdl(self.wsdl_string)
         except etree_.XMLSyntaxError as ex:
             self._logger.error(
-                'could not read wsdl from {}: error={}, data=\n{}'.format(actual_path, ex, self.wsdl_string))
+                f'could not read wsdl from {actual_path}: error={ex}, data=\n{self.wsdl_string}')
 
     def __repr__(self):
-        return '{} "{}" endpoint = {}'.format(self.__class__.__name__, self.service_id, self._endpoint_address)
+        return f'{self.__class__.__name__} "{self.service_id}" endpoint = {self._endpoint_address}'
 
 
 def ip_addr_to_int(ip_string):
@@ -198,7 +198,7 @@ class NotificationsDispatcherByBody(NotificationsDispatcherBase):
         super().on_notification(message_data)
         method = self._lookup.get(message_data.msg_name)
         if method is None:
-            raise RuntimeError('unknown message {}'.format(message_data.msg_name))
+            raise RuntimeError(f'unknown message {message_data.msg_name}')
         method(message_data)
 
 
@@ -222,14 +222,14 @@ class NotificationsDispatcherByAction(NotificationsDispatcherBase):
             actions.PeriodicContextReport: self._on_periodic_context_report,
         }
 
-    def on_notification(self, envelope):
+    def on_notification(self, message_data):
         """ dispatch by message body"""
-        super().on_notification(envelope)
-        action = envelope.address.action
+        super().on_notification(message_data)
+        action = message_data.address.action
         method = self._lookup.get(action)
         if method is None:
-            raise RuntimeError('unknown message {}'.format(action))
-        method(envelope)
+            raise RuntimeError(f'unknown message {action}')
+        method(message_data)
 
 
 class SdcClient:
@@ -248,6 +248,7 @@ class SdcClient:
     # They contain only the body node of the notification, not the envelope
     waveform_report = properties.ObservableProperty()
     episodic_metric_report = properties.ObservableProperty()
+    episodic_metric_states = properties.ObservableProperty()  # state containers
     episodic_alert_report = properties.ObservableProperty()
     episodic_component_report = properties.ObservableProperty()
     episodic_operational_state_report = properties.ObservableProperty()
@@ -344,7 +345,8 @@ class SdcClient:
         return self._my_ipaddress
 
     def _find_best_own_ip_address(self):
-        my_addresses = [conn.ip for conn in netconn.get_network_adapter_configs() if conn.ip not in (None, '0.0.0.0')]
+        # my_addresses = [conn.ip for conn in netconn.get_network_adapter_configs() if conn.ip not in (None, '0.0.0.0')]
+        my_addresses = netconn.get_ipv4_addresses()
         splitted = urllib.parse.urlsplit(self._device_location)
         device_addr = splitted.hostname
         if device_addr is None:
@@ -476,7 +478,7 @@ class SdcClient:
                 try:
                     self._subscribe(dpws_hosted, subscribe_actions,
                                     self._notifications_dispatcher.on_notification)
-                except Exception as ex:
+                except Exception:
                     self.all_subscribed = False  # => do not log errors when mdib versions are missing in notifications
                     self._logger.error('start_all: could not subscribe: error = {}, actions= {}',
                                        traceback.format_exc(), subscribe_actions)
@@ -523,7 +525,7 @@ class SdcClient:
             self._logger.info('Peer Certificate: {}', self.peer_certificate)
 
         envelope = Soap12Envelope(nsmap)
-        envelope.set_address(WsAddress(action='{}/Get'.format(Prefixes.WXF.namespace),
+        envelope.set_address(WsAddress(action=f'{Prefixes.WXF.namespace}/Get',
                                        addr_to=self._device_location))
 
         self.metadata = wsc.post_soap_envelope_to(_url.path, envelope,
@@ -548,7 +550,7 @@ class SdcClient:
 
         # only GetService is mandatory!!!
         if self.get_service_client is None:
-            raise RuntimeError('GetService not detected! found services = {}'.format(self._service_clients.keys()))
+            raise RuntimeError(f'GetService not detected! found services = {list(self._service_clients.keys())}')
 
     def _get_soap_client(self, address):
         _url = urllib.parse.urlparse(address)
@@ -615,9 +617,7 @@ class SdcClient:
         self._subscription_mgr.on_subscription_end(request_data)
 
     def __str__(self):
-        return 'SdcClient to {} {} on {}'.format(self.host_description.this_device,
-                                                 self.host_description.this_model,
-                                                 self._device_location)
+        return f'SdcClient to {self.host_description.this_device} {self.host_description.this_model} on {self._device_location}'
 
     @classmethod
     def from_wsd_service(cls, wsd_service, ssl_context, validate=True, log_prefix='', specific_components=None):
@@ -632,7 +632,7 @@ class SdcClient:
         """
         device_locations = wsd_service.get_x_addrs()
         if not device_locations:
-            raise RuntimeError('discovered Service has no address!{}'.format(wsd_service))
+            raise RuntimeError(f'discovered Service has no address!{wsd_service}')
         device_location = device_locations[0]
         for _q_name in wsd_service.types:
             q_name = etree_.QName(_q_name.namespace, _q_name.localname)

@@ -456,12 +456,11 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         else:
             if state_container.isContextState:
                 if state_container.Handle in self.context_states.handle:
-                    raise ValueError('context state Handle {} already in mdib!'.format(state_container.Handle))
+                    raise ValueError(f'context state Handle {state_container.Handle} already in mdib!')
                 table = self.context_states
             else:
                 if state_container.descriptorHandle in self.states.descriptorHandle:
-                    raise ValueError(
-                        'state descriptorHandle {} already in mdib!'.format(state_container.descriptorHandle))
+                    raise ValueError(f'state descriptorHandle {state_container.descriptorHandle} already in mdib!')
                 table = self.states
             if adjust_state_version:
                 table.set_version(state_container)
@@ -624,8 +623,9 @@ class DescriptorFactory:
     def __init__(self, mdib):
         self._mdib = mdib
 
-    def _create_descriptor_container(self, cls, handle, parent_handle, coded_value, safety_classification):
-        obj = cls(handle=handle, parent_handle=parent_handle)
+    @staticmethod
+    def _create_descriptor_container(container_cls, handle, parent_handle, coded_value, safety_classification):
+        obj = container_cls(handle=handle, parent_handle=parent_handle)
         obj.SafetyClassification = safety_classification
         obj.Type = coded_value
         return obj

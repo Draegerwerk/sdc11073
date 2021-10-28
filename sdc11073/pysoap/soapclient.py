@@ -44,8 +44,8 @@ class HTTPReturnCodeError(httplib.HTTPException):
 
     def __repr__(self):
         if self.soap_fault:
-            return 'HTTPReturnCodeError(status={}, reason={}'.format(self.status, self.soap_fault)
-        return 'HTTPReturnCodeError(status={}, reason={}'.format(self.status, self.reason)
+            return f'HTTPReturnCodeError(status={self.status}, reason={self.soap_fault}'
+        return f'HTTPReturnCodeError(status={self.status}, reason={self.reason}'
 
 
 class SoapClient:
@@ -200,8 +200,7 @@ class SoapClient:
             except httplib.CannotSendRequest as ex:
                 # for whatever reason the response of the previous call was not read. read it and try again
                 self._log.warn(
-                    "{}: could not send request, got httplib.CannotSendRequest Error. Will read response and retry",
-                    msg)
+                    "{}: could not send request, got error '{}'. Will read response and retry", msg, ex)
                 tmp = self._http_connection.getresponse()
                 tmp.read()
             except OSError as ex:

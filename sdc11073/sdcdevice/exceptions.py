@@ -14,8 +14,8 @@ class HTTPRequestHandlingError(Exception):
 
     def __repr__(self):
         if self.soap_fault:
-            return '{}(status={}, reason={}'.format(self.__class__.__name__, self.status, self.soap_fault)
-        return '{}(status={}, reason={}'.format(self.__class__.__name__, self.status, self.reason)
+            return f'{self.__class__.__name__}(status={self.status}, reason={self.soap_fault})'
+        return f'{self.__class__.__name__}(status={self.status}, reason={self.reason})'
 
 
 class FunctionNotImplementedError(HTTPRequestHandlingError):
@@ -28,7 +28,7 @@ class InvalidActionError(HTTPRequestHandlingError):
     def __init__(self, request):
         fault = AdressingFault(request,
                                code=SoapFaultCode.SENDER,
-                               reason='invalid action {}'.format(request.address.action))
+                               reason=f'invalid action {request.address.action}')
         super().__init__(400, 'Bad Request', fault.as_xml())
 
 
@@ -36,5 +36,5 @@ class InvalidPathError(HTTPRequestHandlingError):
     def __init__(self, request, path):
         fault = AdressingFault(request,
                                code=SoapFaultCode.SENDER,
-                               reason='invalid path {}'.format(path))
+                               reason=f'invalid path {path}')
         super().__init__(400, 'Bad Request', fault.as_xml())

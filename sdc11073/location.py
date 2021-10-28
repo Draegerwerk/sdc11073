@@ -55,7 +55,7 @@ class SdcLocation:
         slash = urllib.parse.quote('/', safe='')
         loc = slash.join(identifiers)  # this is a bit ugly, but urllib.quote does not touch slashes;
         query = urllib.parse.urlencode(query_dict)
-        path = '/{}/{}'.format(urllib.parse.quote(self.root), loc)
+        path = f'/{urllib.parse.quote(self.root)}/{loc}'
         scope_string = urllib.parse.urlunparse(
             urllib.parse.ParseResult(scheme=self.scheme, netloc=None, path=path, params=None, query=query,
                                      fragment=None))
@@ -110,7 +110,7 @@ class SdcLocation:
         src = urllib.parse.urlsplit(scope_string)
 
         if src.scheme.lower() != cls.scheme:
-            raise UrlSchemeError('scheme "{}" not excepted, must be "{}"'.format(src.scheme, cls.scheme))
+            raise UrlSchemeError(f'scheme "{src.scheme}" not excepted, must be "{cls.scheme}"')
         dummy, root, _ = src.path.split('/')
         root = urllib.parse.unquote(root)
         query_dict = dict(urllib.parse.parse_qsl(src.query))
@@ -137,4 +137,4 @@ class SdcLocation:
         return not self == other
 
     def __str__(self):
-        return '{} {}'.format(self.__class__.__name__, self.scope_string)
+        return f'{self.__class__.__name__} {self.scope_string}'

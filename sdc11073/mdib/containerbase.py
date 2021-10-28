@@ -103,18 +103,18 @@ class ContainerBase:
             try:
                 other_value = getattr(other, name)
             except AttributeError:
-                ret.append('{}={}, other does not have this attribute'.format(name, my_value))
+                ret.append(f'{name}={my_value}, other does not have this attribute')
             else:
                 if isinstance(my_value, float) or isinstance(other_value, float):
                     # cast both to float, if one is a Decimal Exception might be thrown
                     try:
                         if abs((float(my_value) - float(other_value)) / float(my_value)) > 1e-6:  # 1e-6 is good enough
-                            ret.append('{}={}, other={}'.format(name, my_value, other_value))
+                            ret.append(f'{name}={my_value}, other={other_value}')
                     except ZeroDivisionError:
                         if abs((float(my_value) - float(other_value))) > 1e-6:  # 1e-6 is good enough
-                            ret.append('{}={}, other={}'.format(name, my_value, other_value))
+                            ret.append(f'{name}={my_value}, other={other_value}')
                 elif my_value != other_value:
-                    ret.append('{}={}, other={}'.format(name, my_value, other_value))
+                    ret.append(f'{name}={my_value}, other={other_value}')
         # check also if other has a different list of properties
         my_property_names = {p[0] for p in my_properties}  # set comprehension
         other_property_names = {p[0] for p in other.sorted_container_properties()}
