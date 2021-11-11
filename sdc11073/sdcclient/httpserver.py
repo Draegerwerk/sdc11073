@@ -24,29 +24,22 @@ class ReceivedNotification(RequestData):
 class SOAPNotificationsDispatcher:
     """ receiver of all notifications"""
 
-    def __init__(self, log_prefix, msg_reader):
+    def __init__(self, log_prefix):
         self._logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', log_prefix)
         self.log_prefix = log_prefix
-        self._msg_reader = msg_reader
         self.methods = {}
 
     def register_function(self, action, func):
         self.methods[action] = func
 
-    def on_post(self, path: str, headers, request: str) -> [str, None]:
-        request_data = ReceivedNotification(headers, path, request)
+    def on_post(self, request_data: ReceivedNotification) -> [str, None]:
         return self._dispatch(request_data)
 
     def on_get(self, path: str, headers) -> str:  # pylint: disable=unused-argument, no-self-use
         return ''
 
-    def _fill_request_data(self, request_data):
-        """set action and msg_name and envelope"""
-        request_data.message_data = self._msg_reader.read_received_message(request_data.request)
-
     def _dispatch(self, request_data):
         start = time.time()
-        self._fill_request_data(request_data)
         action = request_data.message_data.action
         self._logger.debug('received notification path={}, action = {}', request_data.path_elements, action)
 
@@ -65,15 +58,14 @@ class SOAPNotificationsDispatcher:
 
 class SOAPNotificationsDispatcherThreaded(SOAPNotificationsDispatcher):
 
-    def __init__(self, ident, msg_reader):
-        super().__init__(ident, msg_reader)
+    def __init__(self, ident):
+        super().__init__(ident)
         self._queue = queue.Queue(1000)
         self._worker = threading.Thread(target=self._read_queue)
         self._worker.daemon = True
         self._worker.start()
 
     def _dispatch(self, request_data):
-        self._fill_request_data(request_data)
         action = request_data.message_data.action
         try:
             func = self.methods[action]
@@ -117,7 +109,9 @@ class SOAPNotificationsHandler(HTTPRequestHandler):
             # execute the method
             commlog.get_communication_logger().log_soap_subscription_msg_in(request_bytes)
             try:
-                response_string = self.server.dispatcher.on_post(self.path, self.headers, request_bytes)
+                request_data = ReceivedNotification(self.headers, self.path, request_bytes)
+                request_data.message_data = self.server.msg_reader.read_received_message(request_bytes)
+                response_string = self.server.dispatcher.on_post(request_data)
                 if response_string is None:
                     response_string = ''
                 self.send_response(202, b'Accepted')
@@ -141,7 +135,7 @@ class SOAPNotificationsHandler(HTTPRequestHandler):
 
 
 class NotificationsReceiver(HttpServerThreadBase):
-    def __init__(self, my_ipaddress, ssl_context, log_prefix, msg_reader,
+    def __init__(self, my_ipaddress, ssl_context, log_prefix, msg_reader, msg_factory,
                  supported_encodings,
                  notifications_handler_class, async_dispatch=True):
         """
@@ -157,9 +151,9 @@ class NotificationsReceiver(HttpServerThreadBase):
         logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', log_prefix)
         request_handler = notifications_handler_class
         if async_dispatch:
-            dispatcher = SOAPNotificationsDispatcherThreaded(log_prefix, msg_reader)
+            dispatcher = SOAPNotificationsDispatcherThreaded(log_prefix)
         else:
-            dispatcher = SOAPNotificationsDispatcher(log_prefix, msg_reader)
+            dispatcher = SOAPNotificationsDispatcher(log_prefix)
         super().__init__(my_ipaddress, ssl_context, supported_encodings,
-                         request_handler, dispatcher,
+                         request_handler, dispatcher, msg_reader, msg_factory,
                          logger, chunked_responses=False)

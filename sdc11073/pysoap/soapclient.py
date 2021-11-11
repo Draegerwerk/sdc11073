@@ -9,11 +9,11 @@ import time
 import traceback
 from threading import Lock
 
-from . import soapenvelope
 from .. import commlog
 from .. import observableproperties
 from ..compression import CompressionHandler
 from ..httprequesthandler import HTTPReader, mkchunks
+from ..namespaces import Prefixes
 
 
 class HTTPConnectionNoDelay(httplib.HTTPConnection):
@@ -120,28 +120,27 @@ class SoapClient:
     def is_closed(self):
         return self._http_connection is None
 
-    def post_soap_envelope_to(self, path, soap_envelope, response_factory=None, schema=None, msg='',
-                              request_manipulator=None):
+    def post_message_to(self, path, created_message, schema=None, msg='', request_manipulator=None):
         """
         :param path: url path component
-        :param soapEnvelopeRequest: The soap envelope that shall be sent
+        :param created_message: The message that shall be sent
         :param response_factory: a callable that creates a response object from received xml. If None, a ReceivedSoap12Envelope will be created
         :param schema: If given, the request is validated against this schema
         :param msg: used in logs, helps to identify the context in which the method was called
         """
         if self.is_closed():
             self.connect()
-        return self.__post_soap_envelope(soap_envelope, response_factory, schema, path, msg, request_manipulator)
+        return self.__post_message(created_message, schema, path, msg, request_manipulator)
 
-    def __post_soap_envelope(self, soap_envelope, response_factory, schema, path, msg, request_manipulator):
+    def __post_message(self, created_message, schema, path, msg, request_manipulator):
         if schema is not None:
-            soap_envelope.validate_body(schema)
+            created_message.validate_body(schema)
         if hasattr(request_manipulator, 'manipulate_soapenvelope'):
-            tmp = request_manipulator.manipulate_soapenvelope(soap_envelope)
+            tmp = request_manipulator.manipulate_soapenvelope(created_message.p_msg)
             if tmp:
-                soap_envelope = tmp
-        normalized_xml_request = soap_envelope.as_xml(request_manipulator=request_manipulator)
-        xml_request = self._sdc_definitions.denormalize_xml_text(normalized_xml_request)
+                created_message.p_msg = tmp
+        xml_request = created_message.serialize_message(pretty=False, normalized=False,
+                                                        request_manipulator=request_manipulator)
 
         # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
         assert b'utf-8' in xml_request[:100].lower()
@@ -158,7 +157,10 @@ class SoapClient:
         if not xml_response:  # empty response
             return None
 
-        message_data = self._msg_reader.read_received_message(xml_response, response_factory)
+        message_data = self._msg_reader.read_received_message(xml_response)
+        if message_data.action == f'{Prefixes.WSA.namespace}/fault':
+            soap_fault = self._msg_reader.read_fault_message(message_data)
+            raise HTTPReturnCodeError(None, None, soap_fault)
         return message_data
 
     def _send_soap_request(self, path, xml, msg):
@@ -271,8 +273,8 @@ class SoapClient:
                 self._log.error(
                     "{}: POST to netloc='{}' path='{}': could not send request, HTTP response={}\ncontent='{}'", msg,
                     self._netloc, path, response.status, content)
-                soap_fault = soapenvelope.ReceivedSoapFault(content)
-
+                tmp = self._msg_reader.read_received_message(content)
+                soap_fault = self._msg_reader.read_fault_message(tmp)
                 raise HTTPReturnCodeError(response.status, content, soap_fault)
 
             response_headers = {k.lower(): v for k, v in response.getheaders()}

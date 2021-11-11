@@ -2,7 +2,9 @@ import threading
 import logging
 import os.path
 import urllib
-from sdc11073.pysoap.soapenvelope import Soap12Envelope, DPWSThisModel, DPWSThisDevice, WsAddress
+#from sdc11073.pysoap.soapenvelope import WsAddress
+from sdc11073.addressing import Address
+from sdc11073.dpws import ThisModel, ThisDevice
 from sdc11073.sdcdevice.subscriptionmgr import _DevSubscription
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073 import namespaces
@@ -51,24 +53,24 @@ class TestDevSubscription(_DevSubscription):
     identifier = '0815'
     expires = 60
     notifyRef = 'a ref string'
-    def __init__(self, filter_, schema_validators):
+    def __init__(self, filter_, schema_validators, msg_factory):
         notify_ref_node = etree_.Element(namespaces.wseTag('References'))
         identNode = etree_.SubElement(notify_ref_node, namespaces.wseTag('Identifier'))
         identNode.text = self.notifyRef
         base_urls = [ urllib.parse.SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
         subscribe_request = SubscribeRequest(None, filter_, self.notify_to, notify_ref_node, None, None, self.mode, self.expires)
-        super().__init__(subscribe_request,base_urls, 42, None, schema_validators)
+        super().__init__(subscribe_request,base_urls, 42, None, schema_validators, msg_factory=msg_factory)
         self.reports = []
         self.message_schema = schema_validators.message_schema
         
         
     def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
-        addr = WsAddress(addr_to=self.notify_to_address,
+        addr = Address(addr_to=self.notify_to_address,
                          action=action,
                          addr_from=None,
                          reply_to=None,
                          fault_to=None,
-                         reference_parameters_node=None)
+                         reference_parameters=None)
         rep = msg_factory.mk_notification_report(addr, body_node, self.notify_ref_nodes, doc_nsmap)
 
         try:
@@ -86,15 +88,25 @@ class SomeDevice(SdcDevice):
     def __init__(self, wsdiscovery, mdib_xml_string, my_uuid=None,
                  validate=True, ssl_context=None, log_prefix='', specific_components=None,
                  chunked_messages=False):
-        model = DPWSThisModel(manufacturer='Draeger CoC Systems',
+        # model = DPWSThisModel(manufacturer='Draeger CoC Systems',
+        #                       manufacturer_url='www.draeger.com',
+        #                       model_name='SomeDevice',
+        #                       model_number='1.0',
+        #                       model_url='www.draeger.com/whatever/you/want/model',
+        #                       presentation_url='www.draeger.com/whatever/you/want/presentation')
+        # device = DPWSThisDevice(friendly_name='Py SomeDevice',
+        #                         firmware_version='0.99',
+        #                         serial_number='12345')
+        model = ThisModel(manufacturer='Draeger CoC Systems',
                               manufacturer_url='www.draeger.com',
                               model_name='SomeDevice',
                               model_number='1.0',
                               model_url='www.draeger.com/whatever/you/want/model',
                               presentation_url='www.draeger.com/whatever/you/want/presentation')
-        device = DPWSThisDevice(friendly_name='Py SomeDevice',
+        device = ThisDevice(friendly_name='Py SomeDevice',
                                 firmware_version='0.99',
                                 serial_number='12345')
+
         device_mdib_container = DeviceMdibContainer.from_string(mdib_xml_string, log_prefix=log_prefix)
         # set Metadata
         mdsDescriptor = device_mdib_container.descriptions.NODETYPE.get_one(namespaces.domTag('MdsDescriptor'))

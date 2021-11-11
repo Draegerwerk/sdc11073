@@ -1,6 +1,6 @@
 import unittest
 from itertools import product
-from sdc11073.sdcdevice import localizationservice
+from sdc11073.sdcdevice.services import localizationservice
 from sdc11073.pmtypes import LocalizedText, T_TextWidth
 
 

@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 import os
 import urllib
 from dataclasses import dataclass
-from typing import Type, Callable, List, Any, TYPE_CHECKING #ForwardRef
+from typing import Type, Callable, List, Any, TYPE_CHECKING  # ForwardRef
 
 from lxml import etree as etree_
 from lxml.etree import QName
@@ -73,6 +74,7 @@ class SdcClientComponents:
 class SdcDeviceComponents:
     msg_factory_class: Type[AbstractMessageFactory] = None
     msg_reader_class: Type[AbstractMessageReader] = None
+    xml_reader_class: Type[AbstractMessageReader] = None  # needed to read xml based mdib files
     services_factory: Callable[[Any, dict, Any], HostedServices] = None
     operation_cls_getter: Callable[[QName], type] = None
     sco_operations_registry_class: Type[AbstractScoOperationsRegistry] = None

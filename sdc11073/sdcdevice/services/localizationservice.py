@@ -1,11 +1,9 @@
 from collections import defaultdict
 
-from .sdcservicesimpl import DPWSPortTypeImpl
-from .sdcservicesimpl import WSDLMessageDescription, WSDLOperationBinding
-from .sdcservicesimpl import mk_wsdl_two_way_operation
-from ..namespaces import Prefixes
+from .servicesbase import DPWSPortTypeImpl
+from .servicesbase import WSDLMessageDescription, WSDLOperationBinding
+from .servicesbase import mk_wsdl_two_way_operation, msg_prefix
 
-_msg = Prefixes.MSG.prefix
 
 
 def _tw2i(textwidth_string):
@@ -190,13 +188,13 @@ class LocalizationStorage():
 
 class LocalizationService(DPWSPortTypeImpl):
     WSDLMessageDescriptions = (WSDLMessageDescription('GetLocalizedText',
-                                                      (f'{_msg}:GetLocalizedText',)),
+                                                      (f'{msg_prefix}:GetLocalizedText',)),
                                WSDLMessageDescription('GetLocalizedTextResponse',
-                                                      (f'{_msg}:GetLocalizedTextResponse',)),
+                                                      (f'{msg_prefix}:GetLocalizedTextResponse',)),
                                WSDLMessageDescription('GetSupportedLanguages',
-                                                      (f'{_msg}:GetSupportedLanguages',)),
+                                                      (f'{msg_prefix}:GetSupportedLanguages',)),
                                WSDLMessageDescription('GetSupportedLanguagesResponse',
-                                                      (f'{_msg}:GetSupportedLanguagesResponse',)),
+                                                      (f'{msg_prefix}:GetSupportedLanguagesResponse',)),
                                )
     WSDLOperationBindings = (WSDLOperationBinding('GetLocalizedText', 'literal', 'literal'),
                              WSDLOperationBinding('GetSupportedLanguages', 'literal', 'literal'),)
@@ -231,7 +229,7 @@ class LocalizationService(DPWSPortTypeImpl):
                                                                  requested_version,
                                                                  localized_texts_request.requested_langs,
                                                                  i_tws, i_nls)
-        response_envelope = self._sdc_device.msg_factory.mk_get_localized_texts_response_envelope(
+        response_envelope = self._sdc_device.msg_factory.mk_get_localized_texts_response_message(
             request_data.message_data, self.actions.GetLocalizedTextResponse,
             self._mdib.mdib_version, self._mdib.sequence_id, texts, self._mdib.nsmapper)
         return response_envelope
@@ -239,7 +237,7 @@ class LocalizationService(DPWSPortTypeImpl):
     def _on_get_supported_languages(self, request_data):
         self._logger.debug('_on_get_supported_languages')
         languages = self.localization_storage.get_supported_languages()
-        response_envelope = self._sdc_device.msg_factory.mk_get_supported_languages_response_envelope(
+        response_envelope = self._sdc_device.msg_factory.mk_get_supported_languages_response_message(
             request_data.message_data, self.actions.GetSupportedLanguagesResponse,
             self._mdib.mdib_version, self._mdib.sequence_id, languages, self._mdib.nsmapper)
         return response_envelope

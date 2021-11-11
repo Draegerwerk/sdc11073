@@ -16,19 +16,19 @@ class OperationsManager:
         self._transactions = {}
         self._transactions_lock = Lock()
 
-    def call_operation(self, hosted_service_client, envelope, request_manipulator=None):
+    def call_operation(self, hosted_service_client, message, request_manipulator=None):
         ''' an operation call does not return the result of the operation directly. Instead you get an transaction id,
         and will receive the status of this transaction as notification ("OperationInvokedReport").
         This method returns a "future" object. The future object has a result as soon as a final transaction state is received.
         :param hosted_service_client:
-        :param envelope: the envelope to be sent
+        :param message: the CreatedMessage to be sent
         @return: a concurrent.futures.Future object
         '''
         ret = Future()
         with self._transactions_lock:
-            message_data = hosted_service_client.post_soap_envelope(envelope,
-                                                                    msg='call Operation',
-                                                                    request_manipulator=request_manipulator)
+            message_data = hosted_service_client.post_message(message,
+                                                              msg='call Operation',
+                                                              request_manipulator=request_manipulator)
             operation_invoked_report = message_data.msg_reader.read_operation_response(message_data)
 
             if operation_invoked_report.invocation_state in self.nonFinalOperationStates:

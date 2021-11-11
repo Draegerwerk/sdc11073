@@ -13,9 +13,9 @@ from .. import loghelper
 from .. import pmtypes
 from ..definitions_base import ProtocolsRegistry, BaseDefinitions
 from ..definitions_sdc import SDC_v1_Definitions
-from ..etc import apply_map
 from ..msgtypes import RetrievabilityMethod
 from ..namespaces import domTag
+
 
 class DeviceMdibContainer(mdibbase.MdibContainer):
     """Device side implementation of an mdib.
@@ -446,7 +446,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         if state_container.descriptor_container is None:
             descriptor_container = None
             if self._current_transaction is not None:
-                descriptor_container = self._current_transaction.descriptor_updates.get(state_container.DescriptorHandle).new
+                descriptor_container = self._current_transaction.descriptor_updates.get(
+                    state_container.DescriptorHandle).new
             if descriptor_container is None:
                 descriptor_container = self.descriptions.handle.get_one(state_container.DescriptorHandle)
             state_container.set_descriptor_container(descriptor_container)
@@ -465,21 +466,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             if adjust_state_version:
                 table.set_version(state_container)
             table.add_object(state_container)
-
-    def add_mds_node(self, mds_node):
-        """
-        This method creates DescriptorContainers and StateContainers from the provided dom tree.
-        If it is called within an transaction, the created objects are added to transaction and clients will be notified.
-        Otherwise the objects are only added to mdib without sending notifications to clients!
-        :param mds_node: a node representing data of a complete mds
-        :return: None
-        """
-        descriptor_containers = self.msg_reader.read_mddescription(mds_node)
-        apply_map(self.add_descriptor, descriptor_containers)
-
-        state_containers = self.msg_reader.read_mdstate(mds_node)
-        apply_map(self.add_state, state_containers)
-        self.mk_state_containers_for_all_descriptors()
 
     def ensure_location_context_descriptor(self):
         """Create a LocationContextDescriptor if there is none in mdib."""
@@ -602,17 +588,15 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     break
         if protocol_definition is None:
             raise ValueError('cannot create instance, no known BICEPS schema version identified')
-        msg_reader_cls = protocol_definition.DefaultSdcDeviceComponents.msg_reader_class
+        xml_reader_class = protocol_definition.DefaultSdcDeviceComponents.xml_reader_class
         mdib = cls(protocol_definition, log_prefix=log_prefix)
-        root = msg_reader_cls.get_mdib_root_node(mdib.sdc_definitions, xml_text)
-        mdib.schema_validators.message_schema.assertValid(root)
 
-        mdib.nsmapper.use_doc_prefixes(root.nsmap)
-        msg_reader = msg_reader_cls(protocol_definition, mdib._logger, log_prefix)
-        # first make descriptions and add them to mdib, and then make states (they need already existing descriptions)
-        descriptor_containers = msg_reader.read_mddescription(root)
+        xml_msg_reader = xml_reader_class(protocol_definition, mdib._logger, log_prefix)
+        message_data = xml_msg_reader.read_payload_data(xml_text)
+        mdib.nsmapper.use_doc_prefixes(message_data.p_msg.msg_node.nsmap)
+        descriptor_containers, state_containers = xml_msg_reader.read_get_mdib_response(message_data)
+
         mdib.add_description_containers(descriptor_containers)
-        state_containers = msg_reader.read_mdstate(root)
         mdib.add_state_containers(state_containers)
         mdib.mk_state_containers_for_all_descriptors()
         mdib.update_retrievability_lists()

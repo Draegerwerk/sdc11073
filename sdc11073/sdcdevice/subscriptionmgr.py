@@ -16,12 +16,13 @@ from .. import isoduration
 from .. import loghelper
 from .. import multikey
 from .. import observableproperties
+from ..addressing import Address
 from ..etc import apply_map, short_filter_string
 from ..namespaces import Prefixes
 from ..namespaces import wseTag, DocNamespaceHelper
 from ..pmtypes import InvocationError, InvocationState
 from ..pysoap.soapclient import SoapClient, HTTPReturnCodeError
-from ..pysoap.soapenvelope import SoapFault, WsAddress
+from ..pysoap.soapenvelope import SoapFault
 
 if TYPE_CHECKING:
     from ssl import SSLContext
@@ -65,7 +66,8 @@ class _DevSubscription:
     MAX_NOTIFY_ERRORS = 1
     IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
 
-    def __init__(self, subscribe_request, base_urls, max_subscription_duration, ssl_context, schema_validators):
+    def __init__(self, subscribe_request, base_urls, max_subscription_duration, ssl_context, schema_validators,
+                 msg_factory):
         """
         :param notify_to_address: dom node of Subscribe Request
         :param end_to_address: dom node of Subscribe Request
@@ -74,6 +76,7 @@ class _DevSubscription:
         """
         self.mode = subscribe_request.mode
         self.base_urls = base_urls
+        self._msg_factory = msg_factory
         self.notify_to_address = subscribe_request.notify_to_address
         self._notify_to_url = urllib.parse.urlparse(subscribe_request.notify_to_address)
 
@@ -158,18 +161,18 @@ class _DevSubscription:
     def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
         if not self.is_valid:
             return
-        addr = WsAddress(addr_to=self.notify_to_address,
-                         action=action,
-                         addr_from=None,
-                         reply_to=None,
-                         fault_to=None,
-                         reference_parameters_node=None)
-        soap_envelope = msg_factory.mk_notification_report(addr, body_node, self.notify_ref_nodes, doc_nsmap)
+        addr = Address(addr_to=self.notify_to_address,
+                       action=action,
+                       addr_from=None,
+                       reply_to=None,
+                       fault_to=None,
+                       reference_parameters=None)
+        message = msg_factory.mk_notification_report(addr, body_node, self.notify_ref_nodes, doc_nsmap)
         try:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
 
-            self._soap_client.post_soap_envelope_to(self._notify_to_url.path, soap_envelope,
-                                                    msg=f'send_notification_report {action}')
+            self._soap_client.post_message_to(self._notify_to_url.path, message,
+                                              msg=f'send_notification_report {action}')
             try:
                 roundtrip_time = roundtrip_timer.result(0)
                 self.last_roundtrip_times.append(roundtrip_time)
@@ -195,11 +198,11 @@ class _DevSubscription:
             return
         if self._soap_client is None:
             return
-        envelope = msg_factory.mk_notification_end_report(self, my_addr, code, reason)
+        message = msg_factory.mk_notification_end_report(self, my_addr, code, reason)
         try:
             url = self._end_to_url or self._notify_to_url
-            self._soap_client.post_soap_envelope_to(url.path, envelope,
-                                                    msg='send_notification_end_message')
+            self._soap_client.post_message_to(url.path, message,
+                                              msg='send_notification_end_message')
             self._notify_errors = 0
             self._is_connection_error = False
             self._is_closed = True
@@ -516,7 +519,7 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
 
     def _mk_subscription_instance(self, subscribe_request):
         return _DevSubscription(subscribe_request, self.base_urls, self._max_subscription_duration,
-                                self._ssl_context, self.schema_validators)
+                                self._ssl_context, self.schema_validators, msg_factory=self._msg_factory)
 
     def on_subscribe_request(self, request_data, subscribe_request):
         subscr = self._mk_subscription_instance(subscribe_request)
@@ -535,17 +538,17 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         with self._subscriptions.lock:
             self._subscriptions.add_object(subscr)
         self._logger.info('new {}', subscr)
-        response = self._msg_factory.mk_subscribe_response_envelope(request_data, subscr, self.base_urls)
+        response = self._msg_factory.mk_subscribe_response_message(request_data, subscr, self.base_urls)
         return response
 
     def on_unsubscribe_request(self, request_data):
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            response = SoapFault(request_data.message_data.p_msg,
-                                 code='Receiver',
-                                 reason='unknown Subscription identifier',
-                                 subCode=wseTag('InvalidMessage')
-                                 )
+            fault = SoapFault(code='Receiver',
+                              reason='unknown Subscription identifier',
+                              subcode=wseTag('InvalidMessage')
+                              )
+            response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
         else:
             subscription.close()
             with self._subscriptions.lock:
@@ -560,20 +563,20 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
                 self.soap_clients[key].close()
                 del self.soap_clients[key]
                 self._logger.info('unsubscribe: closed soap client to {})', key)
-            response = self._msg_factory.mk_unsubscribe_response_envelope(request_data)
+            response = self._msg_factory.mk_unsubscribe_response_message(request_data)
         return response
 
     def on_get_status_request(self, request_data):
-        self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.p_msg.as_xml(pretty=True))
+        self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.p_msg.raw_data)
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            response = SoapFault(request_data.message_data.p_msg,
-                                 code='Receiver',
-                                 reason='unknown Subscription identifier',
-                                 subCode=wseTag('InvalidMessage')
-                                 )
+            fault = SoapFault(code='Receiver',
+                              reason='unknown Subscription identifier',
+                              subcode=wseTag('InvalidMessage')
+                              )
+            response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
         else:
-            response = self._msg_factory.mk_getstatus_response_envelope(request_data, subscription.remaining_seconds)
+            response = self._msg_factory.mk_getstatus_response_message(request_data, subscription.remaining_seconds)
         return response
 
     def on_renew_request(self, request_data):
@@ -581,15 +584,15 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         expires = reader.read_renew_request(request_data.message_data)
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            response = SoapFault(request_data.message_data.p_msg,
-                                 code='Receiver',
-                                 reason='unknown Subscription identifier',
-                                 subCode=wseTag('UnableToRenew')
-                                 )
+            fault = SoapFault(code='Receiver',
+                              reason='unknown Subscription identifier',
+                              subcode=wseTag('UnableToRenew')
+                              )
+            response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
 
         else:
             subscription.renew(expires)
-            response = self._msg_factory.mk_renew_response_envelope(request_data, subscription.remaining_seconds)
+            response = self._msg_factory.mk_renew_response_message(request_data, subscription.remaining_seconds)
         return response
 
     def end_all_subscriptions(self, send_subscription_end):

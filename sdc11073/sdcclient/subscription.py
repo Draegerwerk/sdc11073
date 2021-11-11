@@ -27,13 +27,12 @@ class _ClSubscription:
     notification_data = properties.ObservableProperty()
     IDENT_TAG = etree_.QName('http.local.com', 'MyClIdentifier')
 
-    def __init__(self, msg_reader, msg_factory, dpws_hosted, actions, notification_url, end_to_url, log_prefix):
+    def __init__(self, msg_factory, dpws_hosted, actions, notification_url, end_to_url, log_prefix):
         """
         :param serviceClient:
         :param filter_:
         :param notification_url: e.g. http://1.2.3.4:9999, or https://1.2.3.4:9999
         """
-        self._msg_reader = msg_reader
         self._msg_factory = msg_factory
         self.dpws_hosted = dpws_hosted
         self._actions = actions
@@ -55,16 +54,16 @@ class _ClSubscription:
         self.cl_ident = log_prefix
         self._device_epr = urllib.parse.urlparse(self.dpws_hosted.endpoint_references[0].address).path
 
-    def _mk_subscribe_envelope(self, subscribe_epr, expire_minutes):
-        return self._msg_factory.mk_subscribe_envelope(
+    def _mk_subscribe_message(self, subscribe_epr, expire_minutes):
+        return self._msg_factory.mk_subscribe_message(
             subscribe_epr, self.notification_url, self.notify_to_identifier,
             self.end_to_url, self.end_to_identifier, expire_minutes, self._filter)
 
-    def _handle_subscribe_response(self, subscription_manager_address, reference_params, expire_seconds):
+    def _handle_subscribe_response(self, subscribe_result):
         # Check content of response; raise Error if subscription was not successful
-        self.dev_reference_param = reference_params
-        self.expire_at = time.time() + expire_seconds
-        self._subscription_manager_address = subscription_manager_address
+        self.dev_reference_param = subscribe_result.reference_params
+        self.expire_at = time.time() + subscribe_result.expire_seconds
+        self._subscription_manager_address = subscribe_result.subscription_manager_address
         self.is_subscribed = True
         self._logger.info('Subscribe was successful: expires at {}, address="{}"',
                           self.expire_at, self._subscription_manager_address)
@@ -75,23 +74,18 @@ class _ClSubscription:
         self.expire_minutes = expire_minutes  # saved for later renewal, we will use the same interval
         # ToDo: check if there is more than one address. In that case a clever selection is needed
         address = self.dpws_hosted.endpoint_references[0].address
-        envelope = self._mk_subscribe_envelope(address, expire_minutes)
+        message = self._mk_subscribe_message(address, expire_minutes)
         msg = f'subscribe {self._filter}'
         try:
-            message_data = self.dpws_hosted.soap_client.post_soap_envelope_to(self._device_epr, envelope,
-                                                                              msg=msg)
+            message_data = self.dpws_hosted.soap_client.post_message_to(self._device_epr, message, msg=msg)
             try:
                 response_data = message_data.msg_reader.read_subscribe_response(message_data)
             except AttributeError as ex:
                 self._logger.error('Subscribe response has unexpected content: {}',
-                                   message_data.p_msg.as_xml(pretty=True))
+                                   message_data.p_msg.raw_data)
                 self.is_subscribed = False
                 raise SoapResponseException(message_data.p_msg) from ex
-
-            if response_data is not None:
-                self._handle_subscribe_response(*response_data)
-            else:
-                self._logger.error('could not read subscribe response')
+            self._handle_subscribe_response(response_data)
         except HTTPReturnCodeError:
             self._logger.error(f'could not subscribe: {HTTPReturnCodeError}')
 
@@ -102,19 +96,19 @@ class _ClSubscription:
                 element_ = copy.copy(element)
                 # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
                 element_.set(wsaTag('IsReferenceParameter'), 'true')
-                envelope.add_header_element(element_)
+                envelope.add_reference_parameter(element_)
 
-    def _mk_renew_envelope(self, expire_minutes):
-        return self._msg_factory.mk_renew_envelope(
+    def _mk_renew_message(self, expire_minutes):
+        return self._msg_factory.mk_renew_message(
             urllib.parse.urlunparse(self._subscription_manager_address),
             dev_reference_param=self.dev_reference_param, expire_minutes=expire_minutes)
 
     def renew(self, expire_minutes: int = 60) -> float:
-        envelope = self._mk_renew_envelope(expire_minutes)
+        message = self._mk_renew_message(expire_minutes)
         try:
-            message_data = self.dpws_hosted.soap_client.post_soap_envelope_to(
-                self._subscription_manager_address.path, envelope, msg='renew')
-            self._logger.debug('{}', message_data.p_msg.as_xml(pretty=True))
+            message_data = self.dpws_hosted.soap_client.post_message_to(
+                self._subscription_manager_address.path, message, msg='renew')
+            self._logger.debug('{}', message_data.p_msg.raw_data)
         except HTTPReturnCodeError as ex:
             self.is_subscribed = False
             self._logger.error('could not renew: {}', ex)
@@ -137,22 +131,22 @@ class _ClSubscription:
     def unsubscribe(self):
         if not self.is_subscribed:
             return
-        soap_envelope = self._msg_factory.mk_unsubscribe_envelope(
+        message = self._msg_factory.mk_unsubscribe_message(
             urllib.parse.urlunparse(self._subscription_manager_address),
             dev_reference_param=self.dev_reference_param)
 
-        message_data = self.dpws_hosted.soap_client.post_soap_envelope_to(self._subscription_manager_address.path,
-                                                                          soap_envelope, msg='unsubscribe')
-        response_action = message_data.action  # result_envelope.address.action
+        received_message_data = self.dpws_hosted.soap_client.post_message_to(self._subscription_manager_address.path,
+                                                                             message, msg='unsubscribe')
+        response_action = received_message_data.action  # result_envelope.address.action
         # check response: response does not contain explicit status. If action== UnsubscribeResponse all is fine.
         if response_action == EventingActions.UnsubscribeResponse:
             self._logger.info('unsubscribe: end of subscription {} was confirmed.', self._filter)
         else:
-            self._logger.error('unsubscribe: unexpected response action: {}', message_data.p_msg.as_xml(pretty=True))
-            raise RuntimeError(f'unsubscribe: unexpected response action: {message_data.p_msg.as_xml(pretty=True)}')
+            self._logger.error('unsubscribe: unexpected response action: {}', received_message_data.p_msg.raw_data)
+            raise RuntimeError(f'unsubscribe: unexpected response action: {received_message_data.p_msg.raw_data}')
 
-    def _mk_get_status_envelope(self):
-        return self._msg_factory.mk_getstatus_envelope(
+    def _mk_get_status_message(self):
+        return self._msg_factory.mk_getstatus_message(
             urllib.parse.urlunparse(self._subscription_manager_address),
             dev_reference_param=self.dev_reference_param)
 
@@ -160,11 +154,11 @@ class _ClSubscription:
         """ Sends a GetStatus Request to the device.
         @return: the remaining time of the subscription or None, if the request was not successful
         """
-        envelope = self._mk_get_status_envelope()
+        message = self._mk_get_status_message()
         try:
-            message_data = self.dpws_hosted.soap_client.post_soap_envelope_to(
+            message_data = self.dpws_hosted.soap_client.post_message_to(
                 self._subscription_manager_address.path,
-                envelope, msg='get_status')
+                message, msg='get_status')
         except HTTPReturnCodeError as ex:
             self.is_subscribed = False
             self._logger.error('could not get status: {}', ex)
@@ -178,7 +172,7 @@ class _ClSubscription:
             expire_seconds = message_data.msg_reader.read_get_status_response(message_data)
             if expire_seconds is None:
                 self._logger.warn('get_status for {}: Could not find "Expires" node! get_status={} ', self._filter,
-                                  message_data.p_msg.rawdata)
+                                  message_data.p_msg.raw_data)
                 raise SoapResponseException(message_data.p_msg)
             self._logger.debug('get_status for {}: Expires in {} seconds, counter = {}',
                                self._filter, expire_seconds, self.event_counter)
@@ -298,7 +292,7 @@ class ClientSubscriptionManager(threading.Thread):
     def mk_subscription(self, dpws_hosted, filters):
         notification_url = f'{self._notification_url}{uuid.uuid4().hex}'
         end_to_url = f'{self._end_to_url}{uuid.uuid4().hex}'
-        subscription = _ClSubscription(self._msg_reader, self._msg_factory, dpws_hosted, filters, notification_url,
+        subscription = _ClSubscription(self._msg_factory, dpws_hosted, filters, notification_url,
                                        end_to_url, self.log_prefix)
         filter_ = ' '.join(filters)
         with self._subscriptions_lock:
@@ -346,7 +340,7 @@ class ClientSubscriptionManager(threading.Thread):
 
 class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):
     def mk_subscription(self, dpws_hosted, filters):
-        subscription = _ClSubscription(self._msg_reader, self._msg_factory, dpws_hosted, filters,
+        subscription = _ClSubscription(self._msg_factory, dpws_hosted, filters,
                                        self._notification_url,
                                        self._end_to_url, self.log_prefix)
         subscription.notify_to_identifier = etree_.Element(_ClSubscription.IDENT_TAG)

@@ -4,10 +4,10 @@ import urllib
 from .exceptions import HTTPRequestHandlingError, InvalidPathError, InvalidActionError
 from .. import commlog
 from .. import loghelper
-from .. import pysoap
 from ..httprequesthandler import HTTPRequestHandler, mkchunks
 from ..httprequesthandler import HttpServerThreadBase
 from ..httprequesthandler import RequestData
+from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
 
 
 class PathElementDispatcher:
@@ -40,9 +40,10 @@ class PathElementDispatcher:
 class HostedServiceDispatcher(PathElementDispatcher):
     """ receiver of all messages"""
 
-    def __init__(self, msg_reader, logger):
+    def __init__(self, msg_reader, msg_factory, logger):
         super().__init__(logger)
         self._msg_reader = msg_reader
+        self._msg_factory = msg_factory
         self.sdc_definitions = msg_reader.sdc_definitions
         self._hosted_services = []
 
@@ -57,13 +58,17 @@ class HostedServiceDispatcher(PathElementDispatcher):
         commlog.get_communication_logger().log_soap_request_in(request_data.request, 'POST')
         request_data.message_data = self._msg_reader.read_received_message(request_data.request)
         response_envelope = self._dispatch_post_request(request_data)
-        normalized_response_xml_string = response_envelope.as_xml()
-        return self.sdc_definitions.denormalize_xml_text(normalized_response_xml_string)
+        response_xml_string = self._msg_factory.serialize_message(response_envelope)
+        return response_xml_string
 
     def _dispatch_post_request(self, request_data):
         hosted_service = self.get_dispatcher(request_data.consume_current_path_element())
         if not hosted_service:
-            raise InvalidPathError(request_data.request_data.envelope, request_data.consumed_path_elements)
+            fault = SoapFault(code=SoapFaultCode.SENDER,
+                              reason=f'invalid path {request_data.consumed_path_elements}')
+            response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
+            fault_xml = response.serialize_message()
+            raise InvalidPathError(request_data.request_data.envelope, request_data.consumed_path_elements, fault_xml)
         try:
             return hosted_service.on_post(request_data)
         except InvalidActionError as ex:
@@ -98,8 +103,8 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 
     def do_POST(self):  # pylint: disable=invalid-name
         """SOAP POST gateway"""
-        request = self._read_request()
-        request_data = RequestData(self.headers, self.path, self.connection.getpeername(), request)
+        request_bytes = self._read_request()
+        request_data = RequestData(self.headers, self.path, self.connection.getpeername(), request_bytes)
         try:
             devices_dispatcher = self.server.dispatcher
             if devices_dispatcher is None:
@@ -108,7 +113,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
                 response_xml_string = b'received a POST request, but have no dispatcher'
                 self.send_response(404)  # not found
             else:
-                commlog.get_communication_logger().log_soap_request_in(request, 'POST')
+                commlog.get_communication_logger().log_soap_request_in(request_bytes, 'POST')
                 try:
                     # delegate handling to on_post method of dispatcher
                     response_xml_string = devices_dispatcher.on_post(request_data)
@@ -136,15 +141,10 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
         except Exception as ex:
             # make an error 500 response with the soap fault as content
             self.server.logger.error(traceback.format_exc())
-            # we must create a soapEnvelope in order to generate a SoapFault
-            dev_dispatcher = devices_dispatcher.get_dispatcher(request_data.current)
-            normalized_request = dev_dispatcher.sdc_definitions.normalize_xml_text(request)
-            envelope = pysoap.soapenvelope.ReceivedSoap12Envelope(normalized_request)
-
-            response = pysoap.soapenvelope.SoapFault(envelope, code=pysoap.soapenvelope.SoapFaultCode.SENDER,
-                                                     reason=str(ex))
-            normalized_response_xml_string = response.as_xml()
-            response_xml_string = dev_dispatcher.sdc_definitions.denormalize_xml_text(normalized_response_xml_string)
+            message_data = self.server.msg_reader.read_received_message(request_bytes)
+            fault = SoapFault(code=SoapFaultCode.SENDER, reason=str(ex))
+            response = self.server.msg_factory.mk_fault_message(message_data, fault)
+            response_xml_string = response.serialize_message()
             self.send_response(500)
             self.send_header("Content-type", "application/soap+xml; charset=utf-8")
             self.send_header("Content-length", len(response_xml_string))
@@ -179,7 +179,8 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 
 class DeviceHttpServerThread(HttpServerThreadBase):
 
-    def __init__(self, my_ipaddress, ssl_context, supported_encodings, log_prefix=None, chunked_responses=False):
+    def __init__(self, my_ipaddress, ssl_context, supported_encodings,
+                 msg_reader, msg_factory, log_prefix=None, chunked_responses=False):
         """
         :param my_ipaddress:
         :param ssl_context:
@@ -189,5 +190,5 @@ class DeviceHttpServerThread(HttpServerThreadBase):
         request_handler = _SdcServerRequestHandler
         dispatcher = PathElementDispatcher(logger)
         super().__init__(my_ipaddress, ssl_context, supported_encodings,
-                         request_handler, dispatcher,
+                         request_handler, dispatcher, msg_reader, msg_factory,
                          logger, chunked_responses=chunked_responses)

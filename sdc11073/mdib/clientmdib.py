@@ -220,7 +220,11 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
         get_service = self._sdc_client.client('Get')
         self._logger.info('initializing mdib...')
-        response = get_service.get_mdib()  #  GetRequestResult
+        response = get_service.get_mdib()  # GetRequestResult
+        if hasattr(response.p_msg, 'msg_node'):
+            self.nsmapper.use_doc_prefixes(response.p_msg.msg_node.nsmap)
+        else:
+            self._logger.info('GetMdib response has no msg_node, cannot set specific namespace mapping.')
         self._logger.info('creating description containers...')
         descriptor_containers, state_containers = response.result
         with self.descriptions.lock:
@@ -344,7 +348,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         try:
             self._logger.info('_sync_context_states called')
             context_service = self._sdc_client.client('Context')
-            #mdib_version, sequence_id, context_state_containers = context_service.get_context_states()
+            # mdib_version, sequence_id, context_state_containers = context_service.get_context_states()
             response = context_service.get_context_states()
             context_state_containers = response.result
 
@@ -362,12 +366,11 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             time.sleep(0.001)
             context_service = self._sdc_client.client('Context')
             self._logger.info('requesting context states...')
-            #mdib_version, sequence_id, context_state_containers = context_service.get_context_states(handles)
+            # mdib_version, sequence_id, context_state_containers = context_service.get_context_states(handles)
             response = context_service.get_context_states(handles)
             mdib_version = response.mdib_version
             # sequence_id = response.sequence_id
             context_state_containers = response.result
-
 
             self._context_mdib_version = mdib_version
             self._logger.debug('_get_context_states: setting _context_mdib_version to {}', self._context_mdib_version)
@@ -475,7 +478,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     try:
                         old_state_container = self.states.descriptorHandle.get_one(state_container.descriptorHandle,
                                                                                    allow_none=True)
-                    except RuntimeError  as ex:
+                    except RuntimeError as ex:
                         self._logger.error('_on_episodic_metric_report, get_one on states: {}', ex)
                         continue
                     desc_h = state_container.descriptorHandle
@@ -540,7 +543,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     try:
                         old_state_container = self.states.descriptorHandle.get_one(state_container.descriptorHandle,
                                                                                    allow_none=True)
-                    except RuntimeError  as ex:
+                    except RuntimeError as ex:
                         self._logger.error('_on_episodic_alert_report, get_one on states: {}', ex)
                         continue
 
@@ -582,7 +585,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     try:
                         old_state_container = self.states.descriptorHandle.get_one(state_container.descriptorHandle,
                                                                                    allow_none=True)
-                    except RuntimeError  as ex:
+                    except RuntimeError as ex:
                         self._logger.error('_on_operational_state_report, get_one on states: {}', ex)
                         continue
                     if old_state_container is not None:
@@ -715,7 +718,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     try:
                         old_state_container = self.context_states.handle.get_one(state_container.Handle,
                                                                                  allow_none=True)
-                    except RuntimeError  as ex:
+                    except RuntimeError as ex:
                         self._logger.error('_on_episodic_context_report, get_one on context_states: {}', ex)
                         continue
 
@@ -761,7 +764,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     desc_h = state_container.descriptorHandle
                     try:
                         old_state_container = self.states.descriptorHandle.get_one(desc_h, allow_none=True)
-                    except RuntimeError  as ex:
+                    except RuntimeError as ex:
                         self._logger.error('_on_episodic_component_report, get_one on states: {}', ex)
                         continue
 

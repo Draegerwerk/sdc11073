@@ -11,13 +11,14 @@ from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.mdib.clientmdib import ClientMdibContainer
 from sdc11073.namespaces import domTag
 from sdc11073.pmtypes import CodedValue
-from sdc11073.pysoap.soapenvelope import DPWSThisModel, DPWSThisDevice
 from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist, WSDiscoverySingleAdapter, Scope
 from sdc11073.definitions_base import SdcDeviceComponents
+from sdc11073.dpws import ThisDevice, ThisModel
+
 loopback_adapter = 'Loopback Pseudo-Interface 1' if os.name == 'nt' else 'lo'
 
 SEARCH_TIMEOUT = 2  # in real world applications this timeout is too short, 10 seconds is a good value.
@@ -30,16 +31,26 @@ my_mdib_path = os.path.join(here, '70041_MDIB_Final.xml')
 def createGenericDevice(wsdiscovery_instance, location, mdibPath, specific_components=None):
     my_mdib = DeviceMdibContainer.from_mdib_file(mdibPath)
     my_uuid = uuid.uuid4()
-    dpwsModel = DPWSThisModel(manufacturer='Draeger',
-                              manufacturer_url='www.draeger.com',
-                              model_name='TestDevice',
-                              model_number='1.0',
-                              model_url='www.draeger.com/model',
-                              presentation_url='www.draeger.com/model/presentation')
+    # dpwsModel = DPWSThisModel(manufacturer='Draeger',
+    #                           manufacturer_url='www.draeger.com',
+    #                           model_name='TestDevice',
+    #                           model_number='1.0',
+    #                           model_url='www.draeger.com/model',
+    #                           presentation_url='www.draeger.com/model/presentation')
+    #
+    # dpwsDevice = DPWSThisDevice(friendly_name='TestDevice',
+    #                             firmware_version='Version1',
+    #                             serial_number='12345')
+    dpwsModel = ThisModel(manufacturer='Draeger',
+                          manufacturer_url='www.draeger.com',
+                          model_name='TestDevice',
+                          model_number='1.0',
+                          model_url='www.draeger.com/model',
+                          presentation_url='www.draeger.com/model/presentation')
 
-    dpwsDevice = DPWSThisDevice(friendly_name='TestDevice',
-                                firmware_version='Version1',
-                                serial_number='12345')
+    dpwsDevice = ThisDevice(friendly_name='TestDevice',
+                            firmware_version='Version1',
+                            serial_number='12345')
     sdcDevice = SdcDevice(wsdiscovery_instance,
                           dpwsModel,
                           dpwsDevice,
@@ -120,18 +131,18 @@ class Test_Tutorial(unittest.TestCase):
 
         # now search only for devices in my_location2
         services = my_client_wsDiscovery.search_services(scopes=[Scope(self.my_location2.scope_string)],
-                                                        timeout=SEARCH_TIMEOUT)
+                                                         timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
 
         # search for medical devices only (BICEPS FInal version only)
         services = my_client_wsDiscovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
-                                                        timeout=SEARCH_TIMEOUT)
+                                                         timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 2)
 
         # search for medical devices only all known protocol versions
         all_types = [p.MedicalDeviceTypesFilter for p in ProtocolsRegistry.protocols]
         services = my_client_wsDiscovery.search_multiple_types(types_list=all_types,
-                                                             timeout=SEARCH_TIMEOUT)
+                                                               timeout=SEARCH_TIMEOUT)
 
         self.assertEqual(len(services), 2)
 
@@ -218,7 +229,7 @@ class Test_Tutorial(unittest.TestCase):
         proposedPatient.Firstname = 'Jack'
         proposedPatient.Lastname = 'Miller'
         future = contextService.set_context_state(operation_handle=my_operation.handle,
-                                                proposed_context_states=[proposedPatient])
+                                                  proposed_context_states=[proposedPatient])
         result = future.result(timeout=5)
         self.assertEqual(result.invocation_state, pmtypes.InvocationState.FINISHED)
 
@@ -254,13 +265,13 @@ class Test_Tutorial(unittest.TestCase):
                     # The following line shows how to provide your callback (in this case self._handle_operation_1).
                     # This callback is called when a consumer calls the operation.
                     operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                         operation_cls_getter,
-                                                                         current_argument_handler=self._handle_operation_1)
+                                                                             operation_cls_getter,
+                                                                             current_argument_handler=self._handle_operation_1)
                     return operation
                 elif operation_descriptor_container.coding == MY_CODE_2.coding:
                     operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                         operation_cls_getter,
-                                                                         current_argument_handler=self._handle_operation_2)
+                                                                             operation_cls_getter,
+                                                                             current_argument_handler=self._handle_operation_2)
                     return operation
                 else:
                     return None
@@ -297,8 +308,8 @@ class Test_Tutorial(unittest.TestCase):
                         'instantiating operation 3 from existing descriptor handle={}'.format(
                             operation_descriptor_container.handle))
                     operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                         operation_cls_getter,
-                                                                         current_argument_handler=self._handle_operation_3)
+                                                                             operation_cls_getter,
+                                                                             current_argument_handler=self._handle_operation_3)
                     return operation
                 else:
                     return None
@@ -333,7 +344,7 @@ class Test_Tutorial(unittest.TestCase):
         self.my_wsdiscoveries.append(my_wsDiscovery)
         my_wsDiscovery.start()
 
-        #my_product_impl = MyProductImpl(log_prefix='p1')
+        # my_product_impl = MyProductImpl(log_prefix='p1')
         specific_components = SdcDeviceComponents(role_provider_class=MyProductImpl)
         # use the minimalistic mdib from reference test:
         _here = os.path.dirname(__file__)

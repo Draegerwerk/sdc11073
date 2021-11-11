@@ -214,12 +214,15 @@ class ThreadingHTTPServer(HTTPServer):
     """ Each request is handled in a thread.
     """
 
-    def __init__(self, logger, server_address, RequestHandlerClass):  # *args, **kwargs):
+    def __init__(self, logger, server_address, RequestHandlerClass,
+                 msg_reader, msg_factory):
         super().__init__(server_address, RequestHandlerClass)
         self.daemon_threads = True
         self.threads = []
         self.dispatcher = None
         self.logger = logger
+        self.msg_reader = msg_reader
+        self.msg_factory = msg_factory
 
     def process_request_thread(self, request, client_address):
         """Same as in BaseServer but as a thread.
@@ -265,7 +268,7 @@ class ThreadingHTTPServer(HTTPServer):
 class HttpServerThreadBase(threading.Thread):
 
     def __init__(self, my_ipaddress, ssl_context, supported_encodings,
-                 request_handler_cls, dispatcher,
+                 request_handler_cls, dispatcher, msg_reader, msg_factory,
                  logger, chunked_responses=False):
         """
         Runs a ThreadingHTTPServer in a thread, so that it can be stopped without deadlock.
@@ -288,7 +291,8 @@ class HttpServerThreadBase(threading.Thread):
         self.my_port = None
         self.httpd = None
         self.supported_encodings = supported_encodings
-
+        self.msg_reader = msg_reader
+        self.msg_factory = msg_factory
         self.logger = logger
         self.chunked_responses = chunked_responses
         self._request_handler_cls = request_handler_cls
@@ -304,7 +308,8 @@ class HttpServerThreadBase(threading.Thread):
             myport = 0  # zero means that OS selects a free port
             self.httpd = ThreadingHTTPServer(self.logger,
                                              (self._my_ipaddress, myport),
-                                             self._request_handler_cls)
+                                             self._request_handler_cls,
+                                             self.msg_reader, self.msg_factory)
             self.httpd.chunked_response = self.chunked_responses  # pylint: disable=attribute-defined-outside-init
             # add use compression flag to the server
             setattr(self.httpd, 'supported_encodings', self.supported_encodings)

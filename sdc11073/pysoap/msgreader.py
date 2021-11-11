@@ -8,11 +8,26 @@ from lxml import etree as etree_
 
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
-from .soapenvelope import ReceivedSoap12Envelope
+from .soapenvelope import SoapFault, ReceivedSoapMessage
 from .. import isoduration
+from ..addressing import EndpointReferenceType, Address
 from ..compression import CompressionHandler
+from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
+from ..dpws import ThisDevice, ThisModel, HostServiceType, HostedServiceType, RelationShip
+from ..metadata import MetaData
 
 # pylint: disable=no-self-use
+
+_LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
+
+
+def _get_text(node, id_string, namespace_map):
+    if node is None:
+        return None
+    tmp = node.find(id_string, namespace_map)
+    if tmp is None:
+        return None
+    return tmp.text
 
 
 class MdibStructureError(Exception):
@@ -21,6 +36,7 @@ class MdibStructureError(Exception):
 
 OperationRequest = namedtuple('OperationRequest', 'operation_handle argument')
 OperationResult = namedtuple('OperationResult', 'transaction_id invocation_state error errorMsg soapEnvelope')
+SubscribeResult = namedtuple('SubScribeResult', 'subscription_manager_address, reference_params, expire_seconds')
 SubscriptionEndResult = namedtuple('SubscriptionEndResult', 'status_list reason_list reference_parameter_list')
 LocalizedTextsRequest = namedtuple('LocalizedTextsRequest',
                                    'requested_handles requested_versions requested_langs text_widths number_of_lines')
@@ -41,6 +57,21 @@ class ReceivedMessageData:
         self.msg_name = None
 
 
+class PayloadData:
+    """Similar to ReceivedSoapMessage, but it is only has the body of the soap envelope, no addressing, action etc."""
+
+    def __init__(self, xml_string):
+        parser = etree_.ETCompatXMLParser(resolve_entities=False)
+        try:
+            self._doc_root = etree_.fromstring(xml_string, parser=parser)
+        except Exception as ex:
+            print(f'load error "{ex}" in "{xml_string}"')
+            raise
+        self.raw_data = xml_string
+        self.msg_node = self._doc_root
+        self.msg_name = etree_.QName(self.msg_node.tag)
+
+
 class AbstractMessageReader(ABC):
 
     def __init__(self, sdc_definitions, logger, log_prefix=''):
@@ -49,7 +80,7 @@ class AbstractMessageReader(ABC):
         self._log_prefix = log_prefix
 
     @abstractmethod
-    def read_received_message(self, xml_text: str, parser_cls=None) -> ReceivedMessageData:
+    def read_received_message(self, xml_text: bytes) -> ReceivedMessageData:
         """
 
         :param xml_text:
@@ -67,53 +98,41 @@ class MessageReader(AbstractMessageReader):
     def get_state_container_class(self, qname):
         return self.sdc_definitions.get_state_container_class(qname)
 
-    def read_received_message(self, xml_text: str, parser_cls=None) -> ReceivedMessageData:
+    def read_received_message(self, xml_text: bytes) -> ReceivedMessageData:
+        """Reads complete message with addressing, message_id, payload,..."""
         normalized_xml = self.sdc_definitions.normalize_xml_text(xml_text)
-        if parser_cls is not None:
-            envelope = parser_cls(normalized_xml)
-        else:
-            envelope = ReceivedSoap12Envelope(normalized_xml)
-        return self._mk_received_message_data(envelope)
+        parser = etree_.ETCompatXMLParser(resolve_entities=False)
+        doc_root = etree_.fromstring(normalized_xml, parser=parser)
 
-    def _mk_received_message_data(self, envelope):
-        data = ReceivedMessageData(self, envelope)
-        data.action = envelope.address.action
-        q_name = envelope.msg_name
+        message = ReceivedSoapMessage(normalized_xml, doc_root)
+        message.address = self._mk_address_from_header(message.header_node)
+        data = ReceivedMessageData(self, message)
+        data.action = message.address.action
+        q_name = message.msg_name
         data.msg_name = q_name.localname if q_name else None
-        if envelope.msg_node is not None:
-            data.mdib_version = int(envelope.msg_node.get('MdibVersion', '0'))
-            data.sequence_id = envelope.msg_node.get('SequenceId')
+        if message.msg_node is not None:
+            data.mdib_version = int(message.msg_node.get('MdibVersion', '0'))
+            data.sequence_id = message.msg_node.get('SequenceId')
         return data
 
-    @staticmethod
-    def get_mdib_root_node(sdc_definitions, xml_text):
-        """
-        Creates a normalized and validated elementtree from xml_text.
-        normalizing means that draft6 or final BICEPS namespaces are replaced by an standardized internal namespace.
-        :param sdc_definitions:
-        :param xml_text: xml document
-        :return: elementtree node of the root element
-        """
-        xml_text = sdc_definitions.normalize_xml_text(xml_text)
-        parser = etree_.ETCompatXMLParser(remove_comments=True, remove_blank_text=True, resolve_entities=False)
-        root = etree_.fromstring(xml_text, parser=parser, base_url=None)
-        if root.tag != namespaces.msgTag('GetMdibResponse'):
-            found_nodes = root.xpath('//msg:GetMdibResponse', namespaces=namespaces.nsmap)
-            if len(found_nodes) != 1:
-                raise ValueError('provided xml does not contain a msg:GetMdibResponse node!')
-            root = found_nodes[0]
-        return root
+    def read_payload_data(self, xml_text: bytes) -> ReceivedMessageData:
+        """ Read only payload part of a message"""
+        normalized_xml = self.sdc_definitions.normalize_xml_text(xml_text)
+        payload  = PayloadData(normalized_xml)
+        data = ReceivedMessageData(self, payload)
+        q_name = payload.msg_name
+        data.msg_name = q_name.localname if q_name else None
+        if payload.msg_node is not None:
+            data.mdib_version = int(payload.msg_node.get('MdibVersion', '0'))
+            data.sequence_id = payload.msg_node.get('SequenceId')
+        return data
 
     def read_get_mdib_response(self, received_message_data):
-        descriptors = self.read_mddescription(received_message_data.p_msg.msg_node)
-        states = self.read_mdstate(received_message_data.p_msg.msg_node)
+        descriptors = self._read_mddescription_node(received_message_data.p_msg.msg_node)
+        states = self._read_mdstate_node(received_message_data.p_msg.msg_node)
         return descriptors, states
 
-    def read_get_mddescription_response(self, received_message_data):
-        descriptors = self.read_mddescription(received_message_data.p_msg.msg_node)
-        return descriptors
-
-    def read_mddescription(self, node):
+    def _read_mddescription_node(self, node):
         """
         Parses a GetMdDescriptionResponse or the MdDescription part of GetMdibResponse
         :param node: An etree node
@@ -131,19 +150,19 @@ class MessageReader(AbstractMessageReader):
             p_handle = parent_node.get('Handle')
             for child_node in parent_node:
                 if child_node.get('Handle') is not None:
-                    container = self._mk_descriptorcontainer_from_node(child_node, p_handle)
+                    container = self._mk_descriptor_container_from_node(child_node, p_handle)
                     descriptions.append(container)
                     add_children(child_node)
 
         # iterate over tree, collect all handles of vmds, channels and metric descriptors
         all_mds = mddescription_node.findall(namespaces.domTag('Mds'))
         for mds_node in all_mds:
-            mds = self._mk_descriptorcontainer_from_node(mds_node, None)
+            mds = self._mk_descriptor_container_from_node(mds_node, None)
             descriptions.append(mds)
             add_children(mds_node)
         return descriptions
 
-    def read_mdstate(self, node):
+    def _read_mdstate_node(self, node):
         """
         Parses a GetMdStateResponse or the MdState part of GetMdibResponse
         :param node: A node that contains MdState nodes
@@ -155,14 +174,58 @@ class MessageReader(AbstractMessageReader):
             all_state_nodes = mdstate_nodes[0].findall(namespaces.domTag('State'))
             for state_node in all_state_nodes:
                 try:
-                    state_containers.append(self.mk_statecontainer_from_node(state_node))
+                    state_containers.append(self._mk_state_container_from_node(state_node))
                 except MdibStructureError as ex:
-                    self._logger.error('{}read_mdstate: cannot create: {}', self._log_prefix, ex)
+                    self._logger.error('{}_read_mdstate_node: cannot create: {}', self._log_prefix, ex)
         return state_containers
 
-    def _mk_descriptorcontainer_from_node(self, node, parent_handle):
-        """
+    @staticmethod
+    def _mk_endpoint_reference(root_node):
+        if root_node is None:
+            return None
+        nsmap = namespaces.nsmap
+        address_node = root_node.find('wsa:Address', nsmap)
+        address = address_node.text
+        reference_parameters_node = root_node.find('wsa:ReferenceParameters', nsmap)
+        return EndpointReferenceType(address, reference_parameters_node)
 
+    def _mk_address_from_header(self, root_node):
+        message_id = _get_text(root_node, 'wsa:MessageID', namespaces.nsmap)
+        addr_to = _get_text(root_node, 'wsa:To', namespaces.nsmap)
+        action = _get_text(root_node, 'wsa:Action', namespaces.nsmap)
+        relates_to = _get_text(root_node, 'wsa:RelatesTo', namespaces.nsmap)
+        relationship_type = None
+        relates_to_node = root_node.find('wsa:RelatesTo', namespaces.nsmap)
+        if relates_to_node is not None:
+            relates_to = relates_to_node.text
+            relationshiptype_text = relates_to_node.attrib.get('RelationshipType')
+            if relationshiptype_text:
+                # split into namespace, localname
+                namespace, localname = relationshiptype_text.rsplit('/', 1)
+                relationship_type = etree_.QName(namespace, localname)
+
+        addr_from = self._mk_endpoint_reference(root_node.find('wsa:From', namespaces.nsmap))
+        reply_to = self._mk_endpoint_reference(root_node.find('wsa:ReplyTo', namespaces.nsmap))
+        fault_to = self._mk_endpoint_reference(root_node.find('wsa:FaultTo', namespaces.nsmap))
+
+        reference_parameters_node = root_node.find('wsa:ReferenceParameters', namespaces.nsmap)
+        if reference_parameters_node is None:
+            reference_parameters = None
+        else:
+            reference_parameters = reference_parameters_node[:]
+
+        return Address(message_id=message_id,
+                       addr_to=addr_to,
+                       action=action,
+                       relates_to=relates_to,
+                       addr_from=addr_from,
+                       reply_to=reply_to,
+                       fault_to=fault_to,
+                       reference_parameters=reference_parameters,
+                       relationship_type=relationship_type)
+
+    def _mk_descriptor_container_from_node(self, node, parent_handle):
+        """
         :param node: a descriptor node
         :param parent_handle: the handle of the parent
         :return: a DescriptorContainer object representing the content of node
@@ -175,7 +238,7 @@ class MessageReader(AbstractMessageReader):
         descr_cls = self.get_descriptor_container_class(node_type)
         return descr_cls.from_node(node, parent_handle)
 
-    def mk_statecontainer_from_node(self, node, forced_type=None):
+    def _mk_state_container_from_node(self, node, forced_type=None):
         """
         :param node: a etree node
         :param forced_type: if given, the QName that shall be used for class instantiation instead of the data in node
@@ -201,7 +264,7 @@ class MessageReader(AbstractMessageReader):
         return state
 
     def _mk_realtime_sample_array_states(self, node):
-        return self.mk_statecontainer_from_node(node, namespaces.domTag('RealTimeSampleArrayMetricState'))
+        return self._mk_state_container_from_node(node, namespaces.domTag('RealTimeSampleArrayMetricState'))
 
     def _mk_statecontainers_from_reportpart2(self, reportpart_node):
         containers = []
@@ -212,11 +275,15 @@ class MessageReader(AbstractMessageReader):
                                    self._log_prefix,
                                    lambda: etree_.tostring(child_node))  # pylint: disable=cell-var-from-loop
             else:
-                containers.append(self.mk_statecontainer_from_node(child_node))
+                containers.append(self._mk_state_container_from_node(child_node))
         return containers
 
 
 class MessageReaderClient(MessageReader):
+
+    def read_get_mddescription_response(self, received_message_data):
+        descriptors = self._read_mddescription_node(received_message_data.p_msg.msg_node)
+        return descriptors
 
     def read_get_mdstate_response(self, message_data: ReceivedMessageData):
         state_containers = []
@@ -224,27 +291,26 @@ class MessageReaderClient(MessageReader):
         if mdstate_nodes:
             mdstate_node = mdstate_nodes[0]
             for state_node in mdstate_node:
-                state_containers.append(self.mk_statecontainer_from_node(state_node))
+                state_containers.append(self._mk_state_container_from_node(state_node))
         return state_containers
 
-    def read_context_states(self, message_data):
-        """ Creates Context State Containers from dom tree.
-        :param getcontextstates_response_node: node "getContextStatesResponse" of getContextStates.
-        @return: a list of state containers
+    def read_context_states(self, message_data: ReceivedMessageData):
+        """ Creates Context State Containers from message .
+        :return: a list of state containers
         """
         states = []
         context_state_nodes = message_data.p_msg.msg_node[:]  # list of msg:ContextStatenodes
         for context_state_node in context_state_nodes:
-            # hard remame to dom:State
+            # hard rename to dom:State
             context_state_node.tag = namespaces.domTag('State')
             try:
-                state_container = self.mk_statecontainer_from_node(context_state_node)
+                state_container = self._mk_state_container_from_node(context_state_node)
                 states.append(state_container)
             except MdibStructureError as ex:
-                self._logger.error('{}read_contextstates: cannot create: {}', self._log_prefix, ex)
+                self._logger.error('{}read_context_states: cannot create: {}', self._log_prefix, ex)
         return states
 
-    def read_get_localized_text_response(self, message_data) -> List[pmtypes.LocalizedText]:
+    def read_get_localized_text_response(self, message_data: ReceivedMessageData) -> List[pmtypes.LocalizedText]:
         result = []
         response_node = message_data.p_msg.msg_node
         if response_node is not None:
@@ -262,22 +328,29 @@ class MessageReaderClient(MessageReader):
         return result
 
     def read_waveform_report(self, message_data):
-        return self._read_waveform_report(message_data.p_msg.msg_node)
-
-    def _read_waveform_report(self, report_node):
-        """
-        Parses a waveform report
-        :param report_node: A waveform report etree
-        :return: a list of StateContainer objects
-        """
+        #return self._read_waveform_report_node(message_data.p_msg.msg_node)
         states = []
+        report_node = message_data.p_msg.msg_node
         all_samplearrays = list(report_node)
         for samplearray in all_samplearrays:
             if samplearray.tag.endswith('State'):  # ignore everything else, e.g. Extension
                 states.append(self._mk_realtime_sample_array_states(samplearray))
         return states
 
-    def read_periodicmetric_report(self, message_data):
+    # def _read_waveform_report_node(self, report_node):
+    #     """
+    #     Parses a waveform report
+    #     :param report_node: A waveform report etree
+    #     :return: a list of StateContainer objects
+    #     """
+    #     states = []
+    #     all_samplearrays = list(report_node)
+    #     for samplearray in all_samplearrays:
+    #         if samplearray.tag.endswith('State'):  # ignore everything else, e.g. Extension
+    #             states.append(self._mk_realtime_sample_array_states(samplearray))
+    #     return states
+
+    def read_periodic_metric_report(self, message_data):
         return self._read_metric_report(message_data.p_msg.msg_node)
 
     def read_episodic_metric_report(self, message_data):
@@ -310,7 +383,7 @@ class MessageReaderClient(MessageReader):
         states = []
         all_alerts = report_node.xpath('msg:ReportPart/msg:AlertState', namespaces=namespaces.nsmap)
         for alert in all_alerts:
-            states.append(self.mk_statecontainer_from_node(alert))
+            states.append(self._mk_state_container_from_node(alert))
         return states
 
     def read_operational_state_report(self, message_data):
@@ -323,7 +396,7 @@ class MessageReaderClient(MessageReader):
         found_nodes = message_data.p_msg.msg_node.xpath('msg:ReportPart/msg:OperationState',
                                                         namespaces=namespaces.nsmap)
         for found_node in found_nodes:
-            states.append(self.mk_statecontainer_from_node(found_node))
+            states.append(self._mk_state_container_from_node(found_node))
         return states
 
     def read_episodic_context_report(self, message_data):
@@ -353,7 +426,7 @@ class MessageReaderClient(MessageReader):
         states = []
         found_nodes = report_node.xpath('msg:ReportPart/msg:ComponentState', namespaces=namespaces.nsmap)
         for found_node in found_nodes:
-            states.append(self.mk_statecontainer_from_node(found_node))
+            states.append(self._mk_state_container_from_node(found_node))
         return states
 
     def read_description_modification_report(self, message_data):
@@ -374,11 +447,11 @@ class MessageReaderClient(MessageReader):
             modification_type = report_part.get('ModificationType', 'Upt')  # implied Value is 'Upt'
             descriptor_nodes = report_part.findall(namespaces.msgTag('Descriptor'))
             for descriptor_node in descriptor_nodes:
-                descr_container = self._mk_descriptorcontainer_from_node(descriptor_node, parent_descriptor)
+                descr_container = self._mk_descriptor_container_from_node(descriptor_node, parent_descriptor)
                 descriptors[modification_type][0].append(descr_container)
             state_nodes = report_part.findall(namespaces.msgTag('State'))
             for state_node in state_nodes:
-                state_container = self.mk_statecontainer_from_node(state_node)
+                state_container = self._mk_state_container_from_node(state_node)
                 # set descriptor_container member
                 corresponding_descriptors = [d for d in descriptors[modification_type][0] if
                                              d.handle == state_container.DescriptorHandle]
@@ -420,18 +493,16 @@ class MessageReaderClient(MessageReader):
                                message_data.p_msg)
 
     @staticmethod
-    def read_subscribe_response(message_data: ReceivedMessageData):
+    def read_subscribe_response(message_data: ReceivedMessageData) -> SubscribeResult:
         msg_node = message_data.p_msg.msg_node
-        if msg_node.tag == namespaces.wseTag('SubscribeResponse'):
-            address = msg_node.xpath('wse:SubscriptionManager/wsa:Address/text()', namespaces=namespaces.nsmap)
-            reference_params = msg_node.xpath('wse:SubscriptionManager/wsa:ReferenceParameters',
-                                              namespaces=namespaces.nsmap)
-            expires = msg_node.xpath('wse:Expires/text()', namespaces=namespaces.nsmap)
+        address = msg_node.xpath('wse:SubscriptionManager/wsa:Address/text()', namespaces=namespaces.nsmap)
+        reference_params = msg_node.xpath('wse:SubscriptionManager/wsa:ReferenceParameters',
+                                          namespaces=namespaces.nsmap)
+        expires = msg_node.xpath('wse:Expires/text()', namespaces=namespaces.nsmap)
 
-            subscription_manager_address = urllib.parse.urlparse(address[0])
-            expire_seconds = isoduration.parse_duration(expires[0])
-            return subscription_manager_address, reference_params, expire_seconds
-        return None
+        subscription_manager_address = urllib.parse.urlparse(address[0])
+        expire_seconds = isoduration.parse_duration(expires[0])
+        return SubscribeResult(subscription_manager_address, reference_params, expire_seconds)
 
     @staticmethod
     def read_renew_response(message_data: ReceivedMessageData) -> float:
@@ -456,12 +527,7 @@ class MessageReaderClient(MessageReader):
         body_node = message_data.p_msg.body_node
         status_list = body_node.xpath('wse:SubscriptionEnd/wse:Status/text()', namespaces=namespaces.nsmap)
         reason_list = body_node.xpath('wse:SubscriptionEnd/wse:Reason/text()', namespaces=namespaces.nsmap)
-        reference_params_node = message_data.p_msg.address.reference_parameters_node
-        if reference_params_node is None:
-            reference_parameters = None
-        else:
-            reference_parameters = reference_params_node[:]
-        # subscr_ident_list = envelope.header_node.findall(_ClSubscription.IDENT_TAG, namespaces=namespaces.nsmap)
+        reference_parameters = message_data.p_msg.address.reference_parameters
         return SubscriptionEndResult(status_list, reason_list, reference_parameters)
 
     @staticmethod
@@ -469,11 +535,102 @@ class MessageReaderClient(MessageReader):
         """ make am ElementTree instance"""
         return etree_.fromstring(wsdl_string, parser=etree_.ETCompatXMLParser(resolve_entities=False))
 
+    def read_get_metadata_response(self, message_data: ReceivedMessageData) -> MetaData:
+        meta_data = MetaData()
+        body_node = message_data.p_msg.body_node
+        nsmap = namespaces.nsmap
+        metadata_node = body_node.find('wsx:Metadata', nsmap)
+        if metadata_node is not None:
+            for metadata_section_node in metadata_node.findall('wsx:MetadataSection', nsmap):
+                dialect = metadata_section_node.attrib['Dialect']
+                if dialect[-1] == '/':
+                    dialect = dialect[:-1]
+                if dialect == "http://schemas.xmlsoap.org/wsdl":
+                    location_node = metadata_section_node.find('wsx:Location', nsmap)
+                    meta_data.wsdl_location = location_node.text
+                elif dialect == DeviceMetadataDialectURI.THIS_MODEL:  # DIALECT_THIS_MODEL:
+                    this_model_node = metadata_section_node.find('dpws:ThisModel', nsmap)
+                    meta_data.this_model = self._mk_this_model(
+                        this_model_node)  # DPWSThisModel.from_etree_node(this_model_node)
+                elif dialect == DeviceMetadataDialectURI.THIS_DEVICE:  # DIALECT_THIS_DEVICE:
+                    this_device_node = metadata_section_node.find('dpws:ThisDevice', nsmap)
+                    meta_data.this_device = self._mk_this_device(this_device_node)
+                elif dialect == DeviceMetadataDialectURI.RELATIONSHIP:  # DIALECT_RELATIONSHIP:
+                    relationship_node = metadata_section_node.find('dpws:Relationship', nsmap)
+                    if relationship_node.get('Type') == DeviceRelationshipTypeURI.HOST:  # HOST_TYPE:
+                        meta_data.relationship = RelationShip()
+                        host_node = relationship_node.find('dpws:Host', nsmap)
+                        meta_data.relationship.host = self._mk_host(host_node)
+                        for hosted_node in relationship_node.findall('dpws:Hosted', nsmap):
+                            hosted = self._mk_hosted(hosted_node)
+                            meta_data.relationship.hosted[hosted.service_id] = hosted
+        return meta_data
+
+    @staticmethod
+    def read_fault_message(message_data: ReceivedMessageData) -> SoapFault:
+        body_node = message_data.p_msg.body_node
+        code = ', '.join(body_node.xpath('s12:Fault/s12:Code/s12:Value/text()', namespaces=namespaces.nsmap))
+        sub_code = ', '.join(body_node.xpath('s12:Fault/s12:Code/s12:Subcode/s12:Value/text()',
+                                             namespaces=namespaces.nsmap))
+        reason = ', '.join(body_node.xpath('s12:Fault/s12:Reason/s12:Text/text()',
+                                           namespaces=namespaces.nsmap))
+        detail = ', '.join(body_node.xpath('s12:Fault/s12:Detail/text()', namespaces=namespaces.nsmap))
+
+        return SoapFault(code, reason, sub_code, detail)
+
+    @staticmethod
+    def _mk_this_device(root_node) -> ThisDevice:
+        nsmap = namespaces.nsmap
+        friendly_name = {}  # localized texts
+        for f_name in root_node.findall('dpws:FriendlyName', nsmap):
+            friendly_name[f_name.get(_LANGUAGE_ATTR)] = f_name.text
+        firmware_version = _get_text(root_node, 'dpws:FirmwareVersion', nsmap)
+        serial_number = _get_text(root_node, 'dpws:SerialNumber', nsmap)
+        return ThisDevice(friendly_name, firmware_version, serial_number)
+
+    @staticmethod
+    def _mk_this_model(root_node) -> ThisModel:
+        nsmap = namespaces.nsmap
+        manufacturer = {}  # localized texts
+        for manufact_node in root_node.findall('dpws:Manufacturer', nsmap):
+            manufacturer[manufact_node.get(_LANGUAGE_ATTR)] = manufact_node.text
+        manufacturer_url = _get_text(root_node, 'dpws:ManufacturerUrl', nsmap)
+        model_name = {}  # localized texts
+        for model_name_node in root_node.findall('dpws:ModelName', nsmap):
+            model_name[model_name_node.get(_LANGUAGE_ATTR)] = model_name_node.text
+        model_number = _get_text(root_node, 'dpws:ModelNumber', nsmap)
+        model_url = _get_text(root_node, 'dpws:ModelUrl', nsmap)
+        presentation_url = _get_text(root_node, 'dpws:PresentationUrl', nsmap)
+        return ThisModel(manufacturer, manufacturer_url, model_name, model_number, model_url, presentation_url)
+
+    @classmethod
+    def _mk_host(cls, root_node) -> HostServiceType:
+        nsmap = namespaces.nsmap
+        endpoint_references = []
+        for tmp in root_node.findall('wsa:EndpointReference', nsmap):
+            endpoint_references.append(cls._mk_endpoint_reference(tmp))
+        types = _get_text(root_node, 'dpws:Types', nsmap)
+        if types:
+            types = types.split()
+        return HostServiceType(endpoint_references, types)
+
+    @classmethod
+    def _mk_hosted(cls, root_node) -> HostedServiceType:
+        nsmap = namespaces.nsmap
+        endpoint_references = []
+        for tmp in root_node.findall('wsa:EndpointReference', nsmap):
+            endpoint_references.append(cls._mk_endpoint_reference(tmp))
+        types = _get_text(root_node, 'dpws:Types', nsmap)
+        if types:
+            types = types.split()
+        service_id = _get_text(root_node, 'dpws:ServiceId', nsmap)
+        return HostedServiceType(endpoint_references, types, service_id)
+
 
 class MessageReaderDevice(MessageReader):
     """Contains methods that are only used by device"""
 
-    def read_subscribe_request(self, request_data):
+    def read_subscribe_request(self, request_data) -> SubscribeRequest:
         envelope = request_data.message_data.p_msg
         accepted_encodings = CompressionHandler.parse_header(request_data.http_header.get('Accept-Encoding'))
 
@@ -529,18 +686,10 @@ class MessageReaderDevice(MessageReader):
 
     @staticmethod
     def read_getmddescription_request(message_data: ReceivedMessageData) -> List[str]:
-        """
-        :param request: a soap envelope
-        :return : a list of requested Handles
-        """
         return message_data.p_msg.body_node.xpath('*/msg:HandleRef/text()', namespaces=namespaces.nsmap)
 
     @staticmethod
-    def read_getmdstate_request(message_data) -> List[str]:
-        """
-        :param request: a soap envelope
-        :return : a list of requested Handles
-        """
+    def read_getmdstate_request(message_data: ReceivedMessageData) -> List[str]:
         return message_data.p_msg.body_node.xpath('*/msg:HandleRef/text()', namespaces=namespaces.nsmap)
 
     def _operation_handle(self, message_data):
@@ -579,7 +728,7 @@ class MessageReaderDevice(MessageReader):
     def read_set_metric_state_request(self, message_data: ReceivedMessageData) -> OperationRequest:
         proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedMetricState',
                                                                   namespaces=namespaces.nsmap)
-        proposed_states = [self.mk_statecontainer_from_node(m) for m in proposed_state_nodes]
+        proposed_states = [self._mk_state_container_from_node(m) for m in proposed_state_nodes]
         return OperationRequest(self._operation_handle(message_data), proposed_states)
 
     def read_set_alert_state_request(self, message_data: ReceivedMessageData) -> OperationRequest:
@@ -590,13 +739,13 @@ class MessageReaderDevice(MessageReader):
                 f'only one ProposedAlertState argument allowed, found {len(proposed_state_nodes)}')
         if len(proposed_state_nodes) == 0:
             raise ValueError('no ProposedAlertState argument found')
-        proposed_states = [self.mk_statecontainer_from_node(m) for m in proposed_state_nodes]
+        proposed_states = [self._mk_state_container_from_node(m) for m in proposed_state_nodes]
         return OperationRequest(self._operation_handle(message_data), proposed_states)
 
     def read_set_component_state_request(self, message_data: ReceivedMessageData) -> OperationRequest:
         proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedComponentState',
                                                                   namespaces=namespaces.nsmap)
-        proposed_states = [self.mk_statecontainer_from_node(m) for m in proposed_state_nodes]
+        proposed_states = [self._mk_state_container_from_node(m) for m in proposed_state_nodes]
         return OperationRequest(self._operation_handle(message_data), proposed_states)
 
     def read_get_context_states_request(self, message_data: ReceivedMessageData) -> List[str]:
@@ -607,7 +756,7 @@ class MessageReaderDevice(MessageReader):
     def read_set_context_state_request(self, message_data: ReceivedMessageData) -> OperationRequest:
         proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedContextState',
                                                                   namespaces=namespaces.nsmap)
-        proposed_states = [self.mk_statecontainer_from_node(m) for m in proposed_state_nodes]
+        proposed_states = [self._mk_state_container_from_node(m) for m in proposed_state_nodes]
         return OperationRequest(self._operation_handle(message_data), proposed_states)
 
     def read_get_localized_text_request(self, message_data: ReceivedMessageData) -> LocalizedTextsRequest:

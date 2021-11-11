@@ -5,6 +5,7 @@ import sys
 import time
 import unittest
 from itertools import product
+import urllib
 
 from lxml import etree as etree_
 
@@ -18,7 +19,6 @@ from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ClientMdibContainer
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
-from sdc11073.pysoap.soapenvelope import ReceivedSoapFault
 from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
@@ -109,24 +109,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                                      trigger_handle='0x34F05501',
                                                      annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
 
-    # def test_BasicConnect(self):
-    #     # simply check that correct top node is returned
-    #     for sdcClient, _ in self._all_cl_dev:
-    #         cl_getService = sdcClient.client('Get')
-    #         node = cl_getService.get_md_description_node()
-    #         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdDescriptionResponse')))
-    #
-    #         node = cl_getService.get_mdib_node()
-    #         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
-    #
-    #         node = cl_getService.get_md_state_node()
-    #         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdStateResponse')))
-    #
-    #         contextService = sdcClient.client('Context')
-    #         # node = contextService.get_context_states_node()
-    #         # self.assertEqual(node.tag, str(namespaces.msgTag('GetContextStatesResponse')))
-    #         result = contextService.get_context_states()
-    #         self.assertGreater(len(result.result), 0)
     def test_BasicConnect(self):
         # simply check that correct top node is returned
         for sdcClient, _ in self._all_cl_dev:
@@ -144,18 +126,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             state_containers = get_result.result
             self.assertGreater(len(state_containers), 0)
 
-            #get_mdib_response = cl_getService.get_md_description_node()  # ReceivedMessageData
-            #self.assertGreater(len(descriptor_containers), 0)
-
-            #node = cl_getService.get_mdib_node()
-            #self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
-
-            node = cl_getService.get_md_state_node()
-            self.assertEqual(node.tag, str(namespaces.msgTag('GetMdStateResponse')))
-
             contextService = sdcClient.client('Context')
-            # node = contextService.get_context_states_node()
-            # self.assertEqual(node.tag, str(namespaces.msgTag('GetContextStatesResponse')))
             result = contextService.get_context_states()
             self.assertGreater(len(result.result), 0)
 
@@ -166,6 +137,38 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
                 remaining_seconds = s.get_status()
                 self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
+                #verify that device returns fault message on wrong subscription identifier
+                if len(s.dev_reference_param) > 0:
+                    # ToDo: manipulate reference parameter
+                    pass
+                else:
+                    tmp = s._subscription_manager_address
+                    try:
+                        s._subscription_manager_address = urllib.parse.ParseResult(
+                            scheme=tmp.scheme, netloc=tmp.netloc, path=tmp.path+'xxx', params=tmp.params,
+                            query=tmp.query, fragment=tmp.fragment)
+                        # renew
+                        self.log_watcher.setPaused(True) # ignore logged error
+                        remaining_seconds = s.renew(1)  # one minute
+                        self.log_watcher.setPaused(False)
+                        self.assertFalse(s.is_subscribed) # it did not work
+                        self.assertEqual(remaining_seconds, 0)
+                        s.is_subscribed = True
+                        # get_status
+                        self.log_watcher.setPaused(True) # ignore logged error
+                        remaining_seconds = s.get_status()
+                        self.log_watcher.setPaused(False)
+                        self.assertFalse(s.is_subscribed) # it did not work
+                        self.assertEqual(remaining_seconds, 0)
+                        # unsubscribe
+                        self.log_watcher.setPaused(True) # ignore logged error
+                        s.unsubscribe()
+                        self.log_watcher.setPaused(False)
+                        self.assertFalse(s.is_subscribed) # it did not work
+
+                    finally:
+                        s._subscription_manager_address = tmp
+                        s.is_subscribed = True
 
     def test_clientStop(self):
         """ verify that sockets get closed"""
@@ -248,11 +251,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
         """
         for sdcClient, _ in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
-            node = cl_getService.get_md_description_node(['nonexisting_handle'])
+            message_data = cl_getService.get_md_description(['nonexisting_handle'])
+            node = message_data.p_msg.msg_node
             print(etree_.tostring(node, pretty_print=True))
             descriptors = list(node[0])  # that is /m:GetMdDescriptionResponse/m:MdDescription/*
             self.assertEqual(len(descriptors), 0)
-            node = cl_getService.get_md_description_node(['0x34F05500'])
+            message_data = cl_getService.get_md_description(['0x34F05500'])
+            node = message_data.p_msg.msg_node
             print(etree_.tostring(node, pretty_print=True))
             descriptors = list(node[0])
             self.assertEqual(len(descriptors), 1)
@@ -311,7 +316,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
             # verify that client also got a PeriodicMetricReport
             message_data = coll2.result(timeout=NOTIFICATION_TIMEOUT)
-            states = sdcClient.msg_reader.read_periodicmetric_report(message_data)
+            states = sdcClient.msg_reader.read_periodic_metric_report(message_data)
             self.assertGreaterEqual(len(states), 1)
 
     def test_component_state_reports(self):
@@ -862,7 +867,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     pmtypes.LocalizedText('foo', lang='en-en', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS)
                     )
 
-        languages = sdcClient.localization_service_client.get_supported_languages()
+        get_request_response = sdcClient.localization_service_client.get_supported_languages()
+        languages = get_request_response.result
         self.assertEqual(len(languages), 2)
         self.assertTrue('de-de' in languages)
         self.assertTrue('en-en' in languages)
@@ -880,43 +886,28 @@ class Test_Client_SomeDevice(unittest.TestCase):
         storage.add(pmtypes.LocalizedText('bla_bb', lang='de-de', ref='b', version=2, textWidth=pmtypes.T_TextWidth.S))
         storage.add(pmtypes.LocalizedText('foo_bb', lang='en-en', ref='b', version=2, textWidth=pmtypes.T_TextWidth.S))
 
-        texts = sdcClient.localization_service_client.get_localized_texts()
+        get_request_response = sdcClient.localization_service_client.get_localized_texts()
+        texts = get_request_response.result
         self.assertEqual(len(texts), 4)
         for t in texts:
             self.assertEqual(t.TextWidth, 's')
             self.assertTrue(t.Ref in ('a', 'b'))
 
-        texts = sdcClient.localization_service_client.get_localized_texts(version=1)
+        get_request_response = sdcClient.localization_service_client.get_localized_texts(version=1)
+        texts = get_request_response.result
         self.assertEqual(len(texts), 4)
         for t in texts:
             self.assertEqual(t.TextWidth, 'xs')
 
-        texts = sdcClient.localization_service_client.get_localized_texts(refs=['a'], langs=['de-de'], version=1)
+        get_request_response = sdcClient.localization_service_client.get_localized_texts(refs=['a'], langs=['de-de'], version=1)
+        texts = get_request_response.result
         self.assertEqual(len(texts), 1)
         self.assertEqual(texts[0].text, 'bla_a')
 
-        texts = sdcClient.localization_service_client.get_localized_texts(refs=['b'], langs=['en-en'], version=2)
+        get_request_response = sdcClient.localization_service_client.get_localized_texts(refs=['b'], langs=['en-en'], version=2)
+        texts = get_request_response.result
         self.assertEqual(len(texts), 1)
         self.assertEqual(texts[0].text, 'foo_bb')
-
-    def test_ScoDefaultContent(self):
-        for sdcClient, sdcDevice in self._all_cl_dev:
-            cl_getService = sdcClient.client('Get')
-            mddescrNode = cl_getService.get_md_description_node()
-            print(etree_.tostring(mddescrNode))
-            scoNodes = mddescrNode.xpath('//dom:Sco', namespaces=namespaces.nsmap)
-            clientMdib = ClientMdibContainer(sdcClient)
-            clientMdib.init_mdib()
-            scoContainers = clientMdib.descriptions.NODETYPE.get(namespaces.domTag('ScoDescriptor'))
-            self.assertEqual(len(scoContainers), len(scoNodes))
-            operationContainers = clientMdib.get_operation_descriptors()
-            # verify that a state exits for each operation
-            for opContainer in operationContainers:
-                print('testing operation handle {}'.format(opContainer.handle))
-                state_containers = clientMdib.states.descriptorHandle.get(opContainer.handle)
-                self.assertEqual(len(state_containers), 1)
-                state_container = state_containers[0]
-                self.assertEqual(state_container.OperatingMode, 'En')
 
     def test_realtimeSamples(self):
         # a random number for maxRealtimeSamples, not too big, otherwise we have to wait too long. 
@@ -1147,7 +1138,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(cl_mdsDescriptor.MetaData.ModelNumber, '1.09')
             self.assertEqual(cl_mdsDescriptor.MetaData.Manufacturer[-1].text, u'Draeger GmbH')
 
-    def test_remove_add_mds(self):
+    def test_remove_mds(self):
         for sdcClient, sdcDevice in self._all_cl_dev:
             full_mdib = copy.deepcopy(sdcDevice.mdib.reconstruct_mdib_with_context_states())
             sdcDevice.stop_realtime_sample_loop()
@@ -1185,37 +1176,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(dev_descriptor_count2, 0)
             self.assertEqual(dev_descriptor_count2, cl_descriptor_count2)
             self.assertEqual(dev_state_count2, cl_state_count2)
-
-            # now add mds again:
-            with sdcDevice.mdib.transaction_manager() as mgr:
-                sdcDevice.mdib.add_mds_node(full_mdib)
-            time.sleep(5)  # difficult to say which observable is updated as the last one, therefore sleep
-            # verify that all objects have a state version at least incremented by one
-            for handle, version in descr_handles_lookup1.items():
-                obj = sdcDevice.mdib.descriptions.handle.get_one(handle)
-                self.assertGreater(obj.DescriptorVersion, version)
-            for handle, version in state_descriptorHandles_lookup1.items():
-                obj = sdcDevice.mdib.states.descriptorHandle.get_one(handle, allow_none=True)
-                if obj:
-                    self.assertGreater(obj.StateVersion, version,
-                                       msg='state {}: {} not greater than {}'.format(obj, obj.StateVersion, version))
-            for handle, version in contextState_descriptorHandles_lookup1.items():
-                obj = sdcDevice.mdib.context_states.handle.get_one(handle)
-                print('checking object {} state={} expected={}'.format(obj, obj.StateVersion, version + 1))
-                self.assertGreater(obj.StateVersion, version,
-                                   msg='state {}: {} not greater than {}'.format(obj, obj.StateVersion, version + 1))
-
-            dev_descriptor_count3 = len(sdcDevice.mdib.descriptions.objects)
-            dev_state_count3 = len(sdcDevice.mdib.states.objects)
-            cl_descriptor_count3 = len(clientMdib.descriptions.objects)
-            cl_state_count3 = len(clientMdib.states.objects)
-            self.assertEqual(dev_descriptor_count3, dev_descriptor_count1)
-            self.assertEqual(dev_descriptor_count3, cl_descriptor_count3)
-            if sdcDevice is self.sdc_device:
-                self.assertEqual(dev_state_count3, dev_state_count1)
-            else:
-                self.assertEqual(dev_state_count3, dev_state_count1 - 1)  # scostate is not sent in draft6
-            self.assertEqual(dev_state_count3, cl_state_count3)
 
     def test_clientmdib_observables(self):
         for sdcClient, sdcDevice in self._all_cl_dev:
@@ -1315,17 +1275,12 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     sdcClient.get_service_client.endpoint_reference.address,
                     sdcClient.get_service_client.porttype,
                     method)
-                sdcClient.get_service_client._call_get_method(envelope, 'Nonsense')
+                sdcClient.get_service_client._call_get_method(envelope, method)
             except HTTPReturnCodeError as ex:
                 self.assertEqual(ex.status, 400)
-                fault_xml = ex.reason
-                self.assertTrue(b'Fault' in fault_xml)
-                rec = ReceivedSoapFault(fault_xml)
-                self.assertTrue(rec.body_node[0].tag.endswith('Fault'))
-                self.assertEqual(rec.code, 's12:Sender')
-
+                self.assertEqual(ex.soap_fault.code, 's12:Sender')
             else:
-                self.assertTrue(False, 'HTTPReturnCodeError not raised')
+                self.fail('HTTPReturnCodeError not raised')
 
     def test_extension(self):
         def are_equivalent(node1, node2):
@@ -1369,6 +1324,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         self.httpserver = DeviceHttpServerThread(
             my_ipaddress='0.0.0.0', ssl_context=self.sdcDevice_1._ssl_context,
             supported_encodings=compression.CompressionHandler.available_encodings[:],
+            msg_reader=self.sdcDevice_1.msg_reader, msg_factory=self.sdcDevice_1.msg_factory,
             log_prefix='hppt_srv')
         self.httpserver.start()
         self.httpserver.started_evt.wait(timeout=5)
@@ -1442,18 +1398,38 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
                                                      trigger_handle='0x34F05501',
                                                      annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
 
+    # def test_BasicConnect(self):
+    #     # simply check that correct top node is returned
+    #     for sdcClient, _ in self._all_cl_dev:
+    #         cl_getService = sdcClient.client('Get')
+    #         node = cl_getService.get_md_description_node()
+    #         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdDescriptionResponse')))
+    #
+    #         node = cl_getService.get_mdib_node()
+    #         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
+    #
+    #         node = cl_getService.get_md_state_node()
+    #         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdStateResponse')))
+    #
+    #         contextService = sdcClient.client('Context')
+    #         result = contextService.get_context_states()
+    #         self.assertGreater(len(result.result), 0)
     def test_BasicConnect(self):
         # simply check that correct top node is returned
         for sdcClient, _ in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
-            node = cl_getService.get_md_description_node()
-            self.assertEqual(node.tag, str(namespaces.msgTag('GetMdDescriptionResponse')))
+            get_result = cl_getService.get_mdib()  # GetResult
+            descriptor_containers, state_containers = get_result.result
+            self.assertGreater(len(descriptor_containers), 0)
+            self.assertGreater(len(state_containers), 0)
 
-            node = cl_getService.get_mdib_node()
-            self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
+            get_result = cl_getService.get_md_description()  # GetResult
+            descriptor_containers = get_result.result
+            self.assertGreater(len(descriptor_containers), 0)
 
-            node = cl_getService.get_md_state_node()
-            self.assertEqual(node.tag, str(namespaces.msgTag('GetMdStateResponse')))
+            get_result = cl_getService.get_md_state()  # GetResult
+            state_containers = get_result.result
+            self.assertGreater(len(state_containers), 0)
 
             contextService = sdcClient.client('Context')
             result = contextService.get_context_states()
@@ -1532,14 +1508,14 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         # simply check that correct top node is returned
         for sdcClient, _ in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
-            node = cl_getService.get_md_description_node()
-            self.assertEqual(node.tag, str(namespaces.msgTag('GetMdDescriptionResponse')))
+            message_data = cl_getService.get_md_description()
+            self.assertEqual(message_data.msg_name, 'GetMdDescriptionResponse')
 
-            node = cl_getService.get_mdib_node()
-            self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
+            message_data = cl_getService.get_mdib()
+            self.assertEqual(message_data.msg_name, 'GetMdibResponse')
 
-            node = cl_getService.get_md_state_node()
-            self.assertEqual(node.tag, str(namespaces.msgTag('GetMdStateResponse')))
+            message_data = cl_getService.get_md_state()
+            self.assertEqual(message_data.msg_name, 'GetMdStateResponse')
 
             contextService = sdcClient.client('Context')
             result = contextService.get_context_states()
@@ -1606,20 +1582,27 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
     def test_BasicConnect(self):
         # simply check that correct top node is returned
         cl_getService = self.sdc_client.client('Get')
-        node = cl_getService.get_md_description_node()
+        get_request_result = cl_getService.get_md_description()
+        node =  get_request_result.p_msg.msg_node
         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdDescriptionResponse')))
+        self.assertEqual(get_request_result.msg_name, 'GetMdDescriptionResponse')
 
-        node = cl_getService.get_mdib_node()
+        get_request_result = cl_getService.get_mdib()
+        node =  get_request_result.p_msg.msg_node
         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
+        self.assertEqual(get_request_result.msg_name, 'GetMdibResponse')
 
-        node = cl_getService.get_md_state_node()
+        get_request_result = cl_getService.get_md_state()
+        node =  get_request_result.p_msg.msg_node
         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdStateResponse')))
+        self.assertEqual(get_request_result.msg_name, 'GetMdStateResponse')
 
         contextService = self.sdc_client.client('Context')
-        # node = contextService.get_context_states_node()
-        # self.assertEqual(node.tag, str(namespaces.msgTag('GetContextStatesResponse')))
-        result = contextService.get_context_states()
-        self.assertGreater(len(result.result), 0)
+        get_request_result = contextService.get_context_states()
+        self.assertGreater(len(get_request_result.result), 0)
+        node =  get_request_result.p_msg.msg_node
+        self.assertEqual(node.tag, str(namespaces.msgTag('GetContextStatesResponse')))
+        self.assertEqual(get_request_result.msg_name, 'GetContextStatesResponse')
 
     def test_renew_getStatus(self):
         """ If renew and get_status work, then reference parameters based dispatching works. """

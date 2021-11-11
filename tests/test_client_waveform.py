@@ -20,7 +20,7 @@ SAMPLES = {"0x34F05506": (5.566406, 5.712891, 5.712891, 5.712891, 5.800781),
            "0x34F05501": (0.1, -0.1, 1.0, 2.0, 3.0),
            "0x34F05500": (3.198242, 3.198242, 3.198242, 3.198242, 3.163574, 1.1)}
 
-WfReport = u'''<?xml version="1.0" encoding="utf-8"?>
+WfReport = '''<?xml version="1.0" encoding="utf-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
 xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding"
 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -83,9 +83,9 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
            array1=' '.join([str(n) for n in SAMPLES["0x34F05506"]]),
            array2=' '.join([str(n) for n in SAMPLES["0x34F05501"]]),
            array3=' '.join([str(n) for n in SAMPLES["0x34F05500"]]),
-           msg=namespaces.nsmap['msg'],
-           ext=namespaces.nsmap['ext'],
-           dom=namespaces.nsmap['dom'],
+           msg='http://standards.ieee.org/downloads/11073/11073-10207-2017/message',
+           ext='http://standards.ieee.org/downloads/11073/11073-10207-2017/extension',
+           dom='http://standards.ieee.org/downloads/11073/11073-10207-2017/participant'
            )
 
 
@@ -123,8 +123,7 @@ class TestClientWaveform(unittest.TestCase):
                 clientmdib.descriptions.add_object(
                     sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.from_node(
                         element, None))  # None = no parent handle
-            soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope(wfReport.encode('utf-8'))
-            received_message_data = cl.msg_reader._mk_received_message_data(soapenvelope)
+            received_message_data = cl.msg_reader.read_received_message(wfReport.encode('utf-8'))
             cl._notifications_dispatcher.on_notification(received_message_data)
 
             # verify that all handles of reported RealTimeSampleArrays are present
@@ -157,8 +156,7 @@ class TestClientWaveform(unittest.TestCase):
                 self.assertEqual(len(rtBuffer.rt_data[i].annotations), 0)
 
             # add another Report (with identical data, but that is not relevant here)
-            soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope(wfReport.encode('utf-8'))
-            received_message_data = cl.msg_reader._mk_received_message_data(soapenvelope)
+            received_message_data = cl.msg_reader.read_received_message(wfReport.encode('utf-8'))
             cl._notifications_dispatcher.on_notification(received_message_data)
             # verify only that array length is 2*bigger now
             for handle in my_handles:
@@ -169,8 +167,7 @@ class TestClientWaveform(unittest.TestCase):
 
             # add a lot more data, verify that length limitation is working
             for i in range(100):
-                soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope(wfReport.encode('utf-8'))
-                received_message_data = cl.msg_reader._mk_received_message_data(soapenvelope)
+                received_message_data = cl.msg_reader.read_received_message(wfReport.encode('utf-8'))
                 cl._notifications_dispatcher.on_notification(received_message_data)
             # verify only that array length is limited
             for handle in my_handles:

@@ -3,8 +3,6 @@ import urllib
 import uuid
 from typing import List
 
-from lxml import etree as etree_
-
 from . import httpserver
 from .hostedserviceimpl import SoapMessageHandler
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
@@ -12,9 +10,10 @@ from .waveforms import WaveformSender
 from .. import compression
 from .. import loghelper
 from .. import pmtypes
-from .. import pysoap
+from ..addressing import EndpointReferenceType
+from ..dpws import HostServiceType
 from ..location import SdcLocation
-from ..namespaces import Prefixes, WSA_ANONYMOUS, DocNamespaceHelper, wsdTag
+from ..namespaces import Prefixes
 
 
 class SdcDevice:
@@ -72,24 +71,26 @@ class SdcDevice:
         self._waveform_sender = None
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
 
-        # host dispatcher provides data of the sdc device itself.
-        self._host_dispatcher = SoapMessageHandler(None, get_key_method=self._components.msg_dispatch_method)
-        self._host_dispatcher.register_post_handler(f'{Prefixes.WXF.namespace}/Get', self._on_get_metadata)
-        self._host_dispatcher.register_post_handler(f'{Prefixes.WSD.namespace}/Probe', self._on_probe_request)
-        self._host_dispatcher.register_post_handler('Probe', self._on_probe_request)
-
-        # dpws host is needed in metadata
-        self.dpws_host = pysoap.soapenvelope.DPWSHost(
-            endpoint_references_list=[pysoap.soapenvelope.WsaEndpointReferenceType(self.epr)],
-            types_list=self._mdib.sdc_definitions.MedicalDeviceTypesFilter)
-
         self.msg_reader = self._components.msg_reader_class(self._mdib.sdc_definitions,
                                                             self._logger,
                                                             self._log_prefix)
         self.msg_factory = self._components.msg_factory_class(sdc_definitions=self._mdib.sdc_definitions,
                                                               logger=self._logger)
 
-        self._hosted_service_dispatcher = httpserver.HostedServiceDispatcher(self.msg_reader, self._logger)
+        # host dispatcher provides data of the sdc device itself.
+        self._host_dispatcher = SoapMessageHandler(None, get_key_method=self._components.msg_dispatch_method,
+                                                   msg_factory=self.msg_factory)
+        self._host_dispatcher.register_post_handler(f'{Prefixes.WXF.namespace}/Get', self._on_get_metadata)
+        self._host_dispatcher.register_post_handler(f'{Prefixes.WSD.namespace}/Probe', self._on_probe_request)
+        self._host_dispatcher.register_post_handler('Probe', self._on_probe_request)
+
+        self.dpws_host = HostServiceType(
+            # endpoint_references_list=[pysoap.soapenvelope.WsaEndpointReferenceType(self.epr)],
+            endpoint_references_list=[EndpointReferenceType(self.epr)],
+            types_list=self._mdib.sdc_definitions.MedicalDeviceTypesFilter)
+
+        self._hosted_service_dispatcher = httpserver.HostedServiceDispatcher(
+            self.msg_reader, self.msg_factory, self._logger)
 
         self._hosted_service_dispatcher.register_hosted_service(self._host_dispatcher)
 
@@ -144,28 +145,14 @@ class SdcDevice:
         _nsm = self._mdib.nsmapper
         dpws_schema = self.mdib.schema_validators.dpws_schema if self.shall_validate else None
 
-        response = self.msg_factory.mk_get_metadata_response_envelope(
+        message = self.msg_factory.mk_get_metadata_response_message(
             request_data.message_data, self.device, self.model, self.dpws_host,
             self.hosted_services.dpws_hosted_services, dpws_schema, self._mdib.nsmapper)
-        self._logger.debug('returned meta data = {}', response.as_xml(pretty=False))
-        return response
+        self._logger.debug('returned meta data = {}', message.serialize_message(pretty=False))
+        return message
 
     def _on_probe_request(self, request):
-        _nsm = DocNamespaceHelper()
-        response = pysoap.soapenvelope.Soap12Envelope(_nsm.doc_ns_map)
-        reply_address = request.message_data.p_msg.address.mk_reply_address('{Prefixes.WSD.namespace}/ProbeMatches')
-        reply_address.addr_to = WSA_ANONYMOUS
-        reply_address.message_id = uuid.uuid4().urn
-        response.add_header_object(reply_address)
-        probe_match_node = etree_.Element(wsdTag('Probematch'),
-                                          nsmap=_nsm.doc_ns_map)
-        types = etree_.SubElement(probe_match_node, wsdTag('Types'))
-        types.text = f'{Prefixes.DPWS.prefix}:Device {Prefixes.MDPWS.prefix}:MedicalDevice'
-        scopes = etree_.SubElement(probe_match_node, wsdTag('Scopes'))
-        scopes.text = ''
-        xaddrs = etree_.SubElement(probe_match_node, wsdTag('XAddrs'))
-        xaddrs.text = ' '.join(self.get_xaddrs())
-        response.add_body_element(probe_match_node)
+        response = self.msg_factory.mk_probe_matches_response_message(request.message_data, self.get_xaddrs())
         return response
 
     def set_location(self, location: SdcLocation,
@@ -270,6 +257,7 @@ class SdcDevice:
         else:
             self._http_server_thread = httpserver.DeviceHttpServerThread(
                 my_ipaddress='0.0.0.0', ssl_context=self._ssl_context, supported_encodings=self._compression_methods,
+                msg_reader=self.msg_reader, msg_factory=self.msg_factory,
                 log_prefix=self._log_prefix, chunked_responses=self.chunked_messages)
 
             # first start http server, the services need to know the ip port number
@@ -293,7 +281,8 @@ class SdcDevice:
         self.base_urls = []  # e.g https://192.168.1.5:8888/8c26f673-fdbf-4380-b5ad-9e2454a65b6b; list has one member for each used ip address
         for addr in host_ips:
             self.base_urls.append(
-                urllib.parse.SplitResult(self._urlschema, f'{addr}:{port}', self.path_prefix, query=None, fragment=None))
+                urllib.parse.SplitResult(self._urlschema, f'{addr}:{port}', self.path_prefix, query=None,
+                                         fragment=None))
 
         for host_ip in host_ips:
             self._logger.info('serving Services on {}:{}', host_ip, port)

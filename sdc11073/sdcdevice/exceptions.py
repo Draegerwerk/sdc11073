@@ -1,7 +1,6 @@
-from ..pysoap.soapenvelope import SoapFault, SoapFaultCode, AdressingFault
-
 class HTTPRequestHandlingError(Exception):
     ''' This class is used to communicate errors from http request handlers back to http server.'''
+
     def __init__(self, status, reason, soap_fault):
         '''
         :param status: integer, e.g. 404
@@ -19,22 +18,15 @@ class HTTPRequestHandlingError(Exception):
 
 
 class FunctionNotImplementedError(HTTPRequestHandlingError):
-    def __init__(self, request):
-        fault = SoapFault(request, code=SoapFaultCode.RECEIVER, reason='not implemented', details='sorry!')
-        super().__init__(500, 'not implemented', fault.as_xml())
+    def __init__(self, request, fault_xml):
+        super().__init__(500, 'not implemented', fault_xml)
 
 
 class InvalidActionError(HTTPRequestHandlingError):
-    def __init__(self, request):
-        fault = AdressingFault(request,
-                               code=SoapFaultCode.SENDER,
-                               reason=f'invalid action {request.address.action}')
-        super().__init__(400, 'Bad Request', fault.as_xml())
+    def __init__(self, request, fault_xml):
+        super().__init__(400, 'Bad Request', fault_xml)
 
 
 class InvalidPathError(HTTPRequestHandlingError):
-    def __init__(self, request, path):
-        fault = AdressingFault(request,
-                               code=SoapFaultCode.SENDER,
-                               reason=f'invalid path {path}')
-        super().__init__(400, 'Bad Request', fault.as_xml())
+    def __init__(self, request, path, fault_xml):
+        super().__init__(400, 'Bad Request', fault_xml)

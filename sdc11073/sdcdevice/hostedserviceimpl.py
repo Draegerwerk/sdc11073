@@ -5,9 +5,11 @@ from lxml import etree as etree_
 
 from .exceptions import InvalidActionError
 from .. import loghelper
+from ..addressing import EndpointReferenceType
+from ..dpws import HostedServiceType
 from ..namespaces import Prefixes
-from ..namespaces import wsxTag, dpwsTag, s12Tag
-from ..pysoap.soapenvelope import DPWSHosted, WsaEndpointReferenceType, Soap12Envelope
+from ..namespaces import s12Tag
+from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
 
 _wsdl_ns = Prefixes.WSDL.namespace
 
@@ -48,11 +50,12 @@ class SoapMessageHandler:
     tag of the message in the body or the action in the SOAP header.
     """
 
-    def __init__(self, path_element, get_key_method, log_prefix=None):
+    def __init__(self, path_element, get_key_method, msg_factory, log_prefix=None):
         self.path_element = path_element
         self._post_handlers = {}
         self._get_handlers = {}
         self._get_key_method = get_key_method
+        self._msg_factory = msg_factory
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
     def register_post_handler(self, key, func):
@@ -66,7 +69,10 @@ class SoapMessageHandler:
         action = request_data.message_data.action
         func = self.get_post_handler(request_data)
         if func is None:
-            raise InvalidActionError(request_data.message_data.p_msg)
+            fault = SoapFault(code=SoapFaultCode.SENDER, reason=f'invalid action {action}')
+            fault_message = self._msg_factory.mk_fault_message(request_data.message_data, fault)
+            fault_xml = fault_message.serialize_message()
+            raise InvalidActionError(request_data.message_data.p_msg, fault_xml)
         returned_envelope = func(request_data)
         duration = time.monotonic() - begin
         self._logger.debug('incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements,
@@ -103,7 +109,7 @@ class EventService(SoapMessageHandler):
     """ A service that offers subscriptions"""
 
     def __init__(self, sdc_device, path_element, get_key_method, offered_subscriptions):
-        super().__init__(path_element, get_key_method)
+        super().__init__(path_element, get_key_method, sdc_device.msg_factory)
         self._sdc_device = sdc_device
         self._subscriptions_manager = sdc_device.subscriptions_manager
         self._offered_subscriptions = offered_subscriptions
@@ -142,8 +148,8 @@ class EventService(SoapMessageHandler):
         self._validate_eventing_response(returned_envelope)
         return returned_envelope
 
-    def _validate_eventing_response(self, returned_envelope):
-        body = returned_envelope.body_node
+    def _validate_eventing_response(self, response):
+        body = response.p_msg.body_node
         body_node_children = list(body)
         if len(body_node_children) == 0:
             return
@@ -151,7 +157,7 @@ class EventService(SoapMessageHandler):
             schema = self._s12_schema
         else:
             schema = self._evt_schema
-        returned_envelope.validate_body(schema)
+        response.validate_body(schema)
 
     @property
     def _evt_schema(self):
@@ -185,16 +191,16 @@ class DPWSHostedService(EventService):
         for port_type_impl in port_type_impls:
             port_type_impl.register_handlers(self)
 
-    def mk_dpws_hosted_instance(self) -> DPWSHosted:
+    def mk_dpws_hosted_instance(self) -> HostedServiceType:
         endpoint_references_list = []
         for addr in self._sdc_device.base_urls:
             endpoint_references_list.append(
-                WsaEndpointReferenceType(f'{addr.geturl()}/{self.path_element}'))
+                EndpointReferenceType(f'{addr.geturl()}/{self.path_element}'))
         porttype_ns = self._mdib.sdc_definitions.PortTypeNamespace
         # little bit ugly: normalize_xml_text needs bytes, not string. and it looks for namespace in "".
         _normalized = self._mdib.sdc_definitions.normalize_xml_text(b'"' + porttype_ns.encode('utf-8') + b'"')
         porttype_ns = _normalized[1:-1].decode('utf-8')
-        dpws_hosted = DPWSHosted(
+        dpws_hosted = HostedServiceType(
             endpoint_references_list=endpoint_references_list,
             types_list=[etree_.QName(porttype_ns, p) for p in self._my_port_types],
             service_id=self._my_port_types[0])
@@ -260,40 +266,23 @@ class DPWSHostedService(EventService):
 
     def _on_get_metadata(self, request_data):
         _nsm = self._mdib.nsmapper
+        msg_factory = self._sdc_device.msg_factory
         consumed_path_elements = request_data.consumed_path_elements
         http_header = request_data.http_header
-        response = Soap12Envelope(_nsm.doc_ns_map)
-        reply_address = request_data.message_data.p_msg.address.mk_reply_address(
-            'http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Response')
-        response.add_header_object(reply_address)
 
-        metadata_node = etree_.Element(wsxTag('Metadata'), nsmap=_nsm.doc_ns_map)
-
-        # Relationship
-        metadata_section_node = etree_.SubElement(metadata_node,
-                                                  wsxTag('MetadataSection'),
-                                                  attrib={'Dialect': f'{Prefixes.DPWS.namespace}/Relationship'})
-
-        relationship_node = etree_.SubElement(metadata_section_node,
-                                              dpwsTag('Relationship'),
-                                              attrib={'Type': f'{Prefixes.DPWS.namespace}/host'})
-        self._sdc_device.dpws_host.as_etree_subnode(relationship_node)
-
-        self.mk_dpws_hosted_instance().as_etree_subnode(relationship_node)
-
-        metadata_section_node = etree_.SubElement(metadata_node,
-                                                  wsxTag('MetadataSection'),
-                                                  attrib={'Dialect': _wsdl_ns})
-        location_node = etree_.SubElement(metadata_section_node,
-                                          wsxTag('Location'))
         # determine the correct location of wsdl, depending on call
         host = http_header['Host']  # this is the address that was called.
         all_base_urls = self._sdc_device.base_urls
         my_base_urls = [u for u in all_base_urls if u.netloc == host]
         my_base_url = my_base_urls[0] if len(my_base_urls) > 0 else all_base_urls[0]
         tmp = '/'.join(consumed_path_elements)
-        location_node.text = f'{my_base_url.scheme}://{my_base_url.netloc}/{tmp}/?wsdl'
-        response.add_body_element(metadata_node)
+        location_text = f'{my_base_url.scheme}://{my_base_url.netloc}/{tmp}/?wsdl'
+        response = msg_factory.mk_hosted_get_metadata_response_message(request_data.message_data,
+                                                                       self._sdc_device.dpws_host,
+                                                                       self.mk_dpws_hosted_instance(),
+                                                                       location_text,
+                                                                       _nsm)
+
         response.validate_body(self._mdib.schema_validators.mex_schema)
         return response
 

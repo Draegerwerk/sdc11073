@@ -1,9 +1,12 @@
+import logging
 import unittest
-from sdc11073.pysoap import soapenvelope
+
+from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.pysoap.msgreader import MessageReaderClient
 
 
 class TestSoapEnvelope(unittest.TestCase):
-    
+
     def test_soap12_fromXML(self):
         xml = b'''<?xml version="1.0" encoding="UTF-8"?><env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope">
  <env:Header>
@@ -18,24 +21,19 @@ class TestSoapEnvelope(unittest.TestCase):
   </m:alert>
  </env:Body>
 </env:Envelope>'''
-        env = soapenvelope.ReceivedSoap12Envelope(xml)
+        msg_reader = MessageReaderClient(SDC_v1_Definitions, logging.getLogger('test'))
+        message_data = msg_reader.read_received_message(xml)
+        env = message_data.p_msg
 
         # verify that document was parsed
         self.assertTrue(env.header_node is not None)
         self.assertTrue(env.body_node is not None)
-        
+
         tmp = env.header_node.find('n:alertcontrol', {'n': 'http://example.org/alertcontrol'})
         self.assertTrue(tmp is not None)
 
         tmp = env.body_node.find('m:alert', {'m': 'http://example.org/alert'})
         self.assertTrue(tmp is not None)
-
-        env = soapenvelope.ReceivedSoap12Envelope(xml)
-
-        # verify that document was 
-        self.assertTrue(env.header_node is not None)
-        self.assertTrue(env.body_node is not None)
-
 
     def test_adressing_fromXML(self):
         xml = b'''<?xml version="1.0" encoding="UTF-8"?><env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://www.w3.org/2005/08/addressing">
@@ -56,19 +54,19 @@ class TestSoapEnvelope(unittest.TestCase):
   </m:alert>
  </env:Body>
 </env:Envelope>'''
-        env = soapenvelope.DPWSEnvelope(xml)
-
+        msg_reader = MessageReaderClient(SDC_v1_Definitions, logging.getLogger('test'))
+        message_data = msg_reader.read_received_message(xml)
+        env = message_data.p_msg
         # verify that document was parsed
         self.assertTrue(env.header_node is not None)
         self.assertTrue(env.body_node is not None)
-        
-        self.assertEqual(env.address.message_id, 'http://example.com/someuniquestring' )
-        self.assertEqual(env.address.addr_to, 'mailto:fabrikam@example.com' )
-        self.assertEqual(env.address.addr_from, None )
-        self.assertEqual(env.address.reply_to.address, 'http://example.com/business/client1' )
-        self.assertEqual(env.address.fault_to.address, 'http://example.com/business/client2' )
-        self.assertEqual(env.address.action, 'http://example.com/fabrikam/mail/Delete' )
-        
+
+        self.assertEqual(env.address.message_id, 'http://example.com/someuniquestring')
+        self.assertEqual(env.address.addr_to, 'mailto:fabrikam@example.com')
+        self.assertEqual(env.address.addr_from, None)
+        self.assertEqual(env.address.reply_to.address, 'http://example.com/business/client1')
+        self.assertEqual(env.address.fault_to.address, 'http://example.com/business/client2')
+        self.assertEqual(env.address.action, 'http://example.com/fabrikam/mail/Delete')
 
     def test_DeviceCharacteristics_fromXML(self):
         xml = b'''<?xml version="1.0" encoding="UTF-8"?><env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope" 
@@ -106,22 +104,18 @@ class TestSoapEnvelope(unittest.TestCase):
    </wsx:Metadata>
  </env:Body>
 </env:Envelope>'''
-        env = soapenvelope.DPWSEnvelope(xml)
+        msg_reader = MessageReaderClient(SDC_v1_Definitions, logging.getLogger('test'))
+        message_data = msg_reader.read_received_message(xml)
+        dpws_data = msg_reader.read_get_metadata_response(message_data)
 
-        # verify that document was parsed
-        self.assertTrue(env.header_node is not None)
-        self.assertTrue(env.body_node is not None)
-        
-        self.assertEqual(env.this_model.manufacturer[None], 'ACME Manufacturing' )
-        self.assertEqual(env.this_model.model_name['en-GB'], 'ColourBeam 9' )
-        self.assertEqual(env.this_model.model_name['en-US'], 'ColorBeam 9' )
+        self.assertEqual(dpws_data.this_model.manufacturer[None], 'ACME Manufacturing')
+        self.assertEqual(dpws_data.this_model.model_name['en-GB'], 'ColourBeam 9')
+        self.assertEqual(dpws_data.this_model.model_name['en-US'], 'ColorBeam 9')
 
-        self.assertEqual(env.this_device.friendly_name['en-GB'], 'My Device' )
-        self.assertEqual(env.this_device.friendly_name['de-DE'], 'Meine Kiste' )
-        self.assertEqual(env.this_device.firmware_version, '12.2' )
-        self.assertEqual(env.this_device.serial_number, '123_abc' )
-
-
+        self.assertEqual(dpws_data.this_device.friendly_name['en-GB'], 'My Device')
+        self.assertEqual(dpws_data.this_device.friendly_name['de-DE'], 'Meine Kiste')
+        self.assertEqual(dpws_data.this_device.firmware_version, '12.2')
+        self.assertEqual(dpws_data.this_device.serial_number, '123_abc')
 
     def test_Hosting_fromXML(self):
         xml = b'''<?xml version="1.0" encoding="UTF-8"?>
@@ -160,32 +154,23 @@ class TestSoapEnvelope(unittest.TestCase):
    </wsx:Metadata>
  </env:Body>
 </env:Envelope>'''
-        env = soapenvelope.DPWSEnvelope(xml)
+        msg_reader = MessageReaderClient(SDC_v1_Definitions, logging.getLogger('test'))
+        message_data = msg_reader.read_received_message(xml)
+        dpws_data = msg_reader.read_get_metadata_response(message_data)
 
-        # verify that document was parsed
-        self.assertTrue(env.header_node is not None)
-        self.assertTrue(env.body_node is not None)
-        
-        self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].endpoint_references[0].address, 'http://172.30.184.244/print')
-        self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].endpoint_references[1].address, 'http://[fdaa:23]/print1')
-        self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].types[0], 'img:PrintBasicPortType')
-        self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].types[1], 'img:PrintAdvancedPortType')
-        self.assertEqual(env.hosted['http://printer.example.org/imaging/PrintService'].service_id, 'http://printer.example.org/imaging/PrintService')
+        hosted = dpws_data.relationship.hosted
+        self.assertEqual(hosted['http://printer.example.org/imaging/PrintService'].endpoint_references[0].address,
+                         'http://172.30.184.244/print')
+        self.assertEqual(hosted['http://printer.example.org/imaging/PrintService'].endpoint_references[1].address,
+                         'http://[fdaa:23]/print1')
+        self.assertEqual(hosted['http://printer.example.org/imaging/PrintService'].types[0], 'img:PrintBasicPortType')
+        self.assertEqual(hosted['http://printer.example.org/imaging/PrintService'].types[1],
+                         'img:PrintAdvancedPortType')
+        self.assertEqual(hosted['http://printer.example.org/imaging/PrintService'].service_id,
+                         'http://printer.example.org/imaging/PrintService')
 
-        self.assertEqual(env.host.endpoint_references[0].address, 'http://172.30.184.244/host')
-        self.assertEqual(env.host.endpoint_references[1].address, 'http://[fdaa:23]/host1')
-        self.assertEqual(env.host.types[0], 'img:HostPortType')
-        self.assertEqual(env.host.types[1], 'img:HostAdvancedPortType')
-
-
-    def test_soap12_toXML(self):
-        env = soapenvelope.Soap12Envelope({})
-        print (env.as_xml())
-
-
-def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(TestSoapEnvelope)
-
-
-if __name__ == '__main__':
-    unittest.TextTestRunner(verbosity=2).run(suite())
+        host = dpws_data.relationship.host
+        self.assertEqual(host.endpoint_references[0].address, 'http://172.30.184.244/host')
+        self.assertEqual(host.endpoint_references[1].address, 'http://[fdaa:23]/host1')
+        self.assertEqual(host.types[0], 'img:HostPortType')
+        self.assertEqual(host.types[1], 'img:HostAdvancedPortType')

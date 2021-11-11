@@ -8,19 +8,29 @@ from .mdib.statecontainers import get_container_class as get_state_container_cla
 from .pysoap.msgfactory import MessageFactoryDevice, MessageFactoryClient
 from .pysoap.msgreader import MessageReaderClient, MessageReaderDevice
 from .roles.product import MinimalProduct
-from .sdcclient.hostedservice import CTreeServiceClient, DescriptionEventClient, ContextServiceClient, WaveformClient
-from .sdcclient.hostedservice import GetServiceClient, SetServiceClient, StateEventClient
+from .sdcclient.serviceclients.descriptioneventservice import DescriptionEventClient
+from .sdcclient.serviceclients.waveformservice import WaveformClient
+from .sdcclient.serviceclients.stateeventservice import StateEventClient
+from .sdcclient.serviceclients.getservice import GetServiceClient
+from .sdcclient.serviceclients.setservice import SetServiceClient
+from .sdcclient.serviceclients.contextservice import ContextServiceClient
+from .sdcclient.serviceclients.containmenttreeservice import CTreeServiceClient
+from .sdcclient.serviceclients.localizationservice import LocalizationServiceClient
 from .sdcclient.httpserver import SOAPNotificationsHandler, NotificationsReceiver
-from .sdcclient.localizationservice import LocalizationServiceClient
 from .sdcclient.operations import OperationsManager
-from .sdcclient.sdcclientimpl import NotificationsDispatcherByBody
+from .sdcclient.notificationsdispatcher import NotificationsDispatcherByBody
 from .sdcclient.subscription import ClientSubscriptionManager
 from .sdcdevice.hostedserviceimpl import by_msg_tag
-from .sdcdevice.localizationservice import LocalizationService
 from .sdcdevice.sco import get_operation_class, ScoOperationsRegistry
 from .sdcdevice.sdc_handlers import mk_scopes, mk_all_services
-from .sdcdevice.sdcservicesimpl import ContextService, WaveformService, DescriptionEventService
-from .sdcdevice.sdcservicesimpl import GetService, SetService, StateEventService, ContainmentTreeService
+from .sdcdevice.services.waveformserviceimpl import WaveformService
+from .sdcdevice.services.descriptioneventserviceimpl import  DescriptionEventService
+from .sdcdevice.services.contextserviceimpl import ContextService
+from .sdcdevice.services.getserviceimpl import GetService
+from .sdcdevice.services.setserviceimpl import SetService
+from .sdcdevice.services.containmenttreeserviceimpl import ContainmentTreeService
+from .sdcdevice.services.stateeventserviceimpl import StateEventService
+from .sdcdevice.services.localizationservice import LocalizationService
 from .sdcdevice.subscriptionmgr import SubscriptionsManagerPath
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
@@ -87,6 +97,7 @@ class _SdcV1Actions:
 default_sdc_device_components = SdcDeviceComponents(
     msg_factory_class=MessageFactoryDevice,
     msg_reader_class=MessageReaderDevice,
+    xml_reader_class=MessageReaderDevice,
     services_factory=mk_all_services,
     operation_cls_getter=get_operation_class,
     sco_operations_registry_class=ScoOperationsRegistry,

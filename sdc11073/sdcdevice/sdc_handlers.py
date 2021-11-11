@@ -4,7 +4,7 @@ from typing import List, Tuple
 from typing import Type
 
 from .hostedserviceimpl import DPWSHostedService
-from .sdcservicesimpl import DPWSPortTypeImpl
+from .services.servicesbase import DPWSPortTypeImpl
 from .. import pmtypes
 from .. import wsdiscovery
 from ..location import SdcLocation

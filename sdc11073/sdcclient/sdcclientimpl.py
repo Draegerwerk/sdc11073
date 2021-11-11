@@ -15,10 +15,7 @@ from .. import netconn
 from .. import observableproperties as properties
 from ..definitions_base import ProtocolsRegistry, SchemaValidators
 from ..namespaces import EventingActions
-from ..namespaces import Prefixes
-from ..namespaces import nsmap
 from ..pysoap.soapclient import SoapClient
-from ..pysoap.soapenvelope import WsAddress, Soap12Envelope, DPWSEnvelope, MetaDataSection
 
 
 def _mk_soap_client(scheme, netloc, logger, ssl_context, sdc_definitions, msg_reader, supported_encodings=None,
@@ -58,7 +55,7 @@ class HostedServiceDescription:
         self._msg_reader = msg_reader
         self._msg_factory = msg_factory
         self.log_prefix = log_prefix
-        self.metadata = None
+        self.meta_data = None
         self.wsdl_string = None
         self.wsdl = None
         self._logger = loghelper.get_logger_adapter(f'sdc.client.{service_id}', log_prefix)
@@ -70,17 +67,17 @@ class HostedServiceDescription:
         return None if not self._validate else self._schema_validators.mex_schema
 
     def read_metadata(self, soap_client):
-        soap_envelope = self._msg_factory.mk_getmetadata_envelope(self._endpoint_address)
+        created_message = self._msg_factory.mk_getmetadata_message(self._endpoint_address)
         if self.VALIDATE_MEX:
-            soap_envelope.validate_body(self._mex_schema)
-        response = soap_client.post_soap_envelope_to(self._url.path,
-                                                     soap_envelope,
-                                                     msg=f'<{self.service_id}> read_metadata')
-        endpoint_envelope = response.p_msg
+            created_message.validate_body(self._mex_schema)
+        message_data = soap_client.post_message_to(self._url.path,
+                                                   created_message,
+                                                   msg=f'<{self.service_id}> read_metadata')
+        endpoint_envelope = message_data.p_msg
         if self.VALIDATE_MEX:
             endpoint_envelope.validate_body(self._mex_schema)
-        self.metadata = MetaDataSection.from_etree_node(endpoint_envelope.body_node)
-        self._read_wsdl(soap_client, self.metadata.wsdl_location)
+        self.meta_data = self._msg_reader.read_get_metadata_response(message_data)
+        self._read_wsdl(soap_client, self.meta_data.wsdl_location)
 
     def _read_wsdl(self, soap_client, wsdl_url):
         parsed = urllib.parse.urlparse(wsdl_url)
@@ -120,116 +117,6 @@ def sort_ip_addresses(adresses, ref_ip):
     _ref = ip_addr_to_int(ref_ip)
     adresses.sort(key=lambda a: abs(ip_addr_to_int(a) - _ref))
     return adresses
-
-
-class NotificationsDispatcherBase:
-    def __init__(self, sdc_client, logger):
-        self._sdc_client = sdc_client
-        self._logger = logger
-        self._lookup = self._mk_lookup()
-
-    def _mk_lookup(self):
-        raise NotImplementedError
-
-    def on_notification(self, message_data):
-        # make Container objects
-        self._sdc_client.state_event_report = message_data  # update observable
-
-    def _on_operation_invoked_report(self, message_data):
-        self._sdc_client.operation_invoked_report = message_data  # update observable
-
-    def _on_waveform_report(self, message_data):
-        self._sdc_client.waveform_report = message_data  # update observable
-
-    def _on_episodic_metric_report(self, message_data):
-        self._sdc_client.episodic_metric_report = message_data
-
-    def _on_periodic_metric_report(self, message_data):
-        self._sdc_client.periodic_metric_report = message_data
-
-    def _on_episodic_alert_report(self, message_data):
-        self._sdc_client.episodic_alert_report = message_data
-
-    def _on_periodic_alert_report(self, message_data):
-        self._sdc_client.periodic_alert_report = message_data
-
-    def _on_episodic_component_report(self, message_data):
-        self._sdc_client.episodic_component_report = message_data
-
-    def _on_periodic_component_report(self, message_data):
-        self._sdc_client.periodic_component_report = message_data
-
-    def _on_episodic_operational_state_report(self, message_data):
-        self._sdc_client.episodic_operational_state_report = message_data
-
-    def _on_periodic_operational_state_report(self, message_data):
-        self._sdc_client.periodic_operational_state_report = message_data
-
-    def _on_episodic_context_report(self, message_data):
-        self._sdc_client.episodic_context_report = message_data
-
-    def _on_periodic_context_report(self, message_data):
-        self._sdc_client.periodic_context_report = message_data
-
-    def _on_description_report(self, message_data):
-        self._sdc_client.description_modification_report = message_data
-
-
-class NotificationsDispatcherByBody(NotificationsDispatcherBase):
-    def _mk_lookup(self):
-        return {
-            'EpisodicMetricReport': self._on_episodic_metric_report,
-            'EpisodicAlertReport': self._on_episodic_alert_report,
-            'EpisodicComponentReport': self._on_episodic_component_report,
-            'EpisodicOperationalStateReport': self._on_episodic_operational_state_report,
-            'WaveformStream': self._on_waveform_report,
-            'OperationInvokedReport': self._on_operation_invoked_report,
-            'EpisodicContextReport': self._on_episodic_context_report,
-            'DescriptionModificationReport': self._on_description_report,
-            'PeriodicMetricReport': self._on_periodic_metric_report,
-            'PeriodicAlertReport': self._on_periodic_alert_report,
-            'PeriodicComponentReport': self._on_periodic_component_report,
-            'PeriodicOperationalStateReport': self._on_periodic_operational_state_report,
-            'PeriodicContextReport': self._on_periodic_context_report,
-        }
-
-    def on_notification(self, message_data):
-        """ dispatch by message body"""
-        super().on_notification(message_data)
-        method = self._lookup.get(message_data.msg_name)
-        if method is None:
-            raise RuntimeError(f'unknown message {message_data.msg_name}')
-        method(message_data)
-
-
-class NotificationsDispatcherByAction(NotificationsDispatcherBase):
-    def _mk_lookup(self):
-        actions = self._sdc_client.sdc_definitions.Actions
-
-        return {
-            actions.EpisodicMetricReport: self._on_episodic_metric_report,
-            actions.EpisodicAlertReport: self._on_episodic_alert_report,
-            actions.EpisodicComponentReport: self._on_episodic_component_report,
-            actions.EpisodicOperationalStateReport: self._on_episodic_operational_state_report,
-            actions.Waveform: self._on_waveform_report,
-            actions.OperationInvokedReport: self._on_operation_invoked_report,
-            actions.EpisodicContextReport: self._on_episodic_context_report,
-            actions.DescriptionModificationReport: self._on_description_report,
-            actions.PeriodicMetricReport: self._on_periodic_metric_report,
-            actions.PeriodicAlertReport: self._on_periodic_alert_report,
-            actions.PeriodicComponentReport: self._on_periodic_component_report,
-            actions.PeriodicOperationalStateReport: self._on_periodic_operational_state_report,
-            actions.PeriodicContextReport: self._on_periodic_context_report,
-        }
-
-    def on_notification(self, message_data):
-        """ dispatch by message body"""
-        super().on_notification(message_data)
-        action = message_data.address.action
-        method = self._lookup.get(action)
-        if method is None:
-            raise RuntimeError(f'unknown message {action}')
-        method(message_data)
 
 
 class SdcClient:
@@ -291,10 +178,8 @@ class SdcClient:
         self.log_prefix = log_prefix
         self.chunked_requests = chunked_requests
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
-        # self._logger_wf = loghelper.get_logger_adapter('sdc.client.wf', self.log_prefix)  # waveform logger
         self._my_ipaddress = self._find_best_own_ip_address()
         self._logger.info('SdcClient for {} uses own IP Address {}', self._device_location, self._my_ipaddress)
-        self.metadata = None
         self.host_description = None
         self.hosted_services = {}  # lookup by service id
         self._validate = validate
@@ -464,7 +349,7 @@ class SdcClient:
 
         # start all subscriptions
         # group subscriptions per hosted service
-        for service_id, dpws_hosted in self.metadata.hosted.items():
+        for _, dpws_hosted in self.host_description.relationship.hosted.items():
             available_actions = []
             for port_type_qname in dpws_hosted.types:
                 port_type = port_type_qname.split(':')[-1]
@@ -511,7 +396,7 @@ class SdcClient:
         del self._compression_methods[:]
         self._compression_methods.extend(compression_methods)
 
-    def get_metadata(self):
+    def _get_metadata(self):
         _url = urllib.parse.urlparse(self._device_location)
         wsc = self._get_soap_client(self._device_location)
 
@@ -523,16 +408,9 @@ class SdcClient:
             self.binary_peer_certificate = sock.getpeercert(binary_form=True)  # in case the application needs it...
 
             self._logger.info('Peer Certificate: {}', self.peer_certificate)
-
-        envelope = Soap12Envelope(nsmap)
-        envelope.set_address(WsAddress(action=f'{Prefixes.WXF.namespace}/Get',
-                                       addr_to=self._device_location))
-
-        self.metadata = wsc.post_soap_envelope_to(_url.path, envelope,
-                                                  response_factory=DPWSEnvelope,
-                                                  msg='getMetadata').p_msg
-        self.host_description = HostDescription(self.metadata)
-        self._logger.debug('HostDescription: {}', self.host_description)
+        message = self._msg_factory.mk_transfer_get_message(self._device_location)
+        received_message_data = wsc.post_message_to(_url.path, message, msg='getMetadata')
+        return self.msg_reader.read_get_metadata_response(received_message_data)
 
     def _discover_hosted_services(self):
         """ Discovers all hosted services.
@@ -540,9 +418,8 @@ class SdcClient:
         """
         # we need to read the meta data of the device only once => temporary soap client is sufficient
         self._logger.debug('reading meta data from {}', self._device_location)
-        # self.metadata =
-        if self.metadata is None:
-            self.get_metadata()
+        if self.host_description is None:
+            self.host_description = self._get_metadata()
 
         # now query also meta data of hosted services
         self._mk_hosted_services()
@@ -568,7 +445,7 @@ class SdcClient:
         return soap_client
 
     def _mk_hosted_services(self):
-        for hosted in self.metadata.hosted.values():
+        for hosted in self.host_description.relationship.hosted.values():
             endpoint_reference = hosted.endpoint_references[0].address
             soap_client = self._get_soap_client(endpoint_reference)
             hosted.soap_client = soap_client
@@ -598,8 +475,8 @@ class SdcClient:
             self._my_ipaddress,
             ssl_context,
             log_prefix=self.log_prefix,
-            # sdc_definitions=self.sdc_definitions,
             msg_reader=self.msg_reader,
+            msg_factory=self._msg_factory,
             supported_encodings=self._compression_methods,
             notifications_handler_class=notifications_handler_class,
             async_dispatch=async_dispatch)
