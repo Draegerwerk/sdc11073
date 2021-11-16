@@ -1,11 +1,8 @@
 from io import BytesIO
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List
 from lxml import etree as etree_
 
-from sdc11073.namespaces import s12Tag, nsmap, Prefixes
-
-if TYPE_CHECKING:
-    from ..addressing import Address
+from sdc11073.namespaces import nsmap, Prefixes
 
 CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
 
@@ -66,7 +63,7 @@ class Soap12Envelope:
     def add_header_element(self, element: etree_.Element):
         self._header_nodes.append(element)
 
-    def set_address(self, ws_address: Address):
+    def set_address(self, ws_address):
         self.address = ws_address
 
     @property
