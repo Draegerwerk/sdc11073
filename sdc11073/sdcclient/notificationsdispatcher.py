@@ -12,7 +12,7 @@ class NotificationsDispatcherBase:
     def on_notification(self, message_data):
         """
 
-        :param message_data: ReceivedMessageData instance
+        :param message_data: ReceivedMessage instance
         :return: None
         """
         self._sdc_client.state_event_report = message_data  # update observable

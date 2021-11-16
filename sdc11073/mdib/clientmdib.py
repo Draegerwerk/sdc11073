@@ -189,8 +189,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         super().__init__(sdc_client.sdc_definitions)
         self._logger = loghelper.get_logger_adapter('sdc.client.mdib', sdc_client.log_prefix)
         self._sdc_client = sdc_client
-        if self.schema_validators is None:
-            raise RuntimeError('no schema_validators instance')
         self._is_initialized = False
         self.rt_buffers = {}  # key  is a handle, value is a ClientRtBuffer
         self._max_realtime_samples = max_realtime_samples

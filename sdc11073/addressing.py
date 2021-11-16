@@ -1,5 +1,26 @@
 from typing import Optional, Any
 import uuid
+import copy
+
+
+class ReferenceParameters:
+    def __init__(self, reference_parameters):
+        """
+
+        :param reference_parameter: a list of etree nodes or None
+        """
+        self._reference_parameter_nodes = reference_parameters if reference_parameters is not None else []
+
+    @property
+    def parameters(self):
+        return [copy.copy(node) for node in self._reference_parameter_nodes]
+
+    @property
+    def has_parameters(self):
+        return len(self._reference_parameter_nodes) > 0
+
+    def __repr__(self):
+        return f'addressing.{self.__class__.__name__}({self._reference_parameter_nodes})'
 
 class EndpointReferenceType:
     """ Acc. to "http://www.w3.org/2005/08/addressing"
@@ -7,19 +28,24 @@ class EndpointReferenceType:
     """
     __slots__ = ('address', 'reference_properties', 'reference_parameters', 'port_type', 'service_name')
 
-    def __init__(self, address: str, reference_properties: Optional[Any]=None, reference_parameters: Optional[Any]=None,
+    def __init__(self, address: str, reference_properties: Optional[Any]=None,
+                 reference_parameters: Optional[ReferenceParameters]=None,
                  port_type: Optional[Any]=None, service_name: Optional[Any]=None):
         """
 
         :param address: wsa:AttributedURI
         :param reference_properties: wsa:ReferencePropertiesType
-        :param reference_parameters:  wsa:ReferenceParametersType
+        :param reference_parameters:  ReferenceParameters instance
         :param port_type: wsa:AttributedQName
         :param service_name: wsa:ServiceNameType
         """
         self.address = address  # type="wsa:AttributedURI", which is an xs:anyURI element
         self.reference_properties = reference_properties
-        self.reference_parameters = reference_parameters
+        if reference_parameters is not None:
+            assert(isinstance(reference_parameters, ReferenceParameters))
+            self.reference_parameters = reference_parameters
+        else:
+            self.reference_parameters = ReferenceParameters(None)
         self.port_type = port_type
         self.service_name = service_name
 
@@ -35,7 +61,7 @@ class Address:
                  'relates_to', 'reference_parameters', 'relationship_type')
 
     def __init__(self, action, message_id=None, addr_to=None, relates_to=None, addr_from=None, reply_to=None,
-                 fault_to=None, reference_parameters=None,
+                 fault_to=None, reference_parameters: Optional[ReferenceParameters]=None,
                  relationship_type=None):  # pylint: disable=too-many-arguments
         """
 
@@ -57,8 +83,14 @@ class Address:
         self.addr_from = addr_from
         self.reply_to = reply_to
         self.fault_to = fault_to
-        self.reference_parameters = reference_parameters
+        if reference_parameters is not None:
+            assert(isinstance(reference_parameters, ReferenceParameters))
+            self.reference_parameters = reference_parameters
+        else:
+            self.reference_parameters = ReferenceParameters(None)
+
         self.relationship_type = relationship_type
 
     def mk_reply_address(self, action):
         return Address(action=action, relates_to=self.message_id)
+

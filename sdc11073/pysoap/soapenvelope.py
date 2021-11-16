@@ -42,7 +42,7 @@ def _assert_valid_exception_wrapper(schema, content):
     try:
         schema.assertValid(content)
     except etree_.DocumentInvalid:
-        # reformat and validate again to produce better error output
+        # reformat again to produce better error output
         tmp_str = etree_.tostring(content, pretty_print=True)
         tmp = etree_.parse(BytesIO(tmp_str))
         tmp_str = tmp_str.decode('utf-8')
@@ -110,13 +110,6 @@ class Soap12Envelope:
     def body_object(self):
         return self._body_object
 
-    def validate_body(self, schema):
-        if schema is None:
-            return
-        body = etree_.Element(s12Tag('Body'), nsmap=self._nsmap)
-        self._body_object.as_etree_subnode(body)
-        _assert_valid_exception_wrapper(schema, body[0])
-
 
 class ReceivedSoapMessage:
     """Represents a received soap envelope"""
@@ -134,11 +127,6 @@ class ReceivedSoapMessage:
         except IndexError:  # body has no content, this can happen
             self.msg_node = None
             self.msg_name = None
-
-    def validate_body(self, schema):
-        if schema is None:
-            return
-        _assert_valid_exception_wrapper(schema, self.msg_node)
 
 
 class SoapFault:

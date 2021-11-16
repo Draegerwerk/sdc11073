@@ -32,20 +32,19 @@ class ContextServiceClient(HostedServiceClient):
         tmp = ', '.join([f'{st.__class__.__name__}(descriptorHandle={st.descriptorHandle}, handle={st.Handle})'
                          for st in proposed_context_states])
         self._logger.info('set_context_state {}', tmp)
-        message = self._msg_factory.mk_setcontextstate_message(self._nsmapper,
-                                                               self.endpoint_reference.address, self.porttype,
-                                                               operation_handle, proposed_context_states)
+        message = self._msg_factory.mk_set_context_state_message(self._nsmapper,
+                                                                 self.endpoint_reference.address, self.porttype,
+                                                                 operation_handle, proposed_context_states)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def get_context_states(self, handles=None, request_manipulator=None) -> GetRequestResult:
         """
         :param handles: a list of handles
         """
-        message = self._msg_factory.mk_getcontextstates_message(
+        message = self._msg_factory.mk_get_contextstates_message(
             self.endpoint_reference.address, self.porttype, handles)
         received_message_data = self._call_get_method(
             message, 'GetContextStates', request_manipulator=request_manipulator)
-        received_message_data.p_msg.validate_body(self._bmm_schema)
         context_state_containers = received_message_data.msg_reader.read_context_states(received_message_data)
         return GetRequestResult(received_message_data, context_state_containers)
 
@@ -56,10 +55,9 @@ class ContextServiceClient(HostedServiceClient):
         :param context_type: Type to query
         :return:
         """
-        message = self._msg_factory.mk_getcontextstates_by_identification_message(
+        message = self._msg_factory.mk_get_contextstates_by_identification_message(
             self.endpoint_reference.address, self.porttype, identifications)
         received_message_data = self._call_get_method(
             message, 'GetContextStatesByIdentification', request_manipulator=request_manipulator)
-        received_message_data.p_msg.validate_body(self._bmm_schema)
         context_state_containers = received_message_data.msg_reader.read_context_states(received_message_data)
         return GetRequestResult(received_message_data, context_state_containers)

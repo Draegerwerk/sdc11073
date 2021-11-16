@@ -4,8 +4,8 @@ import logging
 import sys
 import time
 import unittest
-from itertools import product
 import urllib
+from itertools import product
 
 from lxml import etree as etree_
 
@@ -15,6 +15,7 @@ from sdc11073 import loghelper
 from sdc11073 import namespaces
 from sdc11073 import observableproperties
 from sdc11073 import pmtypes
+from sdc11073.definitions_base import SdcDeviceComponents, SdcClientComponents
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ClientMdibContainer
@@ -26,8 +27,6 @@ from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.httpserver import DeviceHttpServerThread
 from sdc11073.sdcdevice.subscriptionmgr import SubscriptionsManagerReferenceParam
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
-from sdc11073.definitions_base import SdcDeviceComponents, SdcClientComponents
-
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
@@ -52,16 +51,16 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
         location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_level=logging.INFO)
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         nsmapper = self.sdc_device.mdib.nsmapper
         nsmapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, self._locValidators)
-        self.provideRealtimeData(self.sdc_device)
+        self.provide_realtime_data(self.sdc_device)
 
-        time.sleep(0.5)  # allow full init of devices
+        time.sleep(0.5)  # allow init of devices to complete
 
         xAddr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcClient(xAddr[0],
@@ -93,23 +92,23 @@ class Test_Client_SomeDevice(unittest.TestCase):
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
 
     @staticmethod
-    def provideRealtimeData(sdcDevice):
+    def provide_realtime_data(sdc_device):
         paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
-        sdcDevice.mdib.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
+        sdc_device.mdib.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
 
         flow = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=1.2, sampleperiod=0.01)
-        sdcDevice.mdib.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
+        sdc_device.mdib.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
 
         co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveformperiod=1.0, sampleperiod=0.01)
-        sdcDevice.mdib.register_waveform_generator('0x34F05506', co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
+        sdc_device.mdib.register_waveform_generator('0x34F05506', co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
         # make SinusGenerator (0x34F05501) the annotator source
         annotation = pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))  # what is CodedValue for startOfInspirationCycle?
-        sdcDevice.mdib.register_annotation_generator(annotation,
+        sdc_device.mdib.register_annotation_generator(annotation,
                                                      trigger_handle='0x34F05501',
                                                      annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
 
-    def test_BasicConnect(self):
+    def test_basic_connect(self):
         # simply check that correct top node is returned
         for sdcClient, _ in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
@@ -130,47 +129,47 @@ class Test_Client_SomeDevice(unittest.TestCase):
             result = contextService.get_context_states()
             self.assertGreater(len(result.result), 0)
 
-    def test_renew_getStatus(self):
+    def test_renew_get_status(self):
         for sdcClient, sdcDevice in self._all_cl_dev:
             for s in sdcClient._subscription_mgr.subscriptions.values():
                 remaining_seconds = s.renew(1)  # one minute
                 self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
                 remaining_seconds = s.get_status()
                 self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
-                #verify that device returns fault message on wrong subscription identifier
-                if len(s.dev_reference_param) > 0:
+                # verify that device returns fault message on wrong subscription identifier
+                if s.dev_reference_param.has_parameters:
                     # ToDo: manipulate reference parameter
                     pass
                 else:
                     tmp = s._subscription_manager_address
                     try:
                         s._subscription_manager_address = urllib.parse.ParseResult(
-                            scheme=tmp.scheme, netloc=tmp.netloc, path=tmp.path+'xxx', params=tmp.params,
+                            scheme=tmp.scheme, netloc=tmp.netloc, path=tmp.path + 'xxx', params=tmp.params,
                             query=tmp.query, fragment=tmp.fragment)
                         # renew
-                        self.log_watcher.setPaused(True) # ignore logged error
+                        self.log_watcher.setPaused(True)  # ignore logged error
                         remaining_seconds = s.renew(1)  # one minute
                         self.log_watcher.setPaused(False)
-                        self.assertFalse(s.is_subscribed) # it did not work
+                        self.assertFalse(s.is_subscribed)  # it did not work
                         self.assertEqual(remaining_seconds, 0)
                         s.is_subscribed = True
                         # get_status
-                        self.log_watcher.setPaused(True) # ignore logged error
+                        self.log_watcher.setPaused(True)  # ignore logged error
                         remaining_seconds = s.get_status()
                         self.log_watcher.setPaused(False)
-                        self.assertFalse(s.is_subscribed) # it did not work
+                        self.assertFalse(s.is_subscribed)  # it did not work
                         self.assertEqual(remaining_seconds, 0)
                         # unsubscribe
-                        self.log_watcher.setPaused(True) # ignore logged error
+                        self.log_watcher.setPaused(True)  # ignore logged error
                         s.unsubscribe()
                         self.log_watcher.setPaused(False)
-                        self.assertFalse(s.is_subscribed) # it did not work
+                        self.assertFalse(s.is_subscribed)  # it did not work
 
                     finally:
                         s._subscription_manager_address = tmp
                         s.is_subscribed = True
 
-    def test_clientStop(self):
+    def test_client_stop(self):
         """ verify that sockets get closed"""
         for sdcClient, sdcDevice in self._all_cl_dev:
             cl_mdib = ClientMdibContainer(sdcClient)
@@ -186,7 +185,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             for s in subscriptions:
                 self.assertTrue(s.is_closed())
 
-    def test_deviceStop(self):
+    def test_device_stop(self):
         """ verify that sockets get closed"""
         for sdcClient, sdcDevice in self._all_cl_dev:
             cl_mdib = ClientMdibContainer(sdcClient)
@@ -204,7 +203,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             for s in subscriptions:
                 self.assertTrue(s.is_closed())
 
-    def test_clientStopNoUnsubscribe(self):
+    def test_client_stop_no_unsubscribe(self):
         self.log_watcher.setPaused(True)  # this test will have error logs, no check
         for sdcClient, sdcDevice in self._all_cl_dev:
             cl_mdib = ClientMdibContainer(sdcClient)
@@ -224,7 +223,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             for s in subscriptions:
                 self.assertTrue(s.is_closed())
 
-    def test_subscriptionEnd(self):
+    def test_subscription_end(self):
         for _, sdcDevice in self._all_cl_dev:
             sdcDevice.stop_all()
         time.sleep(1)
@@ -232,21 +231,21 @@ class Test_Client_SomeDevice(unittest.TestCase):
             sdcClient.stop_all()
         self._all_cl_dev = []
 
-    def test_getMdStateParameters(self):
+    def test_get_mdstate_parameters(self):
         """ verify that get_md_state correctly handles call parameters
         """
         for sdcClient, _ in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
             result = cl_getService.get_md_state(['0x34F05500'])
-            #print(etree_.tostring(node, pretty_print=True))
-            #states = list(node[0])  # that is /m:GetMdStateResponse/m:MdState/*
+            # print(etree_.tostring(node, pretty_print=True))
+            # states = list(node[0])  # that is /m:GetMdStateResponse/m:MdState/*
             self.assertEqual(len(result.result), 1)
             result = cl_getService.get_md_state(['nonexisting_handle'])
-            #print(etree_.tostring(node, pretty_print=True))
-            #states = list(node[0])  # that is /m:GetMdStateResponse/m:MdState/*
+            # print(etree_.tostring(node, pretty_print=True))
+            # states = list(node[0])  # that is /m:GetMdStateResponse/m:MdState/*
             self.assertEqual(len(result.result), 0)
 
-    def test_getMdDescriptionParameters(self):
+    def test_get_mddescription_parameters(self):
         """ verify that getMdDescription correctly handles call parameters
         """
         for sdcClient, _ in self._all_cl_dev:
@@ -278,7 +277,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             myPhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('ABC')], 1)
             now = time.time()
             with sdcDevice.mdib.transaction_manager(set_determination_time=False) as mgr:
-                # st = mgr.getMetricState(descriptorHandle)
                 st = mgr.get_state(descriptorHandle)
                 if st.MetricValue is None:
                     st.mk_metric_value()
@@ -387,8 +385,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                                                          list(pmtypes.AlertSignalPresence),
                                                                          list(pmtypes.AlertSignalPrimaryLocation),
                                                                          (0, 1, 2)):
-                coll = observableproperties.SingleValueCollector(sdcClient,
-                                                                 'episodic_alert_report')  # wait for the next EpisodicAlertReport
+                # wait for the next EpisodicAlertReport
+                coll = observableproperties.SingleValueCollector(sdcClient, 'episodic_alert_report')
                 with sdcDevice.mdib.transaction_manager() as mgr:
                     st = mgr.get_state(descriptorHandle)
                     st.ActivationState = _activationState
@@ -405,8 +403,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             states = sdcClient.msg_reader.read_periodic_alert_report(message_data)
             self.assertGreaterEqual(len(states), 1)
 
-            pass
-
     def test_set_patient_context_operation(self):
         """client calls corresponding operation.
         - verify that operation is successful.
@@ -422,9 +418,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 allow_none=True)
             self.assertIsNone(patientContextStateContainer)
 
-            myOperations = client_mdib.get_operation_descriptors_for_descriptor_handle(patientDescriptorContainer.handle,
-                                                                                      NODETYPE=namespaces.domTag(
-                                                                                          'SetContextStateOperationDescriptor'))
+            myOperations = client_mdib.get_operation_descriptors_for_descriptor_handle(
+                patientDescriptorContainer.handle,
+                NODETYPE=namespaces.domTag(
+                    'SetContextStateOperationDescriptor'))
             self.assertEqual(len(myOperations), 1)
             operation_handle = myOperations[0].handle
             print('Handle for SetContextSTate Operation = {}'.format(operation_handle))
@@ -483,7 +480,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             result = future.result(timeout=SET_TIMEOUT)
             state = result.invocation_state
             self.assertEqual(state, pmtypes.InvocationState.FINISHED)
-            patientContextStateContainer = client_mdib.context_states.handle.get_one(patientContextStateContainer.Handle)
+            patientContextStateContainer = client_mdib.context_states.handle.get_one(
+                patientContextStateContainer.Handle)
             self.assertEqual(patientContextStateContainer.CoreData.Givenname, 'Karla')
             self.assertEqual(patientContextStateContainer.CoreData.Familyname, 'Klammer')
 
@@ -546,7 +544,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             myPatient2 = sdcDevice.mdib.context_states.handle.get_one(myPatient.Handle)
             self.assertEqual(myPatient2.CoreData.Givenname, 'Karl123')
 
-    def test_setPatientContextOnDevice(self):
+    def test_set_patient_context_on_device(self):
         """device updates patient.
          verify that a notification device->client updates the client mdib."""
         for sdcClient, sdcDevice in self._all_cl_dev:
@@ -603,7 +601,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                              tr_MdibVersion)  # created at the beginning
             self.assertEqual(patientContextStateContainer.UnbindingMdibVersion, None)
 
-    def test_LocationContext(self):
+    def test_location_context(self):
         # initially the device shall have one location, and the client must have it in its mdib
         for sdcClient, sdcDevice in self._all_cl_dev:
             deviceMdib = sdcDevice.mdib
@@ -848,7 +846,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(updatedComponentState.StateVersion, before_stateversion + 1)
         self.assertEqual(updatedComponentState.OperatingHours, newOperatingHours)
 
-    def test_GetContainmentTree(self):
+    def test_get_containment_tree(self):
         self.log_watcher.setPaused(True)  # this will create an error log, but that shall be ignored
         for sdcClient, sdcDevice in self._all_cl_dev:
             self.assertRaises(HTTPReturnCodeError,
@@ -859,7 +857,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                               sdcClient.containment_tree_service_client.get_descriptor,
                               ['0x34F05500', '0x34F05501', '0x34F05506'])
 
-    def test_getSupportedLanguages(self):
+    def test_get_supported_languages(self):
         sdcDevice = self.sdc_device
         sdcClient = self.sdc_client
         storage = sdcDevice.localization_storage
@@ -873,7 +871,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertTrue('de-de' in languages)
         self.assertTrue('en-en' in languages)
 
-    def test_getLocalizedTexts(self):
+    def test_get_localized_texts(self):
         sdcDevice = self.sdc_device
         sdcClient = self.sdc_client
         storage = sdcDevice.localization_storage
@@ -899,17 +897,19 @@ class Test_Client_SomeDevice(unittest.TestCase):
         for t in texts:
             self.assertEqual(t.TextWidth, 'xs')
 
-        get_request_response = sdcClient.localization_service_client.get_localized_texts(refs=['a'], langs=['de-de'], version=1)
+        get_request_response = sdcClient.localization_service_client.get_localized_texts(refs=['a'], langs=['de-de'],
+                                                                                         version=1)
         texts = get_request_response.result
         self.assertEqual(len(texts), 1)
         self.assertEqual(texts[0].text, 'bla_a')
 
-        get_request_response = sdcClient.localization_service_client.get_localized_texts(refs=['b'], langs=['en-en'], version=2)
+        get_request_response = sdcClient.localization_service_client.get_localized_texts(refs=['b'], langs=['en-en'],
+                                                                                         version=2)
         texts = get_request_response.result
         self.assertEqual(len(texts), 1)
         self.assertEqual(texts[0].text, 'foo_bb')
 
-    def test_realtimeSamples(self):
+    def test_realtime_samples(self):
         # a random number for maxRealtimeSamples, not too big, otherwise we have to wait too long. 
         # But wait long enough to have at least one full waveform period in buffer for annotations.
         for sdcClient, sdcDevice in self._all_cl_dev:
@@ -940,7 +940,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 for w_a in with_annotation:
                     self.assertEqual(len(w_a.annotations), 1)
                     self.assertEqual(w_a.annotations[0].Type,
-                                     pmtypes.CodedValue('a', 'b'))  # like in provideRealtimeData
+                                     pmtypes.CodedValue('a', 'b'))  # like in provide_realtime_data
                 # the cycle time of the annotator source is 1.2 seconds. The difference of the observation times must be almost 1.2
                 self.assertAlmostEqual(with_annotation[1].determination_time - with_annotation[0].determination_time,
                                        1.2,
@@ -982,7 +982,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertLess(abs(age_data.min_age), 1)
             self.assertGreater(abs(age_data.max_age), 0.0)
 
-    def test_DescriptionModification(self):
+    def test_description_modification(self):
         descriptorHandle = '0x34F00100'
         logging.getLogger('sdc.device').setLevel(logging.DEBUG)
         for sdcClient, sdcDevice in self._all_cl_dev:
@@ -1059,7 +1059,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             cl_descriptorContainer = clientMdib.descriptions.handle.get_one(new_handle, allow_none=True)
             self.assertIsNone(cl_descriptorContainer)
 
-    def test_AlertConditionModification(self):
+    def test_alert_condition_modification(self):
         sdcClient = self.sdc_client
         sdcDevice = self.sdc_device
         alertDescriptorHandle = '0xD3C00100'
@@ -1177,7 +1177,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(dev_descriptor_count2, cl_descriptor_count2)
             self.assertEqual(dev_state_count2, cl_state_count2)
 
-    def test_clientmdib_observables(self):
+    def test_client_mdib_observables(self):
         for sdcClient, sdcDevice in self._all_cl_dev:
             clientMdib = ClientMdibContainer(sdcClient)
             clientMdib.init_mdib()
@@ -1225,7 +1225,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             data = coll.result(timeout=NOTIFICATION_TIMEOUT)
             self.assertGreater(len(data.keys()), 0)  # at least one real time sample array
 
-    def test_isConnected_unfriendly(self):
+    def test_is_connected_unfriendly(self):
         """ Test device stop without sending subscription end messages"""
         self.log_watcher.setPaused(True)
         time.sleep(1)
@@ -1243,7 +1243,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         for sdcClient, sdcDevice in self._all_cl_dev:
             sdcClient.stop_all(unsubscribe=False)  # without unsubscribe, is faster and would make no sense anyway
 
-    def test_isConnected_friendly(self):
+    def test_is_connected_friendly(self):
         """ Test device stop with sending subscription end messages"""
         self.log_watcher.setPaused(True)
         time.sleep(1)
@@ -1332,13 +1332,13 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         self.sdcDevice_1.start_all(shared_http_server=self.httpserver)
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdcDevice_1.set_location(location, self._locValidators)
-        self.provideRealtimeData(self.sdcDevice_1)
+        self.provide_realtime_data(self.sdcDevice_1)
 
         self.sdcDevice_2 = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<dev2> ')
         self.sdcDevice_2.start_all(shared_http_server=self.httpserver)
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdcDevice_2.set_location(location, self._locValidators)
-        self.provideRealtimeData(self.sdcDevice_2)
+        self.provide_realtime_data(self.sdcDevice_2)
 
         time.sleep(0.5)  # allow full init of devices
 
@@ -1382,39 +1382,23 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
 
     @staticmethod
-    def provideRealtimeData(sdcDevice):
+    def provide_realtime_data(sdc_device):
         paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
-        sdcDevice.mdib.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
+        sdc_device.mdib.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
 
         flow = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=1.2, sampleperiod=0.01)
-        sdcDevice.mdib.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
+        sdc_device.mdib.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
 
         co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveformperiod=1.0, sampleperiod=0.01)
-        sdcDevice.mdib.register_waveform_generator('0x34F05506', co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
+        sdc_device.mdib.register_waveform_generator('0x34F05506', co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
         # make SinusGenerator (0x34F05501) the annotator source
         annotation = pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))  # what is CodedValue for startOfInspirationCycle?
-        sdcDevice.mdib.register_annotation_generator(annotation,
+        sdc_device.mdib.register_annotation_generator(annotation,
                                                      trigger_handle='0x34F05501',
                                                      annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
 
-    # def test_BasicConnect(self):
-    #     # simply check that correct top node is returned
-    #     for sdcClient, _ in self._all_cl_dev:
-    #         cl_getService = sdcClient.client('Get')
-    #         node = cl_getService.get_md_description_node()
-    #         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdDescriptionResponse')))
-    #
-    #         node = cl_getService.get_mdib_node()
-    #         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
-    #
-    #         node = cl_getService.get_md_state_node()
-    #         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdStateResponse')))
-    #
-    #         contextService = sdcClient.client('Context')
-    #         result = contextService.get_context_states()
-    #         self.assertGreater(len(result.result), 0)
-    def test_BasicConnect(self):
+    def test_basic_connect(self):
         # simply check that correct top node is returned
         for sdcClient, _ in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
@@ -1452,7 +1436,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         self.sdc_device.start_all()
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, self._locValidators)
-        self.provideRealtimeData(self.sdc_device)
+        self.provide_realtime_data(self.sdc_device)
 
         time.sleep(0.5)  # allow full init of devices
 
@@ -1488,7 +1472,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
 
     @staticmethod
-    def provideRealtimeData(sdcDevice):
+    def provide_realtime_data(sdcDevice):
         paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
         sdcDevice.mdib.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
 
@@ -1504,7 +1488,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
                                                      trigger_handle='0x34F05501',
                                                      annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
 
-    def test_BasicConnect(self):
+    def test_basic_connect(self):
         # simply check that correct top node is returned
         for sdcClient, _ in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
@@ -1579,32 +1563,32 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
 
-    def test_BasicConnect(self):
+    def test_basic_connect(self):
         # simply check that correct top node is returned
         cl_getService = self.sdc_client.client('Get')
         get_request_result = cl_getService.get_md_description()
-        node =  get_request_result.p_msg.msg_node
+        node = get_request_result.p_msg.msg_node
         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdDescriptionResponse')))
         self.assertEqual(get_request_result.msg_name, 'GetMdDescriptionResponse')
 
         get_request_result = cl_getService.get_mdib()
-        node =  get_request_result.p_msg.msg_node
+        node = get_request_result.p_msg.msg_node
         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdibResponse')))
         self.assertEqual(get_request_result.msg_name, 'GetMdibResponse')
 
         get_request_result = cl_getService.get_md_state()
-        node =  get_request_result.p_msg.msg_node
+        node = get_request_result.p_msg.msg_node
         self.assertEqual(node.tag, str(namespaces.msgTag('GetMdStateResponse')))
         self.assertEqual(get_request_result.msg_name, 'GetMdStateResponse')
 
         contextService = self.sdc_client.client('Context')
         get_request_result = contextService.get_context_states()
         self.assertGreater(len(get_request_result.result), 0)
-        node =  get_request_result.p_msg.msg_node
+        node = get_request_result.p_msg.msg_node
         self.assertEqual(node.tag, str(namespaces.msgTag('GetContextStatesResponse')))
         self.assertEqual(get_request_result.msg_name, 'GetContextStatesResponse')
 
-    def test_renew_getStatus(self):
+    def test_renew_get_status(self):
         """ If renew and get_status work, then reference parameters based dispatching works. """
         for s in self.sdc_client._subscription_mgr.subscriptions.values():
             remaining_seconds = s.renew(1)  # one minute
@@ -1612,7 +1596,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
             remaining_seconds = s.get_status()
             self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
 
-    def test_subscriptionEnd(self):
+    def test_subscription_end(self):
         for _, sdcDevice in self._all_cl_dev:
             sdcDevice.stop_all()
         time.sleep(1)

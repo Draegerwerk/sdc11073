@@ -61,7 +61,7 @@ class _ClSubscription:
 
     def _handle_subscribe_response(self, subscribe_result):
         # Check content of response; raise Error if subscription was not successful
-        self.dev_reference_param = subscribe_result.reference_params
+        self.dev_reference_param = subscribe_result.reference_param
         self.expire_at = time.time() + subscribe_result.expire_seconds
         self._subscription_manager_address = subscribe_result.subscription_manager_address
         self.is_subscribed = True
@@ -88,15 +88,6 @@ class _ClSubscription:
             self._handle_subscribe_response(response_data)
         except HTTPReturnCodeError:
             self._logger.error(f'could not subscribe: {HTTPReturnCodeError}')
-
-    def _add_device_references(self, envelope):
-        """ add references for requests to device (renew, getstatus, unsubscribe)"""
-        if self.dev_reference_param is not None:
-            for element in self.dev_reference_param:
-                element_ = copy.copy(element)
-                # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
-                element_.set(wsaTag('IsReferenceParameter'), 'true')
-                envelope.add_reference_parameter(element_)
 
     def _mk_renew_message(self, expire_minutes):
         return self._msg_factory.mk_renew_message(
@@ -146,7 +137,7 @@ class _ClSubscription:
             raise RuntimeError(f'unsubscribe: unexpected response action: {received_message_data.p_msg.raw_data}')
 
     def _mk_get_status_message(self):
-        return self._msg_factory.mk_getstatus_message(
+        return self._msg_factory.mk_get_status_message(
             urllib.parse.urlunparse(self._subscription_manager_address),
             dev_reference_param=self.dev_reference_param)
 

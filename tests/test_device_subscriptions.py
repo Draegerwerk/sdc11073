@@ -98,7 +98,6 @@ class TestDeviceSubscriptions(unittest.TestCase):
     def test_waveformSubscription(self):
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription([sdcDevice.mdib.sdc_definitions.Actions.Waveform],
-                                                       sdcDevice.mdib.schema_validators,
                                                        sdcDevice.msg_factory)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 
@@ -125,7 +124,6 @@ class TestDeviceSubscriptions(unittest.TestCase):
         # directly inject a subscription event, this test is not about starting subscriptions
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription([sdcDevice.mdib.sdc_definitions.Actions.EpisodicMetricReport],
-                                                       sdcDevice.mdib.schema_validators,
                                                        sdcDevice.msg_factory)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 
@@ -141,22 +139,17 @@ class TestDeviceSubscriptions(unittest.TestCase):
             self.assertEqual(len(testSubscr.reports), 1)
             response = testSubscr.reports[0]
             self._verify_proper_namespaces(response)
-            response.validate_body(sdcDevice.mdib.schema_validators.message_schema)
 
             # simulate data transfer from device to client
             xml_bytes = self.sdc_device.msg_factory.serialize_message(response)
             received_response_message = self.sdc_device.msg_reader.read_received_message(xml_bytes)
             # verify that header contains the identifier of client subscription
-            idents = received_response_message.p_msg.header_node.findall(namespaces.wseTag('Identifier'))
-            self.assertEqual(len(idents), 1)
-            self.assertEqual(idents[0].text, mockstuff.TestDevSubscription.notifyRef)
 
     def test_episodicContextReportEvent(self):
         ''' verify that an event message is sent to subscriber and that message is valid'''
         # directly inject a subscription event, this test is not about starting subscriptions
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription([sdcDevice.mdib.sdc_definitions.Actions.EpisodicContextReport],
-                                                       sdcDevice.mdib.schema_validators,
                                                        sdcDevice.msg_factory)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
             patientContextDescriptor = sdcDevice.mdib.descriptions.NODETYPE.get_one(
@@ -168,12 +161,10 @@ class TestDeviceSubscriptions(unittest.TestCase):
             self.assertEqual(len(testSubscr.reports), 1)
             response = testSubscr.reports[0]
             self._verify_proper_namespaces(response)
-            response.validate_body(sdcDevice.mdib.schema_validators.message_schema)
 
     def test_notifyOperation(self):
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription([sdcDevice.mdib.sdc_definitions.Actions.OperationInvokedReport],
-                                                       sdcDevice.mdib.schema_validators,
                                                        sdcDevice.msg_factory)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 

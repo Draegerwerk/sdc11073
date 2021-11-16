@@ -7,7 +7,7 @@ from lxml import etree as etree_
 
 from .. import multikey
 from .. import observableproperties as properties
-from ..definitions_base import SchemaValidators, BaseDefinitions
+from ..definitions_base import BaseDefinitions
 from ..etc import apply_map
 from ..namespaces import DocNamespaceHelper, msgTag, domTag
 from ..pmtypes import CodedValue, DEFAULT_CODING_SYSTEM, Coding
@@ -176,7 +176,6 @@ class MdibContainer:
         :param sdc_definitions: a class derived from Definitions_Base
         """
         self.sdc_definitions = sdc_definitions
-        self.schema_validators = SchemaValidators(sdc_definitions)  # used for validation
         self._logger = None  # must to be instantiated by derived class
         self.nsmapper = DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file
         self.mdib_version = 0

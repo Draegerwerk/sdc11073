@@ -12,8 +12,8 @@ class SetServiceClient(HostedServiceClient):
         """
         self._logger.info('set_numeric_value operation_handle={} requested_numeric_value={}',
                           operation_handle, requested_numeric_value)
-        envelope = self._mk_requested_numeric_value_message(operation_handle, requested_numeric_value)
-        return self._call_operation(envelope, request_manipulator=request_manipulator)
+        message = self._mk_set_numeric_value_message(operation_handle, requested_numeric_value)
+        return self._call_operation(message, request_manipulator=request_manipulator)
 
     def set_string(self, operation_handle, requested_string, request_manipulator=None) -> Future:
         """ call SetString Method of device
@@ -23,7 +23,7 @@ class SetServiceClient(HostedServiceClient):
         """
         self._logger.info('set_string operation_handle={} requested_string={}',
                           operation_handle, requested_string)
-        envelope = self._mk_requested_string_message(operation_handle, requested_string)
+        envelope = self._mk_set_string_message(operation_handle, requested_string)
         return self._call_operation(envelope, request_manipulator=request_manipulator)
 
     def set_alert_state(self, operation_handle, proposed_alert_state, request_manipulator=None) -> Future:
@@ -64,7 +64,6 @@ class SetServiceClient(HostedServiceClient):
                                                         self.porttype,
                                                         operation_handle,
                                                         arguments)
-        message.validate_body(self._bmm_schema)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def set_component_state(self, operation_handle, proposed_component_states, request_manipulator=None) -> Future:
@@ -77,30 +76,30 @@ class SetServiceClient(HostedServiceClient):
         tmp = ', '.join([f'{st.__class__.__name__} (descriptorHandle={st.descriptorHandle})'
                          for st in proposed_component_states])
         self._logger.info('set_component_state {}', tmp)
-        message = self._msg_factory.mk_setcomponentstate_message(self._nsmapper, self.endpoint_reference.address,
+        message = self._msg_factory.mk_set_component_state_message(self._nsmapper, self.endpoint_reference.address,
                                                                  self.porttype,
                                                                  operation_handle, proposed_component_states)
         self._logger.debug('set_component_state sends {}', lambda: message.serialize_message(pretty=True))
         return self._call_operation(message, request_manipulator=request_manipulator)
 
-    def _mk_requested_numeric_value_message(self, operation_handle, requested_numeric_value):
-        """create soap envelope, but do not send it. Used for unit testing"""
-        return self._msg_factory.mk_requestednumericvalue_message(
+    def _mk_set_numeric_value_message(self, operation_handle, requested_numeric_value):
+        """create message, but do not send it. Used for unit testing"""
+        return self._msg_factory.mk_set_value_message(
             self.endpoint_reference.address, self.porttype, operation_handle, requested_numeric_value)
 
-    def _mk_requested_string_message(self, operation_handle, requested_string):
-        """create soap envelope, but do not send it. Used for unit testing"""
-        return self._msg_factory.mk_requestedstring_message(
+    def _mk_set_string_message(self, operation_handle, requested_string):
+        """create message, but do not send it. Used for unit testing"""
+        return self._msg_factory.mk_set_string_message(
             self.endpoint_reference.address, self.porttype, operation_handle, requested_string)
 
     def _mk_set_alert_message(self, operation_handle, proposed_alert_states):
-        return self._msg_factory.mk_setalert_message(self._nsmapper,
+        return self._msg_factory.mk_set_alert_message(self._nsmapper,
                                                      self.endpoint_reference.address, self.porttype, operation_handle,
                                                      proposed_alert_states)
 
     def _mk_set_metric_state_message(self, operation_handle, proposed_metric_states):
-        """create soap envelope, but do not send it. Used for unit testing
+        """create message, but do not send it. Used for unit testing
         :param proposed_metric_states: a list of AbstractMetricStateContainer or derived classes """
-        return self._msg_factory.mk_setmetricstate_message(self._nsmapper,
+        return self._msg_factory.mk_set_metric_state_message(self._nsmapper,
                                                            self.endpoint_reference.address, self.porttype,
                                                            operation_handle, proposed_metric_states)

@@ -1,4 +1,3 @@
-import traceback
 from .servicesbase import DPWSPortTypeImpl, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_two_way_operation
 from .servicesbase import msg_prefix
 
@@ -68,7 +67,6 @@ class GetService(DPWSPortTypeImpl):
                 mdib_version, sequence_id, state_containers, self._mdib.nsmapper)
         self._logger.debug('_on_get_md_state returns {}',
                            lambda: response.serialize_message())
-        response.validate_body(self._bmm_schema)
         return response
 
     def _on_get_mdib(self, request_data):
@@ -76,11 +74,6 @@ class GetService(DPWSPortTypeImpl):
         response = self._sdc_device.msg_factory.mk_get_mdib_response_message(
             request_data.message_data, self._mdib, self._sdc_device.contextstates_in_getmdib)
         self._logger.debug('_on_get_mdib returns {}', lambda: response.serialize_message())
-        try:
-            response.validate_body(self._bmm_schema)
-        except Exception:
-            self._logger.error('_on_get_mdib: invalid body:{}', traceback.format_exc())
-            raise
         return response
 
     def _on_get_md_description(self, request_data):
@@ -94,17 +87,14 @@ class GetService(DPWSPortTypeImpl):
         # => if at least one handle matches any descriptor, the one mds is returned, otherwise empty payload
 
         self._logger.debug('_on_get_md_description')
-        requested_handles = self._sdc_device.msg_reader.read_getmddescription_request(request_data.message_data)
+        requested_handles = request_data.message_data.msg_reader.read_getmddescription_request(request_data.message_data)
         if len(requested_handles) > 0:
             self._logger.info('_on_get_md_description requested Handles:{}', requested_handles)
-        response = self._sdc_device.msg_factory.mk_getmddescription_response_message(
+        response = self._sdc_device.msg_factory.mk_get_mddescription_response_message(
             request_data.message_data, self._sdc_device.mdib, requested_handles
         )
-        # self._logger.debug('_on_get_md_description returns {}', lambda: response_envelope.as_xml(pretty=False))
         self._logger.debug('_on_get_md_description returns {}',
                            lambda: response.serialize_message())
-
-        response.validate_body(self._bmm_schema)
         return response
 
     def add_wsdl_port_type(self, parent_node):

@@ -13,7 +13,7 @@ from .. import compression
 from .. import loghelper
 from .. import netconn
 from .. import observableproperties as properties
-from ..definitions_base import ProtocolsRegistry, SchemaValidators
+from ..definitions_base import ProtocolsRegistry
 from ..namespaces import EventingActions
 from ..pysoap.soapclient import SoapClient
 
@@ -44,14 +44,10 @@ class HostDescription:
 
 
 class HostedServiceDescription:
-    VALIDATE_MEX = False  # workaraound as long as validation error due to missing dpws schema is not solved
-
-    def __init__(self, service_id, endpoint_address, validate, schema_validators, msg_reader, msg_factory,
+    def __init__(self, service_id, endpoint_address, msg_reader, msg_factory,
                  log_prefix=''):
         self._endpoint_address = endpoint_address
         self.service_id = service_id
-        self._validate = validate
-        self._schema_validators = schema_validators
         self._msg_reader = msg_reader
         self._msg_factory = msg_factory
         self.log_prefix = log_prefix
@@ -62,20 +58,12 @@ class HostedServiceDescription:
         self._url = urllib.parse.urlparse(endpoint_address)
         self.services = {}
 
-    @property
-    def _mex_schema(self):
-        return None if not self._validate else self._schema_validators.mex_schema
-
     def read_metadata(self, soap_client):
-        created_message = self._msg_factory.mk_getmetadata_message(self._endpoint_address)
-        if self.VALIDATE_MEX:
-            created_message.validate_body(self._mex_schema)
+        created_message = self._msg_factory.mk_get_metadata_message(self._endpoint_address)
         message_data = soap_client.post_message_to(self._url.path,
                                                    created_message,
                                                    msg=f'<{self.service_id}> read_metadata')
         endpoint_envelope = message_data.p_msg
-        if self.VALIDATE_MEX:
-            endpoint_envelope.validate_body(self._mex_schema)
         self.meta_data = self._msg_reader.read_get_metadata_response(message_data)
         self._read_wsdl(soap_client, self.meta_data.wsdl_location)
 
@@ -171,7 +159,6 @@ class SdcClient:
         self._components = copy.deepcopy(sdc_definitions.DefaultSdcClientComponents)
         if specific_components is not None:
             self._components.merge(specific_components)
-        self._schema_validators = SchemaValidators(self.sdc_definitions)
         splitted = urllib.parse.urlsplit(self._device_location)
         self._device_uses_https = splitted.scheme.lower() == 'https'
 
@@ -202,9 +189,9 @@ class SdcClient:
         self.binary_peer_certificate = None
         self.all_subscribed = False
         msg_reader_cls = self._components.msg_reader_class
-        self.msg_reader = msg_reader_cls(self.sdc_definitions, self._logger, 'msg_reader')
+        self.msg_reader = msg_reader_cls(self.sdc_definitions, self._logger, 'msg_reader', validate=validate)
         msg_factory_cls = self._components.msg_factory_class
-        self._msg_factory = msg_factory_cls(self.sdc_definitions, self._logger)
+        self._msg_factory = msg_factory_cls(self.sdc_definitions, self._logger, validate=validate)
         notifications_dispatcher_cls = self._components.notifications_dispatcher_class
         self._notifications_dispatcher = notifications_dispatcher_cls(self, self._logger)
 
@@ -213,8 +200,6 @@ class SdcClient:
         if mdib is not None and self._mdib is not None:
             raise RuntimeError('SdcClient has already an registered mdib')
         self._mdib = None if mdib is None else weakref.ref(mdib)
-        if mdib is not None:
-            mdib.schema_validators = self._schema_validators
         if self.client('Set') is not None:
             self.client('Set').register_mdib(mdib)
         if self.client('Context') is not None:
@@ -452,7 +437,7 @@ class SdcClient:
             ns_types = [t.split(':') for t in hosted.types]
             h_descr = HostedServiceDescription(
                 hosted.service_id, endpoint_reference,
-                self._validate, self._schema_validators, self.msg_reader, self._msg_factory, self.log_prefix)
+                self.msg_reader, self._msg_factory, self.log_prefix)
             self.hosted_services[hosted.service_id] = h_descr
             h_descr.read_metadata(soap_client)
             for _, porttype in ns_types:
@@ -462,8 +447,7 @@ class SdcClient:
 
     def _mk_hosted_service_client(self, port_type, soap_client, hosted):
         cls = self._components.service_handlers[port_type]
-        return cls(soap_client, self._msg_factory, hosted, port_type, self._validate,
-                   self.sdc_definitions, self._schema_validators, self.log_prefix)
+        return cls(soap_client, self._msg_factory, hosted, port_type, self.sdc_definitions, self.log_prefix)
 
     def _start_event_sink(self, async_dispatch):
         ssl_context = self._ssl_context if self._device_uses_https else None

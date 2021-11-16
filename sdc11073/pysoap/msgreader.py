@@ -1,21 +1,22 @@
 import copy
 import urllib
-from abc import abstractmethod, ABC
+import traceback
 from collections import namedtuple
-from typing import List
-
+from typing import List, Union
+from dataclasses import dataclass
 from lxml import etree as etree_
 
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
-from .soapenvelope import SoapFault, ReceivedSoapMessage
+from .soapenvelope import SoapFault, SoapFaultCode, ReceivedSoapMessage
 from .. import isoduration
-from ..addressing import EndpointReferenceType, Address
+from ..addressing import EndpointReferenceType, Address, ReferenceParameters
 from ..compression import CompressionHandler
 from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
 from ..dpws import ThisDevice, ThisModel, HostServiceType, HostedServiceType, RelationShip
 from ..metadata import MetaData
-
+from ..definitions_base import mk_schema_validator, SchemaResolver
+from ..httprequesthandler import HTTPRequestHandlingError
 # pylint: disable=no-self-use
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
@@ -36,15 +37,32 @@ class MdibStructureError(Exception):
 
 OperationRequest = namedtuple('OperationRequest', 'operation_handle argument')
 OperationResult = namedtuple('OperationResult', 'transaction_id invocation_state error errorMsg soapEnvelope')
-SubscribeResult = namedtuple('SubScribeResult', 'subscription_manager_address, reference_params, expire_seconds')
+#SubscribeResult = namedtuple('SubScribeResult', 'subscription_manager_address reference_param expire_seconds')
 SubscriptionEndResult = namedtuple('SubscriptionEndResult', 'status_list reason_list reference_parameter_list')
 LocalizedTextsRequest = namedtuple('LocalizedTextsRequest',
                                    'requested_handles requested_versions requested_langs text_widths number_of_lines')
-SubscribeRequest = namedtuple('SubscribeRequest',
-                              'accepted_encodings subscription_filters notify_to_address notify_ref_node end_to_address end_to_ref_node mode expires')
+#SubscribeRequest = namedtuple('SubscribeRequest',
+#                              'accepted_encodings subscription_filters notify_to_address notify_ref_node end_to_address end_to_ref_node mode expires')
 
 
-class ReceivedMessageData:
+@dataclass(frozen=True)
+class SubscribeRequest:
+    accepted_encodings: List[str]
+    subscription_filters: List[str]
+    notify_to_address: str
+    notify_ref_params: ReferenceParameters
+    end_to_address: Union[str, None]
+    end_to_ref_params: Union[ReferenceParameters, None]
+    mode: str
+    expires: float
+
+@dataclass(frozen=True)
+class SubscribeResult:
+    subscription_manager_address: str
+    reference_param: ReferenceParameters
+    expire_seconds: float
+
+class ReceivedMessage:
     """This class contains all data of a received Message"""
 
     def __init__(self, reader_instance, parsed_message):
@@ -58,7 +76,7 @@ class ReceivedMessageData:
 
 
 class PayloadData:
-    """Similar to ReceivedSoapMessage, but it is only has the body of the soap envelope, no addressing, action etc."""
+    """Similar to ReceivedMessage, but it is only works with the body of the soap envelope, no addressing, action etc."""
 
     def __init__(self, xml_string):
         parser = etree_.ETCompatXMLParser(resolve_entities=False)
@@ -72,25 +90,14 @@ class PayloadData:
         self.msg_name = etree_.QName(self.msg_node.tag)
 
 
-class AbstractMessageReader(ABC):
-
-    def __init__(self, sdc_definitions, logger, log_prefix=''):
+class MessageReader:
+    """ This class does all the conversions from DOM trees (body of SOAP messages) to MDIB objects."""
+    def __init__(self, sdc_definitions, logger, log_prefix='', validate=True):
         self.sdc_definitions = sdc_definitions
         self._logger = logger
         self._log_prefix = log_prefix
-
-    @abstractmethod
-    def read_received_message(self, xml_text: bytes) -> ReceivedMessageData:
-        """
-
-        :param xml_text:
-        :param parser_cls:
-        :return:
-        """
-
-
-class MessageReader(AbstractMessageReader):
-    """ This class does all the conversions from DOM trees (body of SOAP messages) to MDIB objects."""
+        self._validate = validate
+        self._xml_schema = mk_schema_validator(SchemaResolver(sdc_definitions))
 
     def get_descriptor_container_class(self, qname):
         return self.sdc_definitions.get_descriptor_container_class(qname)
@@ -98,15 +105,19 @@ class MessageReader(AbstractMessageReader):
     def get_state_container_class(self, qname):
         return self.sdc_definitions.get_state_container_class(qname)
 
-    def read_received_message(self, xml_text: bytes) -> ReceivedMessageData:
+    def read_received_message(self, xml_text: bytes, validate:bool = True) -> ReceivedMessage:
         """Reads complete message with addressing, message_id, payload,..."""
         normalized_xml = self.sdc_definitions.normalize_xml_text(xml_text)
         parser = etree_.ETCompatXMLParser(resolve_entities=False)
         doc_root = etree_.fromstring(normalized_xml, parser=parser)
+        if validate:
+            self._validate_node(doc_root)
 
         message = ReceivedSoapMessage(normalized_xml, doc_root)
+        if message.msg_node is not None and validate:
+            self._validate_node(message.msg_node)
         message.address = self._mk_address_from_header(message.header_node)
-        data = ReceivedMessageData(self, message)
+        data = ReceivedMessage(self, message)
         data.action = message.address.action
         q_name = message.msg_name
         data.msg_name = q_name.localname if q_name else None
@@ -115,16 +126,17 @@ class MessageReader(AbstractMessageReader):
             data.sequence_id = message.msg_node.get('SequenceId')
         return data
 
-    def read_payload_data(self, xml_text: bytes) -> ReceivedMessageData:
+    def read_payload_data(self, xml_text: bytes) -> ReceivedMessage:
         """ Read only payload part of a message"""
         normalized_xml = self.sdc_definitions.normalize_xml_text(xml_text)
         payload  = PayloadData(normalized_xml)
-        data = ReceivedMessageData(self, payload)
+        data = ReceivedMessage(self, payload)
         q_name = payload.msg_name
         data.msg_name = q_name.localname if q_name else None
         if payload.msg_node is not None:
             data.mdib_version = int(payload.msg_node.get('MdibVersion', '0'))
             data.sequence_id = payload.msg_node.get('SequenceId')
+            self._validate_node(payload.msg_node)
         return data
 
     def read_get_mdib_response(self, received_message_data):
@@ -278,6 +290,18 @@ class MessageReader(AbstractMessageReader):
                 containers.append(self._mk_state_container_from_node(child_node))
         return containers
 
+    def _validate_node(self, node):
+        if self._validate:
+            try:
+                self._xml_schema.assertValid(node)
+            except etree_.DocumentInvalid as ex:
+                self._logger.error(traceback.format_exc())
+                self._logger.error(etree_.tostring(node, pretty_print=True).decode('utf-8'))
+                soap_fault = SoapFault(code=SoapFaultCode.SENDER, reason=f'{ex}')
+                raise HTTPRequestHandlingError(status=400,
+                                               reason='document invalid',
+                                               soap_fault=soap_fault) from ex
+
 
 class MessageReaderClient(MessageReader):
 
@@ -285,7 +309,7 @@ class MessageReaderClient(MessageReader):
         descriptors = self._read_mddescription_node(received_message_data.p_msg.msg_node)
         return descriptors
 
-    def read_get_mdstate_response(self, message_data: ReceivedMessageData):
+    def read_get_mdstate_response(self, message_data: ReceivedMessage):
         state_containers = []
         mdstate_nodes = message_data.p_msg.msg_node.xpath('//msg:MdState', namespaces=namespaces.nsmap)
         if mdstate_nodes:
@@ -294,7 +318,7 @@ class MessageReaderClient(MessageReader):
                 state_containers.append(self._mk_state_container_from_node(state_node))
         return state_containers
 
-    def read_context_states(self, message_data: ReceivedMessageData):
+    def read_context_states(self, message_data: ReceivedMessage):
         """ Creates Context State Containers from message .
         :return: a list of state containers
         """
@@ -310,7 +334,7 @@ class MessageReaderClient(MessageReader):
                 self._logger.error('{}read_context_states: cannot create: {}', self._log_prefix, ex)
         return states
 
-    def read_get_localized_text_response(self, message_data: ReceivedMessageData) -> List[pmtypes.LocalizedText]:
+    def read_get_localized_text_response(self, message_data: ReceivedMessage) -> List[pmtypes.LocalizedText]:
         result = []
         response_node = message_data.p_msg.msg_node
         if response_node is not None:
@@ -328,7 +352,6 @@ class MessageReaderClient(MessageReader):
         return result
 
     def read_waveform_report(self, message_data):
-        #return self._read_waveform_report_node(message_data.p_msg.msg_node)
         states = []
         report_node = message_data.p_msg.msg_node
         all_samplearrays = list(report_node)
@@ -336,19 +359,6 @@ class MessageReaderClient(MessageReader):
             if samplearray.tag.endswith('State'):  # ignore everything else, e.g. Extension
                 states.append(self._mk_realtime_sample_array_states(samplearray))
         return states
-
-    # def _read_waveform_report_node(self, report_node):
-    #     """
-    #     Parses a waveform report
-    #     :param report_node: A waveform report etree
-    #     :return: a list of StateContainer objects
-    #     """
-    #     states = []
-    #     all_samplearrays = list(report_node)
-    #     for samplearray in all_samplearrays:
-    #         if samplearray.tag.endswith('State'):  # ignore everything else, e.g. Extension
-    #             states.append(self._mk_realtime_sample_array_states(samplearray))
-    #     return states
 
     def read_periodic_metric_report(self, message_data):
         return self._read_metric_report(message_data.p_msg.msg_node)
@@ -464,8 +474,7 @@ class MessageReaderClient(MessageReader):
                 descriptors[modification_type][1].append(state_container)
         return descriptors_list
 
-    @staticmethod
-    def read_operation_response(message_data: ReceivedMessageData) -> OperationResult:
+    def read_operation_response(self, message_data: ReceivedMessage) -> OperationResult:
         msg_node = message_data.p_msg.msg_node
         transaction_id = msg_node.xpath('msg:InvocationInfo/msg:TransactionId/text()',
                                         namespaces=namespaces.nsmap)[0]
@@ -478,8 +487,7 @@ class MessageReaderClient(MessageReader):
         return OperationResult(int(transaction_id), invocation_state, ''.join(errors), ''.join(error_msgs),
                                message_data.p_msg)
 
-    @staticmethod
-    def read_operation_invoked_report(message_data: ReceivedMessageData) -> OperationResult:
+    def read_operation_invoked_report(self, message_data: ReceivedMessage) -> OperationResult:
         msg_node = message_data.p_msg.msg_node
         transaction_id = msg_node.xpath('msg:ReportPart/msg:InvocationInfo/msg:TransactionId/text()',
                                         namespaces=namespaces.nsmap)[0]
@@ -492,20 +500,19 @@ class MessageReaderClient(MessageReader):
         return OperationResult(int(transaction_id), invocation_state, ''.join(errors), ''.join(error_msgs),
                                message_data.p_msg)
 
-    @staticmethod
-    def read_subscribe_response(message_data: ReceivedMessageData) -> SubscribeResult:
+    def read_subscribe_response(self, message_data: ReceivedMessage) -> SubscribeResult:
         msg_node = message_data.p_msg.msg_node
         address = msg_node.xpath('wse:SubscriptionManager/wsa:Address/text()', namespaces=namespaces.nsmap)
-        reference_params = msg_node.xpath('wse:SubscriptionManager/wsa:ReferenceParameters',
+        reference_params= msg_node.xpath('wse:SubscriptionManager/wsa:ReferenceParameters',
                                           namespaces=namespaces.nsmap)
+        reference_param = None if len(reference_params) == 0 else reference_params[0]
         expires = msg_node.xpath('wse:Expires/text()', namespaces=namespaces.nsmap)
 
         subscription_manager_address = urllib.parse.urlparse(address[0])
         expire_seconds = isoduration.parse_duration(expires[0])
-        return SubscribeResult(subscription_manager_address, reference_params, expire_seconds)
+        return SubscribeResult(subscription_manager_address, ReferenceParameters(reference_param), expire_seconds)
 
-    @staticmethod
-    def read_renew_response(message_data: ReceivedMessageData) -> float:
+    def read_renew_response(self, message_data: ReceivedMessage) -> [float, None]:
         expires = message_data.p_msg.body_node.xpath('wse:RenewResponse/wse:Expires/text()',
                                                      namespaces=namespaces.nsmap)
         if len(expires) == 0:
@@ -513,8 +520,7 @@ class MessageReaderClient(MessageReader):
         expire_seconds = isoduration.parse_duration(expires[0])
         return expire_seconds
 
-    @staticmethod
-    def read_get_status_response(message_data: ReceivedMessageData) -> float:
+    def read_get_status_response(self, message_data: ReceivedMessage) -> [float, None]:
         expires = message_data.p_msg.body_node.xpath('wse:GetStatusResponse/wse:Expires/text()',
                                                      namespaces=namespaces.nsmap)
         if len(expires) == 0:
@@ -522,8 +528,7 @@ class MessageReaderClient(MessageReader):
         expire_seconds = isoduration.parse_duration(expires[0])
         return expire_seconds
 
-    @staticmethod
-    def read_subscription_end_message(message_data: ReceivedMessageData) -> SubscriptionEndResult:
+    def read_subscription_end_message(self, message_data: ReceivedMessage) -> SubscriptionEndResult:
         body_node = message_data.p_msg.body_node
         status_list = body_node.xpath('wse:SubscriptionEnd/wse:Status/text()', namespaces=namespaces.nsmap)
         reason_list = body_node.xpath('wse:SubscriptionEnd/wse:Reason/text()', namespaces=namespaces.nsmap)
@@ -535,7 +540,7 @@ class MessageReaderClient(MessageReader):
         """ make am ElementTree instance"""
         return etree_.fromstring(wsdl_string, parser=etree_.ETCompatXMLParser(resolve_entities=False))
 
-    def read_get_metadata_response(self, message_data: ReceivedMessageData) -> MetaData:
+    def read_get_metadata_response(self, message_data: ReceivedMessage) -> MetaData:
         meta_data = MetaData()
         body_node = message_data.p_msg.body_node
         nsmap = namespaces.nsmap
@@ -567,7 +572,7 @@ class MessageReaderClient(MessageReader):
         return meta_data
 
     @staticmethod
-    def read_fault_message(message_data: ReceivedMessageData) -> SoapFault:
+    def read_fault_message(message_data: ReceivedMessage) -> SoapFault:
         body_node = message_data.p_msg.body_node
         code = ', '.join(body_node.xpath('s12:Fault/s12:Code/s12:Value/text()', namespaces=namespaces.nsmap))
         sub_code = ', '.join(body_node.xpath('s12:Fault/s12:Code/s12:Subcode/s12:Value/text()',
@@ -642,17 +647,25 @@ class MessageReaderDevice(MessageReader):
         subscription_filters = subscription_filter_nodes[0].text.split()
         end_to_addresses = envelope.body_node.xpath('wse:Subscribe/wse:EndTo', namespaces=namespaces.nsmap)
         end_to_address = None
-        end_to_ref_node = None
+        end_to_ref = None
         if len(end_to_addresses) == 1:
             end_to_node = end_to_addresses[0]
             end_to_address = end_to_node.xpath('wsa:Address/text()', namespaces=namespaces.nsmap)[0]
             end_to_ref_node = end_to_node.find('wsa:ReferenceParameters', namespaces=namespaces.nsmap)
+            if end_to_ref_node is not None:
+                end_to_ref = ReferenceParameters(end_to_ref_node[:])
+            else:
+                end_to_ref = ReferenceParameters(None)
 
         # determine (mandatory) notification address
         delivery_node = envelope.body_node.xpath('wse:Subscribe/wse:Delivery', namespaces=namespaces.nsmap)[0]
         notify_to_node = delivery_node.find('wse:NotifyTo', namespaces=namespaces.nsmap)
         notify_to_address = notify_to_node.xpath('wsa:Address/text()', namespaces=namespaces.nsmap)[0]
         notify_ref_node = notify_to_node.find('wsa:ReferenceParameters', namespaces=namespaces.nsmap)
+        if notify_ref_node is not None:
+            notify_ref = ReferenceParameters(notify_ref_node[:])
+        else:
+            notify_ref = ReferenceParameters(None)
 
         mode = delivery_node.get('Mode')  # mandatory attribute
 
@@ -663,42 +676,37 @@ class MessageReaderDevice(MessageReader):
             expires = isoduration.parse_duration(str(expires_nodes[0]))
 
         # filter_ = envelope.body_node.xpath('wse:Subscribe/wse:Filter/text()', namespaces=namespaces.nsmap)[0]
-        return SubscribeRequest(accepted_encodings, subscription_filters, notify_to_address, notify_ref_node,
-                                end_to_address, end_to_ref_node, mode, expires)
+        return SubscribeRequest(accepted_encodings, subscription_filters, str(notify_to_address), notify_ref,
+                                str(end_to_address), end_to_ref, mode, expires)
 
-    @staticmethod
-    def read_renew_request(message_data):
+    def read_renew_request(self, message_data):
         expires = message_data.p_msg.body_node.xpath('wse:Renew/wse:Expires/text()', namespaces=namespaces.nsmap)
         if len(expires) == 0:
             return None
         return isoduration.parse_duration(str(expires[0]))
 
     @staticmethod
-    def read_identifier(message_data):
-        reference_parameters_node = message_data.p_msg.header_node.find(
-            namespaces.wsaTag('ReferenceParameters'),
-            namespaces=namespaces.nsmap)
-        if reference_parameters_node is None:
-            identifier_node = None
-        else:
-            identifier_node = reference_parameters_node[0]
-        return identifier_node
+    def read_header_reference_parameters(message_data: ReceivedMessage) -> ReferenceParameters:
+        reference_parameter_nodes = []
+        for header_element in message_data.p_msg.header_node:
+            is_reference_parameter = header_element.attrib.get('IsReferenceParameter', 'false')
+            if is_reference_parameter.lower() == 'true':
+                reference_parameter_nodes.append(header_element)
+        return ReferenceParameters(reference_parameter_nodes)
 
-    @staticmethod
-    def read_getmddescription_request(message_data: ReceivedMessageData) -> List[str]:
+    def read_getmddescription_request(self, message_data: ReceivedMessage) -> List[str]:
         return message_data.p_msg.body_node.xpath('*/msg:HandleRef/text()', namespaces=namespaces.nsmap)
 
     @staticmethod
-    def read_getmdstate_request(message_data: ReceivedMessageData) -> List[str]:
+    def read_getmdstate_request(message_data: ReceivedMessage) -> List[str]:
         return message_data.p_msg.body_node.xpath('*/msg:HandleRef/text()', namespaces=namespaces.nsmap)
 
     def _operation_handle(self, message_data):
         operation_handle_refs = message_data.p_msg.body_node.xpath('*/msg:OperationHandleRef/text()',
                                                                    namespaces=namespaces.nsmap)
-
         return operation_handle_refs[0]
 
-    def read_activate_request(self, message_data: ReceivedMessageData) -> OperationRequest:
+    def read_activate_request(self, message_data: ReceivedMessage) -> OperationRequest:
         argument_strings = message_data.p_msg.body_node.xpath('*/msg:Argument/msg:ArgValue/text()',
                                                               namespaces=namespaces.nsmap)
         return OperationRequest(self._operation_handle(message_data), argument_strings)
@@ -707,7 +715,7 @@ class MessageReaderDevice(MessageReader):
         # ToDo: check type of each argument an convert string to corresponding python type
         return operation_request
 
-    def read_set_value_request(self, message_data: ReceivedMessageData) -> OperationRequest:
+    def read_set_value_request(self, message_data: ReceivedMessage) -> OperationRequest:
         value_nodes = message_data.p_msg.body_node.xpath('*/msg:RequestedNumericValue',
                                                          namespaces=namespaces.nsmap)
         if value_nodes:
@@ -716,7 +724,7 @@ class MessageReaderDevice(MessageReader):
             argument = None
         return OperationRequest(self._operation_handle(message_data), argument)
 
-    def read_set_string_request(self, message_data: ReceivedMessageData) -> OperationRequest:
+    def read_set_string_request(self, message_data: ReceivedMessage) -> OperationRequest:
         string_node = message_data.p_msg.body_node.xpath('*/msg:RequestedStringValue',
                                                          namespaces=namespaces.nsmap)
         if string_node:
@@ -725,13 +733,13 @@ class MessageReaderDevice(MessageReader):
             argument = None
         return OperationRequest(self._operation_handle(message_data), argument)
 
-    def read_set_metric_state_request(self, message_data: ReceivedMessageData) -> OperationRequest:
+    def read_set_metric_state_request(self, message_data: ReceivedMessage) -> OperationRequest:
         proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedMetricState',
                                                                   namespaces=namespaces.nsmap)
         proposed_states = [self._mk_state_container_from_node(m) for m in proposed_state_nodes]
         return OperationRequest(self._operation_handle(message_data), proposed_states)
 
-    def read_set_alert_state_request(self, message_data: ReceivedMessageData) -> OperationRequest:
+    def read_set_alert_state_request(self, message_data: ReceivedMessage) -> OperationRequest:
         proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedAlertState',
                                                                   namespaces=namespaces.nsmap)
         if len(proposed_state_nodes) > 1:  # schema allows exactly one ProposedAlertState:
@@ -742,24 +750,24 @@ class MessageReaderDevice(MessageReader):
         proposed_states = [self._mk_state_container_from_node(m) for m in proposed_state_nodes]
         return OperationRequest(self._operation_handle(message_data), proposed_states)
 
-    def read_set_component_state_request(self, message_data: ReceivedMessageData) -> OperationRequest:
+    def read_set_component_state_request(self, message_data: ReceivedMessage) -> OperationRequest:
         proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedComponentState',
                                                                   namespaces=namespaces.nsmap)
         proposed_states = [self._mk_state_container_from_node(m) for m in proposed_state_nodes]
         return OperationRequest(self._operation_handle(message_data), proposed_states)
 
-    def read_get_context_states_request(self, message_data: ReceivedMessageData) -> List[str]:
+    def read_get_context_states_request(self, message_data: ReceivedMessage) -> List[str]:
         requested_handles = message_data.p_msg.body_node.xpath(
             '*/msg:HandleRef/text()', namespaces=namespaces.nsmap)
         return requested_handles
 
-    def read_set_context_state_request(self, message_data: ReceivedMessageData) -> OperationRequest:
+    def read_set_context_state_request(self, message_data: ReceivedMessage) -> OperationRequest:
         proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedContextState',
                                                                   namespaces=namespaces.nsmap)
         proposed_states = [self._mk_state_container_from_node(m) for m in proposed_state_nodes]
         return OperationRequest(self._operation_handle(message_data), proposed_states)
 
-    def read_get_localized_text_request(self, message_data: ReceivedMessageData) -> LocalizedTextsRequest:
+    def read_get_localized_text_request(self, message_data: ReceivedMessage) -> LocalizedTextsRequest:
         body_node = message_data.p_msg.body_node
         requested_handles = body_node.xpath('*/msg:Ref/text()',
                                             namespaces=namespaces.nsmap)  # handle strings 0...n

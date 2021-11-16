@@ -22,8 +22,6 @@ class TestDeviceWaveform(unittest.TestCase):
 
     def setUp(self):
         self.mdib = sdc11073.mdib.DeviceMdibContainer(SDC_v1_Definitions)
-        self.domSchema = self.mdib.schema_validators.participant_schema
-        self.msgSchema = self.mdib.schema_validators.message_schema
 
         # this structure is not realistic, but sufficient for what we need here.
         desc = dc.MdsDescriptorContainer(handle='42', parent_handle=None)
@@ -122,7 +120,6 @@ class TestDeviceWaveform(unittest.TestCase):
         self.sdcDevice = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, self._model, self._device, self.mdib)
         self.sdcDevice.start_all()
         testSubscr = mockstuff.TestDevSubscription([self.sdcDevice.mdib.sdc_definitions.Actions.Waveform],
-                                                   self.sdcDevice.mdib.schema_validators,
                                                    self.sdcDevice.msg_factory)
         self.sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 

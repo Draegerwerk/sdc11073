@@ -55,8 +55,6 @@ class TestDeviceServices(unittest.TestCase):
         soapEnvelope = Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.MSG))
         soapEnvelope.set_address(Address(action=action, addr_to=path))
         soapEnvelope.add_body_element(body_node)
-
-        soapEnvelope.validate_body(sdcDevice.mdib.schema_validators.message_schema)
         return CreatedMessage(soapEnvelope, sdcDevice.msg_factory)
 
     def test_dispatch(self):
@@ -87,7 +85,9 @@ class TestDeviceServices(unittest.TestCase):
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(self.sdc_device.msg_factory.serialize_message(get_env))
         response = getService._on_get_mdib(request)
-        response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
+        msg_node = response.p_msg.body_node[0]
+        self.assertEqual(msg_node.attrib['MdibVersion'], str(self.sdc_device.mdib.mdib_version))
+        self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
     def test_getMdState(self):
         getService = self.sdc_device.hosted_services.get_service
@@ -97,7 +97,9 @@ class TestDeviceServices(unittest.TestCase):
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(self.sdc_device.msg_factory.serialize_message(get_env))
         response = getService.hosting_service.on_post(request)
-        response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
+        msg_node = response.p_msg.body_node[0]
+        self.assertEqual(msg_node.attrib['MdibVersion'], str(self.sdc_device.mdib.mdib_version))
+        self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
     def test_getMdDescription(self):
         getService = self.sdc_device.hosted_services.get_service
@@ -107,7 +109,9 @@ class TestDeviceServices(unittest.TestCase):
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(self.sdc_device.msg_factory.serialize_message(get_env))
         response = getService.hosting_service.on_post(request)
-        response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
+        msg_node = response.p_msg.body_node[0]
+        self.assertEqual(msg_node.attrib['MdibVersion'], str(self.sdc_device.mdib.mdib_version))
+        self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
     def test_changeAlarmPrio(self):
         """ This is a test for defect SDCSIM-129
@@ -122,7 +126,9 @@ class TestDeviceServices(unittest.TestCase):
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(self.sdc_device.msg_factory.serialize_message(get_env))
         response = getService.hosting_service.on_post(request)
-        response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
+        msg_node = response.p_msg.body_node[0]
+        self.assertEqual(msg_node.attrib['MdibVersion'], str(self.sdc_device.mdib.mdib_version))
+        self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
     def test_getContextStates(self):
         facility = 'HOSP42'
@@ -138,7 +144,6 @@ class TestDeviceServices(unittest.TestCase):
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(self.sdc_device.msg_factory.serialize_message(get_env))
         response = contextService.hosting_service.on_post(request)
-        response.validate_body(self.sdc_device.mdib.schema_validators.message_schema)
         _ns = self.sdc_device.mdib.nsmapper  # shortcut
         query = '*/{}[@{}="{}"]'.format(_ns.doc_name(Prefixes.MSG, 'ContextState'),
                                         _ns.doc_name(Prefixes.XSI, 'type'),

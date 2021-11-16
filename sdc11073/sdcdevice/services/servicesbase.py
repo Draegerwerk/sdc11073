@@ -49,22 +49,6 @@ class DPWSPortTypeImpl:
     def actions(self):  # just a shortcut
         return self._mdib.sdc_definitions.Actions
 
-    @property
-    def _bmm_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.schema_validators.message_schema
-
-    @property
-    def _mex_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.schema_validators.mex_schema
-
-    @property
-    def _evt_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.schema_validators.eventing_schema
-
-    @property
-    def _s12_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.schema_validators.soap12_schema
-
     def add_wsdl_port_type(self, parent_node):
         raise NotImplementedError
 
@@ -168,8 +152,6 @@ class ServiceWithOperations(DPWSPortTypeImpl):
         response = self._sdc_device.msg_factory.mk_operation_response_message(
             message_data, action, response_name, self._mdib.mdib_version, self._mdib.sequence_id,
             transaction_id, invocation_state, invocation_error, error_text, self._mdib.nsmapper)
-
-        response.validate_body(self._bmm_schema)
         return response
 
 

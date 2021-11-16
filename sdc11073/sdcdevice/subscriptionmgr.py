@@ -16,7 +16,7 @@ from .. import isoduration
 from .. import loghelper
 from .. import multikey
 from .. import observableproperties
-from ..addressing import Address
+from ..addressing import ReferenceParameters, Address
 from ..etc import apply_map, short_filter_string
 from ..namespaces import Prefixes
 from ..namespaces import wseTag, DocNamespaceHelper
@@ -26,7 +26,7 @@ from ..pysoap.soapenvelope import SoapFault
 
 if TYPE_CHECKING:
     from ssl import SSLContext
-    from ..definitions_base import BaseDefinitions, SchemaValidators
+    from ..definitions_base import BaseDefinitions
     from ..pysoap.msgfactory import AbstractMessageFactory
     from ..httprequesthandler import RequestData
     from ..pysoap.msgreader import SubscribeRequest
@@ -54,19 +54,22 @@ class _RoundTripData:
         return f'min={self.min:.4f} max={self.max:.4f} avg={self.avg:.4f} absmax={self.abs_max:.4f}'
 
 
-def _mk_dispatch_identifier(reference_parameter_node, path_suffix):
+def _mk_dispatch_identifier(reference_parameters: ReferenceParameters, path_suffix: str):
+    # this is always our own reference parameter. We know that is has max. one element,
+    # and the text is the identifier of the subscription
     if path_suffix == '':
         path_suffix = None
-    if reference_parameter_node is None:
+    if reference_parameters.has_parameters:
+        return reference_parameters.parameters[0].text, path_suffix
+    else:
         return None, path_suffix
-    return reference_parameter_node.text, path_suffix
 
 
 class _DevSubscription:
     MAX_NOTIFY_ERRORS = 1
     IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
 
-    def __init__(self, subscribe_request, base_urls, max_subscription_duration, ssl_context, schema_validators,
+    def __init__(self, subscribe_request, base_urls, max_subscription_duration, ssl_context,
                  msg_factory):
         """
         :param notify_to_address: dom node of Subscribe Request
@@ -80,29 +83,24 @@ class _DevSubscription:
         self.notify_to_address = subscribe_request.notify_to_address
         self._notify_to_url = urllib.parse.urlparse(subscribe_request.notify_to_address)
 
-        self.notify_ref_nodes = []
-        if subscribe_request.notify_ref_node is not None:
-            self.notify_ref_nodes = list(subscribe_request.notify_ref_node)  # all children
+        self.notify_ref_params = subscribe_request.notify_ref_params
 
         self.end_to_address = subscribe_request.end_to_address
         if self.end_to_address is not None:
             self._end_to_url = urllib.parse.urlparse(self.end_to_address)
         else:
             self._end_to_url = None
-        self.end_to_ref_nodes = []
-        if subscribe_request.end_to_ref_node is not None:
-            self.end_to_ref_nodes = list(subscribe_request.end_to_ref_node)  # all children
+        self.end_to_ref_params = subscribe_request.end_to_ref_params
         self.identifier_uuid = uuid.uuid4()
-        self.reference_parameter = None  # etree node, used for reference parameters based dispatching
+        self.reference_parameters = ReferenceParameters(None)  #default: no reference parameters
         self.path_suffix = None  # used for path based dispatching
 
         self._max_subscription_duration = max_subscription_duration
         self._started = None
-        self._expireseconds = None
-        self.renew(subscribe_request.expires)  # sets self._started and self._expireseconds
+        self._expire_seconds = None
+        self.renew(subscribe_request.expires)  # sets self._started and self._expire_seconds
         self._filters = subscribe_request.subscription_filters
         self._ssl_context = ssl_context
-        self._schema_validators = schema_validators
 
         self._accepted_encodings = subscribe_request.accepted_encodings  # these encodings does the other side accept
         self._soap_client = None
@@ -114,15 +112,21 @@ class _DevSubscription:
             maxlen=MAX_ROUNDTRIP_VALUES)  # a list of last n roundtrip times for notifications
         self.max_roundtrip_time = 0
 
+    def set_reference_parameter(self):
+        """Create a ReferenceParameters instance with a reference parameter"""
+        reference_parameter = etree_.Element(self.IDENT_TAG)
+        reference_parameter.text = self.identifier_uuid.hex
+        self.reference_parameters = ReferenceParameters([reference_parameter])
+
     def set_soap_client(self, soap_client):
         self._soap_client = soap_client
 
     def renew(self, expires):
         self._started = time.monotonic()
         if expires:
-            self._expireseconds = min(expires, self._max_subscription_duration)
+            self._expire_seconds = min(expires, self._max_subscription_duration)
         else:
-            self._expireseconds = self._max_subscription_duration
+            self._expire_seconds = self._max_subscription_duration
 
     @property
     def soap_client(self):
@@ -130,7 +134,7 @@ class _DevSubscription:
 
     @property
     def remaining_seconds(self):
-        duration = int(self._expireseconds - (time.monotonic() - self._started))
+        duration = int(self._expire_seconds - (time.monotonic() - self._started))
         return 0 if duration < 0 else duration
 
     @property
@@ -167,7 +171,7 @@ class _DevSubscription:
                        reply_to=None,
                        fault_to=None,
                        reference_parameters=None)
-        message = msg_factory.mk_notification_report(addr, body_node, self.notify_ref_nodes, doc_nsmap)
+        message = msg_factory.mk_notification_message(addr, body_node, self.notify_ref_params, doc_nsmap)
         try:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
 
@@ -198,7 +202,7 @@ class _DevSubscription:
             return
         if self._soap_client is None:
             return
-        message = msg_factory.mk_notification_end_report(self, my_addr, code, reason)
+        message = msg_factory.mk_notification_end_message(self, my_addr, code, reason)
         try:
             url = self._end_to_url or self._notify_to_url
             self._soap_client.post_message_to(url.path, message,
@@ -218,7 +222,10 @@ class _DevSubscription:
 
     def __repr__(self):
         try:
-            ref_ident = ', '.join([node.text for node in self.notify_ref_nodes])
+            if self.notify_ref_params is None:
+                ref_ident = '<none>'
+            else:
+                ref_ident = str(self.notify_ref_params) #', '.join([node.text for node in self.notify_ref_params.parameters])
         except TypeError:
             ref_ident = '<unknown>'
         return f'Subscription(notify_to={self.notify_to_address} ident={ref_ident}, ' \
@@ -238,7 +245,6 @@ class AbstractSubscriptionsManager(ABC):
     @abstractmethod
     def __init__(self, ssl_context: SSLContext,
                  sdc_definitions: BaseDefinitions,
-                 schema_validators: SchemaValidators,
                  msg_factory: AbstractMessageFactory,
                  supported_encodings: List[str],
                  max_subscription_duration: [float, None] = None,
@@ -492,10 +498,9 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
     NotificationPrefixes = [Prefixes.PM, Prefixes.S12, Prefixes.WSA, Prefixes.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
-    def __init__(self, ssl_context, sdc_definitions, schema_validators, msg_factory, msg_reader, supported_encodings,
+    def __init__(self, ssl_context, sdc_definitions, msg_factory, msg_reader, supported_encodings,
                  max_subscription_duration=None, log_prefix=None, chunked_messages=False):
         self._ssl_context = ssl_context
-        self.schema_validators = schema_validators
         self.sdc_definitions = sdc_definitions
         self._msg_factory = msg_factory
         self._msg_reader = msg_reader
@@ -508,7 +513,7 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._subscriptions = multikey.MultiKeyLookup()
         self._subscriptions.add_index(
             'dispatch_identifier',
-            multikey.UIndexDefinition(lambda obj: _mk_dispatch_identifier(obj.reference_parameter, obj.path_suffix)))
+            multikey.UIndexDefinition(lambda obj: _mk_dispatch_identifier(obj.reference_parameters, obj.path_suffix)))
         self._subscriptions.add_index('identifier', multikey.UIndexDefinition(lambda obj: obj.identifier_uuid.hex))
         self._subscriptions.add_index('netloc', multikey.IndexDefinition(
             lambda obj: obj._notify_to_url.netloc))  # pylint:disable=protected-access
@@ -519,7 +524,7 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
 
     def _mk_subscription_instance(self, subscribe_request):
         return _DevSubscription(subscribe_request, self.base_urls, self._max_subscription_duration,
-                                self._ssl_context, self.schema_validators, msg_factory=self._msg_factory)
+                                self._ssl_context, msg_factory=self._msg_factory)
 
     def on_subscribe_request(self, request_data, subscribe_request):
         subscr = self._mk_subscription_instance(subscribe_request)
@@ -790,9 +795,9 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
 
     def _get_subscription_for_request(self, request_data):
         reader = request_data.message_data.msg_reader
-        identifier = reader.read_identifier(request_data.message_data)
+        reference_parameters = reader.read_header_reference_parameters(request_data.message_data)
         path_suffix = '/'.join(request_data.path_elements)  # not consumed path elements
-        dispatch_identifier = _mk_dispatch_identifier(identifier, path_suffix)
+        dispatch_identifier = _mk_dispatch_identifier(reference_parameters, path_suffix)
         with self._subscriptions.lock:
             subscription = self._subscriptions.dispatch_identifier.get_one(dispatch_identifier, allow_none=True)
         if subscription is None:
@@ -876,6 +881,5 @@ class SubscriptionsManagerReferenceParam(_SubscriptionsManagerBase):
     def _mk_subscription_instance(self, subscribe_request):
         subscription = super()._mk_subscription_instance(subscribe_request)
         # add  a reference parameter
-        subscription.reference_parameter = etree_.Element(_DevSubscription.IDENT_TAG)
-        subscription.reference_parameter.text = subscription.identifier_uuid.hex
+        subscription.set_reference_parameter()
         return subscription

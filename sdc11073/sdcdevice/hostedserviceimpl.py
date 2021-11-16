@@ -3,7 +3,7 @@ from io import BytesIO
 
 from lxml import etree as etree_
 
-from .exceptions import InvalidActionError
+from ..httprequesthandler import InvalidActionError
 from .. import loghelper
 from ..addressing import EndpointReferenceType
 from ..dpws import HostedServiceType
@@ -130,42 +130,19 @@ class EventService(SoapMessageHandler):
                                 f'is not in offered subscriptions: {self._offered_subscriptions}')
 
         returned_envelope = self._subscriptions_manager.on_subscribe_request(request_data, subscribe_request)
-        self._validate_eventing_response(returned_envelope)
         return returned_envelope
 
     def _on_unsubscribe(self, request_data):
         returned_envelope = self._subscriptions_manager.on_unsubscribe_request(request_data)
-        self._validate_eventing_response(returned_envelope)
         return returned_envelope
 
     def _on_get_status(self, request_data):
         returned_envelope = self._subscriptions_manager.on_get_status_request(request_data)
-        self._validate_eventing_response(returned_envelope)
         return returned_envelope
 
     def _on_renew_status(self, request_data):
         returned_envelope = self._subscriptions_manager.on_renew_request(request_data)
-        self._validate_eventing_response(returned_envelope)
         return returned_envelope
-
-    def _validate_eventing_response(self, response):
-        body = response.p_msg.body_node
-        body_node_children = list(body)
-        if len(body_node_children) == 0:
-            return
-        if body_node_children[0].tag == s12Tag('Fault'):
-            schema = self._s12_schema
-        else:
-            schema = self._evt_schema
-        response.validate_body(schema)
-
-    @property
-    def _evt_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.schema_validators.eventing_schema
-
-    @property
-    def _s12_schema(self):
-        return None if not self._sdc_device.shall_validate else self._sdc_device.mdib.schema_validators.soap12_schema
 
 
 class DPWSHostedService(EventService):
@@ -243,7 +220,6 @@ class DPWSHostedService(EventService):
             _port_type_impl.add_wsdl_port_type(wsdl_definitions)
         for _port_type_impl in self._port_type_impls:
             _port_type_impl.add_wsdl_binding(wsdl_definitions, porttype_prefix)
-        self._mdib.schema_validators.wsdl_schema.assertValid(wsdl_definitions)
         return sdc_definitions.denormalize_xml_text(etree_.tostring(wsdl_definitions))
 
     @staticmethod
@@ -282,8 +258,6 @@ class DPWSHostedService(EventService):
                                                                        self.mk_dpws_hosted_instance(),
                                                                        location_text,
                                                                        _nsm)
-
-        response.validate_body(self._mdib.schema_validators.mex_schema)
         return response
 
     def __repr__(self):

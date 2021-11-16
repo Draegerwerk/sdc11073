@@ -73,9 +73,11 @@ class SdcDevice:
 
         self.msg_reader = self._components.msg_reader_class(self._mdib.sdc_definitions,
                                                             self._logger,
-                                                            self._log_prefix)
+                                                            self._log_prefix,
+                                                            validate=validate)
         self.msg_factory = self._components.msg_factory_class(sdc_definitions=self._mdib.sdc_definitions,
-                                                              logger=self._logger)
+                                                              logger=self._logger,
+                                                              validate=validate)
 
         # host dispatcher provides data of the sdc device itself.
         self._host_dispatcher = SoapMessageHandler(None, get_key_method=self._components.msg_dispatch_method,
@@ -110,7 +112,7 @@ class SdcDevice:
         cls = self._components.subscriptions_manager_class
         self._subscriptions_manager = cls(self._ssl_context,
                                           self._mdib.sdc_definitions,
-                                          self._mdib.schema_validators,
+                                          #self._mdib.schema_validators,
                                           self.msg_factory,
                                           self.msg_reader,
                                           self._compression_methods,
@@ -143,11 +145,10 @@ class SdcDevice:
     def _on_get_metadata(self, request_data):  # pylint: disable=unused-argument
         self._logger.info('_on_get_metadata')
         _nsm = self._mdib.nsmapper
-        dpws_schema = self.mdib.schema_validators.dpws_schema if self.shall_validate else None
 
         message = self.msg_factory.mk_get_metadata_response_message(
             request_data.message_data, self.device, self.model, self.dpws_host,
-            self.hosted_services.dpws_hosted_services, dpws_schema, self._mdib.nsmapper)
+            self.hosted_services.dpws_hosted_services, self._mdib.nsmapper)
         self._logger.debug('returned meta data = {}', message.serialize_message(pretty=False))
         return message
 
@@ -187,10 +188,6 @@ class SdcDevice:
         x_addrs = self.get_xaddrs()
         self._wsdiscovery.publish_service(self.epr, self._mdib.sdc_definitions.MedicalDeviceTypesFilter, scopes,
                                           x_addrs)
-
-    @property
-    def shall_validate(self):
-        return self._validate
 
     @property
     def mdib(self):

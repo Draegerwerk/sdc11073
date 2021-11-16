@@ -1,7 +1,7 @@
 import traceback
 import urllib
 
-from .exceptions import HTTPRequestHandlingError, InvalidPathError, InvalidActionError
+from ..httprequesthandler import HTTPRequestHandlingError, InvalidPathError, InvalidActionError
 from .. import commlog
 from .. import loghelper
 from ..httprequesthandler import HTTPRequestHandler, mkchunks
@@ -25,7 +25,8 @@ class PathElementDispatcher:
     def get_dispatcher(self, path_element):
         dispatcher = self.sub_dispatchers.get(path_element)
         if dispatcher is None:
-            raise HTTPRequestHandlingError(status=404, reason='not found', soap_fault=b'client error')
+            soap_fault = SoapFault(code=SoapFaultCode.SENDER, reason=f'invalid path {path_element}')
+            raise HTTPRequestHandlingError(status=404, reason='not found', soap_fault=soap_fault)
         return dispatcher
 
     def on_post(self, request_data) -> [str, None]:
@@ -122,7 +123,9 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
                     # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
                     assert b'utf-8' in response_xml_string[:100].lower()
                 except HTTPRequestHandlingError as ex:
-                    response_xml_string = ex.soap_fault
+                    message_data = self.server.msg_reader.read_received_message(request_bytes, validate=False)
+                    response = self.server.msg_factory.mk_fault_message(message_data, ex.soap_fault)
+                    response_xml_string = response.serialize_message()
                     http_status = ex.status
                     http_reason = ex.reason
 
@@ -141,7 +144,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
         except Exception as ex:
             # make an error 500 response with the soap fault as content
             self.server.logger.error(traceback.format_exc())
-            message_data = self.server.msg_reader.read_received_message(request_bytes)
+            message_data = self.server.msg_reader.read_received_message(request_bytes, validate=False)
             fault = SoapFault(code=SoapFaultCode.SENDER, reason=str(ex))
             response = self.server.msg_factory.mk_fault_message(message_data, fault)
             response_xml_string = response.serialize_message()

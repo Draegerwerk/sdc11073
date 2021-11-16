@@ -163,35 +163,23 @@ def _needs_normalize(filename):
            filename.endswith('BICEPS_MessageModel.xsd')
 
 
-class SchemaValidators:
-    def __init__(self, definition_cls):
-        """
-        Contains instances of XMLSchema validators
-        :param definition_cls: a class derived from BaseDefinitions, it contains paths to xml schema files
-        """
-        self.parser = etree_.ETCompatXMLParser(resolve_entities=False)
-        self._definitions = definition_cls
-        self.parser.resolvers.add(SchemaResolver(definition_cls))
-        schema_paths = self._definitions.SchemaFilePaths
+def mk_schema_validator(schema_resolver: etree_.Resolver) -> etree_.XMLSchema:
+    parser = etree_.XMLParser(resolve_entities=True)
+    parser.resolvers.add(schema_resolver)
+    # create a schema that includes all used schemas into a single one
+    all_included = f'''<?xml version="1.0" encoding="UTF-8"?>
+    <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+     <xsd:import namespace="http://www.w3.org/2003/05/soap-envelope" schemaLocation="http://www.w3.org/2003/05/soap-envelope"/>
+     <xsd:import namespace="http://schemas.xmlsoap.org/ws/2004/08/eventing" schemaLocation="http://schemas.xmlsoap.org/ws/2004/08/eventing"/>
+     <xsd:import namespace="http://schemas.xmlsoap.org/ws/2004/09/mex" schemaLocation="http://schemas.xmlsoap.org/ws/2004/09/mex"/>
+     <xsd:import namespace="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01" schemaLocation="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01"/>
+     <xsd:import namespace="http://www.w3.org/2005/08/addressing" schemaLocation="http://www.w3.org/2006/03/addressing/ws-addr.xsd"/>
+     <xsd:import namespace="http://schemas.xmlsoap.org/wsdl/" schemaLocation="http://schemas.xmlsoap.org/wsdl/"/>
+     <xsd:import namespace="{Prefixes.MSG.namespace}" schemaLocation="http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd"/>
+     </xsd:schema>'''.encode('utf-8')
 
-        self.participant_schema = self._mk_schema(schema_paths.ParticipantModelSchemaFile, normalize=True)
-        self.message_schema = self._mk_schema(schema_paths.MessageModelSchemaFile, normalize=True)
-        self.mex_schema = self._mk_schema(schema_paths.MetaDataExchangeSchemaFile)
-        self.eventing_schema = self._mk_schema(schema_paths.EventingSchemaFile)
-        self.soap12_schema = self._mk_schema(schema_paths.SoapEnvelopeSchemaFile)
-        self.dpws_schema = self._mk_schema(schema_paths.DPWSSchemaFile)
-        self.wsdl_schema = self._mk_schema(schema_paths.WSDLSchemaFile)
-
-    def __str__(self):
-        return f'{self.__class__.__name__} {self._definitions.__name__}'
-
-    def _mk_schema(self, path, normalize=False):
-        with open(path, 'rb') as _file:
-            xml_text = _file.read()
-        if normalize:
-            xml_text = self._definitions.normalize_xml_text(xml_text)
-        elem_tree = etree_.fromstring(xml_text, parser=self.parser, base_url=path)
-        return etree_.XMLSchema(etree=elem_tree)
+    elem_tree = etree_.fromstring(all_included, parser=parser, base_url='C://')
+    return  etree_.XMLSchema(etree=elem_tree)
 
 
 class SchemaResolver(etree_.Resolver):
@@ -203,6 +191,7 @@ class SchemaResolver(etree_.Resolver):
 
     def resolve(self, url, id, context):  # pylint: disable=unused-argument, redefined-builtin, invalid-name
         # first check if there is a lookup defined
+        print(f'resolve {url} {id} {context}')
         path = self._base_definitions.get_schema_file_path(url)
         if path:
             self._logger.debug('could resolve url {} via lookup to {}', url, path)

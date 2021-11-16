@@ -153,9 +153,14 @@ class SchemaPathsSdc:
         # dpws uses a schema location that does not match the namespace!
         'http://www.w3.org/2006/03/addressing/ws-addr.xsd': WsAddrSchemaFile,  # schema loc. used by dpws 1.1 schema
         'http://www.w3.org/2001/xml.xsd': XMLSchemaFile,
+        'http://www.w3.org/2003/05/soap-envelope': SoapEnvelopeSchemaFile,
         'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_ParticipantModel.xsd': ParticipantModelSchemaFile,
         'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd': MessageModelSchemaFile,
-        'http://standards.ieee.org/downloads/11073/11073-10207-2017/ExtensionPoint.xsd': ExtensionPointSchemaFile
+        'http://standards.ieee.org/downloads/11073/11073-10207-2017/ExtensionPoint.xsd': ExtensionPointSchemaFile,
+        'http://schemas.xmlsoap.org/ws/2004/08/eventing': EventingSchemaFile,
+        'http://schemas.xmlsoap.org/ws/2004/09/mex': MetaDataExchangeSchemaFile,
+        'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01': DPWSSchemaFile,
+        'http://schemas.xmlsoap.org/wsdl/': WSDLSchemaFile
     }
 
 

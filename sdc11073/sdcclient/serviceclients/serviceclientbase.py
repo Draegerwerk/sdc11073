@@ -5,44 +5,44 @@ from typing import Any
 
 from ... import loghelper
 from ...namespaces import DocNamespaceHelper
-from ...pysoap.msgreader import ReceivedMessageData
+from ...pysoap.msgreader import ReceivedMessage
 from ...pysoap.soapenvelope import ExtendedDocumentInvalid
 
 
 class GetRequestResult:
-    """Like ReceivedMessageData, but plus result (StateContainers, DescriptorContainers, ...)"""
+    """Like ReceivedMessage, but plus result (StateContainers, DescriptorContainers, ...)"""
 
-    def __init__(self, message_data: ReceivedMessageData, result: Any):
-        self._message_data = message_data
+    def __init__(self, received_message: ReceivedMessage, result: Any):
+        self._received_message = received_message
         self._result = result
 
     @property
     def msg_reader(self):
-        return self._message_data.msg_reader
+        return self._received_message.msg_reader
 
     @property
     def p_msg(self):
-        return self._message_data.p_msg
+        return self._received_message.p_msg
 
     @property
     def instance_id(self):
-        return self._message_data.instance_id
+        return self._received_message.instance_id
 
     @property
     def sequence_id(self):
-        return self._message_data.sequence_id
+        return self._received_message.sequence_id
 
     @property
     def mdib_version(self):
-        return self._message_data.mdib_version
+        return self._received_message.mdib_version
 
     @property
     def action(self):
-        return self._message_data.action
+        return self._received_message.action
 
     @property
     def msg_name(self):
-        return self._message_data.msg_name
+        return self._received_message.msg_name
 
     @property
     def result(self):
@@ -51,10 +51,9 @@ class GetRequestResult:
 
 class HostedServiceClient:
     """ Base class of clients that call hosted services of a dpws device."""
-    VALIDATE_MEX = False  # workaraound as long as validation error due to missing dpws schema is not solved
     subscribeable_actions = tuple()
 
-    def __init__(self, soap_client, msg_factory, dpws_hosted, porttype, validate, sdc_definitions, biceps_parser,
+    def __init__(self, soap_client, msg_factory, dpws_hosted, porttype, sdc_definitions, biceps_parser,
                  log_prefix=''):
         """
         :param simple_xml_hosted_node: a "Hosted" node in a simplexml document
@@ -64,7 +63,6 @@ class HostedServiceClient:
         self.porttype = porttype
         self._logger = loghelper.get_logger_adapter(f'sdc.client.{porttype}', log_prefix)
         self._operations_manager = None
-        self._validate = validate
         self._sdc_definitions = sdc_definitions
         self._biceps_parser = biceps_parser
         self.soap_client = soap_client
@@ -75,14 +73,6 @@ class HostedServiceClient:
         self._nsmapper = DocNamespaceHelper()
         for action in self.subscribeable_actions:
             self.predefined_actions[action] = self._msg_factory.get_action_string(porttype, action)
-
-    @property
-    def _bmm_schema(self):
-        return None if not self._validate else self._biceps_parser.message_schema
-
-    @property
-    def _mex_schema(self):
-        return None if not self._validate else self._biceps_parser.mex_schema
 
     def register_mdib(self, mdib):
         """ Client sometimes must know the mdib data (e.g. Set service, activate method)."""
@@ -109,14 +99,5 @@ class HostedServiceClient:
 
     def _call_get_method(self, message, method, request_manipulator=None):
         self._logger.info('calling {} on {}:{}', method, self._url.netloc, self._url.path)
-        message.validate_body(self._bmm_schema)
         message_data = self.post_message(message, msg=f'get {method}', request_manipulator=request_manipulator)
-        try:
-            message_data.p_msg.validate_body(self._bmm_schema)
-        except ExtendedDocumentInvalid as ex:
-            self._logger.error('Validation error: {}', ex)
-        except TypeError as ex:
-            self._logger.error('Could not validate Body, Type Error :{}', ex)
-        except Exception as ex:
-            self._logger.error('Validation error: "{}" msg_node={}', ex, message_data.p_msg.msg_node)
         return message_data

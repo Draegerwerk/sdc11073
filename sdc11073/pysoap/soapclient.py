@@ -120,7 +120,7 @@ class SoapClient:
     def is_closed(self):
         return self._http_connection is None
 
-    def post_message_to(self, path, created_message, schema=None, msg='', request_manipulator=None):
+    def post_message_to(self, path, created_message, msg='', request_manipulator=None):
         """
         :param path: url path component
         :param created_message: The message that shall be sent
@@ -130,11 +130,9 @@ class SoapClient:
         """
         if self.is_closed():
             self.connect()
-        return self.__post_message(created_message, schema, path, msg, request_manipulator)
+        return self.__post_message(created_message, path, msg, request_manipulator)
 
-    def __post_message(self, created_message, schema, path, msg, request_manipulator):
-        if schema is not None:
-            created_message.validate_body(schema)
+    def __post_message(self, created_message, path, msg, request_manipulator):
         if hasattr(request_manipulator, 'manipulate_soapenvelope'):
             tmp = request_manipulator.manipulate_soapenvelope(created_message.p_msg)
             if tmp:

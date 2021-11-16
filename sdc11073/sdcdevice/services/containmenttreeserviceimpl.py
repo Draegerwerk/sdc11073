@@ -1,8 +1,7 @@
-from ...namespaces import Prefixes
 from .servicesbase import DPWSPortTypeImpl, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_two_way_operation
 from .servicesbase import msg_prefix
 from ...pysoap.soapenvelope import SoapFault, SoapFaultCode
-from ..exceptions import FunctionNotImplementedError
+from ...httprequesthandler import FunctionNotImplementedError
 
 
 
