@@ -219,10 +219,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         get_service = self._sdc_client.client('Get')
         self._logger.info('initializing mdib...')
         response = get_service.get_mdib()  # GetRequestResult
-        if hasattr(response.p_msg, 'msg_node'):
-            self.nsmapper.use_doc_prefixes(response.p_msg.msg_node.nsmap)
-        else:
-            self._logger.info('GetMdib response has no msg_node, cannot set specific namespace mapping.')
         self._logger.info('creating description containers...')
         descriptor_containers, state_containers = response.result
         with self.descriptions.lock:

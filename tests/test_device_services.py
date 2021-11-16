@@ -54,7 +54,8 @@ class TestDeviceServices(unittest.TestCase):
         body_node = etree_.Element(msgTag(method))
         soapEnvelope = Soap12Envelope(Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.MSG))
         soapEnvelope.set_address(Address(action=action, addr_to=path))
-        soapEnvelope.add_body_element(body_node)
+        soapEnvelope.payload_element = body_node
+
         return CreatedMessage(soapEnvelope, sdcDevice.msg_factory)
 
     def test_dispatch(self):
@@ -85,7 +86,7 @@ class TestDeviceServices(unittest.TestCase):
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(self.sdc_device.msg_factory.serialize_message(get_env))
         response = getService._on_get_mdib(request)
-        msg_node = response.p_msg.body_node[0]
+        msg_node = response.p_msg.payload_element
         self.assertEqual(msg_node.attrib['MdibVersion'], str(self.sdc_device.mdib.mdib_version))
         self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
@@ -97,7 +98,7 @@ class TestDeviceServices(unittest.TestCase):
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(self.sdc_device.msg_factory.serialize_message(get_env))
         response = getService.hosting_service.on_post(request)
-        msg_node = response.p_msg.body_node[0]
+        msg_node = response.p_msg.payload_element
         self.assertEqual(msg_node.attrib['MdibVersion'], str(self.sdc_device.mdib.mdib_version))
         self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
@@ -109,13 +110,11 @@ class TestDeviceServices(unittest.TestCase):
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(self.sdc_device.msg_factory.serialize_message(get_env))
         response = getService.hosting_service.on_post(request)
-        msg_node = response.p_msg.body_node[0]
+        msg_node = response.p_msg.payload_element
         self.assertEqual(msg_node.attrib['MdibVersion'], str(self.sdc_device.mdib.mdib_version))
         self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
     def test_changeAlarmPrio(self):
-        """ This is a test for defect SDCSIM-129
-        The order of children of """
         getService = self.sdc_device.hosted_services.get_service
         path = '123'
         with self.sdc_device.mdib.transaction_manager() as tr:
@@ -126,7 +125,7 @@ class TestDeviceServices(unittest.TestCase):
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(self.sdc_device.msg_factory.serialize_message(get_env))
         response = getService.hosting_service.on_post(request)
-        msg_node = response.p_msg.body_node[0]
+        msg_node = response.p_msg.payload_element
         self.assertEqual(msg_node.attrib['MdibVersion'], str(self.sdc_device.mdib.mdib_version))
         self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
@@ -145,10 +144,10 @@ class TestDeviceServices(unittest.TestCase):
         request.message_data = self.msg_reader.read_received_message(self.sdc_device.msg_factory.serialize_message(get_env))
         response = contextService.hosting_service.on_post(request)
         _ns = self.sdc_device.mdib.nsmapper  # shortcut
-        query = '*/{}[@{}="{}"]'.format(_ns.doc_name(Prefixes.MSG, 'ContextState'),
+        query = '{}[@{}="{}"]'.format(_ns.doc_name(Prefixes.MSG, 'ContextState'),
                                         _ns.doc_name(Prefixes.XSI, 'type'),
                                         _ns.doc_name(Prefixes.PM, 'LocationContextState'))
-        locationContextNodes = response.p_msg.body_node.xpath(query, namespaces=_ns.doc_ns_map)
+        locationContextNodes = response.p_msg.payload_element.xpath(query, namespaces=_ns.doc_ns_map)
         self.assertEqual(len(locationContextNodes), 1)
         identificationNode = locationContextNodes[0].find(domTag('Identification'))
         self.assertEqual(identificationNode.get('Extension'), '{}///{}//{}'.format(facility, poc, bed))

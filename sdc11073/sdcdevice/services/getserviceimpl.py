@@ -64,7 +64,7 @@ class GetService(DPWSPortTypeImpl):
 
             response = self._sdc_device.msg_factory.mk_get_mdstate_response_message(
                 request_data.message_data, self.actions.GetMdStateResponse,
-                mdib_version, sequence_id, state_containers, self._mdib.nsmapper)
+                mdib_version, sequence_id, state_containers)
         self._logger.debug('_on_get_md_state returns {}',
                            lambda: response.serialize_message())
         return response

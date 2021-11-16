@@ -333,8 +333,8 @@ class BooleanAttributeProperty(AttributeProperty):
                          defaultPyValue=defaultPyValue, implied_py_value=implied_py_value, is_optional=is_optional)
 
 
-class XsiTypeAttributeProperty(AttributeProperty):
-    """ XML Representation is a namespace:name string, Python representation is a QName."""
+class QNameAttributeProperty(AttributeProperty):
+    """ XML Representation is a prefix:name string, Python representation is a QName."""
 
     def get_py_value_from_node(self, instance, node):
         """

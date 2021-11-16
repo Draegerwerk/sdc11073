@@ -241,7 +241,6 @@ class DPWSHostedService(EventService):
         return remove_annotations_xslt(root_node).getroot()
 
     def _on_get_metadata(self, request_data):
-        _nsm = self._mdib.nsmapper
         msg_factory = self._sdc_device.msg_factory
         consumed_path_elements = request_data.consumed_path_elements
         http_header = request_data.http_header
@@ -256,8 +255,7 @@ class DPWSHostedService(EventService):
         response = msg_factory.mk_hosted_get_metadata_response_message(request_data.message_data,
                                                                        self._sdc_device.dpws_host,
                                                                        self.mk_dpws_hosted_instance(),
-                                                                       location_text,
-                                                                       _nsm)
+                                                                       location_text)
         return response
 
     def __repr__(self):

@@ -68,8 +68,8 @@ class TestSafety(unittest.TestCase):
         for algo in safety.sha1, safety.base64_sha1: # test with both encryption algorithms that are provided in module
             si = safety.SafetyInfoHeader(dualChannel, safetyContext, algo)
             rootNode = etree_.Element('bla') # name of root does not matter
-            si.as_etree_subnode(rootNode)
-            # read relevant values from node anv verify that they are sha1 encoded (default encoding) 
+            rootNode.append(si.as_etree_node())
+            # read relevant values from node anv verify that they are sha1 encoded (default encoding)
             # xpathes are same as in above xml
             # dcSel1 = rootNode.xpath("/bla/si:SafetyInfo/si:DualChannel/si:DcValue[@ReferencedSelector='dcSel1']", namespaces=namespaces.nsmap)
             # dcSel2 = rootNode.xpath("/bla/si:SafetyInfo/si:DualChannel/si:DcValue[@ReferencedSelector='dcSel2']", namespaces=namespaces.nsmap)

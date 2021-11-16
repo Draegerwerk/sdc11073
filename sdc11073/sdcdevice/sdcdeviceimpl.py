@@ -148,7 +148,7 @@ class SdcDevice:
 
         message = self.msg_factory.mk_get_metadata_response_message(
             request_data.message_data, self.device, self.model, self.dpws_host,
-            self.hosted_services.dpws_hosted_services, self._mdib.nsmapper)
+            self.hosted_services.dpws_hosted_services)
         self._logger.debug('returned meta data = {}', message.serialize_message(pretty=False))
         return message
 

@@ -1271,11 +1271,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
             sdcClient.get_service_client._validate = False  # want to send an invalid request
             try:
                 method = 'Nonsense'
-                envelope = sdcClient.get_service_client._msg_factory._mk_get_method_envelope(
+                message = sdcClient.get_service_client._msg_factory._mk_get_method_message(
                     sdcClient.get_service_client.endpoint_reference.address,
                     sdcClient.get_service_client.porttype,
                     method)
-                sdcClient.get_service_client._call_get_method(envelope, method)
+                sdcClient.get_service_client._call_get_method(message, method)
             except HTTPReturnCodeError as ex:
                 self.assertEqual(ex.status, 400)
                 self.assertEqual(ex.soap_fault.code, 's12:Sender')

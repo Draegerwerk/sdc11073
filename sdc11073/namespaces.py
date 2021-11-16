@@ -2,7 +2,7 @@
 from collections import namedtuple
 from enum import Enum
 from functools import partial
-
+from typing import Optional
 from lxml import etree as etree_
 
 _PrefixNamespaceTuple = namedtuple('_PrefixNamespaceTuple', 'prefix namespace')
@@ -32,12 +32,19 @@ class Prefixes(_PrefixNamespaceTuple, Enum):
     WSDL = _PrefixNamespaceTuple('wsdl', 'http://schemas.xmlsoap.org/wsdl/')
 
     @staticmethod
-    def partial_map(*prefix):
+    def partial_map(*prefix, default: Optional[_PrefixNamespaceTuple] = None):
         """
         :param prefix: Prefix_Namespace_Tuples
+        :param default: if given, the default name space
         :return: a dictionary with prefix as key, namespace as value
         """
-        return dict((v.prefix, v.namespace) for v in prefix)
+        ret = dict((v.prefix, v.namespace) for v in prefix)
+        if default is None:
+            return ret
+        else:
+            ret[None] = default.namespace
+        return ret
+
 
 
 # Prefix_Namespace = Prefixes
@@ -68,8 +75,8 @@ WSA_ANONYMOUS = Prefixes.WSA.namespace + '/anonymous'
 WSA_NONE = Prefixes.WSA.namespace + '/none'
 
 
-def docname_from_qname(qname, ns_map):
-    """ returns the docprefix:name string, or only name (if default namespace is used) """
+def docname_from_qname(qname: etree_.QName, ns_map:dict) -> str:
+    """ returns prefix:name string, or only name (if default namespace is used) """
     prefixmap = dict((v, k) for k, v in ns_map.items())
     prefix = prefixmap[qname.namespace]
     if prefix is None:
@@ -77,40 +84,39 @@ def docname_from_qname(qname, ns_map):
     return f'{prefix}:{qname.localname}'
 
 
+def text_to_qname(text: str, doc_nsmap: dict) -> etree_.QName:
+    elements = text.split(':')
+    prefix = None if len(elements) == 1 else elements[0]
+    name = elements[-1]
+    try:
+        return etree_.QName(doc_nsmap[prefix], name)
+    except KeyError as ex:
+        raise KeyError(f'Cannot make QName for {text}, prefix is not in nsmap: {doc_nsmap.keys()}') from ex
+
+
 class DocNamespaceHelper:
-    def __init__(self):
-        self._prefixmap = dict((x.namespace, x.prefix) for x in Prefixes)
+    def __init__(self, prefix_map: Optional[dict] = None):
+        if prefix_map is None:
+            self._prefixmap = dict((x.namespace, x.prefix) for x in Prefixes)
+        else:
+            self._prefixmap = prefix_map
 
     def use_doc_prefixes(self, document_nsmap):
         for prefix, _ns in document_nsmap.items():
             self._prefixmap[_ns] = prefix
 
-    def _doc_prefix(self, prefix_namespace_tuple):
+    def doc_prefix(self, prefix_namespace_tuple):
         """ returns the document prefix for nsmap prefix"""
         return self._prefixmap[prefix_namespace_tuple.namespace]
 
-    def msg_prefix(self):
-        """
-
-        :return: default Prefix of Message Model
-        """
-        return self._prefixmap[Prefixes.MSG.namespace]
-
-    def dom_prefix(self):
-        """
-
-        :return: default Prefix of Participant Model
-        """
-        return self._prefixmap[Prefixes.PM.namespace]
-
-    def doc_name(self, my_refix_or_namespace, name):
+    def doc_name(self, my_prefix_or_namespace, name):
         """ returns the docprefix:name string. """
-        prefix = self._doc_prefix(my_refix_or_namespace)
+        prefix = self.doc_prefix(my_prefix_or_namespace)
         if prefix is None:
             return name
         return f'{prefix}:{name}'
 
-    def docname_from_qname(self, qname):
+    def doc_name_from_qname(self, qname: etree_.QName) -> str:
         """ returns the docprefix:name string, or only name (if default namespace is used) """
         prefix = self._prefixmap[qname.namespace]
         if prefix is None:
@@ -136,16 +142,6 @@ class DocNamespaceHelper:
 
 
 QN_TYPE = xsiTag('type')  # frequently used QName, central definition
-
-
-def text_to_qname(text, doc_nsmap):
-    elements = text.split(':')
-    prefix = None if len(elements) == 1 else elements[0]
-    name = elements[-1]
-    try:
-        return etree_.QName(doc_nsmap[prefix], name)
-    except KeyError as ex:
-        raise KeyError(f'Cannot make QName for {text}, prefix is not in nsmap: {doc_nsmap.keys()}') from ex
 
 
 class EventingActions:

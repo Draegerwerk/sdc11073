@@ -551,7 +551,7 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         if subscription is None:
             fault = SoapFault(code='Receiver',
                               reason='unknown Subscription identifier',
-                              subcode=wseTag('InvalidMessage')
+                              sub_code=wseTag('InvalidMessage')
                               )
             response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
         else:
@@ -577,7 +577,7 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         if subscription is None:
             fault = SoapFault(code='Receiver',
                               reason='unknown Subscription identifier',
-                              subcode=wseTag('InvalidMessage')
+                              sub_code=wseTag('InvalidMessage')
                               )
             response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
         else:
@@ -591,7 +591,7 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         if subscription is None:
             fault = SoapFault(code='Receiver',
                               reason='unknown Subscription identifier',
-                              subcode=wseTag('UnableToRenew')
+                              sub_code=wseTag('UnableToRenew')
                               )
             response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
 

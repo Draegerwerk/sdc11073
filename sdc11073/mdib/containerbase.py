@@ -47,7 +47,7 @@ class ContainerBase:
         :return: etree node
         """
         if set_xsi_type and self.NODETYPE is not None:
-            node.set(QN_TYPE, nsmapper.docname_from_qname(self.NODETYPE))
+            node.set(QN_TYPE, nsmapper.doc_name_from_qname(self.NODETYPE))
         for dummy_name, prop in self.sorted_container_properties():
             prop.update_xml_value(self, node)
         return node

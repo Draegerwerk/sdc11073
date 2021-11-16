@@ -593,7 +593,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
         xml_msg_reader = xml_reader_class(protocol_definition, mdib._logger, log_prefix)
         message_data = xml_msg_reader.read_payload_data(xml_text)
-        mdib.nsmapper.use_doc_prefixes(message_data.p_msg.msg_node.nsmap)
         descriptor_containers, state_containers = xml_msg_reader.read_get_mdib_response(message_data)
 
         mdib.add_description_containers(descriptor_containers)

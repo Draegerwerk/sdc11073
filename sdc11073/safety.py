@@ -28,7 +28,7 @@ class SafetyInfoHeader:
         self.safety_context_values = safety_context_values
         self._algorithm = algorithm
 
-    def _as_etree_node(self):
+    def as_etree_node(self):
         safety_info = etree_.Element(mdpwsTag('SafetyInfo'), nsmap=Prefixes.partial_map(Prefixes.MDPWS))
         if self.dual_channel_values:
             dual_channel = etree_.SubElement(safety_info, mdpwsTag('DualChannel'))
@@ -45,9 +45,6 @@ class SafetyInfoHeader:
                 ctxt_value.set('ReferencedSelector', ref)
                 ctxt_value.text = value
         return safety_info
-
-    def as_etree_subnode(self, root_node):
-        root_node.append(self._as_etree_node())
 
     @classmethod
     def from_etree_node(cls, root_node):  # pylint: disable=unused-argument

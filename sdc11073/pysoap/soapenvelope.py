@@ -1,8 +1,11 @@
 from io import BytesIO
-
+from typing import Optional, List, TYPE_CHECKING
 from lxml import etree as etree_
 
-from sdc11073.namespaces import s12Tag, nsmap
+from sdc11073.namespaces import s12Tag, nsmap, Prefixes
+
+if TYPE_CHECKING:
+    from ..addressing import Address
 
 CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
 
@@ -27,14 +30,6 @@ def _get_text(node, id_string, namespace_map):
     return tmp.text
 
 
-class _GenericNode:
-    def __init__(self, node):
-        self._node = node
-
-    def as_etree_subnode(self, root_node):
-        root_node.append(self._node)
-
-
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
 
 
@@ -55,60 +50,42 @@ def _assert_valid_exception_wrapper(schema, content):
 
 class Soap12Envelope:
     """This represents an outgoing soap envelope"""
-    __slots__ = ('_header_objects', '_body_object', '_doc_root', '_nsmap', 'address')
+    __slots__ = ('_header_nodes', '_payload_element', '_nsmap', 'address')
 
-    def __init__(self, ns_map):
-        self._header_objects = []
-        self._body_object = None
-        self._doc_root = None
-        self._nsmap = ns_map
+    def __init__(self, ns_map: Optional[dict] = None):
+        self._header_nodes = []
+        self._payload_element = None
+        if ns_map is None:
+            self._nsmap = {}
+        else:
+            self._nsmap = ns_map
+        for prefix in (Prefixes.S12, Prefixes.WSA):# these are always needed
+            self._nsmap[prefix.prefix] = prefix.namespace
         self.address = None
 
-    def add_header_object(self, obj):
-        assert hasattr(obj, 'as_etree_subnode')
-        self._header_objects.append(obj)
-        self._doc_root = None
+    def add_header_element(self, element: etree_.Element):
+        self._header_nodes.append(element)
 
-    # def add_header_element(self, element):
-    #     self.add_header_object(_GenericNode(element))
-    #     self._doc_root = None
-
-    def add_reference_parameter(self, element):
-        self.add_header_object(_GenericNode(element))
-        self._doc_root = None
-
-    def _add_body_object(self, obj):
-        if self._body_object is not None:
-            raise RuntimeError('there can be only one body object')
-        assert hasattr(obj, 'as_etree_subnode')
-        self._body_object = obj
-        self._doc_root = None
-
-    def add_body_element(self, element):
-        self._add_body_object(_GenericNode(element))
-        self._doc_root = None
-
-    def set_address(self, ws_address):
+    def set_address(self, ws_address: Address):
         self.address = ws_address
 
     @property
-    def body_node(self):
-        body = etree_.Element(s12Tag('Body'), nsmap=self._nsmap)
-        if self._body_object:
-            self._body_object.as_etree_subnode(body)
-        return body
+    def payload_element(self):
+        return self._payload_element
+
+    @payload_element.setter
+    def payload_element(self, element: etree_.Element):
+        if self._payload_element is not None:
+            raise RuntimeError('there can be only one body object')
+        self._payload_element = element
 
     @property
-    def nsmap(self):
+    def nsmap(self) -> dict:
         return self._nsmap
 
     @property
-    def header_objects(self):
-        return self._header_objects
-
-    @property
-    def body_object(self):
-        return self._body_object
+    def header_nodes(self) -> List[etree_.Element]:
+        return self._header_nodes
 
 
 class ReceivedSoapMessage:
@@ -129,18 +106,6 @@ class ReceivedSoapMessage:
             self.msg_name = None
 
 
-class SoapFault:
-    def __init__(self, code, reason, subcode=None, details=None):
-        self.code = code
-        self.reason = reason
-        self.subcode = subcode
-        self.details = details
-
-    def __repr__(self):
-        return (f'{self.__class__.__name__}(code="{self.code}", subcode="{self.subcode}", '
-                f'reason="{self.reason}", detail="{self.details}")')
-
-
 class SoapFaultCode:
     """
         Soap Fault codes, see https://www.w3.org/TR/soap12-part1/#faultcodes
@@ -150,3 +115,17 @@ class SoapFaultCode:
     DATAENC = 'DataEncodingUnknown'
     SENDER = 'Sender'
     RECEIVER = 'Receiver'
+
+
+class SoapFault:
+    def __init__(self, code: SoapFaultCode, reason, sub_code=None, details=None):
+        self.code = code
+        self.reason = reason
+        self.sub_code = sub_code
+        self.details = details
+
+    def __repr__(self):
+        return (f'{self.__class__.__name__}(code="{self.code}", sub_code="{self.sub_code}", '
+                f'reason="{self.reason}", detail="{self.details}")')
+
+
