@@ -42,7 +42,6 @@ class EndpointReferenceType:
         self.address = address  # type="wsa:AttributedURI", which is an xs:anyURI element
         self.reference_properties = reference_properties
         if reference_parameters is not None:
-            assert(isinstance(reference_parameters, ReferenceParameters))
             self.reference_parameters = reference_parameters
         else:
             self.reference_parameters = ReferenceParameters(None)
@@ -84,7 +83,6 @@ class Address:
         self.reply_to = reply_to
         self.fault_to = fault_to
         if reference_parameters is not None:
-            assert(isinstance(reference_parameters, ReferenceParameters))
             self.reference_parameters = reference_parameters
         else:
             self.reference_parameters = ReferenceParameters(None)
@@ -93,4 +91,3 @@ class Address:
 
     def mk_reply_address(self, action):
         return Address(action=action, relates_to=self.message_id)
-

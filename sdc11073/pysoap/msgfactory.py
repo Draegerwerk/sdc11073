@@ -2,12 +2,14 @@ import traceback
 import uuid
 import weakref
 from io import BytesIO
+
 from lxml import etree as etree_
 
 from .soapenvelope import Soap12Envelope
-from .soapenvelope import SoapFault, SoapFaultCode
+from .msgreader import validate_node
 from .. import isoduration
 from ..addressing import ReferenceParameters, EndpointReferenceType, Address
+from ..definitions_base import SchemaResolver, mk_schema_validator
 from ..dpws import DeviceEventingFilterDialectURI
 from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
 from ..namespaces import EventingActions
@@ -15,8 +17,6 @@ from ..namespaces import Prefixes
 from ..namespaces import WSA_ANONYMOUS
 from ..namespaces import domTag, msgTag, wseTag, wsaTag, wsxTag, xmlTag, s12Tag, dpwsTag, wsdTag, QN_TYPE
 from ..namespaces import nsmap, DocNamespaceHelper, docname_from_qname
-from ..definitions_base import SchemaResolver, mk_schema_validator
-from ..httprequesthandler import HTTPRequestHandlingError
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
 
@@ -181,15 +181,7 @@ class SoapMessageFactory:
 
     def _validate_node(self, node):
         if self._validate:
-            try:
-                self._xml_schema.assertValid(node)
-            except etree_.DocumentInvalid as ex:
-                self._logger.error(traceback.format_exc())
-                self._logger.error(etree_.tostring(node, pretty_print=True).decode('utf-8'))
-                soap_fault = SoapFault(code=SoapFaultCode.SENDER, reason=f'{ex}')
-                raise HTTPRequestHandlingError(status=400,
-                                               reason='document invalid',
-                                               soap_fault=soap_fault) from ex
+            validate_node(node, self._xml_schema, self._logger)
 
 
 class MessageFactoryClient(SoapMessageFactory):
@@ -473,7 +465,8 @@ class MessageFactoryClient(SoapMessageFactory):
         if notify_to_identifier is None:
             notify_to = EndpointReferenceType(notifyto_url, reference_parameters=None)
         else:
-            notify_to = EndpointReferenceType(notifyto_url, reference_parameters=ReferenceParameters([notify_to_identifier]))
+            notify_to = EndpointReferenceType(notifyto_url,
+                                              reference_parameters=ReferenceParameters([notify_to_identifier]))
 
         if endto_identifier is None:
             end_to = EndpointReferenceType(endto_url, reference_parameters=None)
@@ -499,7 +492,8 @@ class MessageFactoryClient(SoapMessageFactory):
         soap_envelope.payload_element = subscribe_node
         return CreatedMessage(soap_envelope, self)
 
-    def mk_renew_message(self, addr_to: str, dev_reference_param: ReferenceParameters, expire_minutes:int) -> CreatedMessage:
+    def mk_renew_message(self, addr_to: str, dev_reference_param: ReferenceParameters,
+                         expire_minutes: int) -> CreatedMessage:
         soap_envelope = Soap12Envelope(Prefixes.partial_map(Prefixes.WSE))
         soap_envelope.set_address(Address(action=EventingActions.Renew, addr_to=addr_to))
         self._add_reference_params_to_header(soap_envelope, dev_reference_param)
@@ -731,7 +725,7 @@ class MessageFactoryDevice(SoapMessageFactory):
         md_state_node = etree_.Element(msgTag('MdState'), attrib=None,
                                        nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM))
         for state_container in state_containers:
-             md_state_node.append(state_container.mk_state_node(domTag('State'),
+            md_state_node.append(state_container.mk_state_node(domTag('State'),
                                                                self._namespace_helper))
 
         response_node.append(md_state_node)
@@ -797,7 +791,8 @@ class MessageFactoryDevice(SoapMessageFactory):
         path = '/'.join(request_data.consumed_path_elements)
         path_suffix = '' if subscription.path_suffix is None else f'/{subscription.path_suffix}'
         subscription_address = f'{base_urls[0].scheme}://{base_urls[0].netloc}/{path}{path_suffix}'
-        epr = EndpointReferenceType(address=subscription_address, reference_parameters=subscription.reference_parameters)
+        epr = EndpointReferenceType(address=subscription_address,
+                                    reference_parameters=subscription.reference_parameters)
         self._mk_endpoint_reference_sub_node(epr, subscription_manager_node)
         expires_node = etree_.SubElement(subscribe_response_node, wseTag('Expires'))
         expires_node.text = subscription.expire_string  # simply confirm request

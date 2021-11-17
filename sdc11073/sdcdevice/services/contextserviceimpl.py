@@ -82,4 +82,3 @@ class ContextService(ServiceWithOperations):
         mk_wsdl_two_way_operation(port_type, operation_name='GetContextStates')
         _mk_wsdl_one_way_operation(port_type, operation_name='EpisodicContextReport')
         _mk_wsdl_one_way_operation(port_type, operation_name='PeriodicContextReport')
-

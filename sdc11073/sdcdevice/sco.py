@@ -346,9 +346,29 @@ class _OperationsWorker(threading.Thread):
 
 
 class AbstractScoOperationsRegistry(ABC):
-    @abstractmethod
     def __init__(self, subscriptions_mgr, operation_cls_getter, mdib, handle='_sco', log_prefix=None):
-        """Constructor"""
+        self._worker = None
+        self._subscriptions_mgr = subscriptions_mgr
+        self.operation_cls_getter = operation_cls_getter
+        self._mdib = mdib
+        self._log_prefix = log_prefix
+        self._logger = loghelper.get_logger_adapter('sdc.device.op_reg', log_prefix)
+        self._registered_operations = {}  # lookup by handle
+        self._handle = handle
+
+        # find the Sco of the Mds, this will be the default sco for new operations
+        mds_descriptor_container = mdib.descriptions.NODETYPE.get_one(domTag('MdsDescriptor'))
+        sco_containers = mdib.descriptions.find(parent_handle=mds_descriptor_container.handle).find(
+            NODETYPE=domTag('ScoDescriptor')).objects
+        if len(sco_containers) == 1:
+            self._logger.info('found Sco node in mds, using it')
+            self._mds_sco_descriptor_container = sco_containers[0]
+        else:
+            self._logger.info('not found Sco node in mds, creating it')
+            # create sco and add to mdib
+            cls = mdib.sdc_definitions.get_descriptor_container_class(domTag('ScoDescriptor'))
+            self._mds_sco_descriptor_container = cls(self._handle, mds_descriptor_container.handle)
+            mdib.descriptions.add_object(self._mds_sco_descriptor_container)
 
     @abstractmethod
     def register_operation(self, operation: OperationDefinition, sco_descriptor_container=None) -> None:
@@ -383,6 +403,14 @@ class AbstractScoOperationsRegistry(ABC):
         @return: a transaction Id
         """
 
+    @abstractmethod
+    def start_worker(self):
+        """ start worker thread"""
+
+    @abstractmethod
+    def stop_worker(self):
+        """ stop worker thread"""
+
 
 class ScoOperationsRegistry(AbstractScoOperationsRegistry):
     """ Registry for Sco operations.
@@ -392,32 +420,7 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
     NOTE - In modular systems, dynamically plugged-in modules would typically be modeled as VMDs.
     Such VMDs potentially have their own SCO. In every other case, SCO operations are modeled in pm:MdsDescriptor/pm:Sco.
     """
-
-    def __init__(self, subscriptions_mgr, operation_cls_getter, mdib, handle='_sco', log_prefix=None):
-        self._worker = None
-        self._subscriptions_mgr = subscriptions_mgr
-        self.operation_cls_getter = operation_cls_getter
-        self._mdib = mdib
-        self._log_prefix = log_prefix
-        self._logger = loghelper.get_logger_adapter('sdc.device.op_reg', log_prefix)
-        self._registered_operations = {}  # lookup by handle
-        self._handle = handle
-
-        # find the Sco of the Mds, this will be the default sco for new operations
-        mds_descriptor_container = mdib.descriptions.NODETYPE.get_one(domTag('MdsDescriptor'))
-        sco_containers = mdib.descriptions.find(parent_handle=mds_descriptor_container.handle).find(
-            NODETYPE=domTag('ScoDescriptor')).objects
-        if len(sco_containers) == 1:
-            self._logger.info('found Sco node in mds, using it')
-            self._mds_sco_descriptor_container = sco_containers[0]
-        else:
-            self._logger.info('not found Sco node in mds, creating it')
-            # create sco and add to mdib
-            cls = mdib.sdc_definitions.get_descriptor_container_class(domTag('ScoDescriptor'))
-            self._mds_sco_descriptor_container = cls(self._handle, mds_descriptor_container.handle)
-            mdib.descriptions.add_object(self._mds_sco_descriptor_container)
-
-    def register_operation(self, operation, sco_descriptor_container=None):
+    def register_operation(self, operation: OperationDefinition, sco_descriptor_container=None):
         self._logger.info('register operation "{}"', operation)
         if operation.handle in self._registered_operations:
             self._logger.info('handle {} is already registered, will re-use it', operation.handle)
@@ -425,13 +428,13 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
         operation.set_mdib(self._mdib, parent_container)
         self._registered_operations[operation.handle] = operation
 
-    def unregister_operation_by_handle(self, operation_handle):
+    def unregister_operation_by_handle(self, operation_handle: str):
         del self._registered_operations[operation_handle]
 
-    def get_operation_by_handle(self, operation_handle):
+    def get_operation_by_handle(self, operation_handle: str) -> OperationDefinition:
         return self._registered_operations.get(operation_handle)
 
-    def enqueue_operation(self, operation, request, argument):
+    def enqueue_operation(self, operation: OperationDefinition, request, argument):
         """ enqueues operation "operation".
         :param operation: a callable with signature operation(request, mdib)
         :param request: the soapEnvelope of the request

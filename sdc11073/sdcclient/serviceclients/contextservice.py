@@ -1,5 +1,7 @@
-from .serviceclientbase import HostedServiceClient, GetRequestResult
 from concurrent.futures import Future
+
+from .serviceclientbase import HostedServiceClient, GetRequestResult
+
 
 class ContextServiceClient(HostedServiceClient):
     subscribeable_actions = ('EpisodicContextReport', 'PeriodicContextReport')

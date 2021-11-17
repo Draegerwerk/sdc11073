@@ -39,9 +39,7 @@ class Prefixes(_PrefixNamespaceTuple, Enum):
         :return: a dictionary with prefix as key, namespace as value
         """
         ret = dict((v.prefix, v.namespace) for v in prefix)
-        if default is None:
-            return ret
-        else:
+        if default is not None:
             ret[None] = default.namespace
         return ret
 

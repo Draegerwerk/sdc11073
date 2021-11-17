@@ -1,4 +1,3 @@
-import traceback
 from collections import namedtuple
 
 from lxml import etree as etree_

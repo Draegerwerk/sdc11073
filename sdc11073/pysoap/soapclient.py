@@ -35,7 +35,7 @@ class HTTPReturnCodeError(httplib.HTTPException):
         """
         :param status: integer, e.g. 404
         :param reason: the provided human readable text
-        :param soap_fault: a ReceivedSoapFault instance
+        :param soap_fault: a SoapFault instance
         """
         super().__init__()
         self.status = status
@@ -43,9 +43,7 @@ class HTTPReturnCodeError(httplib.HTTPException):
         self.soap_fault = soap_fault
 
     def __repr__(self):
-        if self.soap_fault:
-            return f'HTTPReturnCodeError(status={self.status}, reason={self.soap_fault}'
-        return f'HTTPReturnCodeError(status={self.status}, reason={self.reason}'
+        return f'HTTPReturnCodeError(status={self.status}, reason={self.reason} fault={self.soap_fault}'
 
 
 class SoapClient:
@@ -130,9 +128,6 @@ class SoapClient:
         """
         if self.is_closed():
             self.connect()
-        return self.__post_message(created_message, path, msg, request_manipulator)
-
-    def __post_message(self, created_message, path, msg, request_manipulator):
         if hasattr(request_manipulator, 'manipulate_soapenvelope'):
             tmp = request_manipulator.manipulate_soapenvelope(created_message.p_msg)
             if tmp:
@@ -149,7 +144,7 @@ class SoapClient:
 
         started = time.perf_counter()
         try:
-            xml_response = self._send_soap_request(path, xml_request, msg)
+            http_response, xml_response = self._send_soap_request(path, xml_request, msg)
         finally:
             self.roundtrip_time = time.perf_counter() - started  # set roundtrip time even if method raises an exception
         if not xml_response:  # empty response
@@ -158,10 +153,10 @@ class SoapClient:
         message_data = self._msg_reader.read_received_message(xml_response)
         if message_data.action == f'{Prefixes.WSA.namespace}/fault':
             soap_fault = self._msg_reader.read_fault_message(message_data)
-            raise HTTPReturnCodeError(None, None, soap_fault)
+            raise HTTPReturnCodeError(http_response.status, http_response.reason, soap_fault)
         return message_data
 
-    def _send_soap_request(self, path, xml, msg):
+    def _send_soap_request(self, path, xml, msg) ->(httplib.HTTPResponse, str):
         """Send SOAP request using HTTP"""
         if not isinstance(xml, bytes):
             xml = xml.encode('utf-8')
@@ -215,7 +210,7 @@ class SoapClient:
                                self._netloc, path, ex, traceback.format_exc())
             return False, do_reopen  # success = False
 
-        def get_response():
+        def get_response() -> httplib.HTTPResponse:
             try:
                 return self._http_connection.getresponse()
             except httplib.BadStatusLine as ex:
@@ -273,13 +268,13 @@ class SoapClient:
                     self._netloc, path, response.status, content)
                 tmp = self._msg_reader.read_received_message(content)
                 soap_fault = self._msg_reader.read_fault_message(tmp)
-                raise HTTPReturnCodeError(response.status, content, soap_fault)
+                raise HTTPReturnCodeError(response.status, response.reason, soap_fault)
 
             response_headers = {k.lower(): v for k, v in response.getheaders()}
 
             self._log.debug('{}: response:{}; content has {} Bytes ', msg, response_headers, len(content))
             commlog.get_communication_logger().log_soap_response_in(content, 'POST')
-            return content
+            return response, content
 
     def _make_get_headers(self):
         headers = {

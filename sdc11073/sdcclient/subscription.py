@@ -1,4 +1,3 @@
-import copy
 import http.client
 import threading
 import time
@@ -15,7 +14,6 @@ from .. import loghelper
 from .. import observableproperties as properties
 from ..namespaces import EventingActions
 from ..namespaces import nsmap as _global_nsmap
-from ..namespaces import wsaTag
 
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 

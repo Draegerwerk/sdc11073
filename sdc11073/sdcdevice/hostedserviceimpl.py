@@ -3,12 +3,11 @@ from io import BytesIO
 
 from lxml import etree as etree_
 
-from ..httprequesthandler import InvalidActionError
 from .. import loghelper
 from ..addressing import EndpointReferenceType
 from ..dpws import HostedServiceType
+from ..httprequesthandler import InvalidActionError
 from ..namespaces import Prefixes
-from ..namespaces import s12Tag
 from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
 
 _wsdl_ns = Prefixes.WSDL.namespace

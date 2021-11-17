@@ -6,9 +6,8 @@ import time
 import traceback
 import urllib
 import uuid
-from abc import ABC, abstractmethod
 from collections import deque, defaultdict
-from typing import ForwardRef, List, Iterable, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from lxml import etree as etree_
 
@@ -27,10 +26,14 @@ from ..pysoap.soapenvelope import SoapFault
 if TYPE_CHECKING:
     from ssl import SSLContext
     from ..definitions_base import BaseDefinitions
-    from ..pysoap.msgfactory import AbstractMessageFactory
+    from ..pysoap.msgfactory import AbstractMessageFactory, CreatedMessage
     from ..httprequesthandler import RequestData
-    from ..pysoap.msgreader import SubscribeRequest
+    from ..pysoap.msgreader import SubscribeRequest, MessageReader
     from ..pysoap.soapenvelope import Soap12Envelope
+    from ..mdib.statecontainers import AbstractStateContainer
+    from ..mdib.descriptorcontainers import AbstractDescriptorContainer
+    from .sco import OperationDefinition
+    from .periodicreports import PeriodicStates
 
 MAX_ROUNDTRIP_VALUES = 20
 
@@ -61,8 +64,7 @@ def _mk_dispatch_identifier(reference_parameters: ReferenceParameters, path_suff
         path_suffix = None
     if reference_parameters.has_parameters:
         return reference_parameters.parameters[0].text, path_suffix
-    else:
-        return None, path_suffix
+    return None, path_suffix
 
 
 class _DevSubscription:
@@ -241,265 +243,22 @@ class _DevSubscription:
         return tuple([f.split('/')[-1] for f in self._filters])
 
 
-class AbstractSubscriptionsManager(ABC):
-    @abstractmethod
-    def __init__(self, ssl_context: SSLContext,
-                 sdc_definitions: BaseDefinitions,
-                 msg_factory: AbstractMessageFactory,
-                 supported_encodings: List[str],
-                 max_subscription_duration: [float, None] = None,
-                 log_prefix: str = None,
-                 chunked_messages: bool = False):
-        """
-
-        :param ssl_context:
-        :param sdc_definitions:
-        :param schema_validators:
-        :param msg_factory:
-        :param supported_encodings:
-        :param max_subscription_duration:
-        :param log_prefix:
-        :param chunked_messages:
-        """
-
-    @abstractmethod
-    def on_subscribe_request(self, request_data: RequestData, subscribe_request: SubscribeRequest) -> Soap12Envelope:
-        """
-
-        :param request_data: the request
-        :return: a response
-        """
-
-    @abstractmethod
-    def on_unsubscribe_request(self, request_data: RequestData) -> Soap12Envelope:
-        """
-
-        :param request_data: the request
-        :return: a response
-        """
-
-    @abstractmethod
-    def on_get_status_request(self, request_data: RequestData) -> Soap12Envelope:
-        """
-
-        :param request_data: the request
-        :return: a response
-        """
-
-    @abstractmethod
-    def on_renew_request(self, request_data: RequestData) -> Soap12Envelope:
-        """
-
-        :param request_data: the request
-        :return: a response
-        """
-
-    @abstractmethod
-    def end_all_subscriptions(self, send_subscription_end: bool) -> None:
-        """
-
-        :param send_subscription_end:
-        :return:
-        """
-
-    @abstractmethod
-    def notify_operation(self, operation: ForwardRef('OperationDefinition'),
-                         transaction_id: int,
-                         invocation_state: InvocationState,
-                         mdib_version: int,
-                         sequence_id: str,
-                         nsmapper: DocNamespaceHelper,
-                         error: [InvocationError, None] = None,
-                         error_message: [str, None] = None) -> None:
-        """
-
-        :param operation:
-        :param transaction_id:
-        :param invocation_state:
-        :param nsmapper:
-        :param sequence_id:
-        :param mdib_version:
-        :param error:
-        :param error_message:
-        :return:
-        """
-
-    @abstractmethod
-    def send_episodic_metric_report(self, states: Iterable[ForwardRef('AbstractStateContainer')],
-                                    nsmapper: DocNamespaceHelper,
-                                    mdib_version: int,
-                                    sequence_id: str) -> None:
-        """
-
-        :param states:
-        :param nsmapper:
-        :param mdib_version:
-        :param sequence_id:
-        :return:
-        """
-
-    @abstractmethod
-    def send_periodic_metric_report(self, periodic_states_list: Iterable[ForwardRef('PeriodicStates')],
-                                    nsmapper: DocNamespaceHelper,
-                                    sequence_id: str) -> None:
-        """
-
-        :param periodic_states_list:
-        :param nsmapper:
-        :param sequence_id:
-        :return:
-        """
-
-    @abstractmethod
-    def send_episodic_alert_report(self, states: Iterable[ForwardRef('AbstractStateContainer')],
-                                   nsmapper: DocNamespaceHelper,
-                                   mdib_version: int,
-                                   sequence_id: str) -> None:
-        """
-
-        :param states:
-        :param nsmapper:
-        :param mdib_version:
-        :param sequence_id:
-        :return:
-        """
-
-    @abstractmethod
-    def send_periodic_alert_report(self, periodic_states_list: Iterable[ForwardRef('PeriodicStates')],
-                                   nsmapper: DocNamespaceHelper,
-                                   sequence_id: str) -> None:
-        """
-
-        :param periodic_states_list:
-        :param nsmapper:
-        :param sequence_id:
-        :return:
-        """
-
-    @abstractmethod
-    def send_episodic_operational_state_report(self, states: Iterable[ForwardRef('AbstractStateContainer')],
-                                               nsmapper: DocNamespaceHelper,
-                                               mdib_version: int,
-                                               sequence_id: str) -> None:
-        """
-
-        :param states:
-        :param nsmapper:
-        :param mdib_version:
-        :param sequence_id:
-        :return:
-        """
-
-    @abstractmethod
-    def send_periodic_operational_state_report(self, periodic_states_list: Iterable[ForwardRef('PeriodicStates')],
-                                               nsmapper: DocNamespaceHelper,
-                                               sequence_id: str) -> None:
-        """
-
-        :param periodic_states_list:
-        :param nsmapper:
-        :param sequence_id:
-        :return:
-        """
-
-    @abstractmethod
-    def send_episodic_component_state_report(self, states: Iterable[ForwardRef('AbstractStateContainer')],
-                                             nsmapper: DocNamespaceHelper,
-                                             mdib_version: int,
-                                             sequence_id: str) -> None:
-        """
-
-        :param states:
-        :param nsmapper:
-        :param mdib_version:
-        :param sequence_id:
-        :return:
-        """
-
-    @abstractmethod
-    def send_periodic_component_state_report(self, periodic_states_list: Iterable[ForwardRef('PeriodicStates')],
-                                             nsmapper: DocNamespaceHelper,
-                                             sequence_id: str) -> None:
-        """
-
-        :param periodic_states_list:
-        :param nsmapper:
-        :param sequence_id:
-        :return:
-        """
-
-    @abstractmethod
-    def send_episodic_context_report(self, states: Iterable[ForwardRef('AbstractContextStateContainer')],
-                                     nsmapper: DocNamespaceHelper,
-                                     mdib_version: int,
-                                     sequence_id: str) -> None:
-        """
-
-        :param states:
-        :param nsmapper:
-        :param mdib_version:
-        :param sequence_id:
-        :return:
-        """
-
-    @abstractmethod
-    def send_periodic_context_report(self, periodic_states_list: Iterable[ForwardRef('PeriodicStates')],
-                                     nsmapper: DocNamespaceHelper,
-                                     sequence_id: str) -> None:
-        """
-
-        :param periodic_states_list:
-        :param nsmapper:
-        :param sequence_id:
-        :return:
-        """
-
-    @abstractmethod
-    def send_realtime_samples_report(self,
-                                     realtime_sample_states: Iterable[
-                                         ForwardRef('RealTimeSampleArrayMetricStateContainer')],
-                                     nsmapper: DocNamespaceHelper,
-                                     mdib_version: int,
-                                     sequence_id: str) -> None:
-        """
-
-        :param realtime_sample_states_list:
-        :param nsmapper:
-        :param mdib_version:
-        :param sequence_id:
-        :return:
-        """
-
-    @abstractmethod
-    def send_descriptor_updates(self,
-                                updated: Iterable[ForwardRef('AbstractDescriptorContainer')],
-                                created: Iterable[ForwardRef('AbstractDescriptorContainer')],
-                                deleted: Iterable[ForwardRef('AbstractDescriptorContainer')],
-                                updated_states: Iterable[ForwardRef('AbstractStateContainer')],
-                                nsmapper: DocNamespaceHelper,
-                                mdib_version: int,
-                                sequence_id: str):
-        """
-
-        :param updated:
-        :param created:
-        :param deleted:
-        :param updated_states:
-        :param nsmapper:
-        :param mdib_version:
-        :param sequence_id:
-        :return:
-        """
-
-
-class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
+class SubscriptionsManagerBase:
     """This implementation uses ReferenceParameters to identify subscriptions."""
     BodyNodePrefixes = [Prefixes.PM, Prefixes.MSG, Prefixes.XSI, Prefixes.EXT, Prefixes.XML]
     NotificationPrefixes = [Prefixes.PM, Prefixes.S12, Prefixes.WSA, Prefixes.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
-    def __init__(self, ssl_context, sdc_definitions, msg_factory, msg_reader, supported_encodings,
-                 max_subscription_duration=None, log_prefix=None, chunked_messages=False):
+#    def __init__(self, ssl_context, sdc_definitions, msg_factory, msg_reader, supported_encodings,
+#                 max_subscription_duration=None, log_prefix=None, chunked_messages=False):
+    def __init__(self, ssl_context: SSLContext,
+                 sdc_definitions: BaseDefinitions,
+                 msg_factory: AbstractMessageFactory,
+                 msg_reader: MessageReader,
+                 supported_encodings: List[str],
+                 max_subscription_duration: [float, None] = None,
+                 log_prefix: str = None,
+                 chunked_messages: bool = False):
         self._ssl_context = ssl_context
         self.sdc_definitions = sdc_definitions
         self._msg_factory = msg_factory
@@ -526,7 +285,9 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         return _DevSubscription(subscribe_request, self.base_urls, self._max_subscription_duration,
                                 self._ssl_context, msg_factory=self._msg_factory)
 
-    def on_subscribe_request(self, request_data, subscribe_request):
+    def on_subscribe_request(self, request_data: RequestData,
+                             subscribe_request: SubscribeRequest) -> CreatedMessage:
+
         subscr = self._mk_subscription_instance(subscribe_request)
         # assign a soap client
         key = subscr._notify_to_url.netloc  # pylint:disable=protected-access
@@ -546,7 +307,7 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         response = self._msg_factory.mk_subscribe_response_message(request_data, subscr, self.base_urls)
         return response
 
-    def on_unsubscribe_request(self, request_data):
+    def on_unsubscribe_request(self, request_data: RequestData) -> CreatedMessage:
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
             fault = SoapFault(code='Receiver',
@@ -571,7 +332,7 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
             response = self._msg_factory.mk_unsubscribe_response_message(request_data)
         return response
 
-    def on_get_status_request(self, request_data):
+    def on_get_status_request(self, request_data: RequestData) -> CreatedMessage:
         self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.p_msg.raw_data)
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
@@ -584,7 +345,7 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
             response = self._msg_factory.mk_getstatus_response_message(request_data, subscription.remaining_seconds)
         return response
 
-    def on_renew_request(self, request_data):
+    def on_renew_request(self, request_data: RequestData) -> CreatedMessage:
         reader = request_data.message_data.msg_reader
         expires = reader.read_renew_request(request_data.message_data)
         subscription = self._get_subscription_for_request(request_data)
@@ -600,16 +361,21 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
             response = self._msg_factory.mk_renew_response_message(request_data, subscription.remaining_seconds)
         return response
 
-    def end_all_subscriptions(self, send_subscription_end):
+    def end_all_subscriptions(self, send_subscription_end: bool):
         with self._subscriptions.lock:
             if send_subscription_end:
                 apply_map(lambda subscription: subscription.send_notification_end_message(self._msg_factory),
                           self._subscriptions.objects)
             self._subscriptions.clear()
 
-    def notify_operation(self, operation, transaction_id, invocation_state,
-                         mdib_version, sequence_id, nsmapper,
-                         error=None, error_message=None):
+    def notify_operation(self, operation: OperationDefinition,
+                         transaction_id: int,
+                         invocation_state: InvocationState,
+                         mdib_version: int,
+                         sequence_id: str,
+                         nsmapper: DocNamespaceHelper,
+                         error:Optional[InvocationError]=None,
+                         error_message: Optional[str]=None):
         operation_handle_ref = operation.handle
         self._logger.info(
             'notify_operation transaction={} operation_handle_ref={}, operationState={}, error={}, errorMessage={}',
@@ -623,7 +389,10 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'notify_operation')
         self._do_housekeeping()
 
-    def send_episodic_metric_report(self, states, nsmapper, mdib_version, sequence_id):
+    def send_episodic_metric_report(self, states: List[AbstractStateContainer],
+                                    nsmapper: DocNamespaceHelper,
+                                    mdib_version: int,
+                                    sequence_id: str):
         action = self.sdc_definitions.Actions.EpisodicMetricReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
@@ -634,7 +403,9 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_metric_report')
         self._do_housekeeping()
 
-    def send_periodic_metric_report(self, periodic_states_list, nsmapper, sequence_id):
+    def send_periodic_metric_report(self, periodic_states_list: List[PeriodicStates],
+                                    nsmapper: DocNamespaceHelper,
+                                    sequence_id: str):
         action = self.sdc_definitions.Actions.PeriodicMetricReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
@@ -646,7 +417,10 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_metric_report')
         self._do_housekeeping()
 
-    def send_episodic_alert_report(self, states, nsmapper, mdib_version, sequence_id):
+    def send_episodic_alert_report(self, states: List[AbstractStateContainer],
+                                   nsmapper: DocNamespaceHelper,
+                                   mdib_version: int,
+                                   sequence_id: str):
         action = self.sdc_definitions.Actions.EpisodicAlertReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
@@ -657,7 +431,9 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_alert_report')
         self._do_housekeeping()
 
-    def send_periodic_alert_report(self, periodic_states_list, nsmapper, sequence_id):
+    def send_periodic_alert_report(self, periodic_states_list: List[PeriodicStates],
+                                   nsmapper: DocNamespaceHelper,
+                                   sequence_id: str):
         action = self.sdc_definitions.Actions.PeriodicAlertReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
@@ -669,7 +445,10 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_alert_report')
         self._do_housekeeping()
 
-    def send_episodic_operational_state_report(self, states, nsmapper, mdib_version, sequence_id):
+    def send_episodic_operational_state_report(self, states: List[AbstractStateContainer],
+                                               nsmapper: DocNamespaceHelper,
+                                               mdib_version: int,
+                                               sequence_id: str):
         action = self.sdc_definitions.Actions.EpisodicOperationalStateReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
@@ -680,7 +459,9 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_operational_state_report')
         self._do_housekeeping()
 
-    def send_periodic_operational_state_report(self, periodic_states_list, nsmapper, sequence_id):
+    def send_periodic_operational_state_report(self, periodic_states_list: List[PeriodicStates],
+                                               nsmapper: DocNamespaceHelper,
+                                               sequence_id: str):
         action = self.sdc_definitions.Actions.PeriodicOperationalStateReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
@@ -692,7 +473,10 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_operational_state_report')
         self._do_housekeeping()
 
-    def send_episodic_component_state_report(self, states, nsmapper, mdib_version, sequence_id):
+    def send_episodic_component_state_report(self, states: List[AbstractStateContainer],
+                                             nsmapper: DocNamespaceHelper,
+                                             mdib_version: int,
+                                             sequence_id: str):
         action = self.sdc_definitions.Actions.EpisodicComponentReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
@@ -703,7 +487,9 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_component_state_report')
         self._do_housekeeping()
 
-    def send_periodic_component_state_report(self, periodic_states_list, nsmapper, sequence_id):
+    def send_periodic_component_state_report(self, periodic_states_list: List[PeriodicStates],
+                                             nsmapper: DocNamespaceHelper,
+                                             sequence_id: str):
         action = self.sdc_definitions.Actions.PeriodicComponentReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
@@ -715,7 +501,10 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_component_state_report')
         self._do_housekeeping()
 
-    def send_episodic_context_report(self, states, nsmapper, mdib_version, sequence_id):
+    def send_episodic_context_report(self, states: List[AbstractStateContainer],
+                                     nsmapper: DocNamespaceHelper,
+                                     mdib_version: int,
+                                     sequence_id: str):
         action = self.sdc_definitions.Actions.EpisodicContextReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
@@ -726,7 +515,9 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_context_report')
         self._do_housekeeping()
 
-    def send_periodic_context_report(self, periodic_states_list, nsmapper, sequence_id):
+    def send_periodic_context_report(self, periodic_states_list: List[PeriodicStates],
+                                     nsmapper: DocNamespaceHelper,
+                                     sequence_id: str):
         action = self.sdc_definitions.Actions.PeriodicContextReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
@@ -738,7 +529,10 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_context_report')
         self._do_housekeeping()
 
-    def send_realtime_samples_report(self, realtime_sample_states, nsmapper, mdib_version, sequence_id):
+    def send_realtime_samples_report(self, realtime_sample_states: List[AbstractStateContainer],
+                                     nsmapper: DocNamespaceHelper,
+                                     mdib_version: int,
+                                     sequence_id: str):
         action = self.sdc_definitions.Actions.Waveform
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
@@ -749,7 +543,13 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, None)
         self._do_housekeeping()
 
-    def send_descriptor_updates(self, updated, created, deleted, updated_states, nsmapper, mdib_version, sequence_id):
+    def send_descriptor_updates(self, updated: List[AbstractDescriptorContainer],
+                                created: List[AbstractDescriptorContainer],
+                                deleted: List[AbstractDescriptorContainer],
+                                updated_states: List[AbstractStateContainer],
+                                nsmapper: DocNamespaceHelper,
+                                mdib_version: int,
+                                sequence_id: str):
         action = self.sdc_definitions.Actions.DescriptionModificationReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
@@ -866,7 +666,7 @@ class _SubscriptionsManagerBase(AbstractSubscriptionsManager):
         return ret
 
 
-class SubscriptionsManagerPath(_SubscriptionsManagerBase):
+class SubscriptionsManagerPath(SubscriptionsManagerBase):
     """This implementation uses path dispatching to identify subscriptions."""
 
     def _mk_subscription_instance(self, subscribe_request):
@@ -875,7 +675,7 @@ class SubscriptionsManagerPath(_SubscriptionsManagerBase):
         return subscription
 
 
-class SubscriptionsManagerReferenceParam(_SubscriptionsManagerBase):
+class SubscriptionsManagerReferenceParam(SubscriptionsManagerBase):
     """This implementation uses reference parameters to identify subscriptions."""
 
     def _mk_subscription_instance(self, subscribe_request):

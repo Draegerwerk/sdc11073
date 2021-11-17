@@ -29,4 +29,3 @@ class GetServiceClient(HostedServiceClient):
                                                       request_manipulator=request_manipulator)
         states = received_message_data.msg_reader.read_get_mdstate_response(received_message_data)
         return GetRequestResult(received_message_data, states)
-

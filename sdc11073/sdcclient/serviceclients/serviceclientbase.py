@@ -6,7 +6,6 @@ from typing import Any
 from ... import loghelper
 from ...namespaces import DocNamespaceHelper
 from ...pysoap.msgreader import ReceivedMessage
-from ...pysoap.soapenvelope import ExtendedDocumentInvalid
 
 
 class GetRequestResult:

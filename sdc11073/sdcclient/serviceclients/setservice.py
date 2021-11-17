@@ -1,5 +1,7 @@
-from .serviceclientbase import HostedServiceClient
 from concurrent.futures import Future
+
+from .serviceclientbase import HostedServiceClient
+
 
 class SetServiceClient(HostedServiceClient):
     subscribeable_actions = ('OperationInvokedReport',)
@@ -77,8 +79,8 @@ class SetServiceClient(HostedServiceClient):
                          for st in proposed_component_states])
         self._logger.info('set_component_state {}', tmp)
         message = self._msg_factory.mk_set_component_state_message(self._nsmapper, self.endpoint_reference.address,
-                                                                 self.porttype,
-                                                                 operation_handle, proposed_component_states)
+                                                                   self.porttype,
+                                                                   operation_handle, proposed_component_states)
         self._logger.debug('set_component_state sends {}', lambda: message.serialize_message(pretty=True))
         return self._call_operation(message, request_manipulator=request_manipulator)
 
@@ -94,12 +96,12 @@ class SetServiceClient(HostedServiceClient):
 
     def _mk_set_alert_message(self, operation_handle, proposed_alert_states):
         return self._msg_factory.mk_set_alert_message(self._nsmapper,
-                                                     self.endpoint_reference.address, self.porttype, operation_handle,
-                                                     proposed_alert_states)
+                                                      self.endpoint_reference.address, self.porttype, operation_handle,
+                                                      proposed_alert_states)
 
     def _mk_set_metric_state_message(self, operation_handle, proposed_metric_states):
         """create message, but do not send it. Used for unit testing
         :param proposed_metric_states: a list of AbstractMetricStateContainer or derived classes """
         return self._msg_factory.mk_set_metric_state_message(self._nsmapper,
-                                                           self.endpoint_reference.address, self.porttype,
-                                                           operation_handle, proposed_metric_states)
+                                                             self.endpoint_reference.address, self.porttype,
+                                                             operation_handle, proposed_metric_states)

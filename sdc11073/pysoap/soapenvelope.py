@@ -1,5 +1,6 @@
 from io import BytesIO
 from typing import Optional, List
+
 from lxml import etree as etree_
 
 from sdc11073.namespaces import nsmap, Prefixes
@@ -56,7 +57,7 @@ class Soap12Envelope:
             self._nsmap = {}
         else:
             self._nsmap = ns_map
-        for prefix in (Prefixes.S12, Prefixes.WSA):# these are always needed
+        for prefix in (Prefixes.S12, Prefixes.WSA):  # these are always needed
             self._nsmap[prefix.prefix] = prefix.namespace
         self.address = None
 
@@ -124,5 +125,3 @@ class SoapFault:
     def __repr__(self):
         return (f'{self.__class__.__name__}(code="{self.code}", sub_code="{self.sub_code}", '
                 f'reason="{self.reason}", detail="{self.details}")')
-
-

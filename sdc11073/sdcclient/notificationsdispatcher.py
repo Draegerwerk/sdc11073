@@ -112,4 +112,3 @@ class NotificationsDispatcherByAction(NotificationsDispatcherBase):
         if method is None:
             raise RuntimeError(f'unknown message {action}')
         method(message_data)
-

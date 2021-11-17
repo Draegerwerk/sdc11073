@@ -17,9 +17,22 @@ from ..dpws import ThisDevice, ThisModel, HostServiceType, HostedServiceType, Re
 from ..metadata import MetaData
 from ..definitions_base import mk_schema_validator, SchemaResolver
 from ..httprequesthandler import HTTPRequestHandlingError
+
 # pylint: disable=no-self-use
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
+
+
+def validate_node(node, xml_schema, logger):
+    try:
+        xml_schema.assertValid(node)
+    except etree_.DocumentInvalid as ex:
+        logger.error(traceback.format_exc())
+        logger.error(etree_.tostring(node, pretty_print=True).decode('utf-8'))
+        soap_fault = SoapFault(code=SoapFaultCode.SENDER, reason=f'{ex}')
+        raise HTTPRequestHandlingError(status=400,
+                                       reason='document invalid',
+                                       soap_fault=soap_fault) from ex
 
 
 def _get_text(node, id_string, namespace_map):
@@ -292,15 +305,7 @@ class MessageReader:
 
     def _validate_node(self, node):
         if self._validate:
-            try:
-                self._xml_schema.assertValid(node)
-            except etree_.DocumentInvalid as ex:
-                self._logger.error(traceback.format_exc())
-                self._logger.error(etree_.tostring(node, pretty_print=True).decode('utf-8'))
-                soap_fault = SoapFault(code=SoapFaultCode.SENDER, reason=f'{ex}')
-                raise HTTPRequestHandlingError(status=400,
-                                               reason='document invalid',
-                                               soap_fault=soap_fault) from ex
+            validate_node(node, self._xml_schema, self._logger)
 
 
 class MessageReaderClient(MessageReader):

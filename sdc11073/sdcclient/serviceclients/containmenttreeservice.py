@@ -28,4 +28,3 @@ class CTreeServiceClient(HostedServiceClient):
             message, 'GetContainmentTree', request_manipulator=request_manipulator)
         descriptors = received_message_data.msg_reader.read_get_containment_tree_response(received_message_data)
         return GetRequestResult(received_message_data, descriptors)
-

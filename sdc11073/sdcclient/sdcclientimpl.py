@@ -4,7 +4,6 @@ import functools
 import ssl
 import traceback
 import urllib
-import weakref
 
 from lxml import etree as etree_
 
@@ -63,7 +62,6 @@ class HostedServiceDescription:
         message_data = soap_client.post_message_to(self._url.path,
                                                    created_message,
                                                    msg=f'<{self.service_id}> read_metadata')
-        endpoint_envelope = message_data.p_msg
         self.meta_data = self._msg_reader.read_get_metadata_response(message_data)
         self._read_wsdl(soap_client, self.meta_data.wsdl_location)
 
@@ -199,7 +197,7 @@ class SdcClient:
         """ SdcClient sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib is not None:
             raise RuntimeError('SdcClient has already an registered mdib')
-        self._mdib = None if mdib is None else weakref.ref(mdib)
+        self._mdib = mdib
         if self.client('Set') is not None:
             self.client('Set').register_mdib(mdib)
         if self.client('Context') is not None:
