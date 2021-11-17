@@ -206,7 +206,7 @@ class SdcClient:
 
     @property
     def mdib(self):
-        return None if self._mdib is None else self._mdib()
+        return self._mdib
 
     @property
     def my_ipaddress(self):
