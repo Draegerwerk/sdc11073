@@ -20,22 +20,14 @@ class SdcDevice(object):
         self._location = None
 
     def setLocation(self, location, validators=defaultInstanceIdentifiers, publishNow=True):
-        '''
+        """
         @param location: a pysdc.location.SdcLocation instance
         @param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
         @param publishNow: if True, the device is published via its wsdiscovery reference.
-        '''
+        """
         if location == self._location:
             return
-
-        if self._location is not None:
-            self._wsdiscovery.clearService(self.epr)
-
         self._location = location
-
-        if location is None:
-            return
-
         self._mdib.setLocation(location, validators)
         if publishNow:
             self.publish()
@@ -48,7 +40,6 @@ class SdcDevice(object):
         scopes = self._handler.mkScopes()
         xAddrs = self.getXAddrs()
         self._wsdiscovery.publishService(self.epr, self._mdib.sdc_definitions.MedicalDeviceTypesFilter, scopes, xAddrs)
-
 
     @property
     def shallValidate(self):

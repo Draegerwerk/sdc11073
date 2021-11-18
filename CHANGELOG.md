@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.5] - 2021-11-18
 ### Fixed
 - use MetadataVersion in Wsdiscovery
+- fix setLocation for SdcDevice implementation - no Bye-message on location change
 
 ## [1.1.4] - 2021-10-15
 ### Fixed
