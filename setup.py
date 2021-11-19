@@ -66,6 +66,7 @@ setup(
         # Specify the Python versions you support here. In particular, ensure
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
 
     # What does your project relate to?
