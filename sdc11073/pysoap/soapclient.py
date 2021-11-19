@@ -118,6 +118,24 @@ class SoapClient:
     def is_closed(self):
         return self._http_connection is None
 
+    def _prepare_message(self, created_message, request_manipulator):
+        validate = True
+        if hasattr(request_manipulator, 'manipulate_soapenvelope'):
+            tmp = request_manipulator.manipulate_soapenvelope(created_message.p_msg)
+            if tmp:
+                created_message.p_msg = tmp
+                # in this case do not validate , because the manipulator might intentionally have created invalid xml.
+                validate = False
+        xml_request = created_message.serialize_message(pretty=False, normalized=False,
+                                                        request_manipulator=request_manipulator,
+                                                        validate=validate)
+
+        if hasattr(request_manipulator, 'manipulate_string'):
+            tmp = request_manipulator.manipulate_string(xml_request)
+            if tmp:
+                xml_request = tmp
+        return xml_request
+
     def post_message_to(self, path, created_message, msg='', request_manipulator=None):
         """
         :param path: url path component
@@ -128,20 +146,7 @@ class SoapClient:
         """
         if self.is_closed():
             self.connect()
-        if hasattr(request_manipulator, 'manipulate_soapenvelope'):
-            tmp = request_manipulator.manipulate_soapenvelope(created_message.p_msg)
-            if tmp:
-                created_message.p_msg = tmp
-        xml_request = created_message.serialize_message(pretty=False, normalized=False,
-                                                        request_manipulator=request_manipulator)
-
-        # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
-        assert b'utf-8' in xml_request[:100].lower()
-        if hasattr(request_manipulator, 'manipulate_string'):
-            tmp = request_manipulator.manipulate_string(xml_request)
-            if tmp:
-                xml_request = tmp
-
+        xml_request = self._prepare_message(created_message, request_manipulator)
         started = time.perf_counter()
         try:
             http_response, xml_response = self._send_soap_request(path, xml_request, msg)
@@ -156,7 +161,7 @@ class SoapClient:
             raise HTTPReturnCodeError(http_response.status, http_response.reason, soap_fault)
         return message_data
 
-    def _send_soap_request(self, path, xml, msg) ->(httplib.HTTPResponse, str):
+    def _send_soap_request(self, path, xml, msg) -> (httplib.HTTPResponse, str):
         """Send SOAP request using HTTP"""
         if not isinstance(xml, bytes):
             xml = xml.encode('utf-8')

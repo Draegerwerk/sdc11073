@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-import urllib
+from urllib import parse
 from dataclasses import dataclass
 from typing import Type, Callable, List, Any, TYPE_CHECKING  # ForwardRef
 
@@ -15,11 +15,12 @@ from .wsdiscovery import Scope
 
 # pylint: disable=cyclic-import
 if TYPE_CHECKING:
-    from .pysoap.msgfactory import AbstractMessageFactory
-    from .pysoap.msgreader import AbstractMessageReader
+    from .pysoap.msgfactory import MessageFactory
+    from .pysoap.msgreader import MessageReader
+    from .pysoap.soapclient import SoapClient
     from .sdcdevice.sdc_handlers import HostedServices
     from .sdcdevice.sco import AbstractScoOperationsRegistry
-    from .sdcdevice.subscriptionmgr import AbstractSubscriptionsManager
+    from .sdcdevice.subscriptionmgr import SubscriptionsManagerBase
     from .mdib.devicemdib import DeviceMdibContainer
     from .httprequesthandler import RequestData
 # pylint: enable=cyclic-import
@@ -43,6 +44,7 @@ class ProtocolsRegistry(type):
 # Dependency injection: This class defines which component implementations the sdc client will use.
 @dataclass()
 class SdcClientComponents:
+    soap_client_class: Type[SoapClient] = None
     msg_factory_class: type = None
     msg_reader_class: type = None
     notifications_receiver_class: type = None
@@ -72,13 +74,14 @@ class SdcClientComponents:
 # Dependency injection: This class defines which component implementations the sdc device will use.
 @dataclass()
 class SdcDeviceComponents:
-    msg_factory_class: Type[AbstractMessageFactory] = None
-    msg_reader_class: Type[AbstractMessageReader] = None
-    xml_reader_class: Type[AbstractMessageReader] = None  # needed to read xml based mdib files
+    soap_client_class: Type[SoapClient] = None
+    msg_factory_class: Type[MessageFactory] = None
+    msg_reader_class: Type[MessageReader] = None
+    xml_reader_class: Type[MessageReader] = None  # needed to read xml based mdib files
     services_factory: Callable[[Any, dict, Any], HostedServices] = None
     operation_cls_getter: Callable[[QName], type] = None
     sco_operations_registry_class: Type[AbstractScoOperationsRegistry] = None
-    subscriptions_manager_class: Type[AbstractSubscriptionsManager] = None
+    subscriptions_manager_class: Type[SubscriptionsManagerBase] = None
     role_provider_class: type = None
     scopes_factory: Callable[[DeviceMdibContainer], List[Scope]] = None
     msg_dispatch_method: Callable[[RequestData], str] = None
@@ -191,13 +194,13 @@ class SchemaResolver(etree_.Resolver):
 
     def resolve(self, url, id, context):  # pylint: disable=unused-argument, redefined-builtin, invalid-name
         # first check if there is a lookup defined
-        print(f'resolve {url} {id} {context}')
+        self._logger.debug('try to resolve {}', url)
         path = self._base_definitions.get_schema_file_path(url)
         if path:
             self._logger.debug('could resolve url {} via lookup to {}', url, path)
         else:
             # no lookup, parse url
-            parsed = urllib.parse.urlparse(url)
+            parsed = parse.urlparse(url)
             if parsed.scheme == 'file':
                 path = parsed.path  # get the path part
             else:  # the url is a path

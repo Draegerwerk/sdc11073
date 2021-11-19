@@ -7,9 +7,7 @@ from sdc11073 import namespaces
 from sdc11073 import observableproperties
 from sdc11073 import pmtypes
 from sdc11073.loghelper import basic_logging_setup
-from sdc11073.pysoap.msgfactory import SoapMessageFactory
 from sdc11073.sdcdevice import waveforms
-from sdc11073.sdcdevice.httpserver import RequestData
 from tests import mockstuff
 from sdc11073.dpws import ThisDevice, ThisModel
 

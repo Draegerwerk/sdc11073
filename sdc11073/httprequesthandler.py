@@ -144,19 +144,17 @@ class HTTPReader:
         :return: bytes
         '''
         http_body = None
-        cl_string = http_message.headers.get('content-length')
-        if cl_string:
-            try:
-                content_length = int(cl_string)
-                http_body = http_message.rfile.read(content_length)
-            except TypeError:
-                http_body = http_message.rfile.read()
-        if http_body is None:
-            transfer_encoding = http_message.headers.get('transfer-encoding')
-            if transfer_encoding is not None and transfer_encoding.lower() == 'chunked':
-                http_body = cls._read_dechunk(http_message.rfile)
-        if http_body is None:
-            http_body = http_message.rfile.read()
+        transfer_encoding = http_message.headers.get('transfer-encoding')
+        if transfer_encoding is not None and transfer_encoding.lower() == 'chunked':
+            http_body = cls._read_dechunk(http_message.rfile)
+        else:
+            cl_string = http_message.headers.get('content-length')
+            if cl_string:
+                try:
+                    content_length = int(cl_string)
+                    http_body = http_message.rfile.read(content_length)
+                except TypeError:
+                    http_body = http_message.rfile.read()
 
         # if we get compressed content then we check against server setting
         # if it matches continue and decompress

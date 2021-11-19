@@ -112,9 +112,9 @@ class SdcDevice:
         cls = self._components.subscriptions_manager_class
         self._subscriptions_manager = cls(self._ssl_context,
                                           self._mdib.sdc_definitions,
-                                          #self._mdib.schema_validators,
                                           self.msg_factory,
                                           self.msg_reader,
+                                          self._components.soap_client_class,
                                           self._compression_methods,
                                           self._max_subscription_duration,
                                           log_prefix=self._log_prefix,

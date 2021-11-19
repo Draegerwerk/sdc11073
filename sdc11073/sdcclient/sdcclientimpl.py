@@ -14,21 +14,6 @@ from .. import netconn
 from .. import observableproperties as properties
 from ..definitions_base import ProtocolsRegistry
 from ..namespaces import EventingActions
-from ..pysoap.soapclient import SoapClient
-
-
-def _mk_soap_client(scheme, netloc, logger, ssl_context, sdc_definitions, msg_reader, supported_encodings=None,
-                    request_encodings=None, chunked_requests=False):
-    if scheme == 'https':
-        _ssl_context = ssl_context
-    else:
-        _ssl_context = None
-    return SoapClient(netloc, logger, ssl_context=_ssl_context,
-                      sdc_definitions=sdc_definitions,
-                      msg_reader=msg_reader,
-                      supported_encodings=supported_encodings,
-                      request_encodings=request_encodings,
-                      chunked_requests=chunked_requests)
 
 
 class HostDescription:
@@ -417,15 +402,30 @@ class SdcClient:
         key = (_url.scheme, _url.netloc)
         soap_client = self._soap_clients.get(key)
         if soap_client is None:
-            soap_client = _mk_soap_client(_url.scheme, _url.netloc,
-                                          loghelper.get_logger_adapter('sdc.client.soap', self.log_prefix),
-                                          ssl_context=self._ssl_context,
-                                          sdc_definitions=self.sdc_definitions,
-                                          msg_reader=self.msg_reader,
-                                          supported_encodings=self._compression_methods,
-                                          chunked_requests=self.chunked_requests)
+            soap_client = self._mk_soap_client(_url.scheme, _url.netloc,
+                                               loghelper.get_logger_adapter('sdc.client.soap', self.log_prefix),
+                                               ssl_context=self._ssl_context,
+                                               sdc_definitions=self.sdc_definitions,
+                                               msg_reader=self.msg_reader,
+                                               supported_encodings=self._compression_methods,
+                                               chunked_requests=self.chunked_requests)
             self._soap_clients[key] = soap_client
         return soap_client
+
+    def _mk_soap_client(self, scheme, netloc, logger, ssl_context, sdc_definitions, msg_reader,
+                        supported_encodings=None,
+                        request_encodings=None, chunked_requests=False):
+        if scheme == 'https':
+            _ssl_context = ssl_context
+        else:
+            _ssl_context = None
+        cls = self._components.soap_client_class
+        return cls(netloc, logger, ssl_context=_ssl_context,
+                   sdc_definitions=sdc_definitions,
+                   msg_reader=msg_reader,
+                   supported_encodings=supported_encodings,
+                   request_encodings=request_encodings,
+                   chunked_requests=chunked_requests)
 
     def _mk_hosted_services(self):
         for hosted in self.host_description.relationship.hosted.values():

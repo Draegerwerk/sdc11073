@@ -20,8 +20,8 @@ from ..etc import apply_map, short_filter_string
 from ..namespaces import Prefixes
 from ..namespaces import wseTag, DocNamespaceHelper
 from ..pmtypes import InvocationError, InvocationState
-from ..pysoap.soapclient import SoapClient, HTTPReturnCodeError
-from ..pysoap.soapenvelope import SoapFault
+from ..pysoap.soapclient import HTTPReturnCodeError
+from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
 
 if TYPE_CHECKING:
     from ssl import SSLContext
@@ -29,7 +29,6 @@ if TYPE_CHECKING:
     from ..pysoap.msgfactory import AbstractMessageFactory, CreatedMessage
     from ..httprequesthandler import RequestData
     from ..pysoap.msgreader import SubscribeRequest, MessageReader
-    from ..pysoap.soapenvelope import Soap12Envelope
     from ..mdib.statecontainers import AbstractStateContainer
     from ..mdib.descriptorcontainers import AbstractDescriptorContainer
     from .sco import OperationDefinition
@@ -94,7 +93,7 @@ class _DevSubscription:
             self._end_to_url = None
         self.end_to_ref_params = subscribe_request.end_to_ref_params
         self.identifier_uuid = uuid.uuid4()
-        self.reference_parameters = ReferenceParameters(None)  #default: no reference parameters
+        self.reference_parameters = ReferenceParameters(None)  # default: no reference parameters
         self.path_suffix = None  # used for path based dispatching
 
         self._max_subscription_duration = max_subscription_duration
@@ -227,7 +226,8 @@ class _DevSubscription:
             if self.notify_ref_params is None:
                 ref_ident = '<none>'
             else:
-                ref_ident = str(self.notify_ref_params) #', '.join([node.text for node in self.notify_ref_params.parameters])
+                ref_ident = str(
+                    self.notify_ref_params)  # ', '.join([node.text for node in self.notify_ref_params.parameters])
         except TypeError:
             ref_ident = '<unknown>'
         return f'Subscription(notify_to={self.notify_to_address} ident={ref_ident}, ' \
@@ -249,12 +249,11 @@ class SubscriptionsManagerBase:
     NotificationPrefixes = [Prefixes.PM, Prefixes.S12, Prefixes.WSA, Prefixes.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
-#    def __init__(self, ssl_context, sdc_definitions, msg_factory, msg_reader, supported_encodings,
-#                 max_subscription_duration=None, log_prefix=None, chunked_messages=False):
     def __init__(self, ssl_context: SSLContext,
                  sdc_definitions: BaseDefinitions,
                  msg_factory: AbstractMessageFactory,
                  msg_reader: MessageReader,
+                 soap_client_class,
                  supported_encodings: List[str],
                  max_subscription_duration: [float, None] = None,
                  log_prefix: str = None,
@@ -263,6 +262,7 @@ class SubscriptionsManagerBase:
         self.sdc_definitions = sdc_definitions
         self._msg_factory = msg_factory
         self._msg_reader = msg_reader
+        self._soap_client_class = soap_client_class
         self.log_prefix = log_prefix
         self._logger = loghelper.get_logger_adapter('sdc.device.subscrMgr', self.log_prefix)
         self._chunked_messages = chunked_messages
@@ -293,12 +293,12 @@ class SubscriptionsManagerBase:
         key = subscr._notify_to_url.netloc  # pylint:disable=protected-access
         soap_client = self.soap_clients.get(key)
         if soap_client is None:
-            soap_client = SoapClient(key, loghelper.get_logger_adapter('sdc.device.soap', self.log_prefix),
-                                     ssl_context=self._ssl_context, sdc_definitions=self.sdc_definitions,
-                                     msg_reader=self._msg_reader,
-                                     supported_encodings=self._supported_encodings,
-                                     request_encodings=subscribe_request.accepted_encodings,
-                                     chunked_requests=self._chunked_messages)
+            soap_client = self._soap_client_class(key, loghelper.get_logger_adapter('sdc.device.soap', self.log_prefix),
+                                                  ssl_context=self._ssl_context, sdc_definitions=self.sdc_definitions,
+                                                  msg_reader=self._msg_reader,
+                                                  supported_encodings=self._supported_encodings,
+                                                  request_encodings=subscribe_request.accepted_encodings,
+                                                  chunked_requests=self._chunked_messages)
             self.soap_clients[key] = soap_client
         subscr.set_soap_client(soap_client)
         with self._subscriptions.lock:
@@ -310,7 +310,7 @@ class SubscriptionsManagerBase:
     def on_unsubscribe_request(self, request_data: RequestData) -> CreatedMessage:
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            fault = SoapFault(code='Receiver',
+            fault = SoapFault(code=SoapFaultCode.RECEIVER,
                               reason='unknown Subscription identifier',
                               sub_code=wseTag('InvalidMessage')
                               )
@@ -336,7 +336,7 @@ class SubscriptionsManagerBase:
         self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.p_msg.raw_data)
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            fault = SoapFault(code='Receiver',
+            fault = SoapFault(code=SoapFaultCode.RECEIVER,
                               reason='unknown Subscription identifier',
                               sub_code=wseTag('InvalidMessage')
                               )
@@ -350,7 +350,7 @@ class SubscriptionsManagerBase:
         expires = reader.read_renew_request(request_data.message_data)
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            fault = SoapFault(code='Receiver',
+            fault = SoapFault(code=SoapFaultCode.RECEIVER,
                               reason='unknown Subscription identifier',
                               sub_code=wseTag('UnableToRenew')
                               )
@@ -374,8 +374,8 @@ class SubscriptionsManagerBase:
                          mdib_version: int,
                          sequence_id: str,
                          nsmapper: DocNamespaceHelper,
-                         error:Optional[InvocationError]=None,
-                         error_message: Optional[str]=None):
+                         error: Optional[InvocationError] = None,
+                         error_message: Optional[str] = None):
         operation_handle_ref = operation.handle
         self._logger.info(
             'notify_operation transaction={} operation_handle_ref={}, operationState={}, error={}, errorMessage={}',

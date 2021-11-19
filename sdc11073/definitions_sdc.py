@@ -7,6 +7,7 @@ from .mdib.descriptorcontainers import get_container_class as get_descriptor_con
 from .mdib.statecontainers import get_container_class as get_state_container_class
 from .pysoap.msgfactory import MessageFactoryDevice, MessageFactoryClient
 from .pysoap.msgreader import MessageReaderClient, MessageReaderDevice
+from .pysoap.soapclient import SoapClient
 from .roles.product import MinimalProduct
 from .sdcclient.serviceclients.descriptioneventservice import DescriptionEventClient
 from .sdcclient.serviceclients.waveformservice import WaveformClient
@@ -95,6 +96,7 @@ class _SdcV1Actions:
 
 
 default_sdc_device_components = SdcDeviceComponents(
+    soap_client_class = SoapClient,
     msg_factory_class=MessageFactoryDevice,
     msg_reader_class=MessageReaderDevice,
     xml_reader_class=MessageReaderDevice,
@@ -116,6 +118,7 @@ default_sdc_device_components = SdcDeviceComponents(
 )
 
 default_sdc_client_components = SdcClientComponents(
+    soap_client_class = SoapClient,
     msg_factory_class=MessageFactoryClient,
     msg_reader_class=MessageReaderClient,
     notifications_receiver_class=NotificationsReceiver,

@@ -26,8 +26,8 @@ class CreatedMessage:
         self.p_msg = message
         self.msg_factory = msg_factory
 
-    def serialize_message(self, pretty=False, normalized=False, request_manipulator=None):
-        return self.msg_factory.serialize_message(self, pretty, normalized, request_manipulator)
+    def serialize_message(self, pretty=False, normalized=False, request_manipulator=None, validate=True):
+        return self.msg_factory.serialize_message(self, pretty, normalized, request_manipulator, validate)
 
 
 # pylint: disable=no-self-use
@@ -46,7 +46,7 @@ def _handles2params(handles):
     return params
 
 
-class SoapMessageFactory:
+class MessageFactory:
     """This class creates soap messages. It is used in two phases:
      1) call one of the mk_xxx methods. All return a CreatedMessage instance that contains the data provided in the call
      2) call the serialize_message method of the CreatedMessage instance to get the xml representation
@@ -65,7 +65,7 @@ class SoapMessageFactory:
         :param mdib: the current mdib
         """
         if mdib is not None and self._mdib_wref is not None:
-            raise RuntimeError('SoapMessageFactory has already an registered mdib')
+            raise RuntimeError('MessageFactory has already an registered mdib')
         self._mdib_wref = None if mdib is None else weakref.ref(mdib)
 
     def serialize_message(self, message: CreatedMessage, pretty=False, normalized=False,
@@ -184,7 +184,7 @@ class SoapMessageFactory:
             validate_node(node, self._xml_schema, self._logger)
 
 
-class MessageFactoryClient(SoapMessageFactory):
+class MessageFactoryClient(MessageFactory):
     """This class creates all messages that a client needs to create"""
 
     def mk_transfer_get_message(self, addr_to) -> CreatedMessage:
@@ -564,7 +564,7 @@ class MessageFactoryClient(SoapMessageFactory):
         return CreatedMessage(soap_envelope, self)
 
 
-class MessageFactoryDevice(SoapMessageFactory):
+class MessageFactoryDevice(MessageFactory):
     """This class creates all messages that a device needs to create"""
 
     def mk_get_metadata_response_message(self, message_data, this_device, this_model,
