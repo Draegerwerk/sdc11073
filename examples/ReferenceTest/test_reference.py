@@ -1,13 +1,22 @@
-import unittest
 import os
-import uuid
 import threading
-import traceback
 import time
-from concurrent import futures
+import traceback
+import unittest
+import uuid
 from collections import defaultdict
-import sdc11073
+from concurrent import futures
+
+from sdc11073 import observableproperties
+from sdc11073 import pmtypes
 from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.dpws import ThisDevice, ThisModel
+from sdc11073.location import SdcLocation
+from sdc11073.mdib import DeviceMdibContainer, ClientMdibContainer
+from sdc11073.namespaces import domTag
+from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
+from sdc11073.sdcclient import SdcClient
+from sdc11073.wsdiscovery import WSDiscoveryWhitelist, Scope
 
 here = os.path.dirname(__file__)
 default_mdib_path = os.path.join(here, 'reference_mdib.xml')
@@ -25,6 +34,7 @@ ref_bed = os.getenv('ref_bed') or 'r_bed'
 class DeviceActivity(threading.Thread):
     """ This thread feeds the device with periodic updates of metrics and alert states"""
     daemon = True
+
     def __init__(self, device):
         super().__init__()
         self.device = device
@@ -49,11 +59,11 @@ class DeviceActivity(threading.Thread):
                 stringOperation = oneContainer
         with self.device.mdib.mdibUpdateTransaction() as mgr:
             state = mgr.get_state(valueOperation.OperationTarget)
-            if not state.metricValue:
-                state.mkMetricValue()
+            if not state.MetricValue:
+                state.mk_metric_value()
             state = mgr.get_state(stringOperation.OperationTarget)
-            if not state.metricValue:
-                state.mkMetricValue()
+            if not state.MetricValue:
+                state.mk_metric_value()
         print("DeviceActivity running...")
         try:
             currentValue = 0
@@ -61,10 +71,10 @@ class DeviceActivity(threading.Thread):
                 if metric:
                     with self.device.mdib.mdibUpdateTransaction() as mgr:
                         state = mgr.get_state(metric.handle)
-                        if not state.metricValue:
-                            state.mkMetricValue()
-                        state.metricValue.Value = currentValue
-                        print ('set metric to {}'.format(currentValue))
+                        if not state.MetricValue:
+                            state.mk_metric_value()
+                        state.MetricValue.Value = currentValue
+                        print('set metric to {}'.format(currentValue))
                         currentValue += 1
                 else:
                     print("Metric not found in MDIB!")
@@ -72,7 +82,7 @@ class DeviceActivity(threading.Thread):
                     with self.device.mdib.mdibUpdateTransaction() as mgr:
                         state = mgr.get_state(alertCondition.handle)
                         state.Presence = not state.Presence
-                        print ('set alertstate presence to {}'.format(state.Presence))
+                        print('set alertstate presence to {}'.format(state.Presence))
                 else:
                     print("Alert not found in MDIB")
                 for _ in range(2):
@@ -81,36 +91,36 @@ class DeviceActivity(threading.Thread):
                         return
                     else:
                         time.sleep(1)
-        except :
+        except:
             print(traceback.format_exc())
         print("DeviceActivity stopped.")
 
 
 def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
-    my_mdib = sdc11073.mdib.DeviceMdibContainer.fromMdibFile(mdibPath)
+    my_mdib = DeviceMdibContainer.from_mdib_file(mdibPath)
     my_uuid = uuid.UUID(My_Dev_UUID_str)
-    dpwsModel = sdc11073.pysoap.soapenvelope.DPWSThisModel(manufacturer='sdc11073',
-                                                        manufacturerUrl='www.sdc11073.com',
-                                                        modelName='TestDevice',
-                                                        modelNumber='1.0',
-                                                        modelUrl='www.draeger.com/model',
-                                                        presentationUrl='www.draeger.com/model/presentation')
+    dpwsModel = ThisModel(manufacturer='sdc11073',
+                          manufacturer_url='www.sdc11073.com',
+                          model_name='TestDevice',
+                          model_number='1.0',
+                          model_url='www.draeger.com/model',
+                          presentation_url='www.draeger.com/model/presentation')
 
-    dpwsDevice = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendlyName='TestDevice',
-                                                          firmwareVersion='Version1',
-                                                          serialNumber='12345')
-    sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.SdcDevice(wsdiscovery_instance,
-                                                           my_uuid,
-                                                           dpwsModel,
-                                                           dpwsDevice,
-                                                           my_mdib)
+    dpwsDevice = ThisDevice(friendly_name='TestDevice',
+                            firmware_version='Version1',
+                            serial_number='12345')
+    sdcDevice = SdcDevice(wsdiscovery_instance,
+                          dpwsModel,
+                          dpwsDevice,
+                          my_mdib,
+                          my_uuid)
     for desc in sdcDevice.mdib.descriptions.objects:
-        desc.SafetyClassification = sdc11073.pmtypes.SafetyClassification.MED_A
-    sdcDevice.startAll(startRealtimeSampleLoop=False)
-    validators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extensionString='System')]
-    sdcDevice.setLocation(location, validators)
+        desc.SafetyClassification = pmtypes.SafetyClassification.MED_A
+    sdcDevice.start_all(start_rtsample_loop=False)
+    validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+    sdcDevice.set_location(location, validators)
 
-    patientDescriptorHandle = my_mdib.descriptions.NODETYPE.getOne(sdc11073.namespaces.domTag('PatientContextDescriptor')).handle
+    patientDescriptorHandle = my_mdib.descriptions.NODETYPE.getOne(domTag('PatientContextDescriptor')).handle
     with my_mdib.mdibUpdateTransaction() as mgr:
         patientContainer = mgr.get_state(patientDescriptorHandle)
         patientContainer.CoreData.Givenname = "Given"
@@ -127,10 +137,11 @@ def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
 
 class Test_Reference(unittest.TestCase):
     """Plugfest Reference tests"""
+
     def setUp(self) -> None:
-        self.my_location = sdc11073.location.SdcLocation(fac=ref_fac,
-                                                         poc=ref_poc,
-                                                         bed=ref_bed)
+        self.my_location = SdcLocation(fac=ref_fac,
+                                       poc=ref_poc,
+                                       bed=ref_bed)
         # tests fill these lists with what they create, teardown cleans up after them.
         self.my_devices = []
         self.my_clients = []
@@ -140,10 +151,10 @@ class Test_Reference(unittest.TestCase):
     def tearDown(self) -> None:
         for cl in self.my_clients:
             print('stopping {}'.format(cl))
-            cl.stopAll()
+            cl.stop_all()
         for d in self.my_devices:
             print('stopping {}'.format(d))
-            d.stopAll()
+            d.stop_all()
         for w in self.my_wsdiscoveries:
             print('stopping {}'.format(w))
             w.stop()
@@ -155,7 +166,7 @@ class Test_Reference(unittest.TestCase):
         # This test creates its own device and runs the tests against it
         # A WsDiscovery instance is needed to publish devices on the network.
         # In this case we want to publish them only on localhost 127.0.0.1.
-        my_device_wsDiscovery = sdc11073.wsdiscovery.WSDiscoveryWhitelist([adapter_ip])
+        my_device_wsDiscovery = WSDiscoveryWhitelist([adapter_ip])
         self.my_wsdiscoveries.append(my_device_wsDiscovery)
         my_device_wsDiscovery.start()
 
@@ -177,41 +188,41 @@ class Test_Reference(unittest.TestCase):
         """sequence of client actions"""
         errors = []
         passed = []
-        my_client_wsDiscovery = sdc11073.wsdiscovery.WSDiscoveryWhitelist([adapter_ip])
+        my_client_wsDiscovery = WSDiscoveryWhitelist([adapter_ip])
         self.my_wsdiscoveries.append(my_client_wsDiscovery)
         my_client_wsDiscovery.start()
 
-        print ('looking for device with scope {}'.format(self.my_location.scopeStringSdc))
-        services = my_client_wsDiscovery.searchServices(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
-                                                        scopes=[sdc11073.wsdiscovery.Scope(self.my_location.scopeStringSdc)])
-        print('found {} services {}'.format(len(services), ', '.join([s.getEPR() for s in services])))
+        print('looking for device with scope {}'.format(self.my_location.scope_string))
+        services = my_client_wsDiscovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
+                                                         scopes=[Scope(self.my_location.scope_string)])
+        print('found {} services {}'.format(len(services), ', '.join([s.epr for s in services])))
         for s in services:
-            print(s.getEPR())
-        self.assertEqual(len(services),1)
+            print(s.epr)
+        self.assertEqual(len(services), 1)
         my_service = services[0]
         print('Test step 1 successful: device discovered')
 
         print('Test step 2: connect to device...')
-        client = sdc11073.sdcclient.SdcClient.fromWsdService(my_service)
+        client = SdcClient.from_wsd_service(my_service, ssl_context=None)
         self.my_clients.append(client)
-        client.startAll()
-        self.assertTrue(client.isConnected)
+        client.start_all()
+        self.assertTrue(client.is_connected)
         print('Test step 2 successful: connected to device')
 
         print('Test step 3&4: get mdib and subscribe...')
-        mdib = sdc11073.mdib.clientmdib.ClientMdibContainer(client)
-        mdib.initMdib()
-        self.assertGreater(len(mdib.descriptions.objects), 0) # at least one descriptor
-        self.assertTrue(client._subscriptionMgr.allSubscriptionsOkay) # at least one descriptor
+        mdib = ClientMdibContainer(client)
+        mdib.init_mdib()
+        self.assertGreater(len(mdib.descriptions.objects), 0)  # at least one descriptor
+        self.assertTrue(client._subscription_mgr.all_subscriptions_okay)  # at least one descriptor
 
         # we want to exec. ALL following steps, therefore collect data and do test at the end.
         print('Test step 5: check that at least one patient context exists')
-        patients = mdib.contextStates.NODETYPE.get(sdc11073.namespaces.domTag('PatientContextState'), [])
+        patients = mdib.context_states.NODETYPE.get(domTag('PatientContextState'), [])
         if not patients:
             errors.append('### Test 5 ### failed')
 
         print('Test step 6: check that at least one location context exists')
-        locations = mdib.contextStates.NODETYPE.get(sdc11073.namespaces.domTag('LocationContextState'), [])
+        locations = mdib.context_states.NODETYPE.get(domTag('LocationContextState'), [])
         if not locations:
             errors.append('### Test 6 ### failed')
         _passed, _errors = self._test_state_updates(mdib)
@@ -245,8 +256,8 @@ class Test_Reference(unittest.TestCase):
             for k, v in alertsbyhandle.items():
                 alert_updates[k].append(v)
 
-        sdc11073.observableproperties.bind(mdib, metricsByHandle=onMetricUpdates)
-        sdc11073.observableproperties.bind(mdib, alertByHandle=onAlertUpdates)
+        observableproperties.bind(mdib, metrics_by_handle=onMetricUpdates)
+        observableproperties.bind(mdib, alert_by_handle=onAlertUpdates)
 
         sleep_timer = 11
         min_updates = sleep_timer // 5 - 1
@@ -256,7 +267,7 @@ class Test_Reference(unittest.TestCase):
         print(metric_updates)
         print(alert_updates)
         found_error = False
-        if not(metric_updates):
+        if not metric_updates:
             print('found no metric state updates at all, test step 8 failed')
             found_error = True
         for k, v in metric_updates.items():
@@ -271,7 +282,7 @@ class Test_Reference(unittest.TestCase):
             passed.append('### Test 7 ### passed')
 
         found_error = False
-        if not(alert_updates):
+        if not (alert_updates):
             print('found no alert state updates at all, test step 8 failed')
             found_error = True
         for k, v in alert_updates.items():
@@ -289,7 +300,7 @@ class Test_Reference(unittest.TestCase):
         passed = []
         errors = []
         print('Test step 9: call SetString operation')
-        setstring_operations = mdib.descriptions.NODETYPE.get(sdc11073.namespaces.domTag('SetStringOperationDescriptor'),
+        setstring_operations = mdib.descriptions.NODETYPE.get(domTag('SetStringOperationDescriptor'),
                                                               [])
         setst_handle = 'string.ch0.vmd1_sco_0'
         if len(setstring_operations) == 0:
@@ -300,11 +311,11 @@ class Test_Reference(unittest.TestCase):
                 if s.handle != setst_handle:
                     continue
                 print('setString Op ={}'.format(s))
-                fut = client.SetService_client.setString(s.handle, 'hoppeldipop')
+                fut = client.set_service_client.set_string(s.handle, 'hoppeldipop')
                 try:
                     res = fut.result(timeout=10)
                     print(res)
-                    if res.state != sdc11073.pmtypes.InvocationState.FINISHED:
+                    if res.invocation_state != pmtypes.InvocationState.FINISHED:
                         print('set string operation {} did not finish with "Fin":{}'.format(s.handle, res))
                         errors.append('### Test 9 ### failed')
                     else:
@@ -319,7 +330,8 @@ class Test_Reference(unittest.TestCase):
         passed = []
         errors = []
         print('Test step 10: call SetValue operation')
-        setvalue_operations = mdib.descriptions.NODETYPE.get(sdc11073.namespaces.domTag('SetValueOperationDescriptor'), [])
+        setvalue_operations = mdib.descriptions.NODETYPE.get(domTag('SetValueOperationDescriptor'),
+                                                             [])
         #    print('setvalue_operations', setvalue_operations)
         setval_handle = 'numeric.ch0.vmd1_sco_0'
         if len(setvalue_operations) == 0:
@@ -330,11 +342,11 @@ class Test_Reference(unittest.TestCase):
                 if s.handle != setval_handle:
                     continue
                 print('setNumericValue Op ={}'.format(s))
-                fut = client.SetService_client.setNumericValue(s.handle, 42)
+                fut = client.set_service_client.set_numeric_value(s.handle, 42)
                 try:
                     res = fut.result(timeout=10)
                     print(res)
-                    if res.state != sdc11073.pmtypes.InvocationState.FINISHED:
+                    if res.invocation_state != pmtypes.InvocationState.FINISHED:
                         print('set value operation {} did not finish with "Fin":{}'.format(s.handle, res))
                     else:
                         print('set value operation {} ok:{}'.format(s.handle, res))
@@ -343,4 +355,3 @@ class Test_Reference(unittest.TestCase):
                     print('timeout error')
                     errors.append('### Test 10 ### failed')
         return passed, errors
-
