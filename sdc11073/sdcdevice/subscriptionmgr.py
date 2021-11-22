@@ -6,6 +6,7 @@ import time
 import traceback
 import urllib
 import uuid
+import asyncio
 from collections import deque, defaultdict
 from typing import List, Optional, TYPE_CHECKING
 
@@ -26,7 +27,7 @@ from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
 if TYPE_CHECKING:
     from ssl import SSLContext
     from ..definitions_base import BaseDefinitions
-    from ..pysoap.msgfactory import AbstractMessageFactory, CreatedMessage
+    from ..pysoap.msgfactory import MessageFactory, CreatedMessage
     from ..httprequesthandler import RequestData
     from ..pysoap.msgreader import SubscribeRequest, MessageReader
     from ..mdib.statecontainers import AbstractStateContainer
@@ -194,6 +195,37 @@ class _DevSubscription:
             self._is_connection_error = True
             raise
 
+    async def async_send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
+        if not self.is_valid:
+            return
+        addr = Address(addr_to=self.notify_to_address,
+                       action=action,
+                       addr_from=None,
+                       reply_to=None,
+                       fault_to=None,
+                       reference_parameters=None)
+        message = msg_factory.mk_notification_message(addr, body_node, self.notify_ref_params, doc_nsmap)
+        try:
+            roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
+
+            await self._soap_client.async_post_message_to(self._notify_to_url.path, message,
+                                              msg=f'send_notification_report {action}')
+            try:
+                roundtrip_time = roundtrip_timer.result(0)
+                self.last_roundtrip_times.append(roundtrip_time)
+                self.max_roundtrip_time = max(self.max_roundtrip_time, roundtrip_time)
+            except observableproperties.CollectTimeoutError:
+                pass
+            self._notify_errors = 0
+            self._is_connection_error = False
+        except HTTPReturnCodeError:
+            self._notify_errors += 1
+            raise
+        except Exception:  # any other exception is handled as an unreachable location (disconnected)
+            self._notify_errors += 1
+            self._is_connection_error = True
+            raise
+
     def send_notification_end_message(self, msg_factory, code='SourceShuttingDown',
                                       reason='Event source going off line.'):
         url = self.base_urls[0]
@@ -207,6 +239,27 @@ class _DevSubscription:
         try:
             url = self._end_to_url or self._notify_to_url
             self._soap_client.post_message_to(url.path, message,
+                                              msg='send_notification_end_message')
+            self._notify_errors = 0
+            self._is_connection_error = False
+            self._is_closed = True
+        except Exception:
+            # it does not matter that we could not send the message - end is end ;)
+            pass
+
+    async def async_send_notification_end_message(self, msg_factory, code='SourceShuttingDown',
+                                      reason='Event source going off line.'):
+        url = self.base_urls[0]
+        my_addr = f'{url.scheme}:{url.netloc}/{url.path}'
+
+        if not self.is_valid:
+            return
+        if self._soap_client is None:
+            return
+        message = msg_factory.mk_notification_end_message(self, my_addr, code, reason)
+        try:
+            url = self._end_to_url or self._notify_to_url
+            await self._soap_client.async_post_message_to(url.path, message,
                                               msg='send_notification_end_message')
             self._notify_errors = 0
             self._is_connection_error = False
@@ -251,7 +304,7 @@ class SubscriptionsManagerBase:
 
     def __init__(self, ssl_context: SSLContext,
                  sdc_definitions: BaseDefinitions,
-                 msg_factory: AbstractMessageFactory,
+                 msg_factory: MessageFactory,
                  msg_reader: MessageReader,
                  soap_client_class,
                  supported_encodings: List[str],
@@ -263,6 +316,7 @@ class SubscriptionsManagerBase:
         self._msg_factory = msg_factory
         self._msg_reader = msg_reader
         self._soap_client_class = soap_client_class
+        self._async_supported = hasattr(soap_client_class, 'async_post_message_to')
         self.log_prefix = log_prefix
         self._logger = loghelper.get_logger_adapter('sdc.device.subscrMgr', self.log_prefix)
         self._chunked_messages = chunked_messages
@@ -561,15 +615,58 @@ class SubscriptionsManagerBase:
         self._do_housekeeping()
 
     def _send_to_subscribers(self, subscribers, body_node, action, nsmapper, what):
+        if self._async_supported:
+            return self._async_send_to_subscribers(subscribers, body_node, action, nsmapper, what)
         for subscriber in subscribers:
             if what:
                 self._logger.debug('{}: sending report to {}', what, subscriber.notify_to_address)
             self._send_notification_report(
                 subscriber, body_node, action, nsmapper.partial_map(*self.NotificationPrefixes))
 
+    def _async_send_to_subscribers(self, subscribers, body_node, action, nsmapper, what):
+        futures = []
+        for subscriber in subscribers:
+            if what:
+                self._logger.debug('{}: sending report to {}', what, subscriber.notify_to_address)
+        for subscriber in subscribers:
+            futures.append(self._async_send_notification_report(
+                subscriber, body_node, action, nsmapper.partial_map(*self.NotificationPrefixes)))
+        try:
+            async_loop = asyncio.get_event_loop()
+        except RuntimeError: # there is no current event loop
+            async_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(async_loop)
+
+        futures = asyncio.gather(*futures)
+        result = async_loop.run_until_complete(futures)
+
+        print(result)
+
     def _send_notification_report(self, subscription, body_node, action, doc_nsmap):
         try:
             subscription.send_notification_report(self._msg_factory, body_node, action, doc_nsmap)
+        except HTTPReturnCodeError as ex:
+            # this is an error related to the connection => log error and continue
+            self._logger.error('could not send notification report: HTTP status= {}, reason={}, {}', ex.status,
+                               ex.reason, subscription)
+        except http.client.NotConnected as ex:
+            # this is an error related to the connection => log error and continue
+            self._logger.error('could not send notification report: {!r}:  subscr = {}', ex, subscription)
+        except socket.timeout as ex:
+            # this is an error related to the connection => log error and continue
+            self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
+        except etree_.DocumentInvalid as ex:
+            # this is an error related to the document, it cannot be sent to any subscriber => re-raise
+            self._logger.error('Invalid Document: {!r}\n{}', ex, etree_.tostring(body_node))
+            raise
+        except Exception as ex:
+            # this should never happen! => re-raise
+            self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
+            raise
+
+    async def _async_send_notification_report(self, subscription, body_node, action, doc_nsmap):
+        try:
+            await subscription.async_send_notification_report(self._msg_factory, body_node, action, doc_nsmap)
         except HTTPReturnCodeError as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report: HTTP status= {}, reason={}, {}', ex.status,
