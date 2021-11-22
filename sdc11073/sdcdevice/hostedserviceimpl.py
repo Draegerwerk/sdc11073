@@ -69,9 +69,7 @@ class SoapMessageHandler:
         func = self.get_post_handler(request_data)
         if func is None:
             fault = SoapFault(code=SoapFaultCode.SENDER, reason=f'invalid action {action}')
-            fault_message = self._msg_factory.mk_fault_message(request_data.message_data, fault)
-            fault_xml = fault_message.serialize_message()
-            raise InvalidActionError(request_data.message_data.p_msg, fault_xml)
+            raise InvalidActionError(request_data.message_data.p_msg, fault)
         returned_envelope = func(request_data)
         duration = time.monotonic() - begin
         self._logger.debug('incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements,

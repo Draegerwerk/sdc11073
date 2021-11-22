@@ -67,9 +67,7 @@ class HostedServiceDispatcher(PathElementDispatcher):
         if not hosted_service:
             fault = SoapFault(code=SoapFaultCode.SENDER,
                               reason=f'invalid path {request_data.consumed_path_elements}')
-            response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
-            fault_xml = response.serialize_message()
-            raise InvalidPathError(request_data.request_data.envelope, request_data.consumed_path_elements, fault_xml)
+            raise InvalidPathError(request_data.request_data.envelope, request_data.consumed_path_elements, fault)
         try:
             return hosted_service.on_post(request_data)
         except InvalidActionError as ex:
