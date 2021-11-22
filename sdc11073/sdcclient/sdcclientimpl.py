@@ -259,6 +259,10 @@ class SdcClient(object):
     def my_ipaddress(self):
         return self._my_ipaddress
 
+    @property
+    def subscription_mgr(self):
+        return self._subscriptionMgr
+
     def _findBestOwnIpAddress(self):
         myIpAddresses = [conn.ip for conn in sdc11073.netconn.getNetworkAdapterConfigs() if conn.ip not in (None, '0.0.0.0')]
         splitted = urllib.parse.urlsplit(self._devicelocation)

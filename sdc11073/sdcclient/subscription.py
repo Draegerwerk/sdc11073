@@ -352,6 +352,7 @@ class SubscriptionManager(threading.Thread):
         self._endTo_url = endTo_url or notification_url
         self._logger = loghelper.getLoggerAdapter('sdc.client.subscrMgr', log_prefix)
         self.log_prefix = log_prefix
+        self._subscription_end_cb = None
 
     def stop(self):
         self._run = False
@@ -418,6 +419,8 @@ class SubscriptionManager(threading.Thread):
                                   s.shortFilterString,
                                   info)
                 s.isSubscribed = False
+                if self._subscription_end_cb is not None:
+                    self._subscription_end_cb(subscr_ident_list[0], statuus[0], reasons)
                 return
         self._logger.warn('onSubScriptionEnd: have no subscription for identifier = {}', subscr_ident.text)
 
@@ -431,6 +434,14 @@ class SubscriptionManager(threading.Thread):
                 except:
                     self._logger.warn('unsubscribe error: {}\n call stack:{} ', traceback.format_exc(),
                                       traceback.format_stack())
+
+    def set_subscription_end_callback(self, cb):
+        """
+        Set callback, which will be called when a matching SubscriptionEnd message was received.
+
+        Set None to disable callback
+        """
+        self._subscription_end_cb = cb
 
 
 class _DispatchError(Exception):
