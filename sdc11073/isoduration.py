@@ -158,7 +158,7 @@ def parse_date_time(date_time_str, strict=True):
 def _mk_seconds_string(date_object):
     if date_object.microsecond > 0:
         seconds = float(date_object.second) + float(date_object.microsecond) / 1e6
-        seconds_string = f'{seconds:02f}'
+        seconds_string = f'{seconds:06.03f}'
         # remove trailing zeros
         while seconds_string[-1] == '0':
             seconds_string = seconds_string[:-1]
