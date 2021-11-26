@@ -180,7 +180,7 @@ class TestStateContainers(unittest.TestCase):
                                                           descriptorContainer=dc,
                                                           node=node)
         # verify also that mkStateNode on receiving sc does not change anything
-        for dummy in range(1):
+        for dummy in range(2):
             self.assertTrue(isclose(sc.metricValue.Value, sc2.metricValue.Value))
             self.assertEqual(sc.metricValue.StartTime, sc2.metricValue.StartTime)
             self.assertEqual(sc.metricValue.StopTime, sc2.metricValue.StopTime)
@@ -188,6 +188,7 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(sc.metricValue.Validity, sc2.metricValue.Validity)
             self.assertEqual(sc.ActiveAveragingPeriod, sc2.ActiveAveragingPeriod)
             self.assertEqual(sc.PhysiologicalRange, sc2.PhysiologicalRange)
+            self.assertEqual(sc.metricValue, sc2.metricValue)
             
             self._verifyAbstractStateContainerDataEqual(sc, sc2)
             sc.mkStateNode()
@@ -202,6 +203,7 @@ class TestStateContainers(unittest.TestCase):
         self.assertTrue(isclose(sc.metricValue.Value, sc2.metricValue.Value))
         self.assertEqual(sc.ActiveAveragingPeriod, sc2.ActiveAveragingPeriod)
         self.assertEqual(sc.PhysiologicalRange, sc2.PhysiologicalRange)
+        self.assertEqual(sc.metricValue, sc2.metricValue)
         self._verifyAbstractStateContainerDataEqual(sc, sc2)
 
 
@@ -243,6 +245,7 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(copied.metricValue.DeterminationTime, origin.metricValue.DeterminationTime)
             self.assertEqual(copied.metricValue.Annotation, origin.metricValue.Annotation)
             self.assertEqual(copied.metricValue.ApplyAnnotations, origin.metricValue.ApplyAnnotations)
+            self.assertEqual(copied.metricValue, origin.metricValue)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
         
         sc = statecontainers.RealTimeSampleArrayMetricStateContainer(nsmapper=self.nsmapper, 
