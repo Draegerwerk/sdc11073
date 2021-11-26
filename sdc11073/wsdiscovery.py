@@ -555,7 +555,7 @@ def parseEnvelope(data, ipAddr, logger):
                 scopes = _parseScopes(resolveMatchNode)
                 xAddrs = _parseXAddrs(resolveMatchNode)
                 mdv = _parseMetaDataVersion(resolveMatchNode)
-                env.getProbeResolveMatches().append(ProbeResolveMatch(epr, types, scopes, xAddrs, mdv))
+                env.setProbeResolveMatches([ProbeResolveMatch(epr, types, scopes, xAddrs, mdv)])
             return env
         elif soapAction == ACTION_BYE:
             _parseAppSequence(header, env)
@@ -1043,14 +1043,14 @@ class Message:
 
 
 class Service:
-    def __init__(self, types, scopes, xAddrs, epr, instanceId):
+    def __init__(self, types, scopes, xAddrs, epr, instanceId, metadata_version=1):
         self._types = types
         self._scopes = scopes
         self._xAddrs = xAddrs
         self._epr = epr
         self._instanceId = instanceId
         self._messageNumber = 0
-        self._metadataVersion = 1
+        self._metadataVersion = metadata_version
 
     def getTypes(self):
         return self._types
@@ -1104,6 +1104,9 @@ class Service:
 
     def setMetadataVersion(self, metadataVersion):
         self._metadataVersion = metadataVersion
+
+    def incrementMetadataVersion(self):
+        self._metadataVersion = self._metadataVersion + 1
 
     def incrementMessageNumber(self):
         self._messageNumber = self._messageNumber + 1
@@ -1239,11 +1242,11 @@ class WSDiscoveryWithHTTPProxy(object):
         if xAddrs contains item, which includes {ip} pattern, one item per IP addres will be sent
         """
         instanceId = _generateInstanceId()
-        service = Service(types, scopes, xAddrs, epr, instanceId)
+        metadata_version = self._localServices[epr].getMetadataVersion() + 1 if epr in self._localServices else 1
+        service = Service(types, scopes, xAddrs, epr, instanceId, metadata_version=metadata_version)
         self._logger.info('publishing %r', service)
         self._localServices[epr] = service
         self._sendHello(service)
-
 
     def clearService(self, epr):
         service = self._localServices[epr]
@@ -1261,7 +1264,6 @@ class WSDiscoveryWithHTTPProxy(object):
         conn.close()
         return resp_data
 
-
     def _sendProbe(self, types=None, scopes=None):
         self._logger.debug('sending probe types=%r scopes=%r', _typesinfo(types), scopes)
         env = SoapEnvelope()
@@ -1275,8 +1277,8 @@ class WSDiscoveryWithHTTPProxy(object):
         resp_env = parseEnvelope(resp_data, self._dpAddr.netloc, self._logger)
         services = {}
         for match in resp_env.getProbeResolveMatches():
-            services[match.getEPR()] = (Service(match.getTypes(), match.getScopes(), match.getXAddrs(), match.getEPR(),
-                                                resp_env.getInstanceId()))
+            services[match.getEPR()] = Service(match.getTypes(), match.getScopes(), match.getXAddrs(), match.getEPR(),
+                                               resp_env.getInstanceId(), metadata_version=int(match.getMetadataVersion))
         return services
 
     def _sendResolve(self, epr):
@@ -1291,10 +1293,9 @@ class WSDiscoveryWithHTTPProxy(object):
         resp_env = parseEnvelope(resp_data, self._dpAddr.netloc, self._logger)
         services = {}
         for match in resp_env.getProbeResolveMatches():
-            services[match.getEPR()] = (Service(match.getTypes(), match.getScopes(), match.getXAddrs(), match.getEPR(),
-                                                resp_env.getInstanceId()))
+            services[match.getEPR()] = Service(match.getTypes(), match.getScopes(), match.getXAddrs(), match.getEPR(),
+                                               resp_env.getInstanceId(), metadata_version=int(match.getMetadataVersion))
         return services
-
 
     def _sendHello(self, service):
         self._logger.info('sending hello on %r', service)
@@ -1308,13 +1309,12 @@ class WSDiscoveryWithHTTPProxy(object):
         env.setScopes(service.getScopes())
         env.setXAddrs(service.getXAddrs())
         env.setEPR(service.getEPR())
+        env.setMetadataVersion(str(service.getMetadataVersion()))
         data = createHelloMessage(env)
         try:
             resp_data = self.post_http(data)
         except RemoteDisconnected:
             pass
-
-
 
     def _sendBye(self, service):
         self._logger.debug('sending bye on %r', service)
@@ -1494,20 +1494,33 @@ class WSDiscoveryBase(object):
             self._remoteServices[service.getEPR()] = service
             self._logger.info('new remote %r', service)
         else:
-            # use the longest elements for merged service
-            merged = []
-            if len(service.getXAddrs()) > len(s.getXAddrs()):
-                s.setXAddrs(service.getXAddrs())
-                merged.append('XAddr={}'.format(service.getXAddrs()))
-            if len(service.getScopes()) > len(s.getScopes()):
-                s.setScopes(service.getScopes())
-                merged.append('Scopes={}'.format(service.getScopes()))
-            if len(service.getTypes()) > len(s.getTypes()):
-                s.setTypes(service.getTypes())
-                merged.append('Types={}'.format(service.getTypes()))
-            if merged:
-                self._logger.info(
-                    'merge from remote Service %s:\n      %r',service.getEPR(), '\n      '.join(merged))
+            if service.getMetadataVersion() == s.getMetadataVersion():
+                self._logger.debug('_addRemoteService: remote Service %s:\n    MetadataVersion: %d',
+                                   service.getEPR(), service.getMetadataVersion())
+                merged = []
+                if len(service.getXAddrs()) > len(s.getXAddrs()):
+                    s.setXAddrs(service.getXAddrs())
+                    merged.append('XAddr={}'.format(service.getXAddrs()))
+
+                if len(service.getScopes()) > len(s.getScopes()):
+                    s.setScopes(service.getScopes())
+                    merged.append('Scopes={}'.format(service.getScopes()))
+
+                if len(service.getTypes()) > len(s.getTypes()):
+                    s.setTypes(service.getTypes())
+                    merged.append('Types={}'.format(service.getTypes()))
+                if merged:
+                    self._logger.info('merge from remote Service %s:\n      %r' ,
+                                      service.getEPR(), '\n      '.join(merged))
+            elif service.getMetadataVersion() > s.getMetadataVersion():
+                self._logger.info('remote Service %s:\n    updated MetadataVersion\n      '
+                                  'updated: %d\n      existing: %d',
+                                  service.getEPR(), service.getMetadataVersion(), s.getMetadataVersion())
+                self._remoteServices[service.getEPR()] = service
+            else:
+                self._logger.debug('_addRemoteService: remote Service %s:\n    outdated MetadataVersion\n      '
+                                   'outdated: %d\n      existing: %d',
+                                   service.getEPR(), service.getMetadataVersion(), s.getMetadataVersion())
 
     def _removeRemoteService(self, epr):
         if epr in self._remoteServices:
@@ -1518,7 +1531,8 @@ class WSDiscoveryBase(object):
         self._logger.debug('handleEnv: received %s from %s', act.split('/')[-1], addr)
         if act == ACTION_PROBE_MATCH:
             for match in env.getProbeResolveMatches():
-                service = Service(match.getTypes(), match.getScopes(), match.getXAddrs(), match.getEPR(), env.getInstanceId())
+                service = Service(match.getTypes(), match.getScopes(), match.getXAddrs(), match.getEPR(),
+                                  env.getInstanceId(), metadata_version=int(match.getMetadataVersion()))
                 self._addRemoteService(service)
                 if match.getXAddrs() is None or len(match.getXAddrs()) == 0:
                     self._logger.info('%s(%s) has no Xaddr, sending resolve message', match.getEPR(), addr)
@@ -1532,7 +1546,8 @@ class WSDiscoveryBase(object):
 
         elif act == ACTION_RESOLVE_MATCH:
             for match in env.getProbeResolveMatches():
-                service = Service(match.getTypes(), match.getScopes(), match.getXAddrs(), match.getEPR(), env.getInstanceId())
+                service = Service(match.getTypes(), match.getScopes(), match.getXAddrs(), match.getEPR(),
+                                  env.getInstanceId(), metadata_version=int(match.getMetadataVersion()))
                 self._addRemoteService(service)
                 if self._remoteServiceResolveMatchCallback is not None:
                     self._remoteServiceResolveMatchCallback(service)
@@ -1560,7 +1575,8 @@ class WSDiscoveryBase(object):
                     self._dpAddr = extractSoapUdpAddressFromURI(URI(xAddr))
                     self._dpEPR = env.getEPR()
 
-            service = Service(env.getTypes(), env.getScopes(), env.getXAddrs(), env.getEPR(), env.getInstanceId())
+            service = Service(env.getTypes(), env.getScopes(), env.getXAddrs(), env.getEPR(), env.getInstanceId(),
+                              metadata_version=int(env.getMetadataVersion()))
             self._addRemoteService(service)
             if not env.getXAddrs():  # B.D.
                 self._logger.debug('%s(%s) has no Xaddr, sending resolve message', env.getEPR(), addr)
@@ -1597,10 +1613,8 @@ class WSDiscoveryBase(object):
         env.setInstanceId(str(service.getInstanceId()))
         env.setMessageNumber(str(service.getMessageNumber()))
         env.setRelatesTo(relatesTo)
-
-        env.getProbeResolveMatches().append(ProbeResolveMatch(service.getEPR(), \
-                                                              service.getTypes(), service.getScopes(), \
-                                                              service.getXAddrs(), str(service.getMetadataVersion())))
+        env.setProbeResolveMatches([ProbeResolveMatch(service.getEPR(), service.getTypes(), service.getScopes(),
+                                                      service.getXAddrs(), str(service.getMetadataVersion()))])
         self._networkingThread.addUnicastMessage(env, addr[0], addr[1])
 
     def _sendProbeMatch(self, services, relatesTo, addr):
@@ -1620,8 +1634,8 @@ class WSDiscoveryBase(object):
             types = service.getTypes() if self.PROBEMATCH_TYPES else []
             scopes = service.getScopes() if self.PROBEMATCH_SCOPES else []
             xaddrs = service.getXAddrs() if self.PROBEMATCH_XADDRS else []
-            env.getProbeResolveMatches().append(ProbeResolveMatch(epr, types, scopes, xaddrs,
-                                                                  str(service.getMetadataVersion())))
+            env.setProbeResolveMatches([ProbeResolveMatch(epr, types, scopes, xaddrs,
+                                                          str(service.getMetadataVersion()))])
 
             self._networkingThread.addUnicastMessage(env, addr[0], addr[1], random.randint(0, APP_MAX_DELAY))
 
@@ -1662,6 +1676,7 @@ class WSDiscoveryBase(object):
         env.setScopes(service.getScopes())
         env.setXAddrs(service.getXAddrs())
         env.setEPR(service.getEPR())
+        env.setMetadataVersion(str(service.getMetadataVersion()))
         self._networkingThread.addMulticastMessage(env, MULTICAST_IPV4_ADDRESS, MULTICAST_PORT,
                                                    random.randint(0, APP_MAX_DELAY))
 
@@ -1804,7 +1819,8 @@ class WSDiscoveryBase(object):
             raise Exception("Server not started")
 
         instanceId = _generateInstanceId()
-        service = Service(types, scopes, xAddrs, epr, instanceId)
+        metadata_version = self._localServices[epr].getMetadataVersion() + 1 if epr in self._localServices else 1
+        service = Service(types, scopes, xAddrs, epr, instanceId, metadata_version=metadata_version)
         self._logger.info('publishing %r', service)
         self._localServices[epr] = service
         self._sendHello(service)
@@ -1901,5 +1917,3 @@ class WSDiscoverySingleAdapter(WSDiscoveryBase):
 
 _FallbackMedicalDeviceTypesFilter = [QName(NS_DPWS, 'Device'),
                                      QName('http://standards.ieee.org/downloads/11073/11073-20702-2016', 'MedicalDevice')]
-
-
