@@ -1,4 +1,5 @@
 """ Implementation of some data types used in Participant Model"""
+import decimal
 from collections import namedtuple
 import traceback
 import inspect
@@ -630,17 +631,14 @@ class NumericMetricValue(AbstractMetricValue):
         try:
             for name, dummy in self._sortedContainerProperties():
                 if name == 'Value':
-                    # check if more than 0.01 off
                     my_value = getattr(self, name)
                     other_value = getattr(other, name)
                     if my_value is None and other_value is None:
                         continue
                     elif my_value is None or other_value is None:
-                        return False # only one is None, they are not equal
+                        return False  # only one is None, they are not equal
                     else:
-                        if abs( my_value - other_value) < 0.001:
-                            continue
-                        else:
+                        if decimal.Decimal(str(my_value)) != decimal.Decimal(str(other_value)):
                             return False
                 else:
                     if getattr(self, name) == getattr(other, name):
@@ -658,7 +656,7 @@ class NumericMetricValue(AbstractMetricValue):
 
 class StringMetricValue(AbstractMetricValue):
     QType = namespaces.domTag('StringMetricValue')
-    Value = cp.NodeAttributeProperty('Value') # a string
+    Value = cp.NodeAttributeProperty('Value')  # a string
     _props = ('Value',)    
     
 
@@ -717,11 +715,7 @@ class SampleArrayValue(AbstractMetricValue):
                     if len(own_sample) != len(other_sample):
                         return False
                     for pair in zip(own_sample, other_sample):
-                        # check if more than 0.01 off
-                        diff = pair[0] - pair[1]
-                        if abs(diff) < 0.01:
-                            continue
-                        else:
+                        if decimal.Decimal(str(pair[0])) != decimal.Decimal(str(pair[1])):
                             return False
                 else:
                     if getattr(self, name) == getattr(other, name):
