@@ -25,11 +25,6 @@ from sdc11073.commlog import get_communication_logger
 from .netconn import get_ipv4_addresses, get_ip_for_adapter
 # pylint: enable=no-name-in-module
 
-# try:
-#     from sdc11073.netconn import get_network_adapter_configs
-# except ImportError:
-#     def get_network_adapter_configs():
-#         return []
 
 BUFFER_SIZE = 0xffff
 APP_MAX_DELAY = 500  # miliseconds
@@ -101,18 +96,6 @@ def _types_info(types):
     return [str(t) for t in types] if types else types
 
 
-# def _get_network_addresses():
-#     """
-#     @return: a set of strings
-#     """
-#     result = []
-#     interfaces = get_network_adapter_configs()
-#     for interface in interfaces:
-#         if interface.ip not in _IP_BLACKLIST:
-#             result.append(interface.ip)
-#     return result
-
-
 def _get_prefix(nsmap, namespace):
     for prefix, _namespace in nsmap.items():
         if _namespace == namespace:
@@ -137,9 +120,6 @@ class URI:
             self._authority = ""
             self._path = uri[i_1 + 1:]
 
-    # def getScheme(self):
-    #     return self._scheme
-
     @property
     def scheme(self):
         return self._scheme
@@ -148,15 +128,9 @@ class URI:
     def authority(self):
         return self._authority
 
-    # def getAuthority(self):
-    #     return self._authority
-
     @property
     def path(self):
         return self._path
-
-    # def getPath(self):
-    #     return self._path
 
     def get_pathex_query_fragment(self):
         i = self._path.find("?")
@@ -232,14 +206,14 @@ class Message:
 
 
 class Service:
-    def __init__(self, types, scopes, x_addrs, epr, instance_id):
+    def __init__(self, types, scopes, x_addrs, epr, instance_id, metadata_version=1):
         self.types = types
         self.scopes = scopes
         self._x_addrs = x_addrs
         self.epr = epr
         self.instance_id = instance_id
         self.message_number = 0
-        self.metadata_version = 1
+        self.metadata_version = metadata_version
 
     def get_x_addrs(self):
         ret = []
@@ -1088,7 +1062,8 @@ class WSDiscoveryWithHTTPProxy:
         if x_addrs contains item, which includes {ip} pattern, one item per IP addres will be sent
         """
         instance_id = _generate_instance_id()
-        service = Service(types, scopes, x_addrs, epr, instance_id)
+        metadata_version = self._local_services[epr].metadata_version + 1 if epr in self._local_services else 1
+        service = Service(types, scopes, x_addrs, epr, instance_id, metadata_version)
         self._logger.info('publishing %r', service)
         self._local_services[epr] = service
         self._send_hello(service)
@@ -1127,7 +1102,7 @@ class WSDiscoveryWithHTTPProxy:
         services = {}
         for match in resp_env.probe_resolve_matches:
             services[match.epr] = (Service(match.types, match.scopes, match.get_x_addrs(), match.epr,
-                                           resp_env.instance_id))
+                                           resp_env.instance_id, metadata_version=int(match.metadata_version)))
         return services
 
     def _send_resolve(self, epr):
@@ -1143,7 +1118,7 @@ class WSDiscoveryWithHTTPProxy:
         services = {}
         for match in resp_env.probe_resolve_matches:
             services[match.epr] = (Service(match.types, match.scopes, match.get_x_addrs(), match.epr,
-                                           resp_env.instance_id))
+                                           resp_env.instance_id, metadata_version=int(match.metadata_version)))
         return services
 
     def _send_hello(self, service):
@@ -1157,6 +1132,7 @@ class WSDiscoveryWithHTTPProxy:
         env.types = service.types
         env.scopes = service.scopes
         env.x_addrs = service.get_x_addrs()
+        env.metadata_version = service.metadata_version
         env.epr = service.epr
         data = _create_hello_message(env)
         try:
@@ -1343,20 +1319,32 @@ class WSDiscoveryBase:
             self._remote_services[service.epr] = service
             self._logger.info('new remote %r', service)
         else:
-            # use the longest elements for merged service
-            merged = []
-            if len(service.get_x_addrs()) > len(already_known_service.get_x_addrs()):
-                already_known_service.set_x_addrs(service.get_x_addrs())
-                merged.append(f'XAddr={service.get_x_addrs()}')
-            if len(service.scopes) > len(already_known_service.scopes):
-                already_known_service.scopes = service.scopes
-                merged.append(f'Scopes={service.scopes}')
-            if len(service.types) > len(already_known_service.types):
-                already_known_service.types = service.types
-                merged.append(f'Types={service.types}')
-            if merged:
-                tmp = '\n      '.join(merged)
-                self._logger.info(f'merge from remote Service {service.epr}:\n      {tmp}')
+            if service.metadata_version == already_known_service.metadata_version:
+                self._logger.debug('_add_remote_service: remote Service %s:\n    MetadataVersion: %d',
+                                   service.epr, service.metadata_version)
+                # use the longest elements for merged service
+                merged = []
+                if len(service.get_x_addrs()) > len(already_known_service.get_x_addrs()):
+                    already_known_service.set_x_addrs(service.get_x_addrs())
+                    merged.append(f'XAddr={service.get_x_addrs()}')
+                if len(service.scopes) > len(already_known_service.scopes):
+                    already_known_service.scopes = service.scopes
+                    merged.append(f'Scopes={service.scopes}')
+                if len(service.types) > len(already_known_service.types):
+                    already_known_service.types = service.types
+                    merged.append(f'Types={service.types}')
+                if merged:
+                    tmp = '\n      '.join(merged)
+                    self._logger.info(f'merge from remote Service {service.epr}:\n      {tmp}')
+            elif service.metadata_version > already_known_service.metadata_version:
+                self._logger.info('remote Service %s:\n    updated MetadataVersion\n      '
+                                  'updated: %d\n      existing: %d',
+                                  service.epr, service.metadata_version, already_known_service.metadata_version)
+                self._remoteServices[service.epr] = service
+            else:
+                self._logger.debug('_add_remote_service: remote Service %s:\n    outdated MetadataVersion\n      '
+                                   'outdated: %d\n      existing: %d',
+                                   service.epr, service.metadata_version, already_known_service.metadata_version)
 
     def _remove_remote_service(self, epr):
         if epr in self._remote_services:
@@ -1368,7 +1356,7 @@ class WSDiscoveryBase:
         if act == ACTION_PROBE_MATCH:
             for match in env.probe_resolve_matches:
                 service = Service(match.types, match.scopes, match.x_addrs, match.epr,
-                                  env.instance_id)
+                                  env.instance_id, metadata_version=int(match.metadata_version))
                 self._add_remote_service(service)
                 if match.x_addrs is None or len(match.x_addrs) == 0:
                     self._logger.info('%s(%s) has no Xaddr, sending resolve message', match.epr, addr)
@@ -1383,7 +1371,7 @@ class WSDiscoveryBase:
         elif act == ACTION_RESOLVE_MATCH:
             for match in env.probe_resolve_matches:
                 service = Service(match.types, match.scopes, match.x_addrs, match.epr,
-                                  env.instance_id)
+                                  env.instance_id, metadata_version=int(match.metadata_version))
                 self._add_remote_service(service)
                 if self._remote_service_resolve_match_callback is not None:
                     self._remote_service_resolve_match_callback(service)
@@ -1411,7 +1399,8 @@ class WSDiscoveryBase:
                     self.__disco_proxy_address = _extract_soap_udp_address_from_uri(URI(x_addr))
                     self._disco_proxy_epr = env.epr
 
-            service = Service(env.types, env.scopes, env.x_addrs, env.epr, env.instance_id)
+            service = Service(env.types, env.scopes, env.x_addrs, env.epr, env.instance_id,
+                              metadata_version=int(env.metadata_version))
             self._add_remote_service(service)
             if not env.x_addrs:  # B.D.
                 self._logger.debug('%s(%s) has no Xaddr, sending resolve message', env.epr, addr)
@@ -1652,7 +1641,8 @@ class WSDiscoveryBase:
         if not self._server_started:
             raise Exception("Server not started")
 
-        service = Service(types, scopes, x_addrs, epr, _generate_instance_id())
+        metadata_version = self._local_services[epr].metadata_version + 1 if epr in self._local_services else 1
+        service = Service(types, scopes, x_addrs, epr, _generate_instance_id(), metadata_version=metadata_version)
         self._logger.info('publishing %r', service)
         self._local_services[epr] = service
         self._send_hello(service)

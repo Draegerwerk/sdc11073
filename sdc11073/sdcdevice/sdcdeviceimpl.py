@@ -166,15 +166,7 @@ class SdcDevice:
         '''
         if location == self._location:
             return
-
-        if self._location is not None:
-            self._wsdiscovery.clear_service(self.epr)
-
         self._location = location
-
-        if location is None:
-            return
-
         self._mdib.set_location(location, validators)
         if publish_now:
             self.publish()
