@@ -18,7 +18,7 @@ from ..namespaces import nsmap as _global_nsmap
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 
 
-class _ClSubscription:
+class ClSubscription:
     """ This class handles a subscription to an event source.
     It stores all key data of the subscription and can renew and unsubscribe this subscription."""
     notification_msg = properties.ObservableProperty()
@@ -36,6 +36,8 @@ class _ClSubscription:
         self._actions = actions
         self._filter = ' '.join(actions)
         self.is_subscribed = False
+        self.end_status = None  # if device sent a SubscriptionEnd message, this contains the status from the message
+        self.end_reason = None  # if device sent a SubscriptionEnd message, this contains the reason from the message
         self.expire_at = None
         self.expire_minutes = None
         self.dev_reference_param = None
@@ -281,7 +283,7 @@ class ClientSubscriptionManager(threading.Thread):
     def mk_subscription(self, dpws_hosted, filters):
         notification_url = f'{self._notification_url}{uuid.uuid4().hex}'
         end_to_url = f'{self._end_to_url}{uuid.uuid4().hex}'
-        subscription = _ClSubscription(self._msg_factory, dpws_hosted, filters, notification_url,
+        subscription = ClSubscription(self._msg_factory, dpws_hosted, filters, notification_url,
                                        end_to_url, self.log_prefix)
         filter_ = ' '.join(filters)
         with self._subscriptions_lock:
@@ -295,7 +297,7 @@ class ClientSubscriptionManager(threading.Thread):
         self._logger.warn('{}: have no subscription for identifier = {}', log_prefix, request_data.current)
         return None
 
-    def on_subscription_end(self, request_data):
+    def on_subscription_end(self, request_data) -> [ClSubscription, None]:
         subscription_end_result = self._msg_reader.read_subscription_end_message(request_data.message_data)
         if subscription_end_result.status_list:
             info = f' status={subscription_end_result.status_list[0]} '
@@ -314,6 +316,13 @@ class ClientSubscriptionManager(threading.Thread):
                               subscription.short_filter_string,
                               info)
             subscription.is_subscribed = False
+            if len(subscription_end_result.status_list) > 0:
+                subscription.end_status = subscription_end_result.status_list[0]
+            if len(subscription_end_result.reason_list) > 0:
+                subscription.end_reason = subscription_end_result.reason_list[0]
+            return subscription
+        return None
+
 
     def unsubscribe_all(self):
         with self._subscriptions_lock:
@@ -329,12 +338,12 @@ class ClientSubscriptionManager(threading.Thread):
 
 class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):
     def mk_subscription(self, dpws_hosted, filters):
-        subscription = _ClSubscription(self._msg_factory, dpws_hosted, filters,
+        subscription = ClSubscription(self._msg_factory, dpws_hosted, filters,
                                        self._notification_url,
                                        self._end_to_url, self.log_prefix)
-        subscription.notify_to_identifier = etree_.Element(_ClSubscription.IDENT_TAG)
+        subscription.notify_to_identifier = etree_.Element(ClSubscription.IDENT_TAG)
         subscription.notify_to_identifier.text = uuid.uuid4().urn
-        subscription.end_to_identifier = etree_.Element(_ClSubscription.IDENT_TAG)
+        subscription.end_to_identifier = etree_.Element(ClSubscription.IDENT_TAG)
         subscription.end_to_identifier.text = uuid.uuid4().urn
 
         filter_ = ' '.join(filters)
@@ -343,7 +352,7 @@ class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):
         return subscription
 
     def _find_subscription(self, request_data, reference_parameters, log_prefix):
-        subscr_ident_list = request_data.message_data.p_msg.header_node.findall(_ClSubscription.IDENT_TAG,
+        subscr_ident_list = request_data.message_data.p_msg.header_node.findall(ClSubscription.IDENT_TAG,
                                                                                 namespaces=_global_nsmap)
         if not subscr_ident_list:
             return None

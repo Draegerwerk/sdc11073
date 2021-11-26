@@ -4,15 +4,18 @@ import functools
 import ssl
 import traceback
 import urllib
+from dataclasses import dataclass
 
 from lxml import etree as etree_
 
+from .subscription import ClSubscription
 from .. import commlog
 from .. import compression
 from .. import loghelper
 from .. import netconn
 from .. import observableproperties as properties
 from ..definitions_base import ProtocolsRegistry
+from ..httprequesthandler import RequestData
 from ..namespaces import EventingActions
 
 
@@ -90,6 +93,12 @@ def sort_ip_addresses(adresses, ref_ip):
     return adresses
 
 
+@dataclass(frozen=True)
+class SubscriptionEndData:
+    subscription: ClSubscription
+    request_data: RequestData
+
+
 class SdcClient:
     """ The SdcClient can be used with a known device location.
     The location is typically the result of a wsdiscovery process.
@@ -118,6 +127,7 @@ class SdcClient:
     periodic_context_report = properties.ObservableProperty()
     description_modification_report = properties.ObservableProperty()
     operation_invoked_report = properties.ObservableProperty()
+    subscription_end_data = properties.ObservableProperty()  # SubscriptionEndData
 
     SSL_CIPHERS = None  # None : use SSL default
 
@@ -473,7 +483,8 @@ class SdcClient:
 
     def _on_subscription_end(self, request_data):
         self.state_event_report = request_data.message_data.p_msg  # update observable
-        self._subscription_mgr.on_subscription_end(request_data)
+        subscription = self._subscription_mgr.on_subscription_end(request_data)  # subscription can be None
+        self.subscription_end_data = SubscriptionEndData(subscription, request_data)
 
     def __str__(self):
         return f'SdcClient to {self.host_description.this_device} {self.host_description.this_model} on {self._device_location}'
