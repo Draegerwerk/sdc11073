@@ -6,6 +6,7 @@ of the mdib.
 """
 import time
 from abc import ABC, abstractmethod
+from decimal import Decimal, Context
 from typing import Iterable, List
 from .. import pmtypes
 from ..sdcdevice.waveforms import _WaveformGeneratorBase
@@ -166,10 +167,11 @@ class DefaultWaveformSource(AbstractWaveformSource):
 
     def _update_rt_samples(self, state):
         """ update waveforms state from waveform generator (if available)"""
+        ctxt = Context(prec=56)
         wf_generator = self._waveform_generators.get(state.descriptorHandle)
         if wf_generator:
             rt_sample = wf_generator.get_next_sample_array()
-            samples = [s[0] for s in rt_sample.samples]  # only the values without the 'start of cycle' flags
+            samples = [ctxt.create_decimal(s[0]) for s in rt_sample.samples]  # only the values without the 'start of cycle' flags
             if state.MetricValue is None:
                 state.mk_metric_value()
             state.MetricValue.Samples = samples

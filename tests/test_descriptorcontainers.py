@@ -6,7 +6,7 @@ from sdc11073 import msgtypes
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
 from sdc11073.mdib import descriptorcontainers
-
+from tests.mockstuff import dec_list
 test_tag = namespaces.domTag('MyDescriptor')
 
 #nsmapper = namespaces.DocNamespaceHelper()
@@ -165,7 +165,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self._cmp_LimitAlertConditionDescriptorContainer(dc, dc2)
 
         # set values, test updateFromNode
-        dc.MaxLimits = pmtypes.Range(lower=0, upper=100, step_width=1, relative_accuracy=0.1, absolute_accuracy=0.2)
+        dc.MaxLimits = pmtypes.Range(*dec_list(0, 100, 1, '0.1', '0.2'))
         dc.AutoLimitSupported = True
         node = dc.mk_node(test_tag, self.nsmapper)
         dc2.update_from_other_container(dc)

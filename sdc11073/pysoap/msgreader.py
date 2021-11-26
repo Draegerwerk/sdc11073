@@ -4,6 +4,7 @@ import traceback
 from collections import namedtuple
 from typing import List, Union
 from dataclasses import dataclass
+from decimal import Decimal
 from lxml import etree as etree_
 
 from sdc11073 import namespaces
@@ -724,7 +725,7 @@ class MessageReaderDevice(MessageReader):
         value_nodes = message_data.p_msg.body_node.xpath('*/msg:RequestedNumericValue',
                                                          namespaces=namespaces.nsmap)
         if value_nodes:
-            argument = float(value_nodes[0].text)
+            argument = Decimal(value_nodes[0].text)
         else:
             argument = None
         return OperationRequest(self._operation_handle(message_data), argument)

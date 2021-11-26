@@ -2,7 +2,7 @@
 import datetime
 import unittest
 from math import isclose
-
+from decimal import Decimal
 from lxml import etree as etree_
 
 import sdc11073.mdib.containerproperties as containerproperties
@@ -11,7 +11,7 @@ import sdc11073.mdib.statecontainers as statecontainers
 import sdc11073.namespaces as namespaces
 import sdc11073.pmtypes as pmtypes
 from sdc11073.location import SdcLocation
-
+from tests.mockstuff import dec_list
 # pylint: disable=protected-access
 _my_tag = namespaces.domTag('State')
 
@@ -119,13 +119,13 @@ class TestStateContainers(unittest.TestCase):
         sc = statecontainers.NumericMetricStateContainer(descriptor_container=dc)
         sc.mk_metric_value()
         self.assertTrue(isinstance(sc.MetricValue, pmtypes.NumericMetricValue))
-        sc.MetricValue.Value = 42.21
+        sc.MetricValue.Value = Decimal(42.21)
         sc.MetricValue.StartTime = 1234567.21
         sc.MetricValue.StopTime = sc.MetricValue.StartTime + 10
         sc.MetricValue.DeterminationTime = sc.MetricValue.StartTime + 20
         sc.MetricValue.Validity = 'Vld'
         sc.ActiveAveragingPeriod = 42
-        sc.PhysiologicalRange = [pmtypes.Range(1, 2, 3, 4, 5), pmtypes.Range(10, 20, 30, 40, 50)]
+        sc.PhysiologicalRange = [pmtypes.Range(*dec_list(1, 2, 3, 4, 5)), pmtypes.Range(*dec_list(10, 20, 30, 40, 50))]
 
         sc2 = statecontainers.NumericMetricStateContainer(descriptor_container=dc)
         sc2.update_from_other_container(sc)
@@ -145,7 +145,7 @@ class TestStateContainers(unittest.TestCase):
         sc.MetricValue.Value += 1
         sc.increment_state_version()
         sc.ActiveAveragingPeriod = 24
-        sc.PhysiologicalRange[1].Lower = 100
+        sc.PhysiologicalRange[1].Lower = Decimal(100)
         sc2.update_from_other_container(sc)
         self.assertTrue(isclose(sc.MetricValue.Value, sc2.MetricValue.Value))
         self.assertEqual(sc.ActiveAveragingPeriod, sc2.ActiveAveragingPeriod)
@@ -180,7 +180,7 @@ class TestStateContainers(unittest.TestCase):
         sc.mk_metric_value()
         self.assertTrue(isinstance(sc.MetricValue, pmtypes.SampleArrayValue))
 
-        sc.MetricValue.Samples = [1, 2, 3, 4, 5.5]
+        sc.MetricValue.Samples = dec_list(1, 2, 3, 4, 5.5)
         sc.MetricValue.DeterminationTime = 1234567
         sc.MetricValue.Annotations = []
         sc.MetricValue.ApplyAnnotations = []
@@ -191,7 +191,7 @@ class TestStateContainers(unittest.TestCase):
         sc2.update_from_other_container(sc)
         verifyEqual(sc, sc2)
 
-        sc.MetricValue.Samples = [5.5, 6.6]
+        sc.MetricValue.Samples = dec_list(5.5, 6.6)
         sc.MetricValue.DeterminationTime = 2345678
         sc.MetricValue.Annotations = [pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))]
         sc.MetricValue.ApplyAnnotations = [pmtypes.ApplyAnnotation(1, 2)]
@@ -325,7 +325,7 @@ class TestStateContainers(unittest.TestCase):
         verifyEqual(sc, sc2)
 
         # test update from other container
-        sc.Limits = pmtypes.Range(lower=5, upper=9, step_width=0.1, relative_accuracy=0.01, absolute_accuracy=0.001)
+        sc.Limits = pmtypes.Range(*dec_list(5, 9, '0.1', '0.01', '0.001'))
         sc.Rank = 3
         sc.DeterminationTime = 1234567
         sc.Presence = True
@@ -522,8 +522,8 @@ class TestStateContainers(unittest.TestCase):
         sc.CoreData.Givenname = 'Karl'
         sc.CoreData.Middlename = ['M.']
         sc.CoreData.Familyname = 'Klammer'
-        sc.CoreData.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
-        sc.CoreData.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
+        sc.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
+        sc.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
         sc.CoreData.Race = pmtypes.CodedValue('123', 'def')
 
         sc.CoreData.DateOfBirth = datetime.date(2001, 3, 12)
@@ -555,16 +555,16 @@ class TestStateContainers(unittest.TestCase):
         sc = statecontainers.SetValueOperationStateContainer(descriptor_container=self.dc)
 
         self.assertEqual(sc.AllowedRange, [])
-        sc.AllowedRange.append(pmtypes.Range(1, 2, 3, 4, 5))
+        sc.AllowedRange.append(pmtypes.Range(*dec_list(1, 2, 3, 4, 5)))
         sc2 = statecontainers.SetValueOperationStateContainer(descriptor_container=self.dc)
         sc2.update_from_other_container(sc)
         self.assertEqual(sc.AllowedRange, sc2.AllowedRange)
 
-        sc.AllowedRange[0].Lower = 42
+        sc.AllowedRange[0].Lower = Decimal(42)
         sc2.update_from_other_container(sc)
         self.assertEqual(sc.AllowedRange, sc2.AllowedRange)
 
-        sc.AllowedRange.append(pmtypes.Range(3, 4, 5, 6, 7))
+        sc.AllowedRange.append(pmtypes.Range(*dec_list(3, 4, 5, 6, 7)))
         sc2.update_from_other_container(sc)
         self.assertEqual(len(sc2.AllowedRange), 2)
         self.assertEqual(sc.AllowedRange, sc2.AllowedRange)

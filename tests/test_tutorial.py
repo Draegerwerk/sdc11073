@@ -1,7 +1,7 @@
 import os
 import unittest
 import uuid
-
+from decimal import Decimal
 from sdc11073 import pmtypes
 from sdc11073 import msgtypes
 from sdc11073.definitions_base import ProtocolsRegistry
@@ -403,7 +403,7 @@ class Test_Tutorial(unittest.TestCase):
         state_descr = myMdib.descriptions.coding.get_one(MY_CODE_3_TARGET.coding)
         operations = myMdib.get_operation_descriptors_for_descriptor_handle(state_descr.Handle)
         op = operations[0]
-        future = my_client.set_service_client.set_numeric_value(op.handle, 42)
+        future = my_client.set_service_client.set_numeric_value(op.handle, Decimal('42'))
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_2.operation3_args, 42)

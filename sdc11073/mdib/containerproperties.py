@@ -7,6 +7,7 @@ import copy
 import datetime
 import time
 from collections import OrderedDict
+from decimal import Decimal
 
 from lxml import etree as etree_
 
@@ -295,6 +296,15 @@ class DecimalAttributeProperty(AttributeProperty):
         super().__init__(attribute_name, value_converter=DecimalConverter,
                          defaultPyValue=defaultPyValue, implied_py_value=implied_py_value, is_optional=is_optional)
 
+    def __set__(self, instance, py_value):
+        if py_value is not None:
+            if not isinstance(py_value, Decimal):
+                raise ValueError(f'only Decimal type allowed for {self._attribute_name}')
+            xml_value = str(py_value)
+            if 'E' in xml_value or 'e' in xml_value:
+                raise ValueError(f'Decimal {xml_value} has exp notation, this is not valid for xml Decimal!')
+        setattr(instance, self._local_var_name, py_value)
+
 
 class QualityIndicatorAttributeProperty(DecimalAttributeProperty):
     """BICEPS: A value between 0 and 1 """
@@ -427,7 +437,7 @@ class AlertConditionRefListAttributeProperty(NodeAttributeListProperty):
 
 class DecimalListAttributeProperty(NodeAttributeListProperty):
     """ XML representation: an attribute string that represents 1..n decimals, separated with spaces.
-        Python representation: a list of integers and/or floats.
+        Python representation: Decimal.
         """
 
     def __init__(self, attribute_name):
@@ -460,6 +470,17 @@ class DecimalListAttributeProperty(NodeAttributeListProperty):
         else:
             attribute_value = ' '.join([DecimalConverter.to_xml(v) for v in py_value])
             node.set(self._attribute_name, attribute_value)
+
+    def __set__(self, instance, py_value):
+        for value in py_value:
+            if value is not None:
+                if not isinstance(value, Decimal):
+                    raise ValueError(f'only Decimal type allowed for {self._attribute_name}')
+                xml_value = str(value)
+                if 'E' in xml_value or 'e' in xml_value:
+                    raise ValueError(f'Decimal {xml_value} has exp notation, this is not valid for xml Decimal!')
+
+        setattr(instance, self._local_var_name, py_value)
 
 
 class NodeTextProperty(_NodeProperty):

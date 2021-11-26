@@ -5,7 +5,7 @@ import itertools
 import traceback
 from collections import namedtuple
 from math import isclose
-
+from decimal import Decimal
 from lxml import etree as etree_
 
 from .mdib import containerproperties  as cp
@@ -513,7 +513,7 @@ class Measurement(PropertyBasedPMType):
     def from_node(cls, node):
         value = node.get('MeasuredValue')
         if value is not None:
-            value = float(value)
+            value = Decimal(value)
         unit = None
         unit_node = node.find(domTag('MeasurementUnit'))
         if unit_node is not None:
@@ -637,31 +637,6 @@ class NumericMetricValue(AbstractMetricValue):
         return f'{self.__class__.__name__} Validity={self.MetricQuality.Validity}' \
                f' Value={self.Value} DeterminationTime={self.DeterminationTime}'
 
-    def __eq__(self, other):
-        """ compares all properties, special handling of Value member"""
-        try:
-            for name, dummy in self.sorted_container_properties():
-                if name == 'Value':
-                    # check if more than 0.01 off
-                    my_value = getattr(self, name)
-                    other_value = getattr(other, name)
-                    if my_value is None and other_value is None:
-                        continue
-                    if my_value is None or other_value is None:
-                        return False  # only one is None, they are not equal
-                    if abs(my_value - other_value) < 0.001:
-                        continue
-                    return False
-                if getattr(self, name) == getattr(other, name):
-                    continue
-                return False
-            return True
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self == other
-
 
 class StringMetricValue(AbstractMetricValue):
     # pylint: disable=invalid-name
@@ -710,36 +685,6 @@ class SampleArrayValue(AbstractMetricValue):
 
     def __repr__(self):
         return f'{self.__class__.__name__} Samples={self.Samples} ApplyAnnotations={self.ApplyAnnotations}'
-
-    def __eq__(self, other):
-        """ compares all properties, special handling of Value member"""
-        try:
-            for name, dummy in self.sorted_container_properties():
-                if name == 'Samples':
-                    ownsample = getattr(self, name)
-                    othersample = getattr(other, name)
-                    if ownsample is None:
-                        ownsample = []
-                    if othersample is None:
-                        othersample = []
-                    if len(ownsample) != len(othersample):
-                        return False
-                    for pair in zip(ownsample, othersample):
-                        # check if more than 0.01 off
-                        diff = pair[0] - pair[1]
-                        if abs(diff) < 0.01:
-                            continue
-                        return False
-                else:
-                    if getattr(self, name) == getattr(other, name):
-                        continue
-                    return False
-            return True
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self == other
 
 
 class RemedyInfo(PropertyBasedPMType):

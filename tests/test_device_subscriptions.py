@@ -1,7 +1,7 @@
 import os
 import time
 import unittest
-
+from decimal import Decimal
 import sdc11073
 from sdc11073 import namespaces
 from sdc11073 import observableproperties
@@ -126,7 +126,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 
             descriptorHandle = '0x34F00100'  # '0x34F04380'
-            firstValue = 12
+            firstValue = Decimal(12)
             with sdcDevice.mdib.transaction_manager() as mgr:
                 # st = mgr.getMetricState(descriptorHandle)
                 st = mgr.get_state(descriptorHandle)

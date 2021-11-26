@@ -2,7 +2,7 @@ import logging
 import os.path
 import threading
 import urllib
-
+from decimal import Decimal
 from lxml import etree as etree_
 
 from sdc11073 import namespaces
@@ -21,6 +21,9 @@ _mockhttpservers = {}
 
 _logger = logging.getLogger('sdc.mock')
 
+
+def dec_list(*args):
+    return [Decimal(x) for x in args]
 
 def resetModule():
     global _ports

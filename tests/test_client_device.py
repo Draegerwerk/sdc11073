@@ -6,7 +6,7 @@ import time
 import unittest
 import urllib
 from itertools import product
-
+from decimal import Decimal
 from lxml import etree as etree_
 
 from sdc11073 import commlog
@@ -27,7 +27,7 @@ from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.httpserver import DeviceHttpServerThread
 from sdc11073.sdcdevice.subscriptionmgr import SubscriptionsManagerReferenceParam
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
-from tests.mockstuff import SomeDevice
+from tests.mockstuff import SomeDevice, dec_list
 
 ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
@@ -273,7 +273,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
             # create a state instance
             descriptorHandle = '0x34F00100'
-            firstValue = 12
+            firstValue = Decimal(12)
             myPhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('ABC')], 1)
             now = time.time()
             with sdcDevice.mdib.transaction_manager(set_determination_time=False) as mgr:
@@ -283,7 +283,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.MetricValue.Value = firstValue
                 st.MetricValue.MetricQuality.Validity = pmtypes.MeasurementValidity.VALID
                 st.MetricValue.DeterminationTime = now
-                st.PhysiologicalRange = [pmtypes.Range(1, 2, 3, 4, 5), pmtypes.Range(10, 20, 30, 40, 50)]
+                st.PhysiologicalRange = [pmtypes.Range(*dec_list(1, 2, 3, 4, 5)), pmtypes.Range(*dec_list(10, 20, 30, 40, 50))]
                 if sdcDevice is self.sdc_device:
                     st.PhysicalConnector = myPhysicalConnector
 
@@ -298,7 +298,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.assertEqual(cl_state1.PhysicalConnector, myPhysicalConnector)
 
             # set new Value
-            newValue = 13
+            newValue = Decimal('13')
             coll = observableproperties.SingleValueCollector(sdcClient,
                                                              'episodic_metric_report')  # wait for the next EpisodicMetricReport
             with sdcDevice.mdib.transaction_manager() as mgr:
@@ -438,8 +438,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             proposedContext.CoreData.Sex = 'M'
             proposedContext.CoreData.PatientType = pmtypes.PatientType.ADULT
             proposedContext.CoreData.setBirthdate('2000-12-12')
-            proposedContext.CoreData.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
-            proposedContext.CoreData.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
+            proposedContext.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
+            proposedContext.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
             proposedContext.CoreData.Race = pmtypes.CodedValue('somerace')
             future = context.set_context_state(operation_handle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
@@ -465,8 +465,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(patientContextStateContainer.CoreData.Title, 'Dr.')
             self.assertEqual(patientContextStateContainer.CoreData.Sex, 'M')
             self.assertEqual(patientContextStateContainer.CoreData.PatientType, pmtypes.PatientType.ADULT)
-            self.assertEqual(patientContextStateContainer.CoreData.Height.MeasuredValue, 88.2)
-            self.assertEqual(patientContextStateContainer.CoreData.Weight.MeasuredValue, 68.2)
+            self.assertEqual(patientContextStateContainer.CoreData.Height.MeasuredValue, Decimal('88.2'))
+            self.assertEqual(patientContextStateContainer.CoreData.Weight.MeasuredValue, Decimal('68.2'))
             self.assertEqual(patientContextStateContainer.CoreData.Race, pmtypes.CodedValue('somerace'))
             self.assertNotEqual(patientContextStateContainer.Handle,
                                 patientDescriptorContainer.handle)  # device replaced it with its own handle
@@ -495,8 +495,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             proposedContext.CoreData.Sex = 'F'
             proposedContext.CoreData.PatientType = pmtypes.PatientType.ADULT
             proposedContext.CoreData.setBirthdate('2000-12-12')
-            proposedContext.CoreData.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
-            proposedContext.CoreData.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
+            proposedContext.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
+            proposedContext.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
             proposedContext.CoreData.Race = pmtypes.CodedValue('somerace')
             future = context.set_context_state(operation_handle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
@@ -525,8 +525,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.CoreData.Title = 'Rex'
                 st.CoreData.Sex = 'M'
                 st.CoreData.PatientType = pmtypes.PatientType.ADULT
-                st.CoreData.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
-                st.CoreData.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
+                st.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
+                st.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
                 st.CoreData.Race = pmtypes.CodedValue('123', 'def')
                 st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)
             coll.result(timeout=NOTIFICATION_TIMEOUT)
@@ -565,8 +565,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.CoreData.Title = 'Rex'
                 st.CoreData.Sex = 'M'
                 st.CoreData.PatientType = pmtypes.PatientType.ADULT
-                st.CoreData.Height = pmtypes.Measurement(88.2, pmtypes.CodedValue('abc', 'def'))
-                st.CoreData.Weight = pmtypes.Measurement(68.2, pmtypes.CodedValue('abc'))
+                st.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
+                st.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
                 st.CoreData.Race = pmtypes.CodedValue('123', 'def')
                 st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)
             coll.result(timeout=NOTIFICATION_TIMEOUT)
@@ -987,7 +987,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         logging.getLogger('sdc.device').setLevel(logging.DEBUG)
         for sdcClient, sdcDevice in self._all_cl_dev:
             # set value of a metric
-            firstValue = 12
+            firstValue = Decimal(12)
             with sdcDevice.mdib.transaction_manager() as mgr:
                 # mgr automatically increases the StateVersion
                 st = mgr.get_state(descriptorHandle)
@@ -1043,10 +1043,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                              )
                 newDescriptorContainer.Type = pmtypes.CodedValue('12345')
                 newDescriptorContainer.Unit = pmtypes.CodedValue('hector')
-                newDescriptorContainer.Resolution = 0.42
+                newDescriptorContainer.Resolution = Decimal('0.42')
                 mgr.add_descriptor(newDescriptorContainer)
-            coll.result(
-                timeout=NOTIFICATION_TIMEOUT)  # long timeout, sometimes high load on jenkins makes these tests fail
+            # long timeout, sometimes high load on jenkins makes these tests fail
+            coll.result(timeout=NOTIFICATION_TIMEOUT)
             cl_descriptorContainer = clientMdib.descriptions.handle.get_one(new_handle, allow_none=True)
             self.assertEqual(cl_descriptorContainer.handle, new_handle)
 
@@ -1098,7 +1098,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             alertState.Presence = True
             alertState.ActualPriority = pmtypes.AlertConditionPriority.HIGH
             limitAlertState.ActualPriority = pmtypes.AlertConditionPriority.MEDIUM
-            limitAlertState.Limits = pmtypes.Range(upper=3)
+            limitAlertState.Limits = pmtypes.Range(upper=Decimal('3'))
 
         coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for update in client
         # verify that state updates are transported to client
@@ -1114,7 +1114,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         clientLimitAlertState = clientMdib.states.descriptorHandle.get_one(limitAlertDescriptorHandle)
         self.assertEqual(clientLimitAlertState.ActualPriority, pmtypes.AlertConditionPriority.MEDIUM)
-        self.assertEqual(clientLimitAlertState.Limits, pmtypes.Range(upper=3))
+        self.assertEqual(clientLimitAlertState.Limits, pmtypes.Range(upper=Decimal(3)))
         self.assertEqual(clientLimitAlertState.Presence, False)
         self.assertEqual(clientLimitAlertState.MonitoredAlertLimits,
                          pmtypes.AlertConditionMonitoredLimits.ALL_OFF)  # default
@@ -1185,7 +1185,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(clientMdib,
                                                              'metrics_by_handle')  # wait for the next EpisodicMetricReport
             descriptorHandle = '0x34F00100'
-            firstValue = 12
+            firstValue = Decimal('12')
             with sdcDevice.mdib.transaction_manager(set_determination_time=False) as mgr:
                 st = mgr.get_state(descriptorHandle)
                 if st.MetricValue is None:
@@ -1193,7 +1193,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.MetricValue.Value = firstValue
                 st.MetricValue.Validity = 'Vld'
                 st.MetricValue.DeterminationTime = time.time()
-                st.PhysiologicalRange = [pmtypes.Range(1, 2, 3, 4, 5), pmtypes.Range(10, 20, 30, 40, 50)]
+                st.PhysiologicalRange = [pmtypes.Range(*dec_list(1, 2, 3, 4, 5)), pmtypes.Range(*dec_list(10, 20, 30, 40, 50))]
             data = coll.result(timeout=NOTIFICATION_TIMEOUT)
             self.assertTrue(descriptorHandle in data.keys())
             self.assertEqual(st.MetricValue.Value, data[descriptorHandle].MetricValue.Value)  # compare some data

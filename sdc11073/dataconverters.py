@@ -51,9 +51,18 @@ class DecimalConverter:
                 xml_value = f'{round(py_value, 3):.3f}'
         elif isinstance(py_value, Decimal):
             # assume Decimal is exact, no rounding errors
-            # Decimal has no method to force string representation without exponential notion.
+            # Decimal has no method to force string representation without exponential notation.
             # => convert to float and use :f string formatting (6 digits after decimal point, which should be good enough)
-            xml_value = f'{py_value:f}'
+            xml_value = str(py_value)
+            if '.' in xml_value:
+                head, tail = xml_value.split('.')
+                tail = tail[:18-len(head)]
+                if tail:
+                    xml_value = f'{head}.{tail}'
+                else:
+                    xml_value = head
+                # All ·minimally conforming· processors ·must· support decimal numbers with a minimum of
+                # 18 decimal digits (i.e., with a ·totalDigits· of 18).
         else:
             xml_value = str(py_value)
         # remove trailing zeros after decimal point
