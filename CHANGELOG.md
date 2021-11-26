@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - observable property for SubscriptionEnd Messages
 
+### Fixed
+- use MetadataVersion in Wsdiscovery
+- fix setLocation for SdcDevice implementation - no Bye-message on location change
+- fixed comparison regarding float precision in NumericMetricValue.__eq__ and SampleArrayValue.__eq__
+
 ## [1.1.4] - 2021-10-15
 ### Fixed
 - fixed possible Exception in SampleArrayValue.__eq__
