@@ -117,7 +117,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             typesList=['Get'],
             serviceId=123)
         for sdcDevice in self._allDevices:
-            clSubscr = sdc11073.sdcclient.subscription._ClSubscription(dpwsHosted=hosted,
+            clSubscr = sdc11073.sdcclient.subscription.ClSubscription(dpwsHosted=hosted,
                                                                        actions=[sdcDevice.mdib.sdc_definitions.Actions.EpisodicMetricReport],
                                                                        notification_url=notifyTo,
                                                                        endTo_url=endTo,
@@ -233,7 +233,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             typesList=['Get'],
             serviceId=123)
         for sdcDevice in self._allDevices:
-            clSubscr = sdc11073.sdcclient.subscription._ClSubscription(dpwsHosted=hosted,
+            clSubscr = sdc11073.sdcclient.subscription.ClSubscription(dpwsHosted=hosted,
                                                                        actions=[sdcDevice.mdib.sdc_definitions.Actions.EpisodicMetricReport],
                                                                        notification_url=notifyTo,
                                                                        endTo_url=endTo,
@@ -280,7 +280,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             typesList=['Get'],
             serviceId=123)
         for sdcDevice in self._allDevices:
-            clSubscr = sdc11073.sdcclient.subscription._ClSubscription(dpwsHosted=hosted,
+            clSubscr = sdc11073.sdcclient.subscription.ClSubscription(dpwsHosted=hosted,
                                                                        actions=[
                                                                            sdcDevice.mdib.sdc_definitions.Actions.PeriodicMetricReport],
                                                                        notification_url=notifyTo,
