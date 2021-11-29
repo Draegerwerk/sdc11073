@@ -519,7 +519,7 @@ class MdibContainer:
             result.append(descriptor_container)
         return result
 
-    def _rm_descriptors_and_states(self, descriptor_containers):
+    def rm_descriptors_and_states(self, descriptor_containers):
         """ recursive delete of a descriptor and all children and all related states"""
         deleted_descriptors_by_handle = {}
         deleted_states_by_handle = {}
@@ -548,7 +548,7 @@ class MdibContainer:
         descriptor_container = self.descriptions.handle.get_one(handle, allow_none=True)
         if descriptor_container is not None:
             all_descriptors = self.get_all_descriptors_in_subtree(descriptor_container)
-            self._rm_descriptors_and_states(all_descriptors)
+            self.rm_descriptors_and_states(all_descriptors)
 
 
 _tagname_lookup = {
