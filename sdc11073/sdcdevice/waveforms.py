@@ -28,7 +28,7 @@ def triangle(min_value, max_value, samples):
     return values
 
 
-class _WaveformGeneratorBase:
+class WaveformGeneratorBase:
     def __init__(self, values_generator, min_value, max_value, waveformperiod, sampleperiod):
         if sampleperiod >= waveformperiod:
             raise ValueError(
@@ -44,17 +44,17 @@ class _WaveformGeneratorBase:
         return [next(self._generator) for i in range(count)]
 
 
-class TriangleGenerator(_WaveformGeneratorBase):
+class TriangleGenerator(WaveformGeneratorBase):
     def __init__(self, min_value, max_value, waveformperiod, sampleperiod):
         super().__init__(triangle, min_value, max_value, waveformperiod, sampleperiod)
 
 
-class SawtoothGenerator(_WaveformGeneratorBase):
+class SawtoothGenerator(WaveformGeneratorBase):
     def __init__(self, min_value, max_value, waveformperiod, sampleperiod):
         super().__init__(sawtooth, min_value, max_value, waveformperiod, sampleperiod)
 
 
-class SinusGenerator(_WaveformGeneratorBase):
+class SinusGenerator(WaveformGeneratorBase):
     def __init__(self, min_value, max_value, waveformperiod, sampleperiod):
         super().__init__(sinus, min_value, max_value, waveformperiod, sampleperiod)
 

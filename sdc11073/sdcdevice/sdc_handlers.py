@@ -1,7 +1,7 @@
-from urllib.parse import quote_plus
 from dataclasses import dataclass
 from typing import List, Tuple
 from typing import Type
+from urllib.parse import quote_plus
 
 from .hostedserviceimpl import DPWSHostedService
 from .services.servicesbase import DPWSPortTypeImpl
@@ -68,7 +68,7 @@ def _get_device_component_based_scopes(mdib):
 
 @dataclass(frozen=True)
 class HostedServices:
-    dpws_hosted_services: Tuple[DPWSHostedService]
+    dpws_hosted_services: Tuple[DPWSHostedService, ...]
     get_service: Type[DPWSPortTypeImpl]
     set_service: Type[DPWSPortTypeImpl] = None
     context_service: Type[DPWSPortTypeImpl] = None
@@ -77,7 +77,6 @@ class HostedServices:
     waveform_service: Type[DPWSPortTypeImpl] = None
     containment_tree_service: Type[DPWSPortTypeImpl] = None
     localization_service: Type[DPWSPortTypeImpl] = None
-
 
 
 def mk_all_services(sdc_device, components, sdc_definitions) -> HostedServices:
@@ -160,7 +159,8 @@ def mk_all_services(sdc_device, components, sdc_definitions) -> HostedServices:
     return hosted_services
 
 
-def mk_minimal_services_plus_loc(sdc_device, components, sdc_definitions) -> HostedServices:
+def mk_minimal_services_plus_loc(sdc_device, components,
+                                 sdc_definitions) -> HostedServices:  # pylint: disable=unused-argument
     """"This example function instantiates only GetService and LocalizationService"""
     service_handlers_lookup = components.service_handlers
 

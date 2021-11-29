@@ -469,7 +469,8 @@ class MdibContainer:
         example:
         ['70041'] returns all containers that have CodedValue = 70041
         ['70041', '69650'] : returns all descriptors with CodedValue= 69650 and parent descriptor CodedValue = 70041
-        ['70041', '69650', '69651'] : returns all descriptors with CodedValue= 69651 and parent descriptor CodedValue = 69650 and parent's parent descriptor CodedValue = 70041
+        ['70041', '69650', '69651'] : returns all descriptors with CodedValue= 69651 and parent descriptor
+                                      CodedValue = 69650 and parent's parent descriptor CodedValue = 70041
         It is not necessary that path starts at the top of an mds, it can start anywhere.
         """
         selected_objects = None
@@ -478,7 +479,7 @@ class MdibContainer:
                 selected_objects = self.descriptions.objects  # initially all objects
             else:
                 # get all children of selected objects
-                all_handles = [o.handle for o in selected_objects]
+                all_handles = [o.handle for o in selected_objects]  # pylint: disable=not-an-iterable
                 selected_objects = []
                 for handle in all_handles:
                     selected_objects.extend(self.descriptions.parent_handle.get(handle, []))

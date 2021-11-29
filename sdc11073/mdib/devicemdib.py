@@ -8,7 +8,7 @@ from typing import List, Type
 from . import mdibbase
 from .devicewaveform import AbstractWaveformSource
 from .devicewaveform import DefaultWaveformSource
-from .transactions import RtDataMdibUpdateTransaction, MdibUpdateTransaction, TrItem, TransactionProcessor
+from .transactions import RtDataMdibUpdateTransaction, MdibUpdateTransaction, TransactionProcessor
 from .. import loghelper
 from .. import pmtypes
 from ..definitions_base import ProtocolsRegistry, BaseDefinitions

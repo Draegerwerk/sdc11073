@@ -1340,7 +1340,7 @@ class WSDiscoveryBase:
                 self._logger.info('remote Service %s:\n    updated MetadataVersion\n      '
                                   'updated: %d\n      existing: %d',
                                   service.epr, service.metadata_version, already_known_service.metadata_version)
-                self._remoteServices[service.epr] = service
+                self._remote_services[service.epr] = service
             else:
                 self._logger.debug('_add_remote_service: remote Service %s:\n    outdated MetadataVersion\n      '
                                    'outdated: %d\n      existing: %d',

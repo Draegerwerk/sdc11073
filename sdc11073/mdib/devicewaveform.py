@@ -6,14 +6,17 @@ of the mdib.
 """
 import time
 from abc import ABC, abstractmethod
-from decimal import Decimal, Context
+from decimal import Context
 from typing import Iterable, List
+
 from .. import pmtypes
-from ..sdcdevice.waveforms import _WaveformGeneratorBase
+from ..sdcdevice.waveforms import WaveformGeneratorBase
+
 
 class RtSampleArray:
     """ This class contains a list of waveform values plus time stamps and annotations.
     It is used to create Waveform notifications."""
+
     def __init__(self, determination_time: float, sample_period: float,
                  samples: List[tuple], activation_state: pmtypes.ComponentActivation):
         """
@@ -62,7 +65,8 @@ class RtSampleArray:
 
 class _SampleArrayGenerator:
     """Wraps a waveform generator and makes RtSampleArray objects"""
-    def __init__(self, descriptor_handle: str, generator: _WaveformGeneratorBase):
+
+    def __init__(self, descriptor_handle: str, generator: WaveformGeneratorBase):
         self._descriptor_handle = descriptor_handle
         self._last_timestamp = None
         self._activation_state = pmtypes.ComponentActivation.ON
@@ -99,6 +103,7 @@ class _SampleArrayGenerator:
 
 class AbstractWaveformSource(ABC):
     """The methods declared by this abstract class are used by mdib. """
+
     @abstractmethod
     def update_all_realtime_samples(self, transaction):
         pass
@@ -116,6 +121,7 @@ class DefaultWaveformSource(AbstractWaveformSource):
     """ This is the basic mechanism that reads data from waveform sources and applies it to mdib
     via real time transaction.
     Method 'update_all_realtime_samples' must be called periodically."""
+
     def __init__(self):
         self._waveform_generators = {}
         self._annotators = {}
@@ -167,11 +173,12 @@ class DefaultWaveformSource(AbstractWaveformSource):
 
     def _update_rt_samples(self, state):
         """ update waveforms state from waveform generator (if available)"""
-        ctxt = Context(prec=56)
+        ctxt = Context(prec=10)
         wf_generator = self._waveform_generators.get(state.descriptorHandle)
         if wf_generator:
             rt_sample = wf_generator.get_next_sample_array()
-            samples = [ctxt.create_decimal(s[0]) for s in rt_sample.samples]  # only the values without the 'start of cycle' flags
+            samples = [ctxt.create_decimal(s[0]) for s in
+                       rt_sample.samples]  # only the values without the 'start of cycle' flags
             if state.MetricValue is None:
                 state.mk_metric_value()
             state.MetricValue.Samples = samples

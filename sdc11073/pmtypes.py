@@ -487,8 +487,8 @@ class Range(PropertyBasedPMType):
         # pylint: enable=invalid-name
 
     def __repr__(self):
-        return 'Range (Lower={!r}, Upper={!r}, StepWidth={!r}, RelativeAccuracy={!r}, AbsoluteAccuracy={!r})'\
-            .format(self.Lower, self.Upper, self.StepWidth, self.RelativeAccuracy, self.AbsoluteAccuracy)
+        return f'Range (Lower={self.Lower!r}, Upper={self.Upper!r}, StepWidth={self.StepWidth!r}, ' \
+               f'RelativeAccuracy={self.RelativeAccuracy!r}, AbsoluteAccuracy={self.AbsoluteAccuracy!r})'
 
 
 class Measurement(PropertyBasedPMType):
