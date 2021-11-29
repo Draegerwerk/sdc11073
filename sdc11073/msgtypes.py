@@ -24,7 +24,7 @@ class RetrievabilityInfo(PropertyBasedPMType):
 
     @classmethod
     def from_node(cls, node):
-        obj = cls(None, None)
+        obj = cls(RetrievabilityMethod.GET, None)  # any allowed value, will be overwritten in update_node
         obj.update_from_node(node)
         return obj
 
