@@ -6,6 +6,7 @@ import unittest
 import uuid
 from collections import defaultdict
 from concurrent import futures
+from decimal import Decimal
 
 from sdc11073 import observableproperties
 from sdc11073 import pmtypes
@@ -66,7 +67,7 @@ class DeviceActivity(threading.Thread):
                 state.mk_metric_value()
         print("DeviceActivity running...")
         try:
-            currentValue = 0
+            currentValue = Decimal(0)
             while True:
                 if metric:
                     with self.device.mdib.mdibUpdateTransaction() as mgr:
@@ -128,7 +129,7 @@ def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
         patientContainer.CoreData.Familyname = "Familiy"
         patientContainer.CoreData.Birthname = "Birthname"
         patientContainer.CoreData.Title = "Title"
-        patientContainer.ContextAssociation = "Assoc"
+        patientContainer.ContextAssociation = pmtypes.ContextAssociation.ASSOCIATED
         identifiers = []
         patientContainer.Identification = identifiers
 
