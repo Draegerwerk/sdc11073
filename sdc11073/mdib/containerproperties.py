@@ -16,10 +16,17 @@ from sdc11073 import isoduration
 from sdc11073.dataconverters import TimestampConverter, DecimalConverter, IntegerConverter, BooleanConverter, \
     DurationConverter, NullConverter
 
+
+# The STRICT_ENUM_ATTRIBUTE constant allows to change the global behavior regarding enumeration types:
 # if STRICT_ENUM_ATTRIBUTE is True, EnumAttributeProperty instances will only accept enum values of correct type
 # ( Or None if allowed). Otherwise every value is accepted.
+STRICT_ENUM_ATTRIBUTE = True
 
-STRICT_ENUM_ATTRIBUTE = False
+# The STRICT_DECIMAL_ATTRIBUTE constant allows to change the global behavior regarding Decimal types:
+# if STRICT_DECIMAL_ATTRIBUTE is True, DecimalAttributeProperty and DecimalListAttributeProperty instances will only
+# accept decimal.Decimal values or None. Otherwise no type checking in __set__ is performed
+# ( Or None if allowed). Otherwise every value is accepted.
+STRICT_DECIMAL_ATTRIBUTE = True
 
 
 class ElementNotFoundException(Exception):
@@ -235,9 +242,9 @@ class EnumAttributeProperty(AttributeProperty):
         """value is the representation on the program side, e.g a float. """
         if STRICT_ENUM_ATTRIBUTE:
             if not self.is_optional and py_value is None and self._default_py_value is None:
-                raise ValueError(f'None value is not allowed, only {self.enum_cls}')
+                raise ValueError(f'None value is not allowed in {instance.__class__.__name__}.{self._attribute_name}, only {self.enum_cls}')
             if py_value is not None and not isinstance(py_value, self.enum_cls):
-                raise ValueError(f'value {py_value} is not of type {self.enum_cls}')
+                raise ValueError(f'in {instance.__class__.__name__}.{self._attribute_name}: value {py_value} is not of type {self.enum_cls}')
         super().__set__(instance, py_value)
 
     def get_py_value_from_node(self, instance, node):
@@ -297,7 +304,7 @@ class DecimalAttributeProperty(AttributeProperty):
                          defaultPyValue=defaultPyValue, implied_py_value=implied_py_value, is_optional=is_optional)
 
     def __set__(self, instance, py_value):
-        if py_value is not None:
+        if py_value is not None and STRICT_DECIMAL_ATTRIBUTE is True:
             if not isinstance(py_value, Decimal):
                 raise ValueError(f'only Decimal type allowed for {self._attribute_name}')
             xml_value = str(py_value)
@@ -472,14 +479,14 @@ class DecimalListAttributeProperty(NodeAttributeListProperty):
             node.set(self._attribute_name, attribute_value)
 
     def __set__(self, instance, py_value):
-        for value in py_value:
-            if value is not None:
-                if not isinstance(value, Decimal):
-                    raise ValueError(f'only Decimal type allowed for {self._attribute_name}')
-                xml_value = str(value)
-                if 'E' in xml_value or 'e' in xml_value:
-                    raise ValueError(f'Decimal {xml_value} has exp notation, this is not valid for xml Decimal!')
-
+        if STRICT_DECIMAL_ATTRIBUTE is True:
+            for value in py_value:
+                if value is not None :
+                    if not isinstance(value, Decimal):
+                        raise ValueError(f'only Decimal type allowed for {self._attribute_name}')
+                    xml_value = str(value)
+                    if 'E' in xml_value or 'e' in xml_value:
+                        raise ValueError(f'Decimal {xml_value} has exp notation, this is not valid for xml Decimal!')
         setattr(instance, self._local_var_name, py_value)
 
 
