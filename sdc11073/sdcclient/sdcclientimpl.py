@@ -337,6 +337,10 @@ class SdcClient(object):
     def LocalizationService_client(self):
         return self.client('LocalizationService')
 
+    @property
+    def subscription_mgr(self):
+        return self._subscriptionMgr
+    
     def startAll(self, notSubscribedActions=None, subscriptionsCheckInterval=None, async_dispatch=True,
                  subscribe_periodic_reports=False):
         '''
