@@ -9,7 +9,8 @@ from .soapenvelope import Soap12Envelope
 from .msgreader import validate_node
 from .. import isoduration
 from ..addressing import ReferenceParameters, EndpointReferenceType, Address
-from ..definitions_base import SchemaResolver, mk_schema_validator
+from ..schema_resolver import mk_schema_validator
+from ..schema_resolver import SchemaResolver
 from ..dpws import DeviceEventingFilterDialectURI
 from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
 from ..namespaces import EventingActions
@@ -797,8 +798,9 @@ class MessageFactoryDevice(MessageFactory):
         expires_node = etree_.SubElement(subscribe_response_node, wseTag('Expires'))
         expires_node.text = subscription.expire_string  # simply confirm request
         response.payload_element = subscribe_response_node
-        self._logger.debug('on_subscribe_request returns {}', lambda: self.serialize_message(response))
-        return CreatedMessage(response, self)
+        ret = CreatedMessage(response, self)
+        self._logger.debug('on_subscribe_request returns {}', lambda: self.serialize_message(ret).decode('utf-8'))
+        return ret
 
     def mk_unsubscribe_response_message(self, request_data) -> CreatedMessage:
         response = Soap12Envelope(

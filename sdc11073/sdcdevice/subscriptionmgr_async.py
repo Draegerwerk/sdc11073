@@ -6,9 +6,12 @@ import time
 import traceback
 import urllib
 import uuid
+import asyncio
+from threading import Thread
 from collections import deque, defaultdict
 from typing import List, Optional, TYPE_CHECKING
 
+import aiohttp.client_exceptions
 from lxml import etree as etree_
 
 from .. import isoduration
@@ -22,6 +25,7 @@ from ..namespaces import wseTag, DocNamespaceHelper
 from ..pmtypes import InvocationError, InvocationState
 from ..pysoap.soapclient import HTTPReturnCodeError
 from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
+from ..httprequesthandler import HTTPRequestHandlingError
 
 if TYPE_CHECKING:
     from ssl import SSLContext
@@ -83,9 +87,7 @@ class _DevSubscription:
         self._msg_factory = msg_factory
         self.notify_to_address = subscribe_request.notify_to_address
         self._notify_to_url = urllib.parse.urlparse(subscribe_request.notify_to_address)
-
-        self.notify_ref_params = subscribe_request.notify_ref_params
-
+        self.notify_ref_params = subscribe_request.notify_ref_params  # reference parameters of other side
         self.end_to_address = subscribe_request.end_to_address
         if self.end_to_address is not None:
             self._end_to_url = urllib.parse.urlparse(self.end_to_address)
@@ -163,7 +165,7 @@ class _DevSubscription:
                 return True
         return False
 
-    def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
+    async def async_send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
         if not self.is_valid:
             return
         addr = Address(addr_to=self.notify_to_address,
@@ -176,7 +178,7 @@ class _DevSubscription:
         try:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
 
-            self._soap_client.post_message_to(self._notify_to_url.path, message,
+            await self._soap_client.async_post_message_to(self._notify_to_url.path, message,
                                               msg=f'send_notification_report {action}')
             try:
                 roundtrip_time = roundtrip_timer.result(0)
@@ -189,12 +191,16 @@ class _DevSubscription:
         except HTTPReturnCodeError:
             self._notify_errors += 1
             raise
+        except asyncio.exceptions.TimeoutError:
+            self._notify_errors += 1
+            self._is_connection_error = True
+            raise
         except Exception:  # any other exception is handled as an unreachable location (disconnected)
             self._notify_errors += 1
             self._is_connection_error = True
             raise
 
-    def send_notification_end_message(self, msg_factory, code='SourceShuttingDown',
+    async def async_send_notification_end_message(self, msg_factory, code='SourceShuttingDown',
                                       reason='Event source going off line.'):
         url = self.base_urls[0]
         my_addr = f'{url.scheme}:{url.netloc}/{url.path}'
@@ -206,14 +212,17 @@ class _DevSubscription:
         message = msg_factory.mk_notification_end_message(self, my_addr, code, reason)
         try:
             url = self._end_to_url or self._notify_to_url
-            self._soap_client.post_message_to(url.path, message,
+            result = await self._soap_client.async_post_message_to(url.path, message,
                                               msg='send_notification_end_message')
-            self._notify_errors = 0
-            self._is_connection_error = False
-            self._is_closed = True
-        except Exception:
+        except aiohttp.client_exceptions.ClientConnectorError:
             # it does not matter that we could not send the message - end is end ;)
             pass
+        except Exception as ex:
+            self._logger.error(traceback.format_exc())
+        finally:
+            #self._notify_errors = 0
+            #self._is_connection_error = False
+            self._is_closed = True
 
     def close(self):
         self._is_closed = True
@@ -223,16 +232,15 @@ class _DevSubscription:
 
     def __repr__(self):
         try:
-            if self.notify_ref_params is None:
-                ref_ident = '<none>'
+            if self.notify_ref_params.has_parameters:
+                ref_ident = f' ReferenceParameters(other side)={[etree_.tostring(p) for p in self.notify_ref_params.parameters]}'
             else:
-                ref_ident = str(
-                    self.notify_ref_params)  # ', '.join([node.text for node in self.notify_ref_params.parameters])
-        except TypeError:
-            ref_ident = '<unknown>'
-        return f'Subscription(notify_to={self.notify_to_address} ident={ref_ident}, ' \
-               f'my identifier={self.identifier_uuid.hex}, expires={self.remaining_seconds}, ' \
-               f'filter={short_filter_string(self._filters)})'
+                ref_ident = ''
+        except TypeError as ex:
+            ref_ident = f' ident=<{ex}>'
+        return f'Subscription(notify_to={self.notify_to_address}{ref_ident}, ' \
+               f'my identifier={self.identifier_uuid.hex}, path suffix={self.path_suffix}, ' \
+               f'expires={self.remaining_seconds}, filter={short_filter_string(self._filters)})'
 
     def get_roundtrip_stats(self):
         if len(self.last_roundtrip_times) > 0:
@@ -243,7 +251,27 @@ class _DevSubscription:
         return tuple([f.split('/')[-1] for f in self._filters])
 
 
-class SubscriptionsManagerBase:
+class AsyncioEventLoopThread(Thread):
+    def __init__(self, *args, loop=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.daemon = True
+        self.loop = loop or asyncio.new_event_loop()
+        self.running = False
+
+    def run(self):
+        self.running = True
+        self.loop.run_forever()
+
+    def run_coro(self, coro):
+        return asyncio.run_coroutine_threadsafe(coro, loop=self.loop).result()
+
+    def stop(self):
+        self.loop.call_soon_threadsafe(self.loop.stop)
+        self.join()
+        self.running = False
+
+
+class SubscriptionsManagerBaseAsync:
     """This implementation uses ReferenceParameters to identify subscriptions."""
     BodyNodePrefixes = [Prefixes.PM, Prefixes.MSG, Prefixes.XSI, Prefixes.EXT, Prefixes.XML]
     NotificationPrefixes = [Prefixes.PM, Prefixes.S12, Prefixes.WSA, Prefixes.WSE]
@@ -277,6 +305,8 @@ class SubscriptionsManagerBase:
         self._subscriptions.add_index('netloc', multikey.IndexDefinition(
             lambda obj: obj._notify_to_url.netloc))  # pylint:disable=protected-access
         self.base_urls = None
+        self._async_send_thread = AsyncioEventLoopThread(name='async_send')
+        self._async_send_thread.start()
 
     def set_base_urls(self, base_urls):
         self.base_urls = base_urls
@@ -326,11 +356,15 @@ class SubscriptionsManagerBase:
             key = subscription._notify_to_url.netloc  # pylint: disable=protected-access
             subscriptions_with_same_soap_client = self._subscriptions.netloc.get(key, [])
             if len(subscriptions_with_same_soap_client) == 0:
-                self.soap_clients[key].close()
+                #self._async_send_thread.run_coro(self._close_soap_client(self.soap_clients[key]))
+                self._async_send_thread.run_coro(self.soap_clients[key].async_close())
                 del self.soap_clients[key]
                 self._logger.info('unsubscribe: closed soap client to {})', key)
             response = self._msg_factory.mk_unsubscribe_response_message(request_data)
         return response
+
+    async def _close_soap_client(self, soap_client):
+        await soap_client.async_close()
 
     def on_get_status_request(self, request_data: RequestData) -> CreatedMessage:
         self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.p_msg.raw_data)
@@ -363,12 +397,17 @@ class SubscriptionsManagerBase:
 
     def stop_all(self, send_subscription_end: bool):
         self.end_all_subscriptions(send_subscription_end)
+        self._async_send_thread.stop()
 
     def end_all_subscriptions(self, send_subscription_end: bool):
         with self._subscriptions.lock:
             if send_subscription_end:
-                apply_map(lambda subscription: subscription.send_notification_end_message(self._msg_factory),
-                          self._subscriptions.objects)
+                for subscriber in self._subscriptions.objects:
+                    self._logger.info(f'send subscription end for {subscriber}')
+                    result = self._async_send_thread.run_coro(
+                        subscriber.async_send_notification_end_message(self._msg_factory))
+                    self._logger.info(f'result for  subscription end: {result}, is_closed ={subscriber.is_closed()} ')
+
             self._subscriptions.clear()
 
     def notify_operation(self, operation: OperationDefinition,
@@ -563,24 +602,44 @@ class SubscriptionsManagerBase:
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_descriptor_updates')
         self._do_housekeeping()
 
-    def _send_to_subscribers(self, subscribers, body_node, action, nsmapper, what):
-        for subscriber in subscribers:
-            if what:
-                self._logger.debug('{}: sending report to {}', what, subscriber.notify_to_address)
-            self._send_notification_report(
-                subscriber, body_node, action, nsmapper.partial_map(*self.NotificationPrefixes))
+    async def _coro_send_to_subscribers(self, tasks):
+        return await asyncio.gather(*tasks, return_exceptions=True)
 
-    def _send_notification_report(self, subscription, body_node, action, doc_nsmap):
+    def _send_to_subscribers(self, subscribers, body_node, action, nsmapper, what):
+        tasks = []
+        for subscriber in subscribers:
+            tasks.append(self._async_send_notification_report(
+                subscriber, body_node, action, nsmapper.partial_map(*self.NotificationPrefixes)))
+
+        if what:
+            self._logger.debug('{}: sending report to {}', what, [s.notify_to_address for s in subscribers])
+        result = self._async_send_thread.run_coro(self._coro_send_to_subscribers(tasks))
+        for counter, element in enumerate(result):
+            if isinstance(element, Exception):
+                self._logger.warning(f'{what}: _send_to_subscribers {subscribers[counter]} returned {element}')
+
+    async def _async_send_notification_report(self, subscription, body_node, action, doc_nsmap):
         try:
-            subscription.send_notification_report(self._msg_factory, body_node, action, doc_nsmap)
+            self._logger.debug(f'send notification report {action } to {subscription}')
+            await subscription.async_send_notification_report(self._msg_factory, body_node, action, doc_nsmap)
+            self._logger.debug(f' done: send notification report {action } to {subscription}')
+        except aiohttp.client_exceptions.ClientConnectorError as ex:
+            # this is an error related to the connection => log error and continue
+            self._logger.error('could not send notification report: {} {}', str(ex), subscription)
         except HTTPReturnCodeError as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report: HTTP status= {}, reason={}, {}', ex.status,
                                ex.reason, subscription)
         except http.client.NotConnected as ex:
             # this is an error related to the connection => log error and continue
-            self._logger.error('could not send notification report: {!r}:  subscr = {}', ex, subscription)
+            self._logger.error('{subscription}:could not send notification report: {!r}:  subscr = {}', ex, subscription)
         except socket.timeout as ex:
+            # this is an error related to the connection => log error and continue
+            self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
+        except asyncio.exceptions.TimeoutError as ex:
+            # this is an error related to the connection => log error and continue
+            self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
+        except aiohttp.client_exceptions.ClientConnectionError as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
         except etree_.DocumentInvalid as ex:
@@ -591,28 +650,6 @@ class SubscriptionsManagerBase:
             # this should never happen! => re-raise
             self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
             raise
-
-    # async def _async_send_notification_report(self, subscription, body_node, action, doc_nsmap):
-    #     try:
-    #         await subscription.async_send_notification_report(self._msg_factory, body_node, action, doc_nsmap)
-    #     except HTTPReturnCodeError as ex:
-    #         # this is an error related to the connection => log error and continue
-    #         self._logger.error('could not send notification report: HTTP status= {}, reason={}, {}', ex.status,
-    #                            ex.reason, subscription)
-    #     except http.client.NotConnected as ex:
-    #         # this is an error related to the connection => log error and continue
-    #         self._logger.error('could not send notification report: {!r}:  subscr = {}', ex, subscription)
-    #     except socket.timeout as ex:
-    #         # this is an error related to the connection => log error and continue
-    #         self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
-    #     except etree_.DocumentInvalid as ex:
-    #         # this is an error related to the document, it cannot be sent to any subscriber => re-raise
-    #         self._logger.error('Invalid Document: {!r}\n{}', ex, etree_.tostring(body_node))
-    #         raise
-    #     except Exception as ex:
-    #         # this should never happen! => re-raise
-    #         self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
-    #         raise
 
     def _get_subscriptions_for_action(self, action):
         with self._subscriptions.lock:
@@ -627,7 +664,9 @@ class SubscriptionsManagerBase:
             subscription = self._subscriptions.dispatch_identifier.get_one(dispatch_identifier, allow_none=True)
         if subscription is None:
             self._logger.warning('{}: unknown Subscription identifier "{}" from {}',
-                                 request_data.message_data.msg_name, dispatch_identifier, request_data.peer_name)
+                               request_data.message_data.msg_name, dispatch_identifier, request_data.peer_name)
+        self._logger.debug('{}: unknown Subscription identifier msg: {}',
+                             request_data.message_data.msg_name, request_data.message_data.p_msg.raw_data.decode('utf-8'))
         return subscription
 
     def _do_housekeeping(self):
@@ -640,7 +679,8 @@ class SubscriptionsManagerBase:
                 # the network location is unreachable, we can remove all subscriptions that use this location
                 unreachable_netlocs.append(invalid_subscription.soap_client.netloc)
                 try:
-                    invalid_subscription.soap_client.close()
+                    #invalid_subscription.soap_client.close()
+                    self._async_send_thread.run_coro(invalid_subscription.soap_client.async_close())
                 except OSError:
                     self._logger.error('error in soap client.close(): {}', traceback.format_exc())
 
@@ -691,7 +731,7 @@ class SubscriptionsManagerBase:
         return ret
 
 
-class SubscriptionsManagerPath(SubscriptionsManagerBase):
+class SubscriptionsManagerPathAsync(SubscriptionsManagerBaseAsync):
     """This implementation uses path dispatching to identify subscriptions."""
 
     def _mk_subscription_instance(self, subscribe_request):
@@ -700,7 +740,7 @@ class SubscriptionsManagerPath(SubscriptionsManagerBase):
         return subscription
 
 
-class SubscriptionsManagerReferenceParam(SubscriptionsManagerBase):
+class SubscriptionsManagerReferenceParamAsync(SubscriptionsManagerBaseAsync):
     """This implementation uses reference parameters to identify subscriptions."""
 
     def _mk_subscription_instance(self, subscribe_request):

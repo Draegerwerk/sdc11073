@@ -30,10 +30,11 @@ class GetService(DPWSPortTypeImpl):
         hosting_service.register_post_handler('GetMdDescription', self._on_get_md_description)
 
     def _on_get_md_state(self, request_data):
-        self._logger.debug('_on_get_md_state')
         requested_handles = self._sdc_device.msg_reader.read_getmdstate_request(request_data.message_data)
         if len(requested_handles) > 0:
-            self._logger.info('_on_get_md_state requested Handles:{}', requested_handles)
+            self._logger.debug('_on_get_md_state from {} req. handles:{}', request_data.peer_name, requested_handles)
+        else:
+            self._logger.debug('_on_get_md_state from {}', request_data.peer_name)
 
         # get the requested state containers from mdib
         state_containers = []
@@ -59,7 +60,7 @@ class GetService(DPWSPortTypeImpl):
                     for handle in requested_handles:
                         state_containers.extend(self._mdib.states.descriptorHandle.get(handle, []))
 
-                self._logger.info('_on_get_md_state requested Handles:{} found {} states', requested_handles,
+                self._logger.debug('_on_get_md_state requested Handles:{} found {} states', requested_handles,
                                   len(state_containers))
 
             response = self._sdc_device.msg_factory.mk_get_mdstate_response_message(

@@ -15,7 +15,8 @@ from sdc11073 import loghelper
 from sdc11073 import namespaces
 from sdc11073 import observableproperties
 from sdc11073 import pmtypes
-from sdc11073.definitions_base import SdcDeviceComponents, SdcClientComponents
+from sdc11073.sdcclient.components import SdcClientComponents
+from sdc11073.sdcdevice.components import SdcDeviceComponents
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ClientMdibContainer
@@ -25,7 +26,10 @@ from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.httpserver import DeviceHttpServerThread
-from sdc11073.sdcdevice.subscriptionmgr import SubscriptionsManagerReferenceParam
+from sdc11073.sdcdevice.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
+from sdc11073.pysoap.soapclient_async import SoapClientAsync
+
+#from sdc11073.sdcdevice.subscriptionmgr import SubscriptionsManagerReferenceParam
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from tests.mockstuff import SomeDevice, dec_list
 
@@ -221,7 +225,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
             subscriptions = list(sdcDevice.subscriptions_manager._subscriptions.objects)  # make a copy of this list
             for s in subscriptions:
-                self.assertTrue(s.is_closed())
+                self.assertTrue(s.is_closed(), msg=f'subscription is not closed: {s}')
 
     def test_subscription_end(self):
         for _, sdcDevice in self._all_cl_dev:
@@ -691,6 +695,62 @@ class Test_Client_SomeDevice(unittest.TestCase):
         for alertSystemDescriptor in alertSystemDescriptors:
             state = sdcClient.mdib.states.descriptorHandle.get_one(alertSystemDescriptor.handle)
             self.assertEqual(state.SystemSignalActivation[0].State, pmtypes.AlertActivation.ON)
+
+    def test_audio_pause_two_clients(self):
+        sdc_client1 = self.sdc_client
+        sdcDevice = self.sdc_device
+        alertSystemDescriptorType = namespaces.domTag('AlertSystemDescriptor')
+
+        alertSystemDescriptors = sdcDevice.mdib.descriptions.NODETYPE.get(alertSystemDescriptorType)
+        self.assertTrue(alertSystemDescriptors is not None)
+        self.assertGreater(len(alertSystemDescriptors), 0)
+
+        set_service = sdc_client1.client('Set')
+        client_mdib1 = ClientMdibContainer(sdc_client1)
+        client_mdib1.init_mdib()
+
+        # connect a 2nd client
+        x_addr = self.sdc_device.get_xaddrs()
+        sdc_client2 = SdcClient(x_addr[0],
+                                sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                ssl_context=None,
+                                validate=CLIENT_VALIDATE)
+        sdc_client2.start_all(subscribe_periodic_reports=True, async_dispatch=False)
+        client_mdib2 = ClientMdibContainer(sdc_client2)
+        client_mdib2.init_mdib()
+        clients = (sdc_client1, sdc_client2)
+        coding = pmtypes.Coding(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
+        operation = sdcDevice.mdib.descriptions.coding.get_one(coding)
+        future = set_service.activate(operation_handle=operation.handle, arguments=None)
+        result = future.result(timeout=SET_TIMEOUT)
+        state = result.invocation_state
+        self.assertEqual(state, pmtypes.InvocationState.FINISHED)
+        time.sleep(0.5)  # allow notifications to arrive
+        # the whole tests only makes sense if there is an alert system
+        alertSystemDescriptors = sdcDevice.mdib.descriptions.NODETYPE.get(alertSystemDescriptorType)
+        self.assertTrue(alertSystemDescriptors is not None)
+        self.assertGreater(len(alertSystemDescriptors), 0)
+        for alertSystemDescriptor in alertSystemDescriptors:
+            for client in clients:
+                state = client.mdib.states.descriptorHandle.get_one(alertSystemDescriptor.handle)
+                # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
+                self.assertEqual(state.SystemSignalActivation[0].State, pmtypes.AlertActivation.PAUSED)
+
+        coding = pmtypes.Coding(nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
+        operation = sdcDevice.mdib.descriptions.coding.get_one(coding)
+        future = set_service.activate(operation_handle=operation.handle, arguments=None)
+        result = future.result(timeout=SET_TIMEOUT)
+        state = result.invocation_state
+        self.assertEqual(state, pmtypes.InvocationState.FINISHED)
+        time.sleep(0.5)  # allow notifications to arrive
+        # the whole tests only makes sense if there is an alert system
+        alertSystemDescriptors = sdcDevice.mdib.descriptions.NODETYPE.get(alertSystemDescriptorType)
+        self.assertTrue(alertSystemDescriptors is not None)
+        self.assertGreater(len(alertSystemDescriptors), 0)
+        for alertSystemDescriptor in alertSystemDescriptors:
+            for client in clients:
+                state = client.mdib.states.descriptorHandle.get_one(alertSystemDescriptor.handle)
+                self.assertEqual(state.SystemSignalActivation[0].State, pmtypes.AlertActivation.ON)
 
     def test_set_ntp_server(self):
         sdcClient = self.sdc_client
@@ -1517,7 +1577,9 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
         location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
-        specific_components = SdcDeviceComponents(subscriptions_manager_class=SubscriptionsManagerReferenceParam)
+#        specific_components = SdcDeviceComponents(subscriptions_manager_class=SubscriptionsManagerReferenceParam,
+#                                                  soap_client_class=SoapClientAsync)
+        specific_components = None
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<Final> ',
                                                     specific_components=specific_components,
                                                     chunked_messages=True)

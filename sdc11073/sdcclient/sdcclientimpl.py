@@ -17,7 +17,7 @@ from .. import observableproperties as properties
 from ..definitions_base import ProtocolsRegistry
 from ..httprequesthandler import RequestData
 from ..namespaces import EventingActions
-
+from .components import default_sdc_client_components
 
 class HostDescription:
     def __init__(self, dpws_envelope):
@@ -40,7 +40,7 @@ class HostedServiceDescription:
         self.log_prefix = log_prefix
         self.meta_data = None
         self.wsdl_string = None
-        self.wsdl = None
+        self.wsdl_node = None
         self._logger = loghelper.get_logger_adapter(f'sdc.client.{service_id}', log_prefix)
         self._url = urllib.parse.urlparse(endpoint_address)
         self.services = {}
@@ -56,10 +56,10 @@ class HostedServiceDescription:
     def _read_wsdl(self, soap_client, wsdl_url):
         parsed = urllib.parse.urlparse(wsdl_url)
         actual_path = parsed.path + f'?{parsed.query}' if parsed.query else parsed.path
-        self.wsdl_string = soap_client.get_url(actual_path, msg=f'{self.log_prefix}:getwsdl')
+        self.wsdl_string = soap_client.get_url(actual_path, msg=f'{self.log_prefix}:getwsdl').decode('utf-8')
         commlog.get_communication_logger().log_wsdl(self.wsdl_string, self.service_id)
         try:
-            self.wsdl = self._msg_reader.read_wsdl(self.wsdl_string)
+            self.wsdl_node = self._msg_reader.read_wsdl(self.wsdl_string)
         except etree_.XMLSyntaxError as ex:
             self._logger.error(
                 f'could not read wsdl from {actual_path}: error={ex}, data=\n{self.wsdl_string}')
@@ -133,13 +133,12 @@ class SdcClient:
 
     def __init__(self, device_location, sdc_definitions, ssl_context, validate=True,
                  log_prefix='',
-                 specific_components=None,
+                 default_components=None, specific_components=None,
                  chunked_requests=False):  # pylint:disable=too-many-arguments
         """
         :param device_location: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         :param sdc_definitions: a class derived from BaseDefinitions
         :param ssl_context: used for ssl connection to device and for own HTTP Server (notifications receiver)
-             If value is None, best own address is determined automatically (recommended).
         :param validate: bool
         :param log_prefix: a string used as prefix for logging
         :param specific_components: a SdcClientComponents instance or None
@@ -149,7 +148,9 @@ class SdcClient:
             raise ValueError('Invalid device_location, it must be match http(s)://<netloc> syntax')
         self._device_location = device_location
         self.sdc_definitions = sdc_definitions
-        self._components = copy.deepcopy(sdc_definitions.DefaultSdcClientComponents)
+        if default_components is None:
+            default_components = default_sdc_client_components
+        self._components = copy.deepcopy(default_components)
         if specific_components is not None:
             self._components.merge(specific_components)
         splitted = urllib.parse.urlsplit(self._device_location)

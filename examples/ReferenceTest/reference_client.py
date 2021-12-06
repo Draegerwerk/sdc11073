@@ -47,7 +47,8 @@ def run_ref_test():
         else:
             ssl_context = None
         client = sdc11073.sdcclient.SdcClient.from_wsd_service(my_service,
-                                                             ssl_context=ssl_context)
+                                                               ssl_context=ssl_context,
+                                                               validate=True)
         client.start_all()
         print('Test step 2 successful: connected to device')
         results.append('### Test 2 ### passed')
@@ -142,18 +143,22 @@ def run_ref_test():
             if s.handle != setst_handle:
                 continue
             print('setString Op ={}'.format(s))
-            fut = client.set_service_client.set_string(s.handle, 'hoppeldipop')
             try:
-                res = fut.result(timeout=10)
-                print(res)
-                if res.invocation_state != sdc11073.pmtypes.InvocationState.FINISHED:
-                    print('set string operation {} did not finish with "Fin":{}'.format(s.handle, res))
+                fut = client.set_service_client.set_string(s.handle, 'hoppeldipop')
+                try:
+                    res = fut.result(timeout=10)
+                    print(res)
+                    if res.invocation_state != sdc11073.pmtypes.InvocationState.FINISHED:
+                        print('set string operation {} did not finish with "Fin":{}'.format(s.handle, res))
+                        results.append('### Test 9(SetString) ### failed')
+                    else:
+                        print('set value operation {} ok:{}'.format(s.handle, res))
+                        results.append('### Test 9(SetString) ### passed')
+                except futures.TimeoutError:
+                    print('timeout error')
                     results.append('### Test 9(SetString) ### failed')
-                else:
-                    print('set value operation {} ok:{}'.format(s.handle, res))
-                    results.append('### Test 9(SetString) ### passed')
-            except futures.TimeoutError:
-                print('timeout error')
+            except Exception as ex:
+                print(f'Test 9(SetString): {ex}')
                 results.append('### Test 9(SetString) ### failed')
 
     print('Test step 9: call SetValue operation')
@@ -168,17 +173,21 @@ def run_ref_test():
             if s.handle != setval_handle:
                 continue
             print('setNumericValue Op ={}'.format(s))
-            fut = client.set_service_client.set_numeric_value(s.handle, 42)
             try:
-                res = fut.result(timeout=10)
-                print(res)
-                if res.invocation_state != sdc11073.pmtypes.InvocationState.FINISHED:
-                    print('set value operation {} did not finish with "Fin":{}'.format(s.handle, res))
-                else:
-                    print('set value operation {} ok:{}'.format(s.handle, res))
-                    results.append('### Test 9(SetValue) ### passed')
-            except futures.TimeoutError:
-                print('timeout error')
+                fut = client.set_service_client.set_numeric_value(s.handle, 42)
+                try:
+                    res = fut.result(timeout=10)
+                    print(res)
+                    if res.invocation_state != sdc11073.pmtypes.InvocationState.FINISHED:
+                        print('set value operation {} did not finish with "Fin":{}'.format(s.handle, res))
+                    else:
+                        print('set value operation {} ok:{}'.format(s.handle, res))
+                        results.append('### Test 9(SetValue) ### passed')
+                except futures.TimeoutError:
+                    print('timeout error')
+                    results.append('### Test 9(SetValue) ### failed')
+            except Exception as ex:
+                print(f'Test 9(SetValue): {ex}')
                 results.append('### Test 9(SetValue) ### failed')
 
     print('Test step 9: call Activate operation')
@@ -192,18 +201,22 @@ def run_ref_test():
             if s.handle != activate_handle:
                 continue
             print('activate Op ={}'.format(s))
-            fut = client.set_service_client.activate(s.handle, 'hoppeldipop')
             try:
-                res = fut.result(timeout=10)
-                print(res)
-                if res.invocation_state != sdc11073.pmtypes.InvocationState.FINISHED:
-                    print('set string operation {} did not finish with "Fin":{}'.format(s.handle, res))
+                fut = client.set_service_client.activate(s.handle, 'hoppeldipop')
+                try:
+                    res = fut.result(timeout=10)
+                    print(res)
+                    if res.invocation_state != sdc11073.pmtypes.InvocationState.FINISHED:
+                        print('set string operation {} did not finish with "Fin":{}'.format(s.handle, res))
+                        results.append('### Test 9(Activate) ### failed')
+                    else:
+                        print('set value operation {} ok:{}'.format(s.handle, res))
+                        results.append('### Test 9(Activate) ### passed')
+                except futures.TimeoutError:
+                    print('timeout error')
                     results.append('### Test 9(Activate) ### failed')
-                else:
-                    print('set value operation {} ok:{}'.format(s.handle, res))
-                    results.append('### Test 9(Activate) ### passed')
-            except futures.TimeoutError:
-                print('timeout error')
+            except Exception as ex:
+                print(f'Test 9(Activate): {ex}')
                 results.append('### Test 9(Activate) ### failed')
 
     print('Test step 10: cancel all subscriptions')

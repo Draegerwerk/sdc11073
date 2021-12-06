@@ -401,6 +401,7 @@ class RequestData:
         self.request = request
         self.peer_name = peer_name  # for logging
         self.consumed_path_elements = []
+        self.path = path
         if path.startswith('/'):
             path = path[1:]
         self.path_elements = path.split('/')

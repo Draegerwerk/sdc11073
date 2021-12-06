@@ -2,18 +2,28 @@
 # -*- coding: utf-8 -*-
 """Pythonic simple SOAP Client implementation
 Using lxml based SoapEnvelope."""
+from __future__ import annotations
 import http.client as httplib
 import socket
 import sys
 import time
 import traceback
 from threading import Lock
+from typing import List, Optional, TYPE_CHECKING
 
 from .. import commlog
 from .. import observableproperties
 from ..compression import CompressionHandler
 from ..httprequesthandler import HTTPReader, mkchunks
 from ..namespaces import Prefixes
+
+if TYPE_CHECKING:
+    from ssl import SSLContext
+    from ..pysoap.msgfactory import CreatedMessage
+    from ..pysoap.msgreader import MessageReader
+    from ..definitions_base import BaseDefinitions
+    from ..sdcclient.manipulator import RequestManipulator
+    from ..loghelper import LoggerAdapter
 
 
 class HTTPConnectionNoDelay(httplib.HTTPConnection):
@@ -53,8 +63,15 @@ class SoapClient:
 
     roundtrip_time = observableproperties.ObservableProperty()
 
-    def __init__(self, netloc, logger, ssl_context, sdc_definitions, msg_reader, supported_encodings=None,
-                 request_encodings=None, chunked_requests=False):
+    def __init__(self,
+         netloc: str,
+        logger: LoggerAdapter,
+        ssl_context: [SSLContext, None],
+        sdc_definitions: BaseDefinitions,
+        msg_reader: MessageReader,
+        supported_encodings: Optional[List[str]] = None,
+        request_encodings: Optional[List[str]] = None,
+        chunked_requests: Optional[bool] = False):
         """ Connects to one url
         :param netloc: the location of the service (domainname:port) ###url of the service
         :param logger: a python logger instance
@@ -91,7 +108,7 @@ class SoapClient:
     def sock(self):
         return None if self._http_connection is None else self._http_connection.sock
 
-    def _mk_http_connection(self):
+    def _mk_http_connection(self) -> [HTTPSConnectionNoDelay, HTTPConnectionNoDelay]:
         """ Soap client never sends very large requests, the largest packages are notifications.
          Therefore we can use TCP_NODELAY for a little faster transmission.
         (Otherwise there would be a chance that receivers windows size decreases, which would result in smaller
@@ -118,7 +135,7 @@ class SoapClient:
     def is_closed(self):
         return self._http_connection is None
 
-    def _prepare_message(self, created_message, request_manipulator):
+    def _prepare_message(self, created_message: CreatedMessage, request_manipulator):
         validate = True
         if hasattr(request_manipulator, 'manipulate_soapenvelope'):
             tmp = request_manipulator.manipulate_soapenvelope(created_message.p_msg)
@@ -136,7 +153,10 @@ class SoapClient:
                 xml_request = tmp
         return xml_request
 
-    def post_message_to(self, path, created_message, msg='', request_manipulator=None):
+    def post_message_to(self, path: str,
+                        created_message: CreatedMessage,
+                        msg: Optional[str] = '',
+                        request_manipulator: Optional[RequestManipulator] = None):
         """
         :param path: url path component
         :param created_message: The message that shall be sent
@@ -270,7 +290,7 @@ class SoapClient:
             if response.status >= 300:
                 self._log.error(
                     "{}: POST to netloc='{}' path='{}': could not send request, HTTP response={}\ncontent='{}'", msg,
-                    self._netloc, path, response.status, content)
+                    self._netloc, path, response.status, content.decode('utf-8'))
                 tmp = self._msg_reader.read_received_message(content)
                 soap_fault = self._msg_reader.read_fault_message(tmp)
                 raise HTTPReturnCodeError(response.status, response.reason, soap_fault)
@@ -290,7 +310,7 @@ class SoapClient:
             headers['Accept-Encoding'] = ', '.join(self.supported_encodings)
         return headers
 
-    def get_url(self, url, msg):
+    def get_url(self, url: str, msg: str) -> bytes:
         if not url.startswith('/'):
             url = '/' + url
         self._log.debug("{} Get {}/{}", msg, self._netloc, url)

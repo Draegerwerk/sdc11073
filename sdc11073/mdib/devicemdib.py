@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import time
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
 from threading import Lock
-from typing import List, Type
+from typing import List, Type, TYPE_CHECKING
 
 from . import mdibbase
 from .devicewaveform import AbstractWaveformSource
@@ -11,10 +13,14 @@ from .devicewaveform import DefaultWaveformSource
 from .transactions import RtDataMdibUpdateTransaction, MdibUpdateTransaction, TransactionProcessor
 from .. import loghelper
 from .. import pmtypes
-from ..definitions_base import ProtocolsRegistry, BaseDefinitions
+from ..definitions_base import ProtocolsRegistry
 from ..definitions_sdc import SDC_v1_Definitions
 from ..msgtypes import RetrievabilityMethod
 from ..namespaces import domTag
+from ..pysoap.msgreader import MessageReaderDevice
+
+if TYPE_CHECKING:
+    from ..definitions_base import BaseDefinitions
 
 
 class DeviceMdibContainer(mdibbase.MdibContainer):
@@ -303,11 +309,13 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
     @classmethod
     def from_mdib_file(cls, path,
                        protocol_definition=None,
+                       xml_reader_class=MessageReaderDevice,
                        log_prefix=None):
         """
         An alternative constructor for the class
         :param path: the input file path for creating the mdib
         :param protocol_definition: an optional object derived from BaseDefinitions, forces usage of this definition
+        :param xml_reader_class: class that is used to read mdib xml file
         :param log_prefix: a string or None
         :return: instance
         """
@@ -315,16 +323,19 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             xml_text = the_file.read()
         return cls.from_string(xml_text,
                                protocol_definition,
+                               xml_reader_class,
                                log_prefix)
 
     @classmethod
     def from_string(cls, xml_text,
                     protocol_definition=None,
+                    xml_reader_class=MessageReaderDevice,
                     log_prefix=None):
         """
         An alternative constructor for the class
         :param xml_text: the input string for creating the mdib
         :param protocol_definition: an optional object derived from BaseDefinitions, forces usage of this definition
+        :param xml_reader_class: class that is used to read mdib xml file
         :param log_prefix: a string or None
         :return: instance
         """
@@ -337,7 +348,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     break
         if protocol_definition is None:
             raise ValueError('cannot create instance, no known BICEPS schema version identified')
-        xml_reader_class = protocol_definition.DefaultSdcDeviceComponents.xml_reader_class
+        # xml_reader_class = protocol_definition.DefaultSdcDeviceComponents.xml_reader_class
         mdib = cls(protocol_definition, log_prefix=log_prefix)
 
         xml_msg_reader = xml_reader_class(protocol_definition, mdib._logger, log_prefix)

@@ -95,6 +95,8 @@ class ClSubscription:
             dev_reference_param=self.dev_reference_param, expire_minutes=expire_minutes)
 
     def renew(self, expire_minutes: int = 60) -> float:
+        if not self.is_subscribed:
+            return 0
         message = self._mk_renew_message(expire_minutes)
         try:
             message_data = self.dpws_hosted.soap_client.post_message_to(
@@ -299,6 +301,7 @@ class ClientSubscriptionManager(threading.Thread):
 
     def on_subscription_end(self, request_data) -> [ClSubscription, None]:
         subscription_end_result = self._msg_reader.read_subscription_end_message(request_data.message_data)
+        self._logger.info('on_subscription_end: received Subscription End {}', subscription_end_result)
         if subscription_end_result.status_list:
             info = f' status={subscription_end_result.status_list[0]} '
         else:

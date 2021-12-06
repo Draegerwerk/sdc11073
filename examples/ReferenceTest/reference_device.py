@@ -1,30 +1,37 @@
-
-import logging
+import json
 import json
 import logging.config
 import os
+import traceback
 from time import sleep
 from uuid import UUID
 
 import sdc11073
+from sdc11073.certloader import mk_ssl_context_from_folder
+from sdc11073.dpws import ThisDevice, ThisModel
 from sdc11073.loghelper import LoggerAdapter
 from sdc11073.namespaces import domTag
-from sdc11073.certloader import mk_ssl_context_from_folder
+from sdc11073.sdcdevice.components import SdcDeviceComponents
+from sdc11073.sdcdevice.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
+from sdc11073.pysoap.soapclient_async import SoapClientAsync
 
 here = os.path.dirname(__file__)
 default_mdib_path = os.path.join(here, 'reference_mdib.xml')
 mdib_path = os.getenv('ref_mdib') or default_mdib_path
-xtra_log_config = os.getenv('ref_xtra_log_cnf') # or None
+xtra_log_config = os.getenv('ref_xtra_log_cnf')  # or None
 ca_folder = os.getenv('ref_ca')  # or None
 
 My_UUID_str = '12345678-6f55-11ea-9697-123456789abc'
 
 # these variables define how the device is published on the network:
 adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
+ca_folder = os.getenv('ref_ca')
 ref_fac = os.getenv('ref_fac') or 'r_fac'
 ref_poc = os.getenv('ref_poc') or 'r_poc'
 ref_bed = os.getenv('ref_bed') or 'r_bed'
 ssl_passwd = os.getenv('ref_ssl_passwd') or None
+
+USE_REFERENCE_PARAMETERS = False
 
 if __name__ == '__main__':
     with open(os.path.join(here, 'logging_default.jsn')) as f:
@@ -45,16 +52,16 @@ if __name__ == '__main__':
     print("UUID for this device is {}".format(my_uuid))
     loc = sdc11073.location.SdcLocation(ref_fac, ref_poc, ref_bed)
     print("location for this device is {}".format(loc))
-    dpwsModel = sdc11073.pysoap.soapenvelope.DPWSThisModel(manufacturer='sdc11073',
-                                                           manufacturer_url='www.sdc11073.com',
-                                                           model_name='TestDevice',
-                                                           model_number='1.0',
-                                                           model_url='www.sdc11073.com/model',
-                                                           presentation_url='www.sdc11073.com/model/presentation')
+    dpwsModel = ThisModel(manufacturer='sdc11073',
+                          manufacturer_url='www.sdc11073.com',
+                          model_name='TestDevice',
+                          model_number='1.0',
+                          model_url='www.sdc11073.com/model',
+                          presentation_url='www.sdc11073.com/model/presentation')
 
-    dpwsDevice = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendly_name='TestDevice',
-                                                             firmware_version='Version1',
-                                                             serial_number='12345')
+    dpwsDevice = ThisDevice(friendly_name='TestDevice',
+                            firmware_version='Version1',
+                            serial_number='12345')
     if ca_folder:
         ssl_context = mk_ssl_context_from_folder(ca_folder,
                                                  private_key='user_private_key_encrypted.pem',
@@ -64,8 +71,14 @@ if __name__ == '__main__':
                                                  ssl_passwd=ssl_passwd)
     else:
         ssl_context = None
+    specific_components = None
+    if USE_REFERENCE_PARAMETERS:
+        specific_components = SdcDeviceComponents(subscriptions_manager_class=SubscriptionsManagerReferenceParamAsync,
+                                                  soap_client_class=SoapClientAsync)
+
     sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.SdcDevice(wsd, dpwsModel, dpwsDevice, my_mdib, my_uuid,
-                                                           ssl_context=ssl_context)
+                                                           ssl_context=ssl_context,
+                                                           specific_components=specific_components)
     sdcDevice.start_all()
 
     validators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extension_string='System')]
@@ -111,18 +124,24 @@ if __name__ == '__main__':
         currentValue = 0
         while True:
             if metric:
-                with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                    state = mgr.get_state(metric.handle)
-                    if not state.MetricValue:
-                        state.mk_metric_value()
-                    state.MetricValue.Value = currentValue
-                    currentValue += 1
+                try:
+                    with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
+                        state = mgr.get_state(metric.handle)
+                        if not state.MetricValue:
+                            state.mk_metric_value()
+                        state.MetricValue.Value = currentValue
+                        currentValue += 1
+                except Exception as ex:
+                    print(traceback.format_exc())
             else:
                 print("Metric not found in MDIB!")
             if alertCondition:
-                with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                    state = mgr.get_state(alertCondition.handle)
-                    state.Presence = not state.Presence
+                try:
+                    with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
+                        state = mgr.get_state(alertCondition.handle)
+                        state.Presence = not state.Presence
+                except Exception as ex:
+                    print(traceback.format_exc())
             else:
                 print("Alert not found in MDIB")
             sleep(5)
