@@ -51,15 +51,6 @@ class TestDeviceSubscriptions(unittest.TestCase):
         here = os.path.dirname(__file__)
         self.mdib = sdc11073.mdib.DeviceMdibContainer.from_mdib_file(os.path.join(mdibFolder, '70041_MDIB_Final.xml'))
 
-        # self._model = sdc11073.pysoap.soapenvelope.DPWSThisModel(manufacturer='Chinakracher GmbH',
-        #                                                          manufacturer_url='www.chinakracher.com',
-        #                                                          model_name='BummHuba',
-        #                                                          model_number='1.0',
-        #                                                          model_url='www.chinakracher.com/bummhuba/model',
-        #                                                          presentation_url='www.chinakracher.com/bummhuba/presentation')
-        # self._device = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendly_name='Big Bang Practice',
-        #                                                            firmware_version='0.99',
-        #                                                            serial_number='87kabuuum889')
         self._model = ThisModel(manufacturer='Chinakracher GmbH',
                                 manufacturer_url='www.chinakracher.com',
                                 model_name='BummHuba',

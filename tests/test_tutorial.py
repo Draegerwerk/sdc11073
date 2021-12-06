@@ -3,9 +3,9 @@ import unittest
 import uuid
 
 from sdc11073 import pmtypes
-from sdc11073 import msgtypes
 from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.dpws import ThisDevice, ThisModel
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.mdib.clientmdib import ClientMdibContainer
@@ -14,10 +14,9 @@ from sdc11073.pmtypes import CodedValue
 from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.sdcclient import SdcClient
+from sdc11073.sdcdevice.components import SdcDeviceComponents
 from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist, WSDiscoverySingleAdapter, Scope
-from sdc11073.definitions_base import SdcDeviceComponents
-from sdc11073.dpws import ThisDevice, ThisModel
 
 loopback_adapter = 'Loopback Pseudo-Interface 1' if os.name == 'nt' else 'lo'
 
@@ -31,29 +30,19 @@ my_mdib_path = os.path.join(here, '70041_MDIB_Final.xml')
 def createGenericDevice(wsdiscovery_instance, location, mdibPath, specific_components=None):
     my_mdib = DeviceMdibContainer.from_mdib_file(mdibPath)
     my_uuid = uuid.uuid4()
-    # dpwsModel = DPWSThisModel(manufacturer='Draeger',
-    #                           manufacturer_url='www.draeger.com',
-    #                           model_name='TestDevice',
-    #                           model_number='1.0',
-    #                           model_url='www.draeger.com/model',
-    #                           presentation_url='www.draeger.com/model/presentation')
-    #
-    # dpwsDevice = DPWSThisDevice(friendly_name='TestDevice',
-    #                             firmware_version='Version1',
-    #                             serial_number='12345')
-    dpwsModel = ThisModel(manufacturer='Draeger',
-                          manufacturer_url='www.draeger.com',
-                          model_name='TestDevice',
-                          model_number='1.0',
-                          model_url='www.draeger.com/model',
-                          presentation_url='www.draeger.com/model/presentation')
+    this_model = ThisModel(manufacturer='Draeger',
+                           manufacturer_url='www.draeger.com',
+                           model_name='TestDevice',
+                           model_number='1.0',
+                           model_url='www.draeger.com/model',
+                           presentation_url='www.draeger.com/model/presentation')
 
-    dpwsDevice = ThisDevice(friendly_name='TestDevice',
-                            firmware_version='Version1',
-                            serial_number='12345')
+    this_device = ThisDevice(friendly_name='TestDevice',
+                             firmware_version='Version1',
+                             serial_number='12345')
     sdcDevice = SdcDevice(wsdiscovery_instance,
-                          dpwsModel,
-                          dpwsDevice,
+                          this_model,
+                          this_device,
                           my_mdib,
                           my_uuid=my_uuid,
                           specific_components=specific_components)

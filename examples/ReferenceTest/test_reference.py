@@ -120,7 +120,7 @@ def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
     validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
     sdcDevice.set_location(location, validators)
 
-    patientDescriptorHandle = my_mdib.descriptions.NODETYPE.getOne(domTag('PatientContextDescriptor')).handle
+    patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get_one(domTag('PatientContextDescriptor')).handle
     with my_mdib.mdibUpdateTransaction() as mgr:
         patientContainer = mgr.get_state(patientDescriptorHandle)
         patientContainer.CoreData.Givenname = "Given"

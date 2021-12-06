@@ -1,16 +1,20 @@
+from __future__ import annotations
+
 import time
 import traceback
 from threading import Lock
-from typing import Type
+from typing import Type, TYPE_CHECKING
 
 from lxml import etree as etree_
 
 from .. import multikey
 from .. import observableproperties as properties
-from ..definitions_base import BaseDefinitions
 from ..etc import apply_map
 from ..namespaces import DocNamespaceHelper, msgTag, domTag
 from ..pmtypes import CodedValue, DEFAULT_CODING_SYSTEM, Coding
+
+if TYPE_CHECKING:
+    from ..definitions_base import BaseDefinitions
 
 
 class RtSampleContainer:

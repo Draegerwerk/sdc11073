@@ -4,6 +4,7 @@ import uuid
 from typing import List
 
 from . import httpserver
+from .components import default_sdc_device_components
 from .hostedserviceimpl import SoapMessageHandler
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 from .waveforms import WaveformSender
@@ -23,7 +24,8 @@ class SdcDevice:
 
     def __init__(self, ws_discovery, this_model, this_device, device_mdib_container, my_uuid=None,
                  validate=True, ssl_context=None,
-                 max_subscription_duration=7200, log_prefix='', specific_components=None,
+                 max_subscription_duration=7200, log_prefix='',
+                 default_components=None, specific_components=None,
                  chunked_messages=False):  # pylint:disable=too-many-arguments
         """
 
@@ -50,7 +52,9 @@ class SdcDevice:
         self._ssl_context = ssl_context
         self._max_subscription_duration = max_subscription_duration
         self._log_prefix = log_prefix
-        self._components = copy.deepcopy(device_mdib_container.sdc_definitions.DefaultSdcDeviceComponents)
+        if default_components is None:
+            default_components = default_sdc_device_components
+        self._components = copy.deepcopy(default_components)
         if specific_components is not None:
             # merge specific stuff into _components
             self._components.merge(specific_components)
@@ -75,8 +79,9 @@ class SdcDevice:
                                                             self._logger,
                                                             self._log_prefix,
                                                             validate=validate)
+        logger = loghelper.get_logger_adapter('sdc.device.msgfactory', log_prefix)
         self.msg_factory = self._components.msg_factory_class(sdc_definitions=self._mdib.sdc_definitions,
-                                                              logger=self._logger,
+                                                              logger=logger,
                                                               validate=validate)
 
         # host dispatcher provides data of the sdc device itself.
@@ -143,7 +148,7 @@ class SdcDevice:
         return None
 
     def _on_get_metadata(self, request_data):  # pylint: disable=unused-argument
-        self._logger.info('_on_get_metadata')
+        self._logger.info('_on_get_metadata from {}', request_data.peer_name)
         _nsm = self._mdib.nsmapper
 
         message = self.msg_factory.mk_get_metadata_response_message(
@@ -289,7 +294,7 @@ class SdcDevice:
         self.stop_realtime_sample_loop()
         if self._periodic_reports_handler:
             self._periodic_reports_handler.stop()
-        self._subscriptions_manager.end_all_subscriptions(send_subscription_end)
+        self._subscriptions_manager.stop_all(send_subscription_end)
         self._sco_operations_registry.stop_worker()
         try:
             self._wsdiscovery.clear_service(self.epr)

@@ -15,7 +15,8 @@ from ..compression import CompressionHandler
 from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
 from ..dpws import ThisDevice, ThisModel, HostServiceType, HostedServiceType, RelationShip
 from ..metadata import MetaData
-from ..definitions_base import mk_schema_validator, SchemaResolver
+from ..schema_resolver import mk_schema_validator
+from ..schema_resolver import SchemaResolver
 from ..httprequesthandler import HTTPRequestHandlingError
 
 # pylint: disable=no-self-use
@@ -541,7 +542,7 @@ class MessageReaderClient(MessageReader):
         return SubscriptionEndResult(status_list, reason_list, reference_parameters)
 
     @staticmethod
-    def read_wsdl(wsdl_string):
+    def read_wsdl(wsdl_string: str) -> etree_.ElementTree:
         """ make am ElementTree instance"""
         return etree_.fromstring(wsdl_string, parser=etree_.ETCompatXMLParser(resolve_entities=False))
 

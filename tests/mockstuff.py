@@ -78,6 +78,19 @@ class TestDevSubscription(_DevSubscription):
         message = msg_factory.mk_notification_message(addr, body_node, self.notify_ref_params, doc_nsmap)
         self.reports.append(message)
 
+    async def async_send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
+        addr = Address(addr_to=self.notify_to_address,
+                       action=action,
+                       addr_from=None,
+                       reply_to=None,
+                       fault_to=None,
+                       reference_parameters=None)
+        message = msg_factory.mk_notification_message(addr, body_node, self.notify_ref_params, doc_nsmap)
+        self.reports.append(message)
+
+    async def async_send_notification_end_message(self, msg_factory, code='SourceShuttingDown',
+                                      reason='Event source going off line.'):
+        pass
 
 class SomeDevice(SdcDevice):
     """A device used for unit tests
@@ -85,7 +98,8 @@ class SomeDevice(SdcDevice):
     """
 
     def __init__(self, wsdiscovery, mdib_xml_string, my_uuid=None,
-                 validate=True, ssl_context=None, log_prefix='', specific_components=None,
+                 validate=True, ssl_context=None, log_prefix='',
+                 default_components=None, specific_components=None,
                  chunked_messages=False):
         model = ThisModel(manufacturer='Draeger CoC Systems',
                           manufacturer_url='www.draeger.com',
@@ -106,13 +120,15 @@ class SomeDevice(SdcDevice):
         mdsDescriptor.MetaData.ModelNumber = '0.99'
         super(SomeDevice, self).__init__(wsdiscovery, model, device, device_mdib_container, my_uuid, validate,
                                          ssl_context=ssl_context, log_prefix=log_prefix,
+                                         default_components=default_components,
                                          specific_components=specific_components,
                                          chunked_messages=chunked_messages)
 
     @classmethod
     def from_mdib_file(cls, wsdiscovery, my_uuid, mdib_xml_path,
                        validate=True, ssl_context=None, log_prefix='',
-                       specific_components=None, chunked_messages=False):
+                       default_components=None, specific_components=None,
+                       chunked_messages=False):
         """
         An alternative constructor for the class
         """
@@ -123,5 +139,5 @@ class SomeDevice(SdcDevice):
         with open(mdib_xml_path, 'rb') as f:
             mdib_xml_string = f.read()
         return cls(wsdiscovery, mdib_xml_string, my_uuid, validate, ssl_context, log_prefix=log_prefix,
-                   specific_components=specific_components,
+                   default_components=default_components, specific_components=specific_components,
                    chunked_messages=chunked_messages)
