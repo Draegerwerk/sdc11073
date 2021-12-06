@@ -1,2 +1,3 @@
 lxml >= 2.3
 ifaddr
+aiohttp
