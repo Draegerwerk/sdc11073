@@ -6,7 +6,7 @@ from typing import Type, Callable, List, Any, TYPE_CHECKING
 
 from ..pysoap.soapclient import SoapClient
 from ..pysoap.msgfactory import MessageFactoryDevice
-from ..pysoap.msgreader import MessageReaderDevice
+from ..pysoap.msgreader import MessageReaderDevice, MessageReaderClient
 from ..roles.product import MinimalProduct
 
 from .sdc_handlers import mk_scopes, mk_all_services
@@ -43,6 +43,7 @@ class SdcDeviceComponents:
     soap_client_class: Type[Any] = None
     msg_factory_class: Type[MessageFactory] = None
     msg_reader_class: Type[MessageReader] = None
+    client_msg_reader_class: Type[MessageReader] = None   # the corresponding reader for client
     xml_reader_class: Type[MessageReader] = None  # needed to read xml based mdib files
     services_factory: Callable[[Any, dict, Any], HostedServices] = None
     operation_cls_getter: Callable[[QName], type] = None
@@ -76,6 +77,7 @@ default_sdc_device_components = SdcDeviceComponents(
     soap_client_class = SoapClient,
     msg_factory_class=MessageFactoryDevice,
     msg_reader_class=MessageReaderDevice,
+    client_msg_reader_class=MessageReaderClient,
     xml_reader_class=MessageReaderDevice,
     services_factory=mk_all_services,
     operation_cls_getter=get_operation_class,
