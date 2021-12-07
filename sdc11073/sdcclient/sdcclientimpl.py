@@ -491,13 +491,15 @@ class SdcClient:
         return f'SdcClient to {self.host_description.this_device} {self.host_description.this_model} on {self._device_location}'
 
     @classmethod
-    def from_wsd_service(cls, wsd_service, ssl_context, validate=True, log_prefix='', specific_components=None):
+    def from_wsd_service(cls, wsd_service, ssl_context, validate=True, log_prefix='',
+                         default_components=None, specific_components=None):
         """
 
         :param wsd_service: a wsdiscovery.Service instance
         :param ssl_context: a ssl context or None
         :param validate: bool
         :param log_prefix: a string
+        :param default_components: a SdcClientComponents instance or None
         :param specific_components: a SdcClientComponents instance or None
         :return:
         """
@@ -509,6 +511,6 @@ class SdcClient:
             q_name = etree_.QName(_q_name.namespace, _q_name.localname)
             for sdc_definition in ProtocolsRegistry.protocols:
                 if sdc_definition.ns_matches(q_name):
-                    return cls(device_location, sdc_definition, ssl_context, validate=validate,
-                               log_prefix=log_prefix, specific_components=specific_components)
+                    return cls(device_location, sdc_definition, ssl_context, validate=validate, log_prefix=log_prefix,
+                               default_components=default_components, specific_components=specific_components)
         raise RuntimeError('no matching protocol definition found for this service!')
