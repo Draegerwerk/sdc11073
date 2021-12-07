@@ -1,4 +1,3 @@
-import logging
 import os
 from urllib import parse
 
@@ -40,7 +39,6 @@ class SchemaResolver(etree_.Resolver):
         super().__init__()
         self._base_definitions = base_definitions
         self._logger = loghelper.get_logger_adapter('sdc.schema_resolver', log_prefix)
-        self._logger.logger.setLevel(logging.DEBUG)
 
     def resolve(self, url, id, context):  # pylint: disable=unused-argument, redefined-builtin, invalid-name
         # first check if there is a lookup defined
