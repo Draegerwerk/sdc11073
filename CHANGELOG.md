@@ -7,11 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.5] - 2021-11-26
 ### Added
 - observable property for SubscriptionEnd Messages
-
 ### Fixed
 - use MetadataVersion in Wsdiscovery
 - fix setLocation for SdcDevice implementation - no Bye-message on location change
 - fixed comparison regarding float precision in NumericMetricValue.__eq__ and SampleArrayValue.__eq__
+- fixed formatting error in isoduration.date_time_string when datetime object has microseconds
 
 ## [1.1.4] - 2021-10-15
 ### Fixed
