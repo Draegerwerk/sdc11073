@@ -57,9 +57,9 @@ class MyThreadingMixIn(object):
 
 if MULTITHREADED:
     class MyHTTPServer(MyThreadingMixIn, HTTPServer):
-        ''' Each request is handled in a thread.
-        Following receipe from https://pymotw.com/2/BaseHTTPServer/index.html#module-BaseHTTPServer 
-        '''
+        """ Each request is handled in a thread.
+        Following receipe from https://pymotw.com/2/BaseHTTPServer/index.html#module-BaseHTTPServer
+        """
 
         def __init__(self, *args, **kwargs):
             HTTPServer.__init__(self, *args, **kwargs)
@@ -71,23 +71,25 @@ else:
     MyHTTPServer = HTTPServer  # single threaded, sequential operation
 
 
-class _ClSubscription(object):
-    ''' This class handles a subscription to an event source. 
-    It stores all key data of the subscription and can renew and unsubscribe this subscription.'''
+class ClSubscription(object):
+    """ This class handles a subscription to an event source.
+    It stores all key data of the subscription and can renew and unsubscribe this subscription."""
     notification = properties.ObservableProperty()
     IDENT_TAG = etree_.QName('http.local.com', 'MyClIdentifier')
 
     def __init__(self, dpwsHosted, actions, notification_url, endTo_url, ident):
-        '''
+        """
         @param serviceClient:
         @param filter_:
         @param notification_url: e.g. http://1.2.3.4:9999, or https://1.2.3.4:9999
-        '''
+        """
         self.dpwsHosted = dpwsHosted
         self._actions = actions
         self._filter = ' '.join(actions)
         self._notification_url = notification_url
         self.isSubscribed = False
+        self.end_status = None  # if device sent a SubscriptionEnd message, this contains the status from the message
+        self.end_reason = None  # if device sent a SubscriptionEnd message, this contains the reason from the message
         self.expireAt = None
         self.expire_minutes = None
         self.dev_reference_param = None
@@ -163,7 +165,7 @@ class _ClSubscription(object):
             self._logger.error('could not subscribe: {}'.format(HTTPReturnCodeError))
 
     def _add_device_references(self, soapEnvelope):
-        ''' add references for requests to device (renew, getstatus, unsubscribe)'''
+        """ add references for requests to device (renew, getstatus, unsubscribe)"""
         if self.dev_reference_param is not None:
             for e in self.dev_reference_param:
                 e_ = copy.copy(e)
@@ -248,9 +250,9 @@ class _ClSubscription(object):
         return soapEnvelope
 
     def getStatus(self):
-        ''' Sends a GetStatus Request to the device.
+        """ Sends a GetStatus Request to the device.
         @return: the remaining time of the subscription or None, if the request was not successful
-        '''
+        """
         soapEnvelope = self._mkGetStatusEnvelope()
         try:
             resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
@@ -283,10 +285,10 @@ class _ClSubscription(object):
                 self._logger.warn('No msg in envelope')
 
     def checkStatus(self, renewLimit):
-        ''' Calls getStatus and updates internal data.
+        """ Calls getStatus and updates internal data.
         @param renewLimit: a value in seconds. If remaining duration of subscription is less than this value, it renews the subscription.
         @return: None
-        '''
+        """
         if not self.isSubscribed:
             return
 
@@ -304,9 +306,9 @@ class _ClSubscription(object):
             self.renew()
 
     def checkStatus_renew(self):
-        ''' Calls renew and updates internal data.
+        """ Calls renew and updates internal data.
         @return: None
-        '''
+        """
         if self.isSubscribed:
             self.renew()
 
@@ -331,17 +333,17 @@ class _ClSubscription(object):
 
 
 class SubscriptionManager(threading.Thread):
-    ''' Factory for Subscription objects, thread that automatically renews expiring subscriptions.
+    """ Factory for Subscription objects, thread that automatically renews expiring subscriptions.
     @param notification_url: the destination url for notifications.
     @param endTo_url: if given the destination url for end subscription notifications; if not given, the notification_url is used.
     @param check_interval: the interval (in seconds ) for getStatus requests. Defaults to SUBSCRIPTION_CHECK_INTERVAL
     @param ident: a string that is used in log output; defaults to empty string
-     '''
+     """
     allSubscriptionsOkay = properties.ObservableProperty(True)  # a boolean
     keepAlive_with_renew = True  # enable as workaround if checkstatus is not supported
 
     def __init__(self, notification_url, endTo_url=None, checkInterval=None, log_prefix=''):
-        super(SubscriptionManager, self).__init__(name='Cl_SubscriptionManager{}'.format(log_prefix))
+        super().__init__(name='Cl_SubscriptionManager{}'.format(log_prefix))
         self.daemon = True
         self._checkInterval = checkInterval or SUBSCRIPTION_CHECK_INTERVAL
         self.subscriptions = {}
@@ -389,14 +391,14 @@ class SubscriptionManager(threading.Thread):
             self._logger.info('terminating subscriptions check loop! self._run={}', self._run)
 
     def mkSubscription(self, dpwsHosted, filters):
-        s = _ClSubscription(dpwsHosted, filters, self._notification_url, self._endTo_url, self.log_prefix)
+        s = ClSubscription(dpwsHosted, filters, self._notification_url, self._endTo_url, self.log_prefix)
         filter_ = ' '.join(filters)
         with self._subscriptionsLock:
             self.subscriptions[filter_] = s
         return s
 
     def onSubScriptionEnd(self, soapenvelope):
-        subscr_ident_list = soapenvelope.headerNode.findall(_ClSubscription.IDENT_TAG, namespaces=_global_nsmap)
+        subscr_ident_list = soapenvelope.headerNode.findall(ClSubscription.IDENT_TAG, namespaces=_global_nsmap)
         statuus = soapenvelope.bodyNode.xpath('wse:SubscriptionEnd/wse:Status/text()', namespaces=_global_nsmap)
         reasons = soapenvelope.bodyNode.xpath('wse:SubscriptionEnd/wse:Reason/text()', namespaces=_global_nsmap)
         if statuus:
@@ -410,7 +412,7 @@ class SubscriptionManager(threading.Thread):
                 info += ' reasons = {}'.format(reasons)
         if not subscr_ident_list:
             self._logger.warn('onSubScriptionEnd: did not find any identifier in message')
-            return
+            return None
         subscr_ident = subscr_ident_list[0]
         for s in self.subscriptions.values():
             if subscr_ident.text == s._endTo_identifier.text:
@@ -418,8 +420,13 @@ class SubscriptionManager(threading.Thread):
                                   s.shortFilterString,
                                   info)
                 s.isSubscribed = False
-                return
+                if len(statuus) > 0:
+                    s.end_status = statuus[0]
+                if len(reasons) > 0:
+                    s.end_reason = reasons[0]
+                return s
         self._logger.warn('onSubScriptionEnd: have no subscription for identifier = {}', subscr_ident.text)
+        return None
 
     def unsubscribeAll(self):
         with self._subscriptionsLock:
@@ -441,7 +448,7 @@ class _DispatchError(Exception):
 
 
 class SOAPNotificationsDispatcher(object):
-    ''' receiver of all notifications'''
+    """ receiver of all notifications"""
 
     def __init__(self, log_prefix, sdc_definitions):
         self._logger = loghelper.getLoggerAdapter('sdc.client.notif_dispatch', log_prefix)
@@ -563,7 +570,7 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
 
     def __init__(self, my_ipaddress, sslContext, log_prefix, sdc_definitions, supportedEncodings,
                  soap_notifications_handler_class=None, async_dispatch=True):
-        '''
+        """
 
         :param my_ipaddress: http server will listen on this address
         :param sslContext: http server uses this ssl context
@@ -574,7 +581,7 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
                 otherwise the provided class ( a HTTPRequestHandler).
         :param async_dispatch: if True, incoming requests are queued and response is sent (processing is done later).
                                 if False, response is sent after the complete processing is done.
-        '''
+        """
         super(NotificationsReceiverDispatcherThread, self).__init__(
             name='Cl_NotificationsReceiver_{}'.format(log_prefix))
         self._sslContext = sslContext
@@ -618,10 +625,10 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
             raise
 
     def stop(self, closeAllConnections=True):
-        '''
-        @param closeAllConnections: for testing purpose one might want to keep the connection handler threads alive. 
-                If param is False then they are kept alive. 
-        '''
+        """
+        @param closeAllConnections: for testing purpose one might want to keep the connection handler threads alive.
+                If param is False then they are kept alive.
+        """
         self.httpd.shutdown()
         self.httpd.socket.close()
         if closeAllConnections:
