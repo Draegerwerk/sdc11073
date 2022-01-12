@@ -258,11 +258,14 @@ class SoapClient:
             self._http_connection.close()
             try:
                 self._http_connection.connect()
+                return
+            except ConnectionRefusedError as ex:
+                self._log.error("{}: could not reopen the connection, error={}",  msg, ex)
             except Exception as ex:
                 self._log.error("{}: could not reopen the connection, error={!r}\n{}\ncall-stack ={}",
                                 msg, ex, traceback.format_exc(), ''.join(traceback.format_stack()))
-                self._http_connection.close()
-                raise httplib.NotConnected()
+            self._http_connection.close()
+            raise httplib.NotConnected()
 
         with self._lock:
             _retry_send = 2  # ugly construct that allows to retry sending the request once

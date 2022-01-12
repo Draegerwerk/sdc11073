@@ -138,14 +138,15 @@ class ServiceWithOperations(DPWSPortTypeImpl):
         error_text = None
         operation = self._sdc_device.get_operation_by_handle(operation_request.operation_handle)
         if operation is None:
-            error_text = f'operation "{operation_request.operation_handle}" not known'
-            self._logger.warn('_handle_operation_request: error = {}', error_text)
+            error_text = f'no handler registered for "{operation_request.operation_handle}"'
+            self._logger.warn('handle operation request: {}', error_text)
             transaction_id = 0
             invocation_state = pmtypes.InvocationState.FAILED
             invocation_error = pmtypes.InvocationError.INVALID_VALUE
         else:
             transaction_id = self._sdc_device.enqueue_operation(operation, message_data.p_msg, operation_request)
-            self._logger.info(f'_handle_operation_request: enqueued, transaction id = {transaction_id}')
+            self._logger.info('operation request "{}" enqueued, transaction id = {}',
+                              operation_request.operation_handle, transaction_id)
             invocation_state = pmtypes.InvocationState.WAIT
 
         response = self._sdc_device.msg_factory.mk_operation_response_message(

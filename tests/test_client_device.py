@@ -441,7 +441,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             proposedContext.CoreData.Title = 'Dr.'
             proposedContext.CoreData.Sex = 'M'
             proposedContext.CoreData.PatientType = pmtypes.PatientType.ADULT
-            proposedContext.CoreData.setBirthdate('2000-12-12')
+            proposedContext.CoreData.set_birthdate('2000-12-12')
             proposedContext.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
             proposedContext.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
             proposedContext.CoreData.Race = pmtypes.CodedValue('somerace')
@@ -498,7 +498,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             proposedContext.CoreData.Title = 'Dr.'
             proposedContext.CoreData.Sex = 'F'
             proposedContext.CoreData.PatientType = pmtypes.PatientType.ADULT
-            proposedContext.CoreData.setBirthdate('2000-12-12')
+            proposedContext.CoreData.set_birthdate('2000-12-12')
             proposedContext.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
             proposedContext.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
             proposedContext.CoreData.Race = pmtypes.CodedValue('somerace')

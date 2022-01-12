@@ -291,7 +291,7 @@ class _OperationsWorker(threading.Thread):
         self._transaction_id_lock = threading.Lock()
         self._logger = loghelper.get_logger_adapter('sdc.device.op_worker', log_prefix)
 
-    def enqueue_operation(self, operation, request, argument):
+    def enqueue_operation(self, operation, request, operation_request):
         """ enqueues operation "operation".
         :param operation: a callable with signature operation(request, mdib)
         :param request: the soapEnvelope of the request
@@ -301,7 +301,7 @@ class _OperationsWorker(threading.Thread):
         with self._transaction_id_lock:
             transaction_id = self._transaction_id
             self._transaction_id += 1
-        self._operations_queue.put((transaction_id, operation, request, argument), timeout=1)
+        self._operations_queue.put((transaction_id, operation, request, operation_request), timeout=1)
         return transaction_id
 
     def run(self):
@@ -311,9 +311,10 @@ class _OperationsWorker(threading.Thread):
                 if from_queue == 'stop_sco':
                     self._logger.info('stop request found. Terminating now.')
                     return
-                tr_id, operation, request, argument = from_queue  # unpack tuple
+                tr_id, operation, request, operation_request = from_queue  # unpack tuple
                 time.sleep(0.001)
-                self._logger.info('{}: starting operation "{}"', operation.__class__.__name__, operation.handle)
+                self._logger.info('{}: starting operation "{}" argument={}',
+                                  operation.__class__.__name__, operation.handle, operation_request.argument)
                 # duplicate the WAIT response to the operation request as notification. Standard requires this.
                 self._subscriptions_mgr.notify_operation(
                     operation, tr_id, InvocationState.WAIT,
@@ -323,7 +324,7 @@ class _OperationsWorker(threading.Thread):
                     operation, tr_id, InvocationState.START,
                     self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper)
                 try:
-                    operation.execute_operation(request, argument)
+                    operation.execute_operation(request, operation_request)
                     self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
                                       operation.handle)
                     self._subscriptions_mgr.notify_operation(
@@ -434,13 +435,13 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
     def get_operation_by_handle(self, operation_handle: str) -> OperationDefinition:
         return self._registered_operations.get(operation_handle)
 
-    def enqueue_operation(self, operation: OperationDefinition, request, argument):
+    def enqueue_operation(self, operation: OperationDefinition, request, operation_request):
         """ enqueues operation "operation".
         :param operation: a callable with signature operation(request, mdib)
         :param request: the soapEnvelope of the request
         @return: a transaction Id
         """
-        return self._worker.enqueue_operation(operation, request, argument)
+        return self._worker.enqueue_operation(operation, request, operation_request)
 
     def start_worker(self):
         if self._worker is not None:

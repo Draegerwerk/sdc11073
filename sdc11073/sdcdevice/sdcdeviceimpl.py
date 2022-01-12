@@ -217,8 +217,8 @@ class SdcDevice:
     def get_operation_by_handle(self, operation_handle):
         return self._sco_operations_registry.get_operation_by_handle(operation_handle)
 
-    def enqueue_operation(self, operation, request, argument):
-        return self._sco_operations_registry.enqueue_operation(operation, request, argument)
+    def enqueue_operation(self, operation, request, operation_request):
+        return self._sco_operations_registry.enqueue_operation(operation, request, operation_request)
 
     def start_all(self, start_rtsample_loop=True, periodic_reports_interval=None, shared_http_server=None):
         """

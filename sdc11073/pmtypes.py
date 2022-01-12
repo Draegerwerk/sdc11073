@@ -1210,7 +1210,7 @@ class PatientDemographicsCoreData(BaseDemographics):
     # pylint: enable=invalid-name
     _props = ('Sex', 'PatientType', 'DateOfBirth', 'Height', 'Weight', 'Race')
 
-    def setBirthdate(self, date_time_of_birth_string):
+    def set_birthdate(self, date_time_of_birth_string):
         """ this method accepts a string, format acc. to XML Schema: xsd:dateTime, xsd:date, xsd:gYearMonth or xsd:gYear
         Internally it holds it as a datetime object, so specific formatting of the dateTimeOfBirth_string will be lost."""
         # pylint: disable=invalid-name

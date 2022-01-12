@@ -69,10 +69,9 @@ class SetService(ServiceWithOperations):
     def _on_set_value(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetValue calls.
         It enqueues an operation and generates the expected operation invoked report. """
-        self._logger.info('_on_set_value')
+        self._logger.debug('_on_set_value')
         operation_request = self._sdc_device.msg_reader.read_set_value_request(request_data.message_data)
         ret = self._handle_operation_request(request_data.message_data, 'SetValueResponse', operation_request)
-        self._logger.info('_on_set_value done')
         return ret
 
     def _on_set_string(self, request_data):  # pylint:disable=unused-argument
