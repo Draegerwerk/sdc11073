@@ -100,6 +100,10 @@ class _SampleArrayGenerator:
     def set_waveform_generator(self, generator):
         self._generator = generator
 
+    @property
+    def is_active(self):
+        return self._activation_state == pmtypes.ComponentActivation.ON
+
 
 class AbstractWaveformSource(ABC):
     """The methods declared by this abstract class are used by mdib. """
@@ -129,9 +133,10 @@ class DefaultWaveformSource(AbstractWaveformSource):
     def update_all_realtime_samples(self, transaction):
         """ update all realtime sample states that have a waveform generator registered.
         On transaction commit the mdib will call the corresponding send method of the sdc device."""
-        for descriptor_handle in self._waveform_generators:  # iterate over keys
-            state = transaction.get_real_time_sample_array_metric_state(descriptor_handle)
-            self._update_rt_samples(state)
+        for descriptor_handle, wf_generator in self._waveform_generators.items():
+            if wf_generator.is_active:
+                state = transaction.get_real_time_sample_array_metric_state(descriptor_handle)
+                self._update_rt_samples(state)
         self._add_all_annotations()
 
     def register_waveform_generator(self, mdib, descriptor_handle, wf_generator):
@@ -158,10 +163,14 @@ class DefaultWaveformSource(AbstractWaveformSource):
         :param descriptorHandle: a handle string
         :param componentActivation: one of pmtypes.ComponentActivation values
         """
-        self._waveform_generators[descriptor_handle].set_activation_state(component_activation_state)
+        wf_generator = self._waveform_generators[descriptor_handle]
+        wf_generator.set_activation_state(component_activation_state)
         with mdib.transaction_manager() as trns:
             state = trns.get_state(descriptor_handle)
             state.ActivationState = component_activation_state
+            # if the generator is not active, there shall be no MetricValue
+            if not wf_generator.is_active:
+                state.MetricValue = None
 
     def register_annotation_generator(self, annotator, trigger_handle, annotated_handles):
         """
