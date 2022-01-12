@@ -47,6 +47,7 @@ class TestIsoDate(unittest.TestCase):
     def test_date_time_string(self):
         self.assertEqual(date_time_string(date(2015, 5, 25)), '2015-05-25')
         self.assertEqual(date_time_string(datetime(2015, 5, 25, 14, 45, 00)), '2015-05-25T14:45:00')
+        self.assertEqual(date_time_string(datetime(2015, 5, 25, 14, 45, 00, 5000)), '2015-05-25T14:45:00.005')
         self.assertEqual(date_time_string(datetime(2015, 5, 25, 14, 45, 00, tzinfo=UTC(60))), '2015-05-25T14:45:00+01:00')
         self.assertEqual(date_time_string(datetime(2015, 5, 25, 14, 45, 00, tzinfo=UTC(-60))), '2015-05-25T14:45:00-01:00')
         self.assertEqual(date_time_string(GYearMonth(2015, 5)), '2015-05')

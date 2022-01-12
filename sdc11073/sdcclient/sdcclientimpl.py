@@ -7,7 +7,7 @@ import traceback
 import ssl
 import urllib
 from lxml import etree as etree_
-
+from dataclasses import dataclass
 import sdc11073
 from .. import observableproperties as properties
 from .. import commlog
@@ -127,6 +127,12 @@ def sortIPAddresses(adresses, refIp):
     return adresses
 
 
+@dataclass(frozen=True)
+class SubscriptionEndData:
+    subscription: subscription.ClSubscription
+    soap_envelope: Soap12Envelope
+
+
 class SdcClient(object):
     ''' The SdcClient can be used with a known device location.
     The location is typically the result of a wsdiscovery process.
@@ -154,6 +160,7 @@ class SdcClient(object):
     periodicContextReport = properties.ObservableProperty()
     descriptionModificationReport = properties.ObservableProperty()
     operationInvokedReport = properties.ObservableProperty()
+    subscriptionEndData = properties.ObservableProperty()  # SubscriptionEndData
 
     _servicesLookup = {'ContainmentTree': CTreeServiceClient,     # wpf naming
                        'ContainmentTreeService': CTreeServiceClient, # sdc naming
@@ -330,6 +337,10 @@ class SdcClient(object):
     def LocalizationService_client(self):
         return self.client('LocalizationService')
 
+    @property
+    def subscription_mgr(self):
+        return self._subscriptionMgr
+    
     def startAll(self, notSubscribedActions=None, subscriptionsCheckInterval=None, async_dispatch=True,
                  subscribe_periodic_reports=False):
         '''
@@ -645,7 +656,10 @@ class SdcClient(object):
 
     def _onSubScriptionEnd(self, soapenvelope):
         self.stateEventReportEnvelope = soapenvelope # update observable
-        self._subscriptionMgr.onSubScriptionEnd(soapenvelope)
+        subscription = self._subscriptionMgr.onSubScriptionEnd(soapenvelope)  # subscription can be None
+        # write info to observable
+        self.subscriptionEndData = SubscriptionEndData(subscription, soapenvelope)
+
 
     def _setupLogging(self, logLevel):
         loghelper.ensureLogStream()
