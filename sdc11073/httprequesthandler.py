@@ -262,7 +262,7 @@ class ThreadingHTTPServer(HTTPServer):
         """
         try:
             self.finish_request(request, client_address)
-        except ConnectionResetError as ex:
+        except (ConnectionResetError, ConnectionAbortedError) as ex:
             self.logger.warn('Connection reset by {}: {}', client_address, ex)
         except Exception:
             self.handle_error(request, client_address)
