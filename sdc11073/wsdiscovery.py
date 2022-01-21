@@ -448,6 +448,10 @@ def _parse_envelope(data, ip_addr, logger):
 
     header = dom.find('s12:Header', _namespaces_map)
     body = dom.find('s12:Body', _namespaces_map)
+    if header is None or body is None:
+        logger.error('received message from {} is not a soap message: {}', ip_addr, data)
+        return None
+
     msg_node = body[0]
 
     msg_id = header.find('wsa:MessageID', _namespaces_map)
@@ -693,6 +697,12 @@ class _AddressMonitorThread(threading.Thread):
         self._quit_event.set()
 
 
+@dataclass(frozen=True)
+class _SocketPair:
+    multi_in: socket.socket
+    multi_out_uni_in: socket.socket
+
+
 class _NetworkingThread:
     """ Has one thread for sending and one for receiving"""
 
@@ -715,6 +725,9 @@ class _NetworkingThread:
 
         self._select_in = []
         self._full_selector = selectors.DefaultSelector()
+        self._sockets_by_address = {}
+        self._sockets_by_address_lock = threading.RLock()
+        self._uni_out_socket = None
 
     def _register(self, sock):
         self._select_in.append(sock)
@@ -739,41 +752,36 @@ class _NetworkingThread:
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, _addr)
         return sock
 
-    @staticmethod
-    def _create_multicast_in_socket():
+    def _create_multicast_in_socket(self, ip_address):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-        sock.bind(('', MULTICAST_PORT))
-
+        sock.bind((ip_address, MULTICAST_PORT))
         sock.setblocking(False)
-
+        self._logger.info('UDP socket listens on {}:{}', ip_address, MULTICAST_PORT)
         return sock
 
     def add_source_addr(self, addr):
         """None means 'system default'"""
+        multicast_in_sock = self._create_multicast_in_socket(addr)
         try:
-            self._multi_in_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, self._make_mreq(addr))
+            multicast_in_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, self._make_mreq(addr))
         except socket.error:  # if 1 interface has more than 1 address, exception is raised for the second
+            print(traceback.format_exc())
             pass
-
-        sock = self._create_multicast_out_socket(addr)
-        with self._multi_out_uni_in_sockets_lock:
-            self._multi_out_uni_in_sockets[addr] = sock
-            self._register(sock)
+        multicast_out_sock = self._create_multicast_out_socket(addr)
+        with self._sockets_by_address_lock:
+            self._register(multicast_out_sock)
+            self._register(multicast_in_sock)
+            self._sockets_by_address[addr] = _SocketPair(multicast_in_sock, multicast_out_sock)
 
     def remove_source_addr(self, addr):
-        try:
-            self._multi_in_socket.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, self._make_mreq(addr))
-        except socket.error:  # see comments for setsockopt(.., socket.IP_ADD_MEMBERSHIP..
-            pass
-
-        sock = self._multi_out_uni_in_sockets.get(addr)
-        if sock:
-            with self._multi_out_uni_in_sockets_lock:
-                self._unregister(sock)
-                sock.close()
-                del self._multi_out_uni_in_sockets[addr]
+        sock_pair = self._sockets_by_address.get(addr)
+        if sock_pair:
+            with self._sockets_by_address_lock:
+                for sock in (sock_pair.multi_in, sock_pair.multi_out_uni_in):
+                    self._unregister(sock)
+                    sock.close()
+                del self._sockets_by_address[addr]
 
     def add_unicast_message(self, env, addr, port, initial_delay=0):
         msg = Message(env, addr, port, _MessageType.UNICAST)
@@ -813,6 +821,10 @@ class _NetworkingThread:
     def _run_recv(self):
         """ run by thread"""
         while not self._quit_recv_event.is_set():
+            if len(self._sockets_by_address) == 0:
+                # avoid errors while no sockets are registered
+                time.sleep(0.1)
+                continue
             try:
                 self._recv_messages()
             except:  # pylint: disable=bare-except
@@ -820,11 +832,11 @@ class _NetworkingThread:
                     self._logger.error('_run_recv:%s', traceback.format_exc())
 
     def is_from_my_socket(self, addr):
-        with self._multi_out_uni_in_sockets_lock:
-            for ip_addr, _sock in self._multi_out_uni_in_sockets.items():
+        with self._sockets_by_address_lock:
+            for ip_addr, sock_pair in self._sockets_by_address.items():
                 if addr[0] == ip_addr:
                     try:
-                        sock_name = _sock.getsockname()
+                        sock_name = sock_pair.multi_out_uni_in.getsockname()
                         if addr[1] == sock_name[1]:  # compare ports
                             return True
                     except OSError:  # port is not opened
@@ -843,7 +855,12 @@ class _NetworkingThread:
                 continue
             if self.is_from_my_socket(addr):
                 continue
-            self._read_queue.put((addr, data))
+            self._add_to_recv_queue(addr, data)
+            #self._read_queue.put((addr, data))
+
+    def _add_to_recv_queue(self, addr, data):
+        # method is needed for testing
+        self._read_queue.put((addr, data))
 
     def _run_q_read(self):
         """Read from internal queue and process message"""
@@ -903,20 +920,13 @@ class _NetworkingThread:
             self._uni_out_socket.sendto(data, (msg.addr, msg.port))
         else:
             get_communication_logger().log_multicast_msg_out(data)
-            with self._multi_out_uni_in_sockets_lock:
-                for sock in self._multi_out_uni_in_sockets.values():
-                    sock.sendto(data, (msg.addr, msg.port))
+            with self._sockets_by_address_lock:
+                for sock_pair  in self._sockets_by_address.values():
+                    sock_pair.multi_out_uni_in.sendto(data, (msg.addr, msg.port))
 
     def start(self):
         self._logger.debug('%s: starting ', self.__class__.__name__)
         self._uni_out_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-        self._multi_in_socket = self._create_multicast_in_socket()
-        self._register(self._multi_in_socket)
-
-        self._multi_out_uni_in_sockets = {}
-        self._multi_out_uni_in_sockets_lock = threading.RLock()
-
         self._recv_thread = threading.Thread(target=self._run_recv, name='wsd.recvThread')
         self._qread_thread = threading.Thread(target=self._run_q_read, name='wsd.qreadThread')
         self._send_thread = threading.Thread(target=self._run_send, name='wsd.sendThread')
@@ -946,14 +956,12 @@ class _NetworkingThread:
         for sock in self._select_in:
             sock.close()
         self._uni_out_socket.close()
-        self._unregister(self._multi_in_socket)
-        self._multi_in_socket.close()
         self._full_selector.close()
         self._logger.debug('%s: ... join done', self.__class__.__name__)
 
     def get_active_addresses(self):
-        with self._multi_out_uni_in_sockets_lock:
-            return list(self._multi_out_uni_in_sockets.keys())
+        with self._sockets_by_address_lock:
+            return list(self._sockets_by_address.keys())
 
 
 def _is_type_in_list(ttype, types):
