@@ -1,8 +1,11 @@
 import unittest
+from unittest import mock
 from sdc11073 import wsdiscovery
 import logging
 import time
 import urllib
+import socket
+
 from sdc11073 import loghelper #, definitions_sdc, location
 
 QName = wsdiscovery.QName
@@ -339,8 +342,72 @@ class TestDiscovery(unittest.TestCase):
         time.sleep(2.02)
         self.assertEqual(len(self.wsdclient._remoteServices), 0)
 
-        
-        
+    def test_unexpected_multicast_messages(self):
+        """verify that module is robust against all kind of invalid multicast and single cast messages"""
+
+        MULTICAST_PORT = wsdiscovery.MULTICAST_PORT
+        wsdiscovery.MULTICAST_PORT = 37020  # change port, otherwise windows steals unicast messages
+
+        address = '127.0.0.1'
+        unicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        def send_and_assert_running(data):
+            unicast_sock.sendto(data.encode('utf-8'), (address, wsdiscovery.MULTICAST_PORT))
+            time.sleep(0.1)
+            self.assertTrue(self.wsdService._networkingThread._recvThread.is_alive())
+            self.assertTrue(self.wsdService._networkingThread._qread_thread.is_alive())
+            self.assertTrue(self.wsdService._networkingThread._sendThread.is_alive())
+            self.assertTrue(self.wsdService._addrsMonitorThread.is_alive())
+
+        self.wsdService.start()
+        time.sleep(0.1)
+
+        try:
+            send_and_assert_running('no xml at all')
+            send_and_assert_running(f'<bla>invalid xml fragment</bla>')
+        finally:
+            wsdiscovery.MULTICAST_PORT = MULTICAST_PORT
+            unicast_sock.close()
+
+    def test_multicast_listening(self):
+        """verify that module only listens on accepted ports"""
+        MULTICAST_PORT = wsdiscovery.MULTICAST_PORT
+        wsdiscovery.MULTICAST_PORT = 37020  # change port, otherwise windows steals unicast messages
+        testlog.info('starting service...')
+        wsd_service_all = wsdiscovery.WSDiscoveryBlacklist(logger=loghelper.getLoggerAdapter('wsdService'))
+        wsd_service_all.start()
+        time.sleep(0.1)
+#            all_addresses = get_ipv4_addresses()
+        all_addresses = wsdiscovery._getNetworkAddrs()
+        try:
+            unicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+            # wsd_service_all listens on all ports, all udp uni cast messages shall be handled
+            obj = wsd_service_all._networkingThread
+            with mock.patch.object(obj, '_add_to_recv_queue', wraps=obj._add_to_recv_queue) as wrapped_obj:
+                for address in all_addresses:
+                    unicast_sock.sendto(f'<bla>unicast{address} all </bla>'.encode('utf-8'),
+                                        (address, wsdiscovery.MULTICAST_PORT))
+                time.sleep(0.1)
+                self.assertGreaterEqual(wrapped_obj.call_count, len(all_addresses))
+
+            wsd_service_all.stop()  # do not interfere with next instance
+
+            # self.wsd_service  listens only on localhost, udp messages to other adapters shall not be handled
+            self.wsdService.start()
+            time.sleep(0.1)
+            obj = self.wsdService._networkingThread
+            with mock.patch.object(obj, '_add_to_recv_queue', wraps=obj._add_to_recv_queue) as wrapped_obj:
+                for address in all_addresses:
+                    unicast_sock.sendto(f'<bla>unicast{address} all </bla>'.encode('utf-8'),
+                                        (address, wsdiscovery.MULTICAST_PORT))
+                time.sleep(0.1)
+                wrapped_obj.assert_called_once()
+        finally:
+            wsdiscovery.MULTICAST_PORT = MULTICAST_PORT
+            unicast_sock.close()
+
+
 def suite():
     return unittest.TestLoader().loadTestsFromTestCase(TestDiscovery)
 
