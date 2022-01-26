@@ -4,6 +4,10 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.6] - 2022-01-21
+### Fixed
+  - wsdiscovery no longer listens on all adapters on multicast address
+
 ## [1.1.5] - 2021-11-26
 ### Added
 - observable property for SubscriptionEnd Messages
