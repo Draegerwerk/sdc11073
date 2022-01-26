@@ -142,7 +142,11 @@ class _DevSubscription(object):
                                              referenceParametersNode=None)
         soapEnvelope.setAddress(addr)
         for identNode in self.notifyRefNodes:
-            soapEnvelope.addHeaderElement(identNode)
+            identNode_ = copy.copy(identNode)
+            # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
+            identNode_.set(wsaTag('IsReferenceParameter'), 'true')
+            soapEnvelope.addHeaderElement(identNode_)
+
         soapEnvelope.validateBody(self._bicepsSchema.bmmSchema)
         return soapEnvelope
 

@@ -141,7 +141,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             self.assertEqual(devSubscr.notifyToAddress, notifyTo)
             self.assertEqual(devSubscr.notifyRefNodes[0].text, clSubscr.notifyTo_identifier.text)
             self.assertEqual(devSubscr.endToAddress, endTo)
-            self.assertEqual(devSubscr.endToRefNodes[0].text, clSubscr._endTo_identifier.text)
+            self.assertEqual(devSubscr.endToRefNodes[0].text, clSubscr.end_to_identifier.text)
             
             # verify that client subscription object contains the subscription identifier of the device Subscription object
             self.assertEqual(clSubscr.dev_reference_param[0].tag, devSubscr.my_identifier.tag )
@@ -306,7 +306,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             self.assertEqual(devSubscr.notifyToAddress, notifyTo)
             self.assertEqual(devSubscr.notifyRefNodes[0].text, clSubscr.notifyTo_identifier.text)
             self.assertEqual(devSubscr.endToAddress, endTo)
-            self.assertEqual(devSubscr.endToRefNodes[0].text, clSubscr._endTo_identifier.text)
+            self.assertEqual(devSubscr.endToRefNodes[0].text, clSubscr.end_to_identifier.text)
 
             # verify that client subscription object contains the subscription identifier of the device Subscription object
             self.assertEqual(clSubscr.dev_reference_param[0].tag, devSubscr.my_identifier.tag)

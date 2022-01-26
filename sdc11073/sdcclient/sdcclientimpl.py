@@ -282,7 +282,14 @@ class SdcClient(object):
         '''
         s = self._subscriptionMgr.mkSubscription(dpwsHosted, actions)
         for f in actions:
-            self._notificationsDispatcherThread.dispatcher.register_function(f, s.onNotification)
+            self._notificationsDispatcherThread.dispatcher.register_function(f,
+                                                                             s.notifyTo_identifier.text,
+                                                                             s.onNotification)
+
+        # register callback for end of subscription
+        self._notificationsDispatcherThread.dispatcher.register_function(self.sdc_definitions.Actions.SubscriptionEnd,
+                                                                         s.end_to_identifier.text,
+                                                                         self._onSubScriptionEnd)
         if callback is not None:
             properties.bind(s, notification=callback)
         s.subscribe()
@@ -340,7 +347,7 @@ class SdcClient(object):
     @property
     def subscription_mgr(self):
         return self._subscriptionMgr
-    
+
     def startAll(self, notSubscribedActions=None, subscriptionsCheckInterval=None, async_dispatch=True,
                  subscribe_periodic_reports=False):
         '''
@@ -400,10 +407,6 @@ class SdcClient(object):
                     self._logger.error('startAll: could not subscribe: error = {}, actions= {}',
                                        traceback.format_exc(), subscribe_actions)
 
-        # register callback for end of subscription
-        self._notificationsDispatcherThread.dispatcher.register_function(
-            self.sdc_definitions.Actions.SubscriptionEnd, self._onSubScriptionEnd)
-
         #connect self.isConnected observable to allSubscriptionsOkay observable in subscriptionsmanager
         def setIsConnected(isOk):
             self.isConnected = isOk
@@ -416,8 +419,8 @@ class SdcClient(object):
                 self._subscriptionMgr.unsubscribeAll()
             self._subscriptionMgr.stop()
         self._stopEventSink(closeAllConnections)
-        self._register_mdib(None)   
-            
+        self._register_mdib(None)
+
         for cl in self._soapClients.values():
             cl.close()
         self._soapClients = {}
@@ -441,7 +444,7 @@ class SdcClient(object):
         soapEnvelope = Soap12Envelope(nsmap)
         soapEnvelope.setAddress(WsAddress(action='{}/Get'.format(Prefix.WXF.namespace),
                                           to=self._devicelocation))
-        
+
         self.metaData = wsc.postSoapEnvelopeTo(_url.path, soapEnvelope, responseFactory=DPWSEnvelope.fromXMLString,
                                                msg='getMetadata')
         self.hostDescription = HostDescription(self.metaData)
@@ -453,12 +456,12 @@ class SdcClient(object):
         '''
         # we need to read the meta data of the device only once => temporary soap client is sufficient
         self._logger.debug('reading meta data from {}', self._devicelocation)
-        #self.metaData = 
+        #self.metaData =
         if self.metaData is None:
             self.getMetaData()
 
         # now query also meta data of hosted services
-        self._mkHostedServices() 
+        self._mkHostedServices()
         self._logger.debug('Services: {}', self._serviceClients.keys())
 
         # only GetService is mandatory!!!
@@ -581,12 +584,12 @@ class SdcClient(object):
             waveformStream = soapenvelope.bodyNode[0] # the msg:WaveformStreamReport node
         except IndexError:
             waveformStream = None
-            
+
         if waveformStream is not None:
             self._logger_wf.debug('_onWaveFormReport')
         else:
             self._logger_wf.error('WaveformStream does not contain msg:WaveformStream!', soapenvelope)
-        
+
         self.waveFormReport = waveformStream # update observable
 
     def _get_report(self, soap_envelope, name):
@@ -669,7 +672,7 @@ class SdcClient(object):
         clientLog.setLevel(logLevel)
 
     def __str__(self):
-        return 'SdcClient to {} {} on {}'.format(self.hostDescription.thisDevice, 
+        return 'SdcClient to {} {} on {}'.format(self.hostDescription.thisDevice,
                                                     self.hostDescription.thisModel,
                                                     self._devicelocation)
 
