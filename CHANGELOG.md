@@ -4,9 +4,10 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.6] - 2022-01-21
+## [1.1.6] - 2022-01-27
 ### Fixed
-  - wsdiscovery no longer listens on all adapters on multicast address
+  - wsdiscovery no longer listens on all adapters on multicast address 
+  - dispatching SOAP notifications by ReferenceParameters using mandatory attribute IsReferenceParameter
 
 ## [1.1.5] - 2021-11-26
 ### Added
