@@ -4,9 +4,11 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.6] - 2022-01-21
+## [1.1.6] - 2022-01-27
 ### Fixed
   - wsdiscovery no longer listens on all adapters on multicast address
+  - in wsdiscovery: stopping the sending thread not until its queue data is processed.  
+    This prevents that bye messages are not send.
 
 ## [1.1.5] - 2021-11-26
 ### Added
@@ -42,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0] - 2021-03-12
 ### Fixed
-- fixed wsdiscovery problems in high load scenarios (possible deadlocks, performance degrations)
+- fixed wsdiscovery problems in high load scenarios (possible deadlocks, performance degradation)
 - fixed broken enabling of communication logger
  
 ### Added
