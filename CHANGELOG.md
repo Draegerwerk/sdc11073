@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] - 2022-01-28
 ### Changed
 - xml schema validation validates complete soap envelopes, not only the body (as before).
+- allow changing of pmtypes.DefaultCodingSystem at runtime
 
 ## [1.1.6] - 2022-01-21
 ### Fixed
