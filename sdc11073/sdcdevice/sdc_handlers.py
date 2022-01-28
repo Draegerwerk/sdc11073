@@ -16,6 +16,7 @@ from .. import wsdiscovery
 from ..location import SdcLocation
 from .. import namespaces
 from .. import pysoap
+from ..schema_resolver import mk_schema_validator
 
 from .sdcservicesimpl import SOAPActionDispatcher, DPWSHostedService
 from .sdcservicesimpl import GetService, SetService, StateEventService,  ContainmentTreeService, ContextService, WaveformService, DescriptionEventService
@@ -138,6 +139,8 @@ class SdcHandler_Base(object):
         self._periodic_context_state_reports = []
         self._periodic_operational_state_reports = []
 
+        self.xml_validator = self._mdib.sdc_definitions.xml_validator
+
     def mkScopes(self):
         scopes = []
         locations = self._mdib.contextStates.NODETYPE.get(namespaces.domTag('LocationContextState'), [])
@@ -196,7 +199,6 @@ class SdcHandler_Base(object):
     def _mkSubscriptionManager(self, max_subscription_duration):
         return subscriptionmgr.SubscriptionsManager(self._sslContext,
                                                     self._mdib.sdc_definitions,
-                                                    self._mdib.bicepsSchema,
                                                     self._compression_methods,
                                                     max_subscription_duration,
                                                     log_prefix=self._log_prefix,
@@ -209,9 +211,9 @@ class SdcHandler_Base(object):
         from .. import roles
         self.product_roles = roles.product.MinimalProduct(self._log_prefix)
 
-    @property
-    def _bmmSchema(self):
-        return None if not self._validate else self._mdib.bicepsSchema.bmmSchema
+    # @property
+    # def _bmmSchema(self):
+    #     return None if not self._validate else self._mdib.bicepsSchema.bmmSchema
 
     @property
     def shallValidate(self):
@@ -356,7 +358,6 @@ class SdcHandler_Base(object):
         response.addHeaderObject(replyAddress)
         metaDataNode = self._mkMetaDataNode()
         response.addBodyElement(metaDataNode)
-        response.validateBody(self.mdib.bicepsSchema.mexSchema)
         self._logger.debug('returned meta data = {}', response.as_xml(pretty=False))
         return response
 
@@ -382,7 +383,7 @@ class SdcHandler_Base(object):
         if not self.shallValidate:
             return
         try:
-            self.mdib.bicepsSchema.dpwsSchema.assertValid(node)
+            self.xml_validator.assertValid(node)
         except etree_.DocumentInvalid as ex:
             tmp_str = etree_.tostring(node, pretty_print=True).decode('utf-8')
             self._logger.error('invalid dpws: {}\ndata = {}', ex, tmp_str)

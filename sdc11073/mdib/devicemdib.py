@@ -734,7 +734,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             descriptorContainer = self.descriptions.NODETYPE.getOne(domTag('LocationContextDescriptor'))
                     
             self._currentLocation = mgr.getContextState(descriptorContainer.handle) # this creates a new location state
-            self._currentLocation.updateFromSdcLocation(sdcLocation, self.bicepsSchema)
+            self._currentLocation.updateFromSdcLocation(sdcLocation)
             if validators is not None:
                 self._currentLocation.Validator = validators
 
@@ -991,8 +991,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
         mdib = cls(protocol_definition, log_prefix=log_prefix)
         root =  msgreader.MessageReader.getMdibRootNode(mdib.sdc_definitions, xml_text)
-        mdib.bicepsSchema.bmmSchema.assertValid(root)
-
+        mdib.sdc_definitions.xml_validator.assertValid(root)
         mdib.nsmapper.useDocPrefixes(root.nsmap)
         msg_reader = msgreader.MessageReader(mdib)
         # first make descriptions and add them to mdib, and then make states (they need already existing descriptions)

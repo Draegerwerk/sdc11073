@@ -6,7 +6,6 @@ from .. import observableproperties as properties
 from .. import namespaces
 from .. import pmtypes
 from .. import multikey
-from ..xmlparsing import BicepsSchema
 
 class RtSampleContainer(object):
     '''Contains a single Value'''
@@ -179,7 +178,6 @@ class MdibContainer(object):
         @param sdc_definitions: a class derived from Definitions_Base
         '''
         self.sdc_definitions = sdc_definitions
-        self.bicepsSchema = BicepsSchema(sdc_definitions) # used for validation
         self._logger = None # must to be instantiated by derived class
         self.nsmapper = namespaces.DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file  
         self.mdibVersion = 0
@@ -450,7 +448,6 @@ class MdibContainer(object):
         '''
         @param qNameType: a QName instance
         '''
-        #cls = self.bicepsSchema.getStateContainerClass(qNameType)
         cls = self.sdc_definitions.sc.getContainerClass(qNameType)
         if cls is None:
             self._logger.warn('No class for type={}; using AbstractStateContainer', str(qNameType))

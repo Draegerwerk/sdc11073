@@ -1,18 +1,12 @@
 import os
 from lxml import etree as etree_
 from .namespaces import Prefix_Namespace as Prefix
-from .definitions_base import SchemaResolverBase
+#from .definitions_base import SchemaResolverBase
 from .definitions_base import BaseDefinitions
 from .mdib import descriptorcontainers as dc_final
 from .mdib import statecontainers as sc_final
-
+from .schema_resolver import SchemaResolver, mk_schema_validator
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
-
-class _SchemaResolver(SchemaResolverBase):
-    lookup_ext = {
-            'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_ParticipantModel.xsd': 'ParticipantModelSchemaFile',
-            'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd': 'MessageModelSchemaFile',
-            'http://standards.ieee.org/downloads/11073/11073-10207-2017/ExtensionPoint.xsd': 'ExtensionPointSchemaFile', }
 
 # the following namespace definitions reflect the initial SDC standard.
 # There might be changes or additions in the future, who knows...
@@ -75,11 +69,42 @@ class _SDC_v1_Actions(object):
     SubscriptionEnd = Prefix.WSE.namespace + '/SubscriptionEnd'
 
 
+class SchemaPathsSdc:
+    MetaDataExchangeSchemaFile = os.path.join(schemaFolder, 'MetadataExchange.xsd')
+    EventingSchemaFile = os.path.join(schemaFolder, 'eventing.xsd')
+    SoapEnvelopeSchemaFile = os.path.join(schemaFolder, 'soap-envelope.xsd')
+    WsAddrSchemaFile = os.path.join(schemaFolder, 'ws-addr.xsd')
+    XMLSchemaFile = os.path.join(schemaFolder, 'xml.xsd')
+    DPWSSchemaFile = os.path.join(schemaFolder, 'wsdd-dpws-1.1-schema-os.xsd')
+    WSDiscoverySchemaFile = os.path.join(schemaFolder, 'wsdd-discovery-1.1-schema-os.xsd')
+    WSDLSchemaFile = os.path.join(schemaFolder, 'wsdl.xsd')
+    MessageModelSchemaFile = os.path.join(schemaFolder, 'BICEPS_MessageModel.xsd')
+    ParticipantModelSchemaFile = os.path.join(schemaFolder, 'BICEPS_ParticipantModel.xsd')
+    ExtensionPointSchemaFile = os.path.join(schemaFolder, 'ExtensionPoint.xsd')
+    schema_location_lookup = {  # for schema resolver
+        # eventing.xsd originally uses http://schemas.xmlsoap.org/ws/2004/08/addressing,
+        # but DPWS overwrites the addressing standard of eventing with http://www.w3.org/2005/08/addressing!
+        # In order to reflect this, eventing.xsd was patched so that it uses same namespace and schema location
+        # dpws uses a schema location that does not match the namespace!
+        'http://www.w3.org/2006/03/addressing/ws-addr.xsd': WsAddrSchemaFile,  # schema loc. used by dpws 1.1 schema
+        'http://www.w3.org/2005/08/addressing': WsAddrSchemaFile,
+        'http://www.w3.org/2001/xml.xsd': XMLSchemaFile,
+        'http://www.w3.org/2003/05/soap-envelope': SoapEnvelopeSchemaFile,
+        'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_ParticipantModel.xsd': ParticipantModelSchemaFile,
+        'http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd': MessageModelSchemaFile,
+        'http://standards.ieee.org/downloads/11073/11073-10207-2017/ExtensionPoint.xsd': ExtensionPointSchemaFile,
+        'http://schemas.xmlsoap.org/ws/2004/08/eventing': EventingSchemaFile,
+        'http://schemas.xmlsoap.org/ws/2004/09/mex': MetaDataExchangeSchemaFile,
+        'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01': DPWSSchemaFile,
+        'http://docs.oasis-open.org/ws-dd/discovery/1.1/os/wsdd-discovery-1.1-schema-os.xsd': WSDiscoverySchemaFile,
+        'http://schemas.xmlsoap.org/wsdl/': WSDLSchemaFile
+    }
+
 
 class SDC_v1_Definitions(BaseDefinitions):
     BICEPSNamespace_base = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/'
     BICEPSNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/SP'
-    DPWS_SDCNamespace = _DPWS_SDCNamespace#'http://standards.ieee.org/downloads/11073/11073-20701-2018'
+    DPWS_SDCNamespace = _DPWS_SDCNamespace  #'http://standards.ieee.org/downloads/11073/11073-20701-2018'
     MedicalDeviceTypeNamespace = 'http://standards.ieee.org/downloads/11073/11073-20702-2016'
     MessageModelNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/message'
     ParticipantModelNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/participant'
@@ -97,4 +122,5 @@ class SDC_v1_Definitions(BaseDefinitions):
     sc = sc_final
     dc = dc_final
     Actions = _SDC_v1_Actions
-SDC_v1_Definitions.schemaResolver = _SchemaResolver(SDC_v1_Definitions)
+    SchemaFilePaths = SchemaPathsSdc
+SDC_v1_Definitions.xml_validator = mk_schema_validator(SchemaResolver(SDC_v1_Definitions))
