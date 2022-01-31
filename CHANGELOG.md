@@ -4,7 +4,10 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - 2022-01-28
+## [1.2.0] - 2022-01-31
+### Fixed
+- possible invalid file name in communication log.
+
 ### Changed
 - xml schema validation validates complete soap envelopes, not only the body (as before).
 - allow changing of pmtypes.DefaultCodingSystem at runtime

@@ -61,8 +61,8 @@ class HostedServiceDescription(object):
         self.metaData = None
         self.wsdl_string = None
         self.wsdl = None
-        self._logger = loghelper.getLoggerAdapter('sdc.client.{}'.format(service_id), log_prefix)
-        self._url = urllib.parse.urlparse(endpoint_address) 
+        self._logger = loghelper.getLoggerAdapter('sdc.client.hosted', log_prefix)
+        self._url = urllib.parse.urlparse(endpoint_address)
         self.services = {}
 
     def readMetadata(self, soap_client):
@@ -82,7 +82,7 @@ class HostedServiceDescription(object):
         p = urllib.parse.urlparse(wsdl_url)
         actual_path = p.path + '?{}'.format(p.query) if p.query else p.path
         self.wsdl_string = soap_client.getUrl(actual_path, msg='{}:getwsdl'.format(self.log_prefix))
-        commlog.defaultLogger.logWsdl(self.wsdl_string, self.service_id)
+        commlog.defaultLogger.logWsdl(self.wsdl_string)
         try:
             self.wsdl = etree_.fromstring(self.wsdl_string, parser=etree_.ETCompatXMLParser()) # make am ElementTree instance
         except etree_.XMLSyntaxError as ex:
