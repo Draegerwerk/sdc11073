@@ -140,6 +140,12 @@ class LocalizedText(PropertyBasedPMType):
 DefaultCodingSystem = 'urn:oid:1.2.840.10004.1.1.1.0.0.1' # ISO/IEC 11073-10101
 
 
+def _get_default_coding_system():
+    """Helper method that allows handling of DefaultCodingSystem modification at runtime.
+    By using it implied coding system always is the current value of DefaultCodingSystem."""
+    return DefaultCodingSystem
+
+
 class NotCompareableVersionError(Exception):
     """ This exception says that two coded values cannot be compared, because one has a coding system version, the other one not.
     In that case it is not possible to decide if they are equal."""
@@ -150,16 +156,16 @@ class Coding(_CodingBase):
     """ Immutable representation of a coding. Can be used as key in dictionaries"""
 
 
-    def __new__(cls, code, codingSystem=DefaultCodingSystem, codingSystemVersion=None):
+    def __new__(cls, code, codingSystem=None, codingSystemVersion=None):
         return super(Coding, cls).__new__(cls,
                                           str(code),
-                                          codingSystem,
+                                          codingSystem or DefaultCodingSystem,
                                           codingSystemVersion)
 
     def equals(self, other, raiseNotComparableException=False):
         """ different compare method to __eq__, overwriting this one makes Coding unhashable!
          other can be an int, a string, or a Coding.
-         Simple comparision with int or string only works if self.codingSystem == DefaultCodingSystem
+         Simple comparison with int or string only works if self.codingSystem == DefaultCodingSystem
          and self.codingSystemVersion is None"""
         if isinstance(other, int):
             other = str(other)
@@ -201,8 +207,8 @@ class Coding(_CodingBase):
         return cls(code, codingSystem, codingSystemVersion)
 
 
-def mkCoding(code, codingSystem=DefaultCodingSystem, codingSystemVersion=None):
-    return Coding(code, codingSystem, codingSystemVersion)
+def mkCoding(code, codingSystem=None, codingSystemVersion=None):
+    return Coding(code, codingSystem or DefaultCodingSystem, codingSystemVersion)
 
 
 
@@ -212,7 +218,7 @@ class T_Translation(PropertyBasedPMType):
     """
     ext_Extension = cp.ExtensionNodeProperty()
     Code = cp.NodeAttributeProperty('Code')
-    CodingSystem = cp.NodeAttributeProperty('CodingSystem', impliedPyValue=DefaultCodingSystem)
+    CodingSystem = cp.NodeAttributeProperty('CodingSystem', impliedPyValue=_get_default_coding_system)
     CodingSystemVersion = cp.NodeAttributeProperty('CodingSystemVersion')
 
     _props = ['ext_Extension', 'Code', 'CodingSystem', 'CodingSystemVersion']
@@ -264,7 +270,7 @@ class _CodedValueBase(PropertyBasedPMType):
     CodingSystemName = cp.SubElementListProperty([namespaces.domTag('CodingSystemName')], cls = LocalizedText)
     ConceptDescription = cp.SubElementListProperty([namespaces.domTag('ConceptDescription')], cls = LocalizedText)
     Code = cp.NodeAttributeProperty('Code')
-    CodingSystem = cp.NodeAttributeProperty('CodingSystem', impliedPyValue=DefaultCodingSystem)
+    CodingSystem = cp.NodeAttributeProperty('CodingSystem', impliedPyValue=_get_default_coding_system)
     CodingSystemVersion = cp.NodeAttributeProperty('CodingSystemVersion')
     SymbolicCodeName = cp.NodeAttributeProperty('SymbolicCodeName')
     Type = cp.XsiTypeAttributeProperty(namespaces.QN_TYPE)

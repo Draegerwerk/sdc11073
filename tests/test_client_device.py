@@ -1111,7 +1111,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         clientLimitAlertDescriptor = clientMdib.descriptions.handle.getOne(limitAlertDescriptorHandle)
         self.assertEqual(clientLimitAlertDescriptor.SafetyClassification, pmtypes.SafetyClassification.MED_B)
         self.assertEqual(clientLimitAlertDescriptor.AutoLimitSupported, True)
-
+        time.sleep(0.1)
         # set alert state presence to true
         coll = observableproperties.SingleValueCollector(sdcClient, 'episodicAlertReport')
         with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
