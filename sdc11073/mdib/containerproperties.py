@@ -3,7 +3,7 @@
 These values can be node attributes, node texts or a complete Elements with optional sub nodes.
 The properties completely hide the XML nature of data. To serve this purpose, they can convert between XML data types and Python data types.
 '''
-import re
+from collections import OrderedDict
 import datetime
 import time
 import copy
@@ -420,7 +420,6 @@ class NodeTextQNameProperty(_PropertyBase):
             subNode.text = value
 
 
-
 class ExtensionNodeProperty(_PropertyBase):
     ''' Represents an ext:Extension Element that contains xml tree of any kind.'''
     def __init__(self, subElementNames=None, defaultPyValue=None):
@@ -459,6 +458,83 @@ class ExtensionNodeProperty(_PropertyBase):
 
             del subNode[:]# delete all children first
             subNode.extend([copy.copy(n) for n in extensionNode])
+
+
+# class _ExtensionLocalValue:
+#     def __init__(self, value):
+#         self.value = value or OrderedDict()
+#
+#     def __eq__(self, other):
+#         if other is None:
+#             return len(self.value) == 0
+#         return self.value == other.value
+#
+#
+# class ExtensionNodeProperty(_PropertyBase):
+#     """ Represents an ext:Extension Element that contains xml tree of any kind."""
+#
+#     def __init__(self, subElementNames=None, defaultPyValue=None):
+#         if subElementNames is None:
+#             subElementNames = [namespaces.extTag('Extension')]
+#         attrname =  '_ext_ext'
+#         super().__init__(attrname, subElementNames, defaultPyValue)
+#         self._converter = None
+#
+#     def __get__(self, instance, owner):
+#         """ returns a python value, uses the locally stored value"""
+#         if instance is None:  # if called via class
+#             return self
+#         try:
+#             value = getattr(instance, self._localVarName)
+#         except AttributeError:
+#             value = None
+#         if value is None:
+#             value = _ExtensionLocalValue(None)
+#             setattr(instance, self._localVarName, value)
+#         return value
+#
+#     def getPyValueFromNode(self, instance, node):
+#         try:
+#             extension_nodes = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
+#         except ElementNotFoundException:
+#             return None
+#         values = OrderedDict()
+#         for extension_node in extension_nodes:
+#             try:
+#                 cls = instance.extension_class_lookup.get(extension_node.tag)
+#             except AttributeError:
+#                 cls = None
+#             if cls:
+#                 values[extension_node.tag] = cls.from_node(extension_node)
+#             else:
+#                 values[extension_node.tag] = extension_node
+#         return _ExtensionLocalValue(values)
+#
+#     def updateXMLValue(self, instance, node):
+#         try:
+#             extension_local_value = getattr(instance, self._local_var_name)
+#         except AttributeError:
+#             extension_local_value = None
+#         if extension_local_value is None:
+#             sub_node = node.find(self._sub_element_name)
+#             if sub_node is not None:
+#                 node.remove(sub_node)
+#         else:
+#             if not extension_local_value.value:
+#                 return
+#             #sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
+#             sub_node = self._getElementbyChildNamesList(node, self._subElementNames, createMissingNodes=True)
+#
+#             del sub_node[:]  # delete all children first
+#
+#             for tag, val in extension_local_value.value.items():
+#                 if val is None:
+#                     continue
+#                 if isinstance(val, etree_._Element):  #pylint: disable=protected-access
+#                     _node = val
+#                 else:
+#                     _node = val.as_etree_node(tag, node.nsmap)
+#                 sub_node.append(copy.copy(_node))
 
 
 class SubElementProperty(_PropertyBase):

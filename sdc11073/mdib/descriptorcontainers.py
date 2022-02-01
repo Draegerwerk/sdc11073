@@ -3,8 +3,10 @@ from collections import defaultdict
 from lxml import etree as etree_
 from .containerbase import ContainerBase
 from .. import observableproperties as properties
-from ..namespaces import domTag, extTag, siTag
+from ..namespaces import domTag, extTag, siTag, msgTag
 from ..namespaces import Prefix_Namespace as Prefix
+from .. import msgtypes
+
 from .. import pmtypes
 from . import containerproperties as cp
 
@@ -71,6 +73,32 @@ class AbstractDescriptorContainer(ContainerBase):
     @property
     def codingSystem(self):
         return self.Type.coding.codingSystem if self.Type is not None else None  # pylint:disable=no-member
+
+    @property
+    def retrievability(self) -> [msgtypes.Retrievability, None]:
+        """look for msgTag('Retrievability') in ext:Extension node"""
+        if self.ext_Extension is None:
+            return None
+        retrievability_tag = msgTag('Retrievability')
+        for elem in self.ext_Extension:
+            if elem.tag == retrievability_tag:
+                return msgtypes.Retrievability.fromNode(elem)
+        return None
+
+    @retrievability.setter
+    def retrievability(self, retrievability_instance: msgtypes.Retrievability):
+        """sets msgTag('Retrievability') child node of ext:Extension"""
+        retrievability_tag = msgTag('Retrievability')
+        if self.ext_Extension is None:
+          self.ext_Extension = etree_.Element(extTag('Extension'))
+        else:
+            # delete current retrievability info if it exists
+            for elem in self.ext_Extension:
+                if elem.tag == retrievability_tag:
+                    self.ext_Extension.remove(elem)
+                    break
+        node = retrievability_instance.asEtreeNode(retrievability_tag, nsmap=None)
+        self.ext_Extension.append(node)
 
     def incrementDescriptorVersion(self):
         if self.DescriptorVersion is None:
