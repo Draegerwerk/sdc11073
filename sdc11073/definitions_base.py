@@ -1,8 +1,4 @@
 import os
-import urllib
-import traceback
-from lxml import etree as etree_
-from . import loghelper
 from .namespaces import dpwsTag
 from .namespaces import Prefix_Namespace as Prefix
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
@@ -31,9 +27,15 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     EventingSchemaFile = os.path.join(schemaFolder, 'eventing.xsd')
     SoapEnvelopeSchemaFile = os.path.join(schemaFolder, 'soap-envelope.xsd')
     WsAddrSchemaFile = os.path.join(schemaFolder, 'ws-addr.xsd')
+    EventingSchemaFile = os.path.join(schemaFolder, 'eventing.xsd')
     AddressingSchemaFile = os.path.join(schemaFolder, 'addressing.xsd')
     XMLSchemaFile = os.path.join(schemaFolder, 'xml.xsd')
     DPWSSchemaFile = os.path.join(schemaFolder, 'wsdd-dpws-1.1-schema-os.xsd')
+    WSDiscoverySchemaFile = os.path.join(schemaFolder, 'wsdd-discovery-1.1-schema-os.xsd')
+    WSDLSchemaFile = os.path.join(schemaFolder, 'wsdl.xsd')
+
+    SchemaFilePaths = None
+
     # set the following namespaces in derived classes:
     MedicalDeviceTypeNamespace = None
     BICEPSNamespace = None
@@ -68,61 +70,6 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
             xml_text = xml_text.replace(internal_ns, ns)
         return xml_text
 
-
-class SchemaResolverBase(etree_.Resolver):
-    lookup = {'http://schemas.xmlsoap.org/ws/2004/08/addressing': 'AddressingSchemaFile',
-              'http://www.w3.org/2005/08/addressing/ws-addr.xsd': 'WsAddrSchemaFile',
-              'http://www.w3.org/2005/08/addressing': 'WsAddrSchemaFile',
-              'http://www.w3.org/2006/03/addressing/ws-addr.xsd': 'WsAddrSchemaFile',
-              'http://schemas.xmlsoap.org/ws/2004/08/eventing/eventing.xsd': 'EventingSchemaFile',
-              Prefix.DPWS.namespace: 'DPWSSchemaFile',
-              'http://schemas.xmlsoap.org/ws/2004/09/mex/MetadataExchange.xsd': 'MetaDataExchangeSchemaFile',
-              'http://www.w3.org/2001/xml.xsd': 'XMLSchemaFile',}
-    lookup_ext = {} # to be overridden by derived classes
-    def __init__(self, baseDefinitions, log_prefix=None):
-        super(SchemaResolverBase, self).__init__()
-        self._baseDefinitions = baseDefinitions
-        self._logger = loghelper.getLoggerAdapter('sdc.schema_resolver', log_prefix)
-
-    def _isBicepsSchemaFile(self, filename):
-        return filename.endswith('ExtensionPoint.xsd') or filename.endswith('BICEPS_ParticipantModel.xsd') or filename.endswith('BICEPS_MessageModel.xsd')
-
-    def resolve(self, url, id, context):  # pylint: disable=unused-argument, redefined-builtin
-        try:
-            # first check if there is a lookup defined
-            ref = self.lookup.get(url)
-            if ref is None:
-                ref = self.lookup_ext.get(url)
-            if ref is not None:
-                filename = getattr(self._baseDefinitions, ref)
-                self._logger.debug('could resolve url {} via lookup to {}', url, filename)
-                if not os.path.exists(filename):
-                    self._logger.warn('could resolve url {} via lookup, but path {} does not exist', url, filename)
-                    return
-                with open(filename, 'rb') as f:
-                    xml_text = f.read()
-                if self._isBicepsSchemaFile(filename):
-                    xml_text = self._baseDefinitions.normalizeXMLText(xml_text)
-                return self.resolve_string(xml_text, context, base_url=filename)
-
-            # no lookup, parse url
-            parsed = urllib.parse.urlparse(url)
-            if parsed.scheme == 'file':
-                path = parsed.path # get the path part
-            else: # the url is a path
-                path = url
-            if path.startswith('/') and path[2] == ':':  # invalid construct like /C:/Temp
-                path = path[1:]
-            if not os.path.exists(path):
-                self._logger.warn('could not resolve url {}, path {} does not exist', url, path)
-                return
-            else:
-                self._logger.debug('could resolve url {}: path = {}', url, path)
-                with open(path, 'rb') as f:
-                    xml_text = f.read()
-                if self._isBicepsSchemaFile(path):
-                    xml_text = self._baseDefinitions.normalizeXMLText(xml_text)
-                return self.resolve_string(xml_text, context, base_url=path)
-        except:
-            self._logger.error(traceback.format_exc())
-
+    @classmethod
+    def get_schema_file_path(cls, url):
+        return cls.SchemaFilePaths.schema_location_lookup.get(url)

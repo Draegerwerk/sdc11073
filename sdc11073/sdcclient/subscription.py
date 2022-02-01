@@ -77,7 +77,7 @@ class ClSubscription(object):
     notification = properties.ObservableProperty()
     IDENT_TAG = etree_.QName('http.local.com', 'MyClIdentifier')
 
-    def __init__(self, dpwsHosted, actions, notification_url, endTo_url, ident):
+    def __init__(self, dpwsHosted, actions, notification_url, endTo_url, ident, xml_validator):
         """
         @param serviceClient:
         @param filter_:
@@ -105,6 +105,7 @@ class ClSubscription(object):
         self.eventCounter = 0  # for display purpose, we count notifications
         self.cl_ident = ident
         self._device_epr = urllib.parse.urlparse(self.dpwsHosted.endpointReferences[0].address).path
+        self._xml_validator = xml_validator
 
     def _mkSubscribeEnvelope(self, subscribe_epr, expire_minutes):
         soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
@@ -317,6 +318,12 @@ class ClSubscription(object):
         return self.expireAt - time.time()
 
     def onNotification(self, soapEnvelope):
+        try:
+            soapEnvelope.validate_envelope(self._xml_validator)
+        except etree_.DocumentInvalid as ex:
+            self._logger.error('received invalid document: {}', ex)
+        except Exception as ex:
+            self._logger.error('error validation document: {}', ex)
         self.eventCounter += 1
         self.notification = soapEnvelope
 
@@ -342,7 +349,7 @@ class SubscriptionManager(threading.Thread):
     allSubscriptionsOkay = properties.ObservableProperty(True)  # a boolean
     keepAlive_with_renew = True  # enable as workaround if checkstatus is not supported
 
-    def __init__(self, notification_url, endTo_url=None, checkInterval=None, log_prefix=''):
+    def __init__(self, notification_url, endTo_url=None, checkInterval=None, log_prefix='', xml_validator=None):
         super().__init__(name='Cl_SubscriptionManager{}'.format(log_prefix))
         self.daemon = True
         self._checkInterval = checkInterval or SUBSCRIPTION_CHECK_INTERVAL
@@ -354,6 +361,7 @@ class SubscriptionManager(threading.Thread):
         self._endTo_url = endTo_url or notification_url
         self._logger = loghelper.getLoggerAdapter('sdc.client.subscrMgr', log_prefix)
         self.log_prefix = log_prefix
+        self._xml_validator = xml_validator
 
     def stop(self):
         self._run = False
@@ -391,7 +399,8 @@ class SubscriptionManager(threading.Thread):
             self._logger.info('terminating subscriptions check loop! self._run={}', self._run)
 
     def mkSubscription(self, dpwsHosted, filters):
-        s = ClSubscription(dpwsHosted, filters, self._notification_url, self._endTo_url, self.log_prefix)
+        s = ClSubscription(dpwsHosted, filters, self._notification_url, self._endTo_url, self.log_prefix,
+                           self._xml_validator)
         filter_ = ' '.join(filters)
         with self._subscriptionsLock:
             self.subscriptions[filter_] = s

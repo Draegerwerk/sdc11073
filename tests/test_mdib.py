@@ -1,6 +1,7 @@
 import unittest
 import os
 from sdc11073 import mdib
+from sdc11073 import pmtypes
 mdibFolder = os.path.dirname(__file__)
 
 class TestMdib(unittest.TestCase):
@@ -26,6 +27,19 @@ class TestMdib(unittest.TestCase):
         deviceMdibContainer = mdib.DeviceMdibContainer.fromMdibFile(os.path.join(os.path.dirname(__file__), 'mdib_tns.xml'))
         self.assertTrue(deviceMdibContainer is not None)
 
+    def test_default_coding_system_change(self):
+        default_coding_system = pmtypes.DefaultCodingSystem
+        other_default_coding_system = 'urn:oid:1.2.3.4.5.6.7'
+        try:
+            deviceMdibContainer = mdib.DeviceMdibContainer.fromMdibFile(
+                os.path.join(os.path.dirname(__file__), 'mdib_tns.xml'))
+            mds = deviceMdibContainer.descriptions.handle.getOne('mds0')
+            self.assertEqual(mds.Type.codingSystem, default_coding_system)
+            # now change constant and verify that coding system did also change
+            pmtypes.DefaultCodingSystem = other_default_coding_system
+            self.assertEqual(mds.Type.codingSystem, other_default_coding_system)
+        finally:
+            pmtypes.DefaultCodingSystem = default_coding_system
 
 def suite():
     return unittest.TestLoader().loadTestsFromTestCase(TestMdib)

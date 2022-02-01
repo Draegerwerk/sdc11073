@@ -8,10 +8,8 @@ import sdc11073.mdib.statecontainers as statecontainers
 import sdc11073.mdib.descriptorcontainers as descriptorcontainers
 import sdc11073.namespaces as namespaces
 import sdc11073.pmtypes as pmtypes
-import sdc11073.xmlparsing as xmlparsing
 import sdc11073.mdib.containerproperties as containerproperties
 from sdc11073.location import SdcLocation
-from sdc11073.definitions_sdc import SDC_v1_Definitions
 
 #pylint: disable=protected-access
 
@@ -635,12 +633,10 @@ class TestStateContainers(unittest.TestCase):
         verifyEqual(sc, sc2)
 
         loc = SdcLocation(fac='a', poc='b', bed='c', bld='d', flr='e', rm='f', root='g')
-        bicepsSchema = xmlparsing.BicepsSchema(SDC_v1_Definitions)
         sc = statecontainers.LocationContextStateContainer.fromSdcLocation(nsmapper=self.nsmapper,
                                                                            descriptorContainer=self.dc, 
                                                                            handle='abc', 
-                                                                           sdc_location=loc,
-                                                                           bicepsSchema=bicepsSchema)
+                                                                           sdc_location=loc)
         self.assertEqual(sc.Handle, 'abc')
         self.assertEqual(sc.PoC, 'b')
         self.assertEqual(sc.Room, 'f')
@@ -661,9 +657,8 @@ class TestStateContainers(unittest.TestCase):
         sc3 = statecontainers.LocationContextStateContainer.fromSdcLocation(nsmapper=self.nsmapper,
                                                                            descriptorContainer=self.dc, 
                                                                            handle='abc', 
-                                                                           sdc_location=loc,
-                                                                           bicepsSchema=bicepsSchema)
-        sc2.updateFromSdcLocation(loc, bicepsSchema)
+                                                                           sdc_location=loc)
+        sc2.updateFromSdcLocation(loc)
         verifyEqual(sc3, sc2)
 
 

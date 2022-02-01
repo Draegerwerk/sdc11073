@@ -13,7 +13,8 @@ class HostedServiceClient(object):
     """ Base class of clients that call hosted services of a dpws device."""
     VALIDATE_MEX = False # workaraound as long as validation error due to missing dpws schema is not solved
     subscribeable_actions = tuple()
-    def __init__(self, soapClient, dpws_hosted, porttype, validate, sdc_definitions, bicepsParser, log_prefix=''):
+    #def __init__(self, soapClient, dpws_hosted, porttype, validate, sdc_definitions, bicepsParser, log_prefix=''):
+    def __init__(self, soapClient, dpws_hosted, porttype, sdc_definitions, log_prefix=''):
         '''
         @param simple_xml_hosted_node: a "Hosted" node in a simplexml document
         '''
@@ -22,9 +23,9 @@ class HostedServiceClient(object):
         self.porttype = porttype
         self._logger = loghelper.getLoggerAdapter('sdc.client.{}'.format(porttype), log_prefix)
         self._operationsManager = None
-        self._validate = validate
+        #self._validate = validate
         self._sdc_definitions = sdc_definitions
-        self._bicepsParser = bicepsParser
+        #self._bicepsParser = bicepsParser
         self.soapClient = soapClient
         self.log_prefix = log_prefix
         self._mdib_wref = None
@@ -32,14 +33,6 @@ class HostedServiceClient(object):
 
         for s in self.subscribeable_actions:
             self.predefined_actions[s] = self._getActionString(s)
-
-    @property
-    def _bmmSchema(self):
-        return None if not self._validate else self._bicepsParser.bmmSchema
-
-    @property
-    def _mexSchema(self):
-        return None if not self._validate else self._bicepsParser.mexSchema
 
     def register_mdib(self, mdib):
         ''' Client sometimes must know the mdib data (e.g. Set service, activate method).'''
@@ -99,7 +92,6 @@ class HostedServiceClient(object):
             soapEnvelope.addHeaderObject(sih)
 
         soapEnvelope.addBodyElement(soapBodyNode)
-        soapEnvelope.validateBody(self._bmmSchema)
         return soapEnvelope
 
 
@@ -119,17 +111,8 @@ class HostedServiceClient(object):
     def _callGetMethod(self, method, params = None, request_manipulator=None):
         self._logger.info('calling {} on {}:{}', method, self._url.netloc, self._url.path)
         soapEnvelope = self._mkGetMethodEnvelope(method, params)
-        soapEnvelope.validateBody(self._bmmSchema)
         returnedEnvelope = self.postSoapEnvelope(soapEnvelope, msg='get {}'.format(method),
                                                  request_manipulator=request_manipulator)
-        try:
-            returnedEnvelope.validateBody(self._bmmSchema)
-        except ExtendedDocumentInvalid as ex:
-            self._logger.error('Validation error: {}', ex)
-        except TypeError as ex:
-            self._logger.error('Could not validate Body, Type Error :{}', ex)
-        except Exception as ex:
-            self._logger.error('Validation error: "{}" msgNode={}', ex, returnedEnvelope.msgNode)
         return returnedEnvelope
 
     def _mkSoapEnvelope(self, methodName, xmlBodyString=None, additionalHeaders=None):
@@ -151,9 +134,7 @@ class HostedServiceClient(object):
 
     def _callMethodWithXMLStringArgument(self, portTypeName, methodName, xmlStringArgument=None, additionalHeaders=None):
         soapEnvelope = self._mkSoapEnvelope(methodName, xmlStringArgument, additionalHeaders)
-        soapEnvelope.validateBody(self._bmmSchema)
         retEnvelope = self.postSoapEnvelope(soapEnvelope, msg='port {} method {}'.format(portTypeName, methodName))
-        retEnvelope.validateBody(self._bmmSchema)
         return retEnvelope
 
 
@@ -342,7 +323,6 @@ class SetServiceClient(HostedServiceClient):
             sih = [sih]
 
         soapEnvelope = self._mkSoapEnvelopeWithEtreeBody('Activate', soapBodyNode, additionalHeaders=sih)
-        soapEnvelope.validateBody(self._bmmSchema)
         futureObject = self._callOperation(soapEnvelope, request_manipulator=request_manipulator)
         return futureObject
 
@@ -521,7 +501,6 @@ class ContextServiceClient(HostedServiceClient):
                                              nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM)))
                 params[-1].text = h
         resultSoapEnvelope = self._callGetMethod('GetContextStates', params, request_manipulator=request_manipulator)
-        resultSoapEnvelope.validateBody(self._bmmSchema)
         return resultSoapEnvelope.msgNode
 
     def getContextStateByIdentification(self, identifications, contextType=None, request_manipulator=None):
@@ -535,7 +514,6 @@ class ContextServiceClient(HostedServiceClient):
             params.append(oneId.asEtreeNode(qname=namespaces.msgTag('Identification'), nsmap=namespaces.nsmap))
         # todo: set attribute type based on contextType if set
         resultSoapEnvelope = self._callGetMethod('GetContextStatesByIdentification', params, request_manipulator=request_manipulator)
-        resultSoapEnvelope.validateBody(self._bmmSchema)
         return resultSoapEnvelope.msgNode
 
 class WaveformClient(HostedServiceClient):

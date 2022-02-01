@@ -412,7 +412,7 @@ class LocationContextStateContainer(AbstractContextStateContainer):
     Floor = cp.NodeAttributeProperty('Floor', [lc])
     _props = ('PoC', 'Room', 'Bed', 'Facility', 'Building', 'Floor')
 
-    def updateFromSdcLocation(self, sdc_location, bicepsSchema):
+    def updateFromSdcLocation(self, sdc_location):
         self.PoC = sdc_location.poc
         self.Room = sdc_location.rm
         self.Bed = sdc_location.bed
@@ -432,10 +432,10 @@ class LocationContextStateContainer(AbstractContextStateContainer):
         return sdcLocation.mkExtensionStringSdc()
 
     @classmethod
-    def fromSdcLocation(cls, nsmapper, descriptorContainer, handle, sdc_location, bicepsSchema):
+    def fromSdcLocation(cls, nsmapper, descriptorContainer, handle, sdc_location):
         obj = cls(nsmapper, descriptorContainer)
         obj.Handle = handle
-        obj.updateFromSdcLocation(sdc_location, bicepsSchema)
+        obj.updateFromSdcLocation(sdc_location)
         return obj
 
 
