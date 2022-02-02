@@ -41,8 +41,6 @@ class MyThreadingMixIn(object):
             if self.dispatcher is not None:
                 # only 
                 self.handle_error(request, client_address)
-            else:
-                print("don't care error:{}".format(ex))
             self.shutdown_request(request)
 
     def process_request(self, request, client_address):
