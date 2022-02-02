@@ -39,7 +39,7 @@ def etreeFromFile(path):
     return etree_.fromstring(xml_text, parser=parser, base_url=path)
 
 
-class SOAPActionDispatcher(object):
+class SOAPActionRegistry(object):
     def __init__(self, log_prefix=None):
         self._soapActionCallbacks = {}
         self._getCallbacks = {}
@@ -52,6 +52,17 @@ class SOAPActionDispatcher(object):
         if path.endswith('/'):
             path = path[:-1]
         self._getCallbacks[(path, query)] = fn
+
+    def _getActionHandler(self, action):
+        ''' returns a callable or None'''
+        return self._soapActionCallbacks.get(action)
+
+    def getActions(self):
+        """ returns a list of action strings that can be handled."""
+        return  list(self._soapActionCallbacks.keys())
+
+
+class SOAPActionDispatcher(SOAPActionRegistry):
 
     def dispatchSoapRequest(self, path, httpHeader, soapEnvelope):
         begin = time.monotonic()
@@ -80,15 +91,6 @@ class SOAPActionDispatcher(object):
         else:
             self._logger.error('dispatchGetRequest:path="{}" ,no handler found!', key)
             raise KeyError('dispatchGetRequest:path="{}" ,no handler found!'.format(key))
-
-
-    def _getActionHandler(self, action):
-        ''' returns a callable or None'''
-        return self._soapActionCallbacks.get(action)
-
-    def getActions(self):
-        """ returns a list of action strings that can be handled."""
-        return  list(self._soapActionCallbacks.keys())
 
 
 class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
@@ -137,6 +139,14 @@ class EventService(_SOAPActionDispatcherWithSubDispatchers):
         self.register_soapActionCallback('{}/Renew'.format(Prefix.WSE.namespace), self._onRenewStatus)
         self.epr = None
 
+    def dispatchSoapRequest(self, path, httpHeader, soapEnvelope):
+        if self._sdcDevice.shallValidate:
+            soapEnvelope.validate_envelope(self._sdcDevice.xml_validator)
+        response_envelope = super().dispatchSoapRequest(path, httpHeader, soapEnvelope)
+        if self._sdcDevice.shallValidate:
+            response_envelope.validate_envelope(self._sdcDevice.xml_validator)
+        return response_envelope
+
     def _onSubscribe(self, httpHeader, soapEnvelope):
         subscriptionFilters = soapEnvelope.bodyNode.xpath(
             "//wse:Filter[@Dialect='{}/Action']".format(Prefix.DPWS.namespace),
@@ -152,42 +162,19 @@ class EventService(_SOAPActionDispatcherWithSubDispatchers):
                                                                                               sfilter,
                                                                                               self._offeredSubscriptions))
         returnedSoapEnvelope = self._subscriptionsManager.onSubscribeRequest(httpHeader, soapEnvelope, self.epr)
-        self._validateEventingResponse(returnedSoapEnvelope)
         return returnedSoapEnvelope
 
     def _onUnsubscribe(self, httpHeader, soapEnvelope): #pylint:disable=unused-argument
         returnedSoapEnvelope = self._subscriptionsManager.onUnsubscribeRequest(soapEnvelope)
-        self._validateEventingResponse(returnedSoapEnvelope)
         return returnedSoapEnvelope
 
     def _onGetStatus(self, httpHeader, soapEnvelope): #pylint:disable=unused-argument
         returnedSoapEnvelope = self._subscriptionsManager.onGetStatusRequest(soapEnvelope)
-        self._validateEventingResponse(returnedSoapEnvelope)
         return returnedSoapEnvelope
 
     def _onRenewStatus(self, httpHeader, soapEnvelope): #pylint:disable=unused-argument
         returnedSoapEnvelope = self._subscriptionsManager.onRenewRequest(soapEnvelope)
-        self._validateEventingResponse(returnedSoapEnvelope)
         return returnedSoapEnvelope
-
-    def _validateEventingResponse(self, returnedSoapEnvelope):
-        returnedSoapEnvelope.buildDoc()
-        bodyNodeChildren = list(returnedSoapEnvelope.bodyNode)
-        if len(bodyNodeChildren) == 0:
-            return
-        if bodyNodeChildren[0].tag == s12Tag('Fault'):
-            schema = self._s12Schema
-        else:
-            schema = self._evtSchema
-        returnedSoapEnvelope.validateBody(schema)
-
-    @property
-    def _evtSchema(self):
-        return None if not self._sdcDevice.shallValidate else self._sdcDevice.mdib.bicepsSchema.evtSchema
-
-    @property
-    def _s12Schema(self):
-        return None if not self._sdcDevice.shallValidate else self._sdcDevice.mdib.bicepsSchema.s12Schema
 
 
 class DPWSHostedService(EventService):
@@ -229,7 +216,7 @@ class DPWSHostedService(EventService):
 
 
     def _mkWsdlString(self):
-        biceps_schema = self._sdcDevice.mdib.bicepsSchema
+        #biceps_schema = self._sdcDevice.mdib.bicepsSchema
         sdc_definitions = self._sdcDevice.mdib.sdc_definitions
         my_nsmap = Prefix.partialMap(Prefix.MSG, Prefix.PM, Prefix.WSA, Prefix.WSE, Prefix.DPWS)
         my_nsmap['tns'] = Prefix.SDC.namespace
@@ -316,14 +303,13 @@ class DPWSHostedService(EventService):
                                                my_baseUrl.netloc,
                                                self.epr                                               )
         response.addBodyElement(metaDataNode)
-        response.validateBody((self._mdib.bicepsSchema.mexSchema))
         return response
 
     def __repr__(self):
         return '{} epr={} Porttypes={}'.format(self.__class__.__name__, self.epr, [dp.port_type_string for dp in self.subDispatchers])
 
 
-class DPWSPortTypeImpl(SOAPActionDispatcher):
+class DPWSPortTypeImpl(SOAPActionRegistry):
     ''' Base class of all PortType implementations'''
     WSDLOperationBindings = () # overwrite in derived classes
     WSDLMessageDescriptions = () # overwrite in derived classes
@@ -342,22 +328,6 @@ class DPWSPortTypeImpl(SOAPActionDispatcher):
     def _getActionString(self, methodName):
         actions_lookup = self._mdib.sdc_definitions.Actions
         return getattr(actions_lookup, methodName)
-
-    @property
-    def _bmmSchema(self):
-        return None if not self._sdcDevice.shallValidate else self._sdcDevice.mdib.bicepsSchema.bmmSchema
-
-    @property
-    def _mexSchema(self):
-        return None if not self._sdcDevice.shallValidate else self._sdcDevice.mdib.bicepsSchema.mexSchema
-
-    @property
-    def _evtSchema(self):
-        return None if not self._sdcDevice.shallValidate else self._sdcDevice.mdib.bicepsSchema.evtSchema
-
-    @property
-    def _s12Schema(self):
-        return None if not self._sdcDevice.shallValidate else self._sdcDevice.mdib.bicepsSchema.s12Schema
 
     def addWsdlPortType(self, parentNode):
         raise NotImplementedError
@@ -540,7 +510,6 @@ class GetService(DPWSPortTypeImpl):
             getMdStateResponseNode.append(mdStateNode)
             responseSoapEnvelope.addBodyElement(getMdStateResponseNode)
         self._logger.debug('_onGetMdState returns {}', lambda: responseSoapEnvelope.as_xml(pretty=False))
-        responseSoapEnvelope.validateBody(self._bmmSchema)
         return responseSoapEnvelope
 
     def _onGetMdib(self, httpHeader, request):  # pylint:disable=unused-argument
@@ -564,12 +533,6 @@ class GetService(DPWSPortTypeImpl):
         getMdibResponseNode.append(mdibNode)
         responseSoapEnvelope.addBodyElement(getMdibResponseNode)
         self._logger.debug('_onGetMdib returns {}', lambda: responseSoapEnvelope.as_xml(pretty=False))
-        try:
-            responseSoapEnvelope.validateBody(self._bmmSchema)
-        except Exception as ex:
-            self._logger.error('_onGetMdib: invalid body:{}\n{}', traceback.format_exc(),
-                               lambda: etree_.tostring(mdibNode))
-            raise
         return responseSoapEnvelope
 
     def _onGetMdDescription(self, httpHeader, request):  # pylint:disable=unused-argument
@@ -614,7 +577,6 @@ class GetService(DPWSPortTypeImpl):
         getMdDescriptionResponseNode.append(mdDescriptionNode)
         responseSoapEnvelope.addBodyElement(getMdDescriptionResponseNode)
         self._logger.debug('_onGetMdDescription returns {}', lambda: responseSoapEnvelope.as_xml(pretty=False))
-        responseSoapEnvelope.validateBody(self._bmmSchema)
         return responseSoapEnvelope
 
 
@@ -805,7 +767,6 @@ class SetService(DPWSPortTypeImpl):
             invocationStateNode.text = pmtypes.InvocationState.WAIT
 
         response.addBodyElement(replyBodyNode)
-        response.validateBody(self._bmmSchema)
         return response
 
     def addWsdlPortType(self, parentNode):
@@ -937,7 +898,6 @@ class ContextService(DPWSPortTypeImpl):
             invocationStateNode.text = pmtypes.InvocationState.WAIT
 
         response.addBodyElement(replyBodyNode)
-        response.validateBody(self._bmmSchema)
         return response
 
     def _onGetContextStates(self, httpHeader, request):  # pylint:disable=unused-argument
@@ -987,7 +947,6 @@ class ContextService(DPWSPortTypeImpl):
                     node.tag = msgTag('ContextState')
         response.addBodyElement(getContextStatesResponseNode)
         self._logger.debug('_onGetContextStates returns {}', lambda: response.as_xml(pretty=False))
-        response.validateBody(self._bmmSchema)
         return response
 
     def addWsdlPortType(self, parentNode):

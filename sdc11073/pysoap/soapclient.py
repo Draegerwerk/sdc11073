@@ -8,7 +8,7 @@ from threading import Lock
 import socket
 import time
 import http.client as httplib
-from lxml.etree import XMLSyntaxError
+from lxml import etree as etree_
 
 from .. import observableproperties
 from .. import commlog
@@ -57,17 +57,17 @@ class SoapClient(CompressionHandler):
     """SOAP Client"""
     roundtrip_time = observableproperties.ObservableProperty()
     def __init__(self, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
-                 requestEncodings=None, chunked_requests=False):
+                 requestEncodings=None, chunked_requests=False, xml_validator=None):
         ''' Connects to one url
         @param netloc: the location of the service (domainname:port) ###url of the service
         @param sslContext: an optional sll.SSLContext instance
-        @param bicepsSchema:
         @param supportedEncodings: configured set of encodings that can be used. If None, all available encodings are used.
                                 This used for decompression of received responses.
                                 If this is an empty list, no compression is supported.
         @param requestEncodings: an optional list of encodings that the other side accepts. It is used to compress requests.
                                 If not set, requests will not be commpressed.
                                 If set, then the http request will be compressed using this method
+        @param xml_validator: optional etree.XMLSchema instance
         '''
         self._log = logger
         self._sslContext = sslContext
@@ -79,6 +79,7 @@ class SoapClient(CompressionHandler):
         self._log.info('created soapClient No. {} for {}', self._clientNo, netloc)
         self.supportedEncodings = supportedEncodings if supportedEncodings is not None else self.available_encodings
         self.requestEncodings = requestEncodings  if requestEncodings is not None else [] # these compression alg's does the other side accept ( set at runtime)
+        self._xml_validator = xml_validator
         self._makeGetHeaders()
         self._lock = Lock()
 
@@ -119,9 +120,11 @@ class SoapClient(CompressionHandler):
     
     def isClosed(self):
         return self._httpConnection is None
-    
-    
-    def postSoapEnvelopeTo(self, path, soapEnvelopeRequest, responseFactory=None, schema=None, msg='',
+
+    def postSoapEnvelopeTo(self, path,
+                           soapEnvelopeRequest,
+                           responseFactory=soapenvelope.ReceivedSoap12Envelope.fromXMLString,
+                           msg='',
                            request_manipulator=None):
         '''
         @param path: url path component
@@ -132,12 +135,11 @@ class SoapClient(CompressionHandler):
         '''
         if self.isClosed():
             self.connect()
-        return self.__postSoapEnvelope(soapEnvelopeRequest, responseFactory, schema, path, msg, request_manipulator)
+        return self.__postSoapEnvelope(soapEnvelopeRequest, responseFactory, path, msg, request_manipulator)
 
-        
-    def __postSoapEnvelope(self, soapEnvelopeRequest, responseFactory, schema, path, msg, request_manipulator):
-        if schema is not None:
-            soapEnvelopeRequest.validateBody(schema)
+    def __postSoapEnvelope(self, soapEnvelopeRequest, responseFactory, path, msg, request_manipulator):
+        if self._xml_validator is not None:
+            soapEnvelopeRequest.validate_envelope(self._xml_validator)
         if hasattr(request_manipulator, 'manipulate_soapenvelope'):
             tmp = request_manipulator.manipulate_soapenvelope(soapEnvelopeRequest)
             if tmp:
@@ -157,13 +159,24 @@ class SoapClient(CompressionHandler):
         finally:
             self.roundtrip_time = time.perf_counter() - started # set roundtrip time even if method raises an exception
         normalized_xml_response = self._sdc_definitions.normalizeXMLText(xml_response)
-        my_responseFactory = responseFactory or soapenvelope.ReceivedSoap12Envelope.fromXMLString
-        try:
-            return my_responseFactory(normalized_xml_response, schema)
-        except XMLSyntaxError as ex:
-            self._log.error('{} XMLSyntaxError in string: "{}"', msg, normalized_xml_response)
-            raise RuntimeError('{} in "{}"'.format(ex, normalized_xml_response))
 
+        if responseFactory is not None:
+            try:
+                response_envelope = responseFactory(normalized_xml_response)
+            except etree_.XMLSyntaxError as ex:
+                self._log.error('{} XMLSyntaxError in string: "{}"', msg, normalized_xml_response)
+                raise RuntimeError('{} in "{}"'.format(ex, normalized_xml_response))
+            if self._xml_validator is not None:
+                response_envelope.validate_envelope(self._xml_validator)
+            return response_envelope
+        return None
+
+    def validate_envelope(self, envelope):
+        if self._xml_validator is None:
+            return
+        root = envelope.buildDoc()
+        doc = etree_.ElementTree(element=root)
+        self._xml_validator.assertValid(doc)
 
     def _sendSoapRequest(self, path, xml, msg):
         """Send SOAP request using HTTP"""
@@ -196,7 +209,6 @@ class SoapClient(CompressionHandler):
         self._log.debug("{}:POST to netloc='{}' path='{}'", msg, self._netloc, path)
         response = None
         content = None
-
 
         def send_request():
             do_reopen = False

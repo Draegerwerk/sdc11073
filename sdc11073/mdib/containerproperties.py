@@ -64,7 +64,10 @@ class _PropertyBase(object):
         except AttributeError:
             value = None
         if value is None:
-            value = self.impliedPyValue
+            if callable(self.impliedPyValue):
+                value = self.impliedPyValue()
+            else:
+                value = self.impliedPyValue
         return value
 
 

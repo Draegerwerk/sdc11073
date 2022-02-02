@@ -264,7 +264,7 @@ class DPWSThisDevice(object):
         if isinstance(friendlyName, dict):
             self.friendlyName = friendlyName
         else:   
-            self.friendlyName = {'': friendlyName} # localized texts
+            self.friendlyName = {None: friendlyName} # localized texts
         self.firmwareVersion = firmwareVersion
         self.serialNumber = serialNumber
 
@@ -284,7 +284,8 @@ class DPWSThisDevice(object):
         for lang, name in self.friendlyName.items():
             friendlyName = etree_.SubElement(thisDevice, dpwsTag('FriendlyName'))
             friendlyName.text = name
-            friendlyName.set(_LANGUAGE_ATTR, lang)
+            if lang is not None and len(lang) > 0:
+                friendlyName.set(_LANGUAGE_ATTR, lang)
         firmwareVersion = etree_.SubElement(thisDevice, dpwsTag('FirmwareVersion'))
         firmwareVersion.text = self.firmwareVersion
         serialNumber = etree_.SubElement(thisDevice, dpwsTag('SerialNumber'))
@@ -337,7 +338,7 @@ class DPWSThisModel(object):
         for lang, name in self.manufacturer.items():
             manufacturer = etree_.SubElement(thisModel, dpwsTag('Manufacturer'))
             manufacturer.text = name
-            if lang is not None:
+            if lang is not None and len(lang) > 0:
                 manufacturer.set(_LANGUAGE_ATTR, lang)
 
         manufacturerUrl = etree_.SubElement(thisModel, dpwsTag('ManufacturerUrl'))
@@ -602,21 +603,16 @@ class Soap12Envelope(Soap12EnvelopeBase):
         doc.write(tmp, encoding='UTF-8', xml_declaration=True, pretty_print=pretty)
         return tmp.getvalue()
 
-    def validateBody(self, schema):
+    def validate_envelope(self, xml_validator):
+        if xml_validator is None:
+            return
         root = self.buildDoc()
         doc = etree_.ElementTree(element=root)
+        xml_validator.assertValid(doc)
         if CHECK_NAMESPACES:
             self._find_unused_namespaces(root)
             self._find_undefined_namespaces()
-        if schema is None:
-            return
-        bodyNode = doc.find('s12:Body', nsmap)
-        if bodyNode is not None:
-            try:
-                payloadNode = bodyNode[0]
-            except IndexError:  # empty body
-                return
-            self._assert_valid_exception_wrapper(schema, payloadNode)
+        self._assert_valid_exception_wrapper(xml_validator, doc)
 
     def _find_unused_namespaces(self, root):
         xml_doc = self.as_xml()
@@ -663,26 +659,21 @@ class ReceivedSoap12Envelope(Soap12EnvelopeBase):
         doc.write(tmp, encoding='UTF-8', xml_declaration=True, pretty_print=pretty)
         return tmp.getvalue()
 
-    def validateBody(self, schema):
-        if schema is None:
+    def validate_envelope(self, xml_validator):
+        if xml_validator is None:
             return
-        self._assert_valid_exception_wrapper(schema, self.msgNode)
+        self._assert_valid_exception_wrapper(xml_validator, self._docRoot)
 
     @classmethod
-    def fromXMLString(cls, xmlString, schema=None, **kwargs):
+    def fromXMLString(cls, xmlString):
         parser = etree_.ETCompatXMLParser()
         
         try:    
-            doc = etree_.fromstring(xmlString, parser=parser, **kwargs)
+            doc = etree_.fromstring(xmlString, parser=parser)
         except Exception as ex:
             print ('load error "{}" in "{}"'.format(ex, xmlString))
             raise
-        if schema is not None:
-            msgNode = doc.find('s12:Body', nsmap)[0]
-            schema.assertValid(msgNode)
         return cls(doc=doc, rawdata=xmlString)
-
-
 
 
 
