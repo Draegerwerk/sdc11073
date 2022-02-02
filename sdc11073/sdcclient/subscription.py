@@ -14,7 +14,7 @@ from sdc11073.pysoap.soapenvelope import Soap12Envelope, ReceivedSoap12Envelope,
 from sdc11073.pysoap.soapenvelope import WsaEndpointReferenceType
 from ..namespaces import Prefix_Namespace as Prefix
 from ..namespaces import nsmap as _global_nsmap
-from ..namespaces import wseTag, wsaTag
+from ..namespaces import wseTag, wsaTag, WSA_IS_REFERENCE_PARAMETER
 from .. import xmlparsing, isoduration
 from .. import commlog
 from .. import observableproperties as properties
@@ -39,7 +39,7 @@ class MyThreadingMixIn(object):
             self.shutdown_request(request)
         except Exception as ex:
             if self.dispatcher is not None:
-                # only 
+                # only
                 self.handle_error(request, client_address)
             else:
                 print("don't care error:{}".format(ex))
@@ -106,6 +106,10 @@ class ClSubscription(object):
         self.cl_ident = ident
         self._device_epr = urllib.parse.urlparse(self.dpwsHosted.endpointReferences[0].address).path
         self._xml_validator = xml_validator
+
+    @property
+    def end_to_identifier(self):
+        return self._endTo_identifier
 
     def _mkSubscribeEnvelope(self, subscribe_epr, expire_minutes):
         soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
@@ -233,7 +237,7 @@ class ClSubscription(object):
         resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
                                                                            soapEnvelope, msg='unsubscribe')
         responseAction = resultSoapEnvelope.address.action
-        # check response: response does not contain explicit status. If action== UnsubscribeResponse all is fine.  
+        # check response: response does not contain explicit status. If action== UnsubscribeResponse all is fine.
         if responseAction == 'http://schemas.xmlsoap.org/ws/2004/08/eventing/UnsubscribeResponse':
             self._logger.info('unsubscribe: end of subscription {} was confirmed.', self._filter)
         else:
@@ -424,7 +428,7 @@ class SubscriptionManager(threading.Thread):
             return None
         subscr_ident = subscr_ident_list[0]
         for s in self.subscriptions.values():
-            if subscr_ident.text == s._endTo_identifier.text:
+            if subscr_ident.text == s.end_to_identifier.text:
                 self._logger.info('onSubScriptionEnd: received Subscription End for {} {}',
                                   s.shortFilterString,
                                   info)
@@ -465,11 +469,21 @@ class SOAPNotificationsDispatcher(object):
         self._sdc_definitions = sdc_definitions
         self.methods = {}
 
-    def register_function(self, action, fn):
-        self.methods[action] = fn
+    def register_function(self, action, ref, fn):
+        self.methods[(ref, action)] = fn
 
     def dispatch(self, path, xml):
         start = time.time()
+
+        fn, action, request = self._dispatch_process_data(xml, path)
+        fn(request)
+
+        duration = time.time() - start
+        if duration > 0.005:
+            self._logger.debug('action {}: duration = {:.4f}sec', action, duration)
+        return ''
+
+    def _dispatch_process_data(self, xml, path):
         normalized_xml = self._sdc_definitions.normalizeXMLText(xml)
         request = ReceivedSoap12Envelope.fromXMLString(normalized_xml)
         try:
@@ -478,17 +492,19 @@ class SOAPNotificationsDispatcher(object):
             raise _DispatchError(404, 'no action in request')
         self._logger.debug('received notification path={}, action = {}', path, action)
 
+        ref_parameters = request.headerNode.findall(ClSubscription.IDENT_TAG, namespaces=_global_nsmap)
+        ref_parameters = [i for i in ref_parameters if i.get(WSA_IS_REFERENCE_PARAMETER) in ("1", "true")]
+
+        if len(ref_parameters) != 1:
+            raise _DispatchError(400, f'Expected exactly one matching reference parameter missing from request.')
+
         try:
-            fn = self.methods[action]
+            fn = self.methods[(ref_parameters[0].text, action)]
         except KeyError:
             self._logger.error('action "{}" not registered. Known:{}'.format(action, self.methods.keys()))
             raise _DispatchError(404, 'action not registered')
 
-        fn(request)
-        duration = time.time() - start
-        if duration > 0.005:
-            self._logger.debug('action {}: duration = {:.4f}sec', action, duration)
-        return ''
+        return fn, action, request
 
 
 class SOAPNotificationsDispatcherThreaded(SOAPNotificationsDispatcher):
@@ -501,20 +517,7 @@ class SOAPNotificationsDispatcherThreaded(SOAPNotificationsDispatcher):
         self._worker.start()
 
     def dispatch(self, path, xml):
-        normalized_xml = self._sdc_definitions.normalizeXMLText(xml)
-        request = ReceivedSoap12Envelope.fromXMLString(normalized_xml)
-        try:
-            action = request.address.action
-        except AttributeError:
-            raise _DispatchError(404, 'no action in request')
-        self._logger.debug('received notification path={}, action = {}', path, action)
-
-        try:
-            fn = self.methods[action]
-        except KeyError:
-            self._logger.error(
-                'action "{}" not registered. Known:{}'.format(action, self.methods.keys()))
-            raise _DispatchError(404, 'action not registered')
+        fn, action, request = self._dispatch_process_data(xml, path)
         self._queue.put((fn, request, action))
         return ''
 
