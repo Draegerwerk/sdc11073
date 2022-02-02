@@ -852,17 +852,18 @@ class _NetworkingThread(object):
                                    MULTICAST_UDP_MAX_DELAY, MULTICAST_UDP_UPPER_DELAY)
 
     def _repeated_enqueue_msg(self, msg, initial_delay_ms, repeat, min_delay_ms, max_delay_ms, upper_delay_ms):
-        next_send = time.time() + initial_delay_ms/1000.0
-        dt = random.randrange(min_delay_ms, max_delay_ms) /1000.0 # millisec -> seconds
-        self._send_queue.put(self._EnqueuedMessage(next_send, msg))
-        for _ in range(repeat):
-            next_send += dt
+        if not self._quitSendEvent.is_set():
+            next_send = time.time() + initial_delay_ms/1000.0
+            dt = random.randrange(min_delay_ms, max_delay_ms) /1000.0 # millisec -> seconds
             self._send_queue.put(self._EnqueuedMessage(next_send, msg))
-            dt = min(dt*2, upper_delay_ms)
+            for _ in range(repeat):
+                next_send += dt
+                self._send_queue.put(self._EnqueuedMessage(next_send, msg))
+                dt = min(dt*2, upper_delay_ms)
 
     def _run_send(self):
         """send-loop"""
-        while not self._quitSendEvent.is_set():
+        while not self._quitSendEvent.is_set() or not self._send_queue.empty():
             if self._send_queue.empty():
                 time.sleep(SEND_LOOP_IDLE_SLEEP)  # nothing to do currently
             else:
@@ -870,7 +871,7 @@ class _NetworkingThread(object):
                     enqueued_msg = self._send_queue.get()
                     self._sendMsg(enqueued_msg.msg)
                 else:
-                    time.sleep(SEND_LOOP_BUSY_SLEEP) # this creates a 10ms raster for sending, but that is good enough
+                    time.sleep(SEND_LOOP_BUSY_SLEEP)  # this creates a 10ms raster for sending, but that is good enough
 
     def _run_recv(self):
         ''' run by thread'''
@@ -1004,11 +1005,11 @@ class _NetworkingThread(object):
     def join(self):
         self._logger.debug('%s: join... ', self.__class__.__name__)
         self._recvThread.join(1)
-        self._sendThread.join(1)
         self._qread_thread.join(1)
+        self._sendThread.join(10)
         self._recvThread = None
-        self._sendThread = None
         self._qread_thread = None
+        self._sendThread = None
         for sock in self._select_in:
             sock.close()
         self._uniOutSocket.close()
