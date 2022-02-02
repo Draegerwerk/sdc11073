@@ -62,6 +62,7 @@ xmlTag = partial(_tagName, Prefix_Namespace.XML) # a helper to make qualified na
 # some constants from ws-addressing
 WSA_ANONYMOUS = Prefix_Namespace.WSA.namespace + '/anonymous'
 WSA_NONE = Prefix_Namespace.WSA.namespace + '/none'
+WSA_IS_REFERENCE_PARAMETER = '{' + Prefix_Namespace.WSA.namespace + '}IsReferenceParameter'
 
 
 def docNameFromQName(qName, ns_map):

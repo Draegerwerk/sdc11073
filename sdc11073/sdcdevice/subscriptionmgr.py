@@ -47,8 +47,7 @@ class _DevSubscription(object):
     IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
 
     def __init__(self, mode, base_urls, notifyToAddress, notifyRefNode, endToAddress, endToRefNode, expires,
-                 max_subscription_duration, filter_, sslContext,
-                 acceptedEncodings):  # pylint:disable=too-many-arguments
+                 max_subscription_duration, filter_, sslContext, acceptedEncodings):  # pylint:disable=too-many-arguments
         '''
         @param notifyToAddress: dom node of Subscribe Request
         @param endToAddress: dom node of Subscribe Request
@@ -141,7 +140,10 @@ class _DevSubscription(object):
                                              referenceParametersNode=None)
         soapEnvelope.setAddress(addr)
         for identNode in self.notifyRefNodes:
-            soapEnvelope.addHeaderElement(identNode)
+            identNode_ = copy.copy(identNode)
+            # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
+            identNode_.set(wsaTag('IsReferenceParameter'), 'true')
+            soapEnvelope.addHeaderElement(identNode_)
         return soapEnvelope
 
     def _mkEndReport(self, soapEnvelope, action):
@@ -246,8 +248,7 @@ class _DevSubscription(object):
                                                                                                        self._filters))
 
     @classmethod
-    def fromSoapEnvelope(cls, soapEnvelope, sslContext, acceptedEncodings, max_subscription_duration,
-                         base_urls):
+    def fromSoapEnvelope(cls, soapEnvelope, sslContext, acceptedEncodings, max_subscription_duration, base_urls):
         endToAddress = None
         endToRefNode = []
         endToAddresses = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:EndTo', namespaces=nsmap)

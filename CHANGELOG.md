@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - possible invalid file name in communication log.
+- dispatching SOAP notifications by ReferenceParameters using mandatory attribute IsReferenceParameter
 
 ### Changed
 - xml schema validation validates complete soap envelopes, not only the body (as before).
@@ -25,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - observable property for SubscriptionEnd Messages
 ### Fixed
-- use MetadataVersion in Wsdiscovery
+- use MetadataVersion in WsDiscovery
 - fix setLocation for SdcDevice implementation - no Bye-message on location change
 - fixed comparison regarding float precision in NumericMetricValue.__eq__ and SampleArrayValue.__eq__
 - fixed formatting error in isoduration.date_time_string when datetime object has microseconds
