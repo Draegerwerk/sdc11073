@@ -53,7 +53,7 @@ class TestDeviceServices(unittest.TestCase):
                                                to=endpoint_reference))
         soapEnvelope.addBodyObject(GenericNode(bodyNode))
                 
-        soapEnvelope.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
+        soapEnvelope.validate_envelope(sdcDevice._handler.xml_validator)
         return soapEnvelope
 
 
@@ -86,7 +86,7 @@ class TestDeviceServices(unittest.TestCase):
             receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
             response = getService._onGetMdib(httpHeader, receivedEnv)
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
+            response.validate_envelope(sdcDevice._handler.xml_validator)
 
     def test_getMdState(self):
         for sdcDevice in self._alldevices:
@@ -95,9 +95,9 @@ class TestDeviceServices(unittest.TestCase):
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdState', endpoint_reference)
             receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
-            response = getService.dispatchSoapRequest(None, httpHeader, receivedEnv)
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
-   
+            response = getService._onGetMdState(httpHeader, receivedEnv)
+            response.validate_envelope(sdcDevice._handler.xml_validator)
+
 
     def test_getMdDescription(self):
         for sdcDevice in self._alldevices:
@@ -106,9 +106,8 @@ class TestDeviceServices(unittest.TestCase):
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdDescription', endpoint_reference)
             receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
-            response = getService.dispatchSoapRequest(None, httpHeader, receivedEnv)
-            
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
+            response = getService._onGetMdDescription(httpHeader, receivedEnv)
+            response.validate_envelope(sdcDevice._handler.xml_validator)
 
 
     def test_changeAlarmPrio(self):
@@ -123,8 +122,8 @@ class TestDeviceServices(unittest.TestCase):
             getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdDescription', endpoint_reference)
             receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
-            response = getService.dispatchSoapRequest(None, httpHeader, receivedEnv)
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
+            response = getService._onGetMdDescription(httpHeader, receivedEnv)
+            response.validate_envelope(sdcDevice._handler.xml_validator)
 
 
     def test_getContextStates(self):
@@ -139,9 +138,9 @@ class TestDeviceServices(unittest.TestCase):
             getEnv = self._mkGetRequest(sdcDevice, contextService.port_type_string, 'GetContextStates', endpoint_reference)
             receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
             httpHeader = {}
-            response = contextService.dispatchSoapRequest(None, httpHeader, receivedEnv)
+            response = contextService._onGetContextStates( httpHeader, receivedEnv)
             print (response.as_xml(pretty=True))
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
+            response.validate_envelope(sdcDevice._handler.xml_validator)
             _ns = sdcDevice.mdib.nsmapper # shortcut
             query = '*/{}[@{}="{}"]'.format(_ns.docName(Prefix.MSG, 'ContextState'),
                                           _ns.docName(Prefix.XSI,'type'),

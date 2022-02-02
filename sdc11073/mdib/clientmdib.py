@@ -169,8 +169,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         super(ClientMdibContainer, self).__init__(sdcClient.sdc_definitions)
         self._logger = loghelper.getLoggerAdapter('sdc.client.mdib', sdcClient.log_prefix)
         self._sdcClient = sdcClient
-        if self.bicepsSchema is None:
-            raise RuntimeError('no bicepsSchema instance')
         self._isInitialized = False
         self.rtBuffers = {}  # key  is a handle, value is a ClientRtBuffer
         self._maxRealtimeSamples = maxRealtimeSamples

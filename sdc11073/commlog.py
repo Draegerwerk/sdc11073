@@ -13,13 +13,6 @@ T_WSDL = 'wsdl'
 T_HTTP_REQ = 'http_req'
 T_HTTP_RESP = 'http_resp'
 
-# _logFolder = None #r'c:\temp\sdc\com'
-# 
-# _log_out = False
-# _log_in = False
-# 
-# udpaddrfilter = None
-
 
 class NullLogger(object):
     """This is a dummy logger that does nothing."""
@@ -61,10 +54,7 @@ class CommLogger(object):
         assert direction in (D_IN, D_OUT)
         extension = 'wsdl' if ipType == T_WSDL else 'xml'
         timestring = '{:06.3f}'.format(time.time())[-8:]
-#        timestring = timestring.replace('.', '_')
-        counterString = '{:05d}'.format(self._counter)
         self._counter += 1
-#        return '{}_{}{}{}.xml'.format(timestring, counterString, ipType, direction)
         infotext = '-{}'.format(info) if info else ''
         return '{}-{}-{}{}.{}'.format(timestring, direction, ipType, infotext, extension)
 
@@ -106,9 +96,9 @@ class CommLogger(object):
         if self._log_in:
             self._writeLog(T_HTTP, D_IN, xml, 'subscr')
         
-    def logWsdl(self, wsdl, serviceName):
+    def logWsdl(self, wsdl ):
         if self._log_in:
-            self._writeLog(T_WSDL, D_IN, wsdl, info=serviceName)
+            self._writeLog(T_WSDL, D_IN, wsdl, None)
 
 defaultLogger = NullLogger()
 

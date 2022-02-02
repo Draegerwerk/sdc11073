@@ -12,7 +12,6 @@ import sdc11073
 from .. import observableproperties as properties
 from .. import commlog
 from .. import loghelper
-from .. import xmlparsing
 from . import subscription
 from .operations import OperationsManager
 from .hostedservice import HostedServiceClient, GetServiceClient, SetServiceClient, StateEventClient
@@ -22,6 +21,8 @@ from ..namespaces import nsmap
 from ..namespaces import Prefix_Namespace as Prefix
 from ..definitions_base import ProtocolsRegistry
 from ..definitions_sdc import SDC_v1_Definitions
+
+from ..schema_resolver import mk_schema_validator, SchemaResolver
 # shortcuts
 GenericNode = sdc11073.pysoap.soapenvelope.GenericNode
 WsAddress = sdc11073.pysoap.soapenvelope.WsAddress
@@ -53,23 +54,16 @@ class HostDescription(object):
 
 
 class HostedServiceDescription(object):
-    VALIDATE_MEX = False # workaraound as long as validation error due to missing dpws schema is not solved
-    def __init__(self, service_id, endpoint_address, validate, bicepsSchema, log_prefix=''):
+    def __init__(self, service_id, endpoint_address, log_prefix=''):
         self._endpoint_address = endpoint_address
         self.service_id = service_id
-        self._validate = validate
-        self._bicepsSchema = bicepsSchema
         self.log_prefix = log_prefix
         self.metaData = None
         self.wsdl_string = None
         self.wsdl = None
-        self._logger = loghelper.getLoggerAdapter('sdc.client.{}'.format(service_id), log_prefix)
-        self._url = urllib.parse.urlparse(endpoint_address) 
+        self._logger = loghelper.getLoggerAdapter('sdc.client.hosted', log_prefix)
+        self._url = urllib.parse.urlparse(endpoint_address)
         self.services = {}
-
-    @property
-    def _mexSchema(self):
-        return None if not self._validate else self._bicepsSchema.mexSchema
 
     def readMetadata(self, soap_client):
         soapEnvelope = Soap12Envelope(nsmap)
@@ -77,13 +71,9 @@ class HostedServiceDescription(object):
         soapEnvelope.setAddress(WsAddress(action='http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Request',
                                           to=self._endpoint_address))
         soapEnvelope.addBodyObject(GenericNode(etree_.Element('{http://schemas.xmlsoap.org/ws/2004/09/mex}GetMetadata')))
-        if self.VALIDATE_MEX:
-            soapEnvelope.validateBody(self._mexSchema)
         endpointEnvelope = soap_client.postSoapEnvelopeTo(self._url.path,
                                                           soapEnvelope,
                                                           msg='<{}> readMetadata'.format(self.service_id))
-        if self.VALIDATE_MEX:
-            endpointEnvelope.validateBody(self._mexSchema)
         self.metaData = MetaDataSection.fromEtreeNode(endpointEnvelope.bodyNode)
         self.readwsdl(soap_client, self.metaData.wsdl_location)
         return
@@ -92,7 +82,7 @@ class HostedServiceDescription(object):
         p = urllib.parse.urlparse(wsdl_url)
         actual_path = p.path + '?{}'.format(p.query) if p.query else p.path
         self.wsdl_string = soap_client.getUrl(actual_path, msg='{}:getwsdl'.format(self.log_prefix))
-        commlog.defaultLogger.logWsdl(self.wsdl_string, self.service_id)
+        commlog.defaultLogger.logWsdl(self.wsdl_string)
         try:
             self.wsdl = etree_.fromstring(self.wsdl_string, parser=etree_.ETCompatXMLParser()) # make am ElementTree instance
         except etree_.XMLSyntaxError as ex:
@@ -187,7 +177,6 @@ class SdcClient(object):
         '''
         @param devicelocation: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         @param deviceType: a QName that defines the device type, e.g. '{http://standards.ieee.org/downloads/11073/11073-20702-2016}MedicalDevice'
-                          can be None, in that case value from pysdc.xmlparsing.Final is used
         @param sslEvents: define if client uses https
              sslEvents='auto': use https if Xaddress of device is https
              sslEvents=True: always use https
@@ -209,7 +198,7 @@ class SdcClient(object):
             if self.sdc_definitions is None:
                 raise ValueError('cannot create instance, no known BICEPS schema version identified')
 
-        self._bicepsSchema = xmlparsing.BicepsSchema(self.sdc_definitions)
+        self._xml_validator = self.sdc_definitions.xml_validator
         splitted = urllib.parse.urlsplit(self._devicelocation)
         self._device_uses_https = splitted.scheme.lower() == 'https'
 
@@ -244,6 +233,7 @@ class SdcClient(object):
         self._mdib = None   
         self._soapClients = {} # all http connections that this client holds
         self.peerCertificate = None
+        self.binary_peer_cert = None
         self.all_subscribed = False
 
     def _register_mdib(self, mdib):
@@ -251,8 +241,6 @@ class SdcClient(object):
         if mdib is not None and self._mdib is not None:
             raise RuntimeError('SdcClient has already an registered mdib')
         self._mdib = None if mdib is None else weakref.ref(mdib)
-        if mdib is not None:
-            mdib.bicepsSchema = self._bicepsSchema
         if self.client('Set') is not None:
             self.client('Set').register_mdib(mdib)
         if self.client('Context') is not None:
@@ -367,7 +355,8 @@ class SdcClient(object):
         # start subscription manager
         self._subscriptionMgr = subscription.SubscriptionManager(self._notificationsDispatcherThread.base_url,
                                                                  log_prefix=self.log_prefix,
-                                                                 checkInterval=subscriptionsCheckInterval)
+                                                                 checkInterval=subscriptionsCheckInterval,
+                                                                 xml_validator=self._xml_validator)
         self._subscriptionMgr.start()
 
         # flag 'self.all_subscribed' tells mdib that mdib state versions shall not have any gaps
@@ -488,7 +477,8 @@ class SdcClient(object):
                 sdc_definitions=self.sdc_definitions,
                 supportedEncodings=self._compression_methods,
                 requestEncodings=None,
-                chunked_requests=self.chunked_requests)
+                chunked_requests=self.chunked_requests,
+                xml_validator=self._xml_validator if self._validate else None)
 
             self._soapClients[key] = soap_client
         return soap_client
@@ -499,8 +489,7 @@ class SdcClient(object):
             soapClient = self._getSoapClient(endpoint_reference)
             hosted.soapClient = soapClient
             ns_types = [t.split(':') for t in hosted.types]
-            h_descr = HostedServiceDescription(hosted.serviceId, endpoint_reference,
-                                               self._validate, self._bicepsSchema, self.log_prefix)
+            h_descr = HostedServiceDescription(hosted.serviceId, endpoint_reference, self.log_prefix)
             self._hostedServices[hosted.serviceId] = h_descr
             h_descr.readMetadata(soapClient)
             for _, porttype in ns_types:
@@ -510,7 +499,7 @@ class SdcClient(object):
 
     def _mkHostedServiceClient(self, porttype, soapClient, hosted):
         cls = self._servicesLookup.get(porttype, HostedServiceClient)
-        return cls(soapClient, hosted, porttype, self._validate, self.sdc_definitions, self._bicepsSchema, self.log_prefix)
+        return cls(soapClient, hosted, porttype, self.sdc_definitions, self.log_prefix)
 
     def _startEventSink(self, async_dispatch):
         if self._sslEvents == 'auto':

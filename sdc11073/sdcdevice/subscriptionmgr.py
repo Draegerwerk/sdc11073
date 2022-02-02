@@ -47,8 +47,7 @@ class _DevSubscription(object):
     IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
 
     def __init__(self, mode, base_urls, notifyToAddress, notifyRefNode, endToAddress, endToRefNode, expires,
-                 max_subscription_duration, filter_, sslContext, bicepsSchema,
-                 acceptedEncodings):  # pylint:disable=too-many-arguments
+                 max_subscription_duration, filter_, sslContext, acceptedEncodings):  # pylint:disable=too-many-arguments
         '''
         @param notifyToAddress: dom node of Subscribe Request
         @param endToAddress: dom node of Subscribe Request
@@ -77,7 +76,6 @@ class _DevSubscription(object):
         self.renew(expires)  # sets self._started and self._expireseconds
         self._filters = filter_.split()
         self._sslContext = sslContext
-        self._bicepsSchema = bicepsSchema
 
         self._acceptedEncodings = acceptedEncodings  # these encodings does the other side accept
         self._soapClient = None
@@ -146,8 +144,6 @@ class _DevSubscription(object):
             # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
             identNode_.set(wsaTag('IsReferenceParameter'), 'true')
             soapEnvelope.addHeaderElement(identNode_)
-
-        soapEnvelope.validateBody(self._bicepsSchema.bmmSchema)
         return soapEnvelope
 
     def _mkEndReport(self, soapEnvelope, action):
@@ -176,7 +172,7 @@ class _DevSubscription(object):
         try:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soapClient, 'roundtrip_time')
 
-            self._soapClient.postSoapEnvelopeTo(self._url.path, rep, responseFactory=lambda x, schema: x,
+            self._soapClient.postSoapEnvelopeTo(self._url.path, rep, responseFactory=None,
                                                 msg='sendNotificationReport {}'.format(action))
             try:
                 roundtrip_time = roundtrip_timer.result(0)
@@ -224,7 +220,7 @@ class _DevSubscription(object):
         soapEnvelope.addBodyElement(subscriptionEndNode)
         rep = self._mkEndReport(soapEnvelope, action)
         try:
-            self._soapClient.postSoapEnvelopeTo(self._url.path, rep, responseFactory=lambda x, schema: x,
+            self._soapClient.postSoapEnvelopeTo(self._url.path, rep, responseFactory=None,
                                                 msg='sendNotificationEndMessage {}'.format(action))
             self._notifyErrors = 0
             self._isConnectionError = False
@@ -252,8 +248,7 @@ class _DevSubscription(object):
                                                                                                        self._filters))
 
     @classmethod
-    def fromSoapEnvelope(cls, soapEnvelope, sslContext, bicepsSchema, acceptedEncodings, max_subscription_duration,
-                         base_urls):
+    def fromSoapEnvelope(cls, soapEnvelope, sslContext, acceptedEncodings, max_subscription_duration, base_urls):
         endToAddress = None
         endToRefNode = []
         endToAddresses = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:EndTo', namespaces=nsmap)
@@ -279,7 +274,7 @@ class _DevSubscription(object):
         filter_ = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:Filter/text()', namespaces=nsmap)[0]
 
         return cls(str(mode), base_urls, notifyToAddress, notifyRefNode, endToAddress, endToRefNode,
-                   expires, max_subscription_duration, str(filter_), sslContext, bicepsSchema, acceptedEncodings)
+                   expires, max_subscription_duration, str(filter_), sslContext, acceptedEncodings)
 
     def get_roundtrip_stats(self):
         if len(self.last_roundtrip_times) > 0:
@@ -296,10 +291,9 @@ class SubscriptionsManager(object):
     NotificationPrefixes = [Prefix.S12, Prefix.WSA, Prefix.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
-    def __init__(self, sslContext, sdc_definitions, bicepsParser, supportedEncodings,
+    def __init__(self, sslContext, sdc_definitions, supportedEncodings,
                  max_subscription_duration=None, log_prefix=None, chunked_messages=False):
         self._sslContext = sslContext
-        self.bicepsParser = bicepsParser
         self.sdc_definitions = sdc_definitions
         self.log_prefix = log_prefix
         self._logger = loghelper.getLoggerAdapter('sdc.device.subscrMgr', self.log_prefix)
@@ -318,7 +312,7 @@ class SubscriptionsManager(object):
 
     def onSubscribeRequest(self, httpHeader, soapEnvelope, epr_path):
         acceptedEncodings = CompressionHandler.parseHeader(httpHeader.get('Accept-Encoding'))
-        s = _DevSubscription.fromSoapEnvelope(soapEnvelope, self._sslContext, self.bicepsParser, acceptedEncodings,
+        s = _DevSubscription.fromSoapEnvelope(soapEnvelope, self._sslContext, acceptedEncodings,
                                               self._max_subscription_duration, self.base_urls)
         # assign a soap client
         key = s._url.netloc  # pylint:disable=protected-access
@@ -773,7 +767,7 @@ class SubscriptionsManager(object):
             raise
         except Exception as ex:
             # this should never happen! => re-raise
-            self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
+            self._logger.error('could not send notification report: {}: \n{}', traceback.format_exc(), subscription)
 
     def _getSubscriptionsForAction(self, action):
         with self._subscriptions.lock:

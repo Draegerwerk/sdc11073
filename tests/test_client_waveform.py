@@ -174,8 +174,8 @@ class TestClientWaveform(unittest.TestCase):
 
         # same test for draft10 version
         cl = self.sdcClient_final
-        soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(WfReport_draft10.encode('utf-8'),
-                                                                                          schema=cl._bicepsSchema.bmmSchema)
+        soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(
+            WfReport_draft10.encode('utf-8'))
         cl._onWaveFormReport(soapenvelope)
         self.assertEqual(cl.waveFormReport.tag, namespaces.msgTag('WaveformStream'))
 
