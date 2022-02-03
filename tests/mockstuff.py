@@ -56,7 +56,7 @@ class TestDevSubscription(_DevSubscription):
 
     def __init__(self, filter_):
         notifyRefNode = etree_.Element(namespaces.wseTag('References'))
-        identNode = etree_.SubElement(notifyRefNode, namespaces.wseTag('Identifier'))
+        identNode = etree_.SubElement(notifyRefNode, self.IDENT_TAG)
         identNode.text = self.notifyRef
         base_urls = [urllib.parse.SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
 

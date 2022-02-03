@@ -175,7 +175,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
             # verify that header contains the identifier of client subscription
             env  = ReceivedSoap12Envelope.fromXMLString(response.as_xml())
-            idents = env.headerNode.findall(namespaces.wseTag('Identifier'))
+            idents = env.headerNode.findall(testSubscr.IDENT_TAG)
             self.assertEqual(len(idents), 1)
             self.assertEqual(idents[0].text, mockstuff.TestDevSubscription.notifyRef)
 
@@ -361,7 +361,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
             # verify that header contains the identifier of client subscription
             env = ReceivedSoap12Envelope.fromXMLString(response.as_xml())
-            idents = env.headerNode.findall(namespaces.wseTag('Identifier'))
+            idents = env.headerNode.findall(testEpisodicSubscr.IDENT_TAG)
             self.assertEqual(len(idents), 1)
             self.assertEqual(idents[0].text, mockstuff.TestDevSubscription.notifyRef)
 

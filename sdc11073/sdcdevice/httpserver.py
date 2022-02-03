@@ -29,8 +29,6 @@ class MyThreadingMixIn(object):
             if self.dispatcher is not None:
                 # only 
                 self.handle_error(request, client_address)
-            else:
-                print ("don't care error:{}".format(ex)) 
             self.shutdown_request(request)
 
 
@@ -72,7 +70,7 @@ class DevicesDispatcher(object):
             raise RuntimeError('Path "{}" already registered'.format(path))
         self.deviceByUrl[path] = dispatcher
 
-    def get_device_dispather(self, path):
+    def get_device_dispatcher(self, path):
         _path = path[1:] if path.startswith('/') else path
         for url, dispatcher in self.deviceByUrl.items():
             if _path.startswith(url):
@@ -80,10 +78,10 @@ class DevicesDispatcher(object):
         raise HTTPRequestHandlingError(status=404, reason='not found', soapfault=b'client error')
 
     def on_post(self, path, headers, request):
-        return self.get_device_dispather(path).on_post(path, headers, request)
+        return self.get_device_dispatcher(path).on_post(path, headers, request)
 
     def on_get(self, path, headers):
-        return self.get_device_dispather(path).on_get(path, headers)
+        return self.get_device_dispatcher(path).on_get(path, headers)
 
 
 class HostedServiceDispatcher(object):
@@ -196,7 +194,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             # make an error 500 response with the soap fault as content
             self.server.logger.error(traceback.format_exc())
             # we must create a soapEnvelope in order to generate a SoapFault
-            dev_dispatcher = devices_dispatcher.get_device_dispather(self.path)
+            dev_dispatcher = devices_dispatcher.get_device_dispatcher(self.path)
             normalizedRequest = dev_dispatcher.sdc_definitions.normalizeXMLText(request)
             soapEnvelope = pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(normalizedRequest)
 

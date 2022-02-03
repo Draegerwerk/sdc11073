@@ -3,7 +3,7 @@ from lxml import etree as etree_
 import sdc11073.mdib.descriptorcontainers as descriptorcontainers
 import sdc11073.namespaces as namespaces
 import sdc11073.pmtypes as pmtypes
-
+from sdc11073 import msgtypes
 
 
 class TestDescriptorContainers(unittest.TestCase):
@@ -42,6 +42,14 @@ class TestDescriptorContainers(unittest.TestCase):
         dc.ext_Extension = etree_.Element(namespaces.extTag('Extension'))
         etree_.SubElement(dc.ext_Extension, 'foo', attrib={'someattr':'somevalue'})
         etree_.SubElement(dc.ext_Extension, 'bar', attrib={'anotherattr':'differentvalue'})
+
+        retrievability = msgtypes.Retrievability([msgtypes.RetrievabilityInfo(msgtypes.RetrievabilityMethod.GET),
+                                                  msgtypes.RetrievabilityInfo(msgtypes.RetrievabilityMethod.PERIODIC,
+                                                                              update_period=42.0)
+                                                  ]
+                                                 )
+        dc.retrievability = retrievability
+
         node = dc.mkNode()
         dc2.updateDescrFromNode(node)
 
@@ -50,8 +58,10 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc2.Type, dc.Type)
         self.assertEqual(dc.codeId, 'abc')
         self.assertEqual(dc.codingSystem, 'def')
+
         self.assertEqual(dc2.ext_Extension.tag, namespaces.extTag('Extension'))
-        self.assertEqual(len(dc2.ext_Extension), 2)
+        self.assertEqual(len(dc2.ext_Extension), 3)
+        self.assertEqual(dc2.retrievability, retrievability)
 
 
     def test_AbstractMetricDescriptorContainer(self):     

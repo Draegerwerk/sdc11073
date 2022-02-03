@@ -211,7 +211,6 @@ class DPWSHostedService(EventService):
 
     def _onGetWSDL(self):
         ''' return wsdl'''
-        self._logger.debug('_onGetWsdl returns {}', self._wsdlString)
         return self._wsdlString
 
 

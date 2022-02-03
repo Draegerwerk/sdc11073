@@ -4,8 +4,10 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.7] - 2022-02-02
+### Added
+- support of Retrievability Extension
 
-## [1.2.0] - 2022-02-02
 ### Fixed
 - possible invalid file name in communication log.
 - dispatching SOAP notifications by ReferenceParameters using mandatory attribute IsReferenceParameter
@@ -24,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - observable property for SubscriptionEnd Messages
 ### Fixed
-- use MetadataVersion in Wsdiscovery
+- use MetadataVersion in WsDiscovery
 - fix setLocation for SdcDevice implementation - no Bye-message on location change
 - fixed comparison regarding float precision in NumericMetricValue.__eq__ and SampleArrayValue.__eq__
 - fixed formatting error in isoduration.date_time_string when datetime object has microseconds

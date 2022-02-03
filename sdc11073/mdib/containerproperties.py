@@ -3,7 +3,6 @@
 These values can be node attributes, node texts or a complete Elements with optional sub nodes.
 The properties completely hide the XML nature of data. To serve this purpose, they can convert between XML data types and Python data types.
 '''
-import re
 import datetime
 import time
 import copy
@@ -423,7 +422,6 @@ class NodeTextQNameProperty(_PropertyBase):
             subNode.text = value
 
 
-
 class ExtensionNodeProperty(_PropertyBase):
     ''' Represents an ext:Extension Element that contains xml tree of any kind.'''
     def __init__(self, subElementNames=None, defaultPyValue=None):
@@ -462,6 +460,7 @@ class ExtensionNodeProperty(_PropertyBase):
 
             del subNode[:]# delete all children first
             subNode.extend([copy.copy(n) for n in extensionNode])
+
 
 
 class SubElementProperty(_PropertyBase):
