@@ -1444,6 +1444,7 @@ class WSDiscoveryBase(object):
         self._dpAddr = None
         self._dpEPR = None
 
+        self._remoteServiceProbeMatchCallback = None
         self._remoteServiceHelloCallback = None
         self._remoteServiceHelloCallbackTypesFilter = None
         self._remoteServiceHelloCallbackScopesFilter = None
@@ -1453,6 +1454,13 @@ class WSDiscoveryBase(object):
 
         self._logger = logger or logging.getLogger('sdc.discover')
         random.seed(int(time.time() * 1000000))
+
+    def setRemoteServiceProbeMatchCallback(self, cb):
+        """Set callback, which will be called when a service was received via a ProbeMatch message.
+        Service is passed as a parameter to the callback
+        Set None to disable callback
+        """
+        self._remoteServiceProbeMatchCallback = cb
 
     def setRemoteServiceHelloCallback(self, cb, types=None, scopes=None):
         """Set callback, which will be called when new service appeared online
@@ -1469,9 +1477,7 @@ class WSDiscoveryBase(object):
         self._remoteServiceHelloCallbackScopesFilter = scopes
 
     def setRemoteServiceByeCallback(self, cb):
-        """Set callback, which will be called when new service appeared online
-        and sent Hi message
-        Service is passed as a parameter to the callback
+        """Set callback, which will be called when a service goes offline and sent a Bye message
         Set None to disable callback
         """
         self._remoteServiceByeCallback = cb
@@ -1548,6 +1554,9 @@ class WSDiscoveryBase(object):
                 elif not match.getScopes():
                     self._logger.info('%s(%s) has no Scopes, sending resolve message', match.getEPR(), addr)
                     self._sendResolve(match.getEPR())
+
+                if self._remoteServiceProbeMatchCallback is not None:
+                    self._remoteServiceProbeMatchCallback(addr, service)
 
         elif act == ACTION_RESOLVE_MATCH:
             for match in env.getProbeResolveMatches():
