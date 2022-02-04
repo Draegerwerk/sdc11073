@@ -12,7 +12,7 @@ from codecs import open
 import os
 import subprocess
 
-version = '1.1.7'
+version = '1.1.8'
 
 # create a version.py file that is
 # a) used for __version__ info
@@ -73,7 +73,7 @@ setup(
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
-    packages=find_packages(exclude=['tests']),
+    packages=find_packages(include=['sdc11073', 'sdc11073.*']),
 
     # Alternatively, if you want to distribute just a my_module.py, uncomment
     # this:
