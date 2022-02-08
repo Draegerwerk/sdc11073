@@ -8,6 +8,7 @@ import time
 import uuid
 import threading
 import sys
+import platform
 import selectors
 import re
 from collections import deque
@@ -812,7 +813,10 @@ class _NetworkingThread(object):
     def _createMulticastInSocket(addr):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((addr, MULTICAST_PORT))
+        if platform.system() != 'Windows':
+            sock.bind((MULTICAST_IPV4_ADDRESS, MULTICAST_PORT))
+        else:
+            sock.bind((addr, MULTICAST_PORT))
         sock.setblocking(False)
         return sock
 
