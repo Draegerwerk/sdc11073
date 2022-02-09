@@ -760,7 +760,7 @@ class _SocketPair:
     multi_out_uni_in: socket.socket
 
 
-class _NetworkingThread(object):
+class _NetworkingThreadWindows(object):
     ''' Has one thread for sending and one for receiving'''
 
     @dataclass(order=True)
@@ -813,10 +813,7 @@ class _NetworkingThread(object):
     def _createMulticastInSocket(addr):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        if platform.system() != 'Windows':
-            sock.bind((MULTICAST_IPV4_ADDRESS, MULTICAST_PORT))
-        else:
-            sock.bind((addr, MULTICAST_PORT))
+        sock.bind((addr, MULTICAST_PORT))
         sock.setblocking(False)
         return sock
 
@@ -901,7 +898,6 @@ class _NetworkingThread(object):
                     except OSError:  # port is not opened
                         continue
         return False
-
 
     def _recv_messages(self):
         """For performance reasons this thread only writes to a queue, no parsing etc."""
@@ -1017,14 +1013,65 @@ class _NetworkingThread(object):
         for sock in self._select_in:
             sock.close()
         self._uniOutSocket.close()
-        #self._unregister(self._multiInSocket)
-        #self._multiInSocket.close()
         self._full_selector.close()
         self._logger.debug('%s: ... join done', self.__class__.__name__)
 
     def getActiveAddresses(self):
         with self._sockets_by_address_lock:
             return list(self._sockets_by_address.keys())
+
+
+@dataclass(frozen=True)
+class _Sockets:
+    multi_in: socket.socket
+    uni_in: socket.socket
+    multi_out_uni_in: socket.socket
+
+
+class _NetworkingThreadPosix(_NetworkingThreadWindows):
+
+    @staticmethod
+    def _createMulticastInSocket(addr):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((MULTICAST_IPV4_ADDRESS, MULTICAST_PORT))
+        sock.setblocking(False)
+        mreq = struct.pack("4s4s", socket.inet_aton(MULTICAST_IPV4_ADDRESS), socket.inet_aton(addr))
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        return sock
+
+    @staticmethod
+    def _createUnicastInSocket(addr):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((addr, MULTICAST_PORT))
+        sock.setblocking(False)
+        return sock
+
+    def addSourceAddr(self, addr):
+        """None means 'system default'"""
+        try:
+            multicast_in_sock = self._createMulticastInSocket(addr)
+        except socket.error:  # if 1 interface has more than 1 address, exception is raised for the second
+            print(traceback.format_exc())
+            pass
+        unicast_in_sock = self._createUnicastInSocket(addr)  # allows handling of unicast messages on MULTICAST_PORT
+        multicast_out_sock = self._createMulticastOutSocket(addr)
+
+        with self._sockets_by_address_lock:
+            self._register(multicast_out_sock)
+            self._register(unicast_in_sock)
+            self._register(multicast_in_sock)
+            self._sockets_by_address[addr] = _Sockets(multicast_in_sock, unicast_in_sock, multicast_out_sock)
+
+    def removeSourceAddr(self, addr):
+        sockets = self._sockets_by_address.get(addr)
+        if sockets:
+            with self._sockets_by_address_lock:
+                for sock in (sockets.multi_in, sockets.uni_in, sockets.multi_out_uni_in):
+                    self._unregister(sock)
+                    sock.close()
+                del self._sockets_by_address[addr]
 
 
 class Message:
@@ -1748,8 +1795,10 @@ class WSDiscoveryBase(object):
     def _startThreads(self):
         if self._networkingThread is not None:
             return
-
-        self._networkingThread = _NetworkingThread(self, self._logger)
+        if platform.system() != 'Windows':
+            self._networkingThread = _NetworkingThreadPosix(self, self._logger)
+        else:
+            self._networkingThread = _NetworkingThreadWindows(self, self._logger)
         self._networkingThread.start()
 
         self._addrsMonitorThread = _AddressMonitorThread(self)
