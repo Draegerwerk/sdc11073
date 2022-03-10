@@ -423,9 +423,10 @@ class SdcClient(object):
         _url = urllib.parse.urlparse(self._devicelocation)
         wsc = self._getSoapClient(self._devicelocation)
 
+        if wsc.isClosed():
+            wsc.connect()
+
         if self._sslContext is not None and _url.scheme == 'https':
-            if wsc.isClosed():
-                wsc.connect()
             sock = wsc.sock
             self.peerCertificate = sock.getpeercert(binary_form=False)
             self.binary_peer_cert = sock.getpeercert(binary_form=True)

@@ -27,6 +27,11 @@ SAMPLES = {"0x34F05506": (5.566406, 5.712891, 5.712891, 5.712891, 5.800781),
            "0x34F05500": (3.198242, 3.198242, 3.198242, 3.198242, 3.163574, 1.1)}
 
 
+class DummySoapClient:
+    def isClosed(self):
+        return False
+
+
 class TestDeviceSubscriptions(unittest.TestCase):
     
     def setUp(self):
@@ -114,7 +119,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
             httpHeader = {}
             # avoid instantiation of new soap client by pretenting there is one already
-            sdcDevice.subscriptionsManager.soapClients['localhost:123'] = 'dummy'
+            sdcDevice.subscriptionsManager.soapClients['localhost:123'] = DummySoapClient()
             response = sdcDevice.subscriptionsManager.onSubscribeRequest(httpHeader,
                                                                           ReceivedSoap12Envelope.fromXMLString(subscrRequest.as_xml()),
                                                                           'http://abc.com:123/def')
@@ -231,7 +236,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
             httpHeader = {}
             # avoid instantiation of new soap client by pretending there is one already
-            sdcDevice.subscriptionsManager.soapClients['localhost:123'] = 'dummy'
+            sdcDevice.subscriptionsManager.soapClients['localhost:123'] = DummySoapClient()
             response = sdcDevice.subscriptionsManager.onSubscribeRequest(httpHeader,
                                                                           ReceivedSoap12Envelope.fromXMLString(subscrRequest.as_xml()),
                                                                           'http://abc.com:123/def')
@@ -280,7 +285,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
             httpHeader = {}
             # avoid instantiation of new soap client by pretenting there is one already
-            sdcDevice.subscriptionsManager.soapClients['localhost:123'] = 'dummy'
+            sdcDevice.subscriptionsManager.soapClients['localhost:123'] = DummySoapClient()
             response = sdcDevice.subscriptionsManager.onSubscribeRequest(httpHeader,
                                                                          ReceivedSoap12Envelope.fromXMLString(
                                                                              subscrRequest.as_xml()),

@@ -98,6 +98,10 @@ class _DevSubscription(object):
             self._expireseconds = self._max_subscription_duration
 
     @property
+    def netloc(self):
+        return self._url.netloc
+
+    @property
     def soapClient(self):
         return self._soapClient
 
@@ -121,6 +125,8 @@ class _DevSubscription(object):
     @property
     def isValid(self):
         if self._is_closed:
+            return False
+        if self._soapClient is None or self._soapClient.isClosed():
             return False
         return self.remainingSeconds > 0 and not self.hasDeliveryFailure
 
@@ -191,13 +197,11 @@ class _DevSubscription(object):
             raise
 
     def sendNotificationEndMessage(self, action, code='SourceShuttingDown', reason='Event source going off line.'):
+        if not self.isValid:
+            return
         doc_nsmap = DocNamespaceHelper().docNssmap
         my_addr = '{}:{}/{}'.format(self.base_urls[0].scheme, self.base_urls[0].netloc, self.base_urls[0].path)
 
-        if not self.isValid:
-            return
-        if self._soapClient is None:
-            return
         soapEnvelope = pysoap.soapenvelope.Soap12Envelope(doc_nsmap)
 
         subscriptionEndNode = etree_.Element(wseTag('SubscriptionEnd'),
@@ -807,13 +811,13 @@ class SubscriptionsManager(object):
             with self._subscriptions.lock:
                 self._subscriptions.removeObject(c)
 
-            if c.soapClient.netloc in self.soapClients:  # remove closed soap client from list
-                del self.soapClients[c.soapClient.netloc]
+            if c.netloc in self.soapClients:  # remove closed soap client from list
+                del self.soapClients[c.netloc]
 
         # now find all subscriptions that have the same address
         with self._subscriptions._lock:  # pylint: disable=protected-access
             also_unreachable = [s for s in self._subscriptions.objects if
-                                s.soapClient is not None and s.soapClient.netloc in unreachable_netlocs]
+                                s.soapClient is not None and s.netloc in unreachable_netlocs]
             for s in also_unreachable:
                 self._logger.info('deleting also subscription {}, same endpoint', s)
                 self._subscriptions.removeObject(s)
