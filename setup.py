@@ -36,7 +36,9 @@ with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 dependencies = ['lxml>=2.3',
-                "netifaces ; platform_system!='Windows'"]
+                'lz4',
+                "netifaces ; platform_system!='Windows'",
+                'html-testRunner']
 
 setup(
     name='sdc11073',
