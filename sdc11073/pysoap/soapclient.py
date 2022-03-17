@@ -82,8 +82,9 @@ class SoapClient(CompressionHandler):
         self._xml_validator = xml_validator
         self._makeGetHeaders()
         self._lock = Lock()
-
+        self._is_closed = True
         self._chunked_requests = chunked_requests
+        self.connect()
 
     @property
     def netloc(self):
@@ -105,10 +106,13 @@ class SoapClient(CompressionHandler):
         return conn
 
     def connect(self):
-        self._httpConnection = self._mkHttpConnection()
-        self._httpConnection.connect() # connect now so that we have own address and port for logging
-        my_addr = self._httpConnection.sock.getsockname()
-        self._log.info('soapClient No. {} uses connection={}:{}', self._clientNo, my_addr[0], my_addr[1])
+        with self._lock:
+            if self._httpConnection is None:
+                self._httpConnection = self._mkHttpConnection()
+                self._httpConnection.connect() # connect now so that we have own address and port for logging
+                my_addr = self._httpConnection.sock.getsockname()
+                self._log.info('soapClient No. {} uses connection={}:{}', self._clientNo, my_addr[0], my_addr[1])
+                self._is_closed = False
 
     def close(self):
         with self._lock:
@@ -116,10 +120,10 @@ class SoapClient(CompressionHandler):
                 self._log.info('closing soapClientNo {} for {}', self._clientNo, self._netloc)
                 self._httpConnection.close()
                 self._httpConnection = None
-    
+                self._is_closed = True
     
     def isClosed(self):
-        return self._httpConnection is None
+        return self._is_closed
 
     def postSoapEnvelopeTo(self, path,
                            soapEnvelopeRequest,
@@ -134,7 +138,7 @@ class SoapClient(CompressionHandler):
         @param msg: used in logs, helps to identify the context in which the method was called
         '''
         if self.isClosed():
-            self.connect()
+            raise httplib.NotConnected('call connect before posting!')
         return self.__postSoapEnvelope(soapEnvelopeRequest, responseFactory, path, msg, request_manipulator)
 
     def __postSoapEnvelope(self, soapEnvelopeRequest, responseFactory, path, msg, request_manipulator):
@@ -235,7 +239,6 @@ class SoapClient(CompressionHandler):
                                self._netloc, path, ex, traceback.format_exc())
             return success, do_reopen
 
-
         def get_response():
             try:
                 return self._httpConnection.getresponse()
@@ -304,7 +307,6 @@ class SoapClient(CompressionHandler):
             self._log.debug('{}: response:{}; content has {} Bytes ', msg, responseHeaders, len(content))
             commlog.defaultLogger.logSoapRespIn(content, 'POST')
             return content
-
 
     def _makeGetHeaders(self):
         self._getHeaders = {

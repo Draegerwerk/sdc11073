@@ -79,6 +79,12 @@ class TestDevSubscription(_DevSubscription):
         rep = self._mkNotificationReport(soapEnvelope, action)
         self.reports.append(rep)
 
+    @property
+    def isValid(self):
+        if self._is_closed:
+            return False
+        return self.remainingSeconds > 0 and not self.hasDeliveryFailure
+
 
 class SomeDevice(SdcDevice):
     """A device used for unit tests
