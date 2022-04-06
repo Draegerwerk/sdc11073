@@ -242,9 +242,6 @@ class SoapClient(CompressionHandler):
         def get_response():
             try:
                 return self._httpConnection.getresponse()
-            except httplib.BadStatusLine as ex:
-                self._log.warn("{}: invalid http response, error= {!r} ", msg, ex)
-                raise
             except OSError as ex:
                 if ex.errno in (10053, 10054):
                     self._log.warn("{}: could not receive response, OSError={!r}", msg, ex)
@@ -255,6 +252,9 @@ class SoapClient(CompressionHandler):
             except socket.error as ex:
                 self._log.warn("{}: could not receive response, socket error={!r}", msg, ex)
                 raise httplib.NotConnected()
+            except httplib.BadStatusLine as ex:
+                self._log.warn("{}: invalid http response, error= {!r} ", msg, ex)
+                raise
             except Exception as ex:
                 self._log.warn("{}: POST to netloc='{}' path='{}': could not receive response, error={!r}\n{}",
                                msg, self._netloc, path, ex, traceback.format_exc())
