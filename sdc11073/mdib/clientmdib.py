@@ -339,10 +339,12 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         else:
             # log deviations from expected mdib versionb
             if newMdibVersion < self.mdibVersion:
-                self._logger.warn('{}: ignoring too old Mdib version, have {}, got {}', log_prefix, self.mdibVersion, newMdibVersion)
+                self._logger.error('{}: received too old MdibVersion, current {}, received {}',
+                                   log_prefix, self.mdibVersion, newMdibVersion)
             elif (newMdibVersion - self.mdibVersion) > 1:
                 if self._sdcClient.all_subscribed:
-                    self._logger.warn('{}: expect mdibVersion {}, got {}', log_prefix, self.mdibVersion+1, newMdibVersion)
+                    self._logger.error('{}: received unexpect MdibVersion, expected {}, received {}',
+                                       log_prefix, self.mdibVersion + 1, newMdibVersion)
             # it is possible to receive multiple notifications with the same mdib version => compare ">="
             if newMdibVersion >= self.mdibVersion:
                 return True
