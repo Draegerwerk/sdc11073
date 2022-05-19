@@ -155,6 +155,9 @@ class ClientRtBuffer(object):
             std_deviation = 0 if len(self._age_of_data_list) < 2 else stdev(self._age_of_data_list)
             return _AgeData(mean_data, std_deviation, min_value or 0, max_value or 0)
 
+
+MDIB_VERSION_TOO_OLD = '{}: received too old MdibVersion, current {}, received {}'
+MDIB_VERSION_UNEXPECTED = '{}: received unexpect MdibVersion, expected {}, received {}'
 _BufferedNotification = namedtuple('_BufferedNotification', 'report handler')
 
 class ClientMdibContainer(mdibbase.MdibContainer):
@@ -339,12 +342,10 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         else:
             # log deviations from expected mdib versionb
             if newMdibVersion < self.mdibVersion:
-                self._logger.error('{}: received too old MdibVersion, current {}, received {}',
-                                   log_prefix, self.mdibVersion, newMdibVersion)
+                self._logger.error(MDIB_VERSION_TOO_OLD, log_prefix, self.mdibVersion, newMdibVersion)
             elif (newMdibVersion - self.mdibVersion) > 1:
                 if self._sdcClient.all_subscribed:
-                    self._logger.error('{}: received unexpect MdibVersion, expected {}, received {}',
-                                       log_prefix, self.mdibVersion + 1, newMdibVersion)
+                    self._logger.error(MDIB_VERSION_UNEXPECTED, log_prefix, self.mdibVersion + 1, newMdibVersion)
             # it is possible to receive multiple notifications with the same mdib version => compare ">="
             if newMdibVersion >= self.mdibVersion:
                 return True
