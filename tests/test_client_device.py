@@ -1,12 +1,16 @@
 import sys
 import unittest
+import random
 import logging
+
 import os
 import time
 from itertools import product
 from lxml import etree as etree_
 import datetime
 import copy
+
+from unittest import mock
 
 from sdc11073 import pmtypes
 from sdc11073 import namespaces
@@ -19,7 +23,7 @@ from sdc11073 import loghelper
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import ReceivedSoapFault
 from sdc11073.sdcclient import SdcClient
-from sdc11073.mdib import ClientMdibContainer
+from sdc11073.mdib import ClientMdibContainer, clientmdib
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.httpserver import HttpServerThread
 from sdc11073 import compression
@@ -416,6 +420,45 @@ class Test_Client_SomeDevice(unittest.TestCase):
             state_nodes = periodic_report.xpath('//msg:AlertState', namespaces=namespaces.nsmap)
             self.assertGreaterEqual(len(state_nodes), 1)
             pass
+
+    def test_mdibversion_consistency_checker(self):
+        """ verify that the client logs an error when received MdibVersion is not as expected"""
+        for sdcClient, sdcDevice in self._all_cl_dev:
+            clientMdib = ClientMdibContainer(sdcClient)
+            clientMdib.initMdib()
+
+            self.log_watcher.setPaused(True)
+            clientMdib._logger.error = mock.MagicMock()
+
+            with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
+                coll = observableproperties.SingleValueCollector(sdcClient, 'episodicMetricReport')
+
+                mdib_version = sdcDevice.mdib.mdibVersion
+                sdcDevice.mdib.mdibVersion = mdib_version + 20
+                st = mgr.getMetricState('0x34F00100')
+                if st.metricValue is None:
+                    st.mkMetricValue()
+                st.metricValue.Value = random.randint(0, 42000)
+
+            coll.result(timeout=NOTIFICATION_TIMEOUT) # wait for the next episodicMetricReport
+            arg_list_unexpected_version = (clientmdib.MDIB_VERSION_UNEXPECTED, '_onEpisodicMetricReport',
+                                           mdib_version + 1, mdib_version + 21)
+            clientMdib._logger.error.assert_any_call(*arg_list_unexpected_version)
+
+            with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
+                coll = observableproperties.SingleValueCollector(sdcClient, 'episodicMetricReport')
+
+                mdib_version = sdcDevice.mdib.mdibVersion
+                sdcDevice.mdib.mdibVersion = mdib_version - 100
+                st = mgr.getMetricState('0x34F00100')
+                if st.metricValue is None:
+                    st.mkMetricValue()
+                st.metricValue.Value = random.randint(42001, 84000)
+
+            coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for the next episodicMetricReport
+            arg_list_too_old = (clientmdib.MDIB_VERSION_TOO_OLD, '_onEpisodicMetricReport',
+                                mdib_version, mdib_version - 99)
+            clientMdib._logger.error.assert_any_call(*arg_list_too_old)
 
 
     def test_setPatientContextOperation(self):
