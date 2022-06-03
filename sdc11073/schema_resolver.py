@@ -62,6 +62,7 @@ class SchemaResolver(etree_.Resolver):
                 path = url
             if path.startswith('/') and path[2] == ':':  # invalid construct like /C:/Temp
                 path = path[1:]
+            path = parse.unquote(path)  # url decode path
 
         if not os.path.exists(path):
             self._logger.error('no schema file for url "{}": resolved to "{}", but file does not exist', url, path)
