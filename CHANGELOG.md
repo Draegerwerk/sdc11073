@@ -4,9 +4,11 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.11] - 2022-06-16
 ### Changed
 - log an error when an unexpected mdib version was received
+- allow Notification with same MdibVersion being a result of a DescriptionModificationReport
+- allow Notifications with older/same MdibVersion during initialization of a mdib
 
 ## [1.1.10] - 2022-03-17
 ### Added
