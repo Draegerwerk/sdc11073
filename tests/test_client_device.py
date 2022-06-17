@@ -429,6 +429,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
             self.log_watcher.setPaused(True)
             clientMdib._logger.error = mock.MagicMock()
+            clientMdib._logger.log = mock.MagicMock()
 
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 coll = observableproperties.SingleValueCollector(sdcClient, 'episodicMetricReport')
@@ -456,9 +457,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.metricValue.Value = random.randint(42001, 84000)
 
             coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for the next episodicMetricReport
-            arg_list_too_old = (clientmdib.MDIB_VERSION_TOO_OLD, '_onEpisodicMetricReport',
-                                mdib_version, mdib_version - 99)
-            clientMdib._logger.error.assert_any_call(*arg_list_too_old)
+            clientMdib._logger.log.assert_any_call(logging.ERROR, clientmdib.MDIB_VERSION_TOO_OLD,
+                                                   '_onEpisodicMetricReport', mdib_version, mdib_version - 99)
 
 
     def test_setPatientContextOperation(self):

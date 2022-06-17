@@ -1,3 +1,5 @@
+import logging
+import threading
 import traceback
 import time
 from threading import Lock
@@ -158,7 +160,10 @@ class ClientRtBuffer(object):
 
 MDIB_VERSION_TOO_OLD = '{}: received too old MdibVersion, current {}, received {}'
 MDIB_VERSION_UNEXPECTED = '{}: received unexpect MdibVersion, expected {}, received {}'
+MDIB_VERSION_NOT_ALLOWED = '{}: received same MdibVersion (only allowed after DescriptionModificationReports), ' \
+                           'expected {}, received {}'
 _BufferedNotification = namedtuple('_BufferedNotification', 'report handler')
+
 
 class ClientMdibContainer(mdibbase.MdibContainer):
     ''' This mdib is meant to be read-only.
@@ -170,6 +175,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                           # if True, first notifications are buffered and the responses are sent immediately.
     def __init__(self, sdcClient, maxRealtimeSamples=100):
         super(ClientMdibContainer, self).__init__(sdcClient.sdc_definitions)
+        self._synchronizedReports = threading.Event()
         self._logger = loghelper.getLoggerAdapter('sdc.client.mdib', sdcClient.log_prefix)
         self._sdcClient = sdcClient
         self._isInitialized = False
@@ -186,6 +192,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self._bufferedNotificationsLock = Lock()
         self.waveform_time_warner = DeterminationTimeWarner()
         self.metric_time_warner = DeterminationTimeWarner()
+
+        self._last_descr_modification_mdib_version = None
 
     def initMdib(self):
         if  self._isInitialized:
@@ -334,20 +342,36 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         properties.bind(self._sdcClient, episodicOperationalStateReport=self._onOperationalStateReport)
 
 
-    def _canAcceptMdibVersion(self, log_prefix, newMdibVersion):
+    def _canAcceptMdibVersion(self, log_prefix, newMdibVersion, is_description_modification=False):
         if self.MDIB_VERSION_CHECK_DISABLED:
             return True
         if newMdibVersion is None:
             self._logger.error('{}: could not check MdibVersion!', log_prefix)
         else:
-            # log deviations from expected mdib versionb
+            # log deviations from expected mdib version
+            if is_description_modification and newMdibVersion > self.mdibVersion:
+                self._logger.debug('{}: MdibVersion received via DescriptionModification will be allowed for next '
+                                   'reports, current MdibVersion {}, received MdibVersion {}',
+                                   log_prefix, self.mdibVersion, newMdibVersion)
+                self._last_descr_modification_mdib_version = newMdibVersion
+
             if newMdibVersion < self.mdibVersion:
-                self._logger.error(MDIB_VERSION_TOO_OLD, log_prefix, self.mdibVersion, newMdibVersion)
+                log_level = logging.ERROR if self._synchronizedReports.is_set() else logging.WARNING
+                self._logger.log(log_level, MDIB_VERSION_TOO_OLD, log_prefix, self.mdibVersion, newMdibVersion)
             elif (newMdibVersion - self.mdibVersion) > 1:
                 if self._sdcClient.all_subscribed:
                     self._logger.error(MDIB_VERSION_UNEXPECTED, log_prefix, self.mdibVersion + 1, newMdibVersion)
-            # it is possible to receive multiple notifications with the same mdib version => compare ">="
+            # only after DescriptionModificationReports it is allowed to receive other reports
+            # with the same mdib version
+            elif newMdibVersion == self.mdibVersion \
+                    and newMdibVersion != self._last_descr_modification_mdib_version \
+                    and self._synchronizedReports.is_set():
+                self._logger.error(MDIB_VERSION_NOT_ALLOWED, log_prefix, self.mdibVersion + 1, newMdibVersion)
+
             if newMdibVersion >= self.mdibVersion:
+                self._synchronizedReports.set()
+                if not is_description_modification and newMdibVersion > self.mdibVersion:
+                    self._last_descr_modification_mdib_version = None
                 return True
         return False
 
@@ -370,14 +394,14 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 raise RuntimeError('_waitUntilInitialized failed')
             time.sleep(1)
         delay = time.monotonic() - started
-        if  showsuccesslog:
+        if showsuccesslog:
             self._logger.info('{}: _waitUntilInitialized took {} seconds', log_prefix, delay)
 
 
     def _onEpisodicMetricReport(self, reportNode, is_buffered_report=False):
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicMetricReport):
             return
-        newMdibVersion = int(reportNode.get('MdibVersion', '1'))
+        newMdibVersion = int(reportNode.get('MdibVersion', '0'))
         if not self._canAcceptMdibVersion('_onEpisodicMetricReport', newMdibVersion):
             return
 
@@ -440,7 +464,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     def _onEpisodicAlertReport(self, reportNode, is_buffered_report=False):
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicAlertReport):
             return
-        newMdibVersion = int(reportNode.get('MdibVersion', '1'))
+        newMdibVersion = int(reportNode.get('MdibVersion', '0'))
         if not self._canAcceptMdibVersion('_onEpisodicAlertReport', newMdibVersion):
             return
 
@@ -478,7 +502,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     def _onOperationalStateReport(self, reportNode, is_buffered_report=False):
         if not is_buffered_report and self._bufferNotification(reportNode, self._onOperationalStateReport):
             return
-        newMdibVersion = int(reportNode.get('MdibVersion', '1'))
+        newMdibVersion = int(reportNode.get('MdibVersion', '0'))
         if not self._canAcceptMdibVersion('_onOperationalStateReport', newMdibVersion):
             return
         operationByHandle = {}
@@ -533,7 +557,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         # reportNode contains a list of msg:State nodes
         if not is_buffered_report and self._bufferNotification(reportNode, self._onWaveformReport):
             return
-        newMdibVersion = int(reportNode.get('MdibVersion', '1'))
+        newMdibVersion = int(reportNode.get('MdibVersion', '0'))
         if not self._canAcceptMdibVersion('_onWaveformReport', newMdibVersion):
             return
         waveformByHandle = {}
@@ -615,7 +639,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     def _onEpisodicContextReport(self, reportNode, is_buffered_report=False):
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicContextReport):
             return
-        newMdibVersion = int(reportNode.get('MdibVersion', '1'))
+        newMdibVersion = int(reportNode.get('MdibVersion', '0'))
         if not self._canAcceptMdibVersion('_onEpisodicContextReport', newMdibVersion):
             return
         contextByHandle = {}
@@ -701,9 +725,12 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         '''
         if not is_buffered_report and self._bufferNotification(reportNode, self._onDescriptionModificationReport):
             return
-        newMdibVersion = int(reportNode.get('MdibVersion', '1'))
-        if not self._canAcceptMdibVersion('_onDescriptionModificationReport', newMdibVersion):
+        newMdibVersion = int(reportNode.get('MdibVersion', '0'))
+        if not self._canAcceptMdibVersion('_onDescriptionModificationReport',
+                                          newMdibVersion,
+                                          is_description_modification=True):
             return
+
         descriptions_lookup_list = self._msgReader.readDescriptionModificationReport(reportNode)
         with self.mdibLock:
             self.mdibVersion = newMdibVersion
