@@ -161,7 +161,7 @@ class ClientRtBuffer(object):
 MDIB_VERSION_TOO_OLD = '{}: received too old MdibVersion, current {}, received {}'
 MDIB_VERSION_UNEXPECTED = '{}: received unexpect MdibVersion, expected {}, received {}'
 MDIB_VERSION_NOT_ALLOWED = '{}: received same MdibVersion (only allowed after DescriptionModificationReports), ' \
-                           'expected MdibVersion {}, received MdibVersion {}'
+                           'expected {}, received {}'
 _BufferedNotification = namedtuple('_BufferedNotification', 'report handler')
 
 
@@ -351,7 +351,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             # log deviations from expected mdib version
             if is_description_modification and newMdibVersion > self.mdibVersion:
                 self._logger.debug('{}: MdibVersion received via DescriptionModification will be allowed for next '
-                                   'reports, actual MdibVersion {}, received MdibVersion {}',
+                                   'reports, current MdibVersion {}, received MdibVersion {}',
                                    log_prefix, self.mdibVersion, newMdibVersion)
                 self._last_descr_modification_mdib_version = newMdibVersion
 
