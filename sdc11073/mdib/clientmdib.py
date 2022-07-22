@@ -435,15 +435,20 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         self.states.addObject(sc)
 
                     if sc.metricValue is not None:
-                        observationTime = sc.metricValue.DeterminationTime
-                        if observationTime is None:
-                            self._logger.warn(
-                                '_onEpisodicMetricReport: metric {} version {} has no DeterminationTime',
-                                desc_h, sc.StateVersion)
-                        else:
-                            age = now - observationTime
-                            minAge = min(minAge, age)
-                            maxAge = max(maxAge, age)
+                        # BICEPS: While Validity is "Ong" or "NA", the enclosing METRIC value SHALL not possess a determined value
+                        # Also ignore determination time if measurement is invalid.
+                        if sc.metricValue.Validity not in [pmtypes.MeasurementValidity.INVALID,
+                                                           pmtypes.MeasurementValidity.NA,
+                                                           pmtypes.MeasurementValidity.MEASUREMENT_ONGOING]:
+                            observationTime = sc.metricValue.DeterminationTime
+                            if observationTime is None:
+                                self._logger.warn(
+                                    '_onEpisodicMetricReport: metric {} version {} has no DeterminationTime',
+                                    desc_h, sc.StateVersion)
+                            else:
+                                age = now - observationTime
+                                minAge = min(minAge, age)
+                                maxAge = max(maxAge, age)
             shall_log = self.metric_time_warner.getOutOfDeterminationTimeLogState(minAge, maxAge, self.DETERMINATIONTIME_WARN_LIMIT)
             if shall_log == A_OUT_OF_RANGE:
                 self._logger.warn(
