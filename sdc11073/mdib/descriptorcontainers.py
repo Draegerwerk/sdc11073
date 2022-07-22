@@ -114,8 +114,8 @@ class AbstractDescriptorContainer(ContainerBase):
         if newHandle != self.handle:
             raise ValueError('Descriptor Update Error! Old handle = {}, new handle = {}'.format(self.handle, newHandle))
 
-            # rename new node to name of old node
-        node.tag = self.nodeName
+        # rename new node to name of old node
+        node.tag = str(self.nodeName)
         self._updateFromNode(node)
         self.node = node
 
