@@ -31,21 +31,6 @@ class _TransactionBase:
             return new
         return self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
 
-    # def _get_or_mk_state_container(self, descriptor_handle, adjust_state_version=True):
-    #     """ returns oldContainer, newContainer"""
-    #     descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
-    #     old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.handle,
-    #                                                                                       allow_none=True)
-    #     if old_state_container is None:
-    #         # create a new state object
-    #         new_state_container = self._device_mdib_container.mk_state_container_from_descriptor(descriptor_container)
-    #         if adjust_state_version:
-    #             self._device_mdib_container.states.set_version(new_state_container)
-    #     else:
-    #         new_state_container = old_state_container.mk_copy()
-    #         new_state_container.increment_state_version()
-    #     return old_state_container, new_state_container
-
     def _get_state_container(self, descriptor_handle):
         """ returns oldContainer, newContainer"""
         descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
