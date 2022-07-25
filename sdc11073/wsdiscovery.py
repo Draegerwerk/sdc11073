@@ -757,7 +757,7 @@ class _NetworkingThread:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((ip_address, MULTICAST_PORT))
         sock.setblocking(False)
-        self._logger.info('UDP socket listens on {}:{}', ip_address, MULTICAST_PORT)
+        self._logger.info('UDP socket listens on %s:%d', ip_address, MULTICAST_PORT)
         return sock
 
     def add_source_addr(self, addr):

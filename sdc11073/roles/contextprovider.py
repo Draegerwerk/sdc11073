@@ -56,7 +56,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                         proposed_st.descriptorHandle, [])
                     for old_state in old_state_containers:
                         if old_state.ContextAssociation != ContextAssociation.DISASSOCIATED or old_state.UnbindingMdibVersion is None:
-                            new_state = mgr.get_state(old_state.descriptorHandle, old_state.Handle)
+                            new_state = mgr.get_context_state(old_state.descriptorHandle, old_state.Handle)
                             new_state.ContextAssociation = ContextAssociation.DISASSOCIATED
                             if new_state.UnbindingMdibVersion is None:
                                 new_state.UnbindingMdibVersion = self._mdib.mdib_version
@@ -65,7 +65,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                     # this is an update to an existing patient
                     # use "regular" way to update via transaction manager
                     self._logger.info('update {}, handle={}', proposed_st.NODETYPE.localname, proposed_st.Handle)
-                    tmp = mgr.get_state(proposed_st.descriptorHandle, proposed_st.Handle)
+                    tmp = mgr.get_context_state(proposed_st.descriptorHandle, proposed_st.Handle)
                     tmp.update_from_other_container(proposed_st, skipped_properties=['ContextAssociation',
                                                                                      'BindingMdibVersion',
                                                                                      'UnbindingMdibVersion',

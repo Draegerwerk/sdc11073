@@ -2,7 +2,6 @@ from . import pysoap
 from . import namespaces
 from . import wsdiscovery
 from . import mdib
-#from . import netconn
 from . import pmtypes
 from . import location
 from . import sdcclient

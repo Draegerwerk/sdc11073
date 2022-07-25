@@ -7,7 +7,7 @@ class ReferenceParameters:
     def __init__(self, reference_parameters):
         """
 
-        :param reference_parameter: a list of etree nodes or None
+        :param reference_parameters: a list of etree nodes or None
         """
         self._reference_parameter_nodes = reference_parameters if reference_parameters is not None else []
 
@@ -22,31 +22,25 @@ class ReferenceParameters:
     def __repr__(self):
         return f'addressing.{self.__class__.__name__}({self._reference_parameter_nodes})'
 
+
 class EndpointReferenceType:
     """ Acc. to "http://www.w3.org/2005/08/addressing"
 
     """
-    __slots__ = ('address', 'reference_properties', 'reference_parameters', 'port_type', 'service_name')
+    __slots__ = ('address', 'reference_parameters')
 
-    def __init__(self, address: str, reference_properties: Optional[Any]=None,
-                 reference_parameters: Optional[ReferenceParameters]=None,
-                 port_type: Optional[Any]=None, service_name: Optional[Any]=None):
+    def __init__(self, address: str, reference_parameters: Optional[ReferenceParameters]=None):
         """
 
         :param address: wsa:AttributedURI
-        :param reference_properties: wsa:ReferencePropertiesType
         :param reference_parameters:  ReferenceParameters instance
-        :param port_type: wsa:AttributedQName
-        :param service_name: wsa:ServiceNameType
+        (MetaData element is not implemented)
         """
         self.address = address  # type="wsa:AttributedURI", which is an xs:anyURI element
-        self.reference_properties = reference_properties
         if reference_parameters is not None:
             self.reference_parameters = reference_parameters
         else:
             self.reference_parameters = ReferenceParameters(None)
-        self.port_type = port_type
-        self.service_name = service_name
 
     def __str__(self):
         return f'{self.__class__.__name__}: address={self.address}'

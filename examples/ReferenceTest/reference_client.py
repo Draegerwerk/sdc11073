@@ -1,5 +1,4 @@
 import time
-import logging
 import traceback
 import os
 import sdc11073
@@ -152,7 +151,7 @@ def run_ref_test():
                         print('set string operation {} did not finish with "Fin":{}'.format(s.handle, res))
                         results.append('### Test 9(SetString) ### failed')
                     else:
-                        print('set value operation {} ok:{}'.format(s.handle, res))
+                        print('set string operation {} ok:{}'.format(s.handle, res))
                         results.append('### Test 9(SetString) ### passed')
                 except futures.TimeoutError:
                     print('timeout error')
@@ -207,10 +206,10 @@ def run_ref_test():
                     res = fut.result(timeout=10)
                     print(res)
                     if res.invocation_state != sdc11073.pmtypes.InvocationState.FINISHED:
-                        print('set string operation {} did not finish with "Fin":{}'.format(s.handle, res))
+                        print('activate operation {} did not finish with "Fin":{}'.format(s.handle, res))
                         results.append('### Test 9(Activate) ### failed')
                     else:
-                        print('set value operation {} ok:{}'.format(s.handle, res))
+                        print('activate operation {} ok:{}'.format(s.handle, res))
                         results.append('### Test 9(Activate) ### passed')
                 except futures.TimeoutError:
                     print('timeout error')

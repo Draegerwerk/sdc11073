@@ -1,7 +1,7 @@
 import time
 from collections import OrderedDict, namedtuple
 from functools import wraps
-
+from typing import Optional
 from ..namespaces import domTag
 
 TrItem = namedtuple('TrItem', 'old new')  # a named tuple for better readability of code
@@ -31,7 +31,31 @@ class _TransactionBase:
             return new
         return self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
 
-    def _get_or_mk_state_container(self, descriptor_handle, adjust_state_version=True):
+    # def _get_or_mk_state_container(self, descriptor_handle, adjust_state_version=True):
+    #     """ returns oldContainer, newContainer"""
+    #     descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
+    #     old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.handle,
+    #                                                                                       allow_none=True)
+    #     if old_state_container is None:
+    #         # create a new state object
+    #         new_state_container = self._device_mdib_container.mk_state_container_from_descriptor(descriptor_container)
+    #         if adjust_state_version:
+    #             self._device_mdib_container.states.set_version(new_state_container)
+    #     else:
+    #         new_state_container = old_state_container.mk_copy()
+    #         new_state_container.increment_state_version()
+    #     return old_state_container, new_state_container
+
+    def _get_state_container(self, descriptor_handle):
+        """ returns oldContainer, newContainer"""
+        descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
+        old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.handle,
+                                                                                          allow_none=False)
+        new_state_container = old_state_container.mk_copy()
+        new_state_container.increment_state_version()
+        return old_state_container, new_state_container
+
+    def _mk_state_container(self, descriptor_handle, adjust_state_version=True):
         """ returns oldContainer, newContainer"""
         descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
         old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.handle,
@@ -42,8 +66,7 @@ class _TransactionBase:
             if adjust_state_version:
                 self._device_mdib_container.states.set_version(new_state_container)
         else:
-            new_state_container = old_state_container.mk_copy()
-            new_state_container.increment_state_version()
+            raise ValueError(f'state with handle={descriptor_handle} already exists')
         return old_state_container, new_state_container
 
     @property
@@ -96,8 +119,14 @@ class RtDataMdibUpdateTransaction(_TransactionBase):
 
 class MdibUpdateTransaction(_TransactionBase):
     # pylint: disable=protected-access
-    """ a helper class that collects multiple updates into one transaction.
-    Used by contextmanager DeviceMdibContainer.transaction_manager """
+    """ A mdib transaction is the central mechanism to modify mdib data on the provider side.
+    Use the transaction object to read and modify data of the mdib. On commit, modified data is written back to mdib
+    and notifications about the modifications are sent to all consumers.
+    A transaction is created by the device mdib like this:
+    with mdib.transaction_manager as mgr:  # mgr is an instance of MdibUpdateTransaction
+        state = mgr.get_state...   # call methods, modify objects
+    # at the end of the with-statement, the transaction is committed.
+    """
 
     @tr_method_wrapper
     def add_descriptor(self, descriptor_container, adjust_descriptor_version=True):
@@ -158,6 +187,15 @@ class MdibUpdateTransaction(_TransactionBase):
 
     @tr_method_wrapper
     def add_state(self, state_container, adjust_state_version=True):
+        """
+        Add a state to mdib.
+        This method should not be used directly by the application, because mdib takes care that states exists for all
+        descriptors that are not for multi states (context states).
+        If you want to add a context state, use mk_context_state instead.
+        :param state_container:
+        :param adjust_state_version:
+        :return: None
+        """
         my_multi_key = self._device_mdib_container.states
         my_updates = []
         if state_container.isRealtimeSampleArrayMetricState:
@@ -190,17 +228,26 @@ class MdibUpdateTransaction(_TransactionBase):
         my_updates[descriptor_handle] = TrItem(None, state_container)  # old, new
 
     def unget_state(self, state_container):
-        """ forget a state that was provided before by a getXXXState call"""
+        """ forget a state that was provided before by a get_state call"""
         for lookup in (self.alert_state_updates, self.component_state_updates, self.context_state_updates,
                        self.metric_state_updates, self.operational_state_updates, self.rt_sample_state_updates):
             if state_container.descriptorHandle in lookup:
                 del lookup[state_container.descriptorHandle]
 
     @tr_method_wrapper
-    def get_state(self, descriptor_handle, handle=None, adjust_state_version=True):
+    def get_state(self, descriptor_handle: str):  #, handle=None, adjust_state_version=True):
+        """
+        This method reads a state from mdib and adds it to the transaction.
+        If there is no state with the given handle in the mdib, a ValueError is thrown.
+        If this state is already part of the transaction (get_state has been called before with same arguments),
+        a ValueError is thrown.
+        When the transaction is committed, the modifications to the copy will be applied to the original version,
+        and notification messages will be sent to clients.
+
+        :param descriptor_handle: a string
+        :return: a copy of the state
+        """
         descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
-        if descriptor_container.isContextDescriptor:
-            return self._get_context_state(descriptor_handle, handle, adjust_state_version)
         if descriptor_container.isRealtimeSampleArrayMetricDescriptor:
             return self._get_real_time_sample_array_metric_state(descriptor_handle)
 
@@ -212,50 +259,76 @@ class MdibUpdateTransaction(_TransactionBase):
             updates = self.component_state_updates
         elif descriptor_container.isAlertDescriptor:
             updates = self.alert_state_updates
+        elif descriptor_container.isContextDescriptor:
+            raise RuntimeError('for context states use get_context_state method!')
         else:
             raise RuntimeError(f'unhandled case {descriptor_container}')
         if descriptor_handle in updates:
             raise ValueError(f'descriptorHandle {descriptor_handle} already in updated set!')
-        old_state, new_state = self._get_or_mk_state_container(descriptor_handle, adjust_state_version)
-        updates[descriptor_handle] = TrItem(old_state, new_state)
-        return new_state
+        mdib_state, copied_state = self._get_state_container(descriptor_handle)
+        updates[descriptor_handle] = TrItem(mdib_state, copied_state)
+        return copied_state
 
-    def _get_context_state(self, descriptor_handle, context_state_handle=None, adjust_state_version=True):
-        """ Create or Update a ContextState.
-        If contextStateHandle is None, a new Context State will be created and returned.
-        Otherwise an the existing contextState with that handle will be returned or a new one created.
+    def get_context_state(self, descriptor_handle, context_state_handle):
+        """ Reads a ContextState from mdib with given descriptor_handle and state handle.
+        If there is no state with the given handle in the mdib, a ValueError is thrown.
+        If this state is already part of the transaction (get_context_state has been called before with same arguments),
+        a ValueError is thrown.
+
         When the transaction is committed, the modifications to the copy will be applied to the original version,
         and notification messages will be sent to clients.
         :param descriptor_handle: the descriptorHandle of the object that shall be read
-        :param context_state_handle: If None, a new Context State will be created and returned.
-            Otherwise an existing contextState with that handle will be returned or a new one created.
-        :param adjust_state_version: if True, and a state with this handle does not exist, but was already present in this mdib before,
-          the StateVersion of descriptor_container is set to last known version for this handle +1
+        :param context_state_handle: the handle of the object that shall be read.
         @return: a copy of the state.
         """
+        if context_state_handle is None:
+            raise ValueError('no handle for context state specified')
         lookup_key = (descriptor_handle, context_state_handle)
         if lookup_key in self.context_state_updates:
             raise ValueError(f'descriptorHandle {lookup_key} already in updated set!')
+
+        mdib_state = self._device_mdib_container.context_states.handle.get_one(context_state_handle,
+                                                                                        allow_none=False)
+        copied_state = mdib_state.mk_copy()
+        copied_state.increment_state_version()
+        self.context_state_updates[lookup_key] = TrItem(mdib_state, copied_state)
+        return copied_state
+
+    def mk_context_state(self, descriptor_handle:str,
+                         context_state_handle:Optional[str]=None,
+                         adjust_state_version:Optional[bool]=True):
+        """ Create a new ContextState.
+        If context_state_handle is None, a unique handle will be created.
+        if context_state_handle is not None and it already exists in mdib, a ValueError will be thrown.
+        When the transaction is committed, the new state will be added to the mdib,
+        and notification messages will be sent to clients.
+        :param descriptor_handle: the descriptorHandle of the object that shall be read
+        :param context_state_handle: the handle for the new state or None.
+        :param adjust_state_version: if True, and a state with this handle does not exist, but was already present
+           in this mdib before, the StateVersion of descriptor_container is set to last known version for this handle +1
+        @return: the new state.
+        """
         descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
         if context_state_handle is None:
             old_state_container = None
-            new_state_container = self._device_mdib_container.mk_state_container_from_descriptor(descriptor_container)
-            new_state_container.BindingMdibVersion = self._device_mdib_container.mdib_version  # auto-set this Attribute
-            new_state_container.BindingStartTime = time.time()  # auto-set this Attribute
         else:
+            lookup_key = (descriptor_handle, context_state_handle)
+            if lookup_key in self.context_state_updates:
+                raise ValueError(f'descriptorHandle {lookup_key} already in updated set!')
             old_state_container = self._device_mdib_container.context_states.handle.get_one(context_state_handle,
                                                                                             allow_none=True)
             if old_state_container is not None:
-                new_state_container = old_state_container.mk_copy()
-                new_state_container.increment_state_version()
-            else:
-                new_state_container = self._device_mdib_container.mk_state_container_from_descriptor(
-                    descriptor_container)
-                new_state_container.BindingMdibVersion = self._device_mdib_container.mdib_version  # auto-set this Attribute
-                new_state_container.BindingStartTime = time.time()  # auto-set this Attribute
-                new_state_container.Handle = context_state_handle
-                if adjust_state_version:
-                    self._device_mdib_container.context_states.set_version(new_state_container)
+                raise ValueError(f'ContextState with handle={context_state_handle} already exists')
+
+        new_state_container = self._device_mdib_container.mk_state_container_from_descriptor(descriptor_container)
+        new_state_container.BindingMdibVersion = self._device_mdib_container.mdib_version  # auto-set this attribute
+        new_state_container.BindingStartTime = time.time()  # auto-set this attribute
+        if context_state_handle is not None:
+            new_state_container.Handle = context_state_handle
+            if adjust_state_version:
+                self._device_mdib_container.context_states.set_version(new_state_container)
+
+        lookup_key = (descriptor_handle, new_state_container.Handle)
         self.context_state_updates[lookup_key] = TrItem(old_state_container, new_state_container)
         return new_state_container
 
@@ -282,7 +355,7 @@ class MdibUpdateTransaction(_TransactionBase):
 
 
 class TransactionProcessor:
-    """The transaction processor  """
+    """The transaction processor, used internally by device mdib  """
     def __init__(self, mdib, transaction, set_determination_time, logger):
         self._mdib = mdib
         self._mgr = transaction

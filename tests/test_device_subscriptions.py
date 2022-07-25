@@ -145,7 +145,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
                 namespaces.domTag('PatientContextDescriptor'))
             descriptorHandle = patientContextDescriptor.handle
             with sdcDevice.mdib.transaction_manager() as mgr:
-                st = mgr.get_state(descriptorHandle)
+                st = mgr.mk_context_state(descriptorHandle)
                 st.CoreData.PatientType = pmtypes.PatientType.ADULT
             self.assertEqual(len(testSubscr.reports), 1)
             response = testSubscr.reports[0]

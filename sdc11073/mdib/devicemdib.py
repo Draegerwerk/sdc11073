@@ -164,13 +164,13 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             associated_locations = [l for l in all_location_contexts if
                                     l.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
             for location in associated_locations:
-                location_context = mgr.get_state(location.descriptorHandle, location.Handle)
+                location_context = mgr.get_context_state(location.descriptorHandle, location.Handle)
                 location_context.ContextAssociation = pmtypes.ContextAssociation.DISASSOCIATED
                 # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
                 location_context.UnbindingMdibVersion = self.mdib_version
             descriptor_container = self.descriptions.NODETYPE.get_one(domTag('LocationContextDescriptor'))
 
-            self._current_location = mgr.get_state(descriptor_container.handle)  # this creates a new location state
+            self._current_location = mgr.mk_context_state(descriptor_container.handle)  # this creates a new location state
             self._current_location.update_from_sdc_location(sdc_location)
             self._current_location.set_node_member(self.nsmapper)
             if validators is not None:

@@ -283,7 +283,7 @@ class Test_Reference(unittest.TestCase):
             passed.append('### Test 7 ### passed')
 
         found_error = False
-        if not (alert_updates):
+        if not alert_updates:
             print('found no alert state updates at all, test step 8 failed')
             found_error = True
         for k, v in alert_updates.items():
