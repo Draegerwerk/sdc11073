@@ -6,7 +6,7 @@ from sdc11073 import pmtypes
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.mdib import descriptorcontainers as dc
 from sdc11073.sdcdevice import waveforms
-from sdc11073.dpws import ThisModel, ThisDevice
+from sdc11073.dpws import ThisModelType, ThisDeviceType
 from tests import mockstuff
 
 CLIENT_VALIDATE = True
@@ -93,15 +93,15 @@ class TestDeviceWaveform(unittest.TestCase):
         # self._device = sdc11073.pysoap.soapenvelope.DPWSThisDevice(friendly_name='Big Bang Practice',
         #                                                            firmware_version='0.99',
         #                                                            serial_number='87kabuuum889')
-        self._model = ThisModel(manufacturer='Chinakracher GmbH',
-                                manufacturer_url='www.chinakracher.com',
-                                model_name='BummHuba',
-                                model_number='1.0',
-                                model_url='www.chinakracher.com/bummhuba/model',
-                                presentation_url='www.chinakracher.com/bummhuba/presentation')
-        self._device = ThisDevice(friendly_name='Big Bang Practice',
-                                  firmware_version='0.99',
-                                  serial_number='87kabuuum889')
+        self._model = ThisModelType(manufacturer='Chinakracher GmbH',
+                                    manufacturer_url='www.chinakracher.com',
+                                    model_name='BummHuba',
+                                    model_number='1.0',
+                                    model_url='www.chinakracher.com/bummhuba/model',
+                                    presentation_url='www.chinakracher.com/bummhuba/presentation')
+        self._device = ThisDeviceType(friendly_name='Big Bang Practice',
+                                      firmware_version='0.99',
+                                      serial_number='87kabuuum889')
 
         tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.02)
         st = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.02)

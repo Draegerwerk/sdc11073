@@ -1116,8 +1116,9 @@ class MessageFactoryDevice(MessageFactory):
 
         host_node = etree_.SubElement(parent_node, dpwsTag('Host'))
         ep_ref_node = etree_.SubElement(host_node, wsaTag('EndpointReference'))
-        for ep_ref in host_service_type.endpoint_references:
-            cls._mk_endpoint_reference_sub_node(ep_ref, ep_ref_node)
+        # for ep_ref in host_service_type.endpoint_references:
+        #     cls._mk_endpoint_reference_sub_node(ep_ref, ep_ref_node)
+        cls._mk_endpoint_reference_sub_node(host_service_type.endpoint_reference, ep_ref_node)
         if types_texts:
             types_node = etree_.SubElement(host_node, dpwsTag('Types'),
                                            nsmap=_ns)  # add also namespace prefixes that were locally generated

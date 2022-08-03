@@ -218,7 +218,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             subscriptions = list(sdcDevice.subscriptions_manager._subscriptions.objects)  # make a copy of this list
             for s in subscriptions:
                 self.assertFalse(s.is_closed())
-            sdcClient.stop_all(unsubscribe=False, close_all_connections=True)
+            sdcClient.stop_all(unsubscribe=False)
             time.sleep(SoapClient.SOCKET_TIMEOUT + 2)  # just a little bit longer than socket timeout 5 seconds
             self.assertLess(len(sdcDevice.subscriptions_manager._subscriptions.objects),
                             8)  # at least waveform subscription must have ended

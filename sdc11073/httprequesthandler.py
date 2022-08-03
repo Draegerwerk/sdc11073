@@ -1,20 +1,22 @@
 import socket
 import threading
 import traceback
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from http.server import HTTPServer
 from io import BytesIO
 
 from .compression import CompressionHandler
 
+
 class HTTPRequestHandlingError(Exception):
-    ''' This class is used to communicate errors from http request handlers back to http server.'''
+    """ This class is used to communicate errors from http request handlers back to http server."""
 
     def __init__(self, status, reason, soap_fault):
-        '''
+        """
         :param status: integer, e.g. 404
         param reason: the provided human readable text
-        '''
+        """
         super().__init__()
         self.status = status
         self.reason = reason
@@ -40,6 +42,7 @@ class InvalidPathError(HTTPRequestHandlingError):
     def __init__(self, request, path, fault_xml):
         super().__init__(400, 'Bad Request', fault_xml)
 
+
 class DechunkError(Exception):
     """Raised when could not de-chunk stream.
     """
@@ -50,12 +53,12 @@ class DecompressError(Exception):
     """
 
 
-def mkchunks(body, chunk_size=512):
+def mk_chunks(body, chunk_size=512):
     """
     convert plain body bytes to chunked bytes
     :param body: bytes
     :param chunk_size: size of chunks
-    :return: body converted to chunks ( but still as single bytes array)
+    :return: body converted to chunks (but still as single bytes array)
     """
     data = BytesIO()
     tail = body
@@ -72,12 +75,12 @@ CR_LF = b'\r\n'
 
 
 class HTTPReader:
-    ''' Base class that implements decoding of incoming http requests.
+    """ Base class that implements decoding of incoming http requests.
     Supported features:
     - read data by content-length
     - handle chunk-encoding
     - handle compression
-    '''
+    """
 
     @classmethod
     def _read_dechunk(cls, stream):
@@ -138,11 +141,11 @@ class HTTPReader:
 
     @classmethod
     def read_request_body(cls, http_message, supported_encodings=None):
-        ''' checks header for content-length, chunk-encoding and compression entries.
+        """ checks header for content-length, chunk-encoding and compression entries.
         Handles incoming bytes correspondingly.
         @http_message: a http request or response read from network
         :return: bytes
-        '''
+        """
         http_body = None
         transfer_encoding = http_message.headers.get('transfer-encoding')
         if transfer_encoding is not None and transfer_encoding.lower() == 'chunked':
@@ -170,11 +173,12 @@ class HTTPReader:
 
     @classmethod
     def read_response_body(cls, http_response, supported_encodings=None):
-        ''' checks header for content-length, chunk-encoding and compression entries.
+        """ checks header for content-length, chunk-encoding and compression entries.
         Handles incoming bytes correspondingly.
-        @http_message: a http request or response read from network
+        :http_response: a http response read from network
+        :supported_encodings: if given, only these encodings may be used.
         :return: bytes
-        '''
+        """
         http_body = None
         cl_string = http_response.getheader('content-length')
         if cl_string:
@@ -210,24 +214,24 @@ class HTTPReader:
 
 
 class HTTPRequestHandler(BaseHTTPRequestHandler):
-    ''' Base class that implements decoding of incoming http requests.
+    """ Base class that implements decoding of incoming http requests.
     Supported features:
     - read data by content-length
     - handle chunk-encoding
     - handle compression
-    '''
+    """
     protocol_version = "HTTP/1.1"  # this enables keep-alive
 
     def _read_request(self):
-        ''' checks header for content-length, chunk-encoding and compression entries.
+        """ checks header for content-length, chunk-encoding and compression entries.
         Handles incoming bytes correspondingly.
         :return: http body as bytes
-        '''
+        """
         return HTTPReader.read_request_body(self)
 
-    def _compress_if_required(self, response_bytes):
-        '''Compress response if header of request indicates that other side
-        accepts one of our supported compression encodings'''
+    def _compress_if_supported(self, response_bytes):
+        """Compress response if header of request indicates that other side
+        accepts one of our supported compression encodings"""
         accepted_enc = CompressionHandler.parse_header(self.headers.get('accept-encoding'))
         for enc in accepted_enc:
             if enc in self.server.supported_encodings:
@@ -240,12 +244,19 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
         pass  # suppress printing of every request to stderr
 
 
+@dataclass(frozen=True)
+class _ThreadInfo:
+    thread: threading.Thread
+    request: socket.socket
+    client_address: tuple
+
+
 class ThreadingHTTPServer(HTTPServer):
     """ Each request is handled in a thread.
     """
 
     def __init__(self, logger, server_address, RequestHandlerClass,
-                 msg_reader, msg_factory):
+                 msg_reader, msg_factory, chunked_responses, supported_encodings):
         super().__init__(server_address, RequestHandlerClass)
         self.daemon_threads = True
         self.threads = []
@@ -253,10 +264,11 @@ class ThreadingHTTPServer(HTTPServer):
         self.logger = logger
         self.msg_reader = msg_reader
         self.msg_factory = msg_factory
+        self.chunked_response = chunked_responses
+        self.supported_encodings = supported_encodings
 
     def process_request_thread(self, request, client_address):
         """Same as in BaseServer but as a thread.
-
         In addition, exception handling is done here.
 
         """
@@ -268,6 +280,10 @@ class ThreadingHTTPServer(HTTPServer):
             self.handle_error(request, client_address)
         finally:
             self.shutdown_request(request)
+            # this thread will close after return from this method, it can already be removed from self.threads
+            for thread_info in self.threads:
+                if thread_info.request == request:
+                    self.threads.remove(thread_info)
 
     def process_request(self, request, client_address):
         """Start a new thread to process the request."""
@@ -275,7 +291,7 @@ class ThreadingHTTPServer(HTTPServer):
                                   args=(request, client_address),
                                   name=f'SubscrRecv{client_address}')
         thread.daemon = True
-        self.threads.append((thread, request, client_address))
+        self.threads.append(_ThreadInfo(thread, request, client_address))
         thread.start()
 
     def server_close(self):
@@ -283,18 +299,18 @@ class ThreadingHTTPServer(HTTPServer):
         if self.dispatcher is not None:
             self.dispatcher.methods = {}
             self.dispatcher = None  # this leads to a '503' reaction in SOAPNotificationsHandler
-        for thr in self.threads:
-            thread, request, client_addr = thr
-            if thread.is_alive():
+        for thread_info in self.threads:
+            if thread_info.thread.is_alive():
                 try:
-                    request.shutdown(socket.SHUT_RDWR)
-                    request.close()
-                    self.logger.info('closed socket for notifications from {}', client_addr)
+                    thread_info.request.shutdown(socket.SHUT_RDWR)
+                    thread_info.request.close()
+                    self.logger.info('closed socket for notifications from {}', thread_info.client_address)
                 except OSError:
                     # the connection is already closed
                     continue
                 except Exception as ex:
-                    self.logger.warn('error closing socket for notifications from {}: {}', client_addr, ex)
+                    self.logger.warn('error closing socket for notifications from {}: {}', thread_info.client_address,
+                                     ex)
 
 
 class HttpServerThreadBase(threading.Thread):
@@ -341,10 +357,11 @@ class HttpServerThreadBase(threading.Thread):
             self.httpd = ThreadingHTTPServer(self.logger,
                                              (self._my_ipaddress, myport),
                                              self._request_handler_cls,
-                                             self.msg_reader, self.msg_factory)
-            self.httpd.chunked_response = self.chunked_responses  # pylint: disable=attribute-defined-outside-init
+                                             self.msg_reader, self.msg_factory,
+                                             self.chunked_responses,
+                                             self.supported_encodings)
             # add use compression flag to the server
-            setattr(self.httpd, 'supported_encodings', self.supported_encodings)
+            #setattr(self.httpd, 'supported_encodings', self.supported_encodings)
 
             self.my_port = self.httpd.server_port
             self.logger.info('starting http server on {}:{}', self._my_ipaddress, self.my_port)
@@ -355,7 +372,6 @@ class HttpServerThreadBase(threading.Thread):
                 self.base_url = f'http://{self._my_ipaddress}:{self.my_port}/'
 
             self.httpd.logger = self.logger  # pylint: disable=attribute-defined-outside-init
-            # self.httpd.thread_obj = self  # pylint: disable=attribute-defined-outside-init
             if self._ssl_context is not None:
                 self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket)
             self.my_port = self.httpd.server_port
@@ -372,12 +388,12 @@ class HttpServerThreadBase(threading.Thread):
             self.logger.info('http server stopped.')
 
     def set_compression_flag(self, use_compression):
-        '''Sets use compression attribute on the http server to be used in handler
+        """Sets use compression attribute on the http server to be used in handler
         :param use_compression: bool flag
-        '''
+        """
         self.httpd.use_compression = use_compression  # pylint: disable=attribute-defined-outside-init
 
-    def stop(self, close_all_connections=True):
+    def stop(self):
         """
         :param close_all_connections: for testing purpose one might want to keep the connection handler threads alive.
                 If param is False then they are kept alive.
@@ -385,14 +401,12 @@ class HttpServerThreadBase(threading.Thread):
         self._stop_requested = True
         self.httpd.shutdown()
         self.httpd.server_close()
-        if close_all_connections:
-            for thr in self.httpd.threads:
-                thread, _, client_addr = thr
-                if thread.is_alive():
-                    thread.join(1)
-                if thread.is_alive():
-                    self.logger.warn('could not end client thread for notifications from {}', client_addr)
-            del self.httpd.threads[:]
+        for thread_info in self.httpd.threads:
+            if thread_info.thread.is_alive():
+                thread_info.thread.join(1)
+            if thread_info.thread.is_alive():
+                self.logger.warn('could not end client thread for notifications from {}', thread_info.client_address)
+        del self.httpd.threads[:]
 
 
 class RequestData:

@@ -37,10 +37,10 @@ class PropertyBasedPMType:
         for dummy, prop in self.sorted_container_properties():
             prop.update_from_node(self, node)
 
-    def update_from_other(self, other):
-        """copies the python values, no xml involved"""
-        for dummy, prop in self.sorted_container_properties():
-            prop.update_from_other(self, other)
+    # def update_from_other(self, other):
+    #     """copies the python values, no xml involved"""
+    #     for dummy, prop in self.sorted_container_properties():
+    #         prop.update_from_other(self, other)
 
     def sorted_container_properties(self):
         """

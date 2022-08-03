@@ -5,7 +5,7 @@ from decimal import Decimal
 from sdc11073 import pmtypes
 from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SDC_v1_Definitions
-from sdc11073.dpws import ThisDevice, ThisModel
+from sdc11073.dpws import ThisDeviceType, ThisModelType
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.mdib.clientmdib import ClientMdibContainer
@@ -30,16 +30,16 @@ my_mdib_path = os.path.join(here, '70041_MDIB_Final.xml')
 def createGenericDevice(wsdiscovery_instance, location, mdibPath, specific_components=None):
     my_mdib = DeviceMdibContainer.from_mdib_file(mdibPath)
     my_uuid = uuid.uuid4()
-    this_model = ThisModel(manufacturer='Draeger',
-                           manufacturer_url='www.draeger.com',
-                           model_name='TestDevice',
-                           model_number='1.0',
-                           model_url='www.draeger.com/model',
-                           presentation_url='www.draeger.com/model/presentation')
+    this_model = ThisModelType(manufacturer='Draeger',
+                               manufacturer_url='www.draeger.com',
+                               model_name='TestDevice',
+                               model_number='1.0',
+                               model_url='www.draeger.com/model',
+                               presentation_url='www.draeger.com/model/presentation')
 
-    this_device = ThisDevice(friendly_name='TestDevice',
-                             firmware_version='Version1',
-                             serial_number='12345')
+    this_device = ThisDeviceType(friendly_name='TestDevice',
+                                 firmware_version='Version1',
+                                 serial_number='12345')
     sdcDevice = SdcDevice(wsdiscovery_instance,
                           this_model,
                           this_device,

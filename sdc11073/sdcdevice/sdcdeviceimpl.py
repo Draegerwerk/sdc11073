@@ -92,8 +92,7 @@ class SdcDevice:
         self._host_dispatcher.register_post_handler('Probe', self._on_probe_request)
 
         self.dpws_host = HostServiceType(
-            # endpoint_references_list=[pysoap.soapenvelope.WsaEndpointReferenceType(self.epr)],
-            endpoint_references_list=[EndpointReferenceType(self.epr)],
+            endpoint_reference=EndpointReferenceType(self.epr),
             types_list=self._mdib.sdc_definitions.MedicalDeviceTypesFilter)
 
         self._hosted_service_dispatcher = httpserver.HostedServiceDispatcher(

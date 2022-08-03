@@ -9,7 +9,7 @@ from sdc11073 import pmtypes
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.sdcdevice import waveforms
 from tests import mockstuff
-from sdc11073.dpws import ThisDevice, ThisModel
+from sdc11073.dpws import ThisDeviceType, ThisModelType
 
 mdibFolder = os.path.dirname(__file__)
 
@@ -51,15 +51,15 @@ class TestDeviceSubscriptions(unittest.TestCase):
         here = os.path.dirname(__file__)
         self.mdib = sdc11073.mdib.DeviceMdibContainer.from_mdib_file(os.path.join(mdibFolder, '70041_MDIB_Final.xml'))
 
-        self._model = ThisModel(manufacturer='Chinakracher GmbH',
-                                manufacturer_url='www.chinakracher.com',
-                                model_name='BummHuba',
-                                model_number='1.0',
-                                model_url='www.chinakracher.com/bummhuba/model',
-                                presentation_url='www.chinakracher.com/bummhuba/presentation')
-        self._device = ThisDevice(friendly_name='Big Bang Practice',
-                                  firmware_version='0.99',
-                                  serial_number='87kabuuum889')
+        self._model = ThisModelType(manufacturer='Chinakracher GmbH',
+                                    manufacturer_url='www.chinakracher.com',
+                                    model_name='BummHuba',
+                                    model_number='1.0',
+                                    model_url='www.chinakracher.com/bummhuba/model',
+                                    presentation_url='www.chinakracher.com/bummhuba/presentation')
+        self._device = ThisDeviceType(friendly_name='Big Bang Practice',
+                                      firmware_version='0.99',
+                                      serial_number='87kabuuum889')
 
         self.wsDiscovery = sdc11073.wsdiscovery.WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsDiscovery.start()

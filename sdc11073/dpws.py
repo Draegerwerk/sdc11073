@@ -1,4 +1,9 @@
 from enum import Enum
+from typing import List, Dict, Union, Optional
+
+from lxml.etree import QName
+
+from .addressing import EndpointReferenceType
 
 
 class DeviceRelationshipTypeURI(str, Enum):
@@ -15,7 +20,7 @@ class DeviceEventingFilterDialectURI(str, Enum):
     ACTION = "http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/Action"
 
 
-class RelationShip:
+class Relationship:
     __slots__ = ('host', 'hosted')
 
     def __init__(self):
@@ -23,27 +28,46 @@ class RelationShip:
         self.hosted = {}
 
 
-class HostServiceType:
-    __slots__ = ('endpoint_references', 'types')
+class LocalizedStringTypeDict(dict):
+    """This class represents LocalizedStringType elements. It is a dictionary of lang:string entries.
+     If lang is None, the_string is the default string."""
 
-    def __init__(self, endpoint_references_list, types_list):
+    def add_localized_string(self, the_string:str, lang: Optional[str]=None ) -> None:
         """
-        :param endpoint_references_list: list of WssEndpointReference instances
+        Method for better readability of code
+        :param the_string:
+        :param lang:
+        :return: None
+        """
+        self[lang] = the_string
+
+
+class HostServiceType:
+    __slots__ = ('endpoint_reference', 'types')
+
+    def __init__(self,
+                 endpoint_reference: EndpointReferenceType,
+                 types_list: List[QName]):
+        """
+        :param endpoint_references: EndpointReferenceType
         :param types_list: a list of etree.QName instances
         """
-        self.endpoint_references = endpoint_references_list
+        self.endpoint_reference = endpoint_reference
         self.types = types_list
 
     def __str__(self):
-        return f'HostServiceType: endpointReference={self.endpoint_references}, types="{self.types}"'
+        return f'HostServiceType: endpointReference={self.endpoint_reference}, types="{self.types}"'
 
 
 class HostedServiceType:
     __slots__ = ('endpoint_references', 'types', 'service_id', 'soap_client')
 
-    def __init__(self, endpoint_references_list, types_list, service_id):
+    def __init__(self,
+                 endpoint_references_list: List[EndpointReferenceType],
+                 types_list: List[QName],
+                 service_id: str):
         self.endpoint_references = endpoint_references_list
-        self.types = types_list  # a list of QNames
+        self.types = types_list
         self.service_id = service_id
         self.soap_client = None
 
@@ -52,19 +76,30 @@ class HostedServiceType:
                f'service_id="{self.service_id}"'
 
 
-class ThisDevice:
+class ThisDeviceType:
     __slots__ = ('friendly_name', 'firmware_version', 'serial_number')
 
-    def __init__(self, friendly_name, firmware_version, serial_number):
-        if isinstance(friendly_name, dict):
-            self.friendly_name = friendly_name
+    def __init__(self, friendly_name: Union[str, LocalizedStringTypeDict],
+                 firmware_version: Optional[str] = None,
+                 serial_number: Optional[str] = None):
+        """
+        This class represents "ThisDeviceType" in dpws schema.
+        :param friendly_name: If argument is a string, it is considered to be the default name.
+                              If argument is a dictionary, it is expected to be key=language, value=name.
+                              None as key marks the default name.
+        :param firmware_version: any string
+        :param serial_number: any string
+        """
+        if isinstance(friendly_name, str):
+            self.friendly_name = LocalizedStringTypeDict({None:friendly_name})  # localized texts, default name
         else:
-            self.friendly_name = {None: friendly_name}  # localized texts
+            assert(isinstance(friendly_name, LocalizedStringTypeDict))
+            self.friendly_name = friendly_name
         self.firmware_version = firmware_version
         self.serial_number = serial_number
 
     def __str__(self):
-        return f'ThisDevice: friendly_name={self.friendly_name}, ' \
+        return f'ThisDeviceType: friendly_name={self.friendly_name}, ' \
                f'firmware_version="{self.firmware_version}", ' \
                f'serial_number="{self.serial_number}"'
 
@@ -78,25 +113,42 @@ class ThisDevice:
             return False
 
 
-class ThisModel:
+class ThisModelType:
     __slots__ = ('manufacturer', 'manufacturer_url', 'model_name', 'model_number', 'model_url', 'presentation_url')
 
-    def __init__(self, manufacturer, manufacturer_url, model_name, model_number, model_url, presentation_url):
-        if isinstance(manufacturer, dict):
+    def __init__(self,
+                 manufacturer: Union[str, LocalizedStringTypeDict],
+                 manufacturer_url: str,
+                 model_name: Union[str, LocalizedStringTypeDict],
+                 model_number: str,
+                 model_url: str,
+                 presentation_url: str):
+        """
+        This class represents "ThisModelType" in dpws schema.
+        :param manufacturer:
+        :param manufacturer_url:
+        :param model_name:
+        :param model_number:
+        :param model_url:
+        :param presentation_url:
+        """
+        if isinstance(manufacturer, str):
+            self.manufacturer = LocalizedStringTypeDict({None: manufacturer})
+        else:
+            assert(isinstance(manufacturer, LocalizedStringTypeDict))
             self.manufacturer = manufacturer
-        else:
-            self.manufacturer = {None: manufacturer}  # localized texts
         self.manufacturer_url = manufacturer_url
-        if isinstance(model_name, dict):
-            self.model_name = model_name
+        if isinstance(model_name, str):
+            self.model_name = LocalizedStringTypeDict({None: model_name})
         else:
-            self.model_name = {None: model_name}  # localized texts
+            assert(isinstance(model_name, LocalizedStringTypeDict))
+            self.model_name = model_name
         self.model_number = model_number
         self.model_url = model_url
         self.presentation_url = presentation_url
 
     def __str__(self):
-        return f'ThisModel: manufacturer={self.manufacturer}, model_name="{self.model_name}", ' \
+        return f'ThisModelType: manufacturer={self.manufacturer}, model_name="{self.model_name}", ' \
                f'model_number="{self.model_number}"'
 
     def __eq__(self, other):

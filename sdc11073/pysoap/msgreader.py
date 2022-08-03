@@ -14,7 +14,8 @@ from .. import isoduration
 from ..addressing import EndpointReferenceType, Address, ReferenceParameters
 from ..compression import CompressionHandler
 from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
-from ..dpws import ThisDevice, ThisModel, HostServiceType, HostedServiceType, RelationShip
+from ..dpws import ThisDeviceType, ThisModelType, HostServiceType, HostedServiceType, Relationship
+from ..dpws import LocalizedStringTypeDict
 from ..metadata import MetaData
 from ..schema_resolver import mk_schema_validator
 from ..schema_resolver import SchemaResolver
@@ -239,7 +240,7 @@ class MessageReader:
         if reference_parameters_node is None:
             reference_parameters = None
         else:
-            reference_parameters = reference_parameters_node[:]
+            reference_parameters = ReferenceParameters(reference_parameters_node[:])
 
         return Address(message_id=message_id,
                        addr_to=addr_to,
@@ -570,7 +571,7 @@ class MessageReaderClient(MessageReader):
                 elif dialect == DeviceMetadataDialectURI.RELATIONSHIP:  # DIALECT_RELATIONSHIP:
                     relationship_node = metadata_section_node.find('dpws:Relationship', nsmap)
                     if relationship_node.get('Type') == DeviceRelationshipTypeURI.HOST:  # HOST_TYPE:
-                        meta_data.relationship = RelationShip()
+                        meta_data.relationship = Relationship()
                         host_node = relationship_node.find('dpws:Host', nsmap)
                         meta_data.relationship.host = self._mk_host(host_node)
                         for hosted_node in relationship_node.findall('dpws:Hosted', nsmap):
@@ -591,40 +592,41 @@ class MessageReaderClient(MessageReader):
         return SoapFault(code, reason, sub_code, detail)
 
     @staticmethod
-    def _mk_this_device(root_node) -> ThisDevice:
+    def _mk_this_device(root_node) -> ThisDeviceType:
         nsmap = namespaces.nsmap
-        friendly_name = {}  # localized texts
+        friendly_name = LocalizedStringTypeDict()
         for f_name in root_node.findall('dpws:FriendlyName', nsmap):
-            friendly_name[f_name.get(_LANGUAGE_ATTR)] = f_name.text
+            friendly_name.add_localized_string(f_name.text, f_name.get(_LANGUAGE_ATTR))
         firmware_version = _get_text(root_node, 'dpws:FirmwareVersion', nsmap)
         serial_number = _get_text(root_node, 'dpws:SerialNumber', nsmap)
-        return ThisDevice(friendly_name, firmware_version, serial_number)
+        return ThisDeviceType(friendly_name, firmware_version, serial_number)
 
     @staticmethod
-    def _mk_this_model(root_node) -> ThisModel:
+    def _mk_this_model(root_node) -> ThisModelType:
         nsmap = namespaces.nsmap
-        manufacturer = {}  # localized texts
+        manufacturer = LocalizedStringTypeDict()
         for manufact_node in root_node.findall('dpws:Manufacturer', nsmap):
-            manufacturer[manufact_node.get(_LANGUAGE_ATTR)] = manufact_node.text
+            manufacturer.add_localized_string(manufact_node.text, manufact_node.get(_LANGUAGE_ATTR))
         manufacturer_url = _get_text(root_node, 'dpws:ManufacturerUrl', nsmap)
-        model_name = {}  # localized texts
+        model_name = LocalizedStringTypeDict()
         for model_name_node in root_node.findall('dpws:ModelName', nsmap):
-            model_name[model_name_node.get(_LANGUAGE_ATTR)] = model_name_node.text
+            model_name.add_localized_string(model_name_node.text, model_name_node.get(_LANGUAGE_ATTR))
         model_number = _get_text(root_node, 'dpws:ModelNumber', nsmap)
         model_url = _get_text(root_node, 'dpws:ModelUrl', nsmap)
         presentation_url = _get_text(root_node, 'dpws:PresentationUrl', nsmap)
-        return ThisModel(manufacturer, manufacturer_url, model_name, model_number, model_url, presentation_url)
+        return ThisModelType(manufacturer, manufacturer_url, model_name, model_number, model_url, presentation_url)
 
     @classmethod
     def _mk_host(cls, root_node) -> HostServiceType:
         nsmap = namespaces.nsmap
-        endpoint_references = []
-        for tmp in root_node.findall('wsa:EndpointReference', nsmap):
-            endpoint_references.append(cls._mk_endpoint_reference(tmp))
+        # endpoint_references = []
+        # for tmp in root_node.findall('wsa:EndpointReference', nsmap):
+        #     endpoint_references.append(cls._mk_endpoint_reference(tmp))
+        endpoint_reference =  root_node.find('wsa:EndpointReference', nsmap)
         types = _get_text(root_node, 'dpws:Types', nsmap)
         if types:
             types = types.split()
-        return HostServiceType(endpoint_references, types)
+        return HostServiceType(endpoint_reference, types)
 
     @classmethod
     def _mk_hosted(cls, root_node) -> HostedServiceType:

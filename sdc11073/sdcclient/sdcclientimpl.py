@@ -358,12 +358,23 @@ class SdcClient:
         properties.strongbind(self._subscription_mgr, all_subscriptions_okay=set_is_connected)
         self.is_connected = self._subscription_mgr.all_subscriptions_okay
 
-    def stop_all(self, unsubscribe=True, close_all_connections=True):
+    # def stop_all(self, unsubscribe=True, close_all_connections=True):
+    #     if self._subscription_mgr is not None:
+    #         if unsubscribe:
+    #             self._subscription_mgr.unsubscribe_all()
+    #         self._subscription_mgr.stop()
+    #     self._stop_event_sink(close_all_connections)
+    #     self._register_mdib(None)
+    #
+    #     for client in self._soap_clients.values():
+    #         client.close()
+    #     self._soap_clients = {}
+    def stop_all(self, unsubscribe=True):
         if self._subscription_mgr is not None:
             if unsubscribe:
                 self._subscription_mgr.unsubscribe_all()
             self._subscription_mgr.stop()
-        self._stop_event_sink(close_all_connections)
+        self._stop_event_sink()
         self._register_mdib(None)
 
         for client in self._soap_clients.values():
@@ -478,9 +489,12 @@ class SdcClient:
         self._notifications_dispatcher_thread.started_evt.wait(timeout=5)
         self._logger.info('serving EventSink on {}', self._notifications_dispatcher_thread.base_url)
 
-    def _stop_event_sink(self, close_all_connections):
+    # def _stop_event_sink(self, close_all_connections):
+    #     if self._notifications_dispatcher_thread is not None:
+    #         self._notifications_dispatcher_thread.stop(close_all_connections)
+    def _stop_event_sink(self):
         if self._notifications_dispatcher_thread is not None:
-            self._notifications_dispatcher_thread.stop(close_all_connections)
+            self._notifications_dispatcher_thread.stop()
 
     def _on_subscription_end(self, request_data):
         self.state_event_report = request_data.message_data.p_msg  # update observable

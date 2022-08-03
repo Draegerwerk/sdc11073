@@ -14,7 +14,7 @@ from typing import List, Optional, TYPE_CHECKING
 from .. import commlog
 from .. import observableproperties
 from ..compression import CompressionHandler
-from ..httprequesthandler import HTTPReader, mkchunks
+from ..httprequesthandler import HTTPReader, mk_chunks
 from ..namespaces import Prefixes
 
 if TYPE_CHECKING:
@@ -203,7 +203,7 @@ class SoapClient:
                     break
         if self._chunked_requests:
             headers['transfer-encoding'] = "chunked"
-            xml = mkchunks(xml)
+            xml = mk_chunks(xml)
         else:
             headers['Content-Length'] = str(len(xml))
 

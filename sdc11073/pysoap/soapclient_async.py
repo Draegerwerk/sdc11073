@@ -11,7 +11,7 @@ from .soapclient import HTTPReturnCodeError
 from .. import commlog
 from .. import observableproperties
 from ..compression import CompressionHandler
-from ..httprequesthandler import mkchunks
+from ..httprequesthandler import mk_chunks
 from ..namespaces import Prefixes
 
 if TYPE_CHECKING:
@@ -133,7 +133,7 @@ class SoapClientAsync:
                         break
             if self._chunked_requests:
                 headers['transfer-encoding'] = "chunked"
-                xml_request = mkchunks(xml_request)
+                xml_request = mk_chunks(xml_request)
             else:
                 headers['Content-Length'] = str(len(xml_request))
 

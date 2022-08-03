@@ -17,9 +17,10 @@ class TimestampConverter:
     """ XML representation: integer, representing timestamp in milliseconds
      Python representation: float in seconds
     """
-
-    @staticmethod
-    def to_py(xml_value):
+    @classmethod
+    def to_py(cls, xml_value):
+        if xml_value is None:
+            return None
         return float(xml_value) / 1000.0
 
     @staticmethod
@@ -33,6 +34,8 @@ class DecimalConverter:
 
     @classmethod
     def to_py(cls, xml_value):
+        if xml_value is None:
+            return None
         if cls.USE_DECIMAL_TYPE:
             return Decimal(xml_value)
         if '.' in xml_value:
@@ -50,19 +53,17 @@ class DecimalConverter:
             else:
                 xml_value = f'{round(py_value, 3):.3f}'
         elif isinstance(py_value, Decimal):
-            # assume Decimal is exact, no rounding errors
-            # Decimal has no method to force string representation without exponential notation.
-            # => convert to float and use :f string formatting (6 digits after decimal point, which should be good enough)
-            xml_value = str(py_value)
+            xml_value = str(py_value) # converting to str never returns exponential representation
             if '.' in xml_value:
+                # Limit number of digits, because standard says:
+                # All ·minimally conforming· processors ·must· support decimal numbers with a minimum of
+                # 18 decimal digits (i.e., with a ·totalDigits· of 18).
                 head, tail = xml_value.split('.')
                 tail = tail[:18-len(head)]
                 if tail:
                     xml_value = f'{head}.{tail}'
                 else:
                     xml_value = head
-                # All ·minimally conforming· processors ·must· support decimal numbers with a minimum of
-                # 18 decimal digits (i.e., with a ·totalDigits· of 18).
         else:
             xml_value = str(py_value)
         # remove trailing zeros after decimal point
@@ -74,6 +75,8 @@ class DecimalConverter:
 class IntegerConverter:
     @staticmethod
     def to_py(xml_value):
+        if xml_value is None:
+            return None
         return int(xml_value)
 
     @staticmethod

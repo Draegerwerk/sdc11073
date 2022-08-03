@@ -8,7 +8,7 @@ from lxml import etree as etree_
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
 from sdc11073.addressing import Address
-from sdc11073.dpws import ThisModel, ThisDevice
+from sdc11073.dpws import ThisModelType, ThisDeviceType
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.pysoap.msgreader import SubscribeRequest, ReferenceParameters
 from sdc11073.sdcdevice import SdcDevice
@@ -104,15 +104,15 @@ class SomeDevice(SdcDevice):
                  validate=True, ssl_context=None, log_prefix='',
                  default_components=None, specific_components=None,
                  chunked_messages=False):
-        model = ThisModel(manufacturer='Draeger CoC Systems',
-                          manufacturer_url='www.draeger.com',
-                          model_name='SomeDevice',
-                          model_number='1.0',
-                          model_url='www.draeger.com/whatever/you/want/model',
-                          presentation_url='www.draeger.com/whatever/you/want/presentation')
-        device = ThisDevice(friendly_name='Py SomeDevice',
-                            firmware_version='0.99',
-                            serial_number='12345')
+        model = ThisModelType(manufacturer='Draeger CoC Systems',
+                              manufacturer_url='www.draeger.com',
+                              model_name='SomeDevice',
+                              model_number='1.0',
+                              model_url='www.draeger.com/whatever/you/want/model',
+                              presentation_url='www.draeger.com/whatever/you/want/presentation')
+        device = ThisDeviceType(friendly_name='Py SomeDevice',
+                                firmware_version='0.99',
+                                serial_number='12345')
 
         device_mdib_container = DeviceMdibContainer.from_string(mdib_xml_string, log_prefix=log_prefix)
         # set Metadata

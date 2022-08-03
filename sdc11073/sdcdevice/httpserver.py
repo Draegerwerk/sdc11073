@@ -4,7 +4,7 @@ import urllib
 from ..httprequesthandler import HTTPRequestHandlingError, InvalidPathError, InvalidActionError
 from .. import commlog
 from .. import loghelper
-from ..httprequesthandler import HTTPRequestHandler, mkchunks
+from ..httprequesthandler import HTTPRequestHandler, mk_chunks
 from ..httprequesthandler import HttpServerThreadBase
 from ..httprequesthandler import RequestData
 from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
@@ -129,12 +129,12 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 
                 commlog.get_communication_logger().log_soap_response_out(response_xml_string, 'POST')
                 self.send_response(http_status, http_reason)
-            response_xml_string = self._compress_if_required(response_xml_string)
+            response_xml_string = self._compress_if_supported(response_xml_string)
             self.send_header("Content-type", "application/soap+xml; charset=utf-8")
             if self.server.chunked_response:
                 self.send_header("transfer-encoding", "chunked")
                 self.end_headers()
-                self.wfile.write(mkchunks(response_xml_string))
+                self.wfile.write(mk_chunks(response_xml_string))
             else:
                 self.send_header("Content-length", len(response_xml_string))
                 self.end_headers()
@@ -160,7 +160,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             commlog.get_communication_logger().log_soap_request_in('', 'GET')
             response_string = self.server.dispatcher.on_get(request_data)
             self.send_response(200, 'Ok')
-            response_string = self._compress_if_required(response_string)
+            response_string = self._compress_if_supported(response_string)
             commlog.get_communication_logger().log_soap_response_out(response_string, 'GET')
             if parsed_path.query == 'wsdl':
                 content_type = "text/xml; charset=utf-8"

@@ -38,8 +38,11 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     DefaultSdcClientComponents = None
     MDPWSNameSpace = None
 
-    get_descriptor_container_class = None
-    get_state_container_class = None
+    def get_descriptor_container_class(self, qname):
+        raise NotImplementedError
+
+    def get_state_container_class(self, qname):
+        raise NotImplementedError
 
     @classmethod
     def ns_matches(cls, namespace):

@@ -126,7 +126,7 @@ class SOAPNotificationsHandler(HTTPRequestHandler):
                 self.send_response(500, b'server error in dispatch')
         response_bytes = response_string.encode('utf-8')
         if len(response_bytes) > self.RESPONSE_COMPRESS_MINSIZE:
-            response_bytes = self._compress_if_required(response_bytes)
+            response_bytes = self._compress_if_supported(response_bytes)
 
         self.send_header("Content-Type", "application/soap+xml; charset=utf-8")
         self.send_header("Content-Length", len(response_bytes))  # this is necessary for correct keep-alive handling!
