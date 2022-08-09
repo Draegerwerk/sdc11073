@@ -12,7 +12,7 @@ from codecs import open
 import os
 import subprocess
 
-version = '1.1.11'
+version = '1.1.12'
 
 # create a version.py file that is
 # a) used for __version__ info

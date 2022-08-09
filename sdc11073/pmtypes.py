@@ -441,7 +441,7 @@ class OperationGroup(PropertyBasedPMType):
         codedValue = CodedValue.fromNode(typeNode)
         operatingMode = cls.OperatingMode.getPyValueFromNode(node)
         operations = cls.Operations.getPyValueFromNode(node)
-        ret = cls(codedValue=codedValue, operatingMode=operatingMode, operations=operations)
+        ret = cls(codedValue=codedValue, operatingMode=operatingMode.py_value, operations=operations.py_value)
         ret.node = node
         return ret
  
