@@ -4,6 +4,10 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.13] - 2022-08-09
+### Fixed
+- fixed bug introduced in version 1.1.12, in OperationGroup.fromNode
+
 ## [1.1.12] - 2022-08-05
 ### Changed
 - keep xml representation of a property when updating from xml data. Only when application sets a new value, original xml representation becomes invalid.

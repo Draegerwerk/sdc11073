@@ -437,15 +437,10 @@ class OperationGroup(PropertyBasedPMType):
 
     @classmethod
     def fromNode(cls, node):
-        typeNode = node.find(namespaces.domTag('Type'))
-        codedValue = CodedValue.fromNode(typeNode)
-        operatingMode = cls.OperatingMode.getPyValueFromNode(node)
-        operations = cls.Operations.getPyValueFromNode(node)
-        ret = cls(codedValue=codedValue, operatingMode=operatingMode.py_value, operations=operations.py_value)
-        ret.node = node
+        ret = cls()
+        ret.updateFromNode(node)
         return ret
- 
-    
+
 
 class InstanceIdentifier(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
