@@ -126,18 +126,18 @@ class ClientRtBuffer:
                                                                       applied_annotations))
         return rtsample_containers
 
-    def add_rtsample_containers(self, rtsample_containers):
+    def add_rt_sample_containers(self, rt_sample_containers):
         """
-        Updates self.rt_data with the new rtsample_containers
-        :param rtsample_containers: a list of mdibbase.RtSampleContainer
+        Updates self.rt_data with the new rt_sample_containers
+        :param rt_sample_containers: a list of mdibbase.RtSampleContainer
         :return: None
         """
-        if not rtsample_containers:
+        if not rt_sample_containers:
             return
         with self._lock:
-            self.rt_data.extend(rtsample_containers)
+            self.rt_data.extend(rt_sample_containers)
             # use time of youngest sample, this is the best value for indication of delays
-            self._age_of_data_list.append(time.time() - rtsample_containers[-1].determination_time)
+            self._age_of_data_list.append(time.time() - rt_sample_containers[-1].determination_time)
         try:
             self._reported_min_age = min(self._age_of_data_list[-1], self._reported_min_age)
         except TypeError:
@@ -169,7 +169,7 @@ _BufferedNotification = namedtuple('_BufferedNotification', 'report handler')
 
 class ClientMdibContainer(mdibbase.MdibContainer):
     """ This mdib is meant to be read-only.
-    Only update source is a SdcClient."""
+    Only update source is an SdcClient."""
 
     DETERMINATIONTIME_WARN_LIMIT = 1.0  # in seconds
     MDIB_VERSION_CHECK_DISABLED = False  # for testing purpose you can disable checking of mdib version, so that every notification is accepted.
@@ -221,8 +221,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         response = get_service.get_mdib()  # GetRequestResult
         self._logger.info('creating description containers...')
         descriptor_containers, state_containers = response.result
-        with self.descriptions.lock:
-            self.descriptions.clear()
+        self.descriptions.clear()
         self.add_description_containers(descriptor_containers)
         self._logger.info('creating state containers...')
         self.clear_states()
@@ -255,8 +254,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self._sdc_client._register_mdib(self)  # pylint: disable=protected-access
         self._logger.info('initializing mdib done')
 
-    initMdib = init_mdib  # backwards compatibility
-
     def wait_metric_matches(self, handle, matches_func, timeout):
         """ wait until a matching metric has been received. The matching is defined by the handle of the metric
         and the result of a matching function. If the matching function returns true, this function returns.
@@ -265,12 +262,13 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         Example:
             expected = 42
             def isMatchingValue(state):
-                found = state.xpath('dom:MetricValue/@Value', namespaces=nsmap) # returns a list of values, empty if nothing matches
-                if found:
-                    found[0] = int(found[0])
-                    return [expected] == found
+                if state.MetricValue is None:
+                    return False
+
+                found_value = state.MetricValue.Value
+                return [expected] == found_value
         :param timeout: timeout in seconds
-        @return: the matching state. In cas of a timeout it raises a TimeoutError exception.
+        @return: the matching state. In case of a timeout it raises a TimeoutError exception.
         """
         fut = futures.Future()
 
@@ -312,11 +310,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             new_state.update_from_other_container(old_state)
         return new_state
 
-    mkProposedState = mk_proposed_state  # backwards compatibility
-
     def _buffer_notification(self, report, func):
         """
-        write notification to an temporary buffer, as long as mdib is not initialized
+        Write notification to a temporary buffer, as long as mdib is not initialized.
         :param report: the report
         :param func: the callable that shall be called later for delayed handling of report
         :return: True if buffered, False if report shall be processed immediately
@@ -654,7 +650,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         rt_buffer = ClientRtBuffer(sample_period=sample_period, max_samples=self._max_realtime_samples)
                         self.rt_buffers[d_handle] = rt_buffer
                     state_containers = rt_buffer.mk_rtsample_containers(new_sac)
-                    rt_buffer.add_rtsample_containers(state_containers)
+                    rt_buffer.add_rt_sample_containers(state_containers)
 
                     # check age
                     if len(state_containers) > 0:

@@ -28,13 +28,13 @@ class ContainmentTreeService(DPWSPortTypeImpl):
 
     def _on_get_containment_tree(self, request_data):  # pylint: disable=no-self-use
         # ToDo: implement, currently method only raises a soap fault
-        fault = SoapFault(code=SoapFaultCode.RECEIVER, reason='not implemented', details='sorry!')
-        raise FunctionNotImplementedError(request_data.message_data.p_msg, fault)
+        fault = SoapFault(code=SoapFaultCode.RECEIVER, reason='not implemented')
+        raise FunctionNotImplementedError(fault)
 
     def _on_get_descriptor(self, request_data):  # pylint: disable=no-self-use
         # ToDo: implement, currently method only raises a soap fault
-        fault = SoapFault(code=SoapFaultCode.RECEIVER, reason='not implemented', details='sorry!')
-        raise FunctionNotImplementedError(request_data.message_data.p_msg, fault)
+        fault = SoapFault(code=SoapFaultCode.RECEIVER, reason='not implemented')
+        raise FunctionNotImplementedError(fault)
 
     def add_wsdl_port_type(self, parent_node):
         port_type = self._mk_port_type_node(parent_node)

@@ -5,7 +5,7 @@ import traceback
 # pylint: disable=invalid-name
 
 def ensure_log_stream():
-    """Method makes sure that the pysdc root Logger has a stream handler with the default format.
+    """Method makes sure that the sdc11073 root Logger has a stream handler with the default format.
     :return: None
     """
     applog = logging.getLogger('sdc')

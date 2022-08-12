@@ -15,7 +15,8 @@ class HTTPRequestHandlingError(Exception):
     def __init__(self, status, reason, soap_fault):
         """
         :param status: integer, e.g. 404
-        param reason: the provided human readable text
+        :param reason: the provided human readable text
+        :param soap_fault: soapenvelope.SoapFault instance
         """
         super().__init__()
         self.status = status
@@ -29,18 +30,27 @@ class HTTPRequestHandlingError(Exception):
 
 
 class FunctionNotImplementedError(HTTPRequestHandlingError):
-    def __init__(self, request, fault_xml):
-        super().__init__(500, 'not implemented', fault_xml)
+    def __init__(self, soap_fault):
+        """
+        :param soap_fault: soapenvelope.SoapFault instance
+        """
+        super().__init__(500, 'not implemented', soap_fault)
 
 
 class InvalidActionError(HTTPRequestHandlingError):
-    def __init__(self, request, fault_xml):
-        super().__init__(400, 'Bad Request', fault_xml)
+    def __init__(self, soap_fault):
+        """
+        :param soap_fault: soapenvelope.SoapFault instance
+        """
+        super().__init__(400, 'Bad Request', soap_fault)
 
 
 class InvalidPathError(HTTPRequestHandlingError):
-    def __init__(self, request, path, fault_xml):
-        super().__init__(400, 'Bad Request', fault_xml)
+    def __init__(self, soap_fault):
+        """
+        :param soap_fault: soapenvelope.SoapFault instance
+        """
+        super().__init__(400, 'Bad Request', soap_fault)
 
 
 class DechunkError(Exception):
@@ -255,13 +265,13 @@ class ThreadingHTTPServer(HTTPServer):
     """ Each request is handled in a thread.
     """
 
-    def __init__(self, logger, server_address, RequestHandlerClass,
+    def __init__(self, logger, server_address, RequestHandlerClass, dispatcher,
                  msg_reader, msg_factory, chunked_responses, supported_encodings):
         super().__init__(server_address, RequestHandlerClass)
         self.daemon_threads = True
         self.threads = []
-        self.dispatcher = None
         self.logger = logger
+        self.dispatcher = dispatcher
         self.msg_reader = msg_reader
         self.msg_factory = msg_factory
         self.chunked_response = chunked_responses
@@ -269,8 +279,6 @@ class ThreadingHTTPServer(HTTPServer):
 
     def process_request_thread(self, request, client_address):
         """Same as in BaseServer but as a thread.
-        In addition, exception handling is done here.
-
         """
         try:
             self.finish_request(request, client_address)
@@ -319,7 +327,7 @@ class HttpServerThreadBase(threading.Thread):
                  request_handler_cls, dispatcher, msg_reader, msg_factory,
                  logger, chunked_responses=False):
         """
-        Runs a ThreadingHTTPServer in a thread, so that it can be stopped without deadlock.
+        Runs a ThreadingHTTPServer in a thread, so that it can be stopped without blocking.
         Handling of requests happens in two stages:
         - the http server instantiates a request handler with the request
         - the request handler forwards the handling itself to a dispatcher (due to the dynamic nature of the handling).
@@ -328,8 +336,10 @@ class HttpServerThreadBase(threading.Thread):
         :param supported_encodings: a list of strings
         :param request_handler_cls: a class derived from HTTPRequestHandler
         :param dispatcher: a Dispatcher instance
+        :param msg_reader: MessageReader instance
+        :param msg_factory: MessageFactory instance
         :param logger: a python logger
-        :param chunked_responses:
+        :param chunked_responses: boolean
         """
         super().__init__(name='Dev_SdcHttpServerThread')
         self.daemon = True
@@ -357,12 +367,10 @@ class HttpServerThreadBase(threading.Thread):
             self.httpd = ThreadingHTTPServer(self.logger,
                                              (self._my_ipaddress, myport),
                                              self._request_handler_cls,
+                                             self.dispatcher,
                                              self.msg_reader, self.msg_factory,
                                              self.chunked_responses,
                                              self.supported_encodings)
-            # add use compression flag to the server
-            #setattr(self.httpd, 'supported_encodings', self.supported_encodings)
-
             self.my_port = self.httpd.server_port
             self.logger.info('starting http server on {}:{}', self._my_ipaddress, self.my_port)
             if self._ssl_context:
@@ -370,12 +378,6 @@ class HttpServerThreadBase(threading.Thread):
                 self.base_url = f'https://{self._my_ipaddress}:{self.my_port}/'
             else:
                 self.base_url = f'http://{self._my_ipaddress}:{self.my_port}/'
-
-            self.httpd.logger = self.logger  # pylint: disable=attribute-defined-outside-init
-            if self._ssl_context is not None:
-                self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket)
-            self.my_port = self.httpd.server_port
-            self.httpd.dispatcher = self.dispatcher
 
             self.started_evt.set()
             self.httpd.serve_forever()
@@ -387,17 +389,7 @@ class HttpServerThreadBase(threading.Thread):
         finally:
             self.logger.info('http server stopped.')
 
-    def set_compression_flag(self, use_compression):
-        """Sets use compression attribute on the http server to be used in handler
-        :param use_compression: bool flag
-        """
-        self.httpd.use_compression = use_compression  # pylint: disable=attribute-defined-outside-init
-
     def stop(self):
-        """
-        :param close_all_connections: for testing purpose one might want to keep the connection handler threads alive.
-                If param is False then they are kept alive.
-        """
         self._stop_requested = True
         self.httpd.shutdown()
         self.httpd.server_close()
@@ -422,10 +414,6 @@ class RequestData:
             path = path[1:]
         self.path_elements = path.split('/')
         self.message_data = None
-
-    @property
-    def envelope(self):
-        raise AttributeError('no envelope')
 
     def consume_current_path_element(self):
         if len(self.path_elements) == 0:

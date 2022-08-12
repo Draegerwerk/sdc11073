@@ -116,7 +116,7 @@ class SoapFaultCode:
 
 
 class SoapFault:
-    def __init__(self, code: SoapFaultCode, reason, sub_code=None, details=None):
+    def __init__(self, code: str, reason: str, sub_code: Optional[etree_.QName] = None, details: Optional[str] = None):
         self.code = code
         self.reason = reason
         self.sub_code = sub_code
