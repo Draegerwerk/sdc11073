@@ -447,16 +447,16 @@ class MessageReaderClient(MessageReader):
             states.append(self._mk_state_container_from_node(found_node))
         return states
 
-    def read_description_modification_report(self, message_data):
+    def read_description_modification_report(self, message_data: ReceivedMessage) -> list:
         """
         Parses a description modification report
-        :param report_node:  A description modification report etree
+        :param message_data:  MessageData instance
         :return: a list of DescriptorContainer objects
         """
         descriptors_list = []
         report_parts = list(message_data.p_msg.msg_node)  # list of msg:ReportPart nodes
         for report_part in report_parts:
-            descriptors = {pmtypes.DescriptionModificationTypes.UPDATE: ([], []),
+            descriptors = {pmtypes.DescriptionModificationTypes.UPDATE: ([], []), # descriptors, states
                            pmtypes.DescriptionModificationTypes.CREATE: ([], []),
                            pmtypes.DescriptionModificationTypes.DELETE: ([], []),
                            }
@@ -470,15 +470,6 @@ class MessageReaderClient(MessageReader):
             state_nodes = report_part.findall(namespaces.msgTag('State'))
             for state_node in state_nodes:
                 state_container = self._mk_state_container_from_node(state_node)
-                # set descriptor_container member
-                corresponding_descriptors = [d for d in descriptors[modification_type][0] if
-                                             d.handle == state_container.DescriptorHandle]
-                if len(corresponding_descriptors) == 0:
-                    raise MdibStructureError(
-                        f'new state {state_container.NODETYPE.localname}: descriptor '
-                        f'with handle "{state_container.DescriptorHandle}" does not exist!')
-                descriptor_container = corresponding_descriptors[0]
-                state_container.set_descriptor_container(descriptor_container)
                 descriptors[modification_type][1].append(state_container)
         return descriptors_list
 

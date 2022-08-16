@@ -33,36 +33,27 @@ class AbstractStateContainer(ContainerBase):
 
     def __init__(self, descriptor_container):
         super().__init__()
-        self._descriptor_container = descriptor_container
+        self.descriptor_container = descriptor_container
         if descriptor_container is not None:
             # pylint: disable=invalid-name
             self.DescriptorHandle = descriptor_container.handle
             self.DescriptorVersion = descriptor_container.DescriptorVersion
             # pylint: enable=invalid-name
 
-    @property
-    def descriptor_container(self):
-        return self._descriptor_container
-
     def set_descriptor_container(self, descriptor_container):
+        self.descriptor_container = descriptor_container
         if descriptor_container is None:
-            self._descriptor_container = None
             return
         if self.DescriptorHandle is not None and  self.DescriptorHandle != descriptor_container.handle:
             raise ValueError(f'handle mismatch, "{self.DescriptorHandle}" != "{descriptor_container.handle}"')
         self.DescriptorHandle = descriptor_container.handle
         self.DescriptorVersion = descriptor_container.DescriptorVersion
-        self._descriptor_container = descriptor_container
 
     def set_node_member(self, nsmapper):
-        self.node = self.mk_state_node(domTag('State'), nsmapper, update_descriptor_version=False)
+        self.node = self.mk_state_node(domTag('State'), nsmapper)
 
-    def mk_state_node(self, tag, nsmapper, update_descriptor_version=True, set_xsi_type=True):
-        if update_descriptor_version:
-            self.update_descriptor_version()
-        node = super().mk_node(tag, nsmapper, set_xsi_type=set_xsi_type)
-        node.set('DescriptorHandle', self.descriptorHandle)
-        return node
+    def mk_state_node(self, tag, nsmapper, set_xsi_type=True):
+        return super().mk_node(tag, nsmapper, set_xsi_type=set_xsi_type)
 
     def update_from_other_container(self, other, skipped_properties=None):
         if other.descriptorHandle != self.descriptorHandle:
@@ -413,10 +404,10 @@ class AbstractMultiStateContainer(AbstractStateContainer):
                 f'Update from a node with different handle is not possible! Have "{self.Handle}", got "{other.Handle}"')
         super().update_from_other_container(other, skipped_properties)
 
-    def mk_state_node(self, tag, nsmapper, update_descriptor_version=True, set_xsi_type=True):
+    def mk_state_node(self, tag, nsmapper, set_xsi_type=True):
         if self.Handle is None:
             self.Handle = uuid.uuid4().hex
-        return super().mk_state_node(tag, nsmapper, update_descriptor_version, set_xsi_type)
+        return super().mk_state_node(tag, nsmapper, set_xsi_type)
 
     def __repr__(self):
         return f'{self.__class__.__name__} descriptorHandle="{self.descriptorHandle}" ' \

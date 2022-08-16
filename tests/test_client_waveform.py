@@ -118,7 +118,8 @@ class TestClientWaveform(unittest.TestCase):
                 attributes = {'SamplePeriod': 'P0Y0M0DT0H0M0.0157S',  # use a unique sample period
                               etree_.QName(sdc11073.namespaces.nsmap['xsi'],
                                            'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
-                              'Handle': handle}
+                              'Handle': handle,
+                              'DescriptorVersion': '2'}
                 element = etree_.Element('Metric', attrib=attributes, nsmap=sdc11073.namespaces.nsmap)
                 clientmdib.descriptions.add_object(
                     sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.from_node(

@@ -593,14 +593,15 @@ class TransactionProcessor:
                 if new_state is None:
                     raise ValueError(
                         f'state deleted? that should not be possible! handle = {descriptor_container.handle}')
-                new_state.set_descriptor_container(descriptor_container)
+                #new_state.set_descriptor_container(descriptor_container)
                 new_state.update_descriptor_version()
             else:
                 old_state = self._mdib.states.descriptorHandle.get_one(
                     descriptor_container.handle, allow_none=True)
                 if old_state is not None:
                     new_state = old_state.mk_copy()
-                    new_state.set_descriptor_container(descriptor_container)
+                    new_state.descriptor_container = descriptor_container #
+                    new_state.DescriptorVersion = descriptor_container.DescriptorVersion
                     new_state.increment_state_version()
                     update_dict[descriptor_container.handle] = TrItem(old_state, new_state)
             if new_state is not None:

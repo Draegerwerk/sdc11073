@@ -380,8 +380,7 @@ class MessageFactoryClient(MessageFactory):
                 state.Handle = state.DescriptorHandle
             state.nsmapper = DocNamespaceHelper()  # use my namespaces
         _proposed_state_nodes = [p.mk_state_node(msgTag('ProposedContextState'),
-                                                 nsmapper,
-                                                 update_descriptor_version=False) for p in _proposed_states]
+                                                 nsmapper) for p in _proposed_states]
 
         return self._mk_set_method_message(addr_to, port_type, 'SetContextState', operation_handle,
                                            _proposed_state_nodes)
@@ -989,7 +988,7 @@ class MessageFactoryDevice(MessageFactory):
         report_part_node = etree_.SubElement(body_node, msgTag('ReportPart'))
 
         for state in states:
-            report_part_node.append(state.mk_state_node(state_tag, nsmapper, update_descriptor_version=False))
+            report_part_node.append(state.mk_state_node(state_tag, nsmapper))
         return body_node
 
     @staticmethod

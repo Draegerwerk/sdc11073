@@ -30,11 +30,6 @@ class TestStateContainers(unittest.TestCase):
         self.assertEqual(sc.StateVersion, 0)
         self.assertEqual(sc.DescriptorVersion, self.dc.DescriptorVersion)
 
-        # verify that mkStateNode() also updates changed descriptor version
-        self.dc.DescriptorVersion += 1
-        sc.mk_state_node(_my_tag, self.nsmapper)
-        self.assertEqual(sc.DescriptorVersion, self.dc.DescriptorVersion)
-
         # verify incrementState works as expected
         sc.increment_state_version()
         self.assertEqual(sc.StateVersion, 1)

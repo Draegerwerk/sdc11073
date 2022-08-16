@@ -284,15 +284,30 @@ class MdibContainer:
         if context_by_handle:
             self.context_by_handle = context_by_handle
 
+    def _set_descriptor_container_reference(self, state_container):
+        """
+        sets state_container.descriptor_container if all is fine, otherwise logs error.
+        """
+        descriptor_container = self.descriptions.handle.get_one(state_container.DescriptorHandle,
+                                                                allow_none=True)
+        if descriptor_container is None:
+            self._logger.warn(
+                'state "{}" (type={}) has no descriptor in mdib!',
+                state_container.descriptorHandle, state_container.NODETYPE)
+        elif descriptor_container.DescriptorVersion == state_container.DescriptorVersion:
+            state_container.descriptor_container = descriptor_container
+        else:
+            self._logger.warn(
+                'state "{}" (type={}) : descriptor version expect "{}", found "{}"',
+                state_container.descriptorHandle, state_container.NODETYPE,
+                descriptor_container.DescriptorVersion, state_container.DescriptorVersion )
+
     def add_state_containers(self, state_containers):
         """Adds states to self.states and self.context_states.
         :param state_containers: a list of StateContainer objects.
         """
         for state_container in state_containers:
-            if state_container.descriptor_container is None:
-                state_container.set_descriptor_container(
-                    self.descriptions.handle.get_one(state_container.DescriptorHandle))
-
+            self._set_descriptor_container_reference(state_container)
             my_multikey = self.context_states if state_container.isContextState else self.states
             try:
                 my_multikey.add_object(state_container)
