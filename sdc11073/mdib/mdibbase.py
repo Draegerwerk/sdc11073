@@ -307,7 +307,8 @@ class MdibContainer:
         :param state_containers: a list of StateContainer objects.
         """
         for state_container in state_containers:
-            self._set_descriptor_container_reference(state_container)
+            if state_container.descriptor_container is None:
+                self._set_descriptor_container_reference(state_container)
             my_multikey = self.context_states if state_container.isContextState else self.states
             try:
                 my_multikey.add_object(state_container)

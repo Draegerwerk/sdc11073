@@ -40,15 +40,6 @@ class AbstractStateContainer(ContainerBase):
             self.DescriptorVersion = descriptor_container.DescriptorVersion
             # pylint: enable=invalid-name
 
-    def set_descriptor_container(self, descriptor_container):
-        self.descriptor_container = descriptor_container
-        if descriptor_container is None:
-            return
-        if self.DescriptorHandle is not None and  self.DescriptorHandle != descriptor_container.handle:
-            raise ValueError(f'handle mismatch, "{self.DescriptorHandle}" != "{descriptor_container.handle}"')
-        self.DescriptorHandle = descriptor_container.handle
-        self.DescriptorVersion = descriptor_container.DescriptorVersion
-
     def set_node_member(self, nsmapper):
         self.node = self.mk_state_node(domTag('State'), nsmapper)
 
@@ -352,11 +343,6 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
 
         if self.descriptor_container is not None and self.descriptor_container.SignalDelegationSupported:
             # Delegable signals should have location Remote according to BICEPS
-            self.Location = pmtypes.AlertSignalPrimaryLocation.REMOTE  # pylint: disable=invalid-name
-
-    def set_descriptor_container(self, descriptor_container):
-        super().set_descriptor_container(descriptor_container)
-        if descriptor_container is not None and descriptor_container.SignalDelegationSupported:
             self.Location = pmtypes.AlertSignalPrimaryLocation.REMOTE  # pylint: disable=invalid-name
 
 

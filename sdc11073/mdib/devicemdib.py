@@ -198,15 +198,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         :param adjust_state_version: if True, and an object with the same handle was already in this mdib,
            the state version is set to last version + 1.
         """
-        if state_container.descriptor_container is None:
-            descriptor_container = None
-            if self._current_transaction is not None:
-                descriptor_container = self._current_transaction.descriptor_updates.get(
-                    state_container.DescriptorHandle).new
-            if descriptor_container is None:
-                descriptor_container = self.descriptions.handle.get_one(state_container.DescriptorHandle)
-            state_container.set_descriptor_container(descriptor_container)
-
         if self._current_transaction is not None:
             self._current_transaction.add_state(state_container, adjust_state_version)
         else:
