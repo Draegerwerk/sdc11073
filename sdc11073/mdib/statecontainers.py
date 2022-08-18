@@ -25,8 +25,8 @@ class AbstractStateContainer(ContainerBase):
     Extension = cp.ExtensionNodeProperty()
     DescriptorHandle = cp.HandleAttributeProperty('DescriptorHandle', is_optional=False)
     descriptorHandle = DescriptorHandle
-    DescriptorVersion = cp.ReferencedVersionAttributeProperty('DescriptorVersion', defaultPyValue=0)
-    StateVersion = cp.VersionCounterAttributeProperty('StateVersion', defaultPyValue=0)
+    DescriptorVersion = cp.ReferencedVersionAttributeProperty('DescriptorVersion', default_py_value=0)
+    StateVersion = cp.VersionCounterAttributeProperty('StateVersion', default_py_value=0)
     _props = ('Extension', 'DescriptorHandle', 'DescriptorVersion', 'StateVersion')
 
     stateVersion = StateVersion  # lower case for backwards compatibility
@@ -75,7 +75,7 @@ class AbstractStateContainer(ContainerBase):
 class AbstractOperationStateContainer(AbstractStateContainer):
     NODETYPE = domTag('AbstractOperationState')  # a QName
     isOperationalState = True
-    OperatingMode = cp.EnumAttributeProperty('OperatingMode', defaultPyValue=pmtypes.OperatingMode.ENABLED,
+    OperatingMode = cp.EnumAttributeProperty('OperatingMode', default_py_value=pmtypes.OperatingMode.ENABLED,
                                              enum_cls=pmtypes.OperatingMode)
     _props = ('OperatingMode',)
 
@@ -100,7 +100,7 @@ class T_AllowedValues(pmtypes.PropertyBasedPMType):  # pylint: disable=invalid-n
 class SetStringOperationStateContainer(AbstractOperationStateContainer):
     NODETYPE = domTag('SetStringOperationState')
     AllowedValues = cp.SubElementWithSubElementListProperty(domTag('AllowedValues'),
-                                                            defaultPyValue=T_AllowedValues(),
+                                                            default_py_value=T_AllowedValues(),
                                                             value_class=T_AllowedValues)
     _props = ('AllowedValues',)
 
@@ -232,9 +232,9 @@ class AbstractComplexDeviceComponentStateContainer(AbstractDeviceComponentStateC
 class MdsStateContainer(AbstractComplexDeviceComponentStateContainer):
     NODETYPE = domTag('MdsState')
     OperatingMode = cp.EnumAttributeProperty('OperatingMode',
-                                             defaultPyValue=pmtypes.MdsOperatingMode.NORMAL,
+                                             default_py_value=pmtypes.MdsOperatingMode.NORMAL,
                                              enum_cls=pmtypes.MdsOperatingMode)
-    Lang = cp.StringAttributeProperty('Lang', defaultPyValue='en')
+    Lang = cp.StringAttributeProperty('Lang', default_py_value='en')
     _props = ('OperatingMode', 'Lang')
 
 
@@ -261,7 +261,7 @@ class ClockStateContainer(AbstractDeviceComponentStateContainer):
     ActiveSyncProtocol = cp.SubElementProperty(domTag('ActiveSyncProtocol'), value_class=pmtypes.CodedValue)
     ReferenceSource = cp.SubElementListProperty(domTag('ReferenceSource'), value_class=pmtypes.ElementWithTextOnly)
     DateAndTime = cp.CurrentTimestampAttributeProperty('DateAndTime')
-    RemoteSync = cp.BooleanAttributeProperty('RemoteSync', defaultPyValue=True, is_optional=False)
+    RemoteSync = cp.BooleanAttributeProperty('RemoteSync', default_py_value=True, is_optional=False)
     Accuracy = cp.DecimalAttributeProperty('Accuracy')
     LastSet = cp.TimestampAttributeProperty('LastSet')
     TimeZone = cp.TimeZoneAttributeProperty('TimeZone')  # a time zone string
@@ -302,7 +302,7 @@ class BatteryStateContainer(AbstractDeviceComponentStateContainer):
 class AbstractAlertStateContainer(AbstractStateContainer):
     isAlertState = True
     ActivationState = cp.EnumAttributeProperty('ActivationState',
-                                               defaultPyValue=pmtypes.AlertActivation.ON,
+                                               default_py_value=pmtypes.AlertActivation.ON,
                                                enum_cls=pmtypes.AlertActivation,
                                                is_optional=False)
     _props = ('ActivationState',)
@@ -360,9 +360,9 @@ class AlertConditionStateContainer(AbstractAlertStateContainer):
 class LimitAlertConditionStateContainer(AlertConditionStateContainer):
     NODETYPE = domTag('LimitAlertConditionState')  # a QName
     Limits = cp.SubElementProperty(domTag('Limits'), value_class=pmtypes.Range,
-                                   defaultPyValue=pmtypes.Range())  # required, pm:Range
+                                   default_py_value=pmtypes.Range())  # required, pm:Range
     MonitoredAlertLimits = cp.EnumAttributeProperty('MonitoredAlertLimits',
-                                                    defaultPyValue=pmtypes.AlertConditionMonitoredLimits.ALL_OFF,
+                                                    default_py_value=pmtypes.AlertConditionMonitoredLimits.ALL_OFF,
                                                     enum_cls=pmtypes.AlertConditionMonitoredLimits,
                                                     is_optional=False)
     AutoLimitActivationState = cp.EnumAttributeProperty('AutoLimitActivationState',
@@ -419,7 +419,7 @@ class LocationContextStateContainer(AbstractContextStateContainer):
     NODETYPE = domTag('LocationContextState')
     LocationDetail = cp.SubElementProperty(domTag('LocationDetail'),
                                            value_class=pmtypes.LocationDetail,
-                                           defaultPyValue=pmtypes.LocationDetail(),
+                                           default_py_value=pmtypes.LocationDetail(),
                                            is_optional=True)
     _props = ('LocationDetail',)
 
@@ -456,7 +456,7 @@ class PatientContextStateContainer(AbstractContextStateContainer):
     NODETYPE = domTag('PatientContextState')
     CoreData = cp.SubElementProperty(domTag('CoreData'),
                                      value_class=pmtypes.PatientDemographicsCoreData,
-                                     defaultPyValue=pmtypes.PatientDemographicsCoreData(),
+                                     default_py_value=pmtypes.PatientDemographicsCoreData(),
                                      is_optional=True)
     _props = ('CoreData',)
 

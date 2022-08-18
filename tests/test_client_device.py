@@ -1270,7 +1270,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertTrue(descriptorHandle in data.keys())
             self.assertEqual(st.Rank, data[descriptorHandle].Rank)  # compare some data
 
-            coll = observableproperties.SingleValueCollector(clientMdib, 'updated_descriptor_by_handle')
+            coll = observableproperties.SingleValueCollector(clientMdib, 'updated_descriptors_by_handle')
             descriptorHandle = '0x34F00100'
             with sdcDevice.mdib.transaction_manager(set_determination_time=False) as mgr:
                 descr = mgr.get_descriptor(descriptorHandle)

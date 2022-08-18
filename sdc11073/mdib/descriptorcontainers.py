@@ -99,7 +99,7 @@ class AbstractDescriptorContainer(ContainerBase):
     handle = Handle
     Extension = cp.ExtensionNodeProperty()
     DescriptorVersion = cp.VersionCounterAttributeProperty('DescriptorVersion',
-                                                           defaultPyValue=0)  # optional, integer, defaults to 0
+                                                           default_py_value=0)  # optional, integer, defaults to 0
     SafetyClassification = cp.EnumAttributeProperty('SafetyClassification',
                                                     implied_py_value=pmtypes.SafetyClassification.INF,
                                                     enum_cls=pmtypes.SafetyClassification)  # optional
@@ -350,7 +350,7 @@ class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
     Relation = cp.SubElementListProperty(domTag('Relation'), value_class=pmtypes.Relation)  # o...n
     MetricCategory = cp.EnumAttributeProperty('MetricCategory',
                                               enum_cls=pmtypes.MetricCategory,
-                                              defaultPyValue=pmtypes.MetricCategory.UNSPECIFIED)  # required
+                                              default_py_value=pmtypes.MetricCategory.UNSPECIFIED)  # required
     DerivationMethod = cp.EnumAttributeProperty('DerivationMethod', enum_cls=pmtypes.DerivationMethod)  # optional
     #  There is an implied value defined, but it is complicated, therefore here not implemented:
     # - If pm:AbstractDescriptor/@MetricCategory is "Set" or "Preset", then the default value of DerivationMethod is "Man"
@@ -358,7 +358,7 @@ class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
     # - If pm:AbstractDescriptor/@MetricCategory is "Unspec", then no default value is being implied</xsd:documentation>
     MetricAvailability = cp.EnumAttributeProperty('MetricAvailability',
                                                   enum_cls=pmtypes.MetricAvailability,
-                                                  defaultPyValue=pmtypes.MetricAvailability.CONTINUOUS)  # required
+                                                  default_py_value=pmtypes.MetricAvailability.CONTINUOUS)  # required
     MaxMeasurementTime = cp.DurationAttributeProperty('MaxMeasurementTime')  # optional,  xsd:duration
     MaxDelayTime = cp.DurationAttributeProperty('MaxDelayTime')  # optional,  xsd:duration
     DeterminationPeriod = cp.DurationAttributeProperty('DeterminationPeriod')  # optional,  xsd:duration
@@ -531,9 +531,9 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
     STATE_QNAME = domTag('AlertConditionState')
     Source = cp.SubElementHandleRefListProperty(domTag('Source'))  # a list of 0...n pm:HandleRef elements
     CauseInfo = cp.SubElementListProperty(domTag('CauseInfo'), value_class=pmtypes.CauseInfo)
-    Kind = cp.EnumAttributeProperty('Kind', defaultPyValue=pmtypes.AlertConditionKind.OTHER,
+    Kind = cp.EnumAttributeProperty('Kind', default_py_value=pmtypes.AlertConditionKind.OTHER,
                                     enum_cls=pmtypes.AlertConditionKind, is_optional=False)
-    Priority = cp.EnumAttributeProperty('Priority', defaultPyValue=pmtypes.AlertConditionPriority.NONE,
+    Priority = cp.EnumAttributeProperty('Priority', default_py_value=pmtypes.AlertConditionPriority.NONE,
                                         enum_cls=pmtypes.AlertConditionPriority, is_optional=False)
     DefaultConditionGenerationDelay = cp.DurationAttributeProperty('DefaultConditionGenerationDelay',
                                                                    implied_py_value=0)
@@ -549,7 +549,7 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
 class LimitAlertConditionDescriptorContainer(AlertConditionDescriptorContainer):
     NODETYPE = domTag('LimitAlertConditionDescriptor')
     STATE_QNAME = domTag('LimitAlertConditionState')
-    MaxLimits = cp.SubElementProperty(domTag('MaxLimits'), value_class=pmtypes.Range, defaultPyValue=pmtypes.Range())
+    MaxLimits = cp.SubElementProperty(domTag('MaxLimits'), value_class=pmtypes.Range, default_py_value=pmtypes.Range())
     AutoLimitSupported = cp.BooleanAttributeProperty('AutoLimitSupported', implied_py_value=False)
     _props = ('MaxLimits', 'AutoLimitSupported',)
     _children = (ChildElem(domTag('MaxLimits')),
@@ -563,7 +563,7 @@ class AlertSignalDescriptorContainer(AbstractAlertDescriptorContainer):
     ConditionSignaled = cp.HandleAttributeProperty('ConditionSignaled')
     Manifestation = cp.EnumAttributeProperty('Manifestation', enum_cls=pmtypes.AlertSignalManifestation,
                                              is_optional=False)
-    Latching = cp.BooleanAttributeProperty('Latching', defaultPyValue=False, is_optional=False)
+    Latching = cp.BooleanAttributeProperty('Latching', default_py_value=False, is_optional=False)
     DefaultSignalGenerationDelay = cp.DurationAttributeProperty('DefaultSignalGenerationDelay', implied_py_value=0)
     SignalDelegationSupported = cp.BooleanAttributeProperty('SignalDelegationSupported', implied_py_value=False)
     AcknowledgementSupported = cp.BooleanAttributeProperty('AcknowledgementSupported', implied_py_value=False)

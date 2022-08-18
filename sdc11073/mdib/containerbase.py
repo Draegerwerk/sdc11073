@@ -12,7 +12,7 @@ class ContainerBase:
     NODETYPE = None  # overwrite in derived classes! determines the value of xsi:Type attribute, must be a etree_.QName object
     node = properties.ObservableProperty()
 
-    # every class with containerproperties must provice a list of property names.
+    # every class with containerproperties must provide a list of property names.
     # this list is needed to create sub elements in a certain order.
     # rule is : elements are sorted from this root class to derived class. Last derived class comes last.
     # Initialization is from left to right
@@ -30,9 +30,10 @@ class ContainerBase:
 
     def mk_node(self, tag, nsmapper, set_xsi_type=False):
         """
-        create a etree node from instance data
+        create an etree node from instance data
         :param tag: tag of the newly created node
-        :param set_xsi_type:
+        :param nsmapper: namespaces.DocNamespaceHelper instance
+        :param set_xsi_type: if True, adds Type attribute to node
         :return: etree node
         """
         node = etree_.Element(tag, nsmap=nsmapper.partial_map(Prefixes.PM, Prefixes.MSG, Prefixes.XSI))
@@ -43,7 +44,8 @@ class ContainerBase:
         """
         update node with own data
         :param node: node to be updated
-        :param set_xsi_type:
+        :param nsmapper: namespaces.DocNamespaceHelper instance
+        :param set_xsi_type:if True, adds Type attribute to node
         :return: etree node
         """
         if set_xsi_type and self.NODETYPE is not None:
@@ -54,6 +56,7 @@ class ContainerBase:
 
     def update_from_node(self, node):
         """ update members.
+        :param node: node to be updated
         """
         for dummy_name, cprop in self.sorted_container_properties():
             cprop.update_from_node(self, node)
@@ -75,7 +78,7 @@ class ContainerBase:
 
     def sorted_container_properties(self):
         """
-        @return: a list of (name, object) tuples of all GenericProperties ( and subclasses)
+        :return: a list of (name, object) tuples of all GenericProperties ( and subclasses), base class properties first.
         """
         ret = []
         all_classes = inspect.getmro(self.__class__)

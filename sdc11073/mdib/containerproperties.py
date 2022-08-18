@@ -42,15 +42,15 @@ class _PropertyBase:
     update_xml_value: convert the Python data type to XML type and write it to XML node.
      """
 
-    def __init__(self, defaultPyValue=None, implied_py_value=None, is_optional=False):
+    def __init__(self, default_py_value=None, implied_py_value=None, is_optional=False):
         """
-        :param defaultPyValue: initial value when initialized (should be set for mandatory elements, otherwise created xml might violate schema)
-                               and if the xml element does not exist.
+        :param default_py_value: initial value when initialized (should be set for mandatory elements, otherwise created xml might violate schema)
+                                 and if the xml element does not exist.
         :param implied_py_value: for optional elements, this is the value that shall be implied if xml element does not exist
-                                this value is for information only! Access only via class possible.
+                                 this value is for information only! Access only via class possible.
         :param is_optional: reflects of this element is optional in schema
         """
-        self._default_py_value = defaultPyValue
+        self._default_py_value = default_py_value
         self._implied_py_value = implied_py_value
         self._is_optional = is_optional
         self._local_var_name = None
@@ -102,8 +102,8 @@ class AttributeProperty(_PropertyBase):
     """ XML Representation is a string, Python representation is determined by value_converter."""
 
     def __init__(self, attribute_name, value_converter=None,
-                 defaultPyValue=None, implied_py_value=None, is_optional=True):
-        super().__init__(defaultPyValue, implied_py_value, is_optional)
+                 default_py_value=None, implied_py_value=None, is_optional=True):
+        super().__init__(default_py_value, implied_py_value, is_optional)
         self._attribute_name = attribute_name
         if isinstance(attribute_name, etree_.QName):
             self._local_var_name = '_attr_' + attribute_name.localname
@@ -141,16 +141,16 @@ class AttributeProperty(_PropertyBase):
 
 
 class _NodeProperty(_PropertyBase):
-    def __init__(self, subElementName, defaultPyValue=None, implied_py_value=None, is_optional=False,
+    def __init__(self, subElementName, default_py_value=None, implied_py_value=None, is_optional=False,
                  local_var_prefix=''):
         """
         :param subElementName: a QName or None
-        :param defaultPyValue: initial value when initialized (should be set for mandatory elements, otherwise created xml might violate schema)
-                               and if the xml element does not exist.
+        :param default_py_value: initial value when initialized (should be set for mandatory elements, otherwise created xml might violate schema)
+                                 and if the xml element does not exist.
         :param implied_py_value: for optional elements, this is the value that shall be implied if xml element does not exist
                                 this value is for information only! Access only via class possible.
         """
-        super().__init__(defaultPyValue, implied_py_value, is_optional)
+        super().__init__(default_py_value, implied_py_value, is_optional)
         if isinstance(subElementName, (list, tuple)):
             raise RuntimeError('subElementNames must not be a list')
         self._sub_element_name = subElementName
@@ -197,8 +197,8 @@ class NotImplementedProperty(AttributeProperty):
 
 
 class StringAttributeProperty(AttributeProperty):
-    def __init__(self, attribute_name, defaultPyValue=None, implied_py_value=None, is_optional=True):
-        super().__init__(attribute_name, None, defaultPyValue, implied_py_value, is_optional)
+    def __init__(self, attribute_name, default_py_value=None, implied_py_value=None, is_optional=True):
+        super().__init__(attribute_name, None, default_py_value, implied_py_value, is_optional)
 
 
 class AnyURIAttributeProperty(StringAttributeProperty):
@@ -233,9 +233,9 @@ class TimeZoneAttributeProperty(StringAttributeProperty):
 class EnumAttributeProperty(AttributeProperty):
     """ XML Representation is a string, Python representation is a enum."""
 
-    def __init__(self, attribute_name, enum_cls=None, defaultPyValue=None,
+    def __init__(self, attribute_name, enum_cls=None, default_py_value=None,
                  implied_py_value=None, is_optional=True):
-        super().__init__(attribute_name, None, defaultPyValue, implied_py_value, is_optional)
+        super().__init__(attribute_name, None, default_py_value, implied_py_value, is_optional)
         self.enum_cls = enum_cls
 
     def __set__(self, instance, py_value):
@@ -280,9 +280,9 @@ class TimestampAttributeProperty(AttributeProperty):
     """ XML notation is integer in milliseconds.
     Python is a float in seconds."""
 
-    def __init__(self, attribute_name, defaultPyValue=None, implied_py_value=None, is_optional=True):
+    def __init__(self, attribute_name, default_py_value=None, implied_py_value=None, is_optional=True):
         super().__init__(attribute_name, value_converter=TimestampConverter,
-                         defaultPyValue=defaultPyValue, implied_py_value=implied_py_value, is_optional=is_optional)
+                         default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
 
 class CurrentTimestampAttributeProperty(AttributeProperty):
@@ -291,7 +291,7 @@ class CurrentTimestampAttributeProperty(AttributeProperty):
 
     def __init__(self, attribute_name, is_optional=True):
         super().__init__(attribute_name, value_converter=TimestampConverter,
-                         defaultPyValue=None, is_optional=is_optional)
+                         default_py_value=None, is_optional=is_optional)
 
     def update_xml_value(self, instance, node):
         setattr(instance, self._local_var_name, time.time())
@@ -299,9 +299,9 @@ class CurrentTimestampAttributeProperty(AttributeProperty):
 
 
 class DecimalAttributeProperty(AttributeProperty):
-    def __init__(self, attribute_name, defaultPyValue=None, implied_py_value=None, is_optional=True):
+    def __init__(self, attribute_name, default_py_value=None, implied_py_value=None, is_optional=True):
         super().__init__(attribute_name, value_converter=DecimalConverter,
-                         defaultPyValue=defaultPyValue, implied_py_value=implied_py_value, is_optional=is_optional)
+                         default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
     def __set__(self, instance, py_value):
         if py_value is not None and STRICT_DECIMAL_ATTRIBUTE is True:
@@ -320,18 +320,18 @@ class DurationAttributeProperty(AttributeProperty):
     """ XML notation is integer in milliseconds.
     Python is a float in seconds."""
 
-    def __init__(self, attribute_name, defaultPyValue=None, implied_py_value=None, is_optional=True):
+    def __init__(self, attribute_name, default_py_value=None, implied_py_value=None, is_optional=True):
         super().__init__(attribute_name, value_converter=DurationConverter,
-                         defaultPyValue=defaultPyValue, implied_py_value=implied_py_value, is_optional=is_optional)
+                         default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
 
 class IntegerAttributeProperty(AttributeProperty):
     """ XML notation is integer in milliseconds.
     Python is a float in seconds."""
 
-    def __init__(self, attribute_name, defaultPyValue=None, implied_py_value=None, is_optional=True):
+    def __init__(self, attribute_name, default_py_value=None, implied_py_value=None, is_optional=True):
         super().__init__(attribute_name, value_converter=IntegerConverter,
-                         defaultPyValue=defaultPyValue, implied_py_value=implied_py_value, is_optional=is_optional)
+                         default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
 
 class VersionCounterAttributeProperty(IntegerAttributeProperty):
@@ -345,9 +345,9 @@ class BooleanAttributeProperty(AttributeProperty):
     """ XML notation is integer in milliseconds.
     Python is a float in seconds."""
 
-    def __init__(self, attribute_name, defaultPyValue=None, implied_py_value=None, is_optional=True):
+    def __init__(self, attribute_name, default_py_value=None, implied_py_value=None, is_optional=True):
         super().__init__(attribute_name, value_converter=BooleanConverter,
-                         defaultPyValue=defaultPyValue, implied_py_value=implied_py_value, is_optional=is_optional)
+                         default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
 
 class QNameAttributeProperty(AttributeProperty):
@@ -493,8 +493,8 @@ class DecimalListAttributeProperty(NodeAttributeListProperty):
 class NodeTextProperty(_NodeProperty):
     """ The handled data is the text of an element."""
 
-    def __init__(self, subElementName=None, defaultPyValue=None, implied_py_value=None, is_optional=False):
-        super().__init__(subElementName, defaultPyValue, implied_py_value, is_optional)
+    def __init__(self, subElementName=None, default_py_value=None, implied_py_value=None, is_optional=False):
+        super().__init__(subElementName, default_py_value, implied_py_value, is_optional)
         self._converter = NullConverter
 
     def get_py_value_from_node(self, instance, node):
@@ -530,16 +530,16 @@ class NodeTextProperty(_NodeProperty):
 
 
 class NodeEnumTextProperty(NodeTextProperty):
-    def __init__(self, enum_cls, subElementName, defaultPyValue=None, implied_py_value=None, is_optional=False):
-        super().__init__(subElementName, defaultPyValue, implied_py_value, is_optional)
+    def __init__(self, enum_cls, subElementName, default_py_value=None, implied_py_value=None, is_optional=False):
+        super().__init__(subElementName, default_py_value, implied_py_value, is_optional)
         self.enum_cls = enum_cls
 
 
 class NodeTextQNameProperty(_NodeProperty):
     """ The handled data is a qualified name as in the text of an element"""
 
-    def __init__(self, subElementName, defaultPyValue=None, is_optional=False):
-        super().__init__(subElementName, defaultPyValue, is_optional=is_optional)
+    def __init__(self, subElementName, default_py_value=None, is_optional=False):
+        super().__init__(subElementName, default_py_value, is_optional=is_optional)
 
     def get_py_value_from_node(self, instance, node):
         try:
@@ -591,10 +591,10 @@ class _ExtensionLocalValue:
 class ExtensionNodeProperty(_NodeProperty):
     """ Represents an ext:Extension Element that contains xml tree of any kind."""
 
-    def __init__(self, subElementName=None, defaultPyValue=None):
+    def __init__(self, subElementName=None, default_py_value=None):
         if subElementName is None:
             subElementName = namespaces.extTag('Extension')
-        super().__init__(subElementName, defaultPyValue, is_optional=True, local_var_prefix='ext')
+        super().__init__(subElementName, default_py_value, is_optional=True, local_var_prefix='ext')
         self._converter = None
 
     def __get__(self, instance, owner):
@@ -656,8 +656,8 @@ class ExtensionNodeProperty(_NodeProperty):
 class SubElementProperty(_NodeProperty):
     """ uses a value that has an "as_etree_node" method"""
 
-    def __init__(self, subElementName, value_class, defaultPyValue=None, implied_py_value=None, is_optional=False):
-        super().__init__(subElementName, defaultPyValue, implied_py_value, is_optional)
+    def __init__(self, subElementName, value_class, default_py_value=None, implied_py_value=None, is_optional=False):
+        super().__init__(subElementName, default_py_value, implied_py_value, is_optional)
         self.value_class = value_class
 
     def get_py_value_from_node(self, instance, node):
@@ -803,10 +803,10 @@ class SubElementWithSubElementListProperty(SubElementProperty):
     value_class must have an is_empty method
     """
 
-    def __init__(self, subElementName, defaultPyValue, value_class):
+    def __init__(self, subElementName, default_py_value, value_class):
         assert hasattr(value_class, 'is_empty')
         super().__init__(subElementName,
-                         defaultPyValue=defaultPyValue,
+                         default_py_value=default_py_value,
                          value_class=value_class)
 
     def update_xml_value(self, instance, node):
@@ -847,8 +847,8 @@ class DateOfBirthProperty(_NodeProperty):
     The corresponding Python types are datetime.Date (=> not time point available) or datetime.Datetime (with time point attribute)
     """
 
-    def __init__(self, subElementName, defaultPyValue=None, implied_py_value=None, is_optional=True):
-        super().__init__(subElementName, defaultPyValue, implied_py_value, is_optional)
+    def __init__(self, subElementName, default_py_value=None, implied_py_value=None, is_optional=True):
+        super().__init__(subElementName, default_py_value, implied_py_value, is_optional)
 
     def get_py_value_from_node(self, instance, node):
         try:

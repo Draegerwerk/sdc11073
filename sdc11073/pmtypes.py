@@ -424,7 +424,7 @@ class InstanceIdentifier(PropertyBasedPMType):
     Type = cp.SubElementProperty(domTag('Type'), value_class=CodedValue)
     IdentifierName = cp.SubElementListProperty(domTag('IdentifierName'), value_class=LocalizedText)
     Root = cp.AnyURIAttributeProperty('Root',
-                                      defaultPyValue='biceps.uri.unk')  # xsd:anyURI string, default is defined in R0135
+                                      default_py_value='biceps.uri.unk')  # xsd:anyURI string, default is defined in R0135
     Extension = cp.ExtensionAttributeProperty('Extension')  # a xsd:string
     #pylint: enable=invalid-name
     _props = ('ext_Extension', 'Type', 'IdentifierName', 'Root', 'Extension')
@@ -818,9 +818,9 @@ class AlertActivation(StringEnum):
 
 class SystemSignalActivation(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    Manifestation = cp.EnumAttributeProperty('Manifestation', defaultPyValue=AlertSignalManifestation.OTH,
+    Manifestation = cp.EnumAttributeProperty('Manifestation', default_py_value=AlertSignalManifestation.OTH,
                                              enum_cls=AlertSignalManifestation, is_optional=False)
-    State = cp.EnumAttributeProperty('State', defaultPyValue=AlertActivation.ON,
+    State = cp.EnumAttributeProperty('State', default_py_value=AlertActivation.ON,
                                      enum_cls=AlertActivation, is_optional=False)
     # pylint: enable=invalid-name
     _props = ['Manifestation', 'State']

@@ -495,9 +495,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     def _on_episodic_metric_report(self, received_message_data, is_buffered_report=False):
         if not is_buffered_report and self._buffer_notification(received_message_data, self._on_episodic_metric_report):
             return
-        new_mdib_version = received_message_data.mdib_version
-        if not self._can_accept_mdib_version('_on_episodic_metric_report', new_mdib_version):
-            return
 
         now = time.time()
         metrics_by_handle = {}
@@ -506,6 +503,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         state_containers = self._msg_reader.read_episodic_metric_report(received_message_data)
         try:
             with self.mdib_lock:
+                new_mdib_version = received_message_data.mdib_version
+                if not self._can_accept_mdib_version('_on_episodic_metric_report', new_mdib_version):
+                    return
                 if self._sequence_id_changed(received_message_data.sequence_id):
                     return
                 self.mdib_version = new_mdib_version
@@ -564,15 +564,15 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     def _on_episodic_alert_report(self, received_message_data, is_buffered_report=False):
         if not is_buffered_report and self._buffer_notification(received_message_data, self._on_episodic_alert_report):
             return
-        new_mdib_version = received_message_data.mdib_version
-        if not self._can_accept_mdib_version('_on_episodic_alert_report', new_mdib_version):
-            return
 
         alert_by_handle = {}
         state_containers = self._msg_reader.read_episodic_alert_report(received_message_data)
         self._logger.debug('_on_episodic_alert_report: received {} alerts', len(state_containers))
         try:
             with self.mdib_lock:
+                new_mdib_version = received_message_data.mdib_version
+                if not self._can_accept_mdib_version('_on_episodic_alert_report', new_mdib_version):
+                    return
                 if self._sequence_id_changed(received_message_data.sequence_id):
                     return
                 self.mdib_version = new_mdib_version
@@ -599,14 +599,13 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not is_buffered_report and self._buffer_notification(received_message_data,
                                                                 self._on_operational_state_report):
             return
-        new_mdib_version = received_message_data.mdib_version
-        if not self._can_accept_mdib_version('_on_operational_state_report', new_mdib_version):
-            return
         operation_by_handle = {}
         all_operation_state_containers = self._msg_reader.read_operational_state_report(received_message_data)
-        self._logger.info('_on_operational_state_report: received {} containers', len(all_operation_state_containers))
         try:
             with self.mdib_lock:
+                new_mdib_version = received_message_data.mdib_version
+                if not self._can_accept_mdib_version('_on_operational_state_report', new_mdib_version):
+                    return
                 if self._sequence_id_changed(received_message_data.sequence_id):
                     return
                 self.mdib_version = new_mdib_version
@@ -646,15 +645,15 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         # pylint:disable=too-many-locals
         if not is_buffered_report and self._buffer_notification(received_message_data, self._on_waveform_report):
             return
-        new_mdib_version = received_message_data.mdib_version
-        if not self._can_accept_mdib_version('_on_waveform_report', new_mdib_version):
-            return
         waveform_by_handle = {}
         waveform_age = {}  # collect age of all waveforms in this report, and make one report if age is above warn limit (instead of multiple)
         rt_sample_array_containers = self._msg_reader.read_waveform_report(received_message_data)
         self._logger.debug('_on_waveform_report: {} waveforms received', len(rt_sample_array_containers))
         try:
             with self.mdib_lock:
+                new_mdib_version = received_message_data.mdib_version
+                if not self._can_accept_mdib_version('_on_waveform_report', new_mdib_version):
+                    return
                 if self._sequence_id_changed(received_message_data.sequence_id):
                     return
                 self.mdib_version = new_mdib_version
@@ -725,13 +724,13 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not is_buffered_report and self._buffer_notification(received_message_data,
                                                                 self._on_episodic_context_report):
             return
-        new_mdib_version = received_message_data.mdib_version
-        if not self._can_accept_mdib_version('_on_episodic_context_report', new_mdib_version):
-            return
         context_by_handle = {}
         state_containers = self._msg_reader.read_episodic_context_report(received_message_data)
         try:
             with self.mdib_lock:
+                new_mdib_version = received_message_data.mdib_version
+                if not self._can_accept_mdib_version('_on_episodic_context_report', new_mdib_version):
+                    return
                 if self._sequence_id_changed(received_message_data.sequence_id):
                     return
                 self.mdib_version = new_mdib_version
@@ -764,13 +763,13 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not is_buffered_report and self._buffer_notification(received_message_data,
                                                                 self._on_episodic_component_report):
             return
-        new_mdib_version = received_message_data.mdib_version
-        if not self._can_accept_mdib_version('_on_episodic_component_report', new_mdib_version):
-            return
         component_by_handle = {}
         state_containers = self._msg_reader.read_episodic_component_report(received_message_data)
         try:
             with self.mdib_lock:
+                new_mdib_version = received_message_data.mdib_version
+                if not self._can_accept_mdib_version('_on_episodic_component_report', new_mdib_version):
+                    return
                 if self._sequence_id_changed(received_message_data.sequence_id):
                     return
                 self.mdib_version = new_mdib_version
@@ -802,11 +801,11 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not is_buffered_report and self._buffer_notification(received_message_data,
                                                                 self._on_description_modification_report):
             return
-        new_mdib_version = received_message_data.mdib_version
-        if not self._can_accept_mdib_version('_on_description_modification_report', new_mdib_version):
-            return
         descriptions_lookup_list = self._msg_reader.read_description_modification_report(received_message_data)
         with self.mdib_lock:
+            new_mdib_version = received_message_data.mdib_version
+            if not self._can_accept_mdib_version('_on_description_modification_report', new_mdib_version):
+                return
             if self._sequence_id_changed(received_message_data.sequence_id):
                 return
             self.mdib_version = new_mdib_version
@@ -815,14 +814,14 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 updated_descriptor_by_handle = {}
 
                 # -- new --
-                new_descriptor_containers, state_containers = descriptions_lookup[
+                new_descriptor_containers, new_state_containers = descriptions_lookup[
                     pmtypes.DescriptionModificationTypes.CREATE]
                 for descriptor_container in new_descriptor_containers:
                     self.descriptions.add_object(descriptor_container)
                     self._logger.debug('_on_description_modification_report: created description "{}" (parent="{}")',
                                        descriptor_container.handle, descriptor_container.parent_handle)
                     new_descriptor_by_handle[descriptor_container.handle] = descriptor_container
-                for state_container in state_containers:
+                for state_container in new_state_containers:
                     self._set_descriptor_container_reference(state_container)
                     # determine multikey
                     if state_container.isContextState:
@@ -832,7 +831,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     multikey.add_object(state_container)
 
                 # -- deleted --
-                deleted_descriptor_containers, state_containers = descriptions_lookup[
+                deleted_descriptor_containers, deleted_state_containers = descriptions_lookup[
                     pmtypes.DescriptionModificationTypes.DELETE]
                 for descriptor_container in deleted_descriptor_containers:
                     self._logger.debug('_on_description_modification_report: remove descriptor "{}" (parent="{}")',
@@ -841,30 +840,30 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         descriptor_container.handle)  # handling of self.deleted_descriptor_by_handle inside called method
 
                 # -- updated --
-                updated_descriptor_containers, state_containers = descriptions_lookup[
+                updated_descriptor_containers, updated_state_containers = descriptions_lookup[
                     pmtypes.DescriptionModificationTypes.UPDATE]
                 for descriptor_container in updated_descriptor_containers:
                     self._logger.info('_on_description_modification_report: update descriptor "{}" (parent="{}")',
                                       descriptor_container.handle, descriptor_container.parent_handle)
-                    container = self.descriptions.handle.get_one(descriptor_container.handle, allow_none=True)
-                    if container is None:
-                        pass
+                    old_container = self.descriptions.handle.get_one(descriptor_container.handle, allow_none=True)
+                    if old_container is None:
+                        self._logger.error('got update of descriptor "{}" , but it did not exist in mdib!',
+                                          descriptor_container.handle)
                     else:
-                        container.update_from_other_container(descriptor_container)
+                        old_container.update_from_other_container(descriptor_container)
                     updated_descriptor_by_handle[descriptor_container.handle] = descriptor_container
                     # if this is a context descriptor, delete all associated states that are not in
                     # state_containers list
                     if descriptor_container.isContextDescriptor:
-                        updated_handles = {s.Handle for s in state_containers
+                        updated_handles = {s.Handle for s in updated_state_containers
                                            if s.descriptorHandle == descriptor_container.handle}  # set comprehension
-
                         my_handles = {s.Handle for s in self.context_states.descriptorHandle.get(
                             descriptor_container.handle, [])}  # set comprehension
                         to_be_deleted = my_handles - updated_handles
                         for handle in to_be_deleted:
                             state = multikey.handle.get_one(handle)
                             self.context_states.remove_object_no_lock(state)
-                for state_container in state_containers:
+                for state_container in updated_state_containers:
                     # determine multikey
                     if state_container.isContextState:
                         multikey = self.context_states
@@ -873,15 +872,19 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         multikey = self.states
                         old_state_container = multikey.descriptorHandle.get_one(
                             state_container.descriptorHandle, allow_none=True)
+                        if old_state_container is None:
+                            self._logger.error('got update of state "{}" , but it did not exist in mdib!',
+                                               state_container.descriptorHandle)
                     if old_state_container is not None:
                         old_state_container.update_from_other_container(state_container)
                         multikey.update_object(old_state_container)
 
-                # write observables for every report part separately
+                self.description_modifications = descriptions_lookup_list # update observable for complete report
+                # update observables for every report part separately
                 if new_descriptor_by_handle:
-                    self.new_descriptor_by_handle = new_descriptor_by_handle
+                    self.new_descriptors_by_handle = new_descriptor_by_handle
                 if updated_descriptor_by_handle:
-                    self.updated_descriptor_by_handle = updated_descriptor_by_handle
+                    self.updated_descriptors_by_handle = updated_descriptor_by_handle
 
     def _has_new_state_usable_state_version(self, old_state_container, new_state_container,
                                             report_name, is_buffered_report):

@@ -167,12 +167,13 @@ class MdibContainer:
     alert_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
     context_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
     component_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
-    new_descriptor_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
-    updated_descriptor_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
-    deleted_descriptor_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
-    operation_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
+    new_descriptors_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
+    updated_descriptors_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
+    deleted_descriptors_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
     deleted_states_by_handle = properties.ObservableProperty(
         fire_only_on_changed_value=False)  # is a result of deleted descriptors
+    description_modifications = properties.ObservableProperty(fire_only_on_changed_value=False)
+    operation_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
     sequence_id = properties.ObservableProperty()
 
     def __init__(self, sdc_definitions: Type[BaseDefinitions]):
@@ -224,7 +225,7 @@ class MdibContainer:
 
         # finally update observable property
         if new_descriptor_by_handle:
-            self.new_descriptor_by_handle = new_descriptor_by_handle
+            self.new_descriptors_by_handle = new_descriptor_by_handle
 
     def clear_states(self):
         """removes all states and context states. """
@@ -542,13 +543,13 @@ class MdibContainer:
 
     def rm_descriptors_and_states(self, descriptor_containers):
         """ recursive delete of a descriptor and all children and all related states"""
-        deleted_descriptors_by_handle = {}
-        deleted_states_by_handle = {}
+        deleted_descriptors = {}
+        deleted_states = {}
         for descriptor_container in descriptor_containers:
             self._logger.debug('rm Descriptor node {} handle {}',
                                descriptor_container.NODETYPE, descriptor_container.handle)
             self.descriptions.remove_object(descriptor_container)
-            deleted_descriptors_by_handle[descriptor_container.handle] = descriptor_container
+            deleted_descriptors[descriptor_container.handle] = descriptor_container
             for m_key in (self.states, self.context_states):
                 state_containers = m_key.descriptorHandle.get(descriptor_container.handle)
                 if state_containers is not None:
@@ -557,12 +558,12 @@ class MdibContainer:
                     self._logger.debug('rm {} states(s) associated to descriptor {} ',
                                        len(state_containers), descriptor_container.handle)
                     m_key.remove_objects(state_containers)
-                    deleted_states_by_handle[descriptor_container.handle] = state_containers
+                    deleted_states[descriptor_container.handle] = state_containers
 
-        if deleted_descriptors_by_handle:
-            self.deleted_descriptor_by_handle = deleted_descriptors_by_handle
-        if deleted_states_by_handle:
-            self.deleted_states_by_handle = deleted_states_by_handle
+        if deleted_descriptors:
+            self.deleted_descriptors_by_handle = deleted_descriptors
+        if deleted_states:
+            self.deleted_states_by_handle = deleted_states
 
     def rm_descriptor_by_handle(self, handle):
         """deletes descriptor and the subtree"""
