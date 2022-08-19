@@ -173,7 +173,7 @@ class Test_Tutorial(unittest.TestCase):
         self.assertEqual(len(locationContextDescriptorContainers), 1)
         # we can look for the corresponding state by handle:
         locationContextStateContainers = myMdib.context_states.descriptorHandle.get(
-            locationContextDescriptorContainers[0].handle)
+            locationContextDescriptorContainers[0].Handle)
         self.assertEqual(len(locationContextStateContainers), 1)
 
     def test_callOperation(self):
@@ -208,16 +208,16 @@ class Test_Tutorial(unittest.TestCase):
         myPatientContextDescriptorContainer = patientContextDescriptorContainers[0]
         all_operations = myMdib.descriptions.NODETYPE.get(domTag('SetContextStateOperationDescriptor'), [])
         my_operations = [op for op in all_operations if
-                         op.OperationTarget == myPatientContextDescriptorContainer.handle]
+                         op.OperationTarget == myPatientContextDescriptorContainer.Handle]
         self.assertEqual(len(my_operations), 1)
         my_operation = my_operations[0]
 
         # make a proposed patient context:
         contextService = my_client.context_service_client
-        proposedPatient = contextService.mk_proposed_context_object(myPatientContextDescriptorContainer.handle)
+        proposedPatient = contextService.mk_proposed_context_object(myPatientContextDescriptorContainer.Handle)
         proposedPatient.Firstname = 'Jack'
         proposedPatient.Lastname = 'Miller'
-        future = contextService.set_context_state(operation_handle=my_operation.handle,
+        future = contextService.set_context_state(operation_handle=my_operation.Handle,
                                                   proposed_context_states=[proposedPatient])
         result = future.result(timeout=5)
         self.assertEqual(result.invocation_state, pmtypes.InvocationState.FINISHED)
@@ -295,7 +295,7 @@ class Test_Tutorial(unittest.TestCase):
                 if operation_descriptor_container.coding == MY_CODE_3.coding:
                     self._logger.info(
                         'instantiating operation 3 from existing descriptor handle={}'.format(
-                            operation_descriptor_container.handle))
+                            operation_descriptor_container.Handle))
                     operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                              operation_cls_getter,
                                                                              current_argument_handler=self._handle_operation_3)
@@ -367,7 +367,7 @@ class Test_Tutorial(unittest.TestCase):
         # the mdib contains 2 operations with the same code. To keep things simple, just use the first one here.
         op = operations[0]
         argument = 'foo'
-        future = my_client.set_service_client.activate(op.handle, arguments=[argument])
+        future = my_client.set_service_client.activate(op.Handle, arguments=[argument])
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_1.operation1_called, 1)
@@ -380,7 +380,7 @@ class Test_Tutorial(unittest.TestCase):
         # call set_string operation
         op = myMdib.descriptions.coding.get_one(MY_CODE_2.coding)
         for value in ('foo', 'bar'):
-            future = my_client.set_service_client.set_string(op.handle, value)
+            future = my_client.set_service_client.set_string(op.Handle, value)
             result = future.result()
             print(result)
             self.assertEqual(my_product_impl.my_provider_1.operation2_args, value)
@@ -392,7 +392,7 @@ class Test_Tutorial(unittest.TestCase):
         state_descr = myMdib.descriptions.coding.get_one(MY_CODE_3_TARGET.coding)
         operations = myMdib.get_operation_descriptors_for_descriptor_handle(state_descr.Handle)
         op = operations[0]
-        future = my_client.set_service_client.set_numeric_value(op.handle, Decimal('42'))
+        future = my_client.set_service_client.set_numeric_value(op.Handle, Decimal('42'))
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_2.operation3_args, 42)

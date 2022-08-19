@@ -423,16 +423,16 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertIsNone(patientContextStateContainer)
 
             myOperations = client_mdib.get_operation_descriptors_for_descriptor_handle(
-                patientDescriptorContainer.handle,
+                patientDescriptorContainer.Handle,
                 NODETYPE=namespaces.domTag(
                     'SetContextStateOperationDescriptor'))
             self.assertEqual(len(myOperations), 1)
-            operation_handle = myOperations[0].handle
+            operation_handle = myOperations[0].Handle
             print('Handle for SetContextSTate Operation = {}'.format(operation_handle))
             context = sdcClient.client('Context')
 
             # insert a new patient with wrong handle, this shall fail
-            proposedContext = context.mk_proposed_context_object(patientDescriptorContainer.handle)
+            proposedContext = context.mk_proposed_context_object(patientDescriptorContainer.Handle)
             proposedContext.Handle = 'some_nonexisting_handle'
             proposedContext.CoreData.Givenname = 'Karl'
             proposedContext.CoreData.Middlename = ['M.']
@@ -451,7 +451,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(state, pmtypes.InvocationState.FAILED)
 
             # insert a new patient with correct handle, this shall succeed
-            proposedContext.Handle = patientDescriptorContainer.handle
+            proposedContext.Handle = patientDescriptorContainer.Handle
             future = context.set_context_state(operation_handle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
             state = result.invocation_state
@@ -473,11 +473,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(patientContextStateContainer.CoreData.Weight.MeasuredValue, Decimal('68.2'))
             self.assertEqual(patientContextStateContainer.CoreData.Race, pmtypes.CodedValue('somerace'))
             self.assertNotEqual(patientContextStateContainer.Handle,
-                                patientDescriptorContainer.handle)  # device replaced it with its own handle
+                                patientDescriptorContainer.Handle)  # device replaced it with its own handle
             self.assertEqual(patientContextStateContainer.ContextAssociation, pmtypes.ContextAssociation.ASSOCIATED)
 
             # test update of the patient
-            proposedContext = context.mk_proposed_context_object(patientDescriptorContainer.handle,
+            proposedContext = context.mk_proposed_context_object(patientDescriptorContainer.Handle,
                                                                  handle=patientContextStateContainer.Handle)
             proposedContext.CoreData.Givenname = 'Karla'
             future = context.set_context_state(operation_handle, [proposedContext])
@@ -490,7 +490,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(patientContextStateContainer.CoreData.Familyname, 'Klammer')
 
             # set new patient, check binding mdib versions and context association
-            proposedContext = context.mk_proposed_context_object(patientDescriptorContainer.handle)
+            proposedContext = context.mk_proposed_context_object(patientDescriptorContainer.Handle)
             proposedContext.CoreData.Givenname = 'Heidi'
             proposedContext.CoreData.Middlename = ['M.']
             proposedContext.CoreData.Familyname = 'Klammer'
@@ -521,7 +521,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             # create a patient locally on device, then test update from client
             coll = observableproperties.SingleValueCollector(sdcClient, 'episodic_context_report')
             with sdcDevice.mdib.transaction_manager() as mgr:
-                st = mgr.mk_context_state(patientDescriptorContainer.handle)
+                st = mgr.mk_context_state(patientDescriptorContainer.Handle)
                 st.CoreData.Givenname = 'Max123'
                 st.CoreData.Middlename = ['Willy']
                 st.CoreData.Birthname = 'Mustermann'
@@ -539,7 +539,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             myPatient = [p for p in patientContextStateContainers if p.CoreData.Givenname == 'Max123']
             self.assertEqual(len(myPatient), 1)
             myPatient = myPatient[0]
-            proposedContext = context.mk_proposed_context_object(patientDescriptorContainer.handle, myPatient.Handle)
+            proposedContext = context.mk_proposed_context_object(patientDescriptorContainer.Handle, myPatient.Handle)
             proposedContext.CoreData.Givenname = 'Karl123'
             future = context.set_context_state(operation_handle, [proposedContext])
             result = future.result(timeout=SET_TIMEOUT)
@@ -561,7 +561,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(sdcClient, 'episodic_context_report')
             with sdcDevice.mdib.transaction_manager() as mgr:
                 tr_MdibVersion = sdcDevice.mdib.mdib_version
-                st = mgr.mk_context_state(patientDescriptorContainer.handle)
+                st = mgr.mk_context_state(patientDescriptorContainer.Handle)
                 st.CoreData.Givenname = 'Max'
                 st.CoreData.Middlename = ['Willy']
                 st.CoreData.Birthname = 'Mustermann'
@@ -595,7 +595,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             # test update of same patient
             coll = observableproperties.SingleValueCollector(sdcClient, 'episodic_context_report')
             with sdcDevice.mdib.transaction_manager() as mgr:
-                st = mgr.get_context_state(patientDescriptorContainer.handle, patientContextStateContainer.Handle)
+                st = mgr.get_context_state(patientDescriptorContainer.Handle, patientContextStateContainer.Handle)
                 st.CoreData.Givenname = 'Moritz'
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             patientContextStateContainer = clientMdib.context_states.NODETYPE.get_one(
@@ -667,7 +667,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         clientMdib.init_mdib()
         coding = pmtypes.Coding(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
         operation = sdcDevice.mdib.descriptions.coding.get_one(coding)
-        future = setService.activate(operation_handle=operation.handle, arguments=None)
+        future = setService.activate(operation_handle=operation.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
         state = result.invocation_state
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
@@ -677,13 +677,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertTrue(alertSystemDescriptors is not None)
         self.assertGreater(len(alertSystemDescriptors), 0)
         for alertSystemDescriptor in alertSystemDescriptors:
-            state = sdcClient.mdib.states.descriptorHandle.get_one(alertSystemDescriptor.handle)
+            state = sdcClient.mdib.states.descriptorHandle.get_one(alertSystemDescriptor.Handle)
             # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
             self.assertEqual(state.SystemSignalActivation[0].State, pmtypes.AlertActivation.PAUSED)
 
         coding = pmtypes.Coding(nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
         operation = sdcDevice.mdib.descriptions.coding.get_one(coding)
-        future = setService.activate(operation_handle=operation.handle, arguments=None)
+        future = setService.activate(operation_handle=operation.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
         state = result.invocation_state
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
@@ -693,7 +693,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertTrue(alertSystemDescriptors is not None)
         self.assertGreater(len(alertSystemDescriptors), 0)
         for alertSystemDescriptor in alertSystemDescriptors:
-            state = sdcClient.mdib.states.descriptorHandle.get_one(alertSystemDescriptor.handle)
+            state = sdcClient.mdib.states.descriptorHandle.get_one(alertSystemDescriptor.Handle)
             self.assertEqual(state.SystemSignalActivation[0].State, pmtypes.AlertActivation.ON)
 
     def test_audio_pause_two_clients(self):
@@ -721,7 +721,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         clients = (sdc_client1, sdc_client2)
         coding = pmtypes.Coding(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
         operation = sdcDevice.mdib.descriptions.coding.get_one(coding)
-        future = set_service.activate(operation_handle=operation.handle, arguments=None)
+        future = set_service.activate(operation_handle=operation.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
         state = result.invocation_state
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
@@ -732,13 +732,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertGreater(len(alertSystemDescriptors), 0)
         for alertSystemDescriptor in alertSystemDescriptors:
             for client in clients:
-                state = client.mdib.states.descriptorHandle.get_one(alertSystemDescriptor.handle)
+                state = client.mdib.states.descriptorHandle.get_one(alertSystemDescriptor.Handle)
                 # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
                 self.assertEqual(state.SystemSignalActivation[0].State, pmtypes.AlertActivation.PAUSED)
 
         coding = pmtypes.Coding(nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
         operation = sdcDevice.mdib.descriptions.coding.get_one(coding)
-        future = set_service.activate(operation_handle=operation.handle, arguments=None)
+        future = set_service.activate(operation_handle=operation.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
         state = result.invocation_state
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
@@ -749,7 +749,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertGreater(len(alertSystemDescriptors), 0)
         for alertSystemDescriptor in alertSystemDescriptors:
             for client in clients:
-                state = client.mdib.states.descriptorHandle.get_one(alertSystemDescriptor.handle)
+                state = client.mdib.states.descriptorHandle.get_one(alertSystemDescriptor.Handle)
                 self.assertEqual(state.SystemSignalActivation[0].State, pmtypes.AlertActivation.ON)
 
     def test_set_ntp_server(self):
@@ -765,7 +765,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coding = pmtypes.Coding(nc.OP_SET_NTP)
             myOperationDescriptor = sdcDevice.mdib.descriptions.coding.get_one(coding)
 
-        operation_handle = myOperationDescriptor.handle
+        operation_handle = myOperationDescriptor.Handle
         for value in ('169.254.0.199', '169.254.0.199:1234'):
             print('ntp server', value)
             future = setService.set_string(operation_handle=operation_handle, requested_string=value)
@@ -782,7 +782,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 clockDescriptors = clientMdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'), [])
                 clockDescriptors = [c for c in clockDescriptors if c.descriptor_handle == state.descriptorHandle]
                 if len(clockDescriptors) == 1:
-                    state = clientMdib.states.descriptorHandle.get_one(clockDescriptors[0].handle)
+                    state = clientMdib.states.descriptorHandle.get_one(clockDescriptors[0].Handle)
 
             self.assertEqual(state.ReferenceSource[0].text, value)
 
@@ -800,7 +800,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coding = pmtypes.Coding(nc.OP_SET_TZ)
             myOperationDescriptor = sdcDevice.mdib.descriptions.coding.get_one(coding)
 
-        operation_handle = myOperationDescriptor.handle
+        operation_handle = myOperationDescriptor.Handle
         for value in ('+03:00', '-03:00'):  # are these correct values?
             print('time zone', value)
             future = setService.set_string(operation_handle=operation_handle, requested_string=value)
@@ -817,7 +817,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 clockDescriptors = clientMdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'), [])
                 clockDescriptors = [c for c in clockDescriptors if c.parent_handle == state.descriptorHandle]
                 if len(clockDescriptors) == 1:
-                    state = clientMdib.states.descriptorHandle.get_one(clockDescriptors[0].handle)
+                    state = clientMdib.states.descriptorHandle.get_one(clockDescriptors[0].Handle)
             self.assertEqual(state.TimeZone, value)
 
     def test_set_metric_state(self):
@@ -830,7 +830,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             namespaces.domTag('SetMetricStateOperationDescriptor'))
         myCode = pmtypes.CodedValue(99999)
         setMetricStateOperationDescriptorContainer = sdcDevice.mdib.descriptor_factory._create_descriptor_container(
-            cls, 'HANDLE_FOR_MY_TEST', scoDescriptors[0].handle, myCode, pmtypes.SafetyClassification.INF)
+            cls, 'HANDLE_FOR_MY_TEST', scoDescriptors[0].Handle, myCode, pmtypes.SafetyClassification.INF)
         setMetricStateOperationDescriptorContainer.OperationTarget = '0x34F001D5'
         setMetricStateOperationDescriptorContainer.Type = pmtypes.CodedValue(999998)
         sdcDevice.mdib.descriptions.add_object(setMetricStateOperationDescriptorContainer)
@@ -843,7 +843,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         clientMdib.init_mdib()
 
         myOperationDescriptor = setMetricStateOperationDescriptorContainer
-        operation_handle = myOperationDescriptor.handle
+        operation_handle = myOperationDescriptor.Handle
         proposedMetricState = clientMdib.mk_proposed_state('0x34F001D5')
         self.assertIsNone(proposedMetricState.LifeTimePeriod)  # just to be sure that we know the correct intitial value
         before_stateversion = proposedMetricState.StateVersion
@@ -873,7 +873,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         setComponentStateOperationDescriptorContainer = sdcDevice.mdib.descriptor_factory._create_descriptor_container(
             cls,
             'HANDLE_FOR_MY_TEST',
-            scoDescriptors[0].handle,
+            scoDescriptors[0].Handle,
             myCode,
             pmtypes.SafetyClassification.INF)
         setComponentStateOperationDescriptorContainer.OperationTarget = operationtarget_handle
@@ -888,7 +888,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         clientMdib.init_mdib()
 
         myOperationDescriptor = setComponentStateOperationDescriptorContainer
-        operation_handle = myOperationDescriptor.handle
+        operation_handle = myOperationDescriptor.Handle
         proposedComponentState = clientMdib.mk_proposed_state(operationtarget_handle)
         self.assertIsNone(
             proposedComponentState.OperatingHours)  # just to be sure that we know the correct intitial value
@@ -1108,7 +1108,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             # long timeout, sometimes high load on jenkins makes these tests fail
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             cl_descriptorContainer = clientMdib.descriptions.handle.get_one(new_handle, allow_none=True)
-            self.assertEqual(cl_descriptorContainer.handle, new_handle)
+            self.assertEqual(cl_descriptorContainer.Handle, new_handle)
 
             # test deleting a descriptor
             coll = observableproperties.SingleValueCollector(sdcClient,
@@ -1168,7 +1168,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         # verify that alert system state is also updated
         alertSystemDescr = clientMdib.descriptions.handle.get_one(clientAlertDescriptor.parent_handle)
-        alertSystemState = clientMdib.states.descriptorHandle.get_one(alertSystemDescr.handle)
+        alertSystemState = clientMdib.states.descriptorHandle.get_one(alertSystemDescr.Handle)
         self.assertTrue(alertDescriptorHandle in alertSystemState.PresentPhysiologicalAlarmConditions)
         self.assertGreater(alertSystemState.SelfCheckCount, 0)
 
@@ -1184,7 +1184,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             with sdcDevice.mdib.transaction_manager() as mgr:
                 # set Metadata
                 mdsDescriptorHandle = sdcDevice.mdib.descriptions.NODETYPE.get_one(
-                    namespaces.domTag('MdsDescriptor')).handle
+                    namespaces.domTag('MdsDescriptor')).Handle
                 mdsDescriptor = mgr.get_descriptor(mdsDescriptorHandle)
                 mdsDescriptor.MetaData.Manufacturer.append(pmtypes.LocalizedText(u'Draeger GmbH'))
                 mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(u'pySDC'))
@@ -1214,7 +1214,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(sdcClient, 'description_modification_report')
             with sdcDevice.mdib.transaction_manager() as mgr:
                 mdsDescriptor = sdcDevice.mdib.descriptions.NODETYPE.get_one(namespaces.domTag('MdsDescriptor'))
-                mgr.remove_descriptor(mdsDescriptor.handle)
+                mgr.remove_descriptor(mdsDescriptor.Handle)
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             # verify that all state versions were saved
             descr_handles_lookup1 = copy.copy(sdcDevice.mdib.descriptions.handle_version_lookup)

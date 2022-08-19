@@ -18,7 +18,7 @@ class GenericPatientContextProvider(GenericContextProvider):
             self._patient_context_descriptor_container = descriptor_containers[0]
 
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
-        if self._patient_context_descriptor_container and operation_descriptor_container.OperationTarget == self._patient_context_descriptor_container.handle:
+        if self._patient_context_descriptor_container and operation_descriptor_container.OperationTarget == self._patient_context_descriptor_container.Handle:
             pc_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                         operation_cls_getter,
                                                                         current_argument_handler=self._set_context_state)

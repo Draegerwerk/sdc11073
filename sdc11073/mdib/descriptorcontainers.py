@@ -13,7 +13,8 @@ from ..namespaces import domTag, extTag, msgTag, Prefixes
 # some Helper classes for AbstractDescriptorContainer, they help to declare the kind and order of
 # sub elements.
 ChildElem = namedtuple('ChildElem',
-                       'child_qname')  # this child is own property. child_qname is the tag name of the child
+                       'child_qname')
+
 # ChildConts stands for different containers that are children
 # child_qname is the name of the SubElement,
 # node_types is a list of NODETYPE values of matching descriptor containers
@@ -45,6 +46,7 @@ def make_descriptor_node(descriptor_container, tag, nsmapper, set_xsi_type=True,
     """
     Creates a lxml etree node from instance data.
     :param descriptor_container: a descriptor container instance
+    :param nsmapper:  namespaces.DocNamespaceHelper instance
     :param set_xsi_type: if true, the NODETYPE will be used to set the xsi:type attribute of the node
     :param tag: tag of node
     :param connect_child_descriptors: if True, the whole sub-tree is included
@@ -55,7 +57,7 @@ def make_descriptor_node(descriptor_container, tag, nsmapper, set_xsi_type=True,
     else:
         namespace_map = descriptor_container.nsmapper.partial_map(Prefixes.PM)
     node = etree_.Element(tag,
-                          attrib={'Handle': descriptor_container.handle},
+                          attrib={'Handle': descriptor_container.Handle},
                           nsmap=namespace_map)
     descriptor_container.update_node(node, nsmapper, set_xsi_type)  # create all
     if connect_child_descriptors:
@@ -71,15 +73,7 @@ def make_descriptor_node(descriptor_container, tag, nsmapper, set_xsi_type=True,
 
 class AbstractDescriptorContainer(ContainerBase):
     """
-    This class represents the AbstractDescriptor type. It contains a DOM node of a descriptor.
-    For convenience it makes some data of that node available as members:
-    nodeName: QName of the node
-    nodeType: QName of the type. If no type is defined, value is None
-    parent_handle: string, never None (except root node)
-    handle: string, but can be None
-    descriptorVersion: int
-    codingSystem
-    codeId
+    This class represents the AbstractDescriptor
     """
     # these class variables allow easy type-checking. Derived classes will set corresponding values to True
     # pylint: disable=invalid-name
@@ -96,7 +90,7 @@ class AbstractDescriptorContainer(ContainerBase):
     node = properties.ObservableProperty()  # the etree node
 
     Handle = cp.HandleAttributeProperty('Handle', is_optional=False)
-    handle = Handle
+    #handle = Handle
     Extension = cp.ExtensionNodeProperty()
     DescriptorVersion = cp.VersionCounterAttributeProperty('DescriptorVersion',
                                                            default_py_value=0)  # optional, integer, defaults to 0
@@ -112,13 +106,15 @@ class AbstractDescriptorContainer(ContainerBase):
     STATE_QNAME = None
     extension_class_lookup = {msgTag('Retrievability'): msgtypes.Retrievability}
 
-    #def __init__(self, nsmapper, handle, parent_handle):
-    #    super().__init__(nsmapper)
     def __init__(self, handle, parent_handle):
         super().__init__()
         self.parent_handle = parent_handle
-        self.handle = handle
+        self.Handle = handle
         self.child_containers_by_type = defaultdict(list)
+
+    # @property
+    # def handle(self):
+    #     return self.Handle
 
     @property
     def coding(self):
@@ -164,7 +160,7 @@ class AbstractDescriptorContainer(ContainerBase):
     def rm_child(self, child_descriptor_container):
         tag_specific_list = self.child_containers_by_type[child_descriptor_container.NODETYPE]
         for container in tag_specific_list:
-            if container.handle == child_descriptor_container.handle:
+            if container.Handle == child_descriptor_container.Handle:
                 tag_specific_list.remove(container)
 
     def get_actual_value(self, attr_name):
@@ -224,12 +220,12 @@ class AbstractDescriptorContainer(ContainerBase):
 
     def __str__(self):
         name = self.NODETYPE.localname or None
-        return f'Descriptor "{name}": handle={self.handle} descriptor version={self.DescriptorVersion} ' \
+        return f'Descriptor "{name}": handle={self.Handle} descriptor version={self.DescriptorVersion} ' \
                f'parent handle={self.parent_handle}'
 
     def __repr__(self):
         name = self.NODETYPE.localname or None
-        return f'Descriptor "{name}": handle={self.handle} descriptor version={self.DescriptorVersion} ' \
+        return f'Descriptor "{name}": handle={self.Handle} descriptor version={self.DescriptorVersion} ' \
                f'parent={self.parent_handle}'
 
     @classmethod

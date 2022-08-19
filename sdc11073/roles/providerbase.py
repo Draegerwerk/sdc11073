@@ -87,7 +87,7 @@ class ProviderRole:
         """
         cls = operation_cls_getter(operation_descriptor_container.NODETYPE)
         operation = self._mk_operation(cls,
-                                       operation_descriptor_container.handle,
+                                       operation_descriptor_container.Handle,
                                        operation_descriptor_container.OperationTarget,
                                        operation_descriptor_container.coding,
                                        current_argument_handler,

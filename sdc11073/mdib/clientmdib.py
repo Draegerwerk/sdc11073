@@ -819,8 +819,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 for descriptor_container in new_descriptor_containers:
                     self.descriptions.add_object(descriptor_container)
                     self._logger.debug('_on_description_modification_report: created description "{}" (parent="{}")',
-                                       descriptor_container.handle, descriptor_container.parent_handle)
-                    new_descriptor_by_handle[descriptor_container.handle] = descriptor_container
+                                       descriptor_container.Handle, descriptor_container.parent_handle)
+                    new_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
                 for state_container in new_state_containers:
                     self._set_descriptor_container_reference(state_container)
                     # determine multikey
@@ -835,30 +835,30 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     pmtypes.DescriptionModificationTypes.DELETE]
                 for descriptor_container in deleted_descriptor_containers:
                     self._logger.debug('_on_description_modification_report: remove descriptor "{}" (parent="{}")',
-                                       descriptor_container.handle, descriptor_container.parent_handle)
+                                       descriptor_container.Handle, descriptor_container.parent_handle)
                     self.rm_descriptor_by_handle(
-                        descriptor_container.handle)  # handling of self.deleted_descriptor_by_handle inside called method
+                        descriptor_container.Handle)  # handling of self.deleted_descriptor_by_handle inside called method
 
                 # -- updated --
                 updated_descriptor_containers, updated_state_containers = descriptions_lookup[
                     pmtypes.DescriptionModificationTypes.UPDATE]
                 for descriptor_container in updated_descriptor_containers:
                     self._logger.info('_on_description_modification_report: update descriptor "{}" (parent="{}")',
-                                      descriptor_container.handle, descriptor_container.parent_handle)
-                    old_container = self.descriptions.handle.get_one(descriptor_container.handle, allow_none=True)
+                                      descriptor_container.Handle, descriptor_container.parent_handle)
+                    old_container = self.descriptions.handle.get_one(descriptor_container.Handle, allow_none=True)
                     if old_container is None:
                         self._logger.error('got update of descriptor "{}" , but it did not exist in mdib!',
-                                          descriptor_container.handle)
+                                          descriptor_container.Handle)
                     else:
                         old_container.update_from_other_container(descriptor_container)
-                    updated_descriptor_by_handle[descriptor_container.handle] = descriptor_container
+                    updated_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
                     # if this is a context descriptor, delete all associated states that are not in
                     # state_containers list
                     if descriptor_container.isContextDescriptor:
                         updated_handles = {s.Handle for s in updated_state_containers
-                                           if s.descriptorHandle == descriptor_container.handle}  # set comprehension
+                                           if s.descriptorHandle == descriptor_container.Handle}  # set comprehension
                         my_handles = {s.Handle for s in self.context_states.descriptorHandle.get(
-                            descriptor_container.handle, [])}  # set comprehension
+                            descriptor_container.Handle, [])}  # set comprehension
                         to_be_deleted = my_handles - updated_handles
                         for handle in to_be_deleted:
                             state = multikey.handle.get_one(handle)

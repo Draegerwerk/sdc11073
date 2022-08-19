@@ -38,7 +38,7 @@ class GenericMetricProvider(ProviderRole):
             if op_target_descriptor_container.NODETYPE == domTag('NumericMetricDescriptor'):
                 op_cls = operation_cls_getter(domTag('SetValueOperationDescriptor'))
                 return self._mk_operation(op_cls,
-                                          handle=operation_descriptor_container.handle,
+                                          handle=operation_descriptor_container.Handle,
                                           operation_target_handle=operation_target_handle,
                                           coded_value=operation_descriptor_container.Type,
                                           current_argument_handler=self._set_numeric_value)
@@ -48,7 +48,7 @@ class GenericMetricProvider(ProviderRole):
                                                            domTag('EnumStringMetricDescriptor')):
                 op_cls = operation_cls_getter(domTag('SetStringOperationDescriptor'))
                 return self._mk_operation(op_cls,
-                                          handle=operation_descriptor_container.handle,
+                                          handle=operation_descriptor_container.Handle,
                                           operation_target_handle=operation_target_handle,
                                           coded_value=operation_descriptor_container.Type,
                                           current_argument_handler=self._set_string)
@@ -56,7 +56,7 @@ class GenericMetricProvider(ProviderRole):
         if operation_descriptor_container.NODETYPE == domTag('SetMetricStateOperationDescriptor'):
             op_cls = operation_cls_getter(domTag('SetMetricStateOperationDescriptor'))
             operation = self._mk_operation(op_cls,
-                                           handle=operation_descriptor_container.handle,
+                                           handle=operation_descriptor_container.Handle,
                                            operation_target_handle=operation_target_handle,
                                            coded_value=operation_descriptor_container.Type,
                                            current_argument_handler=self._set_metric_state)

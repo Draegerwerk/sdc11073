@@ -22,7 +22,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         if operation_descriptor_container.coding == MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE.coding:
             self._logger.info('instantiating "set audio pause" operation from existing descriptor '
-                              f'handle={operation_descriptor_container.handle}')
+                              f'handle={operation_descriptor_container.Handle}')
             set_ap_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                             operation_cls_getter,
                                                                             current_request_handler=self._set_global_audio_pause)
@@ -31,7 +31,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
 
         if operation_descriptor_container.coding == MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE.coding:
             self._logger.info('instantiating "cancel audio pause" operation from existing descriptor '
-                              f'handle={operation_descriptor_container.handle}')
+                              f'handle={operation_descriptor_container.Handle}')
             cancel_ap_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                                operation_cls_getter,
                                                                                current_request_handler=self._cancel_global_audio_pause)
@@ -85,7 +85,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
             return
         with self._mdib.transaction_manager() as mgr:
             for alert_system_descriptor in alert_system_descriptors:
-                alert_system_state = mgr.get_state(alert_system_descriptor.handle)
+                alert_system_state = mgr.get_state(alert_system_descriptor.Handle)
                 if alert_system_state.ActivationState != pmtypes.AlertActivation.ON:
                     self._logger.info('SDC_SetAudioPauseOperation: nothing to do')
                     mgr.unget_state(alert_system_state)
@@ -101,16 +101,16 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
                         for ssa in active_audible_signals:
                             ssa.State = pmtypes.AlertActivation.PAUSED  # SF1132
                         self._logger.info(
-                            f'SetAudioPauseOperation: set alert system "{alert_system_descriptor.handle}" to paused')
+                            f'SetAudioPauseOperation: set alert system "{alert_system_descriptor.Handle}" to paused')
                         # handle all audible alert signals of this alert system
                         all_alert_signal_descriptors = self._mdib.descriptions.NODETYPE.get(
                             domTag('AlertSignalDescriptor'), [])
                         child_alert_signal_descriptors = [d for d in all_alert_signal_descriptors if
-                                                          d.parent_handle == alert_system_descriptor.handle]
+                                                          d.parent_handle == alert_system_descriptor.Handle]
                         audible_child_alert_signal_descriptors = [d for d in child_alert_signal_descriptors if
                                                                   d.Manifestation == pmtypes.AlertSignalManifestation.AUD]
                         for descriptor in audible_child_alert_signal_descriptors:
-                            alert_signal_state = mgr.get_state(descriptor.handle)
+                            alert_signal_state = mgr.get_state(descriptor.Handle)
                             if descriptor.AcknowledgementSupported:  # SF959
                                 if alert_signal_state.ActivationState != pmtypes.AlertActivation.PAUSED \
                                         or alert_signal_state.Presence != pmtypes.AlertSignalPresence.ACK:
@@ -134,7 +134,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
         alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSystemDescriptor'))
         with self._mdib.transaction_manager() as mgr:
             for alert_system_descriptor in alert_system_descriptors:
-                alert_system_state = mgr.get_state(alert_system_descriptor.handle)
+                alert_system_state = mgr.get_state(alert_system_descriptor.Handle)
                 if alert_system_state.ActivationState != pmtypes.AlertActivation.ON:
                     self._logger.info('SDC_CancelAudioPauseOperation: nothing to do')
                     mgr.unget_state(alert_system_state)
@@ -149,16 +149,16 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
                         for ssa in paused_audible_signals:
                             ssa.State = pmtypes.AlertActivation.ON
                         self._logger.info(
-                            f'SetAudioPauseOperation: set alert system "{alert_system_descriptor.handle}" to ON')
+                            f'SetAudioPauseOperation: set alert system "{alert_system_descriptor.Handle}" to ON')
                         # handle all audible alert signals of this alert system
                         all_alert_signal_descriptors = self._mdib.descriptions.NODETYPE.get(
                             domTag('AlertSignalDescriptor'), [])
                         child_alert_signal_descriptors = [d for d in all_alert_signal_descriptors if
-                                                          d.parent_handle == alert_system_descriptor.handle]
+                                                          d.parent_handle == alert_system_descriptor.Handle]
                         audible_child_alert_signal_descriptors = [d for d in child_alert_signal_descriptors if
                                                                   d.Manifestation == pmtypes.AlertSignalManifestation.AUD]
                         for descriptor in audible_child_alert_signal_descriptors:
-                            alert_signal_state = mgr.get_state(descriptor.handle)
+                            alert_signal_state = mgr.get_state(descriptor.Handle)
                             alert_condition_state = self._mdib.states.descriptorHandle.get_one(
                                 descriptor.ConditionSignaled)
                             if alert_condition_state.Presence:
@@ -183,7 +183,7 @@ class AudioPauseProvider(GenericAudioPauseProvider):
                 f'adding "set audio pause" operation, no descriptor in mdib (looked for code = {nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE})')
             set_ap_operation = self._mk_operation(activate_op_cls,
                                                   handle='AP__ON',
-                                                  operation_target_handle=operation_target_container.handle,
+                                                  operation_target_handle=operation_target_container.Handle,
                                                   coded_value=MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE,
                                                   current_request_handler=self._set_global_audio_pause)
             self._set_global_audio_pause_operations.append(set_ap_operation)
@@ -193,7 +193,7 @@ class AudioPauseProvider(GenericAudioPauseProvider):
                 f'adding "cancel audio pause" operation, no descriptor in mdib (looked for code = {nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE})')
             cancel_ap_operation = self._mk_operation(activate_op_cls,
                                                      handle='AP__CANCEL',
-                                                     operation_target_handle=operation_target_container.handle,
+                                                     operation_target_handle=operation_target_container.Handle,
                                                      coded_value=MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE,
                                                      current_request_handler=self._cancel_global_audio_pause)
             ops.append(cancel_ap_operation)

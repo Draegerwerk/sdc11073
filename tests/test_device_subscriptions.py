@@ -143,7 +143,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
             patientContextDescriptor = sdcDevice.mdib.descriptions.NODETYPE.get_one(
                 namespaces.domTag('PatientContextDescriptor'))
-            descriptorHandle = patientContextDescriptor.handle
+            descriptorHandle = patientContextDescriptor.Handle
             with sdcDevice.mdib.transaction_manager() as mgr:
                 st = mgr.mk_context_state(descriptorHandle)
                 st.CoreData.PatientType = pmtypes.PatientType.ADULT

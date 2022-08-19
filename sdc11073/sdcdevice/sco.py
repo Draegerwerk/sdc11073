@@ -89,7 +89,7 @@ class OperationDefinition:
             self._logger.info('descriptor for operation "{}" is already present, re-using it', self._handle)
         else:
             cls = mdib.sdc_definitions.get_descriptor_container_class(self.OP_DESCR_QNAME)
-            self._descriptor_container = cls(self._handle, parent_descriptor_container.handle)
+            self._descriptor_container = cls(self._handle, parent_descriptor_container.Handle)
             self._init_operation_descriptor_container()
             mdib.descriptions.add_object(self._descriptor_container)
 
@@ -359,7 +359,7 @@ class AbstractScoOperationsRegistry(ABC):
 
         # find the Sco of the Mds, this will be the default sco for new operations
         mds_descriptor_container = mdib.descriptions.NODETYPE.get_one(domTag('MdsDescriptor'))
-        sco_containers = mdib.descriptions.find(parent_handle=mds_descriptor_container.handle).find(
+        sco_containers = mdib.descriptions.find(parent_handle=mds_descriptor_container.Handle).find(
             NODETYPE=domTag('ScoDescriptor')).objects
         if len(sco_containers) == 1:
             self._logger.info('found Sco node in mds, using it')
@@ -368,7 +368,7 @@ class AbstractScoOperationsRegistry(ABC):
             self._logger.info('not found Sco node in mds, creating it')
             # create sco and add to mdib
             cls = mdib.sdc_definitions.get_descriptor_container_class(domTag('ScoDescriptor'))
-            self._mds_sco_descriptor_container = cls(self._handle, mds_descriptor_container.handle)
+            self._mds_sco_descriptor_container = cls(self._handle, mds_descriptor_container.Handle)
             mdib.descriptions.add_object(self._mds_sco_descriptor_container)
 
     @abstractmethod

@@ -28,29 +28,29 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                                                                     allow_none=True)
         if clock_descriptor is None:
             mds_container = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('MdsDescriptor'))
-            clock_descr_handle = 'clock_' + mds_container.handle
+            clock_descr_handle = 'clock_' + mds_container.Handle
             self._logger.info(f'creating a clock descriptor, handle={clock_descr_handle}')
             clock_descriptor = self._mdib.descriptor_factory.create_clock_descriptor_container(
                 handle=clock_descr_handle,
-                parent_handle=mds_container.handle,
+                parent_handle=mds_container.Handle,
                 coded_value=pmtypes.CodedValue(123),
                 safety_classification=pmtypes.SafetyClassification.INF)
 
-        clock_state = self._mdib.states.descriptorHandle.get_one(clock_descriptor.handle, allow_none=True)
+        clock_state = self._mdib.states.descriptorHandle.get_one(clock_descriptor.Handle, allow_none=True)
         if clock_state is None:
             clock_state = self._mdib.mk_state_container_from_descriptor(clock_descriptor)
             self._mdib.add_state(clock_state)
 
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         if operation_descriptor_container.coding in (MDC_OP_SET_TIME_SYNC_REF_SRC.coding, OP_SET_NTP.coding):
-            self._logger.info(f'instantiating "set ntp server" operation from existing descriptor handle={operation_descriptor_container.handle}')
+            self._logger.info(f'instantiating "set ntp server" operation from existing descriptor handle={operation_descriptor_container.Handle}')
             set_ntp_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                              operation_cls_getter,
                                                                              current_argument_handler=self._set_ntp_string)
             self._set_ntp_operations.append(set_ntp_operation)
             return set_ntp_operation
         if operation_descriptor_container.coding in (MDC_ACT_SET_TIME_ZONE.coding, OP_SET_TZ.coding):
-            self._logger.info(f'instantiating "set time zone" operation from existing descriptor handle={operation_descriptor_container.handle}')
+            self._logger.info(f'instantiating "set time zone" operation from existing descriptor handle={operation_descriptor_container.Handle}')
             set_tz_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                             operation_cls_getter,
                                                                             current_argument_handler=self._set_tz_string)

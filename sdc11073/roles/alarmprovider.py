@@ -117,12 +117,12 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         for tmp in changed_alert_conditions:
             alert_descriptor = self._get_descriptor(tmp.descriptorHandle, mdib, transaction)
             alert_system_descriptor = self._get_descriptor(alert_descriptor.parent_handle, mdib, transaction)
-            if alert_system_descriptor.handle in transaction.alert_state_updates:
-                tmp_st = transaction.alert_state_updates[alert_system_descriptor.handle]
+            if alert_system_descriptor.Handle in transaction.alert_state_updates:
+                tmp_st = transaction.alert_state_updates[alert_system_descriptor.Handle]
                 if tmp_st.new is not None:
                     alert_system_states.add(tmp_st.new)
             else:
-                alert_system_states.add(transaction.get_state(alert_system_descriptor.handle))
+                alert_system_states.add(transaction.get_state(alert_system_descriptor.Handle))
         return alert_system_states
 
     def on_pre_commit(self, mdib, transaction):
@@ -164,12 +164,12 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             all_alert_condition_descr = [d for d in all_child_descriptors if hasattr(d, 'Kind')]
             # select all state containers with technical alarms present
             all_tech_descr = [d for d in all_alert_condition_descr if d.Kind == AlertConditionKind.TECHNICAL]
-            all_tech_states = [_get_alert_state(d.handle) for d in all_tech_descr]
+            all_tech_states = [_get_alert_state(d.Handle) for d in all_tech_descr]
             all_tech_states = [s for s in all_tech_states if s is not None]
             all_present_tech_states = [s for s in all_tech_states if s.Presence]
             # select all state containers with physiolocical alarms present
             all_phys_descr = [d for d in all_alert_condition_descr if d.Kind == AlertConditionKind.PHYSIOLOGICAL]
-            all_phys_states = [_get_alert_state(d.handle) for d in all_phys_descr]
+            all_phys_states = [_get_alert_state(d.Handle) for d in all_phys_descr]
             all_phys_states = [s for s in all_phys_states if s is not None]
             all_present_phys_states = [s for s in all_phys_states if s.Presence]
 
@@ -192,7 +192,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         # look for active delegations (we only need the Manifestation value here)
         active_delegate_manifestations = []
         for descriptor in remote_alert_signal_descriptors:
-            alert_signal_state = mdib.states.descriptorHandle.get_one(descriptor.handle)
+            alert_signal_state = mdib.states.descriptorHandle.get_one(descriptor.Handle)
             if alert_signal_state.Presence != AlertSignalPresence.OFF and alert_signal_state.Location == 'Rem':
                 active_delegate_manifestations.append(descriptor.Manifestation)
 
@@ -206,11 +206,11 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                   (False, False): (AlertActivation.ON, AlertSignalPresence.OFF)
                   }
         for descriptor in local_alert_signal_descriptors:
-            tr_item = transaction.get_state_transaction_item(descriptor.handle)
+            tr_item = transaction.get_state_transaction_item(descriptor.Handle)
             if tr_item is None:
                 is_delegated = descriptor.Manifestation in active_delegate_manifestations  # is this local signal delegated?
                 activation, presence = lookup[(changed_alert_condition.Presence, is_delegated)]
-                alert_signal_state = transaction.get_state(descriptor.handle)
+                alert_signal_state = transaction.get_state(descriptor.Handle)
 
                 if alert_signal_state.ActivationState != activation or alert_signal_state.Presence != presence:
                     alert_signal_state.ActivationState = activation
@@ -228,7 +228,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         fallbacks = [tmp for tmp in all_signal_descriptors if
                      not tmp.SignalDelegationSupported and tmp.Manifestation == delegable_signal_descriptor.Manifestation]
         for fallback in fallbacks:
-            ss_fallback = transaction.get_state(fallback.handle)
+            ss_fallback = transaction.get_state(fallback.Handle)
             if ss_fallback.ActivationState != AlertActivation.PAUSED:
                 ss_fallback.ActivationState = AlertActivation.PAUSED
             else:
@@ -243,7 +243,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         fallbacks = [tmp for tmp in all_signal_descriptors if
                      not tmp.SignalDelegationSupported and tmp.Manifestation == delegable_signal_descriptor.Manifestation]
         for fallback in fallbacks:
-            ss_fallback = transaction.get_state(fallback.handle)
+            ss_fallback = transaction.get_state(fallback.Handle)
             if ss_fallback.ActivationState == AlertActivation.PAUSED:
                 ss_fallback.ActivationState = AlertActivation.ON
             else:
@@ -289,7 +289,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             all_alert_systems_descr = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('AlertSystemDescriptor'),
                                                                            [])
             for alert_system_descr in all_alert_systems_descr:
-                alert_system_state = self._mdib.states.descriptorHandle.get_one(alert_system_descr.handle,
+                alert_system_state = self._mdib.states.descriptorHandle.get_one(alert_system_descr.Handle,
                                                                                 allow_none=True)
                 if alert_system_state is not None:
                     selfcheck_period = alert_system_descr.SelfCheckPeriod
@@ -332,7 +332,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                         signal_descr = self._mdib.descriptions.handle.get_one(op_descrs.OperationTarget)
                         all_signal_descriptors = self._mdib.descriptions.ConditionSignaled.get(
                             signal_descr.ConditionSignaled, [])
-                        signal_state = mgr.get_state(signal_descr.handle)
+                        signal_state = mgr.get_state(signal_descr.Handle)
                         if signal_state.ActivationState == AlertActivation.ON:
                             signal_state.ActivationState = AlertActivation.OFF
                             self._activate_fallback_alert_signals(signal_descr, all_signal_descriptors, mgr)

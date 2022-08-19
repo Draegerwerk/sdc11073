@@ -36,7 +36,7 @@ class AbstractStateContainer(ContainerBase):
         self.descriptor_container = descriptor_container
         if descriptor_container is not None:
             # pylint: disable=invalid-name
-            self.DescriptorHandle = descriptor_container.handle
+            self.DescriptorHandle = descriptor_container.Handle
             self.DescriptorVersion = descriptor_container.DescriptorVersion
             # pylint: enable=invalid-name
 
@@ -211,8 +211,12 @@ class DistributionSampleArrayMetricStateContainer(AbstractMetricStateContainer):
 
 class AbstractDeviceComponentStateContainer(AbstractStateContainer):
     isComponentState = True
-    CalibrationInfo = cp.NotImplementedProperty('CalibrationInfo')  # optional, CalibrationInfo type
-    NextCalibration = cp.NotImplementedProperty('NextCalibration')  # optional, CalibrationInfo type
+    CalibrationInfo = cp.SubElementProperty(domTag('CalibrationInfo'),
+                                            value_class=pmtypes.CalibrationInfo,
+                                            is_optional=True)
+    NextCalibration = cp.SubElementProperty(domTag('NextCalibration'),
+                                            value_class=pmtypes.CalibrationInfo,
+                                            is_optional=True)
     PhysicalConnector = cp.SubElementProperty(domTag('PhysicalConnector'),
                                               value_class=pmtypes.PhysicalConnectorInfo)  # optional
 

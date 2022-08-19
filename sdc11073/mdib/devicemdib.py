@@ -170,7 +170,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 location_context.UnbindingMdibVersion = self.mdib_version
             descriptor_container = self.descriptions.NODETYPE.get_one(domTag('LocationContextDescriptor'))
 
-            self._current_location = mgr.mk_context_state(descriptor_container.handle)  # this creates a new location state
+            self._current_location = mgr.mk_context_state(descriptor_container.Handle)  # this creates a new location state
             self._current_location.update_from_sdc_location(sdc_location)
             self._current_location.set_node_member(self.nsmapper)
             if validators is not None:
@@ -262,7 +262,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         :return:
         """
         for descr in self.descriptions.objects:
-            if descr.handle not in self.states.descriptorHandle and descr.handle not in self.context_states.descriptorHandle:
+            if descr.Handle not in self.states.descriptorHandle and descr.Handle not in self.context_states.descriptorHandle:
                 state_cls = self.get_state_class_for_descriptor(descr)
                 if state_cls.isMultiState:
                     pass  # nothing to do, it is allowed to have no state
@@ -291,11 +291,11 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 if descr.retrievability is not None:
                     for r_by in descr.retrievability.By:
                         if r_by.Method == RetrievabilityMethod.EPISODIC:
-                            self._retrievability_episodic.append(descr.handle)
+                            self._retrievability_episodic.append(descr.Handle)
                         elif r_by.Method == RetrievabilityMethod.PERIODIC:
                             period_float = r_by.UpdatePeriod
                             period_ms = int(period_float * 1000.0)
-                            self.retrievability_periodic[period_ms].append(descr.handle)
+                            self.retrievability_periodic[period_ms].append(descr.Handle)
 
     @classmethod
     def from_mdib_file(cls, path,

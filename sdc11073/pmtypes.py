@@ -1277,6 +1277,52 @@ class MetaData(PropertyBasedPMType):
     def __init__(self):
         pass
 
+
+class T_CalibrationResult(PropertyBasedPMType):
+    # pylint: disable=invalid-name
+    Code = cp.SubElementProperty(domTag('Code'), value_class=CodedValue)
+    Value = cp.SubElementProperty(domTag('Code'), value_class=Measurement)
+    # pylint: enable=invalid-name
+    _props = ['Code', 'Value']
+
+
+class T_CalibrationDocumentation(PropertyBasedPMType):
+    # pylint: disable=invalid-name
+    Documentation = cp.SubElementListProperty(domTag('Documentation'), value_class=LocalizedText)
+    CalibrationResult = cp.SubElementListProperty(domTag('CalibrationResult'), value_class=T_CalibrationResult)
+    # pylint: enable=invalid-name
+    _props = ['Documentation', 'CalibrationResult']
+
+
+class T_CalibrationState(StringEnum):  # only used in CalibrationInfo
+    NOT_CALIBRATED = 'No'
+    CALIBRATION_REQUIRED = 'Req'
+    RUNNING = 'Run'
+    CALIBRATED = 'Cal'
+    OTHER = 'Oth'
+
+
+class T_CalibrationType(StringEnum):  # only used in CalibrationInfo
+    OFFSET = 'Offset'
+    GAIN = 'Gain'
+    TWO_POINT_CALIBRATION = 'TP'
+    UNSPEC = 'Unspec'
+
+
+class CalibrationInfo(PropertyBasedPMType):
+    # pylint: disable=invalid-name
+    CalibrationDocumentation = cp.SubElementListProperty(domTag('CalibrationDocumentation'),
+                                                         value_class=T_CalibrationDocumentation)
+    ComponentCalibrationState = cp.EnumAttributeProperty('ComponentCalibrationState',
+                                                         enum_cls=T_CalibrationState)
+    CalibrationType = cp.EnumAttributeProperty('CalibrationType',
+                                               implied_py_value=T_CalibrationType.UNSPEC,
+                                               enum_cls=T_CalibrationType)
+    Time = cp.TimestampAttributeProperty('Time')
+    # pylint: enable=invalid-name
+    _props = ['CalibrationDocumentation', 'ComponentCalibrationState', 'CalibrationType', 'Time']
+
+
 ###################################################################################
 # following : classes that serve only as name spaces
 

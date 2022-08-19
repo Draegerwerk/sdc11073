@@ -87,7 +87,7 @@ class IntegerConverter:
 class BooleanConverter:
     @staticmethod
     def to_py(xml_value):
-        return xml_value == 'true'
+        return xml_value in ('true', '1')
 
     @staticmethod
     def to_xml(py_value):

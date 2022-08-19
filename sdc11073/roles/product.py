@@ -31,7 +31,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
                                                            ):
                 op_cls = operation_cls_getter(namespaces.domTag('SetComponentStateOperationDescriptor'))
                 operation = self._mk_operation(op_cls,
-                                               handle=operation_descriptor_container.handle,
+                                               handle=operation_descriptor_container.Handle,
                                                operation_target_handle=operation_target_handle,
                                                coded_value=operation_descriptor_container.Type,
                                                current_argument_handler=self._set_component_state)
@@ -46,7 +46,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
                 # no generic handler to be called!
                 op_cls = operation_cls_getter(namespaces.domTag('ActivateOperationDescriptor'))
                 return self._mk_operation(op_cls,
-                                          handle=operation_descriptor_container.handle,
+                                          handle=operation_descriptor_container.Handle,
                                           operation_target_handle=operation_target_handle,
                                           coded_value=operation_descriptor_container.Type)
         return None
@@ -134,7 +134,7 @@ class BaseProduct:
         if operation_target_descr is None:
             # this operation is incomplete, the operation target does not exist. Registration not possible.
             self._logger.warn(
-                f'Operation {operation_descriptor_container.handle}: '
+                f'Operation {operation_descriptor_container.Handle}: '
                 f'target {operation_target_handle} does not exist, will not register operation')
             return None
         for role_handler in self._all_providers_sorted():
@@ -149,7 +149,7 @@ class BaseProduct:
     def _register_existing_mdib_operations(self, sco):
         operation_descriptor_containers = self._mdib.get_operation_descriptors()
         for descriptor in operation_descriptor_containers:
-            registered_op = sco.get_operation_by_handle(descriptor.handle)
+            registered_op = sco.get_operation_by_handle(descriptor.Handle)
             if registered_op is None:
                 self._logger.info(
                     f'found unregistered {descriptor.NODETYPE.localname} in mdib, handle={descriptor.Handle}, '
@@ -177,10 +177,10 @@ class BaseProduct:
         for tr_item in transaction.descriptor_updates.values():
             if tr_item.new is None:
                 # deleted descriptor
-                objects = mdib.states.descriptorHandle.get(tr_item.old.handle)
+                objects = mdib.states.descriptorHandle.get(tr_item.old.Handle)
                 if objects:
                     mdib.states.remove_objects(objects)
-                objects = mdib.context_states.descriptorHandle.get(tr_item.old.handle)
+                objects = mdib.context_states.descriptorHandle.get(tr_item.old.Handle)
                 if objects:
                     mdib.context_states.remove_objects(objects)
 
@@ -193,7 +193,7 @@ class BaseProduct:
                 # new descriptor
                 state_cls = mdib.get_state_class_for_descriptor(tr_item.new)
                 if not state_cls.isMultiState:
-                    if not transaction.has_state(tr_item.new.handle):
+                    if not transaction.has_state(tr_item.new.Handle):
                         state = state_cls(tr_item.new)
                         state.set_node_member(self._mdib.nsmapper)
                         transaction.add_state(state)

@@ -34,7 +34,7 @@ class _TransactionBase:
     def _get_state_container(self, descriptor_handle):
         """ returns oldContainer, newContainer"""
         descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
-        old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.handle,
+        old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.Handle,
                                                                                           allow_none=False)
         new_state_container = old_state_container.mk_copy()
         new_state_container.increment_state_version()
@@ -43,7 +43,7 @@ class _TransactionBase:
     def _mk_state_container(self, descriptor_handle, adjust_state_version=True):
         """ returns oldContainer, newContainer"""
         descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
-        old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.handle,
+        old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.Handle,
                                                                                           allow_none=True)
         if old_state_container is None:
             # create a new state object
@@ -121,7 +121,7 @@ class MdibUpdateTransaction(_TransactionBase):
           the DescriptorVersion of descriptor_container is set to last known version for this handle +1
         :return: None
         """
-        descriptor_handle = descriptor_container.handle
+        descriptor_handle = descriptor_container.Handle
         if adjust_descriptor_version:
             self._device_mdib_container.descriptions.set_version(descriptor_container)
         if descriptor_handle in self.descriptor_updates:
@@ -399,8 +399,8 @@ class TransactionProcessor:
             # need to know all to be deleted and to be created descriptors
             to_be_deleted = [old for old, new in mgr.descriptor_updates.values() if new is None]
             to_be_created = [new for old, new in mgr.descriptor_updates.values() if old is None]
-            to_be_deleted_handles = [d.handle for d in to_be_deleted]
-            to_be_created_handles = [d.handle for d in to_be_created]
+            to_be_deleted_handles = [d.Handle for d in to_be_deleted]
+            to_be_created_handles = [d.Handle for d in to_be_created]
             with self._mdib.mdib_lock:
                 # handling only updated states here: If a descriptor is created, it can be assumed that the
                 # application also creates the state in an transaction.
@@ -418,7 +418,7 @@ class TransactionProcessor:
                     if orig_descriptor is None:
                         # this is a create operation
                         self._logger.debug('transaction_manager: new descriptor Handle={}, DescriptorVersion={}',
-                                           new_descriptor.handle, new_descriptor.DescriptorVersion)
+                                           new_descriptor.Handle, new_descriptor.DescriptorVersion)
                         self.descr_created.append(new_descriptor.mk_copy())
                         self._mdib.descriptions.add_object_no_lock(new_descriptor)
                         # R0033: A SERVICE PROVIDER SHALL increment pm:AbstractDescriptor/@DescriptorVersion by one if a direct child descriptor is added or deleted.
@@ -428,7 +428,7 @@ class TransactionProcessor:
                     elif new_descriptor is None:
                         # this is a delete operation
                         self._logger.debug('transaction_manager: rm descriptor Handle={}, DescriptorVersion={}',
-                                           orig_descriptor.handle, orig_descriptor.DescriptorVersion)
+                                           orig_descriptor.Handle, orig_descriptor.DescriptorVersion)
                         all_descriptors = self._mdib.get_all_descriptors_in_subtree(orig_descriptor)
                         self._mdib.rm_descriptors_and_states(all_descriptors)
                         self.descr_deleted.extend([d.mk_copy() for d in all_descriptors])
@@ -440,7 +440,7 @@ class TransactionProcessor:
                         # this is an update operation
                         self.descr_updated.append(new_descriptor)
                         self._logger.debug('transaction_manager: update descriptor Handle={}, DescriptorVersion={}',
-                                           new_descriptor.handle, new_descriptor.DescriptorVersion)
+                                           new_descriptor.Handle, new_descriptor.DescriptorVersion)
                         self._mdib.descriptions.replace_object_no_lock(new_descriptor)
 
     def _handle_metric_states(self):
@@ -565,9 +565,9 @@ class TransactionProcessor:
         if descriptor_container.isContextDescriptor:
             update_dict = self._mgr.context_state_updates
             all_context_states = self._mdib.context_states.descriptorHandle.get(
-                descriptor_container.handle, [])
+                descriptor_container.Handle, [])
             for context_states in all_context_states:
-                key = (descriptor_container.handle, context_states.handle)
+                key = (descriptor_container.Handle, context_states.handle)
                 # check if state is already present in this transaction
                 state_update = update_dict.get(key)
                 if state_update is not None:
@@ -584,7 +584,7 @@ class TransactionProcessor:
                 self.descr_updated_states.append(new_state.mk_copy())
         else:
             # check if state is already present in this transaction
-            state_update = update_dict.get(descriptor_container.handle)
+            state_update = update_dict.get(descriptor_container.Handle)
             new_state = None
             if state_update is not None:
                 # the state has also been updated directly in transaction.
@@ -592,17 +592,17 @@ class TransactionProcessor:
                 old_state, new_state = state_update
                 if new_state is None:
                     raise ValueError(
-                        f'state deleted? that should not be possible! handle = {descriptor_container.handle}')
+                        f'state deleted? that should not be possible! handle = {descriptor_container.Handle}')
                 new_state.update_descriptor_version()
             else:
                 old_state = self._mdib.states.descriptorHandle.get_one(
-                    descriptor_container.handle, allow_none=True)
+                    descriptor_container.Handle, allow_none=True)
                 if old_state is not None:
                     new_state = old_state.mk_copy()
                     new_state.descriptor_container = descriptor_container #
                     new_state.DescriptorVersion = descriptor_container.DescriptorVersion
                     new_state.increment_state_version()
-                    update_dict[descriptor_container.handle] = TrItem(old_state, new_state)
+                    update_dict[descriptor_container.Handle] = TrItem(old_state, new_state)
             if new_state is not None:
                 self.descr_updated_states.append(new_state.mk_copy())
 

@@ -64,7 +64,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
 
     def __init__(self):
         _MultikeyWithVersionLookup.__init__(self)
-        self.add_index('handle', multikey.UIndexDefinition(lambda obj: obj.handle))
+        self.add_index('handle', multikey.UIndexDefinition(lambda obj: obj.Handle))
         self.add_index('parent_handle', multikey.IndexDefinition(lambda obj: obj.parent_handle))
         self.add_index('NODETYPE', multikey.IndexDefinition(lambda obj: obj.NODETYPE))
         self.add_index('coding', multikey.IndexDefinition(lambda obj: obj.coding))
@@ -76,10 +76,10 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
                        multikey.IndexDefinition1n(lambda obj: [s.text for s in obj.Source], index_none_values=False))
 
     def _save_version(self, obj):
-        self.handle_version_lookup[obj.handle] = obj.DescriptorVersion
+        self.handle_version_lookup[obj.Handle] = obj.DescriptorVersion
 
     def set_version(self, obj, increment=True):
-        version = self.handle_version_lookup.get(obj.handle)
+        version = self.handle_version_lookup.get(obj.Handle)
         if version is not None:
             if increment:
                 version += 1
@@ -125,7 +125,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
 
     def replace_object_no_lock(self, new_obj):
         """ remove existing descriptor_container and add new one, but do not touch childlist of parent (that keeps order)"""
-        orig_obj = self.handle.get_one(new_obj.handle)
+        orig_obj = self.handle.get_one(new_obj.Handle)
         self.remove_object_no_lock(orig_obj)
         self.add_object_no_lock(new_obj)
 
@@ -221,7 +221,7 @@ class MdibContainer:
         with self.descriptions.lock:
             for description_container in description_containers:
                 self.descriptions.add_object_no_lock(description_container)
-                new_descriptor_by_handle[description_container.handle] = description_container
+                new_descriptor_by_handle[description_container.Handle] = description_container
 
         # finally update observable property
         if new_descriptor_by_handle:
@@ -411,7 +411,7 @@ class MdibContainer:
 
         vmd = self.descriptions.coding.get_one(vmd_coding)
         _all_channels = self.descriptions.coding.get(channel_coding, [])
-        all_channels = [c for c in _all_channels if c.parent_handle == vmd.handle]
+        all_channels = [c for c in _all_channels if c.parent_handle == vmd.Handle]
         if len(all_channels) == 0:
             return None
         if len(all_channels) > 1:
@@ -419,7 +419,7 @@ class MdibContainer:
                 f'found multiple channel descriptors for vmd={vmd_coding} channel={channel_coding}')
         channel = all_channels[0]
         _all_metrics = self.descriptions.coding.get(metric_coding, [])
-        all_metrics = [m for m in _all_metrics if m.parent_handle == channel.handle]
+        all_metrics = [m for m in _all_metrics if m.parent_handle == channel.Handle]
         if len(all_metrics) == 0:
             return None
         if len(all_metrics) > 1:
@@ -440,7 +440,7 @@ class MdibContainer:
         @return: a list of matching Operation Containers
         """
         descriptor_container = self.get_metric_descriptor_by_code(vmd_code, channel_code, metric_code)
-        return self.get_operation_descriptors_for_descriptor_handle(descriptor_container.handle)
+        return self.get_operation_descriptors_for_descriptor_handle(descriptor_container.Handle)
 
     def get_operation_descriptors_for_descriptor_handle(self, descriptor_handle, **additional_filters):
         """
@@ -500,7 +500,7 @@ class MdibContainer:
                 selected_objects = self.descriptions.objects  # initially all objects
             else:
                 # get all children of selected objects
-                all_handles = [o.handle for o in selected_objects]  # pylint: disable=not-an-iterable
+                all_handles = [o.Handle for o in selected_objects]  # pylint: disable=not-an-iterable
                 selected_objects = []
                 for handle in all_handles:
                     selected_objects.extend(self.descriptions.parent_handle.get(handle, []))
@@ -527,7 +527,7 @@ class MdibContainer:
         result = []
 
         def _getchildren(parent):
-            child_containers = self.descriptions.parent_handle.get(parent.handle, [])
+            child_containers = self.descriptions.parent_handle.get(parent.Handle, [])
             if not depth_first:
                 result.extend(child_containers)
             apply_map(_getchildren, child_containers)
@@ -547,18 +547,18 @@ class MdibContainer:
         deleted_states = {}
         for descriptor_container in descriptor_containers:
             self._logger.debug('rm Descriptor node {} handle {}',
-                               descriptor_container.NODETYPE, descriptor_container.handle)
+                               descriptor_container.NODETYPE, descriptor_container.Handle)
             self.descriptions.remove_object(descriptor_container)
-            deleted_descriptors[descriptor_container.handle] = descriptor_container
+            deleted_descriptors[descriptor_container.Handle] = descriptor_container
             for m_key in (self.states, self.context_states):
-                state_containers = m_key.descriptorHandle.get(descriptor_container.handle)
+                state_containers = m_key.descriptorHandle.get(descriptor_container.Handle)
                 if state_containers is not None:
                     # make a copy, otherwise remove_objects will manipulate same list in place
                     state_containers = state_containers[:]
                     self._logger.debug('rm {} states(s) associated to descriptor {} ',
-                                       len(state_containers), descriptor_container.handle)
+                                       len(state_containers), descriptor_container.Handle)
                     m_key.remove_objects(state_containers)
-                    deleted_states[descriptor_container.handle] = state_containers
+                    deleted_states[descriptor_container.Handle] = state_containers
 
         if deleted_descriptors:
             self.deleted_descriptors_by_handle = deleted_descriptors

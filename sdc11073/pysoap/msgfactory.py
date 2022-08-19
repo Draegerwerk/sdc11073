@@ -974,7 +974,7 @@ class MessageFactoryDevice(MessageFactory):
             if descriptor.parent_handle is not None:  # only Mds can have None
                 report_part.set('ParentDescriptor', descriptor.parent_handle)
             report_part.append(descriptor.mk_descriptor_node(tag=msgTag('Descriptor'), nsmapper=nsmapper))
-            related_state_containers = [s for s in updated_states if s.descriptorHandle == descriptor.handle]
+            related_state_containers = [s for s in updated_states if s.descriptorHandle == descriptor.Handle]
             state_name = msgTag('State')
             report_part.extend([state.mk_state_node(state_name, nsmapper) for state in related_state_containers])
 
