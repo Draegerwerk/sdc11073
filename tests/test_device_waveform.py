@@ -3,7 +3,6 @@ import unittest
 
 import sdc11073
 from sdc11073 import pmtypes
-from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.mdib import descriptorcontainers as dc
 from sdc11073.sdcdevice import waveforms
 from sdc11073.dpws import ThisModelType, ThisDeviceType
@@ -21,7 +20,7 @@ SAMPLES = {"0x34F05506": (5.566406, 5.712891, 5.712891, 5.712891, 5.800781),
 class TestDeviceWaveform(unittest.TestCase):
 
     def setUp(self):
-        self.mdib = sdc11073.mdib.DeviceMdibContainer(SDC_v1_Definitions)
+        self.mdib = sdc11073.mdib.DeviceMdibContainer()
 
         # this structure is not realistic, but sufficient for what we need here.
         desc = dc.MdsDescriptorContainer(handle='42', parent_handle=None)

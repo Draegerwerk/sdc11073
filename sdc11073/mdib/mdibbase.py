@@ -334,6 +334,7 @@ class MdibContainer:
         for root_container in root_containers:
             node = root_container.mk_descriptor_node(tag=domTag('Mds'),
                                                      nsmapper=self.nsmapper,
+                                                     set_xsi_type=False,
                                                      connect_child_descriptors=True)
             md_description_node.append(node)
         return md_description_node

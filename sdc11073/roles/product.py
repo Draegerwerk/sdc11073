@@ -161,42 +161,10 @@ class BaseProduct:
     def _on_pre_commit(self, mdib, transaction):
         for provider in self._all_providers_sorted():
             provider.on_pre_commit(mdib, transaction)
-        self._add_missing_states_to_transaction(mdib, transaction)
 
     def _on_post_commit(self, mdib, transaction):
         for provider in self._all_providers_sorted():
             provider.on_post_commit(mdib, transaction)
-        self._remove_states_for_deleted_descriptors(mdib, transaction)
-
-    @staticmethod
-    def _remove_states_for_deleted_descriptors(mdib, transaction):
-        """
-        remove states from mdib for deleted descriptors
-        :return:
-        """
-        for tr_item in transaction.descriptor_updates.values():
-            if tr_item.new is None:
-                # deleted descriptor
-                objects = mdib.states.descriptorHandle.get(tr_item.old.Handle)
-                if objects:
-                    mdib.states.remove_objects(objects)
-                objects = mdib.context_states.descriptorHandle.get(tr_item.old.Handle)
-                if objects:
-                    mdib.context_states.remove_objects(objects)
-
-    def _add_missing_states_to_transaction(self, mdib, transaction):
-        """
-        add states to new descriptors if they are not part of this transaction
-        """
-        for tr_item in transaction.descriptor_updates.values():
-            if tr_item.old is None:
-                # new descriptor
-                state_cls = mdib.get_state_class_for_descriptor(tr_item.new)
-                if not state_cls.isMultiState:
-                    if not transaction.has_state(tr_item.new.Handle):
-                        state = state_cls(tr_item.new)
-                        state.set_node_member(self._mdib.nsmapper)
-                        transaction.add_state(state)
 
 
 class GenericProduct(BaseProduct):

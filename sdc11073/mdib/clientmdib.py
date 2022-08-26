@@ -216,44 +216,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         # first start receiving notifications, then call get_mdib.
         # Otherwise we might miss notifications.
         self._bind_to_client_observables()
-
-        # get_service = self._sdc_client.client('Get')
-        # self._logger.info('initializing mdib...')
-        # response = get_service.get_mdib()  # GetRequestResult
-        # self._logger.info('creating description containers...')
-        # descriptor_containers, state_containers = response.result
-        # self.descriptions.clear()
-        # self.add_description_containers(descriptor_containers)
-        # self._logger.info('creating state containers...')
-        # self.clear_states()
-        # self.add_state_containers(state_containers)
-        #
-        # mdib_version = response.mdib_version
-        # sequence_id = response.sequence_id
-        # if mdib_version is not None:
-        #     self.mdib_version = mdib_version
-        #     self._logger.info('setting initial mdib version to {}', mdib_version)
-        # else:
-        #     self._logger.warn('found no mdib version in GetMdib response, assuming "0"')
-        #     self.mdib_version = 0
-        # self.sequence_id = sequence_id
-        # self._logger.info('setting sequence Id to {}', sequence_id)
-        #
-        # # retrieve context states only if there were none in mdib
-        # if len(self.context_states.objects) == 0:
-        #     self._get_context_states()
-        # else:
-        #     self._logger.info('found context states in GetMdib Result, will not call getContextStates')
-        #
-        # # process buffered notifications
-        # with self._buffered_notifications_lock:
-        #     for buffered_report in self._buffered_notifications:
-        #         buffered_report.handler(buffered_report.report, is_buffered_report=True)
-        #     del self._buffered_notifications[:]
-        #     self._is_initialized = True
-        #
-        # self._sdc_client._register_mdib(self)  # pylint: disable=protected-access
-        # self._logger.info('initializing mdib done')
         self.reload_all()
         self._sdc_client._register_mdib(self)  # pylint: disable=protected-access
         self._logger.info('initializing mdib done')
@@ -427,7 +389,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             old_state_container.update_from_node(state_container.node)
                             self.context_states.update_object_no_lock(old_state_container)
                         else:
-                            difference = state_container.diff(old_state_containers)
+                            difference = state_container.diff(old_state_container)
                             if difference:
                                 self._logger.error('no state version update but different!\n{ \n{}', difference)
                     else:
@@ -854,7 +816,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     updated_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
                     # if this is a context descriptor, delete all associated states that are not in
                     # state_containers list
-                    if descriptor_container.isContextDescriptor:
+                    if descriptor_container.is_context_descriptor:
                         updated_handles = {s.Handle for s in updated_state_containers
                                            if s.descriptorHandle == descriptor_container.Handle}  # set comprehension
                         my_handles = {s.Handle for s in self.context_states.descriptorHandle.get(
@@ -912,7 +874,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     report_name, old_state_container.descriptorHandle,
                     old_state_container.StateVersion, new_state_container.StateVersion)
             return False
-        # diff == 0:
         diffs = old_state_container.diff(new_state_container)  # compares all xml attributes
         if diffs:
             self._logger.error(

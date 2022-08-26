@@ -28,8 +28,8 @@ class GenericContextProvider(providerbase.ProviderRole):
         return None
 
     def _set_context_state(self, operation_instance, proposed_context_states):
-        ''' This is the code that executes the operation itself.
-        '''
+        """ This is the code that executes the operation itself.
+        """
         with self._mdib.transaction_manager() as mgr:
             for proposed_st in proposed_context_states:
                 old_state_container = None

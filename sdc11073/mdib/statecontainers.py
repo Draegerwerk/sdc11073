@@ -23,7 +23,7 @@ class AbstractStateContainer(ContainerBase):
     isContextState = False
 
     Extension = cp.ExtensionNodeProperty()
-    DescriptorHandle = cp.HandleAttributeProperty('DescriptorHandle', is_optional=False)
+    DescriptorHandle = cp.HandleRefAttributeProperty('DescriptorHandle', is_optional=False)
     descriptorHandle = DescriptorHandle
     DescriptorVersion = cp.ReferencedVersionAttributeProperty('DescriptorVersion', default_py_value=0)
     StateVersion = cp.VersionCounterAttributeProperty('StateVersion', default_py_value=0)
@@ -107,27 +107,22 @@ class SetStringOperationStateContainer(AbstractOperationStateContainer):
 
 class ActivateOperationStateContainer(AbstractOperationStateContainer):
     NODETYPE = domTag('ActivateOperationState')  # a QName
-    _props = tuple()
 
 
 class SetContextStateOperationStateContainer(AbstractOperationStateContainer):
     NODETYPE = domTag('SetContextStateOperationState')  # a QName
-    _props = tuple()
 
 
 class SetMetricStateOperationStateContainer(AbstractOperationStateContainer):
     NODETYPE = domTag('SetMetricStateOperationState')  # a QName
-    _props = tuple()
 
 
 class SetComponentStateOperationStateContainer(AbstractOperationStateContainer):
     NODETYPE = domTag('SetComponentStateOperationState')  # a QName
-    _props = tuple()
 
 
 class SetAlertStateOperationStateContainer(AbstractOperationStateContainer):
     NODETYPE = domTag('SetAlertStateOperationState')  # a QName
-    _props = tuple()
 
 
 class AbstractMetricStateContainerBase(AbstractStateContainer):
@@ -183,7 +178,6 @@ class StringMetricStateContainer(AbstractMetricStateContainer):
 class EnumStringMetricStateContainer(StringMetricStateContainer):
     NODETYPE = domTag('EnumStringMetricState')
     _metric_value = cp.SubElementProperty(domTag('MetricValue'), value_class=pmtypes.StringMetricValue)
-    _props = tuple()
 
 
 class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
@@ -230,16 +224,18 @@ class AbstractDeviceComponentStateContainer(AbstractStateContainer):
 
 class AbstractComplexDeviceComponentStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = domTag('AbstractComplexDeviceComponentState')
-    _props = tuple()
 
 
 class MdsStateContainer(AbstractComplexDeviceComponentStateContainer):
     NODETYPE = domTag('MdsState')
+    OperatingJurisdiction = cp.SubElementProperty(domTag('OperatingJurisdiction'),
+                                                  value_class=pmtypes.OperatingJurisdiction,
+                                                  is_optional=True)
     OperatingMode = cp.EnumAttributeProperty('OperatingMode',
                                              default_py_value=pmtypes.MdsOperatingMode.NORMAL,
                                              enum_cls=pmtypes.MdsOperatingMode)
     Lang = cp.StringAttributeProperty('Lang', default_py_value='en')
-    _props = ('OperatingMode', 'Lang')
+    _props = ('OperatingJurisdiction', 'OperatingMode', 'Lang')
 
 
 class ScoStateContainer(AbstractDeviceComponentStateContainer):
@@ -252,12 +248,14 @@ class ScoStateContainer(AbstractDeviceComponentStateContainer):
 
 class VmdStateContainer(AbstractComplexDeviceComponentStateContainer):
     NODETYPE = domTag('VmdState')
-    _props = tuple()
+    OperatingJurisdiction = cp.SubElementProperty(domTag('OperatingJurisdiction'),
+                                                  value_class=pmtypes.OperatingJurisdiction,
+                                                  is_optional=True)
+    _props = ('OperatingJurisdiction',)
 
 
 class ChannelStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = domTag('ChannelState')
-    _props = tuple()
 
 
 class ClockStateContainer(AbstractDeviceComponentStateContainer):
@@ -276,7 +274,6 @@ class ClockStateContainer(AbstractDeviceComponentStateContainer):
 
 class SystemContextStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = domTag('SystemContextState')
-    _props = tuple()
 
 
 class BatteryStateContainer(AbstractDeviceComponentStateContainer):
@@ -385,7 +382,7 @@ class AbstractMultiStateContainer(AbstractStateContainer):
         self._handle_is_generated = True
 
     def update_from_other_container(self, other, skipped_properties=None):
-        #     Accept node only if descriptorHandle and Handle match
+        # Accept node only if descriptorHandle and Handle match
         if self._handle_is_generated:
             self.Handle = other.Handle
             self._handle_is_generated = False
@@ -474,7 +471,8 @@ class WorkflowContextStateContainer(AbstractContextStateContainer):
 class OperatorContextStateContainer(AbstractContextStateContainer):
     NODETYPE = domTag('OperatorContextState')
     OperatorDetails = cp.SubElementProperty(domTag('OperatorDetails'),
-                                            value_class=pmtypes.BaseDemographics)  # optional
+                                            value_class=pmtypes.BaseDemographics,
+                                            is_optional=True)
     _props = ('OperatorDetails',)
 
 

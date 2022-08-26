@@ -2,19 +2,29 @@
 import enum
 import inspect
 import itertools
+import sys
 import traceback
 from collections import namedtuple
-from math import isclose
 from decimal import Decimal
+from math import isclose
+
 from lxml import etree as etree_
 
-from .mdib import containerproperties  as cp
-from .namespaces import domTag, QN_TYPE, docname_from_qname, text_to_qname
+from .mdib import containerproperties as cp
+from .namespaces import domTag, QN_TYPE, text_to_qname
+
 
 class StringEnum(str, enum.Enum):
 
     def __str__(self):
         return str(self.value)
+
+
+class PropertyBasedPMTypeMeta(type):
+    def __new__(mcs, name, bases, class_dict):
+        class_ = super().__new__(mcs, name, bases, class_dict)
+        class_.freedom = True
+        return class_
 
 
 class PropertyBasedPMType:
@@ -36,11 +46,6 @@ class PropertyBasedPMType:
     def update_from_node(self, node):
         for dummy, prop in self.sorted_container_properties():
             prop.update_from_node(self, node)
-
-    # def update_from_other(self, other):
-    #     """copies the python values, no xml involved"""
-    #     for dummy, prop in self.sorted_container_properties():
-    #         prop.update_from_other(self, other)
 
     def sorted_container_properties(self):
         """
@@ -88,6 +93,19 @@ class PropertyBasedPMType:
         obj.update_from_node(node)
         return obj
 
+    @classmethod
+    def value_class_from_node(cls, node):
+        """ If node has an xsi:Type attribute, return the class that reflects that type"""
+        xsi_type_str = node.get(QN_TYPE)
+        if xsi_type_str is None:
+            return cls
+        xsi_type = text_to_qname(xsi_type_str, node.nsmap)
+        try:
+            return _get_pmtypes_class(xsi_type)
+        except KeyError:
+            raise
+            return cls
+
 
 class ElementWithTextOnly(PropertyBasedPMType):
     text = cp.NodeTextProperty()  # this is the text of the node. Here attribute is lower case!
@@ -103,7 +121,7 @@ class ElementWithTextOnly(PropertyBasedPMType):
         return cls(text)
 
 
-class T_TextWidth(StringEnum):     #pylint: disable=invalid-name
+class T_TextWidth(StringEnum):  # pylint: disable=invalid-name
     XS = 'xs'
     S = 's'
     M = 'm'
@@ -114,12 +132,12 @@ class T_TextWidth(StringEnum):     #pylint: disable=invalid-name
 
 class LocalizedText(PropertyBasedPMType):
     text = cp.LocalizedTextContentProperty()  # this is the text of the node. Here attribute is lower case!
-    #pylint: disable=invalid-name
+    # pylint: disable=invalid-name
     Ref = cp.LocalizedTextRefAttributeProperty('Ref')
     Lang = cp.StringAttributeProperty('Lang')
     Version = cp.ReferencedVersionAttributeProperty('Version')
     TextWidth = cp.EnumAttributeProperty('TextWidth', enum_cls=T_TextWidth)
-    #pylint: enable=invalid-name
+    # pylint: enable=invalid-name
     _props = ['text', 'Ref', 'Lang', 'Version', 'TextWidth']
     ''' Represents a LocalizedText type in the Participant Model. '''
 
@@ -137,7 +155,7 @@ class LocalizedText(PropertyBasedPMType):
         self.Ref = ref
         self.Version = version
         self.TextWidth = textWidth
-        #pylint: enable=invalid-name
+        # pylint: enable=invalid-name
 
     @classmethod
     def from_node(cls, node):
@@ -212,20 +230,20 @@ class Coding(_CodingBase):
         return cls(code, coding_system, coding_system_version)
 
 
-def mk_coding(code, coding_system=DEFAULT_CODING_SYSTEM, coding_system_version=None):
-    return Coding(code, coding_system, coding_system_version)
+# def mk_coding(code, coding_system=DEFAULT_CODING_SYSTEM, coding_system_version=None):
+#     return Coding(code, coding_system, coding_system_version)
 
 
 class T_Translation(PropertyBasedPMType):
     """
     Translation is part of CodedValue in BICEPS FINAL
     """
-    #pylint: disable=invalid-name
+    # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     Code = cp.CodeIdentifierAttributeProperty('Code', is_optional=False)
     CodingSystem = cp.StringAttributeProperty('CodingSystem', implied_py_value=DEFAULT_CODING_SYSTEM)
     CodingSystemVersion = cp.StringAttributeProperty('CodingSystemVersion')
-    #pylint: enable=invalid-name
+    # pylint: enable=invalid-name
 
     _props = ['ext_Extension', 'Code', 'CodingSystem', 'CodingSystemVersion']
 
@@ -240,8 +258,12 @@ class T_Translation(PropertyBasedPMType):
         self.CodingSystem = codingsystem
         self.CodingSystemVersion = codingSystemVersion
         # pylint: enable=invalid-name
-        self.coding = None  # set by self._mkCoding()
-        self.mk_coding()
+
+    @property
+    def coding(self):
+        if self.Code is not None:
+            return Coding(self.Code, self.CodingSystem, self.CodingSystemVersion)
+        return None
 
     def __repr__(self):
         if self.CodingSystem is None:
@@ -249,12 +271,6 @@ class T_Translation(PropertyBasedPMType):
         if self.CodingSystemVersion is None:
             return f'CodedValue({self.Code}, codingsystem={self.CodingSystem})'
         return f'CodedValue({self.Code}, codingsystem={self.CodingSystem}, codingsystemversion={self.CodingSystemVersion})'
-
-    def mk_coding(self):
-        if self.Code is not None:
-            self.coding = Coding(self.Code, self.CodingSystem, self.CodingSystemVersion)
-        else:
-            self.coding = None
 
     def __eq__(self, other):
         """ other can be an int, a string, a CodedValue like object (has "coding" member) or a Coding"""
@@ -266,12 +282,12 @@ class T_Translation(PropertyBasedPMType):
     def from_node(cls, node):
         obj = cls(None)
         obj.update_from_node(node)
-        obj.mk_coding()
+        # obj.mk_coding()
         return obj
 
 
 class CodedValue(PropertyBasedPMType):
-    #pylint: disable=invalid-name
+    # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     CodingSystemName = cp.SubElementListProperty(domTag('CodingSystemName'), value_class=LocalizedText)
     ConceptDescription = cp.SubElementListProperty(domTag('ConceptDescription'), value_class=LocalizedText)
@@ -280,7 +296,7 @@ class CodedValue(PropertyBasedPMType):
     CodingSystem = cp.StringAttributeProperty('CodingSystem', implied_py_value=DEFAULT_CODING_SYSTEM)
     CodingSystemVersion = cp.StringAttributeProperty('CodingSystemVersion')
     SymbolicCodeName = cp.SymbolicCodeNameAttributeProperty('SymbolicCodeName')
-    #pylint: enable=invalid-name
+    # pylint: enable=invalid-name
     _props = ['ext_Extension', 'CodingSystemName', 'ConceptDescription', 'Translation',
               'Code', 'CodingSystem', 'CodingSystemVersion', 'SymbolicCodeName']
 
@@ -302,14 +318,10 @@ class CodedValue(PropertyBasedPMType):
         self.ConceptDescription = [] if conceptDescriptions is None else conceptDescriptions
         self.SymbolicCodeName = symbolicCodeName
         # pylint: enable=invalid-name
-        self.coding = None  # set by self.mk_coding()
-        self.mk_coding()
 
-    def mk_coding(self):
-        if self.Code is not None:
-            self.coding = Coding(self.Code, self.CodingSystem, self.CodingSystemVersion)
-        else:
-            self.coding = None
+    @property
+    def coding(self):
+        return Coding(self.Code, self.CodingSystem, self.CodingSystemVersion)
 
     def __repr__(self):
         if self.CodingSystem is None:
@@ -354,15 +366,15 @@ class CodedValue(PropertyBasedPMType):
     def from_node(cls, node):
         obj = cls(None)
         obj.update_from_node(node)
-        obj.mk_coding()
+        # obj.mk_coding()
         return obj
 
 
 class Annotation(PropertyBasedPMType):
-    #pylint: disable=invalid-name
+    # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     Type = cp.SubElementProperty(domTag('Type'), value_class=CodedValue)
-    #pylint: enable=invalid-name
+    # pylint: enable=invalid-name
     _props = ['ext_Extension', 'Type']
 
     codedValue = Type
@@ -387,12 +399,12 @@ class OperatingMode(StringEnum):
 
 
 class OperationGroup(PropertyBasedPMType):
-    #pylint: disable=invalid-name
+    # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     Type = cp.SubElementProperty(domTag('Type'), value_class=CodedValue)
     OperatingMode = cp.EnumAttributeProperty('OperatingMode', enum_cls=OperatingMode)
     Operations = cp.OperationRefListAttributeProperty('Operations')
-    #pylint: enable=invalid-name
+    # pylint: enable=invalid-name
     _props = ['ext_Extension', 'Type', 'OperatingMode', 'Operations']
 
     def __init__(self, coded_value=None, operating_mode=None, operations=None):
@@ -414,19 +426,19 @@ class OperationGroup(PropertyBasedPMType):
         operating_mode = cls.OperatingMode.get_py_value_from_node(None, node)
         operations = cls.Operations.get_py_value_from_node(None, node)
         ret = cls(coded_value, operating_mode, operations)
-        #ret.node = node
+        # ret.node = node
         return ret
 
 
 class InstanceIdentifier(PropertyBasedPMType):
-    #pylint: disable=invalid-name
+    # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     Type = cp.SubElementProperty(domTag('Type'), value_class=CodedValue)
     IdentifierName = cp.SubElementListProperty(domTag('IdentifierName'), value_class=LocalizedText)
     Root = cp.AnyURIAttributeProperty('Root',
                                       default_py_value='biceps.uri.unk')  # xsd:anyURI string, default is defined in R0135
     Extension = cp.ExtensionAttributeProperty('Extension')  # a xsd:string
-    #pylint: enable=invalid-name
+    # pylint: enable=invalid-name
     _props = ('ext_Extension', 'Type', 'IdentifierName', 'Root', 'Extension')
 
     def __init__(self, root, type_coded_value=None, identifier_names=None, extension_string=None):
@@ -456,7 +468,7 @@ class InstanceIdentifier(PropertyBasedPMType):
 
 
 class OperatingJurisdiction(InstanceIdentifier):
-    _props = tuple()  # no properties
+    NODETYPE = domTag('OperatingJurisdiction')
 
 
 class Range(PropertyBasedPMType):
@@ -617,7 +629,6 @@ class AbstractMetricValue(PropertyBasedPMType):
 
     def as_etree_node(self, qname, nsmap):
         node = super().as_etree_node(qname, nsmap)
-        node.set(QN_TYPE, docname_from_qname(self.QType, nsmap))  # pylint: disable=no-member
         return node
 
     @classmethod
@@ -628,7 +639,7 @@ class AbstractMetricValue(PropertyBasedPMType):
 
 class NumericMetricValue(AbstractMetricValue):
     # pylint: disable=invalid-name
-    QType = domTag('NumericMetricValue')
+    NODETYPE = domTag('NumericMetricValue')
     Value = cp.DecimalAttributeProperty('Value')  # an integer or float
     # pylint: enable=invalid-name
     _props = ('Value',)
@@ -640,7 +651,7 @@ class NumericMetricValue(AbstractMetricValue):
 
 class StringMetricValue(AbstractMetricValue):
     # pylint: disable=invalid-name
-    QType = domTag('StringMetricValue')
+    NODETYPE = domTag('StringMetricValue')
     Value = cp.StringAttributeProperty('Value')  # a string
     # pylint: enable=invalid-name
     _props = ('Value',)
@@ -676,7 +687,7 @@ class ApplyAnnotation(PropertyBasedPMType):
 
 class SampleArrayValue(AbstractMetricValue):
     # pylint: disable=invalid-name
-    QType = domTag('SampleArrayValue')
+    NODETYPE = domTag('SampleArrayValue')
     Samples = cp.DecimalListAttributeProperty('Samples')  # list of xs:decimal types
     ApplyAnnotation = cp.SubElementListProperty(domTag('ApplyAnnotation'), ApplyAnnotation)
     ApplyAnnotations = ApplyAnnotation  # alternative name that makes it clearer that this is a list
@@ -702,7 +713,7 @@ class RemedyInfo(PropertyBasedPMType):
         :param descriptions : a list of LocalizedText objects or None
         """
         if descriptions:
-            self.Description = descriptions     # pylint: disable=invalid-name
+            self.Description = descriptions  # pylint: disable=invalid-name
 
 
 class CauseInfo(PropertyBasedPMType):
@@ -898,7 +909,7 @@ class PersonReference(PropertyBasedPMType):
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     Identification = cp.SubElementListProperty(domTag('Identification'), value_class=InstanceIdentifier)  # 1...n
-    Name = cp.SubElementProperty(domTag('Name'), value_class=BaseDemographics)  # optional
+    Name = cp.SubElementProperty(domTag('Name'), value_class=BaseDemographics, is_optional=True)
     # pylint: enable=invalid-name
     _props = ['ext_Extension', 'Identification', 'Name']
 
@@ -954,6 +965,7 @@ class LocationReference(PropertyBasedPMType):
 
 class PersonParticipation(PersonReference):
     # pylint: disable=invalid-name
+    NODETYPE = domTag('PersonParticipation')
     Role = cp.SubElementListProperty(domTag('Role'), value_class=CodedValue)  # 0...n
     # pylint: enable=invalid-name
     _props = ['Role', ]
@@ -961,7 +973,7 @@ class PersonParticipation(PersonReference):
     def __init__(self, identifications=None, name=None, roles=None):
         super().__init__(identifications, name)
         if roles:
-            self.Role = roles    # pylint: disable=invalid-name
+            self.Role = roles  # pylint: disable=invalid-name
 
 
 class ReferenceRange(PropertyBasedPMType):
@@ -1084,6 +1096,7 @@ class OrderDetail(PropertyBasedPMType):
 
 class RequestedOrderDetail(OrderDetail):
     # pylint: disable=invalid-name
+    NODETYPE = domTag('RequestedOrderDetail')
     ReferringPhysician = cp.SubElementProperty(domTag('ReferringPhysician'), value_class=PersonReference)  # optional
     RequestingPhysician = cp.SubElementProperty(domTag('RequestingPhysician'), value_class=PersonReference)  # optional
     PlacerOrderNumber = cp.SubElementProperty(domTag('PlacerOrderNumber'), value_class=InstanceIdentifier)  # mandatory
@@ -1107,6 +1120,7 @@ class RequestedOrderDetail(OrderDetail):
 
 class PerformedOrderDetail(OrderDetail):
     # pylint: disable=invalid-name
+    NODETYPE = domTag('PerformedOrderDetail')
     FillerOrderNumber = cp.SubElementProperty(domTag('FillerOrderNumber'), value_class=InstanceIdentifier)  # optional
     ResultingClinicalInfo = cp.SubElementListProperty(domTag('RelevantClinicalInfo'), value_class=ClinicalInfo)
     # pylint: enable=invalid-name
@@ -1201,6 +1215,7 @@ class T_Sex(StringEnum):  # pylint: disable=invalid-name
 
 class PatientDemographicsCoreData(BaseDemographics):
     # pylint: disable=invalid-name
+    NODETYPE = domTag('PatientDemographicsCoreData')
     Sex = cp.NodeEnumTextProperty(T_Sex, domTag('Sex'), is_optional=True)
     PatientType = cp.NodeEnumTextProperty(PatientType, domTag('PatientType'), is_optional=True)
     DateOfBirth = cp.DateOfBirthProperty(domTag('DateOfBirth'), is_optional=True)
@@ -1223,6 +1238,7 @@ class PatientDemographicsCoreData(BaseDemographics):
 
 class NeonatalPatientDemographicsCoreData(PatientDemographicsCoreData):
     # pylint: disable=invalid-name
+    NODETYPE = domTag('NeonatalPatientDemographicsCoreData')
     GestationalAge = cp.SubElementProperty(domTag('GestationalAge'), value_class=Measurement,
                                            is_optional=True)
     BirthLength = cp.SubElementProperty(domTag('BirthLength'), value_class=Measurement)
@@ -1321,6 +1337,13 @@ class CalibrationInfo(PropertyBasedPMType):
     Time = cp.TimestampAttributeProperty('Time')
     # pylint: enable=invalid-name
     _props = ['CalibrationDocumentation', 'ComponentCalibrationState', 'CalibrationType', 'Time']
+
+
+class ApprovedJurisdictions(PropertyBasedPMType):
+    # pylint: disable=invalid-name
+    ApprovedJurisdiction = cp.SubElementListProperty(domTag('ApprovedJurisdiction'),
+                                                     value_class=InstanceIdentifier)
+    _props = ['ApprovedJurisdiction']
 
 
 ###################################################################################
@@ -1441,7 +1464,7 @@ class DerivationMethod(StringEnum):
     MANUAL = 'Man'
 
 
-class T_AccessLevel(StringEnum):   # pylint: disable=invalid-name
+class T_AccessLevel(StringEnum):  # pylint: disable=invalid-name
     USER = 'Usr'
     CLINICAL_SUPER_USER = 'CSUsr'
     RESPONSIBLE_ORGANIZATION = 'RO'
@@ -1452,3 +1475,24 @@ class T_AccessLevel(StringEnum):   # pylint: disable=invalid-name
 class AlertSignalPrimaryLocation(StringEnum):
     LOCAL = 'Loc'
     REMOTE = 'Rem'
+
+
+# mapping of types: xsi:type information to classes
+# find all classes in this module that have a member "NODETYPE"
+classes = inspect.getmembers(sys.modules[__name__],
+                             lambda member: inspect.isclass(member) and member.__module__ == __name__)
+classes_with_NODETYPE = [c[1] for c in classes if hasattr(c[1], 'NODETYPE') and c[1].NODETYPE is not None]
+# make a dictionary from found classes: (Key is NODETYPE, value is the class itself
+# _state_lookup_by_type = dict([(c.NODETYPE, c) for c in classes_with_NODETYPE])
+_name_class_lookup = {c.NODETYPE: c for c in classes_with_NODETYPE}
+
+
+def _get_pmtypes_class(qname: etree_.QName):
+    """
+    :param qname: a QName instance
+    """
+    # return _name_class_lookup.get(qname)
+    try:
+        return _name_class_lookup[qname]
+    except KeyError:
+        raise KeyError(f'{qname.namespace}.{qname.localname}')

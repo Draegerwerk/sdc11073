@@ -512,7 +512,7 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(copied.Identification, origin.Identification)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
-        sc = statecontainers.PatientContextStateContainer(descriptor_container=self.dc, )
+        sc = statecontainers.PatientContextStateContainer(descriptor_container=self.dc)
 
         sc.CoreData.Givenname = 'Karl'
         sc.CoreData.Middlename = ['M.']
@@ -545,6 +545,28 @@ class TestStateContainers(unittest.TestCase):
         sc.CoreData.Weight._value = 420
         sc2.update_from_other_container(sc)
         verifyEqual(sc, sc2)
+
+    def test_PatientContextStateContainerNeo(self):
+        """Test if a pmtypes class derived from the value_class of a property is handled correctly.
+         In this test:
+          - sc.Core becomes a NeonatalPatientDemographicsCoreData instead of PatientDemographicsCoreData.
+          - sc.Core.Mother becomes a PersonParticipation instead of PersonReference"""
+        sc = statecontainers.PatientContextStateContainer(descriptor_container=self.dc)
+        sc.CoreData = pmtypes.NeonatalPatientDemographicsCoreData(given_name='Otto',
+                                                                  family_name='Smith')
+        sc.CoreData.BirthLength = pmtypes.Measurement(Decimal('57.6'), pmtypes.CodedValue('abc', 'def'))
+        sc.CoreData.Mother = pmtypes.PersonParticipation(identifications=[pmtypes.InstanceIdentifier('root')],
+                                                         name=pmtypes.BaseDemographics(given_name='Charly'))
+        sc2 = statecontainers.PatientContextStateContainer(descriptor_container=self.dc)
+        sc2.update_from_other_container(sc)
+        self.assertTrue(isinstance(sc2.CoreData, pmtypes.NeonatalPatientDemographicsCoreData))
+        # also check update via xml node
+        node = sc.mk_state_node(_my_tag, self.nsmapper)
+        print(etree_.tostring(node, pretty_print=True).decode('utf-8'))
+        sc3 = statecontainers.PatientContextStateContainer(descriptor_container=self.dc)
+        sc3.update_from_node(node)
+        self.assertEqual(sc3.CoreData.__class__, pmtypes.NeonatalPatientDemographicsCoreData)
+        self.assertEqual(sc3.CoreData.Mother.__class__, pmtypes.PersonParticipation)
 
     def test_SetValueOperationStateContainer(self):
         sc = statecontainers.SetValueOperationStateContainer(descriptor_container=self.dc)

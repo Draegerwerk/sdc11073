@@ -154,15 +154,15 @@ class PeriodicReportsHandler:
             contexts = []
             for handle in all_handles:
                 descr = self._mdib.descriptions.handle.get_one(handle)
-                if descr.isMetricDescriptor and not descr.isRealtimeSampleArrayMetricDescriptor:
+                if descr.is_metric_descriptor and not descr.is_realtime_sample_array_metric_descriptor:
                     metrics.append(handle)
-                elif descr.isSystemContextDescriptor or descr.isComponentDescriptor:
+                elif descr.is_system_context_descriptor or descr.is_component_descriptor:
                     components.append(handle)
-                elif descr.isAlertDescriptor:
+                elif descr.is_alert_descriptor:
                     alerts.append(handle)
-                elif descr.isOperationalDescriptor:
+                elif descr.is_operational_descriptor:
                     operationals.append(handle)
-                elif descr.isContextDescriptor:
+                elif descr.is_context_descriptor:
                     contexts.append(handle)
 
             with self._mdib.mdib_lock:

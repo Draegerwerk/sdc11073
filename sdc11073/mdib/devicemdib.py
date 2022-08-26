@@ -5,7 +5,7 @@ import uuid
 from collections import defaultdict
 from contextlib import contextmanager
 from threading import Lock
-from typing import List, Type, TYPE_CHECKING
+from typing import List, Type, TYPE_CHECKING, Optional
 
 from . import mdibbase
 from .devicewaveform import AbstractWaveformSource
@@ -28,10 +28,10 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
      Do not modify containers directly, use transactions for that purpose.
      Transactions keep track of changes and initiate sending of update notifications to clients."""
 
-    def __init__(self, sdc_definitions: [BaseDefinitions, None],
-                 log_prefix: [str, None] = None,
-                 waveform_source: [AbstractWaveformSource, None] = None,
-                 transaction_proc_cls : [Type[TransactionProcessor]] = TransactionProcessor):
+    def __init__(self, sdc_definitions: Optional[Type[BaseDefinitions]] = None,
+                 log_prefix: Optional[str] = None,
+                 waveform_source: Optional[AbstractWaveformSource] = None,
+                 transaction_proc_cls: Optional[Type[TransactionProcessor]] = TransactionProcessor):
         """
         :param sdc_definitions: defaults to sdc11073.definitions_sdc.SDC_v1_Definitions
         :param log_prefix: a string
@@ -47,7 +47,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
         self.sequence_id = uuid.uuid4().urn  # this uuid identifies this mdib instance
 
-        self._current_location = None  # or a SdcLocation instance
+        self._current_location = None
         self._annotators = {}
         self._current_transaction = None
 
@@ -63,26 +63,25 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
     def transaction_manager(self, set_determination_time=True):
         # pylint: disable=protected-access
         with self._tr_lock:
-            try:
-                self._current_transaction = MdibUpdateTransaction(self)
-                yield self._current_transaction
-                if callable(self.pre_commit_handler):
-                    self.pre_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
-                if self._current_transaction._error:
-                    self._logger.info('transaction_manager: transaction without updates!')
-                else:
-                    processor = self._transaction_proc_cls(self, self._current_transaction,
-                                                           set_determination_time, self._logger)
-                    processor.process_transaction()
-                    self._send_notifications(processor)
-                    self._current_transaction.mdib_version = self.mdib_version
+            with self.mdib_lock:
+                try:
+                    self._current_transaction = MdibUpdateTransaction(self)
+                    yield self._current_transaction
+                    if callable(self.pre_commit_handler):
+                        self.pre_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
+                    if self._current_transaction._error:
+                        self._logger.info('transaction_manager: transaction without updates!')
+                    else:
+                        processor = self._transaction_proc_cls(self, self._current_transaction,
+                                                               set_determination_time, self._logger)
+                        processor.process_transaction()
+                        self._send_notifications(processor)
+                        self._current_transaction.mdib_version = self.mdib_version
 
-                    if callable(self.post_commit_handler):
-                        self.post_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
-            finally:
-                self._current_transaction = None
-
-    mdibUpdateTransaction = transaction_manager  # backwards compatibility
+                        if callable(self.post_commit_handler):
+                            self.post_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
+                finally:
+                    self._current_transaction = None
 
     def _send_notifications(self, transaction_processor):
         mdib_version = self.mdib_version
@@ -170,7 +169,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 location_context.UnbindingMdibVersion = self.mdib_version
             descriptor_container = self.descriptions.NODETYPE.get_one(domTag('LocationContextDescriptor'))
 
-            self._current_location = mgr.mk_context_state(descriptor_container.Handle)  # this creates a new location state
+            self._current_location = mgr.mk_context_state(
+                descriptor_container.Handle)  # this creates a new location state
             self._current_location.update_from_sdc_location(sdc_location)
             self._current_location.set_node_member(self.nsmapper)
             if validators is not None:
@@ -298,10 +298,11 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                             self.retrievability_periodic[period_ms].append(descr.Handle)
 
     @classmethod
-    def from_mdib_file(cls, path,
-                       protocol_definition=None,
-                       xml_reader_class=MessageReaderDevice,
-                       log_prefix=None):
+    def from_mdib_file(cls,
+                       path: str,
+                       protocol_definition: Optional[Type[BaseDefinitions]] = None,
+                       xml_reader_class: Optional[Type[MessageReaderDevice]] = MessageReaderDevice,
+                       log_prefix: Optional[str] = None):
         """
         An alternative constructor for the class
         :param path: the input file path for creating the mdib
@@ -318,10 +319,11 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                                log_prefix)
 
     @classmethod
-    def from_string(cls, xml_text,
-                    protocol_definition=None,
-                    xml_reader_class=MessageReaderDevice,
-                    log_prefix=None):
+    def from_string(cls,
+                    xml_text: bytes,
+                    protocol_definition: Optional[Type[BaseDefinitions]] = None,
+                    xml_reader_class: Optional[Type[MessageReaderDevice]] = MessageReaderDevice,
+                    log_prefix: Optional[str] = None):
         """
         An alternative constructor for the class
         :param xml_text: the input string for creating the mdib

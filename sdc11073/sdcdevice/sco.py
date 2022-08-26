@@ -20,7 +20,6 @@ from .. import observableproperties as properties
 from ..namespaces import domTag, msgTag
 from ..pmtypes import InvocationState, SafetyClassification
 
-
 class OperationDefinition:
     """ This is the base class of all provided operations.
     An operation is a point for remote control over the network."""

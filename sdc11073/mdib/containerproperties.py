@@ -4,17 +4,17 @@ These values can be node attributes, node texts or a complete Elements with opti
 The properties completely hide the XML nature of data. To serve this purpose, they can convert between XML data types and Python data types.
 """
 import copy
-import datetime
 import time
 from collections import OrderedDict
 from decimal import Decimal
 
 from lxml import etree as etree_
 
-from sdc11073 import isoduration
-from sdc11073 import namespaces
-from sdc11073.dataconverters import TimestampConverter, DecimalConverter, IntegerConverter, BooleanConverter, \
+from .. import isoduration
+from .. import namespaces
+from ..dataconverters import TimestampConverter, DecimalConverter, IntegerConverter, BooleanConverter, \
     DurationConverter, NullConverter
+from ..namespaces import QN_TYPE, docname_from_qname, text_to_qname
 
 # The STRICT_ENUM_ATTRIBUTE constant allows to change the global behavior regarding enumeration types:
 # if STRICT_ENUM_ATTRIBUTE is True, EnumAttributeProperty instances will only accept enum values of correct type
@@ -386,7 +386,7 @@ class QNameAttributeProperty(AttributeProperty):
         try:
             xml_value = node.attrib.get(self._attribute_name)
             if xml_value is not None:
-                value = namespaces.text_to_qname(xml_value, node.nsmap)
+                value = text_to_qname(xml_value, node.nsmap)
         except ElementNotFoundException:
             pass
         return value
@@ -547,7 +547,7 @@ class NodeTextQNameProperty(_NodeProperty):
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
             xml_value = sub_node.text
             if xml_value is not None:
-                value = namespaces.text_to_qname(xml_value, sub_node.nsmap)
+                value = text_to_qname(xml_value, sub_node.nsmap)
                 return value
         except ElementNotFoundException:
             pass
@@ -666,7 +666,8 @@ class SubElementProperty(_NodeProperty):
         value = self._default_py_value
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
-            value = self.value_class.from_node(sub_node)
+            value_class = self.value_class.value_class_from_node(sub_node)
+            value = value_class.from_node(sub_node)
         except ElementNotFoundException:
             pass
         return value
@@ -674,12 +675,16 @@ class SubElementProperty(_NodeProperty):
     def update_xml_value(self, instance, node):
         try:
             py_value = getattr(instance, self._local_var_name)
-        except AttributeError:  # set to None (it is in the responsibility of the called method to do the right thing)
+        except AttributeError:
             py_value = self._default_py_value
 
         if py_value is not None:
             self.remove_sub_element(node)
-            node.append(py_value.as_etree_node(self._sub_element_name, node.nsmap))
+            sub_node = py_value.as_etree_node(self._sub_element_name, node.nsmap)
+            if py_value.__class__ != self.value_class:
+                # set xsi type
+                sub_node.set(QN_TYPE, docname_from_qname(py_value.NODETYPE, node.nsmap))
+            node.append(sub_node)
 
 
 class _ElementListProperty(_NodeProperty):
@@ -718,7 +723,9 @@ class SubElementListProperty(_ElementListProperty):
         try:
             nodes = node.findall(self._sub_element_name)
             for _node in nodes:
-                objects.append(self.value_class.from_node(_node))
+                value_class = self.value_class.value_class_from_node(_node)
+                value = value_class.from_node(_node)
+                objects.append(value)
             return objects
         except ElementNotFoundException:
             return objects
@@ -737,7 +744,11 @@ class SubElementListProperty(_ElementListProperty):
         # ... and create new ones
         if py_value is not None:
             for val in py_value:
-                node.append(val.as_etree_node(self._sub_element_name, node.nsmap))
+                sub_node = val.as_etree_node(self._sub_element_name, node.nsmap)
+                if val.__class__ != self.value_class:
+                    # set xsi type
+                    sub_node.set(QN_TYPE, docname_from_qname(py_value.NODETYPE, node.nsmap))
+                node.append(sub_node)
 
     def __repr__(self):
         return f'{self.__class__.__name__} datatype {self.value_class.__name__} in subelement {self._sub_element_name}'

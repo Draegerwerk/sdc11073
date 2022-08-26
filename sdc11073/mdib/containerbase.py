@@ -1,5 +1,6 @@
 import copy
 import inspect
+from typing import Optional, List
 
 from lxml import etree as etree_
 
@@ -12,12 +13,11 @@ class ContainerBase:
     NODETYPE = None  # overwrite in derived classes! determines the value of xsi:Type attribute, must be a etree_.QName object
     node = properties.ObservableProperty()
 
-    # every class with containerproperties must provide a list of property names.
+    # every class with container properties must provide a list of property names.
     # this list is needed to create sub elements in a certain order.
     # rule is : elements are sorted from this root class to derived class. Last derived class comes last.
     # Initialization is from left to right
     # This is according to the inheritance in BICEPS xml schema
-    _props = tuple()  # empty tuple, this base class has no properties
 
     def __init__(self):
         self.node = None
@@ -93,9 +93,12 @@ class ContainerBase:
                     ret.append((name, obj))
         return ret
 
-    def diff(self, other, ignore_property_names=None):
+    def diff(self, other, ignore_property_names: Optional[List[str]]=None):
         """ compares all properties (except to be ignored ones).
-        returns a list of strings that describe differences"""
+        :param other: the object to compare with
+        :param ignore_property_names: list of properties that shall be excluded from diff calculation
+        :return: textual representation of differences or None if equal
+        """
         ret = []
         ignore_list = ignore_property_names or []
         my_properties = self.sorted_container_properties()
