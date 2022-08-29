@@ -996,7 +996,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.assertAlmostEqual(rt_data[-1].determination_time, time.time(), delta=0.5)
                 with_annotation = [x for x in rt_data if len(x.annotations) > 0]
                 # verify that we have annotations
-                self.assertGreater(len(with_annotation), 1)
+                self.assertGreater(len(with_annotation), 0)
                 for w_a in with_annotation:
                     self.assertEqual(len(w_a.annotations), 1)
                     self.assertEqual(w_a.annotations[0].Type,

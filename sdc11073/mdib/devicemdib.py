@@ -130,15 +130,15 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             self.mdib_version += 1
             updates = []
             self._logger.debug('transaction_manager: rtSample updates = {}', mgr.rt_sample_state_updates)
-            for value in mgr.rt_sample_state_updates.values():
+            for transaction_item in mgr.rt_sample_state_updates.values():
                 try:
-                    value.new.set_node_member(self.nsmapper)
-                    updates.append(value.new)
+                    transaction_item.new.set_node_member(self.nsmapper)
+                    updates.append(transaction_item.new)
                 except RuntimeError:
-                    self._logger.warn('transaction_manager: {} did not exist before!! really??', value.new)
+                    self._logger.warn('transaction_manager: {} did not exist before!! really??', transaction_item.new)
                     raise
             # makes copies of all states for sending, so that they can't be affected by transactions after this one
-            updates = [s.mk_copy() for s in updates]
+            updates = [s.mk_copy(copy_node=False) for s in updates]
             if self._sdc_device is not None:
                 self._sdc_device.send_realtime_samples_state_updates(self.mdib_version, updates)
         mgr.mdib_version = self.mdib_version

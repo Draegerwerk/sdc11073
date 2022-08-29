@@ -469,95 +469,55 @@ class TransactionProcessor:
             self._logger.debug('transaction_manager: mdib version={}, metric updates = {}',
                                self._mdib.mdib_version,
                                self._mgr.metric_state_updates)
-            for value in self._mgr.metric_state_updates.values():
-                old_state, new_state = value.old, value.new
-                try:
-                    if self._set_determination_time and new_state.MetricValue is not None:
-                        new_state.MetricValue.DeterminationTime = self._now
-                    # replace the old container with the new one
-                    self._mdib.states.remove_object_no_lock(old_state)
-                    self._mdib.states.add_object_no_lock(new_state)
-                    self.metric_updates.append(new_state.mk_copy())
-                except RuntimeError:
-                    self._logger.warn('transaction_manager: {} did not exist before!! really??', new_state)
-                    raise
+            self.metric_updates.extend(self._handle_updates(self._mgr.metric_state_updates))
 
     def _handle_alert_updates(self):
         if len(self._mgr.alert_state_updates) > 0:
             self._logger.debug('transaction_manager: alert State updates = {}', self._mgr.alert_state_updates)
-            for value in self._mgr.alert_state_updates.values():
-                old_state, new_state = value.old, value.new
-                try:
-                    if self._set_determination_time and new_state.isAlertCondition:
-                        new_state.DeterminationTime = time.time()
-                    new_state.set_node_member(self._mdib.nsmapper)
-                    # replace the old container with the new one
-                    self._mdib.states.remove_object_no_lock(old_state)
-                    self._mdib.states.add_object_no_lock(new_state.mk_copy())
-                    self.alert_updates.append(new_state)
-                except RuntimeError:
-                    self._logger.warn('transaction_manager: {} did not exist before!! really??', new_state)
-                    raise
+            self.alert_updates.extend(self._handle_updates(self._mgr.alert_state_updates))
 
     def _handle_component_states(self):
         if len(self._mgr.component_state_updates) > 0:
             self._logger.debug('transaction_manager: component State updates = {}',
                                self._mgr.component_state_updates)
-            for value in self._mgr.component_state_updates.values():
-                old_state, new_state = value.old, value.new
-                try:
-                    new_state.set_node_member(self._mdib.nsmapper)
-                    # replace the old container with the new one
-                    self._mdib.states.remove_object_no_lock(old_state)
-                    self._mdib.states.add_object_no_lock(new_state)
-                    self.comp_updates.append(new_state.mk_copy())
-                except RuntimeError:
-                    self._logger.warn('transaction_manager: {} did not exist before!! really??', new_state)
-                    raise
+            self.comp_updates.extend(self._handle_updates(self._mgr.component_state_updates))
 
     def _handle_context_state_updates(self):
         if len(self._mgr.context_state_updates) > 0:
             self._logger.debug('transaction_manager: contextState updates = {}', self._mgr.context_state_updates)
-            for value in self._mgr.context_state_updates.values():
-                old_state, new_state = value.old, value.new
-                try:
-                    self.ctxt_updates.append(new_state.mk_copy())
-                    # replace the old container with the new one
-                    self._mdib.context_states.remove_object_no_lock(old_state)
-                    self._mdib.context_states.add_object_no_lock(new_state)
-                    new_state.set_node_member(self._mdib.nsmapper)
-                except RuntimeError:
-                    self._logger.warn('transaction_manager: {} did not exist before!! really??', new_state)
-                    raise
+            self.ctxt_updates.extend(self._handle_updates(self._mgr.context_state_updates, True))
 
     def _handle_operational_state_updates(self):
         if len(self._mgr.operational_state_updates) > 0:
             self._logger.debug('transaction_manager: operationalState updates = {}',
                                self._mgr.operational_state_updates)
-            for value in self._mgr.operational_state_updates.values():
-                old_state, new_state = value.old, value.new
-                try:
-                    new_state.set_node_member(self._mdib.nsmapper)
-                    self._mdib.states.remove_object_no_lock(old_state)
-                    self._mdib.states.add_object_no_lock(new_state)
-                    self.op_updates.append(new_state.mk_copy())
-                except RuntimeError:
-                    self._logger.warn('transaction_manager: {} did not exist before!! really??', new_state)
-                    raise
+            self.op_updates.extend(self._handle_updates(self._mgr.operational_state_updates))
 
     def _handle_rt_value_updates(self):
         if len(self._mgr.rt_sample_state_updates) > 0:
             self._logger.debug('transaction_manager: rtSample updates = {}', self._mgr.rt_sample_state_updates)
-            for value in self._mgr.rt_sample_state_updates.values():
-                old_state, new_state = value.old, value.new
-                try:
-                    new_state.set_node_member(self._mdib.nsmapper)
-                    self._mdib.states.remove_object_no_lock(old_state)
-                    self._mdib.states.add_object_no_lock(new_state)
-                    self.rt_updates.append(new_state.mk_copy())
-                except RuntimeError:
-                    self._logger.warn('transaction_manager: {} did not exist before!! really??', new_state)
-                    raise
+            self.rt_updates.extend(self._handle_updates(self._mgr.rt_sample_state_updates))
+
+    def _handle_updates(self, mgr_state_updates_dict, is_context_states_update=False):
+        """ Updates mdib table and returns a list of states to be sent
+
+        :param mgr_state_updates_dict: updates in transaction
+        :param table: if None
+        :return: list of states to be sent in notification
+        """
+        table = self._mdib.context_states if is_context_states_update else self._mdib.states
+        updates_list = []
+        for transaction_item in mgr_state_updates_dict.values():
+            old_state, new_state = transaction_item.old, transaction_item.new
+            new_state.set_node_member(self._mdib.nsmapper)
+            try:
+                table.remove_object_no_lock(old_state)
+                table.add_object_no_lock(new_state)
+                updates_list.append(new_state.mk_copy(copy_node=False))
+            except RuntimeError:
+                self._logger.warn('transaction_manager: {} did not exist before!! really??', new_state)
+                raise
+        return updates_list
 
     def _update_corresponding_state(self, descriptor_container):
         # add state to updated_states list and to corresponding notifications input
