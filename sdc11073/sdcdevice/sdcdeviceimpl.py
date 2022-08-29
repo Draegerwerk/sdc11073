@@ -15,7 +15,7 @@ from ..addressing import EndpointReferenceType
 from ..dpws import HostServiceType
 from ..location import SdcLocation
 from ..namespaces import Prefixes
-
+from .. import observableproperties as properties
 
 class SdcDevice:
     DEFAULT_CONTEXTSTATES_IN_GETMDIB = True  # defines if get_mdib and getMdStates contain context states or not.
@@ -106,10 +106,11 @@ class SdcDevice:
         self._service_factory = None
         self.product_roles = None
         self.hosted_services = None
-        device_mdib_container.set_sdc_device(self)
         self._periodic_reports_handler = PeriodicReportsNullHandler()
         self._setup_components()
         self.base_urls = []  # will be set after httpserver is started
+        properties.bind(device_mdib_container, transaction = self._send_notifications)
+        properties.bind(device_mdib_container, rt_updates = self._send_rt_notifications)
 
     def _setup_components(self):
 
@@ -312,49 +313,57 @@ class SdcDevice:
             xaddrs.append(f'{self._urlschema}://{addr}:{port}/{self.path_prefix}')
         return xaddrs
 
-    def send_metric_state_updates(self, mdib_version, states):
-        self._logger.debug('sending metric state updates {}', states)
-        self._subscriptions_manager.send_episodic_metric_report(states, self._mdib.nsmapper, mdib_version,
-                                                                self.mdib.sequence_id)
-        self._periodic_reports_handler.store_metric_states(mdib_version, states)
+    def _send_notifications(self, transaction_processor):
+        mdib_version = self._mdib.mdib_version
+        sequence_id = self._mdib.sequence_id
+        ns_mapper = self._mdib.nsmapper
+        if transaction_processor.has_descriptor_updates:
+            updated=transaction_processor.descr_updated
+            created=transaction_processor.descr_created
+            deleted=transaction_processor.descr_deleted
+            states=transaction_processor.descr_updated_states
+            self._subscriptions_manager.send_descriptor_updates(
+                updated, created, deleted, states, ns_mapper, mdib_version, sequence_id)
 
-    def send_alert_state_updates(self, mdib_version, states):
-        self._logger.debug('sending alert updates {}', states)
-        self._subscriptions_manager.send_episodic_alert_report(states, self._mdib.nsmapper, mdib_version,
-                                                               self.mdib.sequence_id)
-        self._periodic_reports_handler.store_alert_states(mdib_version, states)
+        states = transaction_processor.metric_updates
+        if len(states) > 0:
+            self._subscriptions_manager.send_episodic_metric_report(
+                states, ns_mapper, mdib_version, sequence_id)
+            self._periodic_reports_handler.store_metric_states(mdib_version, transaction_processor.metric_updates)
 
-    def send_component_state_updates(self, mdib_version, states):
-        self._logger.debug('sending component state updates {}', states)
-        self._subscriptions_manager.send_episodic_component_state_report(states, self._mdib.nsmapper,
-                                                                         mdib_version,
-                                                                         self.mdib.sequence_id)
-        self._periodic_reports_handler.store_component_states(mdib_version, states)
+        states = transaction_processor.alert_updates
+        if len(states) > 0:
+            self._subscriptions_manager.send_episodic_alert_report(
+                states, ns_mapper, mdib_version, sequence_id)
+            self._periodic_reports_handler.store_alert_states(mdib_version, states)
 
-    def send_context_state_updates(self, mdib_version, states):
-        self._logger.debug('sending context updates {}', states)
-        self._subscriptions_manager.send_episodic_context_report(states, self._mdib.nsmapper, mdib_version,
-                                                                 self.mdib.sequence_id)
-        self._periodic_reports_handler.store_context_states(mdib_version, states)
+        states = transaction_processor.comp_updates
+        if len(states) > 0:
+            self._subscriptions_manager.send_episodic_component_state_report(
+                states, ns_mapper, mdib_version, sequence_id)
+            self._periodic_reports_handler.store_component_states(mdib_version, states)
 
-    def send_operational_state_updates(self, mdib_version, states):
-        self._logger.debug('sending operational state updates {}', states)
-        self._subscriptions_manager.send_episodic_operational_state_report(states, self._mdib.nsmapper,
-                                                                           mdib_version,
-                                                                           self.mdib.sequence_id)
-        self._periodic_reports_handler.store_operational_states(mdib_version, states)
+        states = transaction_processor.ctxt_updates
+        if len(states) > 0:
+            self._subscriptions_manager.send_episodic_context_report(
+                states, ns_mapper, mdib_version, sequence_id)
+            self._periodic_reports_handler.store_context_states(mdib_version, states)
 
-    def send_realtime_samples_state_updates(self, mdib_version, states):
-        self._logger.debug('sending real time sample state updates {}', states)
-        self._subscriptions_manager.send_realtime_samples_report(states, self._mdib.nsmapper, mdib_version,
-                                                                 self.mdib.sequence_id)
+        states = transaction_processor.op_updates
+        if len(states) > 0:
+            self._subscriptions_manager.send_episodic_operational_state_report(
+                states, ns_mapper, mdib_version, sequence_id)
+            self._periodic_reports_handler.store_operational_states(mdib_version, states)
 
-    def send_descriptor_updates(self, mdib_version, updated, created, deleted, states):
-        self._logger.debug('sending descriptor updates updated={} created={} deleted={}', updated, created, deleted)
-        self._subscriptions_manager.send_descriptor_updates(updated, created, deleted, states,
-                                                            self._mdib.nsmapper,
-                                                            mdib_version,
-                                                            self.mdib.sequence_id)
+        states = transaction_processor.rt_updates
+        if len(states) > 0:
+            self._subscriptions_manager.send_realtime_samples_report(
+                states, ns_mapper, mdib_version, sequence_id)
+
+    def _send_rt_notifications(self, rt_states):
+        if len(rt_states) > 0:
+            self._subscriptions_manager.send_realtime_samples_report(
+                rt_states, self._mdib.nsmapper, self._mdib.mdib_version, self._mdib.sequence_id)
 
     def set_used_compression(self, *compression_methods):
         del self._compression_methods[:]

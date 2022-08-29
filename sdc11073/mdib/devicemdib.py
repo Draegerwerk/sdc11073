@@ -18,6 +18,7 @@ from ..definitions_sdc import SDC_v1_Definitions
 from ..msgtypes import RetrievabilityMethod
 from ..namespaces import domTag
 from ..pysoap.msgreader import MessageReaderDevice
+from ..observableproperties import ObservableProperty
 
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
@@ -27,6 +28,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
     """Device side implementation of an mdib.
      Do not modify containers directly, use transactions for that purpose.
      Transactions keep track of changes and initiate sending of update notifications to clients."""
+    transaction = ObservableProperty(fire_only_on_changed_value=False)
+    rt_updates = ObservableProperty(fire_only_on_changed_value=False) # different observable for performance
 
     def __init__(self, sdc_definitions: Optional[Type[BaseDefinitions]] = None,
                  log_prefix: Optional[str] = None,
@@ -42,7 +45,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             sdc_definitions = SDC_v1_Definitions
         super().__init__(sdc_definitions)
         self._logger = loghelper.get_logger_adapter('sdc.device.mdib', log_prefix)
-        self._sdc_device = None
         self._tr_lock = Lock()  # transaction lock
 
         self.sequence_id = uuid.uuid4().urn  # this uuid identifies this mdib instance
@@ -75,35 +77,13 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                         processor = self._transaction_proc_cls(self, self._current_transaction,
                                                                set_determination_time, self._logger)
                         processor.process_transaction()
-                        self._send_notifications(processor)
+                        self.transaction = processor
                         self._current_transaction.mdib_version = self.mdib_version
 
                         if callable(self.post_commit_handler):
                             self.post_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
                 finally:
                     self._current_transaction = None
-
-    def _send_notifications(self, transaction_processor):
-        mdib_version = self.mdib_version
-        if self._sdc_device is not None:
-            if transaction_processor.has_descriptor_updates:
-                self._sdc_device.send_descriptor_updates(mdib_version,
-                                                         updated=transaction_processor.descr_updated,
-                                                         created=transaction_processor.descr_created,
-                                                         deleted=transaction_processor.descr_deleted,
-                                                         states=transaction_processor.descr_updated_states)
-            if len(transaction_processor.metric_updates) > 0:
-                self._sdc_device.send_metric_state_updates(mdib_version, transaction_processor.metric_updates)
-            if len(transaction_processor.alert_updates) > 0:
-                self._sdc_device.send_alert_state_updates(mdib_version, transaction_processor.alert_updates)
-            if len(transaction_processor.comp_updates) > 0:
-                self._sdc_device.send_component_state_updates(mdib_version, transaction_processor.comp_updates)
-            if len(transaction_processor.ctxt_updates) > 0:
-                self._sdc_device.send_context_state_updates(mdib_version, transaction_processor.ctxt_updates)
-            if len(transaction_processor.op_updates) > 0:
-                self._sdc_device.send_operational_state_updates(mdib_version, transaction_processor.op_updates)
-            if len(transaction_processor.rt_updates) > 0:
-                self._sdc_device.send_realtime_samples_state_updates(mdib_version, transaction_processor.rt_updates)
 
     @contextmanager
     def _rt_sample_transaction(self):
@@ -139,16 +119,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     raise
             # makes copies of all states for sending, so that they can't be affected by transactions after this one
             updates = [s.mk_copy(copy_node=False) for s in updates]
-            if self._sdc_device is not None:
-                self._sdc_device.send_realtime_samples_state_updates(self.mdib_version, updates)
+            self.rt_updates = updates
         mgr.mdib_version = self.mdib_version
-
-    def set_sdc_device(self, sdc_device):
-        self._sdc_device = sdc_device
-
-    @property
-    def msg_reader(self):
-        return None if self._sdc_device is None else self._sdc_device.msg_reader
 
     def set_location(self, sdc_location, validators=None):
         """
