@@ -16,20 +16,16 @@ from sdc11073 import namespaces
 from sdc11073 import observableproperties
 from sdc11073 import pmtypes
 from sdc11073.sdcclient.components import SdcClientComponents
-from sdc11073.sdcdevice.components import SdcDeviceComponents
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ClientMdibContainer
+from sdc11073.mdib.devicemdib import Annotator
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.httpserver import DeviceHttpServerThread
-from sdc11073.sdcdevice.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
-from sdc11073.pysoap.soapclient_async import SoapClientAsync
-
-#from sdc11073.sdcdevice.subscriptionmgr import SubscriptionsManagerReferenceParam
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from tests.mockstuff import SomeDevice, dec_list
 
@@ -107,10 +103,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
         sdc_device.mdib.register_waveform_generator('0x34F05506', co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
         # make SinusGenerator (0x34F05501) the annotator source
-        annotation = pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))  # what is CodedValue for startOfInspirationCycle?
-        sdc_device.mdib.register_annotation_generator(annotation,
-                                                     trigger_handle='0x34F05501',
-                                                     annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
+        annotator = Annotator(annotation=pmtypes.Annotation(pmtypes.CodedValue('a', 'b')),
+                              trigger_handle='0x34F05501',
+                              annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
+        sdc_device.mdib.register_annotation_generator(annotator)
 
     def test_basic_connect(self):
         # simply check that correct top node is returned
@@ -647,11 +643,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
                 for j, loc in enumerate(dev_locations[:-1]):
                     self.assertEqual(loc.ContextAssociation, pmtypes.ContextAssociation.DISASSOCIATED)
-                    self.assertEqual(loc.UnbindingMdibVersion, dev_locations[j + 1].BindingMdibVersion)
+                    self.assertEqual(loc.UnbindingMdibVersion, dev_locations[j + 1].BindingMdibVersion + 1)
 
                 for j, loc in enumerate(cl_locations[:-1]):
                     self.assertEqual(loc.ContextAssociation, pmtypes.ContextAssociation.DISASSOCIATED)
-                    self.assertEqual(loc.UnbindingMdibVersion, cl_locations[j + 1].BindingMdibVersion)
+                    self.assertEqual(loc.UnbindingMdibVersion, cl_locations[j + 1].BindingMdibVersion + 1)
 
     def test_audio_pause(self):
         sdcClient = self.sdc_client
@@ -1453,10 +1449,10 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         sdc_device.mdib.register_waveform_generator('0x34F05506', co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
         # make SinusGenerator (0x34F05501) the annotator source
-        annotation = pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))  # what is CodedValue for startOfInspirationCycle?
-        sdc_device.mdib.register_annotation_generator(annotation,
-                                                     trigger_handle='0x34F05501',
-                                                     annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
+        annotator = Annotator(annotation=pmtypes.Annotation(pmtypes.CodedValue('a', 'b')),
+                              trigger_handle='0x34F05501',
+                              annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
+        sdc_device.mdib.register_annotation_generator(annotator)
 
     def test_basic_connect(self):
         # simply check that correct top node is returned
@@ -1543,10 +1539,10 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         sdcDevice.mdib.register_waveform_generator('0x34F05506', co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
         # make SinusGenerator (0x34F05501) the annotator source
-        annotation = pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))  # what is CodedValue for startOfInspirationCycle?
-        sdcDevice.mdib.register_annotation_generator(annotation,
-                                                     trigger_handle='0x34F05501',
-                                                     annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
+        annotator = Annotator(annotation=pmtypes.Annotation(pmtypes.CodedValue('a', 'b')),
+                              trigger_handle='0x34F05501',
+                              annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
+        sdcDevice.mdib.register_annotation_generator(annotator)
 
     def test_basic_connect(self):
         # simply check that correct top node is returned

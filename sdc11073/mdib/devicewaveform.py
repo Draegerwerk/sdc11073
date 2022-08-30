@@ -8,7 +8,6 @@ import time
 from abc import ABC, abstractmethod
 from decimal import Context
 from typing import Iterable, List
-
 from .. import pmtypes
 from ..sdcdevice.waveforms import WaveformGeneratorBase
 
@@ -18,7 +17,7 @@ class RtSampleArray:
     It is used to create Waveform notifications."""
 
     def __init__(self, determination_time: float, sample_period: float,
-                 samples: List[tuple], activation_state: pmtypes.ComponentActivation):
+                 samples: List[float], activation_state: pmtypes.ComponentActivation):
         """
         :param determination_time: the time stamp of the first value in samples
         :param sample_period: the time difference between two samples
@@ -43,10 +42,6 @@ class RtSampleArray:
         pos = (timestamp - self.determination_time) / self.sample_period
         return int(pos) + 1 if pos % 1 >= 0.5 else int(pos)
 
-    def get_annotation_trigger_timestamps(self):
-        """ returns the time stamps of all samples annotation_trigger set"""
-        return [self.determination_time + i * self.sample_period for i, sample in enumerate(self.samples) if sample[1]]
-
     def add_annotations_at(self, annotation: pmtypes.Annotation, timestamps: Iterable[float]):
         """
         :param annotation: a pmtypes.Annotation instance
@@ -62,6 +57,32 @@ class RtSampleArray:
         if applied:
             self.annotations.append(annotation)
 
+
+class Annotator:
+    """
+    This is sample of how to apply annotations. This annotator triggers an annotation when the value
+    changes from <= 0 to > 0.
+    """
+
+    def __init__(self, annotation: pmtypes.Annotation, trigger_handle: str, annotated_handles: List[str]):
+        self.annotation = annotation
+        self.trigger_handle = trigger_handle
+        self.annotated_handles = annotated_handles
+        self._last_value = 0.0
+
+    def get_annotation_timestamps(self, rt_sample_array: RtSampleArray) -> List[float]:
+        """
+
+        :param rt_sample_array:
+        :return:
+        """
+        ret = []
+        ts = rt_sample_array.determination_time
+        for i, rt_sample in enumerate(rt_sample_array.samples):
+            if self._last_value <=0 and rt_sample > 0:
+                ret.append( rt_sample_array.determination_time + i*rt_sample_array.sample_period)
+            self._last_value = rt_sample
+        return ret
 
 class _SampleArrayGenerator:
     """Wraps a waveform generator and makes RtSampleArray objects"""
@@ -172,38 +193,33 @@ class DefaultWaveformSource(AbstractWaveformSource):
             if not wf_generator.is_active:
                 state.MetricValue = None
 
-    def register_annotation_generator(self, annotator, trigger_handle, annotated_handles):
-        """
-        :param annotator: a pmtypes.Annotation instance
-        :param trigger_handle: The handle of the waveform that triggers the annotator ( trigger = start of a waveform cycle)
-        :param annotated_handles: the handles of the waveforms that shall be annotated.
-        """
-        self._annotators[trigger_handle] = (annotator, annotated_handles)
+    def register_annotation_generator(self, annotator: Annotator):
+        self._annotators[annotator.trigger_handle] = annotator
 
     def _update_rt_samples(self, state):
         """ update waveforms state from waveform generator (if available)"""
         ctxt = Context(prec=10)
         wf_generator = self._waveform_generators.get(state.descriptorHandle)
         if wf_generator:
-            rt_sample = wf_generator.get_next_sample_array()
-            samples = [ctxt.create_decimal(s[0]) for s in
-                       rt_sample.samples]  # only the values without the 'start of cycle' flags
+            rt_sample_array = wf_generator.get_next_sample_array()
+            samples = [ctxt.create_decimal(s) for s in rt_sample_array.samples]
             if state.MetricValue is None:
                 state.mk_metric_value()
             state.MetricValue.Samples = samples
-            state.MetricValue.DeterminationTime = rt_sample.determination_time
-            state.MetricValue.Annotations = rt_sample.annotations
-            state.MetricValue.ApplyAnnotations = rt_sample.apply_annotations
-            state.ActivationState = rt_sample.activation_state
+            state.MetricValue.DeterminationTime = rt_sample_array.determination_time
+            state.MetricValue.Annotations = rt_sample_array.annotations
+            state.MetricValue.ApplyAnnotations = rt_sample_array.apply_annotations
+            state.ActivationState = rt_sample_array.activation_state
 
     def _add_all_annotations(self):
         """ add annotations to all current RtSampleArrays """
         rt_sample_arrays = {handle: g.current_rt_sample_array for (handle, g) in self._waveform_generators.items()}
         for src_handle, _annotator in self._annotators.items():
             if src_handle in rt_sample_arrays:
-                annotation, dest_handles = _annotator
-                timestamps = rt_sample_arrays[src_handle].get_annotation_trigger_timestamps()
+                timestamps = _annotator.get_annotation_timestamps(rt_sample_arrays[src_handle])
                 if timestamps:
-                    for dest_handle in dest_handles:
+                    for dest_handle in _annotator.annotated_handles:
                         if dest_handle in rt_sample_arrays:
-                            rt_sample_arrays[dest_handle].add_annotations_at(annotation, timestamps)
+                            rt_sample_arrays[dest_handle].add_annotations_at(_annotator.annotation, timestamps)
+
+

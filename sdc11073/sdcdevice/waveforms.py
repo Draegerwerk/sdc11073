@@ -35,9 +35,7 @@ class WaveformGeneratorBase:
                 f'please choose a waveformperiod >> sampleperiod. currently use have wp={waveformperiod}, sp={sampleperiod}')
         self.sampleperiod = sampleperiod
         samples = int(waveformperiod / sampleperiod)
-        values = values_generator(min_value, max_value, samples)
-        wf_with_startflag = [(v, i == 0) for i, v in enumerate(values)]
-        self._values = wf_with_startflag
+        self._values = values_generator(min_value, max_value, samples)
         self._generator = itertools.cycle(self._values)
 
     def next_samples(self, count):

@@ -35,11 +35,11 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                 parent_handle=mds_container.Handle,
                 coded_value=pmtypes.CodedValue(123),
                 safety_classification=pmtypes.SafetyClassification.INF)
-
+            mdib.descriptions.add_object(clock_descriptor)
         clock_state = self._mdib.states.descriptorHandle.get_one(clock_descriptor.Handle, allow_none=True)
         if clock_state is None:
             clock_state = self._mdib.mk_state_container_from_descriptor(clock_descriptor)
-            self._mdib.add_state(clock_state)
+            mdib.states.add_object(clock_state)
 
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         if operation_descriptor_container.coding in (MDC_OP_SET_TIME_SYNC_REF_SRC.coding, OP_SET_NTP.coding):

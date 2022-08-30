@@ -4,6 +4,7 @@ import unittest
 import sdc11073
 from sdc11073 import pmtypes
 from sdc11073.mdib import descriptorcontainers as dc
+from sdc11073.mdib.devicemdib import Annotator
 from sdc11073.sdcdevice import waveforms
 from sdc11073.dpws import ThisModelType, ThisDeviceType
 from tests import mockstuff
@@ -110,10 +111,10 @@ class TestDeviceWaveform(unittest.TestCase):
         self.mdib.register_waveform_generator(HANDLES[1], st)
         self.mdib.register_waveform_generator(HANDLES[2], si)
 
-        annotation = pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))
-        self.mdib.register_annotation_generator(annotation,
-                                                trigger_handle=HANDLES[2],
-                                                annotated_handles=(HANDLES[0], HANDLES[1], HANDLES[2]))
+        annotator = Annotator(annotation=pmtypes.Annotation(pmtypes.CodedValue('a', 'b')),
+                              trigger_handle=HANDLES[2],
+                              annotated_handles=(HANDLES[0], HANDLES[1], HANDLES[2]))
+        self.mdib.register_annotation_generator(annotator)
 
         self.wsDiscovery = mockstuff.MockWsDiscovery(['5.6.7.8'])
         self.sdcDevice = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, self._model, self._device, self.mdib)
@@ -123,6 +124,4 @@ class TestDeviceWaveform(unittest.TestCase):
         self.sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 
         time.sleep(3)
-        #print(testSubscr.reports[-2].as_xml(pretty=True))
-        #print(testSubscr.reports[-1].as_xml(pretty=True))
         self.assertGreater(len(testSubscr.reports), 20)
