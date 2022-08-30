@@ -19,7 +19,7 @@ from sdc11073.sdcclient.components import SdcClientComponents
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ClientMdibContainer
-from sdc11073.mdib.devicemdib import Annotator
+from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.sdcclient import SdcClient

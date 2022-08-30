@@ -7,7 +7,8 @@ of the mdib.
 import time
 from abc import ABC, abstractmethod
 from decimal import Context
-from typing import Iterable, List
+from typing import Iterable, List, Type
+
 from .. import pmtypes
 from ..sdcdevice.waveforms import WaveformGeneratorBase
 
@@ -58,7 +59,18 @@ class RtSampleArray:
             self.annotations.append(annotation)
 
 
-class Annotator:
+class AbstractAnnotator(ABC):
+    @abstractmethod
+    def get_annotation_timestamps(self, rt_sample_array: RtSampleArray) -> List[float]:
+        """
+        Analyzes the rt_sample_array and returns timestamps for annotations
+        :param rt_sample_array: the RtSampleArray that is checked
+        :return: list of timestamps, can be empty
+        """
+        pass
+
+
+class Annotator(AbstractAnnotator):
     """
     This is sample of how to apply annotations. This annotator triggers an annotation when the value
     changes from <= 0 to > 0.
@@ -79,10 +91,11 @@ class Annotator:
         ret = []
         ts = rt_sample_array.determination_time
         for i, rt_sample in enumerate(rt_sample_array.samples):
-            if self._last_value <=0 and rt_sample > 0:
-                ret.append( rt_sample_array.determination_time + i*rt_sample_array.sample_period)
+            if self._last_value <= 0 and rt_sample > 0:
+                ret.append(rt_sample_array.determination_time + i * rt_sample_array.sample_period)
             self._last_value = rt_sample
         return ret
+
 
 class _SampleArrayGenerator:
     """Wraps a waveform generator and makes RtSampleArray objects"""
@@ -193,7 +206,7 @@ class DefaultWaveformSource(AbstractWaveformSource):
             if not wf_generator.is_active:
                 state.MetricValue = None
 
-    def register_annotation_generator(self, annotator: Annotator):
+    def register_annotation_generator(self, annotator: Type[AbstractAnnotator]):
         self._annotators[annotator.trigger_handle] = annotator
 
     def _update_rt_samples(self, state):
@@ -221,5 +234,3 @@ class DefaultWaveformSource(AbstractWaveformSource):
                     for dest_handle in _annotator.annotated_handles:
                         if dest_handle in rt_sample_arrays:
                             rt_sample_arrays[dest_handle].add_annotations_at(_annotator.annotation, timestamps)
-
-

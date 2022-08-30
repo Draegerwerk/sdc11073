@@ -9,7 +9,7 @@ from typing import List, Type, TYPE_CHECKING, Optional
 
 from . import mdibbase
 from .devicewaveform import AbstractWaveformSource
-from .devicewaveform import DefaultWaveformSource, Annotator
+from .devicewaveform import DefaultWaveformSource, AbstractAnnotator
 from .transactions import RtDataMdibUpdateTransaction, MdibUpdateTransaction, TransactionProcessor
 from .. import loghelper
 from .. import pmtypes
@@ -183,7 +183,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                                                 component_activation: pmtypes.ComponentActivation):
         self._waveform_source.set_activation_state(self, descriptor_handle, component_activation)
 
-    def register_annotation_generator(self, annotator: Annotator):
+    def register_annotation_generator(self, annotator: Type[AbstractAnnotator]):
         self._waveform_source.register_annotation_generator(annotator)
 
     def update_all_rt_samples(self):

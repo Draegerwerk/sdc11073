@@ -4,7 +4,7 @@ import unittest
 import sdc11073
 from sdc11073 import pmtypes
 from sdc11073.mdib import descriptorcontainers as dc
-from sdc11073.mdib.devicemdib import Annotator
+from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.sdcdevice import waveforms
 from sdc11073.dpws import ThisModelType, ThisDeviceType
 from tests import mockstuff
