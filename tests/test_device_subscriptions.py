@@ -116,11 +116,10 @@ class TestDeviceSubscriptions(unittest.TestCase):
                                                        sdcDevice.msg_factory)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
 
-            descriptorHandle = '0x34F00100'  # '0x34F04380'
+            descriptor_handle = '0x34F00100'  # '0x34F04380'
             firstValue = Decimal(12)
             with sdcDevice.mdib.transaction_manager() as mgr:
-                # st = mgr.getMetricState(descriptorHandle)
-                st = mgr.get_state(descriptorHandle)
+                st = mgr.get_state(descriptor_handle)
                 if st.MetricValue is None:
                     st.mk_metric_value()
                 st.MetricValue.Value = firstValue
@@ -143,9 +142,9 @@ class TestDeviceSubscriptions(unittest.TestCase):
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
             patientContextDescriptor = sdcDevice.mdib.descriptions.NODETYPE.get_one(
                 namespaces.domTag('PatientContextDescriptor'))
-            descriptorHandle = patientContextDescriptor.Handle
+            descriptor_handle = patientContextDescriptor.Handle
             with sdcDevice.mdib.transaction_manager() as mgr:
-                st = mgr.mk_context_state(descriptorHandle)
+                st = mgr.mk_context_state(descriptor_handle)
                 st.CoreData.PatientType = pmtypes.PatientType.ADULT
             self.assertEqual(len(testSubscr.reports), 1)
             response = testSubscr.reports[0]

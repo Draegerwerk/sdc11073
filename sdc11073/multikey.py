@@ -248,14 +248,14 @@ class MultiKeyLookup:
 
     def update_object(self, obj):
         if obj not in self._objects:
-            raise RuntimeError(f'object {obj} not known')
+            raise ValueError(f'object {obj} not known')
         with self._lock:
             self._rm_indices(obj)
             self._mk_indices(obj)
 
     def update_object_no_lock(self, obj):
         if obj not in self._objects:
-            raise RuntimeError(f'object {obj} not known')
+            raise ValueError(f'object {obj} not known')
         self._rm_indices(obj)
         self._mk_indices(obj)
 
@@ -266,7 +266,7 @@ class MultiKeyLookup:
     def update_objects_no_lock(self, objs):
         for obj in objs:
             if obj not in self._objects:
-                raise RuntimeError(f'object {obj} not known')
+                raise ValueError(f'object {obj} not known')
             with self._lock:
                 self._rm_indices(obj)
                 self._mk_indices(obj)

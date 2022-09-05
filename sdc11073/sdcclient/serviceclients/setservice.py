@@ -75,7 +75,7 @@ class SetServiceClient(HostedServiceClient):
         :param proposed_component_states: a list of domainmodel.AbstractDeviceComponentState instances or derived class
         :return: a concurrent.futures.Future
         """
-        tmp = ', '.join([f'{st.__class__.__name__} (descriptorHandle={st.descriptorHandle})'
+        tmp = ', '.join([f'{st.__class__.__name__} (DescriptorHandle={st.DescriptorHandle})'
                          for st in proposed_component_states])
         self._logger.info('set_component_state {}', tmp)
         message = self._msg_factory.mk_set_component_state_message(self._nsmapper, self.endpoint_reference.address,

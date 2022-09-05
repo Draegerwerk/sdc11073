@@ -74,8 +74,7 @@ class GenericMetricProvider(ProviderRole):
         operation_instance.current_value = value
         with self._mdib.transaction_manager() as mgr:
             for proposed_state in value:
-                # state = mgr.getMetricState(proposedMetricState.descriptorHandle)
-                state = mgr.get_state(proposed_state.descriptorHandle)
+                state = mgr.get_state(proposed_state.DescriptorHandle)
                 if state.isMetricState:
                     self._logger.info('updating {} with proposed metric state', state)
                     state.update_from_other_container(proposed_state,
@@ -104,5 +103,5 @@ class GenericMetricProvider(ProviderRole):
                 if new_state.MetricValue is not None:
                     # remove metric value
                     self._logger.info('{}: remove metric value because ActivationState="{}", handle="{}"',
-                                      self.__class__.__name__, new_state.ActivationState, new_state.descriptorHandle)
+                                      self.__class__.__name__, new_state.ActivationState, new_state.DescriptorHandle)
                     new_state.MetricValue = None

@@ -136,7 +136,7 @@ class ClSubscription:
             self._logger.info('unsubscribe: end of subscription {} was confirmed.', self._filter)
         else:
             self._logger.error('unsubscribe: unexpected response action: {}', received_message_data.p_msg.raw_data)
-            raise RuntimeError(f'unsubscribe: unexpected response action: {received_message_data.p_msg.raw_data}')
+            raise ValueError(f'unsubscribe: unexpected response action: {received_message_data.p_msg.raw_data}')
 
     def _mk_get_status_message(self):
         return self._msg_factory.mk_get_status_message(

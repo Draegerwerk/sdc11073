@@ -118,11 +118,11 @@ class AbstractDescriptorContainer(ContainerBase):
 
     @property
     def code_id(self):
-        return self.Type.coding.code if self.Type is not None else None  # pylint:disable=no-member
+        return self.Type.Code if self.Type is not None else None  # pylint:disable=no-member
 
     @property
     def coding_system(self):
-        return self.Type.coding.codingSystem if self.Type is not None else None  # pylint:disable=no-member
+        return self.Type.CodingSystem if self.Type is not None else None  # pylint:disable=no-member
 
     @property
     def retrievability(self) -> [msgtypes.Retrievability, None]:
@@ -145,7 +145,7 @@ class AbstractDescriptorContainer(ContainerBase):
 
     def update_from_other_container(self, other, skipped_properties=None):
         if other.Handle != self.Handle:
-            raise RuntimeError(
+            raise ValueError(
                 f'Update from a container with different handle is not possible! ' \
                 f'Have "{self.Handle}", got "{other.Handle}"')
         self._update_from_other(other, skipped_properties)

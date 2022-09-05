@@ -7,7 +7,7 @@ of the mdib.
 import time
 from abc import ABC, abstractmethod
 from decimal import Context
-from typing import Iterable, List, Type
+from typing import Iterable, List, Type, Union
 
 from .. import pmtypes
 from ..sdcdevice.waveforms import WaveformGeneratorBase
@@ -17,10 +17,10 @@ class RtSampleArray:
     """ This class contains a list of waveform values plus time stamps and annotations.
     It is used to create Waveform notifications."""
 
-    def __init__(self, determination_time: float, sample_period: float,
+    def __init__(self, determination_time: Union[float, None], sample_period: float,
                  samples: List[float], activation_state: pmtypes.ComponentActivation):
         """
-        :param determination_time: the time stamp of the first value in samples
+        :param determination_time: the time stamp of the first value in samples, can be None if not active
         :param sample_period: the time difference between two samples
         :param samples: a list of 2-tuples (value (float or int), flag annotation_trigger)
         :param activation_state: one of pmtypes.ComponentActivation values
@@ -60,6 +60,11 @@ class RtSampleArray:
 
 
 class AbstractAnnotator(ABC):
+    def __init__(self, annotation: pmtypes.Annotation, trigger_handle: str, annotated_handles: List[str]):
+        self.annotation = annotation
+        self.trigger_handle = trigger_handle
+        self.annotated_handles = annotated_handles
+
     @abstractmethod
     def get_annotation_timestamps(self, rt_sample_array: RtSampleArray) -> List[float]:
         """
@@ -77,9 +82,7 @@ class Annotator(AbstractAnnotator):
     """
 
     def __init__(self, annotation: pmtypes.Annotation, trigger_handle: str, annotated_handles: List[str]):
-        self.annotation = annotation
-        self.trigger_handle = trigger_handle
-        self.annotated_handles = annotated_handles
+        super().__init__(annotation, trigger_handle, annotated_handles)
         self._last_value = 0.0
 
     def get_annotation_timestamps(self, rt_sample_array: RtSampleArray) -> List[float]:
@@ -89,7 +92,6 @@ class Annotator(AbstractAnnotator):
         :return:
         """
         ret = []
-        ts = rt_sample_array.determination_time
         for i, rt_sample in enumerate(rt_sample_array.samples):
             if self._last_value <= 0 and rt_sample > 0:
                 ret.append(rt_sample_array.determination_time + i * rt_sample_array.sample_period)
@@ -175,7 +177,7 @@ class DefaultWaveformSource(AbstractWaveformSource):
 
     def register_waveform_generator(self, mdib, descriptor_handle, wf_generator):
         """
-        param mdib: a device mdib instance
+        :param mdib: a device mdib instance
         :param descriptor_handle: the handle of the RealtimeSampelArray that shall accept this data
         :param wf_generator: a waveforms.WaveformGenerator instance
         """
@@ -193,9 +195,9 @@ class DefaultWaveformSource(AbstractWaveformSource):
 
     def set_activation_state(self, mdib, descriptor_handle, component_activation_state):
         """
-        param mdib: a device mdib instance
-        :param descriptorHandle: a handle string
-        :param componentActivation: one of pmtypes.ComponentActivation values
+        :param mdib: a device mdib instance
+        :param descriptor_handle: a handle string
+        :param component_activation_state: one of pmtypes.ComponentActivation values
         """
         wf_generator = self._waveform_generators[descriptor_handle]
         wf_generator.set_activation_state(component_activation_state)
@@ -212,7 +214,7 @@ class DefaultWaveformSource(AbstractWaveformSource):
     def _update_rt_samples(self, state):
         """ update waveforms state from waveform generator (if available)"""
         ctxt = Context(prec=10)
-        wf_generator = self._waveform_generators.get(state.descriptorHandle)
+        wf_generator = self._waveform_generators.get(state.DescriptorHandle)
         if wf_generator:
             rt_sample_array = wf_generator.get_next_sample_array()
             samples = [ctxt.create_decimal(s) for s in rt_sample_array.samples]

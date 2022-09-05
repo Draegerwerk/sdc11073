@@ -1599,7 +1599,7 @@ class WSDiscoveryBase:
         """search for services given the TYPES and SCOPES in a given timeout
         :param repeat_probe_interval: send another probe message after x seconds"""
         if not self._server_started:
-            raise Exception("Server not started")
+            raise RuntimeError("Server not started")
 
         start = time.monotonic()
         end = start + timeout
@@ -1619,7 +1619,7 @@ class WSDiscoveryBase:
         Can be used to search for devices that support Biceps Draft6 and Final with one search.
         :param repeat_probe_interval: send another probe message after x seconds"""
         if not self._server_started:
-            raise Exception("Server not started")
+            raise RuntimeError("Server not started")
 
         start = time.monotonic()
         end = start + timeout
@@ -1647,7 +1647,7 @@ class WSDiscoveryBase:
         if x_addrs contains item, which includes {ip} pattern, one item per IP addres will be sent
         """
         if not self._server_started:
-            raise Exception("Server not started")
+            raise RuntimeError("Server not started")
 
         metadata_version = self._local_services[epr].metadata_version + 1 if epr in self._local_services else 1
         service = Service(types, scopes, x_addrs, epr, _generate_instance_id(), metadata_version=metadata_version)

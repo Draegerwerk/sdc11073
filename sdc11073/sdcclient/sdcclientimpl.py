@@ -358,17 +358,6 @@ class SdcClient:
         properties.strongbind(self._subscription_mgr, all_subscriptions_okay=set_is_connected)
         self.is_connected = self._subscription_mgr.all_subscriptions_okay
 
-    # def stop_all(self, unsubscribe=True, close_all_connections=True):
-    #     if self._subscription_mgr is not None:
-    #         if unsubscribe:
-    #             self._subscription_mgr.unsubscribe_all()
-    #         self._subscription_mgr.stop()
-    #     self._stop_event_sink(close_all_connections)
-    #     self._register_mdib(None)
-    #
-    #     for client in self._soap_clients.values():
-    #         client.close()
-    #     self._soap_clients = {}
     def stop_all(self, unsubscribe=True):
         if self._subscription_mgr is not None:
             if unsubscribe:

@@ -11,10 +11,11 @@ from .. import multikey
 from .. import observableproperties as properties
 from ..etc import apply_map
 from ..namespaces import DocNamespaceHelper, msgTag, domTag
-from ..pmtypes import CodedValue, DEFAULT_CODING_SYSTEM, Coding
+from ..pmtypes import CodedValue, DEFAULT_CODING_SYSTEM, Coding, have_matching_codes
 
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
+    from .descriptorcontainers import AbstractMetricDescriptorContainer
 
 
 class RtSampleContainer:
@@ -132,10 +133,10 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
 
 class StatesLookup(_MultikeyWithVersionLookup):
     def _save_version(self, obj):
-        self.handle_version_lookup[obj.descriptorHandle] = obj.StateVersion
+        self.handle_version_lookup[obj.DescriptorHandle] = obj.StateVersion
 
     def set_version(self, obj, increment=True):
-        version = self.handle_version_lookup.get(obj.descriptorHandle)
+        version = self.handle_version_lookup.get(obj.DescriptorHandle)
         if version is not None:
             if increment:
                 version += 1
@@ -143,7 +144,7 @@ class StatesLookup(_MultikeyWithVersionLookup):
 
     def add_object_no_lock(self, obj):
         if obj.isMultiState:
-            raise RuntimeError('Multistate')
+            raise ValueError('no MultiState!')
         super().add_object_no_lock(obj)
 
 
@@ -191,7 +192,7 @@ class MdibContainer:
         self.descriptions = DescriptorsLookup()
 
         self.states = StatesLookup()  # multikey.MultiKeyLookup()
-        self.states.add_index('descriptorHandle', multikey.UIndexDefinition(lambda obj: obj.descriptorHandle))
+        self.states.add_index('descriptorHandle', multikey.UIndexDefinition(lambda obj: obj.DescriptorHandle))
         self.states.add_index('NODETYPE', multikey.IndexDefinition(lambda obj: obj.NODETYPE, index_none_values=False))
 
         self.context_states = MultiStatesLookup()  # multikey.MultiKeyLookup()
@@ -199,7 +200,7 @@ class MdibContainer:
         # descriptorHandle index is NOT unique!
         # => multiple ContextStates refer to the same descriptor( history of locations)
         # 'handle' index can be unique, because we ignore None values
-        self.context_states.add_index('descriptorHandle', multikey.IndexDefinition(lambda obj: obj.descriptorHandle))
+        self.context_states.add_index('descriptorHandle', multikey.IndexDefinition(lambda obj: obj.DescriptorHandle))
         self.context_states.add_index('handle',
                                       multikey.UIndexDefinition(lambda obj: obj.Handle, index_none_values=False))
         self.context_states.add_index('NODETYPE',
@@ -229,7 +230,7 @@ class MdibContainer:
 
     def clear_states(self):
         """removes all states and context states. """
-        with self.states._lock:  # pylint: disable=protected-access
+        with self.states.lock:
             self.states.clear()
             self.context_states.clear()
 
@@ -251,17 +252,17 @@ class MdibContainer:
         for state_container in state_container_list:
             # add state to the corresponding dictionary, depending on type
             if state_container.isAlertState:
-                alert_by_handle[state_container.descriptorHandle] = state_container
+                alert_by_handle[state_container.DescriptorHandle] = state_container
             elif state_container.isRealtimeSampleArrayMetricState:  # test for this class before AbstractMetricStateContainer!!
-                waveform_by_handle[state_container.descriptorHandle] = state_container
+                waveform_by_handle[state_container.DescriptorHandle] = state_container
             elif state_container.isMetricState:
-                metrics_by_handle[state_container.descriptorHandle] = state_container
+                metrics_by_handle[state_container.DescriptorHandle] = state_container
             elif state_container.isComponentState:
-                component_by_handle[state_container.descriptorHandle] = state_container
+                component_by_handle[state_container.DescriptorHandle] = state_container
             elif state_container.isOperationalState:
-                operation_by_handle[state_container.descriptorHandle] = state_container
+                operation_by_handle[state_container.DescriptorHandle] = state_container
             elif state_container.isContextState:
-                context_by_handle[state_container.descriptorHandle] = state_container
+                context_by_handle[state_container.Handle] = state_container
             elif state_container.isSystemContextState or state_container.isMultiState:
                 pass  # ignoring for now
             elif state_container.NODETYPE == domTag('ScoState'):
@@ -294,13 +295,13 @@ class MdibContainer:
         if descriptor_container is None:
             self._logger.warn(
                 'state "{}" (type={}) has no descriptor in mdib!',
-                state_container.descriptorHandle, state_container.NODETYPE)
+                state_container.DescriptorHandle, state_container.NODETYPE)
         elif descriptor_container.DescriptorVersion == state_container.DescriptorVersion:
             state_container.descriptor_container = descriptor_container
         else:
             self._logger.warn(
                 'state "{}" (type={}) : descriptor version expect "{}", found "{}"',
-                state_container.descriptorHandle, state_container.NODETYPE,
+                state_container.DescriptorHandle, state_container.NODETYPE,
                 descriptor_container.DescriptorVersion, state_container.DescriptorVersion )
 
     def add_state_containers(self, state_containers):
@@ -357,10 +358,7 @@ class MdibContainer:
                                           nsmap=doc_nsmap)
         tag = domTag('State')
         for state_container in self.states.objects:
-            try:
-                md_state_node.append(state_container.mk_state_node(tag, self.nsmapper))
-            except RuntimeError:
-                self._logger.error('State {} has no descriptor_container', state_container.descriptorHandle)
+            md_state_node.append(state_container.mk_state_node(tag, self.nsmapper))
         if add_context_states:
             for state_container in self.context_states.objects:
                 md_state_node.append(state_container.mk_state_node(tag, self.nsmapper))
@@ -372,7 +370,7 @@ class MdibContainer:
         """
         with self.mdib_lock:
             node = self._reconstruct_md_description()
-            return (node, self.mdib_version)
+            return node, self.mdib_version
 
     def reconstruct_mdib(self):
         """build dom tree from current data
@@ -396,38 +394,38 @@ class MdibContainer:
                                       encoding=encoding)
         return self.sdc_definitions.denormalize_xml_text(mdib_string)
 
+    def _get_child_descriptors_by_code(self, parent_handle, code):
+        descriptors = self.descriptions.parent_handle.get(parent_handle, [])
+        #descriptors = self.descriptions.coding.get(code, [])
+        if len(descriptors) == 0:
+            return []
+        with_types = [d for d in descriptors if d.Type is not None]
+        #return [d for d in with_types if d.Type.equals(code)]
+        return [d for d in with_types if have_matching_codes(d.Type, code)]
+
     def get_metric_descriptor_by_code(self,
                                       vmd_code: [Coding, CodedValue],
                                       channel_code: [Coding, CodedValue],
-                                      metric_code: [Coding, CodedValue]):
-        """ This is the "correct" way to find an descriptor.
+                                      metric_code: [Coding, CodedValue]) -> [Type[AbstractMetricDescriptorContainer], None]:
+        """ This is the "correct" way to find a descriptor.
         Using well known handles is shaky, because they have no meaning and can change over time!
         :param vmd_code: a CodedValue or a Coding instance
         :param channel_code: a CodedValue or a Coding instance
         :param metric_code: a CodedValue or a Coding instance
         """
-        vmd_coding = vmd_code.coding if hasattr(vmd_code, 'coding') else vmd_code
-        channel_coding = channel_code.coding if hasattr(channel_code, 'coding') else channel_code
-        metric_coding = metric_code.coding if hasattr(metric_code, 'coding') else metric_code
 
-        vmd = self.descriptions.coding.get_one(vmd_coding)
-        _all_channels = self.descriptions.coding.get(channel_coding, [])
-        all_channels = [c for c in _all_channels if c.parent_handle == vmd.Handle]
-        if len(all_channels) == 0:
-            return None
-        if len(all_channels) > 1:
-            raise RuntimeError(
-                f'found multiple channel descriptors for vmd={vmd_coding} channel={channel_coding}')
-        channel = all_channels[0]
-        _all_metrics = self.descriptions.coding.get(metric_coding, [])
-        all_metrics = [m for m in _all_metrics if m.parent_handle == channel.Handle]
-        if len(all_metrics) == 0:
-            return None
-        if len(all_metrics) > 1:
-            raise RuntimeError(
-                f'found multiple channel descriptors for vmd={vmd_coding} '
-                f'channel={channel_coding} metric={metric_coding}')
-        return all_metrics[0]
+        aLL_vmds = self.descriptions.NODETYPE.get(domTag('VmdDescriptor'), [])
+        matching_vmd_list =  [d for d in aLL_vmds if have_matching_codes(d.Type, vmd_code)]
+        for vmd in matching_vmd_list:
+            matching_channels = self._get_child_descriptors_by_code(vmd.Handle, channel_code)
+            for channel in matching_channels:
+                matching_metrics = self._get_child_descriptors_by_code(channel.Handle, metric_code)
+                if len(matching_metrics) == 1:
+                    return matching_metrics[0]
+                if len(matching_metrics) > 1:
+                    raise RuntimeError(
+                        f'found multiple metrics for vmd={vmd_code} channel={channel_code} metric={metric_code}')
+        return None
 
     def get_operations_for_metric(self,
                                   vmd_code: [Coding, CodedValue],
@@ -446,7 +444,7 @@ class MdibContainer:
     def get_operation_descriptors_for_descriptor_handle(self, descriptor_handle, **additional_filters):
         """
         :param descriptor_handle: the handle for that operations shall be found
-        :return: a list with operation descriptors that have descriptorHandle as OperationTarget. List can be empty
+        :return: a list with operation descriptors that have descriptor_handle as OperationTarget. List can be empty
         :additionalFilters: optional filters for the key = name of member attribute, value = expected value
             example: NODETYPE=domTag('SetContextStateOperationDescriptor') filters for SetContextStateOperation descriptors
         """

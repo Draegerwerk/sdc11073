@@ -111,12 +111,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             updates = []
             self._logger.debug('transaction_manager: rtSample updates = {}', mgr.rt_sample_state_updates)
             for transaction_item in mgr.rt_sample_state_updates.values():
-                try:
-                    transaction_item.new.set_node_member(self.nsmapper)
-                    updates.append(transaction_item.new)
-                except RuntimeError:
-                    self._logger.warn('transaction_manager: {} did not exist before!! really??', transaction_item.new)
-                    raise
+                updates.append(transaction_item.new)
             # makes copies of all states for sending, so that they can't be affected by transactions after this one
             updates = [s.mk_copy(copy_node=False) for s in updates]
             self.rt_updates = updates
@@ -135,7 +130,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             associated_locations = [l for l in all_location_contexts if
                                     l.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
             for location in associated_locations:
-                location_context = mgr.get_context_state(location.descriptorHandle, location.Handle)
+                location_context = mgr.get_context_state(location.DescriptorHandle, location.Handle)
                 location_context.ContextAssociation = pmtypes.ContextAssociation.DISASSOCIATED
                 # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
                 location_context.UnbindingMdibVersion = self.mdib_version + 1
@@ -144,7 +139,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             self._current_location = mgr.mk_context_state(
                 descriptor_container.Handle)  # this creates a new location state
             self._current_location.update_from_sdc_location(sdc_location)
-            self._current_location.set_node_member(self.nsmapper)
             if validators is not None:
                 self._current_location.Validator = validators
 
@@ -210,7 +204,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                         state.SelfCheckCount = 1
                     elif state.NODETYPE == domTag('ClockState'):
                         state.LastSet = time.time()
-                    state.set_node_member(self.nsmapper)
                     if self._current_transaction is not None:
                         self._current_transaction.add_state(state)
                     else:

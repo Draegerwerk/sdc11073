@@ -31,7 +31,7 @@ class ContextServiceClient(HostedServiceClient):
         """
         @return: a concurrent.futures.Future object
         """
-        tmp = ', '.join([f'{st.__class__.__name__}(descriptorHandle={st.descriptorHandle}, handle={st.Handle})'
+        tmp = ', '.join([f'{st.__class__.__name__}(DescriptorHandle={st.DescriptorHandle}, handle={st.Handle})'
                          for st in proposed_context_states])
         self._logger.info('set_context_state {}', tmp)
         message = self._msg_factory.mk_set_context_state_message(self._nsmapper,

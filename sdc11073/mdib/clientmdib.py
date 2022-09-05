@@ -104,7 +104,7 @@ class ClientRtBuffer:
         if metric_value is None:
             # this can happen if metric state is not activated.
             self._logger.debug('real time sample array "{} "has no metric value, ignoring it',
-                               realtime_sample_array_container.descriptorHandle)
+                               realtime_sample_array_container.DescriptorHandle)
             return []
         determination_time = metric_value.DeterminationTime
         annotations = metric_value.Annotations
@@ -472,7 +472,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     return
                 self.mdib_version = new_mdib_version
                 for state_container in state_containers:
-                    desc_h = state_container.descriptorHandle
+                    desc_h = state_container.DescriptorHandle
                     old_state_container = self.states.descriptorHandle.get_one(desc_h, allow_none=True)
                     if old_state_container is not None:
                         if self._has_new_state_usable_state_version(old_state_container, state_container,
@@ -539,7 +539,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     return
                 self.mdib_version = new_mdib_version
                 for state_container in state_containers:
-                    old_state_container = self.states.descriptorHandle.get_one(state_container.descriptorHandle,
+                    old_state_container = self.states.descriptorHandle.get_one(state_container.DescriptorHandle,
                                                                                allow_none=True)
                     if old_state_container is not None:
                         if self._has_new_state_usable_state_version(old_state_container, state_container,
@@ -547,13 +547,13 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                                                     is_buffered_report):
                             old_state_container.update_from_other_container(state_container)
                             self.states.update_object(old_state_container)
-                            alert_by_handle[old_state_container.descriptorHandle] = old_state_container
+                            alert_by_handle[old_state_container.DescriptorHandle] = old_state_container
                     else:
                         self._logger.error('_on_episodic_alert_report: got a new state {}',
                                            state_container.DescriptorHandle)
                         self._set_descriptor_container_reference(state_container)
                         self.states.add_object(state_container)
-                        alert_by_handle[state_container.descriptorHandle] = state_container
+                        alert_by_handle[state_container.DescriptorHandle] = state_container
         finally:
             self.alert_by_handle = alert_by_handle  # update observable
 
@@ -620,7 +620,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     return
                 self.mdib_version = new_mdib_version
                 for state_container in rt_sample_array_containers:
-                    d_handle = state_container.descriptorHandle
+                    d_handle = state_container.DescriptorHandle
                     old_state_container = self.states.descriptorHandle.get_one(d_handle, allow_none=True)
                     if old_state_container is not None:
                         if self._has_new_state_usable_state_version(old_state_container, state_container,
@@ -711,7 +711,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         self.context_states.add_object(state_container)
                         self._logger.info(
                             '_on_episodic_context_report: new context state handle = {} Descriptor Handle={} Assoc={}, Validators={}',
-                            state_container.Handle, state_container.descriptorHandle,
+                            state_container.Handle, state_container.DescriptorHandle,
                             state_container.ContextAssociation, state_container.Validator)
                         context_by_handle[state_container.Handle] = state_container
         finally:
@@ -736,7 +736,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     return
                 self.mdib_version = new_mdib_version
                 for state_container in state_containers:
-                    desc_h = state_container.descriptorHandle
+                    desc_h = state_container.DescriptorHandle
                     old_state_container = self.states.descriptorHandle.get_one(desc_h, allow_none=True)
                     if old_state_container is not None:
                         if self._has_new_state_usable_state_version(old_state_container, state_container,
@@ -746,7 +746,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                 desc_h, state_container.DescriptorVersion)
                             old_state_container.update_from_other_container(state_container)
                             self.states.update_object(old_state_container)
-                            component_by_handle[old_state_container.descriptorHandle] = old_state_container
+                            component_by_handle[old_state_container.DescriptorHandle] = old_state_container
                     else:
                         self._logger.error('_on_episodic_component_report: got a new state {}',
                                            state_container.DescriptorHandle)
@@ -833,10 +833,10 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     else:
                         multikey = self.states
                         old_state_container = multikey.descriptorHandle.get_one(
-                            state_container.descriptorHandle, allow_none=True)
+                            state_container.DescriptorHandle, allow_none=True)
                         if old_state_container is None:
                             self._logger.error('got update of state "{}" , but it did not exist in mdib!',
-                                               state_container.descriptorHandle)
+                                               state_container.DescriptorHandle)
                     if old_state_container is not None:
                         old_state_container.update_from_other_container(state_container)
                         multikey.update_object(old_state_container)

@@ -375,7 +375,7 @@ class MessageFactoryClient(MessageFactory):
         """
         _proposed_states = [p.mk_copy() for p in proposed_context_states]
         for state in _proposed_states:
-            # BICEPS: if handle == descriptorHandle, it means insert.
+            # BICEPS: if handle == DescriptorHandle, it means insert.
             if state.Handle is None:
                 state.Handle = state.DescriptorHandle
             state.nsmapper = DocNamespaceHelper()  # use my namespaces
@@ -974,7 +974,7 @@ class MessageFactoryDevice(MessageFactory):
             if descriptor.parent_handle is not None:  # only Mds can have None
                 report_part.set('ParentDescriptor', descriptor.parent_handle)
             report_part.append(descriptor.mk_descriptor_node(tag=msgTag('Descriptor'), nsmapper=nsmapper))
-            related_state_containers = [s for s in updated_states if s.descriptorHandle == descriptor.Handle]
+            related_state_containers = [s for s in updated_states if s.DescriptorHandle == descriptor.Handle]
             state_name = msgTag('State')
             report_part.extend([state.mk_state_node(state_name, nsmapper) for state in related_state_containers])
 

@@ -33,7 +33,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             clock_descriptor = self._mdib.descriptor_factory.create_clock_descriptor_container(
                 handle=clock_descr_handle,
                 parent_handle=mds_container.Handle,
-                coded_value=pmtypes.CodedValue(123),
+                coded_value=pmtypes.CodedValue('123'),
                 safety_classification=pmtypes.SafetyClassification.INF)
             mdib.descriptions.add_object(clock_descriptor)
         clock_state = self._mdib.states.descriptorHandle.get_one(clock_descriptor.Handle, allow_none=True)
@@ -68,7 +68,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             # state = mgr.getComponentState(operation_target_handle)
             state = mgr.get_state(operation_target_handle)
             if state.NODETYPE == namespaces.domTag('MdsState'):
-                mds_handle = state.descriptorHandle
+                mds_handle = state.DescriptorHandle
                 mgr.unget_state(state)
                 # look for the ClockState child
                 clock_descriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'), [])
@@ -77,7 +77,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                     # state = mgr.getComponentState(clock_descriptors[0].handle)
                     state = mgr.get_state(clock_descriptors[0].handle)
             if state.NODETYPE != namespaces.domTag('ClockState'):
-                raise RuntimeError(f'_set_ntp_string: expected ClockState, got {state.NODETYPE.localname}')
+                raise ValueError(f'_set_ntp_string: expected ClockState, got {state.NODETYPE.localname}')
             state.ReferenceSource = [pmtypes.ElementWithTextOnly(value)]
 
     def _set_tz_string(self, operation_instance, value):
@@ -88,7 +88,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
         with self._mdib.transaction_manager() as mgr:
             state = mgr.get_state(operation_target_handle)
             if state.NODETYPE == namespaces.domTag('MdsState'):
-                mds_handle = state.descriptorHandle
+                mds_handle = state.DescriptorHandle
                 mgr.unget_state(state)
                 # look for the ClockState child
                 clock_descriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'), [])

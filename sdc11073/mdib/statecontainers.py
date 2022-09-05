@@ -24,12 +24,9 @@ class AbstractStateContainer(ContainerBase):
 
     Extension = cp.ExtensionNodeProperty()
     DescriptorHandle = cp.HandleRefAttributeProperty('DescriptorHandle', is_optional=False)
-    descriptorHandle = DescriptorHandle
     DescriptorVersion = cp.ReferencedVersionAttributeProperty('DescriptorVersion', default_py_value=0)
     StateVersion = cp.VersionCounterAttributeProperty('StateVersion', default_py_value=0)
     _props = ('Extension', 'DescriptorHandle', 'DescriptorVersion', 'StateVersion')
-
-    stateVersion = StateVersion  # lower case for backwards compatibility
 
     def __init__(self, descriptor_container):
         super().__init__()
@@ -40,17 +37,14 @@ class AbstractStateContainer(ContainerBase):
             self.DescriptorVersion = descriptor_container.DescriptorVersion
             # pylint: enable=invalid-name
 
-    def set_node_member(self, nsmapper):
-        self.node = self.mk_state_node(domTag('State'), nsmapper)
-
     def mk_state_node(self, tag, nsmapper, set_xsi_type=True):
         return super().mk_node(tag, nsmapper, set_xsi_type=set_xsi_type)
 
     def update_from_other_container(self, other, skipped_properties=None):
-        if other.descriptorHandle != self.descriptorHandle:
-            raise RuntimeError(
+        if other.DescriptorHandle != self.DescriptorHandle:
+            raise ValueError(
                 f'Update from a node with different descriptor handle is not possible! '
-                f'Have "{self.descriptorHandle}", got "{other.descriptorHandle}"')
+                f'Have "{self.DescriptorHandle}", got "{other.DescriptorHandle}"')
         self._update_from_other(other, skipped_properties)
         self.node = other.node
 
@@ -64,12 +58,12 @@ class AbstractStateContainer(ContainerBase):
 
     def update_descriptor_version(self):
         if self.descriptor_container is None:
-            raise RuntimeError(f'State {self} has no descriptor_container')
+            raise ValueError(f'State {self} has no descriptor_container')
         if self.descriptor_container.DescriptorVersion != self.DescriptorVersion:
             self.DescriptorVersion = self.descriptor_container.DescriptorVersion
 
     def __repr__(self):
-        return f'{self.__class__.__name__} descriptorHandle="{self.descriptorHandle}" StateVersion={self.StateVersion}'
+        return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" StateVersion={self.StateVersion}'
 
 
 class AbstractOperationStateContainer(AbstractStateContainer):
@@ -147,7 +141,7 @@ class AbstractMetricStateContainerBase(AbstractStateContainer):
             cls = self.__class__._metric_value.value_class  # pylint: disable=protected-access, no-member
             self._metric_value = cls()
             return self._metric_value
-        raise RuntimeError(f'State (descriptor handle="{self.descriptorHandle}") already has a metric value')
+        raise ValueError(f'State (descriptor handle="{self.DescriptorHandle}") already has a metric value')
 
 
 class AbstractMetricStateContainer(AbstractMetricStateContainerBase):
@@ -192,7 +186,7 @@ class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
         samples_count = 0
         if self._metric_value is not None and self._metric_value.Samples is not None:
             samples_count = len(self._metric_value.Samples)
-        return f'{self.__class__.__name__} descriptorHandle="{self.descriptorHandle}" ' \
+        return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" ' \
                f'Activation="{self.ActivationState}" Samples={samples_count}'
 
 
@@ -387,7 +381,7 @@ class AbstractMultiStateContainer(AbstractStateContainer):
             self.Handle = other.Handle
             self._handle_is_generated = False
         elif other.Handle != self.Handle:
-            raise RuntimeError(
+            raise ValueError(
                 f'Update from a node with different handle is not possible! Have "{self.Handle}", got "{other.Handle}"')
         super().update_from_other_container(other, skipped_properties)
 
@@ -397,7 +391,7 @@ class AbstractMultiStateContainer(AbstractStateContainer):
         return super().mk_state_node(tag, nsmapper, set_xsi_type)
 
     def __repr__(self):
-        return f'{self.__class__.__name__} descriptorHandle="{self.descriptorHandle}" ' \
+        return f'{self.__class__.__name__} DescriptorHandle="{self.DescriptorHandle}" ' \
                f'Handle="{self.Handle}" type={self.NODETYPE}'
 
 

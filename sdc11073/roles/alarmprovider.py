@@ -74,9 +74,8 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         for alert_condition in self._mdib.states.NODETYPE.get(namespaces.domTag('AlertSignalState'), []):
             if alert_condition.Location == 'Rem':
                 alert_condition.ActivationState = AlertActivation.OFF
-                alert_condition.set_node_member(self._mdib.nsmapper)
             else:
-                alert_signal_descr = self._mdib.descriptions.handle.get_one(alert_condition.descriptorHandle)
+                alert_signal_descr = self._mdib.descriptions.handle.get_one(alert_condition.DescriptorHandle)
                 # ConditionSignaled can be None, in that case do nothing
                 if alert_signal_descr.ConditionSignaled:
                     alert_condition_state = self._mdib.states.descriptorHandle.get_one(
@@ -84,7 +83,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                         allow_none=True)
                     if alert_condition_state and alert_condition.ActivationState != alert_condition_state.ActivationState:
                         alert_condition.ActivationState = alert_condition_state.ActivationState
-                        alert_condition.set_node_member(self._mdib.nsmapper)
 
     @staticmethod
     def _get_descriptor(handle, mdib, transaction):
@@ -115,7 +113,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         alert_system_states = set()
         changed_alert_conditions = self._get_changed_alert_condition_states(transaction)
         for tmp in changed_alert_conditions:
-            alert_descriptor = self._get_descriptor(tmp.descriptorHandle, mdib, transaction)
+            alert_descriptor = self._get_descriptor(tmp.DescriptorHandle, mdib, transaction)
             alert_system_descriptor = self._get_descriptor(alert_descriptor.parent_handle, mdib, transaction)
             if alert_system_descriptor.Handle in transaction.alert_state_updates:
                 tmp_st = transaction.alert_state_updates[alert_system_descriptor.Handle]
@@ -157,10 +155,10 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             return alert_state
 
         for state in alert_system_states:
-            all_child_descriptors = mdib.descriptions.parent_handle.get(state.descriptorHandle, [])
+            all_child_descriptors = mdib.descriptions.parent_handle.get(state.DescriptorHandle, [])
             all_child_descriptors.extend(
                 [i.new for i in transaction.descriptor_updates.values() if
-                 i.new.parent_handle == state.descriptorHandle])
+                 i.new.parent_handle == state.DescriptorHandle])
             all_alert_condition_descr = [d for d in all_child_descriptors if hasattr(d, 'Kind')]
             # select all state containers with technical alarms present
             all_tech_descr = [d for d in all_alert_condition_descr if d.Kind == AlertConditionKind.TECHNICAL]
@@ -173,8 +171,8 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             all_phys_states = [s for s in all_phys_states if s is not None]
             all_present_phys_states = [s for s in all_phys_states if s.Presence]
 
-            state.PresentTechnicalAlarmConditions = [s.descriptorHandle for s in all_present_tech_states]
-            state.PresentPhysiologicalAlarmConditions = [s.descriptorHandle for s in all_present_phys_states]
+            state.PresentTechnicalAlarmConditions = [s.DescriptorHandle for s in all_present_tech_states]
+            state.PresentPhysiologicalAlarmConditions = [s.DescriptorHandle for s in all_present_phys_states]
 
             state.LastSelfCheck = time.time()
             state.SelfCheckCount = 1 if state.SelfCheckCount is None else state.SelfCheckCount + 1
@@ -184,7 +182,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         """ Handle alert signals for a changed alert condition.
         This method only changes states of local signals.
         Handling of delegated signals is in the responsibility of the delegated device!"""
-        alert_signal_descriptors = mdib.descriptions.ConditionSignaled.get(changed_alert_condition.descriptorHandle, [])
+        alert_signal_descriptors = mdib.descriptions.ConditionSignaled.get(changed_alert_condition.DescriptorHandle, [])
         # separate remote from local
         remote_alert_signal_descriptors = [a for a in alert_signal_descriptors if a.SignalDelegationSupported]
         local_alert_signal_descriptors = [a for a in alert_signal_descriptors if not a.SignalDelegationSupported]
@@ -309,7 +307,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         if len(states_needing_update) > 0:
             try:
                 with self._mdib.transaction_manager() as mgr:
-                    tr_states = [mgr.get_state(s.descriptorHandle) for s in states_needing_update]
+                    tr_states = [mgr.get_state(s.DescriptorHandle) for s in states_needing_update]
                     self._update_alert_system_states(self._mdib, mgr, tr_states)
             except Exception:
                 exc = traceback.format_exc()

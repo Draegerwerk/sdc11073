@@ -5,6 +5,7 @@ from lxml import etree as etree_
 
 import sdc11073
 from sdc11073 import definitions_sdc
+from sdc11073.pmtypes import Coding
 from sdc11073 import namespaces
 
 # pylint: disable=protected-access
@@ -151,8 +152,7 @@ class TestClientWaveform(unittest.TestCase):
             rtBuffer = clientmdib.rt_buffers[my_handles[1]]
             annotated = rtBuffer.rt_data[2]  # this object should have the annotation (SampleIndex="2")
             self.assertEqual(len(annotated.annotations), 1)
-            self.assertEqual(annotated.annotations[0].coding.code, '4711')
-            self.assertEqual(annotated.annotations[0].coding.codingSystem, 'bla')
+            self.assertEqual(annotated.annotations[0].coding, Coding('4711', 'bla'))
             for i in (0, 1, 3, 4):
                 self.assertEqual(len(rtBuffer.rt_data[i].annotations), 0)
 

@@ -95,11 +95,9 @@ class OperationDefinition:
         self._operation_state_container = self._mdib.states.descriptorHandle.get_one(self._handle, allow_none=True)
         if self._operation_state_container is not None:
             self._logger.info('operation state for operation "{}" is already present, re-using it',self._handle)
-            self._operation_state_container.set_node_member(self._mdib.nsmapper)
         else:
             cls = mdib.sdc_definitions.get_state_container_class(self.OP_STATE_QNAME)
             self._operation_state_container = cls(self._descriptor_container)
-            self._operation_state_container.set_node_member(self._mdib.nsmapper)
             mdib.states.add_object(self._operation_state_container)
 
         # now add the object that is target of operation
@@ -121,7 +119,6 @@ class OperationDefinition:
         else:
             self._operation_target_container = self._mdib.mk_state_container_from_descriptor(
                 operation_target_descriptor)
-            self._operation_target_container.set_node_member(self._mdib.nsmapper)
             self._logger.info('creating {} DescriptorHandle = {}', self._operation_target_container.__class__.__name__,
                               self._operation_target_handle)
             if self._operation_target_container is not None:

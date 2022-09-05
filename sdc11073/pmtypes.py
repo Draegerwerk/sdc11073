@@ -1,15 +1,13 @@
 """ Implementation of data types used in Participant Model"""
 import enum
 import inspect
-import itertools
 import sys
 import traceback
-from collections import namedtuple
 from decimal import Decimal
 from math import isclose
-
+from dataclasses import dataclass
 from lxml import etree as etree_
-
+from typing import Optional, Union
 from .mdib import containerproperties as cp
 from .namespaces import domTag, QN_TYPE, text_to_qname
 
@@ -40,7 +38,8 @@ class PropertyBasedPMType:
             try:
                 prop.update_xml_value(self, node)
             except Exception as ex:
-                raise RuntimeError(
+                # re-raise with some information about the data
+                raise ValueError(
                     f'In {self.__class__.__name__}.{prop_name}, {str(prop)} could not update: {traceback.format_exc()}') from ex
 
     def update_from_node(self, node):
@@ -100,11 +99,7 @@ class PropertyBasedPMType:
         if xsi_type_str is None:
             return cls
         xsi_type = text_to_qname(xsi_type_str, node.nsmap)
-        try:
-            return _get_pmtypes_class(xsi_type)
-        except KeyError:
-            raise
-            return cls
+        return _get_pmtypes_class(xsi_type)
 
 
 class ElementWithTextOnly(PropertyBasedPMType):
@@ -173,53 +168,24 @@ class LocalizedText(PropertyBasedPMType):
 DEFAULT_CODING_SYSTEM = 'urn:oid:1.2.840.10004.1.1.1.0.0.1'  # ISO/IEC 11073-10101
 
 
-class NotCompareableVersionError(Exception):
-    """ This exception says that two coded values cannot be compared, because one has a coding system version, the other one not.
-    In that case it is not possible to decide if they are equal."""
 
+@dataclass(frozen=True)
+class Coding:
+    code: str
+    coding_system: Optional[str] = DEFAULT_CODING_SYSTEM
+    coding_system_version: Optional[str] = None
 
-_CodingBase = namedtuple('_CodingBase', 'code codingSystem codingSystemVersion')
+    def __post_init__(self):
+        """Previous versions allowed also an int as code. This exception makes it easier to detect wrong type."""
+        if not isinstance(self.code, str):
+            raise TypeError('code must be a string!')
 
-
-class Coding(_CodingBase):
-    """ Immutable representation of a coding. Can be used as key in dictionaries"""
-
-    def __new__(cls, code, codingSystem=DEFAULT_CODING_SYSTEM, codingSystemVersion=None):
-        return super(Coding, cls).__new__(cls,
-                                          str(code),
-                                          codingSystem,
-                                          codingSystemVersion)
-
-    def equals(self, other, raise_exception=False):
+    def equals(self, other):
         """ different compare method to __eq__, overwriting __eq__ makes Coding un-hashable!
-         other can be an int, a string, or a Coding.
-         Simple comparision with int or string only works if self.codingSystem == DEFAULT_CODING_SYSTEM
-         and self.codingSystemVersion is None"""
-        if isinstance(other, int):
-            other = str(other)
-        if isinstance(other, str):
-            # compare to 11073 coding system where codes are strings
-            if self.codingSystem != DEFAULT_CODING_SYSTEM or self.code != other:
-                return False
-            if self.codingSystemVersion is None:
-                return True
-            if raise_exception:
-                raise NotCompareableVersionError(
-                    f'no simple compare, self.codingSystemVersion == {self.codingSystemVersion}')
-            return False
-        try:
-            if self.code != other.code or self.codingSystem != other.codingSystem:
-                return False
-            if self.codingSystemVersion == other.codingSystemVersion:
-                return True
-            if self.codingSystemVersion is None or other.codingSystemVersion is None:
-                if raise_exception:
-                    raise NotCompareableVersionError(
-                        f'my codingSystem = "{self.codingSystemVersion}", other = "{other.codingSystemVersion}"')
-                return False
-            return False
-        except AttributeError:
-            return False
+        :param other: Coding or CodedValue to compare with
+        :return: boolean
+        """
+        return have_matching_codes(self, other)
 
     @classmethod
     def from_node(cls, node):
@@ -228,10 +194,6 @@ class Coding(_CodingBase):
         coding_system = node.get('CodingSystem', DEFAULT_CODING_SYSTEM)
         coding_system_version = node.get('CodingSystemVersion')
         return cls(code, coding_system, coding_system_version)
-
-
-# def mk_coding(code, coding_system=DEFAULT_CODING_SYSTEM, coding_system_version=None):
-#     return Coding(code, coding_system, coding_system_version)
 
 
 class T_Translation(PropertyBasedPMType):
@@ -247,23 +209,25 @@ class T_Translation(PropertyBasedPMType):
 
     _props = ['ext_Extension', 'Code', 'CodingSystem', 'CodingSystemVersion']
 
-    def __init__(self, code, codingsystem=None, codingSystemVersion=None):
+    def __init__(self, code: str,
+                 coding_system: Optional[str] = None,
+                 coding_system_version: Optional[str] = None):
         """
-        :param code: a string or an int
+        :param code: a string
         :param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
-        :param codingSystemVersion: a string, min. length = 1
+        :param codingSystemVersion: optional string, min. length = 1
         """
         # pylint: disable=invalid-name
-        self.Code = str(code)
-        self.CodingSystem = codingsystem
-        self.CodingSystemVersion = codingSystemVersion
+        if not isinstance(code, str):
+            raise TypeError('code must be a string!')
+        self.Code = code
+        self.CodingSystem = coding_system
+        self.CodingSystemVersion = coding_system_version
         # pylint: enable=invalid-name
 
     @property
     def coding(self):
-        if self.Code is not None:
-            return Coding(self.Code, self.CodingSystem, self.CodingSystemVersion)
-        return None
+        return Coding(self.Code, self.CodingSystem, self.CodingSystemVersion)
 
     def __repr__(self):
         if self.CodingSystem is None:
@@ -272,17 +236,10 @@ class T_Translation(PropertyBasedPMType):
             return f'CodedValue({self.Code}, codingsystem={self.CodingSystem})'
         return f'CodedValue({self.Code}, codingsystem={self.CodingSystem}, codingsystemversion={self.CodingSystemVersion})'
 
-    def __eq__(self, other):
-        """ other can be an int, a string, a CodedValue like object (has "coding" member) or a Coding"""
-        if hasattr(other, 'coding'):
-            return self.coding.equals(other.coding)
-        return self.coding.equals(other)
-
     @classmethod
     def from_node(cls, node):
         obj = cls(None)
         obj.update_from_node(node)
-        # obj.mk_coding()
         return obj
 
 
@@ -300,10 +257,10 @@ class CodedValue(PropertyBasedPMType):
     _props = ['ext_Extension', 'CodingSystemName', 'ConceptDescription', 'Translation',
               'Code', 'CodingSystem', 'CodingSystemVersion', 'SymbolicCodeName']
 
-    def __init__(self, code, codingsystem=None, codingSystemVersion=None, codingSystemNames=None,
-                 conceptDescriptions=None, symbolicCodeName=None):
+    def __init__(self, code, coding_system=None, coding_system_version=None, coding_system_names=None,
+                 concept_descriptions=None, symbolic_code_name=None):
         """
-        :param code: a string or an int
+        :param code: a string
         :param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
         :param codingSystemVersion: a string, min. length = 1
         :param codingSystemNames: a list of LocalizedText objects or None
@@ -311,17 +268,24 @@ class CodedValue(PropertyBasedPMType):
         :param symbolicCodeName: a string, min. length = 1 or None
         """
         # pylint: disable=invalid-name
-        self.Code = str(code)
-        self.CodingSystem = codingsystem
-        self.CodingSystemVersion = codingSystemVersion
-        self.CodingSystemName = [] if codingSystemNames is None else codingSystemNames
-        self.ConceptDescription = [] if conceptDescriptions is None else conceptDescriptions
-        self.SymbolicCodeName = symbolicCodeName
+        if code is not None and not isinstance(code, str):
+            raise TypeError('code must be a string!')
+        self.Code = code
+        self.CodingSystem = coding_system
+        self.CodingSystemVersion = coding_system_version
+        self.CodingSystemName = [] if coding_system_names is None else coding_system_names
+        self.ConceptDescription = [] if concept_descriptions is None else concept_descriptions
+        self.SymbolicCodeName = symbolic_code_name
         # pylint: enable=invalid-name
 
     @property
     def coding(self):
         return Coding(self.Code, self.CodingSystem, self.CodingSystemVersion)
+
+    @property
+    def all_codings(self):
+        ret = [self.coding]
+        ret.extend([t.coding for t in self.Translation])
 
     def __repr__(self):
         if self.CodingSystem is None:
@@ -330,44 +294,35 @@ class CodedValue(PropertyBasedPMType):
             return f'CodedValue({self.Code}, codingsystem="{self.CodingSystem}")'
         return f'CodedValue({self.Code}, codingsystem="{self.CodingSystem}", codingsystemversion="{self.CodingSystemVersion}")'
 
-    def equals(self, other, raise_exception=True):
+    def equals(self, other):
         """
-        Compare this CodedValue with another one.
+        Compare this CodedValue with another one or a Coding.
         A simplified compare with an int or string is also possible, it assumes DEFAULT_CODING_SYSTEM and no CodingSystemVersion
-        :param other: int, str or another CodedValue
-        :param raise_exception: if False, not comparable versions are handled as different versions
-                        if True, a NotCompareableVersionError is thrown if any of the Codings are not comparable
+        :param other: another CodedValue or Coding
         :return: boolean
         """
-        if isinstance(other, self.__class__):
-            # Two CodedValue objects C1 and C2 are equivalent, if there exists a CodedValue object T1 in C1/pm:Translation
-            # and a CodedValue object T2 in C2/pm:Translation such that T1 and T2 are equivalent, C1 and T2 are equivalent, or C2 and T1 are equivalent.
-            found_match = False
-            not_comparables = []
-            my_codes = [self]  # C1
-            my_codes.extend(self.Translation)  # all T1
-            other_codes = [other]  # C2
-            other_codes.extend(other.Translation)  # all T2
-            for left, right in itertools.product(my_codes, other_codes):
-                try:
-                    if left.coding.equals(right.coding, raise_exception):
-                        if not raise_exception:
-                            return True
-                        found_match = True
-                except NotCompareableVersionError as ex:
-                    not_comparables.append(str(ex))
-            if not_comparables:
-                raise NotCompareableVersionError(';'.join(not_comparables))
-            return found_match
-        # else simplified compare: compare to 11073 coding system where codes are integers, ignore translations
-        return self.coding.equals(other, raise_exception)
+        return have_matching_codes(self, other)
 
     @classmethod
     def from_node(cls, node):
         obj = cls(None)
         obj.update_from_node(node)
-        # obj.mk_coding()
         return obj
+
+
+def have_matching_codes(code_a: Union[CodedValue, Coding], code_b: Union[CodedValue, Coding]):
+    codes_a = set()
+    codes_b = set()
+    for the_set, the_code in [(codes_a, code_a), (codes_b, code_b)]:
+        try:
+            the_set.add(the_code.coding)
+            if the_code.Translation is not None:
+                for tr in the_code.Translation:
+                    the_set.add(tr.coding)
+        except AttributeError:
+            the_set.add(the_code)
+    common_codes = codes_a.intersection(codes_b)
+    return len(common_codes) > 0
 
 
 class Annotation(PropertyBasedPMType):
@@ -548,7 +503,7 @@ class AllowedValue(PropertyBasedPMType):
     def __init__(self, value_string, type_coding=None):
         """One AllowedValue of a EnumStringMetricDescriptor. It has up to two sub elements "Value" and "Type"(optional).
         A StringEnumMetricDescriptor has a list of AllowedValues.
-        :param valueString: a string
+        :param value_string: a string
         :param type_coding: an optional CodedValue instance
         """
         # pylint: disable=invalid-name
