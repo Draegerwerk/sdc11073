@@ -21,50 +21,43 @@ def setUpModule():
     wsdlog.setLevel(logging.DEBUG)
     # create console handler and set level to debug
     sh = logging.StreamHandler()
-#    sh.setLevel(logging.DEBUG)
     # create formatter
-#    formatter = logging.Formatter("******************************\n%(asctime)s - %(name)s - %(levelname)s - %(message)s\n******************************")
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    # add formatter to ch
     sh.setFormatter(formatter)
-    # add ch to logger
     wsdlog.addHandler(sh)
 
     srvlog = logging.getLogger("wsdService")
     srvlog.setLevel(logging.DEBUG)
     # create console handler and set level to debug
     sh = logging.StreamHandler()
-#    sh.setLevel(logging.DEBUG)
     # create formatter
-#    formatter = logging.Formatter("-------------------------------------\n%(asctime)s - %(name)s - %(levelname)s - %(message)s\n-------------------------------------")
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    # add formatter to sh
     sh.setFormatter(formatter)
-    # add ch to logger
     srvlog.addHandler(sh)
 
     testlog = logging.getLogger("unittest")
     testlog.setLevel(logging.INFO)
     # create console handler and set level to debug
     sh = logging.StreamHandler()
-#    sh.setLevel(logging.DEBUG)
     # create formatter
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    # add formatter to ch
     sh.setFormatter(formatter)
-    # add ch to logger
     testlog.addHandler(sh)
     
 
 class TestDiscovery(unittest.TestCase):
     SEARCH_TIMEOUT = 2
+    MY_MULTICAST_PORT = 37020  # change port, otherwise windows steals unicast messages
+
     def setUp(self):
         testlog.debug('setUp {}'.format(self._testMethodName))
         # give them different logger names so that output can be distinguished
         self.wsdclient = wsdiscovery.WSDiscoveryWhitelist(acceptedAdapterIPAddresses=['127.0.0.1'], 
-                                                          logger=loghelper.getLoggerAdapter('wsdclient'))
+                                                          logger=loghelper.getLoggerAdapter('wsdclient'),
+                                                          multicast_port=self.MY_MULTICAST_PORT)
         self.wsdService = wsdiscovery.WSDiscoveryWhitelist(acceptedAdapterIPAddresses=['127.0.0.1'],
-                                                           logger=loghelper.getLoggerAdapter('wsdService'))
+                                                           logger=loghelper.getLoggerAdapter('wsdService'),
+                                                           multicast_port=self.MY_MULTICAST_PORT)
         testlog.debug('setUp done{}'.format(self._testMethodName))
 
 
@@ -345,14 +338,11 @@ class TestDiscovery(unittest.TestCase):
     def test_unexpected_multicast_messages(self):
         """verify that module is robust against all kind of invalid multicast and single cast messages"""
 
-        MULTICAST_PORT = wsdiscovery.MULTICAST_PORT
-        wsdiscovery.MULTICAST_PORT = 37020  # change port, otherwise windows steals unicast messages
-
         address = '127.0.0.1'
         unicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         def send_and_assert_running(data):
-            unicast_sock.sendto(data.encode('utf-8'), (address, wsdiscovery.MULTICAST_PORT))
+            unicast_sock.sendto(data.encode('utf-8'), (address, self.MY_MULTICAST_PORT))
             time.sleep(0.1)
             self.assertTrue(self.wsdService._networkingThread._recvThread.is_alive())
             self.assertTrue(self.wsdService._networkingThread._qread_thread.is_alive())
@@ -366,18 +356,15 @@ class TestDiscovery(unittest.TestCase):
             send_and_assert_running('no xml at all')
             send_and_assert_running(f'<bla>invalid xml fragment</bla>')
         finally:
-            wsdiscovery.MULTICAST_PORT = MULTICAST_PORT
             unicast_sock.close()
 
     def test_multicast_listening(self):
         """verify that module only listens on accepted ports"""
-        MULTICAST_PORT = wsdiscovery.MULTICAST_PORT
-        wsdiscovery.MULTICAST_PORT = 37020  # change port, otherwise windows steals unicast messages
         testlog.info('starting service...')
-        wsd_service_all = wsdiscovery.WSDiscoveryBlacklist(logger=loghelper.getLoggerAdapter('wsdService'))
+        wsd_service_all = wsdiscovery.WSDiscoveryBlacklist(logger=loghelper.getLoggerAdapter('wsdService'),
+                                                           multicast_port=self.MY_MULTICAST_PORT)
         wsd_service_all.start()
         time.sleep(0.1)
-#            all_addresses = get_ipv4_addresses()
         all_addresses = wsdiscovery._getNetworkAddrs()
         try:
             unicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -387,7 +374,7 @@ class TestDiscovery(unittest.TestCase):
             with mock.patch.object(obj, '_add_to_recv_queue', wraps=obj._add_to_recv_queue) as wrapped_obj:
                 for address in all_addresses:
                     unicast_sock.sendto(f'<bla>unicast{address} all </bla>'.encode('utf-8'),
-                                        (address, wsdiscovery.MULTICAST_PORT))
+                                        (address, self.MY_MULTICAST_PORT))
                 time.sleep(0.1)
                 self.assertGreaterEqual(wrapped_obj.call_count, len(all_addresses))
 
@@ -400,11 +387,10 @@ class TestDiscovery(unittest.TestCase):
             with mock.patch.object(obj, '_add_to_recv_queue', wraps=obj._add_to_recv_queue) as wrapped_obj:
                 for address in all_addresses:
                     unicast_sock.sendto(f'<bla>unicast{address} all </bla>'.encode('utf-8'),
-                                        (address, wsdiscovery.MULTICAST_PORT))
+                                        (address, self.MY_MULTICAST_PORT))
                 time.sleep(0.1)
                 wrapped_obj.assert_called_once()
         finally:
-            wsdiscovery.MULTICAST_PORT = MULTICAST_PORT
             unicast_sock.close()
 
 
@@ -421,5 +407,3 @@ if __name__ == '__main__':
     logger.setLevel(logging.DEBUG)
 
     unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('testdiscovery.TestDiscovery.test_publishManyServices_earlyStartedClient'))
-    
-#    unittest.TextTestRunner(verbosity=2).run(suite())
