@@ -4,10 +4,15 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.15] - 2022-09-20
+### Fixed
+- fixed missing updates in alertsByHandle, metricsByHandle.... after DescriptionsModificationReports.
+
 ## [1.1.14] - 2022-09-12
 ### Changed
 - refactor wsdiscovery, moved a lot of functions to a new class MessageCreator
 - make udp multicast port an optional argument to constructor. This allows (especially in tests) to use a different port.
+
 ## [1.1.13] - 2022-08-09
 ### Fixed
 - fixed bug introduced in version 1.1.12, in OperationGroup.fromNode
