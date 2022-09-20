@@ -1,7 +1,6 @@
 import os
 import unittest
 import tests
-from examples import ReferenceTest
 import HtmlTestRunner
 
 

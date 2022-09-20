@@ -475,7 +475,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                         update_dict = mgr.contextStateUpdates
                         all_states = self.contextStates.descriptorHandle.get(descriptorContainer.handle, [])
                         for st in all_states:
-                            key = (descriptorContainer.handle, st.handle)
+                            key = (descriptorContainer.Handle, st.Handle)
                             # check if state is already present in this transaction
                             state_update = update_dict.get(key)
                             if state_update is not None:

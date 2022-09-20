@@ -425,14 +425,15 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     except RuntimeError  as ex:
                         self._logger.error('_onEpisodicMetricReport, getOne on states: {}', ex)
                         continue
-                    desc_h = sc.descriptorHandle
-                    metricsByHandle[desc_h] = sc  # metric
+
                     if oldStateContainer is not None:
                         if self._hasNewStateUsableStateVersion(oldStateContainer, sc, 'EpisodicMetricReport', is_buffered_report):
                             oldStateContainer.updateFromOtherContainer(sc)
                             self.states.updateObject(oldStateContainer)
+                            metricsByHandle[oldStateContainer.descriptorHandle] = oldStateContainer
                     else:
                         self.states.addObject(sc)
+                        metricsByHandle[sc.descriptorHandle] = sc
 
                     if sc.metricValue is not None:
                         # BICEPS: While Validity is "Ong" or "NA", the enclosing METRIC value SHALL not possess a determined value
@@ -444,7 +445,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             if observationTime is None:
                                 self._logger.warn(
                                     '_onEpisodicMetricReport: metric {} version {} has no DeterminationTime',
-                                    desc_h, sc.StateVersion)
+                                    sc.descriptorHandle, sc.StateVersion)
                             else:
                                 age = now - observationTime
                                 minAge = min(minAge, age)
@@ -463,7 +464,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     '_onEpisodicMetricReport mdibVersion {}: age of metrics back in limit of {} sec.: max, min = {:03f}, {:03f}',
                     newMdibVersion, self.DETERMINATIONTIME_WARN_LIMIT, maxAge, minAge)
         finally:
-            self.metricsByHandle = metricsByHandle  # used by waitMetricMatches method
+            if metricsByHandle:
+                self.metricsByHandle = metricsByHandle  # used by waitMetricMatches method
 
 
     def _onEpisodicAlertReport(self, reportNode, is_buffered_report=False):
@@ -488,10 +490,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         sc.descriptorContainer = None
                     try:
                         oldStateContainer = self.states.descriptorHandle.getOne(sc.descriptorHandle, allowNone=True)
-                    except RuntimeError  as ex:
+                    except RuntimeError as ex:
                         self._logger.error('_onEpisodicAlertReport, getOne on states: {}', ex)
                         continue
-                    desc_h = sc.descriptorHandle
 
                     if oldStateContainer is not None:
                         if self._hasNewStateUsableStateVersion(oldStateContainer, sc, 'EpisodicAlertReport', is_buffered_report):
@@ -502,7 +503,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         self.states.addObject(sc)
                         alertByHandle[sc.descriptorHandle] = sc
         finally:
-            self.alertByHandle = alertByHandle  # update observable
+            if alertByHandle:
+                self.alertByHandle = alertByHandle  # update observable
 
     def _onOperationalStateReport(self, reportNode, is_buffered_report=False):
         if not is_buffered_report and self._bufferNotification(reportNode, self._onOperationalStateReport):
@@ -524,10 +526,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         sc.descriptorContainer = None
                     try:
                         oldStateContainer = self.states.descriptorHandle.getOne(sc.descriptorHandle, allowNone=True)
-                    except RuntimeError  as ex:
+                    except RuntimeError as ex:
                         self._logger.error('_onOperationalStateReport, getOne on states: {}', ex)
                         continue
-                    desc_h = sc.descriptorHandle
 
                     if oldStateContainer is not None:
                         if self._hasNewStateUsableStateVersion(oldStateContainer, sc, 'OperationalStateReport', is_buffered_report):
@@ -538,8 +539,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         self.states.addObject(sc)
                         operationByHandle[sc.descriptorHandle] = sc
         finally:
-            self.operationByHandle = operationByHandle
-
+            if operationByHandle:
+                self.operationByHandle = operationByHandle
 
 
     def _onWaveformReportProfiled(self, reportNode):
@@ -580,16 +581,15 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         self._logger.warn('_onWaveformReport: No Descriptor found for handle "{}"', d_handle)
 
                     oldStateContainer = self.states.descriptorHandle.getOne(d_handle, allowNone=True)
-                    if oldStateContainer is None:
-                        self.states.addObject(new_sac)
-                        current_sc = new_sac
-                    else:
+                    if oldStateContainer is not None:
                         if self._hasNewStateUsableStateVersion(oldStateContainer, new_sac, 'WaveformReport', is_buffered_report):
-                            # update old state container from new one
                             oldStateContainer.updateFromOtherContainer(new_sac)
                             self.states.updateObject(oldStateContainer)
-                        current_sc = oldStateContainer  # we will need it later
-                    waveformByHandle[d_handle] = current_sc
+                            waveformByHandle[oldStateContainer.descriptorHandle] = oldStateContainer
+                    else:
+                        self.states.addObject(new_sac)
+                        waveformByHandle[new_sac.descriptorHandle] = new_sac
+
                     # add to Waveform Buffer
                     rtBuffer = self.rtBuffers.get(d_handle)
                     if rtBuffer is None:
@@ -601,12 +601,12 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                 sample_period = 0  # default
                         rtBuffer = ClientRtBuffer(sample_period=sample_period, max_samples=self._maxRealtimeSamples)
                         self.rtBuffers[d_handle] = rtBuffer
-                    last_sc = rtBuffer.last_sc
+
                     rtSampleContainers = rtBuffer.mkRtSampleContainers(new_sac)
                     rtBuffer.addRtSampleContainers(rtSampleContainers)
 
                     # check age
-                    if len(rtSampleContainers) >  0:
+                    if len(rtSampleContainers) > 0:
                         waveformAge[d_handle] = rtSampleContainers[-1].age
 
                     # check descriptor version
@@ -638,7 +638,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                       age_data.min_age*1000., age_data.max_age*1000.)
                     self._last_wf_age_log = now
         finally:
-            self.waveformByHandle = waveformByHandle
+            if waveformByHandle:
+                self.waveformByHandle = waveformByHandle
 
 
     def _onEpisodicContextReport(self, reportNode, is_buffered_report=False):
@@ -656,17 +657,11 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 for sc in stateContainers:
                     try:
                         oldStateContainer = self.contextStates.handle.getOne(sc.Handle, allowNone=True)
-                    except RuntimeError  as ex:
+                    except RuntimeError as ex:
                         self._logger.error('_onEpisodicContextReport, getOne on contextStates: {}', ex)
                         continue
 
-                    if oldStateContainer is None:
-                        self.contextStates.addObject(sc)
-                        self._logger.info(
-                            '_onEpisodicContextReport: new context state handle = {} Descriptor Handle={} Assoc={}, Validators={}',
-                            sc.Handle, sc.descriptorHandle, sc.ContextAssociation, sc.Validator)
-                        contextByHandle[sc.Handle] = sc
-                    else:
+                    if oldStateContainer is not None:
                         if self._hasNewStateUsableStateVersion(oldStateContainer, sc, 'EpisodicContextReport', is_buffered_report):
                             self._logger.info(
                                 '_onEpisodicContextReport: updated context state handle = {} Descriptor Handle={} Assoc={}, Validators={}',
@@ -674,8 +669,15 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             oldStateContainer.updateFromOtherContainer(sc)
                             self.contextStates.updateObject(oldStateContainer)
                             contextByHandle[oldStateContainer.Handle] = oldStateContainer
+                    else:
+                        self.contextStates.addObject(sc)
+                        self._logger.info(
+                            '_onEpisodicContextReport: new context state handle = {} Descriptor Handle={} Assoc={}, Validators={}',
+                            sc.Handle, sc.descriptorHandle, sc.ContextAssociation, sc.Validator)
+                        contextByHandle[sc.Handle] = sc
         finally:
-            self.contextByHandle = contextByHandle
+            if contextByHandle:
+                self.contextByHandle = contextByHandle
 
 
     def _onEpisodicComponentReport(self, reportNode, is_buffered_report=False):
@@ -706,13 +708,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             self._logger.error('_onEpisodicComponentReport, getOne on states: {}', ex)
                             continue
 
-                        if oldStateContainer is None:
-                            self.states.addObject(sc)
-                            self._logger.info(
-                                '_onEpisodicComponentReport: new component state handle = {} DescriptorVersion={}',
-                                desc_h, sc.DescriptorVersion)
-                            componentByHandle[sc.descriptorHandle] = sc
-                        else:
+                        if oldStateContainer is not None:
                             if self._hasNewStateUsableStateVersion(oldStateContainer, sc, 'EpisodicComponentReport', is_buffered_report):
                                 self._logger.info(
                                     '_onEpisodicComponentReport: updated component state, handle="{}" DescriptorVersion={}',
@@ -720,8 +716,15 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                 oldStateContainer.updateFromOtherContainer(sc)
                                 self.states.updateObject(oldStateContainer)
                                 componentByHandle[oldStateContainer.descriptorHandle] = oldStateContainer
+                        else:
+                            self.states.addObject(sc)
+                            self._logger.info(
+                                '_onEpisodicComponentReport: new component state handle = {} DescriptorVersion={}',
+                                desc_h, sc.DescriptorVersion)
+                            componentByHandle[sc.descriptorHandle] = sc
         finally:
-            self.componentByHandle = componentByHandle
+            if componentByHandle:
+                self.componentByHandle = componentByHandle
 
 
     def _onDescriptionModificationReport(self, reportNode, is_buffered_report=False):
@@ -745,13 +748,13 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 updatedDescriptorByHandle = {}
 
                 # -- new --
-                newDescriptorContainers, stateContainers = descriptions_lookup[pmtypes.DescriptionModificationTypes.CREATE]
+                newDescriptorContainers, new_stateContainers = descriptions_lookup[pmtypes.DescriptionModificationTypes.CREATE]
                 for dc in newDescriptorContainers:
                     self.descriptions.addObject(dc)
                     self._logger.debug('_onDescriptionModificationReport: created description "{}" (parent="{}")',
                                       dc.handle, dc.parentHandle)
                     newDescriptorByHandle[dc.handle] = dc
-                for sc in stateContainers:
+                for sc in new_stateContainers:
                     # determine multikey
                     if sc.isContextState:
                         multikey = self.contextStates
@@ -803,6 +806,10 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     self.newDescriptorByHandle = newDescriptorByHandle
                 if updatedDescriptorByHandle:
                     self.updatedDescriptorByHandle = updatedDescriptorByHandle
+                if new_stateContainers:
+                    self._updateStateObservables(new_stateContainers)
+                if stateContainers:
+                    self._updateStateObservables(stateContainers)
 
 
     def _hasNewStateUsableStateVersion(self, oldStateContainer, newStateContainer, reportName, is_buffered_report):
@@ -822,7 +829,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                reportName,
                                diff - 1, oldStateContainer.descriptorHandle,
                                oldStateContainer.StateVersion, newStateContainer.StateVersion)
-            return True # the new version is newer, therefore it can be added to mdib
+            return True  # the new version is newer, therefore it can be added to mdib
         elif diff < 0:
             if not is_buffered_report:
                 self._logger.error(
@@ -830,8 +837,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     reportName, oldStateContainer.descriptorHandle,
                     oldStateContainer.StateVersion, newStateContainer.StateVersion)
             return False
-        else: # diff == 0:
-            diffs = oldStateContainer.diff(newStateContainer) # compares all xml attributes
+        else:  # diff == 0:
+            diffs = oldStateContainer.diff(newStateContainer)  # compares all xml attributes
             if diffs:
                 self._logger.error(
                     '{}: repeated state version {} for state {}, DescriptorHandle={}, but states have different data:{}',
