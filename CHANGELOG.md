@@ -4,6 +4,10 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Added
+- extend some constructors to add elements to the Extension element of a descriptor
+
 ## [1.1.15] - 2022-09-20
 ### Fixed
 - fixed missing updates in alertsByHandle, metricsByHandle.... after DescriptionsModificationReports.
