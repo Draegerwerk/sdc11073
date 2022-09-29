@@ -6,6 +6,7 @@ from .. import observableproperties as properties
 from .. import namespaces
 from .. import pmtypes
 from .. import multikey
+from typing import Union
 
 class RtSampleContainer(object):
     '''Contains a single Value'''
@@ -390,43 +391,50 @@ class MdibContainer(object):
         return self.sdc_definitions.denormalizeXMLText(mdibString)
 
 
-    def getMetricDescriptorByCode(self, vmdCode, channelCode, metricCode):
-        ''' This is the "correct" way to find an descriptor. 
-        Using well known handles is shaky, because they have no meaning and can change over time!
-        @param vmdCode: a pmtypes.CodedValue or a pmtypes.Coding instance
-        @param channelCode: a pmtypes.CodedValue or a pmtypes.Coding instance
-        @param metricCode: a pmtypes.CodedValue or a pmtypes.Coding instance
-        '''
-        vmdCoding = vmdCode.coding if hasattr(vmdCode, 'coding') else vmdCode 
-        channelCoding = channelCode.coding if hasattr(channelCode, 'coding') else channelCode 
-        metricCoding = metricCode.coding if hasattr(metricCode, 'coding') else metricCode 
-        
-        vmd = self.descriptions.coding.getOne(vmdCoding)
-        _allChannels = self.descriptions.coding.get(channelCoding, list()) 
-        allChannels = [c for c in _allChannels if c.parentHandle == vmd.handle]
-        if len(allChannels) == 0:
-            return
-        if len(allChannels) > 1:
-            raise RuntimeError('found multiple channel descriptors for vmd={} channel={}'.format(vmdCoding, channelCoding))
-        channel = allChannels[0]
-        _allMetrics = self.descriptions.coding.get(metricCoding, list()) 
-        allMetrics = [m for m in _allMetrics if m.parentHandle == channel.handle]
-        if len(allMetrics) == 0:
-            return
-        if len(allMetrics) > 1:
-            raise RuntimeError('found multiple channel descriptors for vmd={} channel={} metric={}'.format(vmdCoding, channelCoding, metricCoding))
-        return allMetrics[0]
+    def get_children_by_type_match(self, parent_handle: str, coding: Union[pmtypes.CodedValue, pmtypes.Coding]):
+        """
+        Returns all descriptors with matching parentHandle and Type.
+        """
+        all_children = self.descriptions.parentHandle.get(parent_handle)
+        return [child for child in all_children if pmtypes.have_matching_codes(child.Type, coding)]
 
-         
+    def getDescriptorByCode(self, vmdCode: Union[pmtypes.CodedValue, pmtypes.Coding],
+                            channelCode: Union[pmtypes.CodedValue, pmtypes.Coding],
+                            metricCode: Union[pmtypes.CodedValue, pmtypes.Coding]):
+        """ Find a descriptor by its Type hierarchy.
+        :param vmdCode: a pmtypes.CodedValue or a pmtypes.Coding instance
+        :param channelCode: a pmtypes.CodedValue or a pmtypes.Coding instance
+        :param metricCode: a pmtypes.CodedValue or a pmtypes.Coding instance
+        :return: None or a DescriptorContainer
+        """
+        all_vmds = self.descriptions.NODETYPE.get(namespaces.domTag('VmdDescriptor'))
+        matching_vmd_handles = [vmd.Handle for vmd in all_vmds if pmtypes.have_matching_codes(vmd.Type, vmdCode)]
+
+        matching_channels = []
+        for handle in matching_vmd_handles:
+            matching_channels.extend(self.get_children_by_type_match(handle, channelCode ))
+        matching_channel_handles = [ch.Handle for ch in matching_channels]
+
+        matching_leaf_descriptors = []
+        for handle in matching_channel_handles:
+            matching_leaf_descriptors.extend(self.get_children_by_type_match(handle, metricCode ))
+        if len(matching_leaf_descriptors) == 0:
+            return
+        if len(matching_leaf_descriptors) > 1:
+            raise RuntimeError('found multiple channel descriptors for vmd={} channel={} metric={}'.format(vmdCode, channelCode, metricCode))
+        return matching_leaf_descriptors[0]
+
+    getMetricDescriptorByCode = getDescriptorByCode  # backwards compatibility with previous name
+
     def getOperationsForMetric(self, vmdCode, channelCode, metricCode):
-        ''' This is the "correct" way to find an operation. 
+        """ This is the "correct" way to find an operation.
         Using well known handles is shaky, because they have no meaning and can change over time!
         @param vmdCode: a pmtypes.CodedValue or a pmtypes.Coding instance
         @param channelCode: a pmtypes.CodedValue or a pmtypes.Coding instance
         @param metricCode: a pmtypes.CodedValue or a pmtypes.Coding instance
         @return: a list of matching Operation Containers
-        '''
-        descriptorContainer = self.getMetricDescriptorByCode(vmdCode, channelCode, metricCode)
+        """
+        descriptorContainer = self.getDescriptorByCode(vmdCode, channelCode, metricCode)
         return self.getOperationDescriptorsForDescriptorHandle(descriptorContainer.handle)
 
 
