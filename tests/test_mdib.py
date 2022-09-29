@@ -41,6 +41,25 @@ class TestMdib(unittest.TestCase):
         finally:
             pmtypes.DefaultCodingSystem = default_coding_system
 
+    def test_get_descriptor_by_code(self):
+        deviceMdibContainer = mdib.DeviceMdibContainer.fromMdibFile(
+            os.path.join(os.path.dirname(__file__), 'mdib_tns.xml'))
+        # add a translation to a descriptor so that it can be tested
+        handle = 'numeric.ch0.vmd0'
+        vmd_type = pmtypes.CodedValue('130536')
+        channel_type = pmtypes.CodedValue('130637')
+        metric_type = pmtypes.CodedValue('196174')
+        descriptor = deviceMdibContainer.descriptions.handle.getOne(handle)
+        descriptor.Type.Translation.append(pmtypes.T_Translation('some_code', 'some_coding_system'))
+        found1 = deviceMdibContainer.getDescriptorByCode(vmd_type, channel_type, metric_type)
+        self.assertIsNotNone(found1)
+        self.assertEqual(handle, found1.Handle)
+        found2 = deviceMdibContainer.getDescriptorByCode(
+            vmd_type, channel_type, pmtypes.CodedValue('some_code', 'some_coding_system'))
+        self.assertIsNotNone(found2)
+        self.assertEqual(handle, found2.Handle)
+
+
 def suite():
     return unittest.TestLoader().loadTestsFromTestCase(TestMdib)
         

@@ -18,7 +18,7 @@ class TestPmtypes(unittest.TestCase):
 
         # if two CodedValue instances are compared, the translations shall also be handled
         c2.Translation.append(pmtypes.T_Translation(41))
-        self.assertNotEqual(c2, 41)
+        self.assertEqual(c2, 41)
         c3 = pmtypes.CodedValue(42)
         c3.Translation.append(pmtypes.T_Translation(41)) # same translation as c2
         self.assertEqual(c2, c3)
