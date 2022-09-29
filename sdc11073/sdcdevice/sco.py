@@ -181,7 +181,7 @@ class OperationDefinition(object):
                  codedValue=None,
                  safetyReq=None,
                  log_prefix=None,
-                 extExtension=[]):  # pylint:disable=too-many-arguments
+                 extExtension=None):  # pylint:disable=too-many-arguments
         '''
         @param handle: the handle of the operation itself.
         @param operationTarget: the handle of the modified data (MdDescription)
@@ -271,9 +271,10 @@ class OperationDefinition(object):
         self._descriptorContainer.SafetyClassification = self._safetyClassification
         if self._codedValue is not None:
             self._descriptorContainer.Type = self._codedValue
-        self._descriptorContainer.ext_Extension = etree_.Element(namespaces.extTag('Extension'))
-        for node in self._extExtension:
-            self._descriptorContainer.ext_Extension.append(node)
+        if self._extExtension:
+            self._descriptorContainer.ext_Extension = etree_.Element(namespaces.extTag('Extension'))
+            for node in self._extExtension:
+                self._descriptorContainer.ext_Extension.append(node)
 
     def _initOperationTargetContainer(self):
         ''' Create the object that is manipulated by the operation'''
@@ -317,7 +318,7 @@ class SetStringOperation(OperationDefinition):
     OP_DESCR_QNAME = namespaces.domTag('SetStringOperationDescriptor')
     OP_STATE_QNAME = namespaces.domTag('SetStringOperationState')
 
-    def __init__(self, handle, operationTarget, initialValue=None, codedValue=None, extExtension=[]):
+    def __init__(self, handle, operationTarget, initialValue=None, codedValue=None, extExtension=None):
         super(SetStringOperation, self).__init__(
             handle=handle,
             operationTarget=operationTarget,
@@ -344,7 +345,7 @@ class SetValueOperation(OperationDefinition):
     OP_DESCR_QNAME = namespaces.domTag('SetValueOperationDescriptor')
     OP_STATE_QNAME = namespaces.domTag('SetValueOperationState')
 
-    def __init__(self, handle, operationTarget, initialValue=None, codedValue=None, extExtension=[]):
+    def __init__(self, handle, operationTarget, initialValue=None, codedValue=None, extExtension=None):
         super(SetValueOperation, self).__init__(
             handle=handle,
             operationTarget=operationTarget,
@@ -366,7 +367,7 @@ class SetContextStateOperation(OperationDefinition):
     OP_DESCR_QNAME = namespaces.domTag('SetContextStateOperationDescriptor')
     OP_STATE_QNAME = namespaces.domTag('SetContextStateOperationState')
 
-    def __init__(self, handle, operationTarget, codedValue=None, extExtension=[]):
+    def __init__(self, handle, operationTarget, codedValue=None, extExtension=None):
         super(SetContextStateOperation, self).__init__(
             handle,
             operationTarget,
@@ -405,7 +406,7 @@ class ActivateOperation(OperationDefinition):
     OP_DESCR_QNAME = namespaces.domTag('ActivateOperationDescriptor')
     OP_STATE_QNAME = namespaces.domTag('ActivateOperationState')
 
-    def __init__(self, handle, operationTarget, codedValue=None, safetyReq=None, extExtension=[]):
+    def __init__(self, handle, operationTarget, codedValue=None, safetyReq=None, extExtension=None):
         super(ActivateOperation, self).__init__(
             handle=handle,
             operationTarget=operationTarget,
@@ -426,7 +427,7 @@ class SetAlertStateOperation(OperationDefinition):
     OP_DESCR_QNAME = namespaces.domTag('SetAlertStateOperationDescriptor')
     OP_STATE_QNAME = namespaces.domTag('SetAlertStateOperationState')
 
-    def __init__(self, handle, operationTarget, codedValue=None, safetyReq=None, log_prefix=None, extExtension=[]):
+    def __init__(self, handle, operationTarget, codedValue=None, safetyReq=None, log_prefix=None, extExtension=None):
         super(SetAlertStateOperation, self).__init__(
             handle=handle,
             operationTarget=operationTarget,
@@ -456,7 +457,7 @@ class SetComponentStateOperation(OperationDefinition):
     OP_DESCR_QNAME = namespaces.domTag('SetComponentStateOperationDescriptor')
     OP_STATE_QNAME = namespaces.domTag('SetComponentStateOperationState')
 
-    def __init__(self, handle, operationTarget, codedValue=None, safetyReq=None, log_prefix=None, extExtension=[]):
+    def __init__(self, handle, operationTarget, codedValue=None, safetyReq=None, log_prefix=None, extExtension=None):
         super(SetComponentStateOperation, self).__init__(
             handle=handle,
             operationTarget=operationTarget,
@@ -481,7 +482,7 @@ class SetMetricStateOperation(OperationDefinition):
     OP_DESCR_QNAME = namespaces.domTag('SetMetricStateOperationDescriptor')
     OP_STATE_QNAME = namespaces.domTag('SetMetricStateOperationState')
 
-    def __init__(self, handle, operationTarget, codedValue=None, safetyReq=None, log_prefix=None, extExtension=[]):
+    def __init__(self, handle, operationTarget, codedValue=None, safetyReq=None, log_prefix=None, extExtension=None):
         super(SetMetricStateOperation, self).__init__(
             handle=handle,
             operationTarget=operationTarget,

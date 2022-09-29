@@ -759,7 +759,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 self._currentLocation.Validator = validators
 
     def _createDescriptorContainer(self, cls, nodeName, handle, parentHandle, codedValue, safetyClassification,
-                                   ext_extensions=[]):
+                                   ext_extension=None):
         obj = cls(nsmapper=self.nsmapper,
                   nodeName=nodeName,
                   handle=handle,
@@ -767,13 +767,14 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                   )
         obj.SafetyClassification = safetyClassification
         obj.Type = codedValue
-        obj.ext_Extension = etree_.Element(extTag('Extension'))
-        for node in ext_extensions:
-            obj.ext_Extension.append(node)
+        if ext_extension:
+            obj.ext_Extension = etree_.Element(extTag('Extension'))
+            for node in ext_extension:
+                obj.ext_Extension.append(node)
         obj.updateNode()
         return obj
 
-    def createVmdDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification, ext_extension=[]):
+    def createVmdDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification, ext_extension=None):
         """
         This method creates an VmdDescriptorContainer with the given properties.
         If it is called within an transaction, the created object is added to transaction and clients will be notified.
@@ -796,7 +797,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         return obj
 
     def createChannelDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification,
-                                         ext_extension=[]):
+                                         ext_extension=None):
         """
         This method creates a ChannelDescriptorContainer with the given properties and optionally adds it to the mdib.
         If it is called within an transaction, the created object is added to transaction and clients will be notified.
@@ -820,7 +821,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
     def createStringMetricDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification, unit,
                                               metricAvailability=pmtypes.MetricAvailability.INTERMITTENT,
-                                              metricCategory=pmtypes.MetricCategory.UNSPECIFIED, ext_extension=[]):
+                                              metricCategory=pmtypes.MetricCategory.UNSPECIFIED, ext_extension=None):
         """
         This method creates a StringMetricDescriptorContainer with the given properties and optionally adds it to the mdib.
         If it is called within an transaction, the created object is added to transaction and clients will be notified.
@@ -854,7 +855,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                                                   unit, allowedValues,
                                                   metricAvailability=pmtypes.MetricAvailability.INTERMITTENT,
                                                   metricCategory=pmtypes.MetricCategory.UNSPECIFIED,
-                                                  ext_extension=[]):
+                                                  ext_extension=None):
         """
         This method creates an EnumStringMetricDescriptorContainer with the given properties and optionally adds it
         to the mdib.
@@ -887,7 +888,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             self.descriptions.addObject(obj)
         return obj
 
-    def createClockDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification, ext_extension=[]):
+    def createClockDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification,
+                                       ext_extension=None):
         """
         This method creates a ClockDescriptorContainer with the given properties.
         If it is called within an transaction, the created object is added to transaction and clients will be notified.
