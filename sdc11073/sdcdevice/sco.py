@@ -127,10 +127,6 @@ class ScoOperationsRegistry(object):
             self._mds_sco_descriptorContainer = mdib_.descriptorcontainers.ScoDescriptorContainer.fromNode(
                 mdib.nsmapper, sco, mdsDescriptorContainer.handle)
 
-            self._mds_sco_descriptorContainer.retrievability = msgtypes.Retrievability(
-                [msgtypes.RetrievabilityInfo(msgtypes.RetrievabilityMethod.GET),
-                 msgtypes.RetrievabilityInfo(msgtypes.RetrievabilityMethod.EPISODIC)])
-
             mdib.descriptions.addObject(self._mds_sco_descriptorContainer)
 
     def registerOperation(self, operation, scoDescriptorContainer=None):
