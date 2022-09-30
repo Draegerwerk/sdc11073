@@ -5,6 +5,8 @@ import traceback
 import inspect
 import itertools
 import enum
+import warnings
+from typing import Union
 from lxml import etree as etree_
 from sdc11073 import namespaces
 from .mdib import containerproperties  as cp
@@ -345,7 +347,9 @@ class CodedValue(_CodedValueBase):
 
         :param other: int, str or another CodedValue
         """
-        return self.equals(other, raiseNotComparableException=False)
+        if isinstance(other, (int, str)):
+            return have_matching_codes(self, Coding(other))
+        return have_matching_codes(self, other)
 
 
     def equals(self, other, raiseNotComparableException=True):
@@ -357,6 +361,7 @@ class CodedValue(_CodedValueBase):
                         if True, a NotCompareableVersionError is thrown if any of the Codings are not comparable
         :return: boolean
         """
+        warnings.warn('equals is deprecated, use function have_matching_codes', DeprecationWarning)
         if isinstance(other, self.__class__):
                 # Two CodedValue objects C1 and C2 are equivalent, if there exists a CodedValue object T1 in C1/pm:Translation
                 # and a CodedValue object T2 in C2/pm:Translation such that T1 and T2 are equivalent, C1 and T2 are equivalent, or C2 and T1 are equivalent.
@@ -396,6 +401,23 @@ class CodedValue(_CodedValueBase):
         obj.updateFromNode(node)
         obj.mkCoding()
         return obj
+
+
+def have_matching_codes(code_a: Union[CodedValue, Coding], code_b: Union[CodedValue, Coding]) -> bool:
+    """A CodedValue is a set of codings (coding plus translations), a Coding is a set with only one element.
+     Function returns false if no coding is found in both sets, otherwise True."""
+    codes_a = set()
+    codes_b = set()
+    for the_set, the_code in [(codes_a, code_a), (codes_b, code_b)]:
+        try:
+            the_set.add(the_code.coding)
+            if the_code.Translation is not None:
+                for tr in the_code.Translation:
+                    the_set.add(tr.coding)
+        except AttributeError:
+            the_set.add(the_code)
+    common_codes = codes_a.intersection(codes_b)
+    return len(common_codes) > 0
 
 
 class Annotation(PropertyBasedPMType):
