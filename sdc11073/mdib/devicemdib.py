@@ -1,19 +1,24 @@
-from contextlib import contextmanager
-import uuid
 import time
-from collections import OrderedDict, namedtuple
-from threading import Lock
+import uuid
+from collections import OrderedDict
+from collections import namedtuple
+from contextlib import contextmanager
 from functools import wraps
+from threading import Lock
+
+from lxml import etree as etree_
+
 from . import mdibbase
 from . import msgreader
-from ..namespaces import domTag
+from .devicewaveform import DefaultWaveformSource
 from .. import loghelper
 from .. import pmtypes
 from ..definitions_base import ProtocolsRegistry
-from .devicewaveform import DefaultWaveformSource
 from ..definitions_sdc import SDC_v1_Definitions
+from ..namespaces import domTag
+from ..namespaces import extTag
 
-_TrItem = namedtuple('_TrItem', 'old new') # a named tuple for better readability of code
+_TrItem = namedtuple('_TrItem', 'old new')  # a named tuple for better readability of code
 
 
 class _TransactionBase(object):
@@ -25,7 +30,7 @@ class _TransactionBase(object):
         self.componentStateUpdates = OrderedDict()
         self.contextStateUpdates = OrderedDict()
         self.operationalStateUpdates = OrderedDict()
-        self.rtSampleStateUpdates = dict()   # unordered dict for performance
+        self.rtSampleStateUpdates = dict()  # unordered dict for performance
         self._error = False
         self._closed = False
         self.mdib_version = None
@@ -35,7 +40,7 @@ class _TransactionBase(object):
         tr_containers = self.descriptorUpdates.get(descriptorHandle)
         if tr_containers is not None:
             old, new = tr_containers
-            if new is None: # descriptor is deleted in this transaction!
+            if new is None:  # descriptor is deleted in this transaction!
                 raise RuntimeError('The descriptor {} is going to be deleted'.format(descriptorHandle))
             else:
                 return new
@@ -45,7 +50,8 @@ class _TransactionBase(object):
     def _get_or_mk_StateContainer(self, descriptorHandle, adjustStateVersion=True):
         """ returns oldContainer, newContainer"""
         descriptorContainer = self._getDescriptorInTransaction(descriptorHandle)
-        old_stateContainer = self._deviceMdibContainer.states.descriptorHandle.getOne(descriptorContainer.handle, allowNone=True)
+        old_stateContainer = self._deviceMdibContainer.states.descriptorHandle.getOne(descriptorContainer.handle,
+                                                                                      allowNone=True)
         if old_stateContainer is None:
             # create a new state object
             new_stateContainer = self._deviceMdibContainer.mkStateContainerFromDescriptor(descriptorContainer)
@@ -59,6 +65,7 @@ class _TransactionBase(object):
 
 def tr_method_wrapper(method):
     """a decorator for consistency checks and error handling"""
+
     @wraps(method)
     def wrapper(self, *args, **kwargs):
         if self._closed:
@@ -70,12 +77,14 @@ def tr_method_wrapper(method):
         except:
             self._error = True
             raise
+
     return wrapper
 
 
 class _RtDataMdibUpdateTransaction(_TransactionBase):
     """This transaction is only used internally to periodically send waveform notifications.
     It handles this specific purpose with less overhead compared to regular transaction."""
+
     def __init__(self, device_mdib_container):
         super().__init__(device_mdib_container)
 
@@ -99,9 +108,10 @@ class _RtDataMdibUpdateTransaction(_TransactionBase):
 
 
 class _MdibUpdateTransaction(_TransactionBase):
-    #pylint: disable=protected-access
+    # pylint: disable=protected-access
     """ a helper class that collects multiple updates into one transaction.
     Used by contextmanager DeviceMdibContainer.mdibUpdateTransaction """
+
     def __init__(self, device_mdib_container):
         super().__init__(device_mdib_container)
 
@@ -181,7 +191,7 @@ class _MdibUpdateTransaction(_TransactionBase):
         elif stateContainer.isRealtimeSampleArrayMetricState:
             my_updates = self.rtSampleStateUpdates
         elif stateContainer.NODETYPE == domTag('ScoState'):
-            #special case ScoState Draft6: cannot notify updates, it is a category of its own that does not fit anywhere
+            # special case ScoState Draft6: cannot notify updates, it is a category of its own that does not fit anywhere
             # This is a bug in the spec, not in this implementation!
             return
 
@@ -192,7 +202,7 @@ class _MdibUpdateTransaction(_TransactionBase):
 
         if adjustStateVersion:
             my_multi_key.setVersion(stateContainer)
-        my_updates[descriptorHandle] = _TrItem(None, stateContainer) # old, new
+        my_updates[descriptorHandle] = _TrItem(None, stateContainer)  # old, new
 
     def ungetState(self, stateContainer):
         """ forget a state that was provided before by a getXXXState call"""
@@ -277,10 +287,11 @@ class _MdibUpdateTransaction(_TransactionBase):
         if contextStateHandle is None:
             oldStateContainer = None
             newStateContainer = self._deviceMdibContainer.mkStateContainerFromDescriptor(descriptorContainer)
-            newStateContainer.BindingMdibVersion = self._deviceMdibContainer.mdibVersion # auto-set this Attribute
-            newStateContainer.BindingStartTime = time.time() # auto-set this Attribute
+            newStateContainer.BindingMdibVersion = self._deviceMdibContainer.mdibVersion  # auto-set this Attribute
+            newStateContainer.BindingStartTime = time.time()  # auto-set this Attribute
         else:
-            oldStateContainer = self._deviceMdibContainer.contextStates.handle.getOne(contextStateHandle, allowNone=True)
+            oldStateContainer = self._deviceMdibContainer.contextStates.handle.getOne(contextStateHandle,
+                                                                                      allowNone=True)
             if oldStateContainer is not None:
                 newStateContainer = oldStateContainer.mkCopy()
                 newStateContainer.incrementState()
@@ -323,8 +334,8 @@ class _MdibUpdateTransaction(_TransactionBase):
             raise ValueError('descriptorHandle {} already in updated set!'.format(descriptorHandle))
         old_state, new_state = self._get_or_mk_StateContainer(descriptorHandle, adjustStateVersion)
         if not new_state.isOperationalState:
-            raise ValueError('descriptorHandle {} does not reference an operational state ({})'.format(descriptorHandle,
-                                                                                                       new_state.__class__.__name__))
+            raise ValueError('descriptorHandle {} does not reference an operational state '
+                             '({})'.format(descriptorHandle, new_state.__class__.__name__))
         self.operationalStateUpdates[descriptorHandle] = _TrItem(old_state, new_state)
         return new_state
 
@@ -354,6 +365,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
     """Device side implementation of an mdib.
      Do not modify containers directly, use transactions for that purpose.
      Transactions keep track of changes and initiate sending of update notifications to clients."""
+
     def __init__(self, sdc_definitions, log_prefix=None, waveform_source=None):
         """
         :param sdc_definitions: defaults to sdc11073.definitions_sdc.SDC_v1_Definitions
@@ -365,33 +377,33 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         super(DeviceMdibContainer, self).__init__(sdc_definitions)
         self._logger = loghelper.getLoggerAdapter('sdc.device.mdib', log_prefix)
         self._sdcDevice = None
-        self._trLock = Lock() # transaction lock
+        self._trLock = Lock()  # transaction lock
 
-        self.sequenceId = uuid.uuid4().urn # this uuid identifies this mdib instance
-        
+        self.sequenceId = uuid.uuid4().urn  # this uuid identifies this mdib instance
+
         self._currentLocation = None  # or a SdcLocation instance
         self._annotators = {}
         self._current_transaction = None
 
-        self.preCommitHandler = None # preCommitHandler can modify transaction if needed before it is committed
-        self.postCommitHandler = None # postCommitHandler can modify mdib if needed after it is committed
+        self.preCommitHandler = None  # preCommitHandler can modify transaction if needed before it is committed
+        self.postCommitHandler = None  # postCommitHandler can modify mdib if needed after it is committed
         self._waveform_source = waveform_source or DefaultWaveformSource()
 
     @contextmanager
     def mdibUpdateTransaction(self, setDeterminationTime=True):
-        #pylint: disable=protected-access
+        # pylint: disable=protected-access
         with self._trLock:
             try:
                 self._current_transaction = _MdibUpdateTransaction(self)
                 yield self._current_transaction
                 if callable(self.preCommitHandler):
-                    self.preCommitHandler(self, self._current_transaction) #pylint: disable=not-callable
+                    self.preCommitHandler(self, self._current_transaction)  # pylint: disable=not-callable
                 if self._current_transaction._error:
                     self._logger.info('mdibUpdateTransaction: transaction without updates!')
                 else:
                     self._process_transaction(setDeterminationTime)
                     if callable(self.postCommitHandler):
-                        self.postCommitHandler(self, self._current_transaction)  #pylint: disable=not-callable
+                        self.postCommitHandler(self, self._current_transaction)  # pylint: disable=not-callable
             finally:
                 self._current_transaction = None
 
@@ -403,13 +415,13 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     self._current_transaction = _RtDataMdibUpdateTransaction(self)
                     yield self._current_transaction
                     if callable(self.preCommitHandler):
-                        self.preCommitHandler(self, self._current_transaction) #pylint: disable=not-callable
+                        self.preCommitHandler(self, self._current_transaction)  # pylint: disable=not-callable
                     if self._current_transaction._error:
                         self._logger.info('_rtsampleTransaction: transaction without updates!')
                     else:
                         self._process_internal_rt_transaction()
                         if callable(self.postCommitHandler):
-                            self.postCommitHandler(self, self._current_transaction)  #pylint: disable=not-callable
+                            self.postCommitHandler(self, self._current_transaction)  # pylint: disable=not-callable
                 finally:
                     self._current_transaction = None
 
@@ -446,7 +458,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
         # handle descriptors
         if len(mgr.descriptorUpdates) > 0:
-            #need to know all to be deleted and to be created descriptors
+            # need to know all to be deleted and to be created descriptors
             to_be_deleted = [old for old, new in mgr.descriptorUpdates.values() if new is None]
             to_be_created = [new for old, new in mgr.descriptorUpdates.values() if old is None]
             to_be_deleted_handles = [d.handle for d in to_be_deleted]
@@ -499,7 +511,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                             # update descriptor version
                             old_state, new_state = state_update
                             if new_state is None:
-                                raise ValueError(f'state deleted? that should not be possible! handle = {descriptorContainer.handle}')
+                                raise ValueError(f'state deleted? that should not be possible! handle = '
+                                                 f'{descriptorContainer.handle}')
                             new_state.descriptorContainer = descriptorContainer
                             new_state.updateDescriptorVersion()
                         else:
@@ -534,27 +547,32 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                         _updateCorrespondingState(newDescriptor)
                     if origDescriptor is None:
                         # this is a create operation
-                        self._logger.debug('mdibUpdateTransaction: new descriptor Handle={}, DescriptorVersion={}', newDescriptor.handle, newDescriptor.DescriptorVersion)
+                        self._logger.debug('mdibUpdateTransaction: new descriptor Handle={}, DescriptorVersion={}',
+                                           newDescriptor.handle, newDescriptor.DescriptorVersion)
                         descr_created.append(newDescriptor.mkCopy())
                         self.descriptions.addObjectNoLock(newDescriptor)
                         # R0033: A SERVICE PROVIDER SHALL increment pm:AbstractDescriptor/@DescriptorVersion by one if a direct child descriptor is added or deleted.
-                        if newDescriptor.parentHandle is not None and  newDescriptor.parentHandle not in to_be_created_handles:
+                        if newDescriptor.parentHandle is not None and \
+                                newDescriptor.parentHandle not in to_be_created_handles:
                             # only update parent if it is not also created in this transaction
                             _incrementParentDescriptorVersion(newDescriptor)
                     elif newDescriptor is None:
                         # this is a delete operation
-                        self._logger.debug('mdibUpdateTransaction: rm descriptor Handle={}, DescriptorVersion={}', origDescriptor.handle, origDescriptor.DescriptorVersion)
+                        self._logger.debug('mdibUpdateTransaction: rm descriptor Handle={}, DescriptorVersion={}',
+                                           origDescriptor.handle, origDescriptor.DescriptorVersion)
                         all_descriptors = self.getAllDescriptorsInSubTree(origDescriptor)
                         self._rmDescriptorsAndStates(all_descriptors)
                         descr_deleted.extend(all_descriptors)
                         # R0033: A SERVICE PROVIDER SHALL increment pm:AbstractDescriptor/@DescriptorVersion by one if a direct child descriptor is added or deleted.
-                        if origDescriptor.parentHandle is not None and  origDescriptor.parentHandle not in to_be_deleted_handles:
+                        if origDescriptor.parentHandle is not None and \
+                                origDescriptor.parentHandle not in to_be_deleted_handles:
                             # only update parent if it is not also deleted in this transaction
                             _incrementParentDescriptorVersion(origDescriptor)
                     else:
                         # this is an update operation
                         descr_updated.append(newDescriptor)
-                        self._logger.debug('mdibUpdateTransaction: update descriptor Handle={}, DescriptorVersion={}', newDescriptor.handle, newDescriptor.DescriptorVersion)
+                        self._logger.debug('mdibUpdateTransaction: update descriptor Handle={}, DescriptorVersion={}',
+                                           newDescriptor.handle, newDescriptor.DescriptorVersion)
                         self.descriptions.replaceObjectNoLock(newDescriptor)
 
         # handle metric states
@@ -669,7 +687,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                 created = [d.mkCopy() for d in descr_created]
                 deleted = [d.mkCopy() for d in descr_deleted]
                 updated_states = [s.mkCopy() for s in descr_updated_states]
-                self._sdcDevice.sendDescriptorUpdates(mdib_version, updated=updated, created=created, deleted=deleted, updated_states=updated_states)
+                self._sdcDevice.sendDescriptorUpdates(mdib_version, updated=updated, created=created, deleted=deleted,
+                                                      updated_states=updated_states)
             if len(metric_updates) > 0:
                 updates = [s.mkCopy() for s in metric_updates]
                 self._sdcDevice.sendMetricStateUpdates(mdib_version, updates)
@@ -725,64 +744,75 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         allLocationContexts = self.contextStates.NODETYPE.get(domTag('LocationContextState'), [])
         with self.mdibUpdateTransaction() as mgr:
             # set all to currently associated Locations to Disassociated
-            associatedLocations = [l for l in allLocationContexts if l.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
+            associatedLocations = [l for l in allLocationContexts if
+                                   l.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
             for l in associatedLocations:
                 locationContext = mgr.getContextState(l.descriptorHandle, l.Handle)
                 locationContext.ContextAssociation = pmtypes.ContextAssociation.DISASSOCIATED
                 # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
                 locationContext.UnbindingMdibVersion = self.mdibVersion
             descriptorContainer = self.descriptions.NODETYPE.getOne(domTag('LocationContextDescriptor'))
-                    
-            self._currentLocation = mgr.getContextState(descriptorContainer.handle) # this creates a new location state
+
+            self._currentLocation = mgr.getContextState(descriptorContainer.handle)  # this creates a new location state
             self._currentLocation.updateFromSdcLocation(sdcLocation)
             if validators is not None:
                 self._currentLocation.Validator = validators
 
-    def _createDescriptorContainer(self, cls, nodeName, handle, parentHandle, codedValue, safetyClassification):
-        obj = cls(nsmapper=self.nsmapper, 
-                  nodeName=nodeName, 
-                  handle=handle, 
+    def _createDescriptorContainer(self, cls, nodeName, handle, parentHandle, codedValue, safetyClassification,
+                                   ext_extension=None):
+        obj = cls(nsmapper=self.nsmapper,
+                  nodeName=nodeName,
+                  handle=handle,
                   parentHandle=parentHandle,
                   )
         obj.SafetyClassification = safetyClassification
         obj.Type = codedValue
+        if ext_extension:
+            obj.ext_Extension = etree_.Element(extTag('Extension'))
+            for node in ext_extension:
+                obj.ext_Extension.append(node)
         obj.updateNode()
         return obj
 
-    def createVmdDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification):
+    def createVmdDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification, ext_extension=None):
         """
         This method creates an VmdDescriptorContainer with the given properties.
         If it is called within an transaction, the created object is added to transaction and clients will be notified.
         Otherwise the object is only added to mdib without sending notifications to clients!
         :param handle: Handle of the new container
         :param parentHandle: Handle of the parent
-        :param codedValue: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param codedValue: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
         :param safetyClassification: a pmtypes.SafetyClassification value
+        :param ext_extension: list of etree.Element elements to be added to the Extension element
         :return: the created object
         """
         qNameTag = domTag('Vmd')
         cls = self.getDescriptorContainerClass(qNameTag)
-        obj = self._createDescriptorContainer(cls, qNameTag, handle, parentHandle, codedValue, safetyClassification)
+        obj = self._createDescriptorContainer(cls, qNameTag, handle, parentHandle, codedValue, safetyClassification,
+                                              ext_extension)
         if self._current_transaction is not None:
             self._current_transaction.createDescriptor(obj)
         else:
             self.descriptions.addObject(obj)
         return obj
 
-    def createChannelDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification):
+    def createChannelDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification,
+                                         ext_extension=None):
         """
         This method creates a ChannelDescriptorContainer with the given properties and optionally adds it to the mdib.
         If it is called within an transaction, the created object is added to transaction and clients will be notified.
         Otherwise the object is only added to mdib without sending notifications to clients!
         :param handle: Handle of the new container
         :param parentHandle: Handle of the parent
-        :param codedValue: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param codedValue: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
         :param safetyClassification: a pmtypes.SafetyClassification value
+        :param ext_extension: list of etree.Element elements to be added to the Extension element
         :return: the created object
         """
         qNameTag = domTag('Channel')
         cls = self.getDescriptorContainerClass(qNameTag)
-        obj = self._createDescriptorContainer(cls, qNameTag, handle, parentHandle, codedValue, safetyClassification)
+        obj = self._createDescriptorContainer(cls, qNameTag, handle, parentHandle, codedValue, safetyClassification,
+                                              ext_extension)
         if self._current_transaction is not None:
             self._current_transaction.createDescriptor(obj)
         else:
@@ -791,24 +821,26 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
     def createStringMetricDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification, unit,
                                               metricAvailability=pmtypes.MetricAvailability.INTERMITTENT,
-                                              metricCategory=pmtypes.MetricCategory.UNSPECIFIED):
+                                              metricCategory=pmtypes.MetricCategory.UNSPECIFIED, ext_extension=None):
         """
         This method creates a StringMetricDescriptorContainer with the given properties and optionally adds it to the mdib.
         If it is called within an transaction, the created object is added to transaction and clients will be notified.
         Otherwise the object is only added to mdib without sending notifications to clients!
         :param handle: Handle of the new container
         :param parentHandle: Handle of the parent
-        :param codedValue: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param codedValue: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
         :param safetyClassification: a pmtypes.SafetyClassification value
         :param unit: a CodedValue
         :param metricAvailability: pmtypes.MetricAvailability
         :param metricCategory: pmtypes.MetricCategory
+        :param ext_extension: list of etree.Element elements to be added to the Extension element
         :return: the created object
         """
         qNameTag = domTag('Metric')
         qNameType = domTag('StringMetricDescriptor')
         cls = self.getDescriptorContainerClass(qNameType)
-        obj = self._createDescriptorContainer(cls, qNameTag, handle, parentHandle, codedValue, safetyClassification)
+        obj = self._createDescriptorContainer(cls, qNameTag, handle, parentHandle, codedValue, safetyClassification,
+                                              ext_extension)
         obj.Unit = unit
         obj.MetricAvailability = metricAvailability
         obj.MetricCategory = metricCategory
@@ -820,9 +852,10 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         return obj
 
     def createEnumStringMetricDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification,
-                                                  unit,  allowedValues,
+                                                  unit, allowedValues,
                                                   metricAvailability=pmtypes.MetricAvailability.INTERMITTENT,
-                                                  metricCategory=pmtypes.MetricCategory.UNSPECIFIED):
+                                                  metricCategory=pmtypes.MetricCategory.UNSPECIFIED,
+                                                  ext_extension=None):
         """
         This method creates an EnumStringMetricDescriptorContainer with the given properties and optionally adds it
         to the mdib.
@@ -830,18 +863,20 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         Otherwise the object is only added to mdib without sending notifications to clients!
         :param handle: Handle of the new container
         :param parentHandle: Handle of the parent
-        :param codedValue: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param codedValue: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
         :param safetyClassification: a pmtypes.SafetyClassification value
         :param unit: pmtypes.CodedValue
         :param allowedValues:
         :param metricAvailability: pmtypes.MetricAvailability
         :param metricCategory: pmtypes.MetricCategory
+        :param ext_extension: list of etree.Element elements to be added to the Extension element
         :return: the created object
         """
         qNameTag = domTag('Metric')
         qNameType = domTag('EnumStringMetricDescriptor')
         cls = self.getDescriptorContainerClass(qNameType)
-        obj = self._createDescriptorContainer(cls, qNameTag, handle, parentHandle, codedValue, safetyClassification)
+        obj = self._createDescriptorContainer(cls, qNameTag, handle, parentHandle, codedValue, safetyClassification,
+                                              ext_extension)
         obj.Unit = unit
         obj.MetricAvailability = metricAvailability
         obj.MetricCategory = metricCategory
@@ -853,19 +888,22 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             self.descriptions.addObject(obj)
         return obj
 
-    def createClockDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification):
+    def createClockDescriptorContainer(self, handle, parentHandle, codedValue, safetyClassification,
+                                       ext_extension=None):
         """
         This method creates a ClockDescriptorContainer with the given properties.
         If it is called within an transaction, the created object is added to transaction and clients will be notified.
         Otherwise the object is only added to mdib without sending notifications to clients!
         :param handle: Handle of the new container
         :param parentHandle: Handle of the parent
-        :param codedValue: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param codedValue: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
         :param safetyClassification: a pmtypes.SafetyClassification value
+        :param ext_extension: list of etree.Element elements to be added to the Extension element
         :return: the created object
         """
-        cls = self.getDescriptorContainerClass( domTag('ClockDescriptor'))
-        obj = self._createDescriptorContainer(cls, domTag('Clock'), handle, parentHandle, codedValue, safetyClassification)
+        cls = self.getDescriptorContainerClass(domTag('ClockDescriptor'))
+        obj = self._createDescriptorContainer(cls, domTag('Clock'), handle, parentHandle, codedValue,
+                                              safetyClassification, ext_extension)
         if self._current_transaction is not None:
             self._current_transaction.createDescriptor(obj)
         else:
@@ -883,7 +921,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     self.contextStates.setVersion(stateContainer)
             else:
                 if stateContainer.descriptorHandle in self.states.descriptorHandle:
-                    raise ValueError('state descriptorHandle {} already in mdib!'.format(stateContainer.descriptorHandle))
+                    raise ValueError(
+                        'state descriptorHandle {} already in mdib!'.format(stateContainer.descriptorHandle))
                 if adjustStateVersion:
                     self.states.setVersion(stateContainer)
 
@@ -966,7 +1005,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         return DeviceMdibContainer.fromString(xml_text, createLocationContextDescr, createPatientContextDescr,
                                               protocol_definition, log_prefix)
 
-
     @classmethod
     def fromString(cls, xml_text, createLocationContextDescr=True, createPatientContextDescr=True,
                    protocol_definition=None, log_prefix=None):
@@ -990,7 +1028,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             raise ValueError('cannot create instance, no known BICEPS schema version identified')
 
         mdib = cls(protocol_definition, log_prefix=log_prefix)
-        root =  msgreader.MessageReader.getMdibRootNode(mdib.sdc_definitions, xml_text)
+        root = msgreader.MessageReader.getMdibRootNode(mdib.sdc_definitions, xml_text)
         mdib.sdc_definitions.xml_validator.assertValid(root)
         mdib.nsmapper.useDocPrefixes(root.nsmap)
         msg_reader = msgreader.MessageReader(mdib)
