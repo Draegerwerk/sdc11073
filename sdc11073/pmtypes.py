@@ -111,7 +111,7 @@ class LocalizedText(PropertyBasedPMType):
     TextWidth = cp.NodeAttributeProperty('TextWidth') # one of xs, s, m, l, xl, xxl
     _props = ['text', 'Ref', 'Lang', 'Version', 'TextWidth']
     ''' Represents a LocalizedText type in the Participant Model. '''
-    def __init__(self, text, lang=None, ref=None, version=None, textWidth = None):
+    def __init__(self, text, lang=None, ref=None, version=None, textWidth=None):
         """
         @param text: a string
         @param lang: a string or None
@@ -125,6 +125,18 @@ class LocalizedText(PropertyBasedPMType):
         self.Version = version
         self.TextWidth = textWidth
 
+    def __repr__(self):
+        repr_string = 'LocalizedText("{}"'.format(self.text)
+        if self.Lang is not None:
+            repr_string += ', lang="{}"'.format(self.Lang)
+        if self.Ref is not None:
+            repr_string += ', ref="{}"'.format(self.Ref)
+        if self.Version is not None:
+            repr_string += ', version="{}"'.format(self.Version)
+        if self.TextWidth is not None:
+            repr_string += ', textWidth="{}"'.format(self.TextWidth)
+        repr_string += ')'
+        return repr_string
 
     @classmethod
     def fromNode(cls, node):
@@ -138,9 +150,7 @@ class LocalizedText(PropertyBasedPMType):
         return cls(text, lang, ref, version, textWidth)
 
 
-        
 DefaultCodingSystem = 'urn:oid:1.2.840.10004.1.1.1.0.0.1' # ISO/IEC 11073-10101
-
 
 def _get_default_coding_system():
     """Helper method that allows handling of DefaultCodingSystem modification at runtime.
@@ -153,7 +163,9 @@ class NotCompareableVersionError(Exception):
     In that case it is not possible to decide if they are equal."""
     pass
 
+
 _CodingBase = namedtuple('_CodingBase', 'code codingSystem codingSystemVersion')
+
 class Coding(_CodingBase):
     """ Immutable representation of a coding. Can be used as key in dictionaries"""
 
@@ -213,7 +225,6 @@ def mkCoding(code, codingSystem=None, codingSystemVersion=None):
     return Coding(code, codingSystem or DefaultCodingSystem, codingSystemVersion)
 
 
-
 class T_Translation(PropertyBasedPMType):
     """
     Translation is part of CodedValue in BICEPS FINAL
@@ -240,11 +251,12 @@ class T_Translation(PropertyBasedPMType):
 
     def __repr__(self):
         if self.CodingSystem is None:
-            return 'CodedValue({})'.format(self.Code)
+            return 'T_Translation("{}")'.format(self.Code)
         elif self.CodingSystemVersion is None:
-            return 'CodedValue({}, codingsystem={})'.format(self.Code, self.CodingSystem)
+            return 'T_Translation("{}", codingsystem="{}")'.format(self.Code, self.CodingSystem)
         else:
-            return 'CodedValue({}, codingsystem={}, codingsystemversion={})'.format(self.Code, self.CodingSystem, self.CodingSystemVersion)
+            return 'T_Translation("{}", codingsystem="{}", codingsystemversion="{}")'\
+                .format(self.Code, self.CodingSystem, self.CodingSystemVersion)
 
     def mkCoding(self):
         if self.Code is not None:
@@ -269,8 +281,8 @@ class T_Translation(PropertyBasedPMType):
 
 class _CodedValueBase(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
-    CodingSystemName = cp.SubElementListProperty([namespaces.domTag('CodingSystemName')], cls = LocalizedText)
-    ConceptDescription = cp.SubElementListProperty([namespaces.domTag('ConceptDescription')], cls = LocalizedText)
+    CodingSystemName = cp.SubElementListProperty([namespaces.domTag('CodingSystemName')], cls=LocalizedText)
+    ConceptDescription = cp.SubElementListProperty([namespaces.domTag('ConceptDescription')], cls=LocalizedText)
     Code = cp.NodeAttributeProperty('Code')
     CodingSystem = cp.NodeAttributeProperty('CodingSystem', impliedPyValue=_get_default_coding_system)
     CodingSystemVersion = cp.NodeAttributeProperty('CodingSystemVersion')
@@ -301,7 +313,6 @@ class _CodedValueBase(PropertyBasedPMType):
         self.coding = None # oberwritten by self._mkCoding()
         self.mkCoding()
 
-
     def mkCoding(self):
         if self.Code is not None:
             self.coding = Coding(self.Code, self.CodingSystem, self.CodingSystemVersion)
@@ -310,11 +321,12 @@ class _CodedValueBase(PropertyBasedPMType):
 
     def __repr__(self):
         if self.CodingSystem is None:
-            return 'CodedValue({})'.format(self.Code)
+            return 'CodedValue("{}")'.format(self.Code)
         elif self.CodingSystemVersion is None:
-            return 'CodedValue({}, codingsystem="{}")'.format(self.Code, self.CodingSystem)
+            return 'CodedValue("{}", codingsystem="{}")'.format(self.Code, self.CodingSystem)
         else:
-            return 'CodedValue({}, codingsystem="{}", codingsystemversion="{}")'.format(self.Code, self.CodingSystem, self.CodingSystemVersion)
+            return 'CodedValue("{}", codingsystem="{}", codingsystemversion="{}")'\
+                .format(self.Code, self.CodingSystem, self.CodingSystemVersion)
 
     @classmethod
     def fromNode(cls, node):
@@ -324,9 +336,8 @@ class _CodedValueBase(PropertyBasedPMType):
         return obj
 
 
-
 class CodedWithTranslations(_CodedValueBase):
-    Translation = cp.SubElementListProperty([namespaces.domTag('Translation')], cls = _CodedValueBase)
+    Translation = cp.SubElementListProperty([namespaces.domTag('Translation')], cls=_CodedValueBase)
     _props = ['Translation']
 
     def __eq__(self, other):
@@ -337,9 +348,8 @@ class CodedWithTranslations(_CodedValueBase):
             return self.coding == other
 
 
-
 class CodedValue(_CodedValueBase):
-    Translation = cp.SubElementListProperty([namespaces.domTag('Translation')], cls = T_Translation)
+    Translation = cp.SubElementListProperty([namespaces.domTag('Translation')], cls=T_Translation)
     _props = ['Translation']
 
     def __eq__(self, other):
@@ -350,7 +360,6 @@ class CodedValue(_CodedValueBase):
         if isinstance(other, (int, str)):
             return have_matching_codes(self, Coding(other))
         return have_matching_codes(self, other)
-
 
     def equals(self, other, raiseNotComparableException=True):
         """
@@ -367,10 +376,10 @@ class CodedValue(_CodedValueBase):
                 # and a CodedValue object T2 in C2/pm:Translation such that T1 and T2 are equivalent, C1 and T2 are equivalent, or C2 and T1 are equivalent.
                 foundMatch = False
                 not_comparables = []
-                my_codes = [self] # C1
-                my_codes.extend(self.Translation) # all T1
-                other_codes = [other]   #C2
-                other_codes.extend(other.Translation) # all T2
+                my_codes = [self]  # C1
+                my_codes.extend(self.Translation)  # all T1
+                other_codes = [other]  # C2
+                other_codes.extend(other.Translation)  # all T2
                 for left, right in itertools.product(my_codes, other_codes):
                     try:
                         if left.coding.equals(right.coding, raiseNotComparableException):
@@ -431,8 +440,7 @@ class Annotation(PropertyBasedPMType):
     def __init__(self, codedValue):
         self.Type = codedValue
         self.coding = codedValue.coding
- 
- 
+
     @classmethod
     def fromNode(cls, node):
         typeNode = node.find(namespaces.domTag('Type'))
@@ -470,7 +478,7 @@ class InstanceIdentifier(PropertyBasedPMType):
     IdentifierName = cp.SubElementListProperty([namespaces.domTag('IdentifierName')], cls = LocalizedText)
     Root = cp.NodeAttributeProperty('Root', defaultPyValue='biceps.uri.unk') # xsd:anyURI string, default is defined in R0135
     Extension = cp.NodeAttributeProperty('Extension') # a xsd:string
-    _props=('ext_Extension', 'Type', 'IdentifierName', 'Root', 'Extension')
+    _props = ('ext_Extension', 'Type', 'IdentifierName', 'Root', 'Extension')
 
     def __init__(self, root, type_codedValue=None, identifierNames=None, extensionString=None):
         """
@@ -497,10 +505,8 @@ class InstanceIdentifier(PropertyBasedPMType):
         ret.node = node 
         return ret
 
-
     def __repr__(self):
         return 'InstanceIdentifier(root={!r}, Type={} ext={!r})'.format(self.Root, self.Type, self.Extension)
-
 
 
 class Range(PropertyBasedPMType):
@@ -525,12 +531,10 @@ class Range(PropertyBasedPMType):
         self.StepWidth = stepWidth
         self.RelativeAccuracy = relativeAccuracy
         self.AbsoluteAccuracy = absoluteAccuracy
-        
-        
+
     def __repr__(self):
         return 'Range (Lower={!r}, Upper={!r}, StepWidth={!r}, RelativeAccuracy={!r}, AbsoluteAccuracy={!r})'\
             .format(self.Lower, self.Upper, self.StepWidth, self.RelativeAccuracy, self.AbsoluteAccuracy)
-
 
 
 class Measurement(PropertyBasedPMType):
@@ -546,8 +550,7 @@ class Measurement(PropertyBasedPMType):
         """
         self.MeasuredValue = value
         self.MeasurementUnit = unit
-    
-    
+
     @classmethod
     def fromNode(cls, node):
         value = node.get('MeasuredValue')
@@ -559,10 +562,8 @@ class Measurement(PropertyBasedPMType):
             unit = CodedValue.fromNode(unitNode)
         return cls(value, unit)
 
-
     def __repr__(self):
         return 'Measurement(value={!r}, Unit={!r})'.format(self.MeasuredValue, self.MeasurementUnit)
-
 
 
 class AllowedValue(PropertyBasedPMType):
@@ -581,7 +582,6 @@ class AllowedValue(PropertyBasedPMType):
         self.Value = valueString
         self.Type = typeCoding
 
-
     @classmethod
     def fromNode(cls, node):
         valueString = node.find(namespaces.domTag('Value')).text
@@ -592,7 +592,6 @@ class AllowedValue(PropertyBasedPMType):
             typeCoding = CodedValue.fromNode(typeNode)
         return cls(valueString, typeCoding)
 
-    
 
 class AbstractMetricValue(PropertyBasedPMType):
     """ This is the base class for metric values inside metric states"""
@@ -608,6 +607,7 @@ class AbstractMetricValue(PropertyBasedPMType):
     _props = ('ext_Extension', 'StartTime', 'StopTime', 'DeterminationTime', 'MQ_Extension', 'Validity', 'Mode', 'Qi', 'Annotation')
     
     Annotations = Annotation
+
     def __init__(self, nsmapper, node=None):
         self._nsmapper = nsmapper
         # attributes of root node
@@ -617,18 +617,15 @@ class AbstractMetricValue(PropertyBasedPMType):
         else:
             self.Validity = 'Vld' # mandatory value, for convenience it is preset to Vld
 
-
     def updateFromNode(self, node):
         for dummy, prop in self._sortedContainerProperties():
             prop.updateFromNode(self, node)
         self.node = node    
 
-
     def asEtreeNode(self, qname, nsmap):
         node = super(AbstractMetricValue, self).asEtreeNode(qname, nsmap)
         node.set(namespaces.QN_TYPE, namespaces.docNameFromQName(self.QType, nsmap))
         return node
-
 
     @classmethod
     def fromNode(cls, node):
@@ -636,12 +633,10 @@ class AbstractMetricValue(PropertyBasedPMType):
         return obj
 
 
-
 class NumericMetricValue(AbstractMetricValue):
     QType = namespaces.domTag('NumericMetricValue')
     Value = cp.DecimalAttributeProperty('Value') # an integer or float
     _props = ('Value',)    
-
 
     def __repr__(self):
         return '{} Validity={} Value={} DeterminationTime={}'.format(self.__class__.__name__,
@@ -676,19 +671,16 @@ class NumericMetricValue(AbstractMetricValue):
         return not self == other
 
 
-
 class StringMetricValue(AbstractMetricValue):
     QType = namespaces.domTag('StringMetricValue')
     Value = cp.NodeAttributeProperty('Value')  # a string
     _props = ('Value',)    
-    
 
     def __repr__(self):
         return '{} Validity={} Value={} DeterminationTime={}'.format(self.__class__.__name__,
                                                                      self.Validity,
                                                                      self.Value,
                                                                      self.DeterminationTime)
-
 
 
 class ApplyAnnotation(PropertyBasedPMType):
@@ -711,17 +703,14 @@ class ApplyAnnotation(PropertyBasedPMType):
         return '{} AnnotationIndex={} SampleIndex={}'.format(self.__class__.__name__, self.AnnotationIndex, self.SampleIndex)
 
 
-
 class SampleArrayValue(AbstractMetricValue):
     QType = namespaces.domTag('SampleArrayValue')
     Samples = cp.DecimalListAttributeProperty('Samples') # list of xs:decimal types 
     ApplyAnnotations = cp.SubElementListProperty([namespaces.domTag('ApplyAnnotation')], ApplyAnnotation)
     _props = ('Samples', 'ApplyAnnotations')    
 
-
     def __repr__(self):
         return '{} Samples={} ApplyAnnotations={}'.format(self.__class__.__name__, self.Samples, self.ApplyAnnotations)
-
 
     def __eq__(self, other):
         """ compares all properties, special handling of Value member"""
@@ -769,15 +758,15 @@ class RemedyInfo(PropertyBasedPMType):
             self.Description = descriptions
         
 
-
 class CauseInfo(PropertyBasedPMType):
     """An Element that has
          0..1 Subelement "RemedyInfo", type = pm:RemedyInfo
          0..n SubElements "Description" type=pm:LocalizedText."""
     ext_Extension = cp.ExtensionNodeProperty()
     RemedyInfo = cp.SubElementProperty([namespaces.domTag('RemedyInfo')], valueClass=RemedyInfo)
-    Description = cp.SubElementListProperty([namespaces.domTag('Description')], cls = LocalizedText)
+    Description = cp.SubElementListProperty([namespaces.domTag('Description')], cls=LocalizedText)
     _props = ['ext_Extension', 'RemedyInfo', 'Description']
+
     def __init__(self, remedyInfo, descriptions):
         """
         @param remedyInfo: a RemedyInfo instance or None
@@ -785,7 +774,6 @@ class CauseInfo(PropertyBasedPMType):
         """
         self.RemedyInfo = remedyInfo
         self.Description = descriptions
-
 
     @classmethod
     def fromNode(cls, node):
@@ -799,7 +787,6 @@ class CauseInfo(PropertyBasedPMType):
         for d in descriptionNodes:
             descriptions.append(LocalizedText.fromNode(d))
         return cls(remedyInfo, descriptions)    
-
 
 
 class Argument(PropertyBasedPMType):
@@ -816,7 +803,6 @@ class Argument(PropertyBasedPMType):
         """
         self.ArgName = argName
         self.Arg = arg
-        
 
     @classmethod
     def fromNode(cls, node):
@@ -826,10 +812,8 @@ class Argument(PropertyBasedPMType):
         arg_QName = namespaces.txt2QName(argNode.text, node.nsmap)
         return cls(argName, arg_QName)    
 
-
     def __repr__(self):
         return 'Argument(argName={}, arg={})'.format(self.ArgName, self.Arg)
-
 
 
 class PhysicalConnectorInfo(PropertyBasedPMType):
@@ -837,7 +821,7 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
     e.g., in case of a disconnection of a sensor or an ultrasonic handpiece.
     Only in BICEPS final!"""
     ext_Extension = cp.ExtensionNodeProperty()
-    Label = cp.SubElementListProperty([namespaces.domTag('Label')], cls = LocalizedText) # A human-readable label that describes the physical connector.
+    Label = cp.SubElementListProperty([namespaces.domTag('Label')], cls=LocalizedText) # A human-readable label that describes the physical connector.
     Number = cp.IntegerAttributeProperty('Number')# Number designates the connector number of the physical connector.
     _props = ['ext_Extension', 'Label', 'Number']
 
