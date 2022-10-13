@@ -260,7 +260,7 @@ class MdibContainer(object):
             elif sc.isOperationalState:
                 operationByHandle[sc.descriptorHandle] = sc
             elif sc.isContextState:
-                contextByHandle[sc.descriptorHandle] = sc
+                contextByHandle[sc.Handle] = sc
             elif sc.isSystemContextState or sc.isMultiState:
                 pass   # ignoring for now
             elif sc.NODETYPE == namespaces.domTag('ScoState'): # special case Draft6 ScoState (is not a component state)

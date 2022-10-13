@@ -1115,7 +1115,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             deviceMdib = sdcDevice.mdib
             expectedDescriptorVersion = initialDescriptorVersion + 1
 
-            # verify that devices mdib conatins the updated descriptorContainer plus an updated state wit correct DescriptorVersion
+            # verify that devices mdib contains the updated descriptorContainer plus an updated state
+            # with correct DescriptorVersion
             descriptorContainer = deviceMdib.descriptions.handle.getOne(metric_descriptor_handle)
             stateContainer = deviceMdib.states.descriptorHandle.getOne(metric_descriptor_handle)
             self.assertEqual(descriptorContainer.DescriptorVersion, expectedDescriptorVersion)
@@ -1126,7 +1127,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             state_update_dict = {metric_descriptor_handle: metrics_dict,
                                  alert_descriptor_handle: alert_dict,
                                  component_descriptor_handle: component_dict,
-                                 context_descriptor_handle: context_dict,
                                  operationalstate_descriptor_handle: operation_dict,
                                  waveform_descriptor_handle: waveform_dict}
 
@@ -1134,6 +1134,12 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.assertEqual(len(values_dict), 1)
                 self.assertTrue(handle in values_dict)
                 self.assertEqual(descriptor_versions[handle] + 1, values_dict[handle].DescriptorVersion)
+
+            # verify context state update (they are different from others because they use Handle as key
+            # instead of DescriptorHandle
+            for handle, state in context_dict.items():
+                self.assertEqual(handle, state.Handle)    # verify that context states dict has Handle as key
+                self.assertEqual(context_descriptor_handle, state.descriptorHandle)
 
             #verify that client got updates
             descriptorContainer = clientMdib.descriptions.handle.getOne(metric_descriptor_handle)
