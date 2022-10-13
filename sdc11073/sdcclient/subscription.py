@@ -621,7 +621,7 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
             self.my_port = self.httpd.server_port
             self._logger.info('starting Notification receiver on {}:{}', self._my_ipaddress, self.my_port)
             if self._sslContext:
-                self.httpd.socket = self._sslContext.wrap_socket(self.httpd.socket)
+                self.httpd.socket = self._sslContext.wrap_socket(self.httpd.socket, do_handshake_on_connect=False)
                 self.base_url = 'https://{}:{}/'.format(self._my_ipaddress, self.my_port)
             else:
                 self.base_url = 'http://{}:{}/'.format(self._my_ipaddress, self.my_port)

@@ -264,7 +264,7 @@ class HttpServerThread(threading.Thread):
             setattr(self.httpd, 'supportedEncodings', self.supportedEncodings)
             self.httpd.logger = self._logger # add logger by monkey-pathing
             if self._sslContext is not None:
-                self.httpd.socket = self._sslContext.wrap_socket(self.httpd.socket)
+                self.httpd.socket = self._sslContext.wrap_socket(self.httpd.socket, do_handshake_on_connect=False)
             self.my_port = self.httpd.server_port
             self.httpd.dispatcher = self.devices_dispatcher
 
