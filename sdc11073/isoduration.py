@@ -56,21 +56,20 @@ def parse_duration(date_string):
 
 def duration_string(seconds):
     sign = '-' if seconds < 0 else ''
-    fract = abs(seconds - int(seconds))
+    fraction = abs(seconds - int(seconds))
     seconds = abs(int(seconds))
     minutes, sec = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
     days, hours = divmod(hours, 24)
-    #    sec += fract
-    if fract == 0:
-        fract_string = ''
+    if fraction == 0:
+        fraction_string = ''
     else:
-        fract_string = f'{fract:.9f}'[1:]  # starting from dot char
-        while fract_string[-1] == '0':
-            fract_string = fract_string[:-1]
+        fraction_string = f'{fraction:.9f}'[1:]  # starting from dot char
+        while fraction_string[-1] == '0':
+            fraction_string = fraction_string[:-1]
     if days == 0:
-        return f'{sign}PT{hours}H{minutes}M{sec}{fract_string}S'
-    return f'{sign}P0Y0M{days}DT{hours}H{minutes}M{sec}{fract_string}S'
+        return f'{sign}PT{hours}H{minutes}M{sec}{fraction_string}S'
+    return f'{sign}P0Y0M{days}DT{hours}H{minutes}M{sec}{fraction_string}S'
 
 
 ##### Date Time ######
@@ -121,23 +120,23 @@ def parse_date_time(date_time_str, strict=True):
                 return date(year, month, day)
 
             tz_1st = groups['tz']
-            if tz_1st is None:
-                tz_info = None
-            elif tz_1st == 'Z':
-                tz_info = UTC(0, 'UTC')
-            elif tz_1st[0] in ('+', '-'):
-                tz_hours = int(groups['tz_hours'])
-                tz_minutes = int(groups['tz_minutes'])
-                offset = tz_hours * 60 + tz_minutes
-                if tz_1st[0] == '-':
-                    offset *= -1
-                tz_info = UTC(offset, 'unknown')
+            tz_info = None
+            if tz_1st is not None:
+                if tz_1st == 'Z':
+                    tz_info = UTC(0, 'UTC')
+                elif tz_1st[0] in ('+', '-'):
+                    tz_hours = int(groups['tz_hours'])
+                    tz_minutes = int(groups['tz_minutes'])
+                    offset = tz_hours * 60 + tz_minutes
+                    if tz_1st[0] == '-':
+                        offset *= -1
+                    tz_info = UTC(offset, 'unknown')
 
             hour = int(groups['hour'])
             minute = int(groups.get('minute', '00'))
             second = float(groups.get('second', '0.0'))
-            sec, microsec = int(second), int((second - int(second)) * 1000000)
-            value = datetime(year, month, day, hour, minute, sec, microsec, tz_info)
+            sec, micro_sec = int(second), int((second - int(second)) * 1000000)
+            value = datetime(year, month, day, hour, minute, sec, micro_sec, tz_info)
             return value
 
         d_t = _year_month_regex.match(date_time_str)
@@ -184,15 +183,17 @@ def _mk_tz_string(date_object):
 
 def date_time_string(date_object):
     if hasattr(date_object, 'hour'):  # datetime object
-        date_string = f'{date_object.year:4d}-{date_object.month:02d}-{date_object.day:02d}' \
-                      f'T{date_object.hour:02d}:{date_object.minute:02d}' \
-                      f':{_mk_seconds_string(date_object)}{_mk_tz_string(date_object)}'
+        date_string = '{:4d}-{:02d}-{:02d}T{:02d}:{:02d}:{}{}'.format(
+            date_object.year, date_object.month, date_object.day,
+            date_object.hour, date_object.minute,
+            _mk_seconds_string(date_object), _mk_tz_string(date_object))
     elif hasattr(date_object, 'day'):  # date object
-        date_string = f'{date_object.year:4d}-{date_object.month:02d}-{date_object.day:02d}'
+        date_string = '{:4d}-{:02d}-{:02d}'.format(
+            date_object.year, date_object.month, date_object.day)
     elif hasattr(date_object, 'month'):  # GYearMonth object
-        date_string = f'{date_object.year:4d}-{date_object.month:02d}'
+        date_string = '{:4d}-{:02d}'.format(date_object.year, date_object.month)
     elif hasattr(date_object, 'year'):  # GYear object
-        date_string = f'{date_object.year:4d}'
+        date_string = '{:4d}'.format(date_object.year)
     else:
         raise ValueError(f'cannot convert {date_object.__class__.__name__} to ISO8601 datetime string')
     return date_string
