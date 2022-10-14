@@ -189,7 +189,7 @@ class SdcClient:
         notifications_dispatcher_cls = self._components.notifications_dispatcher_class
         self._notifications_dispatcher = notifications_dispatcher_cls(self, self._logger)
 
-    def _register_mdib(self, mdib):
+    def set_mdib(self, mdib):
         """ SdcClient sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib is not None:
             raise RuntimeError('SdcClient has already an registered mdib')
@@ -364,7 +364,7 @@ class SdcClient:
                 self._subscription_mgr.unsubscribe_all()
             self._subscription_mgr.stop()
         self._stop_event_sink()
-        self._register_mdib(None)
+        self.set_mdib(None)
 
         for client in self._soap_clients.values():
             client.close()

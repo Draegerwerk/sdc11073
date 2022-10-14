@@ -6,7 +6,6 @@ from lxml import etree as etree_
 import sdc11073
 from sdc11073 import definitions_sdc
 from sdc11073.pmtypes import Coding
-from sdc11073 import namespaces
 
 # pylint: disable=protected-access
 
@@ -14,14 +13,12 @@ DEV_ADDRESS = 'http://169.254.0.200:10000'
 CLIENT_VALIDATE = True
 
 # data that is used in report
-observationTime_ms = 1467596359152
-OBSERVATIONTIME = observationTime_ms / 1000.0
 HANDLES = ("0x34F05506", "0x34F05501", "0x34F05500")
 SAMPLES = {"0x34F05506": (5.566406, 5.712891, 5.712891, 5.712891, 5.800781),
            "0x34F05501": (0.1, -0.1, 1.0, 2.0, 3.0),
            "0x34F05500": (3.198242, 3.198242, 3.198242, 3.198242, 3.163574, 1.1)}
 
-WfReport = '''<?xml version="1.0" encoding="utf-8"?>
+WfReportUnformatted = '''<?xml version="1.0" encoding="utf-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
 xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding"
 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -47,8 +44,8 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
     urn:uuid:9f00ba10-3ffe-47e9-8238-88339a4a457d</wsa:Identifier>
   </SOAP-ENV:Header>
   <SOAP-ENV:Body>
-    <msg:WaveformStream MdibVersion="2" SequenceId="">
-      <msg:State StateVersion="19716"
+    <msg:WaveformStream MdibVersion="{mdib_version}" SequenceId="">
+      <msg:State StateVersion="{state_version}"
       DescriptorHandle="0x34F05506" DescriptorVersion="2"
       xsi:type="dom:RealTimeSampleArrayMetricState">
         <dom:MetricValue xsi:type="dom:SampleArrayValue"
@@ -57,7 +54,7 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
           <dom:MetricQuality Validity="Vld"></dom:MetricQuality>
         </dom:MetricValue>
       </msg:State>
-      <msg:State StateVersion="19715"
+      <msg:State StateVersion="{state_version}"
       DescriptorHandle="0x34F05501" DescriptorVersion="2"
       xsi:type="dom:RealTimeSampleArrayMetricState">
         <dom:MetricValue xsi:type="dom:SampleArrayValue"
@@ -68,7 +65,7 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
           <dom:ApplyAnnotation AnnotationIndex="0" SampleIndex="2"></dom:ApplyAnnotation>
         </dom:MetricValue>
       </msg:State>
-      <msg:State StateVersion="19715"
+      <msg:State StateVersion="{state_version}"
       DescriptorHandle="0x34F05500" DescriptorVersion="2"
       xsi:type="dom:RealTimeSampleArrayMetricState">
         <dom:MetricValue xsi:type="dom:SampleArrayValue"
@@ -80,14 +77,22 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
     </msg:WaveformStream>
   </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>
-'''.format(obs_time=observationTime_ms,
-           array1=' '.join([str(n) for n in SAMPLES["0x34F05506"]]),
-           array2=' '.join([str(n) for n in SAMPLES["0x34F05501"]]),
-           array3=' '.join([str(n) for n in SAMPLES["0x34F05500"]]),
-           msg='http://standards.ieee.org/downloads/11073/11073-10207-2017/message',
-           ext='http://standards.ieee.org/downloads/11073/11073-10207-2017/extension',
-           dom='http://standards.ieee.org/downloads/11073/11073-10207-2017/participant'
-           )
+'''
+
+
+def _mk_wf_report(observation_time_ms: int, mdib_version: int, state_version: int) -> str:
+    # helper to create a waveform report
+    return WfReportUnformatted.format(
+        obs_time=observation_time_ms,
+        array1=' '.join([str(n) for n in SAMPLES["0x34F05506"]]),
+        array2=' '.join([str(n) for n in SAMPLES["0x34F05501"]]),
+        array3=' '.join([str(n) for n in SAMPLES["0x34F05500"]]),
+        msg='http://standards.ieee.org/downloads/11073/11073-10207-2017/message',
+        ext='http://standards.ieee.org/downloads/11073/11073-10207-2017/extension',
+        dom='http://standards.ieee.org/downloads/11073/11073-10207-2017/participant',
+        mdib_version=mdib_version,
+        state_version=state_version
+    )
 
 
 class TestClientWaveform(unittest.TestCase):
@@ -100,90 +105,90 @@ class TestClientWaveform(unittest.TestCase):
         self.all_clients = (self.sdc_client,)
 
     def test_basic_handling(self):
-        ''' call _onWaveformReport method directly. Verify that observable is a WaveformStream Element'''
+        """ call _onWaveformReport method directly. Verify that observable is a WaveformStream Element"""
 
         cl = self.sdc_client
-        data = cl.msg_reader.read_received_message(WfReport.encode('utf-8'))
+        observation_time_ms = 1467596359152
+
+        report = _mk_wf_report(observation_time_ms, 2, 42)
+        data = cl.msg_reader.read_received_message(report.encode('utf-8'))
         cl._notifications_dispatcher.on_notification(data)
 
     def test_stream_handling(self):
-        ''' Connect a mdib with client. Call _onWaveformReport method directly. Verify that observable is a WaveformStream Element'''
-        my_handles = ('0x34F05506', '0x34F05501', '0x34F05500')
-        for cl, wfReport in ((self.sdc_client, WfReport),):
-            clientmdib = sdc11073.mdib.ClientMdibContainer(cl)
-            clientmdib._bind_to_client_observables()
-            clientmdib._is_initialized = True  # fake it, because we do not call init_mdib()
-            clientmdib.MDIB_VERSION_CHECK_DISABLED = True  # we have no mdib version incrementing in this test, therefore disable check
-            # create dummy descriptors
-            for handle in my_handles:
-                attributes = {'SamplePeriod': 'P0Y0M0DT0H0M0.0157S',  # use a unique sample period
-                              etree_.QName(sdc11073.namespaces.nsmap['xsi'],
-                                           'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
-                              'Handle': handle,
-                              'DescriptorVersion': '2'}
-                element = etree_.Element('Metric', attrib=attributes, nsmap=sdc11073.namespaces.nsmap)
-                clientmdib.descriptions.add_object(
-                    sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.from_node(
-                        element, None))  # None = no parent handle
-            received_message_data = cl.msg_reader.read_received_message(wfReport.encode('utf-8'))
+        """ Connect a mdib with client. Call _onWaveformReport method directly.
+        Verify that observable is a WaveformStream Element"""
+        observation_time_ms = 1467596359152  # something in a plausible range
+        observation_time = observation_time_ms / 1000.0
+
+        cl = self.sdc_client
+
+        clientmdib = sdc11073.mdib.ClientMdibContainer(cl)
+        clientmdib._bind_to_client_observables()
+        clientmdib._is_initialized = True  # fake it, because we do not call init_mdib()
+        clientmdib.MDIB_VERSION_CHECK_DISABLED = True  # we have no mdib version incrementing in this test, therefore disable check
+        # create dummy descriptors
+        for handle in HANDLES:
+            attributes = {'SamplePeriod': 'P0Y0M0DT0H0M0.0157S',  # use a unique sample period
+                          etree_.QName(sdc11073.namespaces.nsmap['xsi'],
+                                       'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
+                          'Handle': handle,
+                          'DescriptorVersion': '2'}
+            element = etree_.Element('Metric', attrib=attributes, nsmap=sdc11073.namespaces.nsmap)
+            clientmdib.descriptions.add_object(
+                sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.from_node(
+                    element, None))  # None = no parent handle
+
+        wf_report1 = _mk_wf_report(observation_time_ms, 2, 42)
+        received_message_data = cl.msg_reader.read_received_message(wf_report1.encode('utf-8'))
+        cl._notifications_dispatcher.on_notification(received_message_data)
+
+        # verify that all handles of reported RealTimeSampleArrays are present
+        for handle in HANDLES:
+            current_samples = SAMPLES[handle]
+            s_count = len(current_samples)
+            rtBuffer = clientmdib.rt_buffers[handle]
+            self.assertEqual(s_count, len(rtBuffer.rt_data))
+            self.assertAlmostEqual(rtBuffer.sample_period, 0.0157)
+            self.assertAlmostEqual(rtBuffer.rt_data[0].determination_time, observation_time)
+            self.assertAlmostEqual(rtBuffer.rt_data[-1].determination_time - observation_time,
+                                   rtBuffer.sample_period * (s_count - 1), places=4)
+            self.assertAlmostEqual(rtBuffer.rt_data[-2].determination_time - observation_time,
+                                   rtBuffer.sample_period * (s_count - 2), places=4)
+            for i in range(s_count):
+                self.assertAlmostEqual(rtBuffer.rt_data[i].value, current_samples[i])
+
+        # verify that only handle 0x34F05501 has an annotation
+        for handle in [HANDLES[0], HANDLES[2]]:
+            rtBuffer = clientmdib.rt_buffers[handle]
+            for sample in rtBuffer.rt_data:
+                self.assertEqual(0, len(sample.annotations))
+
+        rtBuffer = clientmdib.rt_buffers[HANDLES[1]]
+        annotated = rtBuffer.rt_data[2]  # this object should have the annotation (SampleIndex="2")
+        self.assertEqual(1, len(annotated.annotations))
+        self.assertEqual( Coding('4711', 'bla'), annotated.annotations[0].coding)
+        for i in (0, 1, 3, 4):
+            self.assertEqual(0, len(rtBuffer.rt_data[i].annotations))
+
+        # add another Report (with identical data, but that is not relevant here)
+        wf_report2 = _mk_wf_report(observation_time_ms+100, 3, 43)
+        received_message_data = cl.msg_reader.read_received_message(wf_report2.encode('utf-8'))
+        cl._notifications_dispatcher.on_notification(received_message_data)
+        # verify only that array length is 2*bigger now
+        for handle in HANDLES:
+            current_samples = SAMPLES[handle]
+            s_count = len(current_samples)
+            rtBuffer = clientmdib.rt_buffers[handle]
+            self.assertEqual(s_count * 2, len(rtBuffer.rt_data))
+
+        # add a lot more data, verify that length limitation is working
+        for i in range(100):
+            wf_report = _mk_wf_report(observation_time_ms + 100*1, 3+1, 43+i)
+            received_message_data = cl.msg_reader.read_received_message(wf_report.encode('utf-8'))
             cl._notifications_dispatcher.on_notification(received_message_data)
-
-            # verify that all handles of reported RealTimeSampleArrays are present
-            for handle in my_handles:
-                current_samples = SAMPLES[handle]
-                s_count = len(current_samples)
-                rtBuffer = clientmdib.rt_buffers[handle]
-                self.assertEqual(len(rtBuffer.rt_data), s_count)
-                self.assertAlmostEqual(rtBuffer.sample_period, 0.0157)
-                self.assertAlmostEqual(rtBuffer.rt_data[0].determination_time, OBSERVATIONTIME)
-                self.assertAlmostEqual(rtBuffer.rt_data[-1].determination_time - OBSERVATIONTIME,
-                                       rtBuffer.sample_period * (s_count - 1), places=4)
-                self.assertAlmostEqual(rtBuffer.rt_data[-2].determination_time - OBSERVATIONTIME,
-                                       rtBuffer.sample_period * (s_count - 2), places=4)
-                for i in range(s_count):
-                    self.assertAlmostEqual(rtBuffer.rt_data[i].value, current_samples[i])
-
-            # verify that only handle 0x34F05501 has an annotation
-            for handle in [my_handles[0], my_handles[2]]:
-                rtBuffer = clientmdib.rt_buffers[handle]
-                for sample in rtBuffer.rt_data:
-                    self.assertEqual(len(sample.annotations), 0)
-
-            rtBuffer = clientmdib.rt_buffers[my_handles[1]]
-            annotated = rtBuffer.rt_data[2]  # this object should have the annotation (SampleIndex="2")
-            self.assertEqual(len(annotated.annotations), 1)
-            self.assertEqual(annotated.annotations[0].coding, Coding('4711', 'bla'))
-            for i in (0, 1, 3, 4):
-                self.assertEqual(len(rtBuffer.rt_data[i].annotations), 0)
-
-            # add another Report (with identical data, but that is not relevant here)
-            received_message_data = cl.msg_reader.read_received_message(wfReport.encode('utf-8'))
-            cl._notifications_dispatcher.on_notification(received_message_data)
-            # verify only that array length is 2*bigger now
-            for handle in my_handles:
-                current_samples = SAMPLES[handle]
-                s_count = len(current_samples)
-                rtBuffer = clientmdib.rt_buffers[handle]
-                self.assertEqual(len(rtBuffer.rt_data), s_count * 2)
-
-            # add a lot more data, verify that length limitation is working
-            for i in range(100):
-                received_message_data = cl.msg_reader.read_received_message(wfReport.encode('utf-8'))
-                cl._notifications_dispatcher.on_notification(received_message_data)
-            # verify only that array length is limited
-            for handle in my_handles:
-                current_samples = SAMPLES[handle]
-                s_count = len(current_samples)
-                rtBuffer = clientmdib.rt_buffers[handle]
-                self.assertEqual(len(rtBuffer.rt_data), rtBuffer._max_samples)
-
-
-def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(TestClientWaveform)
-
-
-if __name__ == '__main__':
-    logging.getLogger('sdc.client').setLevel(logging.DEBUG)
-
-    unittest.TextTestRunner(verbosity=2).run(suite())
-#   unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('test_client_waveform.TestClientWafeform.test_stream_handling'))
+        # verify only that array length is limited
+        for handle in HANDLES:
+            current_samples = SAMPLES[handle]
+            s_count = len(current_samples)
+            rtBuffer = clientmdib.rt_buffers[handle]
+            self.assertEqual(rtBuffer._max_samples, len(rtBuffer.rt_data))
