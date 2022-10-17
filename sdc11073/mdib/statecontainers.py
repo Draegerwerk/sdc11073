@@ -209,8 +209,8 @@ class AbstractDeviceComponentStateContainer(AbstractStateContainer):
                                               value_class=pmtypes.PhysicalConnectorInfo)  # optional
 
     ActivationState = cp.EnumAttributeProperty('ActivationState', enum_cls=pmtypes.ComponentActivation)
-    OperatingHours = cp.IntegerAttributeProperty('OperatingHours')  # optional, unsigned int
-    OperatingCycles = cp.IntegerAttributeProperty('OperatingCycles')  # optional, unsigned int
+    OperatingHours = cp.UnsignedIntAttributeProperty('OperatingHours')  # optional
+    OperatingCycles = cp.UnsignedIntAttributeProperty('OperatingCycles')  # optional
     _props = (
         'CalibrationInfo', 'NextCalibration', 'PhysicalConnector', 'ActivationState', 'OperatingHours',
         'OperatingCycles')
@@ -288,7 +288,7 @@ class BatteryStateContainer(AbstractDeviceComponentStateContainer):
                                                  value_class=pmtypes.Measurement,
                                                  is_optional=True)
     ChargeStatus = cp.EnumAttributeProperty('ChargeStatus', enum_cls=ChargeStatusEnum)
-    ChargeCycles = cp.IntegerAttributeProperty('ChargeCycles')  # Number of charge/discharge cycles.
+    ChargeCycles = cp.UnsignedIntAttributeProperty('ChargeCycles')  # Number of charge/discharge cycles.
     _props = (
         'CapacityRemaining', 'Voltage', 'Current', 'Temperature', 'RemainingBatteryTime', 'ChargeStatus',
         'ChargeCycles')
@@ -329,7 +329,7 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
                                         enum_cls=pmtypes.AlertSignalPresence)
     Location = cp.EnumAttributeProperty('Location', implied_py_value=pmtypes.AlertSignalPrimaryLocation.LOCAL,
                                         enum_cls=pmtypes.AlertSignalPrimaryLocation)
-    Slot = cp.IntegerAttributeProperty('Slot')
+    Slot = cp.UnsignedIntAttributeProperty('Slot')
     _props = ('ActualSignalGenerationDelay', 'Presence', 'Location', 'Slot')
 
     def __init__(self, *args, **kwargs):

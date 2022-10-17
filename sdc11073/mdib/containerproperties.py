@@ -127,8 +127,9 @@ class _PropertyBase:
         setattr(instance, self._local_var_name, value)
 
 
-class AttributeProperty(_PropertyBase):
-    """ XML Representation is a string, Python representation is determined by value_converter."""
+class _AttributePropertyBase(_PropertyBase):
+    """ Base class that represents an XML Attribute.
+    XML Representation is a string, Python representation is determined by value_converter."""
 
     def __init__(self, attribute_name, value_converter=None,
                  default_py_value=None, implied_py_value=None, is_optional=True):
@@ -178,6 +179,7 @@ class AttributeProperty(_PropertyBase):
 
 
 class _NodeProperty(_PropertyBase):
+    """ Base class that represents an XML Element."""
     def __init__(self, sub_element_name, default_py_value=None, implied_py_value=None, is_optional=False,
                  local_var_prefix=''):
         """
@@ -214,7 +216,8 @@ class _NodeProperty(_PropertyBase):
         return f'{self.__class__.__name__} in subelement {self._sub_element_name}'
 
 
-class StringAttributeProperty(AttributeProperty):
+class StringAttributeProperty(_AttributePropertyBase):
+    """Python representation is a string."""
     def __init__(self, attribute_name, default_py_value=None, implied_py_value=None, is_optional=True):
         super().__init__(attribute_name, None, default_py_value, implied_py_value, is_optional)
 
@@ -251,8 +254,8 @@ class TimeZoneAttributeProperty(StringAttributeProperty):
     pass
 
 
-class EnumAttributeProperty(AttributeProperty):
-    """ XML Representation is a string, Python representation is a enum."""
+class EnumAttributeProperty(_AttributePropertyBase):
+    """ Python representation is an Enum."""
 
     def __init__(self, attribute_name, enum_cls, default_py_value=None,
                  implied_py_value=None, is_optional=True):
@@ -299,7 +302,7 @@ class EnumAttributeProperty(AttributeProperty):
             node.set(self._attribute_name, xml_value)
 
 
-class TimestampAttributeProperty(AttributeProperty):
+class TimestampAttributeProperty(_AttributePropertyBase):
     """ XML notation is integer in milliseconds.
     Python is a float in seconds."""
 
@@ -308,7 +311,7 @@ class TimestampAttributeProperty(AttributeProperty):
                          default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
 
-class CurrentTimestampAttributeProperty(AttributeProperty):
+class CurrentTimestampAttributeProperty(_AttributePropertyBase):
     """ used for ClockState, it always writes current time to node.
     Setting value from python is possible, but makes no sense.
     """
@@ -322,7 +325,8 @@ class CurrentTimestampAttributeProperty(AttributeProperty):
         super().update_xml_value(instance, node)
 
 
-class DecimalAttributeProperty(AttributeProperty):
+class DecimalAttributeProperty(_AttributePropertyBase):
+    """Python representation is a Decimal. """
     def __init__(self, attribute_name, default_py_value=None, implied_py_value=None, is_optional=True):
         super().__init__(attribute_name, value_converter=DecimalConverter,
                          default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
@@ -341,7 +345,7 @@ class QualityIndicatorAttributeProperty(DecimalAttributeProperty):
     """BICEPS: A value between 0 and 1 """
 
 
-class DurationAttributeProperty(AttributeProperty):
+class DurationAttributeProperty(_AttributePropertyBase):
     """ XML notation is integer in milliseconds.
     Python is a float in seconds."""
 
@@ -350,7 +354,7 @@ class DurationAttributeProperty(AttributeProperty):
                          default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
 
-class IntegerAttributeProperty(AttributeProperty):
+class IntegerAttributeProperty(_AttributePropertyBase):
     """ XML notation is an integer, python is an integer."""
 
     def __init__(self, attribute_name, default_py_value=None, implied_py_value=None, is_optional=True):
@@ -358,7 +362,14 @@ class IntegerAttributeProperty(AttributeProperty):
                          default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
 
-class VersionCounterAttributeProperty(IntegerAttributeProperty):
+class UnsignedIntAttributeProperty(IntegerAttributeProperty):
+    """Python has no unsigned int, therefore this is the same as IntegerAttributeProperty. """
+    pass
+
+
+class VersionCounterAttributeProperty(UnsignedIntAttributeProperty):
+    """VersionCounter in BICEPS is unsigned long.
+    Python has no unsigned int, therefore this is the same as IntegerAttributeProperty. """
     pass
 
 
@@ -366,7 +377,7 @@ class ReferencedVersionAttributeProperty(VersionCounterAttributeProperty):
     pass
 
 
-class BooleanAttributeProperty(AttributeProperty):
+class BooleanAttributeProperty(_AttributePropertyBase):
     """ XML notation is 'true' or 'false'.
     Python is a boolean."""
 
@@ -375,7 +386,7 @@ class BooleanAttributeProperty(AttributeProperty):
                          default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
 
-class QNameAttributeProperty(AttributeProperty):
+class QNameAttributeProperty(_AttributePropertyBase):
     """ XML Representation is a prefix:name string, Python representation is a QName."""
 
     def get_py_value_from_node(self, instance, node):
@@ -407,8 +418,10 @@ class QNameAttributeProperty(AttributeProperty):
             node.set(self._attribute_name, xml_value)
 
 
-class NodeAttributeListProperty(AttributeProperty):
-    """ XML Representation is a string which is a space separated list"""
+class _NodeAttributeListPropertyBase(_AttributePropertyBase):
+    """ XML Representation is a string which is a space separated list.
+    Python representation is a list of strings if value_converter is None,
+    else a list of converted values."""
 
     def __init__(self, attribute_name, value_converter=None):
         super().__init__(attribute_name, value_converter)
@@ -455,23 +468,23 @@ class NodeAttributeListProperty(AttributeProperty):
             node.set(self._attribute_name, xml_value)
 
 
-class HandleRefListAttributeProperty(NodeAttributeListProperty):
+class HandleRefListAttributeProperty(_NodeAttributeListPropertyBase):
     pass
 
 
-class EntryRefListAttributeProperty(NodeAttributeListProperty):
+class EntryRefListAttributeProperty(_NodeAttributeListPropertyBase):
     pass
 
 
-class OperationRefListAttributeProperty(NodeAttributeListProperty):
+class OperationRefListAttributeProperty(_NodeAttributeListPropertyBase):
     pass
 
 
-class AlertConditionRefListAttributeProperty(NodeAttributeListProperty):
+class AlertConditionRefListAttributeProperty(_NodeAttributeListPropertyBase):
     pass
 
 
-class DecimalListAttributeProperty(NodeAttributeListProperty):
+class DecimalListAttributeProperty(_NodeAttributeListPropertyBase):
     """ XML representation: an attribute string that represents 0..n decimals, separated with spaces.
         Python representation: List of Decimal if attribute is set (can be an empty list!), otherwise None.
         """
@@ -492,7 +505,8 @@ class DecimalListAttributeProperty(NodeAttributeListProperty):
 
 
 class NodeTextProperty(_NodeProperty):
-    """ The handled data is the text of an element."""
+    """ The handled data is the text of an element.
+    Python representation is a string."""
 
     def __init__(self, sub_element_name=None, default_py_value=None, implied_py_value=None, is_optional=False):
         super().__init__(sub_element_name, default_py_value, implied_py_value, is_optional)
@@ -531,6 +545,7 @@ class NodeTextProperty(_NodeProperty):
 
 
 class NodeEnumTextProperty(NodeTextProperty):
+    """Python representation is an Enum."""
     def __init__(self, enum_cls, sub_element_name, default_py_value=None, implied_py_value=None, is_optional=False):
         super().__init__(sub_element_name, default_py_value, implied_py_value, is_optional)
         self.enum_cls = enum_cls

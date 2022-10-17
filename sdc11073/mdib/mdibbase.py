@@ -487,11 +487,14 @@ class MdibContainer:
     def select_descriptors(self, *codings):
         """ Returns all descriptor containers that match a path defined by list of codings.
         example:
-        ['70041'] returns all containers that have CodedValue = 70041
-        ['70041', '69650'] : returns all descriptors with CodedValue= 69650 and parent descriptor CodedValue = 70041
-        ['70041', '69650', '69651'] : returns all descriptors with CodedValue= 69651 and parent descriptor
-                                      CodedValue = 69650 and parent's parent descriptor CodedValue = 70041
-        It is not necessary that path starts at the top of an mds, it can start anywhere.
+        [Coding('70041')] returns all containers that have Coding('70041') in its Type
+        [Coding('70041'), Coding('69650')] : returns all descriptors with Coding('69650')
+                                     and parent descriptor Coding('70041')
+        [Coding('70041'), Coding('69650'), Coding('69651')] : returns all descriptors with Coding('69651') and
+                                     parent descriptor Coding('69650') and parent's parent descriptor Coding('70041')
+        It is not necessary that path starts at the top of a mds, it can start anywhere.
+        :param *codings: each element can be a string (which is handled as a Coding with DEFAULT_CODING_SYSTEM),
+                         a Coding or a CodedValue
         """
         selected_objects = None
         for coding in codings:
@@ -506,13 +509,11 @@ class MdibContainer:
 
             # normalize coding
             if isinstance(coding, str):
-                coding = CodedValue(coding, DEFAULT_CODING_SYSTEM).coding
-            elif hasattr(coding, 'coding'):
-                coding = coding.coding
+                coding = Coding(coding)
 
             if coding is not None:
                 # apply filter
-                tmp_objects = [o for o in selected_objects if o.coding == coding]
+                tmp_objects = [o for o in selected_objects if o.Type is not None and have_matching_codes(o.Type, coding)]
                 selected_objects = tmp_objects
         return selected_objects
 
@@ -570,8 +571,3 @@ class MdibContainer:
         if descriptor_container is not None:
             all_descriptors = self.get_all_descriptors_in_subtree(descriptor_container)
             self.rm_descriptors_and_states(all_descriptors)
-
-
-_tagname_lookup = {
-    (None, domTag('MdsDescriptor')): domTag('Mds')
-}

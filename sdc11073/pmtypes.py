@@ -285,7 +285,9 @@ class CodedValue(PropertyBasedPMType):
     @property
     def all_codings(self):
         ret = [self.coding]
-        ret.extend([t.coding for t in self.Translation])
+        if self.Translation is not None:
+            ret.extend([t.coding for t in self.Translation])
+        return ret
 
     def __repr__(self):
         if self.CodingSystem is None:
@@ -311,16 +313,14 @@ class CodedValue(PropertyBasedPMType):
 
 
 def have_matching_codes(code_a: Union[CodedValue, Coding], code_b: Union[CodedValue, Coding]):
-    codes_a = set()
-    codes_b = set()
-    for the_set, the_code in [(codes_a, code_a), (codes_b, code_b)]:
-        try:
-            the_set.add(the_code.coding)
-            if the_code.Translation is not None:
-                for tr in the_code.Translation:
-                    the_set.add(tr.coding)
-        except AttributeError:
-            the_set.add(the_code)
+    try:
+        codes_a = set(code_a.all_codings)
+    except AttributeError:
+        codes_a = set([code_a])
+    try:
+        codes_b = set(code_b.all_codings)
+    except AttributeError:
+        codes_b = set([code_b])
     common_codes = codes_a.intersection(codes_b)
     return len(common_codes) > 0
 
@@ -618,8 +618,8 @@ class StringMetricValue(AbstractMetricValue):
 
 class ApplyAnnotation(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    AnnotationIndex = cp.IntegerAttributeProperty('AnnotationIndex', is_optional=False)
-    SampleIndex = cp.IntegerAttributeProperty('SampleIndex', is_optional=False)
+    AnnotationIndex = cp.UnsignedIntAttributeProperty('AnnotationIndex', is_optional=False)
+    SampleIndex = cp.UnsignedIntAttributeProperty('SampleIndex', is_optional=False)
     # pylint: enable=invalid-name
     _props = ['AnnotationIndex', 'SampleIndex']
 

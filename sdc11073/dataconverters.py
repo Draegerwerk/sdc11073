@@ -3,6 +3,9 @@ from decimal import Decimal
 from sdc11073 import isoduration
 
 
+STRICT_INTEGER_ATTRIBUTE = True
+
+
 class NullConverter:
     @staticmethod
     def to_py(xml_value):

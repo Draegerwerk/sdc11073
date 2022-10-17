@@ -507,8 +507,8 @@ class AlertSystemDescriptorContainer(AbstractAlertDescriptorContainer):
     """
     NODETYPE = domTag('AlertSystemDescriptor')
     STATE_QNAME = domTag('AlertSystemState')
-    MaxPhysiologicalParallelAlarms = cp.IntegerAttributeProperty('MaxPhysiologicalParallelAlarms')
-    MaxTechnicalParallelAlarms = cp.IntegerAttributeProperty('MaxTechnicalParallelAlarms')
+    MaxPhysiologicalParallelAlarms = cp.UnsignedIntAttributeProperty('MaxPhysiologicalParallelAlarms')
+    MaxTechnicalParallelAlarms = cp.UnsignedIntAttributeProperty('MaxTechnicalParallelAlarms')
     SelfCheckPeriod = cp.DurationAttributeProperty('SelfCheckPeriod')
     _props = ('MaxPhysiologicalParallelAlarms', 'MaxTechnicalParallelAlarms', 'SelfCheckPeriod')
     _child_elements_order = (domTag('AlertCondition'),
