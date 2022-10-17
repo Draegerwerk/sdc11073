@@ -7,7 +7,7 @@ from . import patientcontextprovider
 from . import providerbase
 from .audiopauseprovider import AudioPauseProvider
 from .. import loghelper
-from .. import namespaces
+from .. import pm_qnames as pm
 
 
 class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
@@ -22,29 +22,29 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
         operation_target_handle = operation_descriptor_container.OperationTarget
         op_target_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
 
-        if operation_descriptor_container.NODETYPE == namespaces.domTag('SetComponentStateOperationDescriptor'):
-            if op_target_descriptor_container.NODETYPE in (namespaces.domTag('MdsDescriptor'),
-                                                           namespaces.domTag('ChannelDescriptor'),
-                                                           namespaces.domTag('VmdDescriptor'),
-                                                           namespaces.domTag('ClockDescriptor'),
-                                                           namespaces.domTag('ScoDescriptor'),
+        if operation_descriptor_container.NODETYPE == pm.SetComponentStateOperationDescriptor:
+            if op_target_descriptor_container.NODETYPE in (pm.MdsDescriptor,
+                                                           pm.ChannelDescriptor,
+                                                           pm.VmdDescriptor,
+                                                           pm.ClockDescriptor,
+                                                           pm.ScoDescriptor,
                                                            ):
-                op_cls = operation_cls_getter(namespaces.domTag('SetComponentStateOperationDescriptor'))
+                op_cls = operation_cls_getter(pm.SetComponentStateOperationDescriptor)
                 operation = self._mk_operation(op_cls,
                                                handle=operation_descriptor_container.Handle,
                                                operation_target_handle=operation_target_handle,
                                                coded_value=operation_descriptor_container.Type,
                                                current_argument_handler=self._set_component_state)
                 return operation
-        elif operation_descriptor_container.NODETYPE == namespaces.domTag('ActivateOperationDescriptor'):
+        elif operation_descriptor_container.NODETYPE == pm.ActivateOperationDescriptor:
             #  on what can activate be called?
-            if op_target_descriptor_container.NODETYPE in (namespaces.domTag('MdsDescriptor'),
-                                                           namespaces.domTag('ChannelDescriptor'),
-                                                           namespaces.domTag('VmdDescriptor'),
-                                                           namespaces.domTag('ScoDescriptor'),
+            if op_target_descriptor_container.NODETYPE in (pm.MdsDescriptor,
+                                                           pm.ChannelDescriptor,
+                                                           pm.VmdDescriptor,
+                                                           pm.ScoDescriptor,
                                                            ):
                 # no generic handler to be called!
-                op_cls = operation_cls_getter(namespaces.domTag('ActivateOperationDescriptor'))
+                op_cls = operation_cls_getter(pm.ActivateOperationDescriptor)
                 return self._mk_operation(op_cls,
                                           handle=operation_descriptor_container.Handle,
                                           operation_target_handle=operation_target_handle,
@@ -101,13 +101,13 @@ class BaseProduct:
 
         # log all operations that do not have a handler now
         all_mdib_ops = []
-        for nodetype in [namespaces.domTag('SetValueOperationDescriptorContainer'),
-                         namespaces.domTag('SetStringOperationDescriptor'),
-                         namespaces.domTag('SetContextStateOperationDescriptorContainer'),
-                         namespaces.domTag('SetMetricStateOperationDescriptorContainer'),
-                         namespaces.domTag('SetComponentStateOperationDescriptorContainer'),
-                         namespaces.domTag('SetAlertStateOperationDescriptorContainer'),
-                         namespaces.domTag('ActivateOperationDescriptorContainer')]:
+        for nodetype in [pm.SetValueOperationDescriptor,
+                         pm.SetStringOperationDescriptor,
+                         pm.SetContextStateOperationDescriptor,
+                         pm.SetMetricStateOperationDescriptor,
+                         pm.SetComponentStateOperationDescriptor,
+                         pm.SetAlertStateOperationDescriptor,
+                         pm.ActivateOperationDescriptor]:
             all_mdib_ops.extend(self._mdib.descriptions.NODETYPE.get(nodetype, []))
         all_mdib_op_handles = [op.Handle for op in all_mdib_ops]
         all_not_registered_op_handles = [op_h for op_h in all_mdib_op_handles if

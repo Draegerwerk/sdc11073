@@ -2,7 +2,7 @@ from . import providerbase
 from .nomenclature import NomenclatureCodes as nc
 from .. import namespaces
 from .. import pmtypes
-
+from .. import pm_qnames as pm
 # coded values for SDC ntp and time zone
 MDC_OP_SET_TIME_SYNC_REF_SRC = pmtypes.CodedValue(nc.MDC_OP_SET_TIME_SYNC_REF_SRC)
 MDC_ACT_SET_TIME_ZONE = pmtypes.CodedValue(nc.MDC_ACT_SET_TIME_ZONE)
@@ -24,10 +24,10 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
     def init_operations(self, mdib):
         super().init_operations(mdib)
         # create a clock descriptor and state if they do not exist in mdib
-        clock_descriptor = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('ClockDescriptor'),
+        clock_descriptor = self._mdib.descriptions.NODETYPE.get_one(pm.ClockDescriptor,
                                                                     allow_none=True)
         if clock_descriptor is None:
-            mds_container = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('MdsDescriptor'))
+            mds_container = self._mdib.descriptions.NODETYPE.get_one(pm.MdsDescriptor)
             clock_descr_handle = 'clock_' + mds_container.Handle
             self._logger.info(f'creating a clock descriptor, handle={clock_descr_handle}')
             clock_descriptor = self._mdib.descriptor_factory.create_clock_descriptor_container(
@@ -67,16 +67,16 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
         with self._mdib.transaction_manager() as mgr:
             # state = mgr.getComponentState(operation_target_handle)
             state = mgr.get_state(operation_target_handle)
-            if state.NODETYPE == namespaces.domTag('MdsState'):
+            if state.NODETYPE == pm.MdsState:
                 mds_handle = state.DescriptorHandle
                 mgr.unget_state(state)
                 # look for the ClockState child
-                clock_descriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'), [])
+                clock_descriptors = self._mdib.descriptions.NODETYPE.get(pm.ClockDescriptor, [])
                 clock_descriptors = [c for c in clock_descriptors if c.parent_handle == mds_handle]
                 if len(clock_descriptors) == 1:
                     # state = mgr.getComponentState(clock_descriptors[0].handle)
                     state = mgr.get_state(clock_descriptors[0].handle)
-            if state.NODETYPE != namespaces.domTag('ClockState'):
+            if state.NODETYPE != pm.ClockState:
                 raise ValueError(f'_set_ntp_string: expected ClockState, got {state.NODETYPE.localname}')
             state.ReferenceSource = [pmtypes.ElementWithTextOnly(value)]
 
@@ -87,16 +87,16 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
         self._logger.info(f'set value {operation_target_handle} from {operation_instance.current_value} to {value}')
         with self._mdib.transaction_manager() as mgr:
             state = mgr.get_state(operation_target_handle)
-            if state.NODETYPE == namespaces.domTag('MdsState'):
+            if state.NODETYPE == pm.MdsState:
                 mds_handle = state.DescriptorHandle
                 mgr.unget_state(state)
                 # look for the ClockState child
-                clock_descriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('ClockDescriptor'), [])
+                clock_descriptors = self._mdib.descriptions.NODETYPE.get(pm.ClockDescriptor, [])
                 clock_descriptors = [c for c in clock_descriptors if c.parent_handle == mds_handle]
                 if len(clock_descriptors) == 1:
                     state = mgr.get_state(clock_descriptors[0].handle)
 
-            if state.NODETYPE != namespaces.domTag('ClockState'):
+            if state.NODETYPE != pm.ClockState:
                 raise RuntimeError(f'_set_ntp_string: expected ClockState, got {state.NODETYPE.localname}')
             state.TimeZone = value
 
@@ -106,10 +106,10 @@ class SDCClockProvider(GenericSDCClockProvider):
 
     def make_missing_operations(self, operation_cls_getter):
         ops = []
-        mds_container = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('MdsDescriptor'))
-        clock_descriptor = self._mdib.descriptions.NODETYPE.get_one(namespaces.domTag('ClockDescriptor'),
+        mds_container = self._mdib.descriptions.NODETYPE.get_one(pm.MdsDescriptor)
+        clock_descriptor = self._mdib.descriptions.NODETYPE.get_one(pm.ClockDescriptor,
                                                                     allow_none=True)
-        set_string_op_cls = operation_cls_getter(namespaces.domTag('SetStringOperationDescriptor'))
+        set_string_op_cls = operation_cls_getter(pm.SetStringOperationDescriptor)
 
         if not self._set_ntp_operations:
             self._logger.info(f'adding "set ntp server" operation, code = {nc.MDC_OP_SET_TIME_SYNC_REF_SRC}')

@@ -1,4 +1,5 @@
 import inspect
+import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional, List, Tuple
@@ -10,14 +11,16 @@ from .containerbase import ContainerBase
 from .. import msgtypes
 from .. import observableproperties as properties
 from .. import pmtypes
-from ..namespaces import domTag, extTag, msgTag, Prefixes
-
+from ..namespaces import Prefixes
+from .. import pm_qnames as pm
+from .. import msg_qnames as msg
+from .. import ext_qnames as ext
 
 @dataclass(frozen=True)
 class ChildDescriptorMapping:
-    """Maps element names to node types. Needed when building an xml tree of descriptors.
+    """Maps element names to node types. Needed when building a xml tree of descriptors.
     The name of a child element is often not identical to the type of a descriptor, e.g. a channel uses
-    domTag('Metric') for all classes derived from AbstractMetricDescriptor. """
+    pm.Metric for all classes derived from AbstractMetricDescriptor. """
     child_qname: etree_.QName
     node_types: Tuple[etree_.QName] = None
 
@@ -45,7 +48,7 @@ def sorted_child_data(obj, member_name):
 
 def make_descriptor_node(descriptor_container, tag, nsmapper, set_xsi_type=True, connect_child_descriptors=False):
     """
-    Creates an lxml etree node from instance data.
+    Creates a lxml etree node from instance data.
     :param descriptor_container: a descriptor container instance
     :param nsmapper:  namespaces.DocNamespaceHelper instance
     :param set_xsi_type: if true, the NODETYPE will be used to set the xsi:type attribute of the node
@@ -99,12 +102,12 @@ class AbstractDescriptorContainer(ContainerBase):
     SafetyClassification = cp.EnumAttributeProperty('SafetyClassification',
                                                     implied_py_value=pmtypes.SafetyClassification.INF,
                                                     enum_cls=pmtypes.SafetyClassification)
-    Type = cp.SubElementProperty(domTag('Type'), value_class=pmtypes.CodedValue)
+    Type = cp.SubElementProperty(pm.Type, value_class=pmtypes.CodedValue)
     # pylint: enable=invalid-name
     _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'Extension', 'Type')
-    _child_elements_order = (extTag('Extension'), domTag('Type'))  # child elements in in BICEPS order
+    _child_elements_order = (ext.Extension, pm.Type)  # child elements in in BICEPS order
     STATE_QNAME = None
-    extension_class_lookup = {msgTag('Retrievability'): msgtypes.Retrievability}
+    extension_class_lookup = {msg.Retrievability: msgtypes.Retrievability}
 
     def __init__(self, handle, parent_handle):
         super().__init__()
@@ -128,12 +131,12 @@ class AbstractDescriptorContainer(ContainerBase):
     def retrievability(self) -> [msgtypes.Retrievability, None]:
         if self.Extension is None:
             return None
-        return self.Extension.value.get(msgTag('Retrievability'))
+        return self.Extension.value.get(msg.Retrievability)
 
     @retrievability.setter
     def retrievability(self, retrievability_instance: msgtypes.Retrievability):
         value = self.Extension.value
-        value[msgTag('Retrievability')] = retrievability_instance
+        value[msg.Retrievability] = retrievability_instance
 
     def increment_descriptor_version(self):
         # pylint: disable=invalid-name
@@ -146,7 +149,7 @@ class AbstractDescriptorContainer(ContainerBase):
     def update_from_other_container(self, other, skipped_properties=None):
         if other.Handle != self.Handle:
             raise ValueError(
-                f'Update from a container with different handle is not possible! ' \
+                f'Update from a container with different handle is not possible! '
                 f'Have "{self.Handle}", got "{other.Handle}"')
         self._update_from_other(other, skipped_properties)
 
@@ -192,7 +195,7 @@ class AbstractDescriptorContainer(ContainerBase):
         :param tag: tag of node
         :param nsmapper: namespaces.DocNamespaceHelper instance
         :param set_xsi_type: if True, adds Type attribute to node
-        :param connect_child_descriptors: if True, the whole sub-tree is included
+        :param connect_child_descriptors: if True, the whole subtree is included
         :return: an etree node
         """
         return make_descriptor_node(self, tag, nsmapper, set_xsi_type, connect_child_descriptors)
@@ -248,121 +251,121 @@ class AbstractDescriptorContainer(ContainerBase):
 class AbstractDeviceComponentDescriptorContainer(AbstractDescriptorContainer):
     is_component_descriptor = True
     is_leaf = False
-    ProductionSpecification = cp.SubElementListProperty(domTag('ProductionSpecification'),
+    ProductionSpecification = cp.SubElementListProperty(pm.ProductionSpecification,
                                                         value_class=pmtypes.ProductionSpecification)
     _props = ('ProductionSpecification',)
-    _child_elements_order = (domTag('ProductionSpecification'),)
+    _child_elements_order = (pm.ProductionSpecification,)
 
 
 class AbstractComplexDeviceComponentDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
-    _child_elements_order = (domTag('AlertSystem'), domTag('Sco'))
+    _child_elements_order = (pm.AlertSystem, pm.Sco)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(domTag('AlertSystem'), (domTag('AlertSystemDescriptor'),)),
-        ChildDescriptorMapping(domTag('Sco'), (domTag('ScoDescriptor'),)))
+        ChildDescriptorMapping(pm.AlertSystem, (pm.AlertSystemDescriptor,)),
+        ChildDescriptorMapping(pm.Sco, (pm.ScoDescriptor,)))
 
 
 class MdsDescriptorContainer(AbstractComplexDeviceComponentDescriptorContainer):
-    NODETYPE = domTag('MdsDescriptor')
-    STATE_QNAME = domTag('MdsState')
+    NODETYPE = pm.MdsDescriptor
+    STATE_QNAME = pm.MdsState
     # pylint: disable=invalid-name
-    MetaData = cp.SubElementProperty(domTag('MetaData'), value_class=pmtypes.MetaData, is_optional=True)
-    ApprovedJurisdictions = cp.SubElementProperty(domTag('ApprovedJurisdictions'),
+    MetaData = cp.SubElementProperty(pm.MetaData, value_class=pmtypes.MetaData, is_optional=True)
+    ApprovedJurisdictions = cp.SubElementProperty(pm.ApprovedJurisdictions,
                                                   value_class=pmtypes.ApprovedJurisdictions,
                                                   is_optional=True)
     # pylint: enable=invalid-name
     _props = ('MetaData', 'ApprovedJurisdictions')
-    _child_elements_order = (domTag('MetaData'),
-                             domTag('SystemContext'),
-                             domTag('Clock'),
-                             domTag('Battery'),
-                             domTag('ApprovedJurisdictions'),
-                             domTag('Vmd'))
+    _child_elements_order = (pm.MetaData,
+                             pm.SystemContext,
+                             pm.Clock,
+                             pm.Battery,
+                             pm.ApprovedJurisdictions,
+                             pm.Vmd)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(domTag('SystemContext'), (domTag('SystemContextDescriptor'),)),
-        ChildDescriptorMapping(domTag('Clock'), (domTag('ClockDescriptor'),)),
-        ChildDescriptorMapping(domTag('Battery'), (domTag('BatteryDescriptor'),)),
-        ChildDescriptorMapping(domTag('Vmd'), (domTag('VmdDescriptor'),)),
+        ChildDescriptorMapping(pm.SystemContext, (pm.SystemContextDescriptor,)),
+        ChildDescriptorMapping(pm.Clock, (pm.ClockDescriptor,)),
+        ChildDescriptorMapping(pm.Battery, (pm.BatteryDescriptor,)),
+        ChildDescriptorMapping(pm.Vmd, (pm.VmdDescriptor,)),
     )
 
 
 class VmdDescriptorContainer(AbstractComplexDeviceComponentDescriptorContainer):
-    NODETYPE = domTag('VmdDescriptor')
-    STATE_QNAME = domTag('VmdState')
+    NODETYPE = pm.VmdDescriptor
+    STATE_QNAME = pm.VmdState
 
-    ApprovedJurisdictions = cp.SubElementProperty(domTag('ApprovedJurisdictions'),
+    ApprovedJurisdictions = cp.SubElementProperty(pm.ApprovedJurisdictions,
                                                   value_class=pmtypes.ApprovedJurisdictions,
                                                   is_optional=True)
     _props = ('ApprovedJurisdictions',)
-    _child_elements_order = (domTag('ApprovedJurisdictions'),
-                             domTag('Channel'),)
+    _child_elements_order = (pm.ApprovedJurisdictions,
+                             pm.Channel,)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(domTag('Channel'), (domTag('ChannelDescriptor'),)),
+        ChildDescriptorMapping(pm.Channel, (pm.ChannelDescriptor,)),
     )
 
 
 class ChannelDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
-    NODETYPE = domTag('ChannelDescriptor')
-    STATE_QNAME = domTag('ChannelState')
-    _child_elements_order = (domTag('Metric'),)
+    NODETYPE = pm.ChannelDescriptor
+    STATE_QNAME = pm.ChannelState
+    _child_elements_order = (pm.Metric,)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(domTag('Metric'), (domTag('NumericMetricDescriptor'),
-                                                  domTag('StringMetricDescriptor'),
-                                                  domTag('EnumStringMetricDescriptor'),
-                                                  domTag('RealTimeSampleArrayMetricDescriptor'),
-                                                  domTag('DistributionSampleArrayMetricDescriptor'),
+        ChildDescriptorMapping(pm.Metric, (pm.NumericMetricDescriptor,
+                                                  pm.StringMetricDescriptor,
+                                                  pm.EnumStringMetricDescriptor,
+                                                  pm.RealTimeSampleArrayMetricDescriptor,
+                                                  pm.DistributionSampleArrayMetricDescriptor,
                                                   )
                                ),
     )
 
 
 class ClockDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
-    NODETYPE = domTag('ClockDescriptor')
-    STATE_QNAME = domTag('ClockState')
+    NODETYPE = pm.ClockDescriptor
+    STATE_QNAME = pm.ClockState
     # pylint: disable=invalid-name
-    TimeProtocol = cp.SubElementListProperty(domTag('TimeProtocol'), value_class=pmtypes.CodedValue)
+    TimeProtocol = cp.SubElementListProperty(pm.TimeProtocol, value_class=pmtypes.CodedValue)
     Resolution = cp.DurationAttributeProperty('Resolution')  # optional,  xsd:duration
     # pylint: enable=invalid-name
     _props = ('TimeProtocol', 'Resolution')
-    _child_elements_order = (domTag('TimeProtocol'),)
+    _child_elements_order = (pm.TimeProtocol,)
 
 
 class BatteryDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
-    NODETYPE = domTag('BatteryDescriptor')
-    STATE_QNAME = domTag('BatteryState')
+    NODETYPE = pm.BatteryDescriptor
+    STATE_QNAME = pm.BatteryState
     # pylint: disable=invalid-name
-    CapacityFullCharge = cp.SubElementProperty(domTag('CapacityFullCharge'),
+    CapacityFullCharge = cp.SubElementProperty(pm.CapacityFullCharge,
                                                value_class=pmtypes.Measurement)  # optional
-    CapacitySpecified = cp.SubElementProperty(domTag('CapacitySpecified'), value_class=pmtypes.Measurement)  # optional
-    VoltageSpecified = cp.SubElementProperty(domTag('VoltageSpecified'), value_class=pmtypes.Measurement)  # optional
+    CapacitySpecified = cp.SubElementProperty(pm.CapacitySpecified, value_class=pmtypes.Measurement)  # optional
+    VoltageSpecified = cp.SubElementProperty(pm.VoltageSpecified, value_class=pmtypes.Measurement)  # optional
     # pylint: enable=invalid-name
     _props = ('CapacityFullCharge', 'CapacitySpecified', 'VoltageSpecified')
-    _child_elements_order = (domTag('CapacityFullCharge'),
-                             domTag('CapacitySpecified'),
-                             domTag('VoltageSpecified'))
+    _child_elements_order = (pm.CapacityFullCharge,
+                             pm.CapacitySpecified,
+                             pm.VoltageSpecified)
 
 
 class ScoDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
-    NODETYPE = domTag('ScoDescriptor')
-    STATE_QNAME = domTag('ScoState')
-    _child_elements_order = (domTag('Operation'),)
+    NODETYPE = pm.ScoDescriptor
+    STATE_QNAME = pm.ScoState
+    _child_elements_order = (pm.Operation,)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(domTag('Operation'), (domTag('SetValueOperationDescriptor'),
-                                                     domTag('SetStringOperationDescriptor'),
-                                                     domTag('SetContextStateOperationDescriptor'),
-                                                     domTag('SetMetricStateOperationDescriptor'),
-                                                     domTag('SetComponentStateOperationDescriptor'),
-                                                     domTag('SetAlertStateOperationDescriptor'),
-                                                     domTag('ActivateOperationDescriptor')
-                                                     )
+        ChildDescriptorMapping(pm.Operation, (pm.SetValueOperationDescriptor,
+                                              pm.SetStringOperationDescriptor,
+                                              pm.SetContextStateOperationDescriptor,
+                                              pm.SetMetricStateOperationDescriptor,
+                                              pm.SetComponentStateOperationDescriptor,
+                                              pm.SetAlertStateOperationDescriptor,
+                                              pm.ActivateOperationDescriptor
+                                              )
                                ),
     )
 
 
 class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
     is_metric_descriptor = True
-    Unit = cp.SubElementProperty(domTag('Unit'), value_class=pmtypes.CodedValue)
-    BodySite = cp.SubElementListProperty(domTag('BodySite'), value_class=pmtypes.CodedValue)
-    Relation = cp.SubElementListProperty(domTag('Relation'), value_class=pmtypes.Relation)  # o...n
+    Unit = cp.SubElementProperty(pm.Unit, value_class=pmtypes.CodedValue)
+    BodySite = cp.SubElementListProperty(pm.BodySite, value_class=pmtypes.CodedValue)
+    Relation = cp.SubElementListProperty(pm.Relation, value_class=pmtypes.Relation)  # o...n
     MetricCategory = cp.EnumAttributeProperty('MetricCategory',
                                               enum_cls=pmtypes.MetricCategory,
                                               default_py_value=pmtypes.MetricCategory.UNSPECIFIED)  # required
@@ -383,56 +386,56 @@ class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
         'Unit', 'BodySite', 'Relation', 'MetricCategory', 'DerivationMethod', 'MetricAvailability',
         'MaxMeasurementTime',
         'MaxDelayTime', 'DeterminationPeriod', 'LifeTimePeriod', 'ActivationDuration')
-    _child_elements_order = (domTag('Unit'),
-                             domTag('BodySite'),
-                             domTag('Relation'))
+    _child_elements_order = (pm.Unit,
+                             pm.BodySite,
+                             pm.Relation)
 
 
 class NumericMetricDescriptorContainer(AbstractMetricDescriptorContainer):
-    NODETYPE = domTag('NumericMetricDescriptor')
-    STATE_QNAME = domTag('NumericMetricState')
-    TechnicalRange = cp.SubElementListProperty(domTag('TechnicalRange'), value_class=pmtypes.Range)
+    NODETYPE = pm.NumericMetricDescriptor
+    STATE_QNAME = pm.NumericMetricState
+    TechnicalRange = cp.SubElementListProperty(pm.TechnicalRange, value_class=pmtypes.Range)
     Resolution = cp.DecimalAttributeProperty('Resolution', is_optional=False)
     AveragingPeriod = cp.DurationAttributeProperty('AveragingPeriod')  # optional
     _props = ('TechnicalRange', 'Resolution', 'AveragingPeriod')
-    _child_elements_order = (domTag('TechnicalRange'),)
+    _child_elements_order = (pm.TechnicalRange,)
 
 
 class StringMetricDescriptorContainer(AbstractMetricDescriptorContainer):
-    NODETYPE = domTag('StringMetricDescriptor')
-    STATE_QNAME = domTag('StringMetricState')
+    NODETYPE = pm.StringMetricDescriptor
+    STATE_QNAME = pm.StringMetricState
 
 
 class EnumStringMetricDescriptorContainer(StringMetricDescriptorContainer):
-    NODETYPE = domTag('EnumStringMetricDescriptor')
-    STATE_QNAME = domTag('EnumStringMetricState')
-    AllowedValue = cp.SubElementListProperty(domTag('AllowedValue'), value_class=pmtypes.AllowedValue)
+    NODETYPE = pm.EnumStringMetricDescriptor
+    STATE_QNAME = pm.EnumStringMetricState
+    AllowedValue = cp.SubElementListProperty(pm.AllowedValue, value_class=pmtypes.AllowedValue)
     _props = ('AllowedValue',)
-    _child_elements_order = (domTag('AllowedValue'),)
+    _child_elements_order = (pm.AllowedValue,)
 
 
 class RealTimeSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorContainer):
     is_realtime_sample_array_metric_descriptor = True
-    NODETYPE = domTag('RealTimeSampleArrayMetricDescriptor')
-    STATE_QNAME = domTag('RealTimeSampleArrayMetricState')
-    TechnicalRange = cp.SubElementListProperty(domTag('TechnicalRange'), value_class=pmtypes.Range)
+    NODETYPE = pm.RealTimeSampleArrayMetricDescriptor
+    STATE_QNAME = pm.RealTimeSampleArrayMetricState
+    TechnicalRange = cp.SubElementListProperty(pm.TechnicalRange, value_class=pmtypes.Range)
     Resolution = cp.DecimalAttributeProperty('Resolution', is_optional=False)
     SamplePeriod = cp.DurationAttributeProperty('SamplePeriod', is_optional=False)
     _props = ('TechnicalRange', 'Resolution', 'SamplePeriod')
-    _child_elements_order = (domTag('TechnicalRange'),)
+    _child_elements_order = (pm.TechnicalRange,)
 
 
 class DistributionSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorContainer):
-    NODETYPE = domTag('DistributionSampleArrayMetricDescriptor')
-    STATE_QNAME = domTag('DistributionSampleArrayMetricState')
-    TechnicalRange = cp.SubElementListProperty(domTag('TechnicalRange'), value_class=pmtypes.Range)
-    DomainUnit = cp.SubElementProperty(domTag('DomainUnit'), value_class=pmtypes.CodedValue)
-    DistributionRange = cp.SubElementProperty(domTag('DistributionRange'), value_class=pmtypes.Range)
+    NODETYPE = pm.DistributionSampleArrayMetricDescriptor
+    STATE_QNAME = pm.DistributionSampleArrayMetricState
+    TechnicalRange = cp.SubElementListProperty(pm.TechnicalRange, value_class=pmtypes.Range)
+    DomainUnit = cp.SubElementProperty(pm.DomainUnit, value_class=pmtypes.CodedValue)
+    DistributionRange = cp.SubElementProperty(pm.DistributionRange, value_class=pmtypes.Range)
     Resolution = cp.DecimalAttributeProperty('Resolution', is_optional=False)
     _props = ('TechnicalRange', 'DomainUnit', 'DistributionRange', 'Resolution')
-    _child_elements_order = (domTag('TechnicalRange'),
-                             domTag('DomainUnit'),
-                             domTag('DistributionRange'))
+    _child_elements_order = (pm.TechnicalRange,
+                             pm.DomainUnit,
+                             pm.DistributionRange)
 
 
 class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
@@ -447,49 +450,49 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
 
 
 class SetValueOperationDescriptorContainer(AbstractOperationDescriptorContainer):
-    NODETYPE = domTag('SetValueOperationDescriptor')
-    STATE_QNAME = domTag('SetValueOperationState')
+    NODETYPE = pm.SetValueOperationDescriptor
+    STATE_QNAME = pm.SetValueOperationState
 
 
 class SetStringOperationDescriptorContainer(AbstractOperationDescriptorContainer):
-    NODETYPE = domTag('SetStringOperationDescriptor')
-    STATE_QNAME = domTag('SetStringOperationState')
+    NODETYPE = pm.SetStringOperationDescriptor
+    STATE_QNAME = pm.SetStringOperationState
     MaxLength = cp.IntegerAttributeProperty('MaxLength')
     _props = ('MaxLength',)
 
 
 class AbstractSetStateOperationDescriptor(AbstractOperationDescriptorContainer):
-    ModifiableData = cp.SubElementTextListProperty(domTag('ModifiableData'))
+    ModifiableData = cp.SubElementTextListProperty(pm.ModifiableData)
     _props = ('ModifiableData',)
-    _child_elements_order = (domTag('ModifiableData'),)
+    _child_elements_order = (pm.ModifiableData,)
 
 
 class SetContextStateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
-    NODETYPE = domTag('SetContextStateOperationDescriptor')
-    STATE_QNAME =domTag('SetContextStateOperationState')
+    NODETYPE = pm.SetContextStateOperationDescriptor
+    STATE_QNAME = pm.SetContextStateOperationState
 
 
 class SetMetricStateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
-    NODETYPE = domTag('SetMetricStateOperationDescriptor')
-    STATE_QNAME = domTag('SetMetricStateOperationState')
+    NODETYPE = pm.SetMetricStateOperationDescriptor
+    STATE_QNAME = pm.SetMetricStateOperationState
 
 
 class SetComponentStateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
-    NODETYPE = domTag('SetComponentStateOperationDescriptor')
-    STATE_QNAME = domTag('SetComponentStateOperationState')
+    NODETYPE = pm.SetComponentStateOperationDescriptor
+    STATE_QNAME = pm.SetComponentStateOperationState
 
 
 class SetAlertStateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
-    NODETYPE = domTag('SetAlertStateOperationDescriptor')
-    STATE_QNAME =domTag('SetAlertStateOperationState')
+    NODETYPE = pm.SetAlertStateOperationDescriptor
+    STATE_QNAME = pm.SetAlertStateOperationState
 
 
 class ActivateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
-    NODETYPE = domTag('ActivateOperationDescriptor')
-    STATE_QNAME = domTag('ActivateOperationState')
-    Argument = cp.SubElementListProperty(domTag('Argument'), value_class=pmtypes.ActivateOperationDescriptorArgument)
+    NODETYPE = pm.ActivateOperationDescriptor
+    STATE_QNAME = pm.ActivateOperationState
+    Argument = cp.SubElementListProperty(pm.Argument, value_class=pmtypes.ActivateOperationDescriptorArgument)
     _props = ('Argument',)
-    _child_elements_order = (domTag('Argument'),)
+    _child_elements_order = (pm.Argument,)
 
 
 class AbstractAlertDescriptorContainer(AbstractDescriptorContainer):
@@ -505,20 +508,20 @@ class AlertSystemDescriptorContainer(AbstractAlertDescriptorContainer):
     ALERT CONDITIONs are represented by a list of pm:AlertConditionDescriptor ELEMENTs and
     ALERT SIGNALs are represented by a list of pm:AlertSignalDescriptor ELEMENTs.
     """
-    NODETYPE = domTag('AlertSystemDescriptor')
-    STATE_QNAME = domTag('AlertSystemState')
+    NODETYPE = pm.AlertSystemDescriptor
+    STATE_QNAME = pm.AlertSystemState
     MaxPhysiologicalParallelAlarms = cp.UnsignedIntAttributeProperty('MaxPhysiologicalParallelAlarms')
     MaxTechnicalParallelAlarms = cp.UnsignedIntAttributeProperty('MaxTechnicalParallelAlarms')
     SelfCheckPeriod = cp.DurationAttributeProperty('SelfCheckPeriod')
     _props = ('MaxPhysiologicalParallelAlarms', 'MaxTechnicalParallelAlarms', 'SelfCheckPeriod')
-    _child_elements_order = (domTag('AlertCondition'),
-                             domTag('AlertSignal'))
+    _child_elements_order = (pm.AlertCondition,
+                             pm.AlertSignal)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(domTag('AlertCondition'), (domTag('AlertConditionDescriptor'),
-                                                          domTag('LimitAlertConditionDescriptor')
+        ChildDescriptorMapping(pm.AlertCondition, (pm.AlertConditionDescriptor,
+                                                   pm.LimitAlertConditionDescriptor
                                                           )
                                ),
-        ChildDescriptorMapping(domTag('AlertSignal'), (domTag('AlertSignalDescriptor'),)),
+        ChildDescriptorMapping(pm.AlertSignal, (pm.AlertSignalDescriptor,)),
     )
 
 
@@ -526,10 +529,10 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
     """An ALERT CONDITION contains the information about a potentially or actually HAZARDOUS SITUATION.
       Examples: a physiological alarm limit has been exceeded or a sensor has been unplugged."""
     is_alert_condition_descriptor = True
-    NODETYPE = domTag('AlertConditionDescriptor')
-    STATE_QNAME = domTag('AlertConditionState')
-    Source = cp.SubElementHandleRefListProperty(domTag('Source'))  # a list of 0...n pm:HandleRef elements
-    CauseInfo = cp.SubElementListProperty(domTag('CauseInfo'), value_class=pmtypes.CauseInfo)
+    NODETYPE = pm.AlertConditionDescriptor
+    STATE_QNAME = pm.AlertConditionState
+    Source = cp.SubElementHandleRefListProperty(pm.Source)  # a list of 0...n pm:HandleRef elements
+    CauseInfo = cp.SubElementListProperty(pm.CauseInfo, value_class=pmtypes.CauseInfo)
     Kind = cp.EnumAttributeProperty('Kind', default_py_value=pmtypes.AlertConditionKind.OTHER,
                                     enum_cls=pmtypes.AlertConditionKind, is_optional=False)
     Priority = cp.EnumAttributeProperty('Priority', default_py_value=pmtypes.AlertConditionPriority.NONE,
@@ -540,23 +543,23 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
     CanDeescalate = cp.EnumAttributeProperty('CanDeescalate', enum_cls=pmtypes.CanDeEscalateAlertConditionPriority)
     _props = ('Source', 'CauseInfo', 'Kind', 'Priority', 'DefaultConditionGenerationDelay',
               'CanEscalate', 'CanDeescalate')
-    _child_elements_order = (domTag('Source'),
-                             domTag('CauseInfo'))
+    _child_elements_order = (pm.Source,
+                             pm.CauseInfo)
 
 
 class LimitAlertConditionDescriptorContainer(AlertConditionDescriptorContainer):
-    NODETYPE = domTag('LimitAlertConditionDescriptor')
-    STATE_QNAME =domTag('LimitAlertConditionState')
-    MaxLimits = cp.SubElementProperty(domTag('MaxLimits'), value_class=pmtypes.Range, default_py_value=pmtypes.Range())
+    NODETYPE = pm.LimitAlertConditionDescriptor
+    STATE_QNAME = pm.LimitAlertConditionState
+    MaxLimits = cp.SubElementProperty(pm.MaxLimits, value_class=pmtypes.Range, default_py_value=pmtypes.Range())
     AutoLimitSupported = cp.BooleanAttributeProperty('AutoLimitSupported', implied_py_value=False)
     _props = ('MaxLimits', 'AutoLimitSupported',)
-    _child_elements_order = (domTag('MaxLimits'),)
+    _child_elements_order = (pm.MaxLimits,)
 
 
 class AlertSignalDescriptorContainer(AbstractAlertDescriptorContainer):
     is_alert_signal_descriptor = True
-    NODETYPE = domTag('AlertSignalDescriptor')
-    STATE_QNAME = domTag('AlertSignalState')
+    NODETYPE = pm.AlertSignalDescriptor
+    STATE_QNAME = pm.AlertSignalState
     ConditionSignaled = cp.HandleRefAttributeProperty('ConditionSignaled')
     Manifestation = cp.EnumAttributeProperty('Manifestation', enum_cls=pmtypes.AlertSignalManifestation,
                                              is_optional=False)
@@ -574,21 +577,21 @@ class AlertSignalDescriptorContainer(AbstractAlertDescriptorContainer):
 
 class SystemContextDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     is_system_context_descriptor = True
-    NODETYPE = domTag('SystemContextDescriptor')
-    STATE_QNAME = domTag('SystemContextState')
-    _child_elements_order = (domTag('PatientContext'),
-                             domTag('LocationContext'),
-                             domTag('EnsembleContext'),
-                             domTag('OperatorContext'),
-                             domTag('WorkflowContext'),
-                             domTag('MeansContext'))
+    NODETYPE =  pm.SystemContextDescriptor
+    STATE_QNAME = pm.SystemContextState
+    _child_elements_order = (pm.PatientContext,
+                             pm.LocationContext,
+                             pm.EnsembleContext,
+                             pm.OperatorContext,
+                             pm.WorkflowContext,
+                             pm.MeansContext)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(domTag('PatientContext'), (domTag('PatientContextDescriptor'),)),
-        ChildDescriptorMapping(domTag('LocationContext'), (domTag('LocationContextDescriptor'),)),
-        ChildDescriptorMapping(domTag('EnsembleContext'), (domTag('EnsembleContextDescriptor'),)),
-        ChildDescriptorMapping(domTag('OperatorContext'), (domTag('OperatorContextDescriptor'),)),
-        ChildDescriptorMapping(domTag('WorkflowContext'), (domTag('WorkflowContextDescriptor'),)),
-        ChildDescriptorMapping(domTag('MeansContext'), (domTag('MeansContextDescriptor'),)),
+        ChildDescriptorMapping(pm.PatientContext, (pm.PatientContextDescriptor,)),
+        ChildDescriptorMapping(pm.LocationContext, (pm.LocationContextDescriptor,)),
+        ChildDescriptorMapping(pm.EnsembleContext, (pm.EnsembleContextDescriptor,)),
+        ChildDescriptorMapping(pm.OperatorContext, (pm.OperatorContextDescriptor,)),
+        ChildDescriptorMapping(pm.WorkflowContext, (pm.WorkflowContextDescriptor,)),
+        ChildDescriptorMapping(pm.MeansContext, (pm.MeansContextDescriptor,)),
     )
 
 
@@ -597,83 +600,62 @@ class AbstractContextDescriptorContainer(AbstractDescriptorContainer):
 
 
 class PatientContextDescriptorContainer(AbstractContextDescriptorContainer):
-    NODETYPE = domTag('PatientContextDescriptor')
-    STATE_QNAME = domTag('PatientContextState')
+    NODETYPE = pm.PatientContextDescriptor
+    STATE_QNAME = pm.PatientContextState
 
 
 class LocationContextDescriptorContainer(AbstractContextDescriptorContainer):
-    NODETYPE = domTag('LocationContextDescriptor')
-    STATE_QNAME = domTag('LocationContextState')
+    NODETYPE = pm.LocationContextDescriptor
+    STATE_QNAME = pm.LocationContextState
 
 
 class WorkflowContextDescriptorContainer(AbstractContextDescriptorContainer):
-    NODETYPE = domTag('WorkflowContextDescriptor')
-    STATE_QNAME = domTag('WorkflowContextState')
+    NODETYPE = pm.WorkflowContextDescriptor
+    STATE_QNAME = pm.WorkflowContextState
 
 
 class OperatorContextDescriptorContainer(AbstractContextDescriptorContainer):
-    NODETYPE = domTag('OperatorContextDescriptor')
-    STATE_QNAME = domTag('OperatorContextState')
+    NODETYPE = pm.OperatorContextDescriptor
+    STATE_QNAME = pm.OperatorContextState
 
 
 class MeansContextDescriptorContainer(AbstractContextDescriptorContainer):
-    NODETYPE = domTag('MeansContextDescriptor')
-    STATE_QNAME = domTag('MeansContextState')
+    NODETYPE = pm.MeansContextDescriptor
+    STATE_QNAME = pm.MeansContextState
 
 
 class EnsembleContextDescriptorContainer(AbstractContextDescriptorContainer):
-    NODETYPE = domTag('EnsembleContextDescriptor')
-    STATE_QNAME = domTag('EnsembleContextState')
+    NODETYPE = pm.EnsembleContextDescriptor
+    STATE_QNAME = pm.EnsembleContextState
 
 
-_name_class_lookup = {
-    domTag('Battery'): BatteryDescriptorContainer,
-    domTag('BatteryDescriptor'): BatteryDescriptorContainer,
-    domTag('Mds'): MdsDescriptorContainer,
-    domTag('MdsDescriptor'): MdsDescriptorContainer,
-    domTag('Vmd'): VmdDescriptorContainer,
-    domTag('VmdDescriptor'): VmdDescriptorContainer,
-    domTag('Sco'): ScoDescriptorContainer,
-    domTag('ScoDescriptor'): ScoDescriptorContainer,
-    domTag('Channel'): ChannelDescriptorContainer,
-    domTag('ChannelDescriptor'): ChannelDescriptorContainer,
-    domTag('Clock'): ClockDescriptorContainer,
-    domTag('ClockDescriptor'): ClockDescriptorContainer,
-    domTag('SystemContext'): SystemContextDescriptorContainer,
-    domTag('SystemContextDescriptor'): SystemContextDescriptorContainer,
-    domTag('PatientContext'): PatientContextDescriptorContainer,
-    domTag('LocationContext'): LocationContextDescriptorContainer,
-    domTag('PatientContextDescriptor'): PatientContextDescriptorContainer,
-    domTag('LocationContextDescriptor'): LocationContextDescriptorContainer,
-    domTag('WorkflowContext'): WorkflowContextDescriptorContainer,
-    domTag('WorkflowContextDescriptor'): WorkflowContextDescriptorContainer,
-    domTag('OperatorContext'): OperatorContextDescriptorContainer,
-    domTag('OperatorContextDescriptor'): OperatorContextDescriptorContainer,
-    domTag('MeansContext'): MeansContextDescriptorContainer,
-    domTag('MeansContextDescriptor'): MeansContextDescriptorContainer,
-    domTag('EnsembleContext'): EnsembleContextDescriptorContainer,
-    domTag('EnsembleContextDescriptor'): EnsembleContextDescriptorContainer,
-    domTag('AlertSystem'): AlertSystemDescriptorContainer,
-    domTag('AlertSystemDescriptor'): AlertSystemDescriptorContainer,
-    domTag('AlertCondition'): AlertConditionDescriptorContainer,
-    domTag('AlertConditionDescriptor'): AlertConditionDescriptorContainer,
-    domTag('AlertSignal'): AlertSignalDescriptorContainer,
-    domTag('AlertSignalDescriptor'): AlertSignalDescriptorContainer,
-    domTag('StringMetricDescriptor'): StringMetricDescriptorContainer,
-    domTag('EnumStringMetricDescriptor'): EnumStringMetricDescriptorContainer,
-    domTag('NumericMetricDescriptor'): NumericMetricDescriptorContainer,
-    domTag('RealTimeSampleArrayMetricDescriptor'): RealTimeSampleArrayMetricDescriptorContainer,
-    domTag('DistributionSampleArrayMetricDescriptor'): DistributionSampleArrayMetricDescriptorContainer,
-    domTag('LimitAlertConditionDescriptor'): LimitAlertConditionDescriptorContainer,
-    domTag('SetValueOperationDescriptor'): SetValueOperationDescriptorContainer,
-    domTag('SetStringOperationDescriptor'): SetStringOperationDescriptorContainer,
-    domTag('ActivateOperationDescriptor'): ActivateOperationDescriptorContainer,
-    domTag('SetContextStateOperationDescriptor'): SetContextStateOperationDescriptorContainer,
-    domTag('SetMetricStateOperationDescriptor'): SetMetricStateOperationDescriptorContainer,
-    domTag('SetComponentStateOperationDescriptor'): SetComponentStateOperationDescriptorContainer,
-    domTag('SetAlertStateOperationDescriptor'): SetAlertStateOperationDescriptorContainer,
+_classes = inspect.getmembers(sys.modules[__name__],
+                             lambda member: inspect.isclass(member) and member.__module__ == __name__)
+_classes_with_NODETYPE = [c[1] for c in _classes if hasattr(c[1], 'NODETYPE') and c[1].NODETYPE is not None]
+# make a dictionary from found classes: (Key is NODETYPE, value is the class itself
+# _state_lookup_by_type = dict([(c.NODETYPE, c) for c in classes_with_NODETYPE])
+_name_class_lookup = {c.NODETYPE: c for c in _classes_with_NODETYPE}
+
+
+_name_class_xtra_lookup = {
+    pm.Battery: BatteryDescriptorContainer,
+    pm.Mds: MdsDescriptorContainer,
+    pm.Vmd: VmdDescriptorContainer,
+    pm.Sco: ScoDescriptorContainer,
+    pm.Channel: ChannelDescriptorContainer,
+    pm.Clock: ClockDescriptorContainer,
+    pm.SystemContext: SystemContextDescriptorContainer,
+    pm.PatientContext: PatientContextDescriptorContainer,
+    pm.LocationContext: LocationContextDescriptorContainer,
+    pm.WorkflowContext: WorkflowContextDescriptorContainer,
+    pm.OperatorContext: OperatorContextDescriptorContainer,
+    pm.MeansContext: MeansContextDescriptorContainer,
+    pm.EnsembleContext: EnsembleContextDescriptorContainer,
+    pm.AlertSystem: AlertSystemDescriptorContainer,
+    pm.AlertCondition: AlertConditionDescriptorContainer,
+    pm.AlertSignal: AlertSignalDescriptorContainer,
 }
-
+_name_class_lookup.update(_name_class_xtra_lookup)
 
 def get_container_class(qname):
     """

@@ -15,16 +15,17 @@ from .. import namespaces
 from ..dataconverters import TimestampConverter, DecimalConverter, IntegerConverter, BooleanConverter, \
     DurationConverter, NullConverter
 from ..namespaces import QN_TYPE, docname_from_qname, text_to_qname
+from .. import ext_qnames as ext
 
 # The STRICT_ENUM_ATTRIBUTE constant allows to change the global behavior regarding enumeration types:
 # if STRICT_ENUM_ATTRIBUTE is True, EnumAttributeProperty instances will only accept enum values of correct type
-# ( Or None if allowed). Otherwise every value is accepted.
+# ( Or None if allowed). Otherwise, every value is accepted.
 STRICT_ENUM_ATTRIBUTE = True
 
 # The STRICT_DECIMAL_ATTRIBUTE constant allows to change the global behavior regarding Decimal types:
 # if STRICT_DECIMAL_ATTRIBUTE is True, DecimalAttributeProperty and DecimalListAttributeProperty instances will only
-# accept decimal.Decimal values or None. Otherwise no type checking in __set__ is performed
-# ( Or None if allowed). Otherwise every value is accepted.
+# accept decimal.Decimal values or None. Otherwise, no type checking in __set__ is performed
+# ( Or None if allowed). Otherwise, every value is accepted.
 STRICT_DECIMAL_ATTRIBUTE = True
 
 
@@ -43,10 +44,12 @@ class _PropertyBase:
 
     def __init__(self, default_py_value=None, implied_py_value=None, is_optional=False):
         """
-        :param default_py_value: initial value when initialized (should be set for mandatory elements, otherwise created xml might violate schema)
+        :param default_py_value: initial value when initialized
+                                 (should be set for mandatory elements, otherwise created xml might violate schema)
                                  and if the xml element does not exist.
-        :param implied_py_value: for optional elements, this is the value that shall be implied if xml element does not exist
-                                 this value is for information only! Access only via class possible.
+        :param implied_py_value: for optional elements, this is the value that shall be implied if
+                                 xml element does not exist.
+                                 This value is for information only! Access only via class possible.
         :param is_optional: reflects if this element is optional in schema
         """
         self._default_py_value = default_py_value
@@ -213,7 +216,7 @@ class _NodeProperty(_PropertyBase):
             node.remove(sub_node)
 
     def __str__(self):
-        return f'{self.__class__.__name__} in subelement {self._sub_element_name}'
+        return f'{self.__class__.__name__} in sub element {self._sub_element_name}'
 
 
 class StringAttributeProperty(_AttributePropertyBase):
@@ -485,7 +488,7 @@ class AlertConditionRefListAttributeProperty(_NodeAttributeListPropertyBase):
 
 
 class DecimalListAttributeProperty(_NodeAttributeListPropertyBase):
-    """ XML representation: an attribute string that represents 0..n decimals, separated with spaces.
+    """ XML representation: an attribute string that represents 0...n decimals, separated with spaces.
         Python representation: List of Decimal if attribute is set (can be an empty list!), otherwise None.
         """
 
@@ -611,7 +614,7 @@ class ExtensionNodeProperty(_NodeProperty):
 
     def __init__(self, sub_element_name=None, default_py_value=None):
         if sub_element_name is None:
-            sub_element_name = namespaces.extTag('Extension')
+            sub_element_name = ext.Extension
         super().__init__(sub_element_name, default_py_value, is_optional=True, local_var_prefix='ext')
 
     def __get__(self, instance, owner):

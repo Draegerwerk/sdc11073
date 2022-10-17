@@ -7,8 +7,9 @@ from lxml import etree as etree_
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.location import SdcLocation
 from sdc11073.namespaces import Prefixes
-from sdc11073.namespaces import msgTag, domTag, nsmap
+from sdc11073.namespaces import msgTag, nsmap
 from sdc11073.pmtypes import AlertConditionPriority
+from sdc11073 import pm_qnames as pm
 from sdc11073.pysoap.soapenvelope import Soap12Envelope
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.addressing import Address
@@ -149,10 +150,10 @@ class TestDeviceServices(unittest.TestCase):
                                         _ns.doc_name(Prefixes.PM, 'LocationContextState'))
         locationContextNodes = response.p_msg.payload_element.xpath(query, namespaces=_ns.doc_ns_map)
         self.assertEqual(len(locationContextNodes), 1)
-        identificationNode = locationContextNodes[0].find(domTag('Identification'))
+        identificationNode = locationContextNodes[0].find(pm.Identification)
         self.assertEqual(identificationNode.get('Extension'), '{}///{}//{}'.format(facility, poc, bed))
 
-        locationDetailNode = locationContextNodes[0].find(domTag('LocationDetail'))
+        locationDetailNode = locationContextNodes[0].find(pm.LocationDetail)
         self.assertEqual(locationDetailNode.get('PoC'), poc)
         self.assertEqual(locationDetailNode.get('Bed'), bed)
         self.assertEqual(locationDetailNode.get('Facility'), facility)

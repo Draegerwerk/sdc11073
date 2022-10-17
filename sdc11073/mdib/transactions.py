@@ -3,7 +3,7 @@ from collections import OrderedDict, namedtuple
 from functools import wraps
 from typing import Optional
 
-from ..namespaces import domTag
+from .. import pm_qnames as pm
 
 TrItem = namedtuple('TrItem', 'old new')  # a named tuple for better readability of code
 
@@ -211,7 +211,7 @@ class MdibUpdateTransaction(_TransactionBase):
         elif state_container.isContextState:
             my_updates = self.context_state_updates
             my_multi_key = self._device_mdib_container.context_states
-        elif state_container.NODETYPE == domTag('ScoState'):
+        elif state_container.NODETYPE == pm.ScoState:
             # special case ScoState Draft6: cannot notify updates, it is a category of its own that does not fit anywhere
             # This is a bug in the spec, not in this implementation!
             return
@@ -301,7 +301,7 @@ class MdibUpdateTransaction(_TransactionBase):
                          adjust_state_version: Optional[bool] = True):
         """ Create a new ContextState.
         If context_state_handle is None, a unique handle will be created.
-        if context_state_handle is not None and it already exists in mdib, a ValueError will be thrown.
+        if context_state_handle is not None, and it already exists in mdib, a ValueError will be thrown.
         When the transaction is committed, the new state will be added to the mdib,
         and notification messages will be sent to clients.
         :param descriptor_handle: the DescriptorHandle of the object that shall be read
@@ -422,7 +422,7 @@ class TransactionProcessor:
             to_be_deleted_handles = [d.Handle for d in to_be_deleted]
             to_be_created_handles = [d.Handle for d in to_be_created]
             # handling only updated states here: If a descriptor is created, it can be assumed that the
-            # application also creates the state in an transaction.
+            # application also creates the state in a transaction.
             # The state will then be transported via that notification report.
             # Maybe this needs to be reworked, but at the time of this writing it seems fine.
             for tr_item in mgr.descriptor_updates.values():
@@ -502,7 +502,7 @@ class TransactionProcessor:
         """ Updates mdib table and returns a list of states to be sent
 
         :param mgr_state_updates_dict: updates in transaction
-        :param table: if None
+        :param is_context_states_update: bool
         :return: list of states to be sent in notification
         """
         table = self._mdib.context_states if is_context_states_update else self._mdib.states
@@ -516,7 +516,7 @@ class TransactionProcessor:
 
     def _update_corresponding_state(self, descriptor_container):
         # add state to updated_states list and to corresponding notifications input
-        # => the state is always sent twice, a) in the description modification report and b)
+        # => the state is always sent twice, (a) in the description modification report and (b)
         # in the specific state update notification.
         if descriptor_container.is_alert_descriptor:
             update_dict = self._mgr.alert_state_updates

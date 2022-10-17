@@ -9,8 +9,8 @@ from sdc11073.dpws import ThisDeviceType, ThisModelType
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.mdib.clientmdib import ClientMdibContainer
-from sdc11073.namespaces import domTag
 from sdc11073.pmtypes import CodedValue
+from sdc11073 import pm_qnames as pm
 from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.sdcclient import SdcClient
@@ -169,7 +169,7 @@ class Test_Tutorial(unittest.TestCase):
         # mdib has three lookups: descriptions, states and context_states
         # each lookup can be searched by different keeys,
         # e.g looking for a descriptor by type looks like this:
-        locationContextDescriptorContainers = myMdib.descriptions.NODETYPE.get(domTag('LocationContextDescriptor'))
+        locationContextDescriptorContainers = myMdib.descriptions.NODETYPE.get(pm.LocationContextDescriptor)
         self.assertEqual(len(locationContextDescriptorContainers), 1)
         # we can look for the corresponding state by handle:
         locationContextStateContainers = myMdib.context_states.descriptorHandle.get(
@@ -203,10 +203,10 @@ class Test_Tutorial(unittest.TestCase):
 
         # we want to set a patient.
         # first we must find the operation that has PatientContextDescriptor as operation target
-        patientContextDescriptorContainers = myMdib.descriptions.NODETYPE.get(domTag('PatientContextDescriptor'))
+        patientContextDescriptorContainers = myMdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor)
         self.assertEqual(len(patientContextDescriptorContainers), 1)
         myPatientContextDescriptorContainer = patientContextDescriptorContainers[0]
-        all_operations = myMdib.descriptions.NODETYPE.get(domTag('SetContextStateOperationDescriptor'), [])
+        all_operations = myMdib.descriptions.NODETYPE.get(pm.SetContextStateOperationDescriptor, [])
         my_operations = [op for op in all_operations if
                          op.OperationTarget == myPatientContextDescriptorContainer.Handle]
         self.assertEqual(len(my_operations), 1)

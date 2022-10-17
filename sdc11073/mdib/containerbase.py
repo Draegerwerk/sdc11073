@@ -10,7 +10,7 @@ from ..namespaces import QN_TYPE
 
 
 class ContainerBase:
-    NODETYPE = None  # overwrite in derived classes! determines the value of xsi:Type attribute, must be a etree_.QName object
+    NODETYPE = None  # overwrite in derived classes! determines the value of xsi:Type attribute, must be an etree_.QName object
     node = properties.ObservableProperty()
 
     # every class with container properties must provide a list of property names.

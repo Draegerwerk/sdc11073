@@ -1,7 +1,7 @@
 from . import providerbase
 from .nomenclature import NomenclatureCodes as nc
 from .. import pmtypes
-from ..namespaces import domTag
+from .. import pm_qnames as pm
 
 # coded values for SDC audio pause
 MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE = pmtypes.CodedValue(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
@@ -40,34 +40,6 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
             return cancel_ap_operation
         return None
 
-    # def make_missing_operations(self, operations_factory):
-    #     ops = []
-    #     operation_target_container = self._mdib.descriptions.NODETYPE.get_one(
-    #         domTag('MdsDescriptor'))  # the operation target is the mds itself
-    #     activate_op_cls = operations_factory(domTag('ActivateOperationDescriptor'))
-    #     if not self._set_global_audio_pause_operations:
-    #         self._logger.info('adding "set audio pause" operation, no descriptor in mdib (looked for code = {})'.format(
-    #             nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE))
-    #         set_ap_operation = self._mk_operation(activate_op_cls,
-    #                                               handle='AP__ON',
-    #                                               operation_target_handle=operation_target_container.handle,
-    #                                               coded_value=MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE,
-    #                                               current_request_handler=self._set_global_audio_pause)
-    #         self._set_global_audio_pause_operations.append(set_ap_operation)
-    #         ops.append(set_ap_operation)
-    #     if not self._cancel_global_audio_pause_operations:
-    #         self._logger.info(
-    #             'adding "cancel audio pause" operation, no descriptor in mdib (looked for code = {})'.format(
-    #                 nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE))
-    #         cancel_ap_operation = self._mk_operation(activate_op_cls,
-    #                                                  handle='AP__CANCEL',
-    #                                                  operation_target_handle=operation_target_container.handle,
-    #                                                  coded_value=MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE,
-    #                                                  current_request_handler=self._cancel_global_audio_pause)
-    #         ops.append(cancel_ap_operation)
-    #         self._set_global_audio_pause_operations.append(cancel_ap_operation)
-    #     return ops
-
     def _set_global_audio_pause(self, operation_instance, request):  # pylint: disable=unused-argument
         """ This is the code that executes the operation itself:
         SF1132: If global audio pause is initiated, all SystemSignalActivation/State for all alarm systems of the
@@ -79,7 +51,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
         SF959: If signal pause is initiated for an ACKNOWLEDGEABLE ALERT SIGNAL, the the Alert Provider shall set the
         AlertSignalState/ActivationState to 'Psd' and AlertSignalState/Presence to 'Ack' for that ALERT SIGNAL.
          """
-        alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSystemDescriptor'))
+        alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
         if alert_system_descriptors is None:
             self._logger.error('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
             return
@@ -104,7 +76,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
                             f'SetAudioPauseOperation: set alert system "{alert_system_descriptor.Handle}" to paused')
                         # handle all audible alert signals of this alert system
                         all_alert_signal_descriptors = self._mdib.descriptions.NODETYPE.get(
-                            domTag('AlertSignalDescriptor'), [])
+                            pm.AlertSignalDescriptor, [])
                         child_alert_signal_descriptors = [d for d in all_alert_signal_descriptors if
                                                           d.parent_handle == alert_system_descriptor.Handle]
                         audible_child_alert_signal_descriptors = [d for d in child_alert_signal_descriptors if
@@ -131,7 +103,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
         If global audio pause is initiated, all SystemSignalActivation/State for all alarm systems of the product with
         SystemSignalActivation/Manifestation evaluating to 'Aud' shall be set to 'Psd'.
          """
-        alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSystemDescriptor'))
+        alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
         with self._mdib.transaction_manager() as mgr:
             for alert_system_descriptor in alert_system_descriptors:
                 alert_system_state = mgr.get_state(alert_system_descriptor.Handle)
@@ -152,7 +124,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
                             f'SetAudioPauseOperation: set alert system "{alert_system_descriptor.Handle}" to ON')
                         # handle all audible alert signals of this alert system
                         all_alert_signal_descriptors = self._mdib.descriptions.NODETYPE.get(
-                            domTag('AlertSignalDescriptor'), [])
+                            pm.AlertSignalDescriptor, [])
                         child_alert_signal_descriptors = [d for d in all_alert_signal_descriptors if
                                                           d.parent_handle == alert_system_descriptor.Handle]
                         audible_child_alert_signal_descriptors = [d for d in child_alert_signal_descriptors if
@@ -176,8 +148,8 @@ class AudioPauseProvider(GenericAudioPauseProvider):
     def make_missing_operations(self, operation_cls_getter):
         ops = []
         operation_target_container = self._mdib.descriptions.NODETYPE.get_one(
-            domTag('MdsDescriptor'))  # the operation target is the mds itself
-        activate_op_cls = operation_cls_getter(domTag('ActivateOperationDescriptor'))
+            pm.MdsDescriptor)  # the operation target is the mds itself
+        activate_op_cls = operation_cls_getter(pm.ActivateOperationDescriptor)
         if not self._set_global_audio_pause_operations:
             self._logger.info(
                 f'adding "set audio pause" operation, no descriptor in mdib (looked for code = {nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE})')

@@ -1,5 +1,6 @@
 from .contextprovider import GenericContextProvider
 from .. import namespaces
+from .. import pm_qnames as pm
 
 
 class GenericPatientContextProvider(GenericContextProvider):
@@ -12,8 +13,7 @@ class GenericPatientContextProvider(GenericContextProvider):
     def init_operations(self, mdib):
         super().init_operations(mdib)
         # expecting exactly one PatientContextDescriptor
-        descriptor_containers = self._mdib.descriptions.NODETYPE.get(
-            namespaces.domTag('PatientContextDescriptor'))
+        descriptor_containers = self._mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor)
         if descriptor_containers is not None and len(descriptor_containers) == 1:
             self._patient_context_descriptor_container = descriptor_containers[0]
 
@@ -29,7 +29,7 @@ class GenericPatientContextProvider(GenericContextProvider):
     # def make_missing_operations(self, operation_cls_getter):
     #     ops = []
     #     if self._patient_context_descriptor_container and not self._set_patient_context_operations:
-    #         set_context_state_op_cls = operation_cls_getter(namespaces.domTag('SetContextStateOperationDescriptor'))
+    #         set_context_state_op_cls = operation_cls_getter(pm.SetContextStateOperationDescriptor)
     #
     #         pc_operation = self._mk_operation(set_context_state_op_cls,
     #                                           handle='opSetPatCtx',
@@ -46,7 +46,7 @@ class PatientContextProvider(GenericPatientContextProvider):
     def make_missing_operations(self, operation_cls_getter):
         ops = []
         if self._patient_context_descriptor_container and not self._set_patient_context_operations:
-            set_context_state_op_cls = operation_cls_getter(namespaces.domTag('SetContextStateOperationDescriptor'))
+            set_context_state_op_cls = operation_cls_getter(pm.SetContextStateOperationDescriptor)
 
             pc_operation = self._mk_operation(set_context_state_op_cls,
                                               handle='opSetPatCtx',

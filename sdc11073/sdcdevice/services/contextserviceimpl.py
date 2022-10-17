@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from ...namespaces import domTag
+from ... import pm_qnames as pm
 from .servicesbase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding, msg_prefix
 from .servicesbase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation
 
@@ -66,7 +66,7 @@ class ContextService(ServiceWithOperations):
                         # MDS descriptor, then all context states that are part of this MDS SHALL be included in the result list.
                         descr = self._mdib.descriptions.handle.get_one(handle, allow_none=True)
                         if descr:
-                            if descr.NODETYPE == domTag('MdsDescriptor'):
+                            if descr.NODETYPE == pm.MdsDescriptor:
                                 tmp = list(self._mdib.context_states.objects)
                     if tmp:
                         for state in tmp:

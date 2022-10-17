@@ -5,6 +5,7 @@ from lxml import etree as etree_
 from sdc11073 import msgtypes
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
+from sdc11073 import msg_qnames as msg
 from sdc11073.mdib import descriptorcontainers
 from tests.mockstuff import dec_list
 test_tag = namespaces.domTag('MyDescriptor')
@@ -55,7 +56,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc.code_id, 'abc')
         self.assertEqual(dc.coding_system, 'def')
         self.assertEqual(dc2.Extension.value[namespaces.msgTag('Whatever')], ext_node)
-        self.assertEqual(dc2.Extension.value[namespaces.msgTag('Retrievability')], retrievability)
+        self.assertEqual(dc2.Extension.value[msg.Retrievability], retrievability)
         self.assertEqual(dc2.retrievability, retrievability)
 
         node = dc.mk_node(test_tag, self.nsmapper)
@@ -66,7 +67,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc3.code_id, 'abc')
         self.assertEqual(dc3.coding_system, 'def')
         self.assertEqual(dc3.Extension.value[namespaces.msgTag('Whatever')].tag, ext_node.tag)
-        self.assertEqual(dc3.Extension.value[namespaces.msgTag('Retrievability')], retrievability)
+        self.assertEqual(dc3.Extension.value[msg.Retrievability], retrievability)
         self.assertEqual(dc3.retrievability, retrievability)
 
     def test_AbstractMetricDescriptorContainer(self):

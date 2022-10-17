@@ -6,10 +6,11 @@ import sdc11073
 from sdc11073 import namespaces
 from sdc11073 import observableproperties
 from sdc11073 import pmtypes
+from sdc11073 import pm_qnames as pm
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.sdcdevice import waveforms
-from tests import mockstuff
 from sdc11073.dpws import ThisDeviceType, ThisModelType
+from tests import mockstuff
 
 mdibFolder = os.path.dirname(__file__)
 
@@ -140,8 +141,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             testSubscr = mockstuff.TestDevSubscription([sdcDevice.mdib.sdc_definitions.Actions.EpisodicContextReport],
                                                        sdcDevice.msg_factory)
             sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
-            patientContextDescriptor = sdcDevice.mdib.descriptions.NODETYPE.get_one(
-                namespaces.domTag('PatientContextDescriptor'))
+            patientContextDescriptor = sdcDevice.mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
             descriptor_handle = patientContextDescriptor.Handle
             with sdcDevice.mdib.transaction_manager() as mgr:
                 st = mgr.mk_context_state(descriptor_handle)

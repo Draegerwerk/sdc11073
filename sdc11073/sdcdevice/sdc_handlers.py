@@ -8,8 +8,7 @@ from .services.servicesbase import DPWSPortTypeImpl
 from .. import pmtypes
 from .. import wsdiscovery
 from ..location import SdcLocation
-from ..namespaces import domTag
-
+from .. import pm_qnames as pm
 
 def mk_scopes(mdib) -> List[wsdiscovery.Scope]:
     """ scopes factory
@@ -18,7 +17,7 @@ def mk_scopes(mdib) -> List[wsdiscovery.Scope]:
     :return: list of scopes
     """
     scopes = []
-    locations = mdib.context_states.NODETYPE.get(domTag('LocationContextState'), [])
+    locations = mdib.context_states.NODETYPE.get(pm.LocationContextState, [])
     assoc_loc = [l for l in locations if l.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
     for loc in assoc_loc:
         det = loc.LocationDetail
@@ -27,12 +26,12 @@ def mk_scopes(mdib) -> List[wsdiscovery.Scope]:
         scopes.append(wsdiscovery.Scope(dr_loc.scope_string))
 
     for nodetype, scheme in (
-            ('OperatorContextDescriptor', 'sdc.ctxt.opr'),
-            ('EnsembleContextDescriptor', 'sdc.ctxt.ens'),
-            ('WorkflowContextDescriptor', 'sdc.ctxt.wfl'),
-            ('MeansContextDescriptor', 'sdc.ctxt.mns'),
+            (pm.OperatorContextDescriptor, 'sdc.ctxt.opr'),
+            (pm.EnsembleContextDescriptor, 'sdc.ctxt.ens'),
+            (pm.WorkflowContextDescriptor, 'sdc.ctxt.wfl'),
+            (pm.MeansContextDescriptor, 'sdc.ctxt.mns'),
     ):
-        descriptors = mdib.descriptions.NODETYPE.get(domTag(nodetype), [])
+        descriptors = mdib.descriptions.NODETYPE.get(nodetype, [])
         for descriptor in descriptors:
             states = mdib.context_states.descriptorHandle.get(descriptor.Handle, [])
             assoc_st = [s for s in states if s.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
@@ -55,7 +54,7 @@ def _get_device_component_based_scopes(mdib):
     :return: a set of scopes
     """
     scopes = set()
-    descriptors = mdib.descriptions.NODETYPE.get(domTag('MdsDescriptor'))
+    descriptors = mdib.descriptions.NODETYPE.get(pm.MdsDescriptor)
     for descriptor in descriptors:
         if descriptor.Type is not None:
             coding_systems = '' if descriptor.Type.CodingSystem == pmtypes.DEFAULT_CODING_SYSTEM \

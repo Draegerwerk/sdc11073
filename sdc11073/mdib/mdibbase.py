@@ -10,9 +10,10 @@ from lxml import etree as etree_
 from .. import multikey
 from .. import observableproperties as properties
 from ..etc import apply_map
-from ..namespaces import DocNamespaceHelper, msgTag, domTag
-from ..pmtypes import CodedValue, DEFAULT_CODING_SYSTEM, Coding, have_matching_codes
-
+from ..namespaces import DocNamespaceHelper
+from ..pmtypes import CodedValue, Coding, have_matching_codes
+from .. import pm_qnames as pm
+from .. import msg_qnames as msg
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
     from .descriptorcontainers import AbstractMetricDescriptorContainer
@@ -21,12 +22,12 @@ if TYPE_CHECKING:
 class RtSampleContainer:
     """Contains a single Value"""
 
-    def __init__(self, value_string, timestamp, validity, annotations=None):
+    def __init__(self, value_string, timestamp, validity, annotation_list=None):
         self.value_string = value_string
         self.value = float(value_string)
         self.determination_time = timestamp
         self.validity = validity
-        self.annotations = [] if annotations is None else annotations
+        self.annotations = [] if annotation_list is None else annotation_list
 
     @property
     def age(self):
@@ -125,7 +126,8 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
         apply_map(self.remove_object_no_lock, objects)
 
     def replace_object_no_lock(self, new_obj):
-        """ remove existing descriptor_container and add new one, but do not touch childlist of parent (that keeps order)"""
+        """ remove existing descriptor_container and add new one, but do not touch child
+        list of parent (that keeps order)"""
         orig_obj = self.handle.get_one(new_obj.Handle)
         self.remove_object_no_lock(orig_obj)
         self.add_object_no_lock(new_obj)
@@ -182,7 +184,7 @@ class MdibContainer:
         :param sdc_definitions: a class derived from Definitions_Base
         """
         self.sdc_definitions = sdc_definitions
-        self._logger = None  # must to be instantiated by derived class
+        self._logger = None  # must be instantiated by derived class
         self.nsmapper = DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file
         self.mdib_version = 0
         self.sequence_id = ''  # needs to be set to a reasonable value by derived class
@@ -265,7 +267,7 @@ class MdibContainer:
                 context_by_handle[state_container.Handle] = state_container
             elif state_container.isSystemContextState or state_container.isMultiState:
                 pass  # ignoring for now
-            elif state_container.NODETYPE == domTag('ScoState'):
+            elif state_container.NODETYPE == pm.ScoState:
                 # special case Draft6 ScoState (is not a component state)
                 pass  # this cannot be updated anyway over the network, but handle it here to avoid runtime error
             else:
@@ -329,11 +331,11 @@ class MdibContainer:
         """
         doc_nsmap = self.nsmapper.doc_ns_map
         root_containers = self.descriptions.parent_handle.get(None) or []
-        md_description_node = etree_.Element(domTag('MdDescription'),
+        md_description_node = etree_.Element(pm.MdDescription,
                                              attrib={'DescriptionVersion': str(self.mddescription_version)},
                                              nsmap=doc_nsmap)
         for root_container in root_containers:
-            node = root_container.mk_descriptor_node(tag=domTag('Mds'),
+            node = root_container.mk_descriptor_node(tag=pm.Mds,
                                                      nsmapper=self.nsmapper,
                                                      set_xsi_type=False,
                                                      connect_child_descriptors=True)
@@ -346,17 +348,17 @@ class MdibContainer:
         @return: an etree_ node
         """
         doc_nsmap = self.nsmapper.doc_ns_map
-        mdib_node = etree_.Element(msgTag('Mdib'), nsmap=doc_nsmap)
+        mdib_node = etree_.Element(msg.Mdib, nsmap=doc_nsmap)
         mdib_node.set('MdibVersion', str(self.mdib_version))
         mdib_node.set('SequenceId', self.sequence_id)
         md_description_node = self._reconstruct_md_description()
         mdib_node.append(md_description_node)
 
         # add a list of states
-        md_state_node = etree_.SubElement(mdib_node, domTag('MdState'),
+        md_state_node = etree_.SubElement(mdib_node, pm.MdState,
                                           attrib={'StateVersion': str(self.mdstate_version)},
                                           nsmap=doc_nsmap)
-        tag = domTag('State')
+        tag = pm.State
         for state_container in self.states.objects:
             md_state_node.append(state_container.mk_state_node(tag, self.nsmapper))
         if add_context_states:
@@ -414,7 +416,7 @@ class MdibContainer:
         :param metric_code: a CodedValue or a Coding instance
         """
 
-        aLL_vmds = self.descriptions.NODETYPE.get(domTag('VmdDescriptor'), [])
+        aLL_vmds = self.descriptions.NODETYPE.get(pm.VmdDescriptor, [])
         matching_vmd_list =  [d for d in aLL_vmds if have_matching_codes(d.Type, vmd_code)]
         for vmd in matching_vmd_list:
             matching_channels = self._get_child_descriptors_by_code(vmd.Handle, channel_code)
@@ -446,7 +448,7 @@ class MdibContainer:
         :param descriptor_handle: the handle for that operations shall be found
         :return: a list with operation descriptors that have descriptor_handle as OperationTarget. List can be empty
         :additionalFilters: optional filters for the key = name of member attribute, value = expected value
-            example: NODETYPE=domTag('SetContextStateOperationDescriptor') filters for SetContextStateOperation descriptors
+            example: NODETYPE=pm.SetContextStateOperationDescriptor filters for SetContextStateOperation descriptors
         """
         all_operation_containers = self.get_operation_descriptors()
         my_operations = [op_c for op_c in all_operation_containers if op_c.OperationTarget == descriptor_handle]
@@ -474,14 +476,14 @@ class MdibContainer:
         :return: a list of all operation descriptors
         """
         result = []
-        for node_type in ('SetValueOperationDescriptor',
-                          'SetStringOperationDescriptor',
-                          'ActivateOperationDescriptor',
-                          'SetContextStateOperationDescriptor',
-                          'SetMetricStateOperationDescriptor',
-                          'SetComponentStateOperationDescriptor',
-                          'SetAlertStateOperationDescriptor'):
-            result.extend(self.descriptions.NODETYPE.get(domTag(node_type), []))
+        for node_type in (pm.SetValueOperationDescriptor,
+                          pm.SetStringOperationDescriptor,
+                          pm.ActivateOperationDescriptor,
+                          pm.SetContextStateOperationDescriptor,
+                          pm.SetMetricStateOperationDescriptor,
+                          pm.SetComponentStateOperationDescriptor,
+                          pm.SetAlertStateOperationDescriptor):
+            result.extend(self.descriptions.NODETYPE.get(node_type, []))
         return result
 
     def select_descriptors(self, *codings):
@@ -493,7 +495,7 @@ class MdibContainer:
         [Coding('70041'), Coding('69650'), Coding('69651')] : returns all descriptors with Coding('69651') and
                                      parent descriptor Coding('69650') and parent's parent descriptor Coding('70041')
         It is not necessary that path starts at the top of a mds, it can start anywhere.
-        :param *codings: each element can be a string (which is handled as a Coding with DEFAULT_CODING_SYSTEM),
+        :param codings: each element can be a string (which is handled as a Coding with DEFAULT_CODING_SYSTEM),
                          a Coding or a CodedValue
         """
         selected_objects = None

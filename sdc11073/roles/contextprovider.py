@@ -1,9 +1,8 @@
 import time
 
 from . import providerbase
-from .. import namespaces
 from ..pmtypes import ContextAssociation
-
+from .. import pm_qnames as pm
 
 class GenericContextProvider(providerbase.ProviderRole):
     """ Handles SetContextState operations"""
@@ -16,7 +15,7 @@ class GenericContextProvider(providerbase.ProviderRole):
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         """Create a handler for SetContextStateOperationDescriptor if type of operation target
         matches opTargetDescriptorTypes"""
-        if operation_descriptor_container.NODETYPE == namespaces.domTag('SetContextStateOperationDescriptor'):
+        if operation_descriptor_container.NODETYPE == pm.SetContextStateOperationDescriptor:
             op_target_descr_container = self._mdib.descriptions.handle.get_one(
                 operation_descriptor_container.OperationTarget)
             if (not self._op_target_descr_types) or (
@@ -75,11 +74,11 @@ class GenericContextProvider(providerbase.ProviderRole):
 
 class EnsembleContextProvider(GenericContextProvider):
     def __init__(self, log_prefix):
-        super().__init__(op_target_descr_types=[namespaces.domTag('EnsembleContextDescriptor')],
+        super().__init__(op_target_descr_types=[pm.EnsembleContextDescriptor],
                          log_prefix=log_prefix)
 
 
 class LocationContextProvider(GenericContextProvider):
     def __init__(self, log_prefix):
-        super().__init__(op_target_descr_types=[namespaces.domTag('LocationContextDescriptor')],
+        super().__init__(op_target_descr_types=[pm.LocationContextDescriptor],
                          log_prefix=log_prefix)

@@ -13,6 +13,7 @@ from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.pysoap.msgreader import SubscribeRequest, ReferenceParameters
 from sdc11073.sdcdevice import SdcDevice
 from sdc11073.sdcdevice.subscriptionmgr import _DevSubscription
+from sdc11073 import pm_qnames as pm
 
 portsLock = threading.Lock()
 _ports = 10000
@@ -116,7 +117,7 @@ class SomeDevice(SdcDevice):
 
         device_mdib_container = DeviceMdibContainer.from_string(mdib_xml_string, log_prefix=log_prefix)
         # set Metadata
-        mdsDescriptor = device_mdib_container.descriptions.NODETYPE.get_one(namespaces.domTag('MdsDescriptor'))
+        mdsDescriptor = device_mdib_container.descriptions.NODETYPE.get_one(pm.MdsDescriptor)
         mdsDescriptor.MetaData.Manufacturer.append(pmtypes.LocalizedText(u'Dräger'))
         mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(model.model_name[None]))
         mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')

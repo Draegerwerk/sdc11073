@@ -9,7 +9,8 @@ from dataclasses import dataclass
 from lxml import etree as etree_
 from typing import Optional, Union
 from .mdib import containerproperties as cp
-from .namespaces import domTag, QN_TYPE, text_to_qname
+from .namespaces import QN_TYPE, text_to_qname
+from . import pm_qnames as pm
 
 
 class StringEnum(str, enum.Enum):
@@ -246,9 +247,9 @@ class T_Translation(PropertyBasedPMType):
 class CodedValue(PropertyBasedPMType):
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
-    CodingSystemName = cp.SubElementListProperty(domTag('CodingSystemName'), value_class=LocalizedText)
-    ConceptDescription = cp.SubElementListProperty(domTag('ConceptDescription'), value_class=LocalizedText)
-    Translation = cp.SubElementListProperty(domTag('Translation'), value_class=T_Translation)
+    CodingSystemName = cp.SubElementListProperty(pm.CodingSystemName, value_class=LocalizedText)
+    ConceptDescription = cp.SubElementListProperty(pm.ConceptDescription, value_class=LocalizedText)
+    Translation = cp.SubElementListProperty(pm.Translation, value_class=T_Translation)
     Code = cp.CodeIdentifierAttributeProperty('Code', is_optional=False)
     CodingSystem = cp.StringAttributeProperty('CodingSystem', implied_py_value=DEFAULT_CODING_SYSTEM)
     CodingSystemVersion = cp.StringAttributeProperty('CodingSystemVersion')
@@ -328,7 +329,7 @@ def have_matching_codes(code_a: Union[CodedValue, Coding], code_b: Union[CodedVa
 class Annotation(PropertyBasedPMType):
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
-    Type = cp.SubElementProperty(domTag('Type'), value_class=CodedValue)
+    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)
     # pylint: enable=invalid-name
     _props = ['ext_Extension', 'Type']
 
@@ -342,7 +343,7 @@ class Annotation(PropertyBasedPMType):
 
     @classmethod
     def from_node(cls, node):
-        type_node = node.find(domTag('Type'))
+        type_node = node.find(pm.Type)
         coded_value = CodedValue.from_node(type_node)
         return cls(coded_value)
 
@@ -356,7 +357,7 @@ class OperatingMode(StringEnum):
 class OperationGroup(PropertyBasedPMType):
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
-    Type = cp.SubElementProperty(domTag('Type'), value_class=CodedValue)
+    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)
     OperatingMode = cp.EnumAttributeProperty('OperatingMode', enum_cls=OperatingMode)
     Operations = cp.OperationRefListAttributeProperty('Operations')
     # pylint: enable=invalid-name
@@ -376,7 +377,7 @@ class OperationGroup(PropertyBasedPMType):
 
     @classmethod
     def from_node(cls, node):
-        type_node = node.find(domTag('Type'))
+        type_node = node.find(pm.Type)
         coded_value = CodedValue.from_node(type_node)
         operating_mode = cls.OperatingMode.get_py_value_from_node(None, node)
         operations = cls.Operations.get_py_value_from_node(None, node)
@@ -388,8 +389,8 @@ class OperationGroup(PropertyBasedPMType):
 class InstanceIdentifier(PropertyBasedPMType):
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
-    Type = cp.SubElementProperty(domTag('Type'), value_class=CodedValue)
-    IdentifierName = cp.SubElementListProperty(domTag('IdentifierName'), value_class=LocalizedText)
+    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)
+    IdentifierName = cp.SubElementListProperty(pm.IdentifierName, value_class=LocalizedText)
     Root = cp.AnyURIAttributeProperty('Root',
                                       default_py_value='biceps.uri.unk')  # xsd:anyURI string, default is defined in R0135
     Extension = cp.ExtensionAttributeProperty('Extension')  # a xsd:string
@@ -423,7 +424,7 @@ class InstanceIdentifier(PropertyBasedPMType):
 
 
 class OperatingJurisdiction(InstanceIdentifier):
-    NODETYPE = domTag('OperatingJurisdiction')
+    NODETYPE = pm.OperatingJurisdiction
 
 
 class Range(PropertyBasedPMType):
@@ -461,7 +462,7 @@ class Range(PropertyBasedPMType):
 class Measurement(PropertyBasedPMType):
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
-    MeasurementUnit = cp.SubElementProperty(domTag('MeasurementUnit'), value_class=CodedValue)  # mandatory
+    MeasurementUnit = cp.SubElementProperty(pm.MeasurementUnit, value_class=CodedValue)
     MeasuredValue = cp.DecimalAttributeProperty('MeasuredValue', is_optional=False)
     # pylint: enable=invalid-name
     _props = ['ext_Extension', 'MeasurementUnit', 'MeasuredValue']
@@ -482,7 +483,7 @@ class Measurement(PropertyBasedPMType):
         if value is not None:
             value = Decimal(value)
         unit = None
-        unit_node = node.find(domTag('MeasurementUnit'))
+        unit_node = node.find(pm.MeasurementUnit)
         if unit_node is not None:
             unit = CodedValue.from_node(unit_node)
         return cls(value, unit)
@@ -493,8 +494,8 @@ class Measurement(PropertyBasedPMType):
 
 class AllowedValue(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    Value = cp.NodeTextProperty(domTag('Value'))
-    Type = cp.SubElementProperty(domTag('Type'), value_class=CodedValue)
+    Value = cp.NodeTextProperty(pm.Value)
+    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)
     # pylint: enable=invalid-name
     _props = ['Value', 'Type']
     type_coding = Type
@@ -513,8 +514,8 @@ class AllowedValue(PropertyBasedPMType):
 
     @classmethod
     def from_node(cls, node):
-        value_string = node.find(domTag('Value')).text
-        type_node = node.find(domTag('Type'))
+        value_string = node.find(pm.Value).text
+        type_node = node.find(pm.Type)
         if type_node is None:
             type_coding = None
         else:
@@ -561,8 +562,8 @@ class AbstractMetricValue(PropertyBasedPMType):
     StartTime = cp.TimestampAttributeProperty('StartTime')
     StopTime = cp.TimestampAttributeProperty('StopTime')
     DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime')
-    MetricQuality = cp.SubElementProperty(domTag('MetricQuality'), value_class=T_MetricQuality)
-    Annotation = cp.SubElementListProperty(domTag('Annotation'), Annotation)
+    MetricQuality = cp.SubElementProperty(pm.MetricQuality, value_class=T_MetricQuality)
+    Annotation = cp.SubElementListProperty(pm.Annotation, Annotation)
     Annotations = Annotation  # alternative name that makes it clearer that this is a list
     # pylint: enable=invalid-name
     _props = ('ext_Extension', 'StartTime', 'StopTime', 'DeterminationTime', 'MetricQuality', 'Annotation')
@@ -594,7 +595,7 @@ class AbstractMetricValue(PropertyBasedPMType):
 
 class NumericMetricValue(AbstractMetricValue):
     # pylint: disable=invalid-name
-    NODETYPE = domTag('NumericMetricValue')
+    NODETYPE = pm.NumericMetricValue
     Value = cp.DecimalAttributeProperty('Value')  # an integer or float
     # pylint: enable=invalid-name
     _props = ('Value',)
@@ -606,7 +607,7 @@ class NumericMetricValue(AbstractMetricValue):
 
 class StringMetricValue(AbstractMetricValue):
     # pylint: disable=invalid-name
-    NODETYPE = domTag('StringMetricValue')
+    NODETYPE = pm.StringMetricValue
     Value = cp.StringAttributeProperty('Value')  # a string
     # pylint: enable=invalid-name
     _props = ('Value',)
@@ -642,9 +643,9 @@ class ApplyAnnotation(PropertyBasedPMType):
 
 class SampleArrayValue(AbstractMetricValue):
     # pylint: disable=invalid-name
-    NODETYPE = domTag('SampleArrayValue')
+    NODETYPE = pm.SampleArrayValue
     Samples = cp.DecimalListAttributeProperty('Samples')  # list of xs:decimal types
-    ApplyAnnotation = cp.SubElementListProperty(domTag('ApplyAnnotation'), ApplyAnnotation)
+    ApplyAnnotation = cp.SubElementListProperty(pm.ApplyAnnotation, ApplyAnnotation)
     ApplyAnnotations = ApplyAnnotation  # alternative name that makes it clearer that this is a list
     # pylint: enable=invalid-name
     _props = ('Samples', 'ApplyAnnotation')
@@ -659,7 +660,7 @@ class RemedyInfo(PropertyBasedPMType):
          0..n SubElements "Description" type=pm:LocalizedText."""
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
-    Description = cp.SubElementListProperty(domTag('Description'), value_class=LocalizedText)
+    Description = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)
     # pylint: enable=invalid-name
     _props = ['ext_Extension', 'Description']
 
@@ -677,8 +678,8 @@ class CauseInfo(PropertyBasedPMType):
          0..n SubElements "Description" type=pm:LocalizedText."""
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
-    RemedyInfo = cp.SubElementProperty(domTag('RemedyInfo'), value_class=RemedyInfo)
-    Description = cp.SubElementListProperty(domTag('Description'), value_class=LocalizedText)
+    RemedyInfo = cp.SubElementProperty(pm.RemedyInfo, value_class=RemedyInfo)
+    Description = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)
     # pylint: enable=invalid-name
     _props = ['ext_Extension', 'RemedyInfo', 'Description']
 
@@ -694,13 +695,13 @@ class CauseInfo(PropertyBasedPMType):
 
     @classmethod
     def from_node(cls, node):
-        remedy_info_node = node.find(domTag('RemedyInfo'))
+        remedy_info_node = node.find(pm.RemedyInfo)
         if remedy_info_node is not None:
             remedy_info = RemedyInfo.from_node(remedy_info_node)
         else:
             remedy_info = None
         descriptions = []
-        for description_node in node.findall(domTag('Description')):
+        for description_node in node.findall(pm.Description):
             descriptions.append(LocalizedText.from_node(description_node))
         return cls(remedy_info, descriptions)
 
@@ -710,8 +711,8 @@ class ActivateOperationDescriptorArgument(PropertyBasedPMType):
          1 Subelement "ArgName", type = pm:CodedValue
          1 SubElement "Arg" type=QName."""
     # pylint: disable=invalid-name
-    ArgName = cp.SubElementProperty(domTag('ArgName'), value_class=CodedValue, is_optional=False)
-    Arg = cp.NodeTextQNameProperty(domTag('Arg'), is_optional=False)
+    ArgName = cp.SubElementProperty(pm.ArgName, value_class=CodedValue, is_optional=False)
+    Arg = cp.NodeTextQNameProperty(pm.Arg, is_optional=False)
     # pylint: enable=invalid-name
     _props = ['ArgName', 'Arg']
 
@@ -727,9 +728,9 @@ class ActivateOperationDescriptorArgument(PropertyBasedPMType):
 
     @classmethod
     def from_node(cls, node):
-        arg_name_node = node.find(domTag('ArgName'))
+        arg_name_node = node.find(pm.ArgName)
         arg_name = CodedValue.from_node(arg_name_node)
-        arg_node = node.find(domTag('Arg'))
+        arg_node = node.find(pm.Arg)
         arg_qname = text_to_qname(arg_node.text, node.nsmap)
         return cls(arg_name, arg_qname)
 
@@ -742,7 +743,7 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
     e.g., in case of a disconnection of a sensor or an ultrasonic handpiece."""
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
-    Label = cp.SubElementListProperty(domTag('Label'),
+    Label = cp.SubElementListProperty(pm.Label,
                                       value_class=LocalizedText)  # A human-readable label that describes the physical connector.
     Number = cp.IntegerAttributeProperty('Number')  # Number designates the connector number of the physical connector.
     # pylint: enable=invalid-name
@@ -813,9 +814,9 @@ class SystemSignalActivation(PropertyBasedPMType):
 
 class ProductionSpecification(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    SpecType = cp.SubElementProperty(domTag('SpecType'), value_class=CodedValue)
-    ProductionSpec = cp.NodeTextProperty(domTag('ProductionSpec'))
-    ComponentId = cp.SubElementProperty(domTag('ComponentId'),
+    SpecType = cp.SubElementProperty(pm.SpecType, value_class=CodedValue)
+    ProductionSpec = cp.NodeTextProperty(pm.ProductionSpec)
+    ComponentId = cp.SubElementProperty(pm.ComponentId,
                                         value_class=InstanceIdentifier, is_optional=True)
     # pylint: enable=invalid-name
     _props = ['SpecType', 'ProductionSpec', 'ComponentId']
@@ -841,11 +842,11 @@ class ProductionSpecification(PropertyBasedPMType):
 
 class BaseDemographics(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    Givenname = cp.NodeTextProperty(domTag('Givenname'), is_optional=True)
-    Middlename = cp.SubElementTextListProperty(domTag('Middlename'))
-    Familyname = cp.NodeTextProperty(domTag('Familyname'), is_optional=True)
-    Birthname = cp.NodeTextProperty(domTag('Birthname'), is_optional=True)
-    Title = cp.NodeTextProperty(domTag('Title'), is_optional=True)
+    Givenname = cp.NodeTextProperty(pm.Givenname, is_optional=True)
+    Middlename = cp.SubElementTextListProperty(pm.Middlename)
+    Familyname = cp.NodeTextProperty(pm.Familyname, is_optional=True)
+    Birthname = cp.NodeTextProperty(pm.Birthname, is_optional=True)
+    Title = cp.NodeTextProperty(pm.Title, is_optional=True)
     # pylint: enable=invalid-name
     _props = ('Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title')
 
@@ -863,8 +864,8 @@ class BaseDemographics(PropertyBasedPMType):
 class PersonReference(PropertyBasedPMType):
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
-    Identification = cp.SubElementListProperty(domTag('Identification'), value_class=InstanceIdentifier)  # 1...n
-    Name = cp.SubElementProperty(domTag('Name'), value_class=BaseDemographics, is_optional=True)
+    Identification = cp.SubElementListProperty(pm.Identification, value_class=InstanceIdentifier)  # 1...n
+    Name = cp.SubElementProperty(pm.Name, value_class=BaseDemographics, is_optional=True)
     # pylint: enable=invalid-name
     _props = ['ext_Extension', 'Identification', 'Name']
 
@@ -905,8 +906,8 @@ class LocationDetail(PropertyBasedPMType):
 
 class LocationReference(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    Identification = cp.SubElementListProperty(domTag('Identification'), value_class=InstanceIdentifier)  # 1...n
-    LocationDetail = cp.SubElementProperty(domTag('LocationDetail'), value_class=LocationDetail)  # optional
+    Identification = cp.SubElementListProperty(pm.Identification, value_class=InstanceIdentifier)  # 1...n
+    LocationDetail = cp.SubElementProperty(pm.LocationDetail, value_class=LocationDetail)  # optional
     # pylint: enable=invalid-name
     _props = ['Identification', 'LocationDetail']
 
@@ -920,8 +921,8 @@ class LocationReference(PropertyBasedPMType):
 
 class PersonParticipation(PersonReference):
     # pylint: disable=invalid-name
-    NODETYPE = domTag('PersonParticipation')
-    Role = cp.SubElementListProperty(domTag('Role'), value_class=CodedValue)  # 0...n
+    NODETYPE = pm.PersonParticipation
+    Role = cp.SubElementListProperty(pm.Role, value_class=CodedValue)  # 0...n
     # pylint: enable=invalid-name
     _props = ['Role', ]
 
@@ -934,8 +935,8 @@ class PersonParticipation(PersonReference):
 class ReferenceRange(PropertyBasedPMType):
     """Representation of the normal or abnormal reference range for the measurement"""
     # pylint: disable=invalid-name
-    Range = cp.SubElementProperty(domTag('Range'), value_class=Range)
-    Meaning = cp.SubElementProperty(domTag('Meaning'), value_class=CodedValue, is_optional=True)
+    Range = cp.SubElementProperty(pm.Range, value_class=Range)
+    Meaning = cp.SubElementProperty(pm.Meaning, value_class=CodedValue, is_optional=True)
     # pylint: enable=invalid-name
     _props = ['Range', 'Meaning']
 
@@ -950,8 +951,8 @@ class ReferenceRange(PropertyBasedPMType):
 class RelatedMeasurement(PropertyBasedPMType):
     """Related measurements for this clinical observation"""
     # pylint: disable=invalid-name
-    Value = cp.SubElementProperty(domTag('Value'), value_class=Measurement)
-    ReferenceRange = cp.SubElementListProperty(domTag('ReferenceRange'), value_class=ReferenceRange)  # 0...n
+    Value = cp.SubElementProperty(pm.Value, value_class=Measurement)
+    ReferenceRange = cp.SubElementListProperty(pm.ReferenceRange, value_class=ReferenceRange)  # 0...n
     # pylint: enable=invalid-name
     _props = ['Value', 'ReferenceRange']
 
@@ -965,9 +966,9 @@ class RelatedMeasurement(PropertyBasedPMType):
 
 class ClinicalInfo(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    Type = cp.SubElementProperty(domTag('Type'), value_class=CodedValue)  # optional
-    Description = cp.SubElementListProperty(domTag('Description'), value_class=LocalizedText)  # 0...n
-    RelatedMeasurement = cp.SubElementListProperty(domTag('RelatedMeasurement'), value_class=Measurement)  # 0...n
+    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)  # optional
+    Description = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)  # 0...n
+    RelatedMeasurement = cp.SubElementListProperty(pm.RelatedMeasurement, value_class=Measurement)  # 0...n
     # pylint: enable=invalid-name
     _props = ['Type', 'Description', 'RelatedMeasurement']
 
@@ -988,15 +989,15 @@ class ClinicalInfo(PropertyBasedPMType):
 
 class ImagingProcedure(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    AccessionIdentifier = cp.SubElementProperty(domTag('AccessionIdentifier'),
+    AccessionIdentifier = cp.SubElementProperty(pm.AccessionIdentifier,
                                                 value_class=InstanceIdentifier)  # mandatory
-    RequestedProcedureId = cp.SubElementProperty(domTag('RequestedProcedureId'),
+    RequestedProcedureId = cp.SubElementProperty(pm.RequestedProcedureId,
                                                  value_class=InstanceIdentifier)  # mandatory
-    StudyInstanceUid = cp.SubElementProperty(domTag('StudyInstanceUid'), value_class=InstanceIdentifier)  # mandatory
-    ScheduledProcedureStepId = cp.SubElementProperty(domTag('ScheduledProcedureStepId'),
+    StudyInstanceUid = cp.SubElementProperty(pm.StudyInstanceUid, value_class=InstanceIdentifier)  # mandatory
+    ScheduledProcedureStepId = cp.SubElementProperty(pm.ScheduledProcedureStepId,
                                                      value_class=InstanceIdentifier)  # mandatory
-    Modality = cp.SubElementProperty(domTag('Modality'), value_class=CodedValue)  # optional
-    ProtocolCode = cp.SubElementProperty(domTag('ProtocolCode'), value_class=CodedValue)  # optional
+    Modality = cp.SubElementProperty(pm.Modality, value_class=CodedValue)  # optional
+    ProtocolCode = cp.SubElementProperty(pm.ProtocolCode, value_class=CodedValue)  # optional
     # pylint: enable=invalid-name
     _props = ['AccessionIdentifier', 'RequestedProcedureId', 'StudyInstanceUid', 'ScheduledProcedureStepId',
               'Modality', 'ProtocolCode']
@@ -1021,11 +1022,11 @@ class ImagingProcedure(PropertyBasedPMType):
 
 class OrderDetail(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    Start = cp.NodeTextProperty(domTag('Start'), is_optional=True)  # xsd:dateTime
-    End = cp.NodeTextProperty(domTag('End'), is_optional=True)  # xsd:dateTime
-    Performer = cp.SubElementListProperty(domTag('Performer'), value_class=PersonParticipation)  # 0...n
-    Service = cp.SubElementListProperty(domTag('Service'), value_class=CodedValue)  # 0...n
-    ImagingProcedure = cp.SubElementListProperty(domTag('ImagingProcedure'), value_class=ImagingProcedure)
+    Start = cp.NodeTextProperty(pm.Start, is_optional=True)  # xsd:dateTime
+    End = cp.NodeTextProperty(pm.End, is_optional=True)  # xsd:dateTime
+    Performer = cp.SubElementListProperty(pm.Performer, value_class=PersonParticipation)  # 0...n
+    Service = cp.SubElementListProperty(pm.Service, value_class=CodedValue)  # 0...n
+    ImagingProcedure = cp.SubElementListProperty(pm.ImagingProcedure, value_class=ImagingProcedure)
     # pylint: enable=invalid-name
     _props = ['Start', 'End', 'Performer', 'Service', 'ImagingProcedure']
 
@@ -1051,10 +1052,10 @@ class OrderDetail(PropertyBasedPMType):
 
 class RequestedOrderDetail(OrderDetail):
     # pylint: disable=invalid-name
-    NODETYPE = domTag('RequestedOrderDetail')
-    ReferringPhysician = cp.SubElementProperty(domTag('ReferringPhysician'), value_class=PersonReference)  # optional
-    RequestingPhysician = cp.SubElementProperty(domTag('RequestingPhysician'), value_class=PersonReference)  # optional
-    PlacerOrderNumber = cp.SubElementProperty(domTag('PlacerOrderNumber'), value_class=InstanceIdentifier)  # mandatory
+    NODETYPE = pm.RequestedOrderDetail
+    ReferringPhysician = cp.SubElementProperty(pm.ReferringPhysician, value_class=PersonReference, is_optional=True)
+    RequestingPhysician = cp.SubElementProperty(pm.RequestingPhysician, value_class=PersonReference, is_optional=True)
+    PlacerOrderNumber = cp.SubElementProperty(pm.PlacerOrderNumber, value_class=InstanceIdentifier)
     # pylint: enable=invalid-name
     _props = ['ReferringPhysician', 'RequestingPhysician', 'PlacerOrderNumber']
 
@@ -1075,9 +1076,9 @@ class RequestedOrderDetail(OrderDetail):
 
 class PerformedOrderDetail(OrderDetail):
     # pylint: disable=invalid-name
-    NODETYPE = domTag('PerformedOrderDetail')
-    FillerOrderNumber = cp.SubElementProperty(domTag('FillerOrderNumber'), value_class=InstanceIdentifier)  # optional
-    ResultingClinicalInfo = cp.SubElementListProperty(domTag('RelevantClinicalInfo'), value_class=ClinicalInfo)
+    NODETYPE = pm.PerformedOrderDetail
+    FillerOrderNumber = cp.SubElementProperty(pm.FillerOrderNumber, value_class=InstanceIdentifier, is_optional=True)
+    ResultingClinicalInfo = cp.SubElementListProperty(pm.RelevantClinicalInfo, value_class=ClinicalInfo)
     # pylint: enable=invalid-name
     _props = ['FillerOrderNumber', 'ResultingClinicalInfo']
 
@@ -1093,16 +1094,16 @@ class PerformedOrderDetail(OrderDetail):
 
 class WorkflowDetail(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    Patient = cp.SubElementProperty(domTag('Patient'), value_class=PersonReference)
-    AssignedLocation = cp.SubElementProperty(domTag('AssignedLocation'),
+    Patient = cp.SubElementProperty(pm.Patient, value_class=PersonReference)
+    AssignedLocation = cp.SubElementProperty(pm.AssignedLocation,
                                              value_class=LocationReference, is_optional=True)
-    VisitNumber = cp.SubElementProperty(domTag('VisitNumber'),
+    VisitNumber = cp.SubElementProperty(pm.VisitNumber,
                                         value_class=InstanceIdentifier, is_optional=True)
-    DangerCode = cp.SubElementListProperty(domTag('Reason'), value_class=CodedValue)
-    RelevantClinicalInfo = cp.SubElementListProperty(domTag('RelevantClinicalInfo'), value_class=ClinicalInfo)
-    RequestedOrderDetail = cp.SubElementProperty(domTag('RequestedOrderDetail'),
+    DangerCode = cp.SubElementListProperty(pm.DangerCode, value_class=CodedValue)
+    RelevantClinicalInfo = cp.SubElementListProperty(pm.RelevantClinicalInfo, value_class=ClinicalInfo)
+    RequestedOrderDetail = cp.SubElementProperty(pm.RequestedOrderDetail,
                                                  value_class=RequestedOrderDetail, is_optional=True)
-    PerformedOrderDetail = cp.SubElementProperty(domTag('PerformedOrderDetail'),
+    PerformedOrderDetail = cp.SubElementProperty(pm.PerformedOrderDetail,
                                                  value_class=PerformedOrderDetail, is_optional=True)
     # pylint: enable=invalid-name
     _props = ['Patient', 'AssignedLocation', 'VisitNumber', 'DangerCode',
@@ -1136,8 +1137,8 @@ class AbstractMetricDescriptorRelation(PropertyBasedPMType):
     """ Relation allows the modelling of relationships between a metric and other containment tree entries.
     """
     # pylint: disable=invalid-name
-    Code = cp.SubElementProperty(domTag('Code'), value_class=CodedValue, is_optional=True)
-    Identification = cp.SubElementProperty(domTag('Identification'), value_class=InstanceIdentifier,
+    Code = cp.SubElementProperty(pm.Code, value_class=CodedValue, is_optional=True)
+    Identification = cp.SubElementProperty(pm.Identification, value_class=InstanceIdentifier,
                                            is_optional=True)
     Kind = cp.EnumAttributeProperty('Kind', enum_cls=AbstractMetricDescriptorRelationKindEnum, is_optional=False)
     Entries = cp.EntryRefListAttributeProperty('Entries')
@@ -1170,13 +1171,13 @@ class T_Sex(StringEnum):  # pylint: disable=invalid-name
 
 class PatientDemographicsCoreData(BaseDemographics):
     # pylint: disable=invalid-name
-    NODETYPE = domTag('PatientDemographicsCoreData')
-    Sex = cp.NodeEnumTextProperty(T_Sex, domTag('Sex'), is_optional=True)
-    PatientType = cp.NodeEnumTextProperty(PatientType, domTag('PatientType'), is_optional=True)
-    DateOfBirth = cp.DateOfBirthProperty(domTag('DateOfBirth'), is_optional=True)
-    Height = cp.SubElementProperty(domTag('Height'), value_class=Measurement, is_optional=True)
-    Weight = cp.SubElementProperty(domTag('Weight'), value_class=Measurement, is_optional=True)
-    Race = cp.SubElementProperty(domTag('Race'), value_class=CodedValue, is_optional=True)
+    NODETYPE = pm.PatientDemographicsCoreData
+    Sex = cp.NodeEnumTextProperty(T_Sex, pm.Sex, is_optional=True)
+    PatientType = cp.NodeEnumTextProperty(PatientType, pm.PatientType, is_optional=True)
+    DateOfBirth = cp.DateOfBirthProperty(pm.DateOfBirth, is_optional=True)
+    Height = cp.SubElementProperty(pm.Height, value_class=Measurement, is_optional=True)
+    Weight = cp.SubElementProperty(pm.Weight, value_class=Measurement, is_optional=True)
+    Race = cp.SubElementProperty(pm.Race, value_class=CodedValue, is_optional=True)
     # pylint: enable=invalid-name
     _props = ('Sex', 'PatientType', 'DateOfBirth', 'Height', 'Weight', 'Race')
 
@@ -1193,13 +1194,13 @@ class PatientDemographicsCoreData(BaseDemographics):
 
 class NeonatalPatientDemographicsCoreData(PatientDemographicsCoreData):
     # pylint: disable=invalid-name
-    NODETYPE = domTag('NeonatalPatientDemographicsCoreData')
-    GestationalAge = cp.SubElementProperty(domTag('GestationalAge'), value_class=Measurement,
+    NODETYPE = pm.NeonatalPatientDemographicsCoreData
+    GestationalAge = cp.SubElementProperty(pm.GestationalAge, value_class=Measurement,
                                            is_optional=True)
-    BirthLength = cp.SubElementProperty(domTag('BirthLength'), value_class=Measurement)
-    BirthWeight = cp.SubElementProperty(domTag('BirthWeight'), value_class=Measurement)
-    HeadCircumference = cp.SubElementProperty(domTag('HeadCircumference'), value_class=Measurement)
-    Mother = cp.SubElementProperty(domTag('GestationalAge'), value_class=PersonReference)
+    BirthLength = cp.SubElementProperty(pm.BirthLength, value_class=Measurement)
+    BirthWeight = cp.SubElementProperty(pm.BirthWeight, value_class=Measurement)
+    HeadCircumference = cp.SubElementProperty(pm.HeadCircumference, value_class=Measurement)
+    Mother = cp.SubElementProperty(pm.Mother, value_class=PersonReference)
     # pylint: enable=invalid-name
     _props = ('GestationalAge', 'BirthLength', 'BirthWeight', 'HeadCircumference', 'Mother')
 
@@ -1207,10 +1208,10 @@ class NeonatalPatientDemographicsCoreData(PatientDemographicsCoreData):
 class T_Udi(PropertyBasedPMType):
     """Part of Meta data"""
     # pylint: disable=invalid-name
-    DeviceIdentifier = cp.NodeTextProperty(domTag('DeviceIdentifier'))
-    HumanReadableForm = cp.NodeTextProperty(domTag('HumanReadableForm'))
-    Issuer = cp.SubElementProperty(domTag('Issuer'), value_class=InstanceIdentifier)
-    Jurisdiction = cp.SubElementProperty(domTag('Jurisdiction'),
+    DeviceIdentifier = cp.NodeTextProperty(pm.DeviceIdentifier)
+    HumanReadableForm = cp.NodeTextProperty(pm.HumanReadableForm)
+    Issuer = cp.SubElementProperty(pm.Issuer, value_class=InstanceIdentifier)
+    Jurisdiction = cp.SubElementProperty(pm.Jurisdiction,
                                          value_class=InstanceIdentifier, is_optional=True)
     # pylint: enable=invalid-name
     _props = ['DeviceIdentifier', 'HumanReadableForm', 'Issuer', 'Jurisdiction']
@@ -1233,14 +1234,14 @@ class T_Udi(PropertyBasedPMType):
 
 class MetaData(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    Udi = cp.SubElementListProperty(domTag('Udi'), value_class=T_Udi)
-    LotNumber = cp.NodeTextProperty(domTag('LotNumber'), is_optional=True)
-    Manufacturer = cp.SubElementListProperty(domTag('Manufacturer'), value_class=LocalizedText)
-    ManufactureDate = cp.NodeTextProperty(domTag('ManufactureDate'), is_optional=True)
-    ExpirationDate = cp.NodeTextProperty(domTag('ExpirationDate'), is_optional=True)
-    ModelName = cp.SubElementListProperty(domTag('ModelName'), value_class=LocalizedText)
-    ModelNumber = cp.NodeTextProperty(domTag('ModelNumber'), is_optional=True)
-    SerialNumber = cp.SubElementTextListProperty(domTag('SerialNumber'))
+    Udi = cp.SubElementListProperty(pm.Udi, value_class=T_Udi)
+    LotNumber = cp.NodeTextProperty(pm.LotNumber, is_optional=True)
+    Manufacturer = cp.SubElementListProperty(pm.Manufacturer, value_class=LocalizedText)
+    ManufactureDate = cp.NodeTextProperty(pm.ManufactureDate, is_optional=True)
+    ExpirationDate = cp.NodeTextProperty(pm.ExpirationDate, is_optional=True)
+    ModelName = cp.SubElementListProperty(pm.ModelName, value_class=LocalizedText)
+    ModelNumber = cp.NodeTextProperty(pm.ModelNumber, is_optional=True)
+    SerialNumber = cp.SubElementTextListProperty(pm.SerialNumber)
     # pylint: enable=invalid-name
     _props = ['Udi', 'LotNumber', 'Manufacturer', 'ManufactureDate', 'ExpirationDate',
               'ModelName', 'ModelNumber', 'SerialNumber']
@@ -1251,16 +1252,16 @@ class MetaData(PropertyBasedPMType):
 
 class T_CalibrationResult(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    Code = cp.SubElementProperty(domTag('Code'), value_class=CodedValue)
-    Value = cp.SubElementProperty(domTag('Code'), value_class=Measurement)
+    Code = cp.SubElementProperty(pm.Code, value_class=CodedValue)
+    Value = cp.SubElementProperty(pm.Value, value_class=Measurement)
     # pylint: enable=invalid-name
     _props = ['Code', 'Value']
 
 
 class T_CalibrationDocumentation(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    Documentation = cp.SubElementListProperty(domTag('Documentation'), value_class=LocalizedText)
-    CalibrationResult = cp.SubElementListProperty(domTag('CalibrationResult'), value_class=T_CalibrationResult)
+    Documentation = cp.SubElementListProperty(pm.Documentation, value_class=LocalizedText)
+    CalibrationResult = cp.SubElementListProperty(pm.CalibrationResult, value_class=T_CalibrationResult)
     # pylint: enable=invalid-name
     _props = ['Documentation', 'CalibrationResult']
 
@@ -1282,7 +1283,7 @@ class T_CalibrationType(StringEnum):  # only used in CalibrationInfo
 
 class CalibrationInfo(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    CalibrationDocumentation = cp.SubElementListProperty(domTag('CalibrationDocumentation'),
+    CalibrationDocumentation = cp.SubElementListProperty(pm.CalibrationDocumentation,
                                                          value_class=T_CalibrationDocumentation)
     ComponentCalibrationState = cp.EnumAttributeProperty('ComponentCalibrationState',
                                                          enum_cls=T_CalibrationState)
@@ -1296,7 +1297,7 @@ class CalibrationInfo(PropertyBasedPMType):
 
 class ApprovedJurisdictions(PropertyBasedPMType):
     # pylint: disable=invalid-name
-    ApprovedJurisdiction = cp.SubElementListProperty(domTag('ApprovedJurisdiction'),
+    ApprovedJurisdiction = cp.SubElementListProperty(pm.ApprovedJurisdiction,
                                                      value_class=InstanceIdentifier)
     _props = ['ApprovedJurisdiction']
 

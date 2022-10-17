@@ -6,7 +6,7 @@ from . import providerbase
 from .. import namespaces
 from ..pmtypes import AlertActivation, AlertConditionKind, AlertSignalPresence, SystemSignalActivation, \
     AlertSignalManifestation
-
+from .. import pm_qnames as pm
 
 class GenericAlarmProvider(providerbase.ProviderRole):
     WORKERTHREAD_INTERVAL = 1.0  # seconds
@@ -36,12 +36,12 @@ class GenericAlarmProvider(providerbase.ProviderRole):
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         operation_target_handle = operation_descriptor_container.OperationTarget
         operation_target_descr = self._mdib.descriptions.handle.get_one(operation_target_handle)  # descriptor container
-        if operation_descriptor_container.NODETYPE == namespaces.domTag('SetValueOperationDescriptor'):
+        if operation_descriptor_container.NODETYPE == pm.SetValueOperationDescriptor:
             pass
-        elif operation_descriptor_container.NODETYPE == namespaces.domTag('ActivateOperationDescriptor'):
+        elif operation_descriptor_container.NODETYPE == pm.ActivateOperationDescriptor:
             pass
-        elif operation_descriptor_container.NODETYPE == namespaces.domTag('SetAlertStateOperationDescriptor'):
-            if operation_target_descr.NODETYPE == namespaces.domTag('AlertSignalDescriptor'):
+        elif operation_descriptor_container.NODETYPE == pm.SetAlertStateOperationDescriptor:
+            if operation_target_descr.NODETYPE == pm.AlertSignalDescriptor:
                 # no check for code, because the set_alert_state operation always means setting
                 # ActivationState, Presence and ActualSignalGenerationDelay
                 # if stricter checking needed, one might add it
@@ -56,7 +56,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         return None  # None == no handler for this operation instantiated
 
     def _set_alert_system_states_initial_values(self):
-        states = self._mdib.states.NODETYPE.get(namespaces.domTag('AlertSystemState'), [])
+        states = self._mdib.states.NODETYPE.get(pm.AlertSystemState, [])
         for state in states:
             if hasattr(state, 'SystemSignalActivation'):  # attribute not exists in Draft6
                 state.SystemSignalActivation.append(
@@ -67,11 +67,11 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         """
         - if an AlertCondition.ActivationState is 'On', then the local AlertSignals shall also be 'On'
         - all remote alert Signals shall be 'Off' initially (must be explicitely enabled by delegating device)"""
-        for alert_condition in self._mdib.states.NODETYPE.get(namespaces.domTag('AlertConditionState'), []):
+        for alert_condition in self._mdib.states.NODETYPE.get(pm.AlertConditionState, []):
             alert_condition.ActivationState = AlertActivation.ON
-        for alert_condition in self._mdib.states.NODETYPE.get(namespaces.domTag('LimitAlertConditionState'), []):
+        for alert_condition in self._mdib.states.NODETYPE.get(pm.LimitAlertConditionState, []):
             alert_condition.ActivationState = AlertActivation.ON
-        for alert_condition in self._mdib.states.NODETYPE.get(namespaces.domTag('AlertSignalState'), []):
+        for alert_condition in self._mdib.states.NODETYPE.get(pm.AlertSignalState, []):
             if alert_condition.Location == 'Rem':
                 alert_condition.ActivationState = AlertActivation.OFF
             else:
@@ -103,8 +103,8 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         result = []
         for item in list(transaction.alert_state_updates.values()):
             tmp = item.old if item.new is None else item.new
-            if tmp.NODETYPE in (namespaces.domTag('AlertConditionState'),
-                                namespaces.domTag('LimitAlertConditionState')):
+            if tmp.NODETYPE in (pm.AlertConditionState,
+                                pm.LimitAlertConditionState):
                 result.append(tmp)
         return result
 
@@ -284,7 +284,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         """
         states_needing_update = []
         try:
-            all_alert_systems_descr = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('AlertSystemDescriptor'),
+            all_alert_systems_descr = self._mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor,
                                                                            [])
             for alert_system_descr in all_alert_systems_descr:
                 alert_system_state = self._mdib.states.descriptorHandle.get_one(alert_system_descr.Handle,
@@ -316,7 +316,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
     def _handle_delegate_timeouts(self):
         if self._last_activate_all_delegable_alerts:
             # find the minimal invocation_effective_timeout
-            all_op_descrs = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('SetAlertStateOperationDescriptor'),
+            all_op_descrs = self._mdib.descriptions.NODETYPE.get(pm.SetAlertStateOperationDescriptor,
                                                                  [])
             timeouts = [op.InvocationEffectiveTimeout for op in all_op_descrs]
             timeouts = [t for t in timeouts if t is not None]

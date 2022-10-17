@@ -17,8 +17,10 @@ from abc import ABC, abstractmethod
 
 from .. import loghelper
 from .. import observableproperties as properties
-from ..namespaces import domTag, msgTag
 from ..pmtypes import InvocationState, SafetyClassification
+from .. import pm_qnames as pm
+from .. import msg_qnames as msg
+
 
 class OperationDefinition:
     """ This is the base class of all provided operations.
@@ -37,8 +39,8 @@ class OperationDefinition:
         """
         :param handle: the handle of the operation itself.
         :param operation_target_handle: the handle of the modified data (MdDescription)
-        :param safetyClassification: one of pmtypes.SafetyClassification values
-        :param codedValue: a pmtypes.CodedValue instance
+        :param safety_classification: one of pmtypes.SafetyClassification values
+        :param coded_value: a pmtypes.CodedValue instance
         """
         self._logger = loghelper.get_logger_adapter(f'sdc.device.op.{self.__class__.__name__}', log_prefix)
         self._mdib = None
@@ -94,7 +96,7 @@ class OperationDefinition:
 
         self._operation_state_container = self._mdib.states.descriptorHandle.get_one(self._handle, allow_none=True)
         if self._operation_state_container is not None:
-            self._logger.info('operation state for operation "{}" is already present, re-using it',self._handle)
+            self._logger.info('operation state for operation "{}" is already present, re-using it', self._handle)
         else:
             cls = mdib.sdc_definitions.get_state_container_class(self.OP_STATE_QNAME)
             self._operation_state_container = cls(self._descriptor_container)
@@ -145,9 +147,9 @@ class OperationDefinition:
 
 
 class _SetStringOperation(OperationDefinition):
-    OP_DESCR_QNAME = domTag('SetStringOperationDescriptor')
-    OP_STATE_QNAME = domTag('SetStringOperationState')
-    OP_QNAME = msgTag('SetString')
+    OP_DESCR_QNAME = pm.SetStringOperationDescriptor
+    OP_STATE_QNAME = pm.SetStringOperationState
+    OP_QNAME = msg.SetString
 
     def __init__(self, handle, operation_target_handle, initial_value=None, coded_value=None):
         super().__init__(handle=handle,
@@ -163,9 +165,9 @@ class _SetStringOperation(OperationDefinition):
 
 
 class _SetValueOperation(OperationDefinition):
-    OP_DESCR_QNAME = domTag('SetValueOperationDescriptor')
-    OP_STATE_QNAME = domTag('SetValueOperationState')
-    OP_QNAME = msgTag('SetValue')
+    OP_DESCR_QNAME = pm.SetValueOperationDescriptor
+    OP_STATE_QNAME = pm.SetValueOperationState
+    OP_QNAME = msg.SetValue
 
     def __init__(self, handle, operation_target_handle, initial_value=None, coded_value=None):
         super().__init__(handle=handle,
@@ -176,9 +178,9 @@ class _SetValueOperation(OperationDefinition):
 
 class _SetContextStateOperation(OperationDefinition):
     """Default implementation of SetContextOperation."""
-    OP_DESCR_QNAME = domTag('SetContextStateOperationDescriptor')
-    OP_STATE_QNAME = domTag('SetContextStateOperationState')
-    OP_QNAME = msgTag('SetContextState')
+    OP_DESCR_QNAME = pm.SetContextStateOperationDescriptor
+    OP_STATE_QNAME = pm.SetContextStateOperationState
+    OP_QNAME = msg.SetContextState
 
     def __init__(self, handle, operation_target_handle, coded_value=None):
         super().__init__(handle,
@@ -201,9 +203,9 @@ class _SetContextStateOperation(OperationDefinition):
 class _ActivateOperation(OperationDefinition):
     """ This default implementation only registers calls, no manipulation of operation target
     """
-    OP_DESCR_QNAME = domTag('ActivateOperationDescriptor')
-    OP_STATE_QNAME = domTag('ActivateOperationState')
-    OP_QNAME = msgTag('Activate')
+    OP_DESCR_QNAME = pm.ActivateOperationDescriptor
+    OP_STATE_QNAME = pm.ActivateOperationState
+    OP_QNAME = msg.Activate
 
     def __init__(self, handle, operation_target_handle, coded_value=None):
         super().__init__(handle=handle,
@@ -214,9 +216,9 @@ class _ActivateOperation(OperationDefinition):
 class _SetAlertStateOperation(OperationDefinition):
     """ This default implementation only registers calls, no manipulation of operation target
     """
-    OP_DESCR_QNAME = domTag('SetAlertStateOperationDescriptor')
-    OP_STATE_QNAME = domTag('SetAlertStateOperationState')
-    OP_QNAME = msgTag('SetAlertState')
+    OP_DESCR_QNAME = pm.SetAlertStateOperationDescriptor
+    OP_STATE_QNAME = pm.SetAlertStateOperationState
+    OP_QNAME = msg.SetAlertState
 
     def __init__(self, handle, operation_target_handle, coded_value=None, log_prefix=None):
         super().__init__(handle=handle,
@@ -228,9 +230,9 @@ class _SetAlertStateOperation(OperationDefinition):
 class _SetComponentStateOperation(OperationDefinition):
     """ This default implementation only registers calls, no manipulation of operation target
     """
-    OP_DESCR_QNAME = domTag('SetComponentStateOperationDescriptor')
-    OP_STATE_QNAME = domTag('SetComponentStateOperationState')
-    OP_QNAME = msgTag('SetComponentState')
+    OP_DESCR_QNAME = pm.SetComponentStateOperationDescriptor
+    OP_STATE_QNAME = pm.SetComponentStateOperationState
+    OP_QNAME = msg.SetComponentState
 
     def __init__(self, handle, operation_target_handle, coded_value=None, log_prefix=None):
         super().__init__(handle=handle,
@@ -242,9 +244,9 @@ class _SetComponentStateOperation(OperationDefinition):
 class _SetMetricStateOperation(OperationDefinition):
     """ This default implementation only registers calls, no manipulation of operation target
     """
-    OP_DESCR_QNAME = domTag('SetMetricStateOperationDescriptor')
-    OP_STATE_QNAME = domTag('SetMetricStateOperationState')
-    OP_QNAME = msgTag('SetMetricState')
+    OP_DESCR_QNAME = pm.SetMetricStateOperationDescriptor
+    OP_STATE_QNAME = pm.SetMetricStateOperationState
+    OP_QNAME = msg.SetMetricState
 
     def __init__(self, handle, operation_target_handle, coded_value=None, log_prefix=None):
         super().__init__(handle=handle,
@@ -264,7 +266,7 @@ _operation_lookup_by_type = {c.OP_DESCR_QNAME: c for c in _classes_with_QNAME}
 
 def get_operation_class(q_name):
     """
-    :param qNameType: a QName instance
+    :param q_name: a QName instance
     """
     return _operation_lookup_by_type.get(q_name)
 
@@ -292,7 +294,7 @@ class _OperationsWorker(threading.Thread):
         :param operation: a callable with signature operation(request, mdib)
         :param request: the soapEnvelope of the request
         :param argument: parsed argument for the operation handler
-        @return: a transaction Id
+        @return: a transaction Identifier
         """
         with self._transaction_id_lock:
             transaction_id = self._transaction_id
@@ -354,16 +356,16 @@ class AbstractScoOperationsRegistry(ABC):
         self._handle = handle
 
         # find the Sco of the Mds, this will be the default sco for new operations
-        mds_descriptor_container = mdib.descriptions.NODETYPE.get_one(domTag('MdsDescriptor'))
+        mds_descriptor_container = mdib.descriptions.NODETYPE.get_one(pm.MdsDescriptor)
         sco_containers = mdib.descriptions.find(parent_handle=mds_descriptor_container.Handle).find(
-            NODETYPE=domTag('ScoDescriptor')).objects
+            NODETYPE=pm.ScoDescriptor).objects
         if len(sco_containers) == 1:
             self._logger.info('found Sco node in mds, using it')
             self._mds_sco_descriptor_container = sco_containers[0]
         else:
             self._logger.info('not found Sco node in mds, creating it')
             # create sco and add to mdib
-            cls = mdib.sdc_definitions.get_descriptor_container_class(domTag('ScoDescriptor'))
+            cls = mdib.sdc_definitions.get_descriptor_container_class(pm.ScoDescriptor)
             self._mds_sco_descriptor_container = cls(self._handle, mds_descriptor_container.Handle)
             mdib.descriptions.add_object(self._mds_sco_descriptor_container)
 
@@ -417,6 +419,7 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
     NOTE - In modular systems, dynamically plugged-in modules would typically be modeled as VMDs.
     Such VMDs potentially have their own SCO. In every other case, SCO operations are modeled in pm:MdsDescriptor/pm:Sco.
     """
+
     def register_operation(self, operation: OperationDefinition, sco_descriptor_container=None):
         self._logger.info('register operation "{}"', operation)
         if operation.handle in self._registered_operations:

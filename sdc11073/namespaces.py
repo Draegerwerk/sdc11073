@@ -127,7 +127,7 @@ class DocNamespaceHelper:
 
     def partial_map(self, *prefixes):
         """
-        :param prefix: Prefix class members
+        :param prefixes: Prefix class members
         :return: a dictionary with prefix as key, namespace as value
         """
         my_namespaces = []

@@ -1,8 +1,8 @@
 """ Implementation of some data types used in Message Model"""
 import enum
 from .pmtypes import PropertyBasedPMType
-from .namespaces import msgTag
 from .mdib import containerproperties as cp
+from . import msg_qnames as msg
 
 # pylint: disable=invalid-name
 
@@ -32,7 +32,7 @@ class RetrievabilityInfo(PropertyBasedPMType):
         return f'{self.__class__.__name__} {self.Method} period={self.UpdatePeriod}'
 
 class Retrievability(PropertyBasedPMType):
-    By = cp.SubElementListProperty(msgTag('By'), value_class=RetrievabilityInfo)
+    By = cp.SubElementListProperty(msg.By, value_class=RetrievabilityInfo)
     _props = ['By']
 
     def __init__(self, retrievability_info_list=None):

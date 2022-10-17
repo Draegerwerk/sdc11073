@@ -11,9 +11,10 @@ import sdc11073.mdib.statecontainers as statecontainers
 import sdc11073.namespaces as namespaces
 import sdc11073.pmtypes as pmtypes
 from sdc11073.location import SdcLocation
+from sdc11073 import pm_qnames as pm
 from tests.mockstuff import dec_list
 # pylint: disable=protected-access
-_my_tag = namespaces.domTag('State')
+_my_tag = pm.State
 
 
 class TestStateContainers(unittest.TestCase):

@@ -20,6 +20,8 @@ from ..metadata import MetaData
 from ..schema_resolver import mk_schema_validator
 from ..schema_resolver import SchemaResolver
 from ..httprequesthandler import HTTPRequestHandlingError
+from .. import pm_qnames as pm
+from .. import msg_qnames as msg
 
 # pylint: disable=no-self-use
 
@@ -183,7 +185,7 @@ class MessageReader:
                     add_children(child_node)
 
         # iterate over tree, collect all handles of vmds, channels and metric descriptors
-        all_mds = mddescription_node.findall(namespaces.domTag('Mds'))
+        all_mds = mddescription_node.findall(pm.Mds)
         for mds_node in all_mds:
             mds = self._mk_descriptor_container_from_node(mds_node, None)
             descriptions.append(mds)
@@ -199,7 +201,7 @@ class MessageReader:
         state_containers = []
         mdstate_nodes = node.xpath('//dom:MdState', namespaces=namespaces.nsmap)
         if mdstate_nodes:
-            all_state_nodes = mdstate_nodes[0].findall(namespaces.domTag('State'))
+            all_state_nodes = mdstate_nodes[0].findall(pm.State)
             for state_node in all_state_nodes:
                 try:
                     state_containers.append(self._mk_state_container_from_node(state_node))
@@ -283,16 +285,16 @@ class MessageReader:
         if st_cls is None:
             raise ValueError(f'nody type {node_type} is not known')
 
-        if node.tag != namespaces.domTag('State'):
+        if node.tag != pm.State:
             node = copy.copy(node)  # make a copy, do not modify the original report
-            node.tag = namespaces.domTag('State')
+            node.tag = pm.State
         state = st_cls(descriptor_container)
         state.update_from_node(node)
         state.node = node
         return state
 
     def _mk_realtime_sample_array_states(self, node):
-        return self._mk_state_container_from_node(node, namespaces.domTag('RealTimeSampleArrayMetricState'))
+        return self._mk_state_container_from_node(node, pm.RealTimeSampleArrayMetricState)
 
     def _mk_statecontainers_from_reportpart2(self, reportpart_node):
         containers = []
@@ -334,7 +336,7 @@ class MessageReaderClient(MessageReader):
         context_state_nodes = message_data.p_msg.msg_node[:]  # list of msg:ContextStatenodes
         for context_state_node in context_state_nodes:
             # hard rename to dom:State
-            context_state_node.tag = namespaces.domTag('State')
+            context_state_node.tag = pm.State
             try:
                 state_container = self._mk_state_container_from_node(context_state_node)
                 states.append(state_container)
@@ -463,11 +465,11 @@ class MessageReaderClient(MessageReader):
             descriptors_list.append(descriptors)
             parent_descriptor = report_part.get('ParentDescriptor')
             modification_type = report_part.get('ModificationType', 'Upt')  # implied Value is 'Upt'
-            descriptor_nodes = report_part.findall(namespaces.msgTag('Descriptor'))
+            descriptor_nodes = report_part.findall(msg.Descriptor)
             for descriptor_node in descriptor_nodes:
                 descr_container = self._mk_descriptor_container_from_node(descriptor_node, parent_descriptor)
                 descriptors[modification_type][0].append(descr_container)
-            state_nodes = report_part.findall(namespaces.msgTag('State'))
+            state_nodes = report_part.findall(msg.State)
             for state_node in state_nodes:
                 state_container = self._mk_state_container_from_node(state_node)
                 descriptors[modification_type][1].append(state_container)

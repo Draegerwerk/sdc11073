@@ -1,6 +1,6 @@
 from .providerbase import ProviderRole
-from ..namespaces import domTag
 from ..pmtypes import ComponentActivation
+from .. import pm_qnames as pm
 
 
 class GenericMetricProvider(ProviderRole):
@@ -28,33 +28,33 @@ class GenericMetricProvider(ProviderRole):
         operation_target_handle = operation_descriptor_container.OperationTarget
         op_target_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
 
-        if op_target_descriptor_container.NODETYPE not in (domTag('StringMetricDescriptor'),
-                                                           domTag('EnumStringMetricDescriptor'),
-                                                           domTag('NumericMetricDescriptor'),
-                                                           domTag('RealTimeSampleArrayMetricDescriptor')):
+        if op_target_descriptor_container.NODETYPE not in (pm.StringMetricDescriptor,
+                                                           pm.EnumStringMetricDescriptor,
+                                                           pm.NumericMetricDescriptor,
+                                                           pm.RealTimeSampleArrayMetricDescriptor):
             return None  # this is not metric provider role
 
-        if operation_descriptor_container.NODETYPE == domTag('SetValueOperationDescriptor'):
-            if op_target_descriptor_container.NODETYPE == domTag('NumericMetricDescriptor'):
-                op_cls = operation_cls_getter(domTag('SetValueOperationDescriptor'))
+        if operation_descriptor_container.NODETYPE == pm.SetValueOperationDescriptor:
+            if op_target_descriptor_container.NODETYPE == pm.NumericMetricDescriptor:
+                op_cls = operation_cls_getter(pm.SetValueOperationDescriptor)
                 return self._mk_operation(op_cls,
                                           handle=operation_descriptor_container.Handle,
                                           operation_target_handle=operation_target_handle,
                                           coded_value=operation_descriptor_container.Type,
                                           current_argument_handler=self._set_numeric_value)
             return None
-        if operation_descriptor_container.NODETYPE == domTag('SetStringOperationDescriptor'):
-            if op_target_descriptor_container.NODETYPE in (domTag('StringMetricDescriptor'),
-                                                           domTag('EnumStringMetricDescriptor')):
-                op_cls = operation_cls_getter(domTag('SetStringOperationDescriptor'))
+        if operation_descriptor_container.NODETYPE == pm.SetStringOperationDescriptor:
+            if op_target_descriptor_container.NODETYPE in (pm.StringMetricDescriptor,
+                                                           pm.EnumStringMetricDescriptor):
+                op_cls = operation_cls_getter(pm.SetStringOperationDescriptor)
                 return self._mk_operation(op_cls,
                                           handle=operation_descriptor_container.Handle,
                                           operation_target_handle=operation_target_handle,
                                           coded_value=operation_descriptor_container.Type,
                                           current_argument_handler=self._set_string)
             return None
-        if operation_descriptor_container.NODETYPE == domTag('SetMetricStateOperationDescriptor'):
-            op_cls = operation_cls_getter(domTag('SetMetricStateOperationDescriptor'))
+        if operation_descriptor_container.NODETYPE == pm.SetMetricStateOperationDescriptor:
+            op_cls = operation_cls_getter(pm.SetMetricStateOperationDescriptor)
             operation = self._mk_operation(op_cls,
                                            handle=operation_descriptor_container.Handle,
                                            operation_target_handle=operation_target_handle,
