@@ -3,7 +3,7 @@ from decimal import Decimal
 from sdc11073 import isoduration
 
 
-STRICT_INTEGER_ATTRIBUTE = True
+STRICT_VALUE_CHECK = True
 
 
 class NullConverter:
@@ -15,6 +15,9 @@ class NullConverter:
     def to_xml(py_value):
         return py_value
 
+    @staticmethod
+    def check_valid(py_value):
+        pass
 
 class TimestampConverter:
     """ XML representation: integer, representing timestamp in milliseconds
@@ -30,6 +33,14 @@ class TimestampConverter:
     def to_xml(py_value):
         ms_value = int(py_value * 1000)
         return str(ms_value)
+
+    @staticmethod
+    def check_valid(py_value):
+        if STRICT_VALUE_CHECK and py_value is not None:
+            if not isinstance(py_value, (float, int, Decimal)):
+                raise ValueError(f'Timestamp can only be float, integer or Decimal, got {type(py_value)}')
+            if py_value < 0:
+                raise ValueError(f'Timestamp can only have positive values, got {py_value}')
 
 
 class DecimalConverter:
@@ -74,6 +85,12 @@ class DecimalConverter:
             xml_value = xml_value[:-1]
         return xml_value
 
+    @staticmethod
+    def check_valid(py_value):
+        if STRICT_VALUE_CHECK and py_value is not None:
+            if not isinstance(py_value, Decimal):
+                raise ValueError(f'expected a decimal, got {type(py_value)}')
+
 
 class IntegerConverter:
     @staticmethod
@@ -85,6 +102,25 @@ class IntegerConverter:
     @staticmethod
     def to_xml(py_value):
         return str(py_value)
+
+    @staticmethod
+    def check_valid(py_value):
+        if STRICT_VALUE_CHECK and py_value is not None:
+            if not isinstance(py_value, int):
+                raise ValueError(f'expected an integer, got {type(py_value)}')
+
+
+class UnsignedIntConverter(IntegerConverter):
+    MAX = 1<<32
+    @classmethod
+    def check_valid(cls, py_value):
+        if STRICT_VALUE_CHECK and py_value is not None:
+            if not (isinstance(py_value, int) or py_value < 0 or py_value > cls.MAX):
+                raise ValueError(f'expected an unsigned integer, got {type(py_value)} value={py_value}')
+
+
+class UnsignedLongConverter(IntegerConverter):
+    MAX = 1<<64
 
 
 class BooleanConverter:
@@ -98,6 +134,12 @@ class BooleanConverter:
             return 'true'
         return 'false'
 
+    @staticmethod
+    def check_valid(py_value):
+        if STRICT_VALUE_CHECK and py_value is not None:
+            if not isinstance(py_value, bool):
+                raise ValueError(f'expected a boolean, got {type(py_value)}')
+
 
 class DurationConverter:
     @staticmethod
@@ -109,3 +151,9 @@ class DurationConverter:
     @staticmethod
     def to_xml(py_value):
         return isoduration.duration_string(py_value)
+
+    @staticmethod
+    def check_valid(py_value):
+        if STRICT_VALUE_CHECK and py_value is not None:
+            if not isinstance(py_value, (int, float)):
+                raise ValueError(f'expected a boolean, got {type(py_value)}')

@@ -212,7 +212,6 @@ class TestStateContainers(unittest.TestCase):
         self.assertEqual(sc.PhysicalConnector, None)
 
         sc.ActivationState = pmtypes.ComponentActivation.ON
-        sc.OperatingHours = 2.3
         sc.OperatingHours = 4
         sc.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('ABC')], 1)
 

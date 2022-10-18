@@ -337,10 +337,6 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
         super().__init__(*args, **kwargs)
         self.last_updated = time.time()
 
-        if self.descriptor_container is not None and self.descriptor_container.SignalDelegationSupported:
-            # Delegable signals should have location Remote according to BICEPS
-            self.Location = pmtypes.AlertSignalPrimaryLocation.REMOTE  # pylint: disable=invalid-name
-
 
 class AlertConditionStateContainer(AbstractAlertStateContainer):
     isAlertCondition = True

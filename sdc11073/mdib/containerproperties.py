@@ -152,6 +152,11 @@ class _AttributePropertyBase(_PropertyBase):
             self._local_var_name = '_a_' + attribute_name.lower()
         self._converter = value_converter if value_converter is not None else NullConverter
 
+    def __set__(self, instance, py_value):
+        """value is the representation on the program side, e.g a float. """
+        self._converter.check_valid(py_value)
+        setattr(instance, self._local_var_name, py_value)
+
     def get_py_value_from_node(self, instance, node):
         value = self._default_py_value
         try:
