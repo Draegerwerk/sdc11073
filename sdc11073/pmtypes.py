@@ -1339,7 +1339,7 @@ class AlertConditionMonitoredLimits(StringEnum):
     ALL_ON = 'All'
     LOW_OFF = 'LoOff'
     HIGH_OFF = 'HiOff'
-    ALL_OFF = 'None'
+    NONE = 'None'
 
 
 class AlertConditionPriority(StringEnum):

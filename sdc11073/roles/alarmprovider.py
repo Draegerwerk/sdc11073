@@ -151,7 +151,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 # it is not part of this transaction
                 alert_state = mdib.states.descriptorHandle.get_one(descriptor_handle, allow_none=True)
             if alert_state is None:
-                raise RuntimeError(f'there is no alert state for {descriptor_handle}')
+                raise ValueError(f'there is no alert state for {descriptor_handle}')
             return alert_state
 
         for state in alert_system_states:

@@ -3,7 +3,8 @@ from typing import Optional, List
 
 from lxml import etree as etree_
 
-from sdc11073.namespaces import nsmap, Prefixes
+from ..namespaces import nsmap, Prefixes
+from ..exceptions import ApiUsageError
 
 CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
 
@@ -74,7 +75,7 @@ class Soap12Envelope:
     @payload_element.setter
     def payload_element(self, element: etree_.Element):
         if self._payload_element is not None:
-            raise RuntimeError('there can be only one body object')
+            raise ApiUsageError('there can be only one body object')
         self._payload_element = element
 
     @property

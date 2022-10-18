@@ -8,6 +8,7 @@ from ..httprequesthandler import HTTPRequestHandler, mk_chunks
 from ..httprequesthandler import HttpServerThreadBase
 from ..httprequesthandler import RequestData
 from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
+from ..exceptions import ApiUsageError
 
 
 class PathElementDispatcher:
@@ -19,7 +20,7 @@ class PathElementDispatcher:
 
     def register_dispatcher(self, path_element, dispatcher):
         if path_element in self.sub_dispatchers:
-            raise RuntimeError(f'Path-element "{path_element}" already registered')
+            raise ApiUsageError(f'Path-element "{path_element}" already registered')
         self.sub_dispatchers[path_element] = dispatcher
 
     def get_dispatcher(self, path_element):

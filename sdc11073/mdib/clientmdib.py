@@ -12,6 +12,7 @@ from .. import loghelper
 from .. import namespaces
 from .. import observableproperties as properties
 from .. import pmtypes
+from ..exceptions import ApiUsageError
 
 _global_nsmap = namespaces.nsmap
 
@@ -246,7 +247,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         :return:
         """
         if self._is_initialized:
-            raise RuntimeError('ClientMdibContainer is already initialized')
+            raise ApiUsageError('ClientMdibContainer is already initialized')
         # first start receiving notifications, then call get_mdib.
         # Otherwise, we might miss notifications.
         self._bind_to_client_observables()

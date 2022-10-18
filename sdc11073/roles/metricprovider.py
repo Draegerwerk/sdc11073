@@ -93,7 +93,8 @@ class GenericMetricProvider(ProviderRole):
 
     def _handle_metrics_component_activation(self, metric_state_updates):
         # check if MetricValue shall be removed
-        for _, new_state in metric_state_updates:
+        for tr_item in metric_state_updates:
+            new_state = tr_item.new
             if new_state is None or not new_state.isMetricState:
                 continue
             # SF717: check if MetricValue shall be automatically removed

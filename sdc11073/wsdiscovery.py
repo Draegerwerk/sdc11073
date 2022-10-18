@@ -21,8 +21,9 @@ from typing import Iterable
 # pylint: disable=no-name-in-module
 from lxml.etree import ETCompatXMLParser, QName, Element, SubElement, tostring, fromstring
 
-from sdc11073.commlog import get_communication_logger
+from .commlog import get_communication_logger
 from .netconn import get_ipv4_addresses, get_ip_for_adapter
+from .exceptions import ApiUsageError
 # pylint: enable=no-name-in-module
 
 
@@ -536,7 +537,7 @@ def _create_message(env):
         return _create_hello_message(env)
     if env.action == ACTION_BYE:
         return _create_bye_message(env)
-    raise RuntimeError(f'do not know how to handle action {env.action}')
+    raise ValueError(f'do not know how to handle action {env.action}')
 
 
 def _create_probe_message(env):
@@ -1619,7 +1620,7 @@ class WSDiscoveryBase:
         Can be used to search for devices that support Biceps Draft6 and Final with one search.
         :param repeat_probe_interval: send another probe message after x seconds"""
         if not self._server_started:
-            raise RuntimeError("Server not started")
+            raise ApiUsageError("Server not started")
 
         start = time.monotonic()
         end = start + timeout
@@ -1647,7 +1648,7 @@ class WSDiscoveryBase:
         if x_addrs contains item, which includes {ip} pattern, one item per IP addres will be sent
         """
         if not self._server_started:
-            raise RuntimeError("Server not started")
+            raise ApiUsageError("Server not started")
 
         metadata_version = self._local_services[epr].metadata_version + 1 if epr in self._local_services else 1
         service = Service(types, scopes, x_addrs, epr, _generate_instance_id(), metadata_version=metadata_version)

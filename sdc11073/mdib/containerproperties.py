@@ -15,6 +15,7 @@ from .. import namespaces
 from ..dataconverters import TimestampConverter, DecimalConverter, IntegerConverter, BooleanConverter, \
     DurationConverter, NullConverter
 from ..namespaces import QN_TYPE, docname_from_qname, text_to_qname
+from ..exceptions import ApiUsageError
 from .. import ext_qnames as ext
 
 # The STRICT_ENUM_ATTRIBUTE constant allows to change the global behavior regarding enumeration types:
@@ -851,7 +852,7 @@ class SubElementWithSubElementListProperty(SubElementProperty):
         if isinstance(py_value, self.value_class):
             super().__set__(instance, py_value)
         else:
-            raise RuntimeError(f'do not set {self._sub_element_name} directly, use child member!')
+            raise ApiUsageError(f'do not set {self._sub_element_name} directly, use child member!')
 
 
 class DateOfBirthProperty(_NodeProperty):

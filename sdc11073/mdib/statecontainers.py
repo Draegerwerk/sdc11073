@@ -341,7 +341,7 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
 class AlertConditionStateContainer(AbstractAlertStateContainer):
     isAlertCondition = True
     NODETYPE = pm.AlertConditionState
-    ActualConditionGenerationDelay = cp.DurationAttributeProperty('ActualConditionGenerationDelay')  # xsd:duration
+    ActualConditionGenerationDelay = cp.DurationAttributeProperty('ActualConditionGenerationDelay')
     ActualPriority = cp.EnumAttributeProperty('ActualPriority', enum_cls=pmtypes.AlertConditionPriority)
     Rank = cp.IntegerAttributeProperty('Rank')  # Integer
     DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime')  # Integer
@@ -351,10 +351,9 @@ class AlertConditionStateContainer(AbstractAlertStateContainer):
 
 class LimitAlertConditionStateContainer(AlertConditionStateContainer):
     NODETYPE = pm.LimitAlertConditionState
-    Limits = cp.SubElementProperty(pm.Limits, value_class=pmtypes.Range,
-                                   default_py_value=pmtypes.Range())  # required, pm:Range
+    Limits = cp.SubElementProperty(pm.Limits, value_class=pmtypes.Range, default_py_value=pmtypes.Range())
     MonitoredAlertLimits = cp.EnumAttributeProperty('MonitoredAlertLimits',
-                                                    default_py_value=pmtypes.AlertConditionMonitoredLimits.ALL_OFF,
+                                                    default_py_value=pmtypes.AlertConditionMonitoredLimits.NONE,
                                                     enum_cls=pmtypes.AlertConditionMonitoredLimits,
                                                     is_optional=False)
     AutoLimitActivationState = cp.EnumAttributeProperty('AutoLimitActivationState',
@@ -364,20 +363,17 @@ class LimitAlertConditionStateContainer(AlertConditionStateContainer):
 
 class AbstractMultiStateContainer(AbstractStateContainer):
     isMultiState = True
+    Category = cp.SubElementProperty(pm.Category, value_class=pmtypes.CodedValue, is_optional=True)
     Handle = cp.HandleAttributeProperty('Handle', is_optional=False)
-    _props = ('Handle',)
+    _props = ('Category', 'Handle',)
 
-    def __init__(self, descriptor_container):
+    def __init__(self, descriptor_container, handle=None):
         super().__init__(descriptor_container)
-        self.Handle = uuid.uuid4().hex  # pylint: disable=invalid-name
-        self._handle_is_generated = True
+        self.Handle = handle  # pylint: disable=invalid-name
 
     def update_from_other_container(self, other, skipped_properties=None):
         # Accept node only if descriptorHandle and Handle match
-        if self._handle_is_generated:
-            self.Handle = other.Handle
-            self._handle_is_generated = False
-        elif other.Handle != self.Handle:
+        if self.Handle is not None and other.Handle != self.Handle:
             raise ValueError(
                 f'Update from a node with different handle is not possible! Have "{self.Handle}", got "{other.Handle}"')
         super().update_from_other_container(other, skipped_properties)
@@ -488,7 +484,7 @@ _state_lookup_by_type = {c.NODETYPE: c for c in classes_with_NODETYPE}
 
 
 def get_container_class(type_qname):
-    """
+    """ Returns class for given type
     :param type_qname: the QName of the expected NODETYPE
     """
     return _state_lookup_by_type.get(type_qname)

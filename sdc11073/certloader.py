@@ -21,20 +21,20 @@ def mk_ssl_context_from_folder(ca_folder,
     """
     certfile = os.path.join(ca_folder, certificate)
     if not os.path.exists(certfile):
-        raise RuntimeError(f'{certfile} not found')
+        raise FileNotFoundError(f'{certfile} not found')
     keyfile = os.path.join(ca_folder, private_key)
     if not os.path.exists(keyfile):
-        raise RuntimeError(f'{keyfile} not found')
+        raise FileNotFoundError(f'{keyfile} not found')
     if ca_public_key:
         cafile = os.path.join(ca_folder, ca_public_key)
         if not os.path.exists(cafile):
-            raise RuntimeError(f'{cafile} not found')
+            raise FileNotFoundError(f'{cafile} not found')
     else:
         cafile = None
     if cyphers_file:
         cyphers_file_path = os.path.join(ca_folder, cyphers_file)
         if not os.path.exists(cyphers_file_path):
-            raise RuntimeError(f'{cyphers_file_path} not found')
+            raise FileNotFoundError(f'{cyphers_file_path} not found')
         with open(cyphers_file_path, encoding='utf-8') as file:
             while True:
                 # allow comment lines, starting with #

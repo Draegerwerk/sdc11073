@@ -313,7 +313,7 @@ class TestStateContainers(unittest.TestCase):
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
         sc = statecontainers.LimitAlertConditionStateContainer(descriptor_container=self.dc)
-        self.assertEqual(sc.MonitoredAlertLimits, pmtypes.AlertConditionMonitoredLimits.ALL_OFF)
+        self.assertEqual(sc.MonitoredAlertLimits, pmtypes.AlertConditionMonitoredLimits.NONE)
         self.assertEqual(sc.AutoLimitActivationState, None)
 
         sc2 = statecontainers.LimitAlertConditionStateContainer(descriptor_container=self.dc)

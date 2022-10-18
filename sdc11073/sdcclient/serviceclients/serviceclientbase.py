@@ -5,6 +5,7 @@ from typing import Any
 
 from ... import loghelper
 from ...namespaces import DocNamespaceHelper
+from ...exceptions import ApiUsageError
 from ...pysoap.msgreader import ReceivedMessage
 
 
@@ -76,7 +77,7 @@ class HostedServiceClient:
     def register_mdib(self, mdib):
         """ Client sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib_wref is not None:
-            raise RuntimeError(f'Client "{self.porttype}" has already an registered mdib')
+            raise ApiUsageError(f'Client "{self.porttype}" has already an registered mdib')
         self._mdib_wref = None if mdib is None else weakref.ref(mdib)
 
     def set_operations_manager(self, operations_manager):

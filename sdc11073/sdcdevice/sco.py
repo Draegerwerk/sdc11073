@@ -20,6 +20,7 @@ from .. import observableproperties as properties
 from ..pmtypes import InvocationState, SafetyClassification
 from .. import pm_qnames as pm
 from .. import msg_qnames as msg
+from ..exceptions import ApiUsageError
 
 
 class OperationDefinition:
@@ -81,7 +82,7 @@ class OperationDefinition:
         This is called by SubscriptionManager on registration.
         Needs to be implemented by derived classes if specific things have to be initialized."""
         if self._mdib is not None:
-            raise RuntimeError('Mdib is already set')
+            raise ApiUsageError('Mdib is already set')
         self._mdib = mdib
         self._logger.log_prefix = mdib.log_prefix  # use same prefix as mdib for logging
         self._descriptor_container = self._mdib.descriptions.handle.get_one(self._handle, allow_none=True)
@@ -444,7 +445,7 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
 
     def start_worker(self):
         if self._worker is not None:
-            raise RuntimeError('SCO worker is already running')
+            raise ApiUsageError('SCO worker is already running')
         self._worker = _OperationsWorker(self._subscriptions_mgr, self._mdib, self._log_prefix)
         self._worker.start()
 

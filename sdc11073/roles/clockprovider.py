@@ -97,7 +97,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                     state = mgr.get_state(clock_descriptors[0].handle)
 
             if state.NODETYPE != pm.ClockState:
-                raise RuntimeError(f'_set_ntp_string: expected ClockState, got {state.NODETYPE.localname}')
+                raise ValueError(f'_set_ntp_string: expected ClockState, got {state.NODETYPE.localname}')
             state.TimeZone = value
 
 

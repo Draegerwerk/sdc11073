@@ -17,6 +17,7 @@ from ..namespaces import Prefixes
 from ..namespaces import WSA_ANONYMOUS
 from ..namespaces import msgTag, wseTag, wsaTag, wsxTag, xmlTag, s12Tag, dpwsTag, wsdTag, QN_TYPE
 from ..namespaces import nsmap, DocNamespaceHelper, docname_from_qname
+from ..exceptions import ApiUsageError
 from .. import pm_qnames as pm
 from .. import msg_qnames as msg
 
@@ -67,7 +68,7 @@ class MessageFactory:
         :param mdib: the current mdib
         """
         if mdib is not None and self._mdib_wref is not None:
-            raise RuntimeError('MessageFactory has already an registered mdib')
+            raise ApiUsageError('MessageFactory has already an registered mdib')
         self._mdib_wref = None if mdib is None else weakref.ref(mdib)
 
     def serialize_message(self, message: CreatedMessage, pretty=False, normalized=False,

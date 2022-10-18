@@ -15,6 +15,7 @@ from ..addressing import EndpointReferenceType
 from ..dpws import HostServiceType
 from ..location import SdcLocation
 from ..namespaces import Prefixes
+from ..exceptions import ApiUsageError
 from .. import observableproperties as properties
 
 class SdcDevice:
@@ -297,7 +298,7 @@ class SdcDevice:
 
     def start_rt_sample_loop(self):
         if self._waveform_sender:
-            raise RuntimeError(' realtime send loop already started')
+            raise ApiUsageError(' realtime send loop already started')
         self._waveform_sender = WaveformSender(self._mdib, self._logger, self.collect_rt_samples_period)
         self._waveform_sender.start()
 

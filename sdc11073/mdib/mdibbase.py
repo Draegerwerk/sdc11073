@@ -271,7 +271,7 @@ class MdibContainer:
                 # special case Draft6 ScoState (is not a component state)
                 pass  # this cannot be updated anyway over the network, but handle it here to avoid runtime error
             else:
-                raise RuntimeError(
+                raise NotImplementedError(
                     f'handling of {state_container.__class__.__name__} has been forgotten to implement!')
 
         # finally update observable properties
@@ -425,7 +425,7 @@ class MdibContainer:
                 if len(matching_metrics) == 1:
                     return matching_metrics[0]
                 if len(matching_metrics) > 1:
-                    raise RuntimeError(
+                    raise ValueError(
                         f'found multiple metrics for vmd={vmd_code} channel={channel_code} metric={metric_code}')
         return None
 

@@ -1165,7 +1165,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(clientLimitAlertState.Limits, pmtypes.Range(upper=Decimal(3)))
         self.assertEqual(clientLimitAlertState.Presence, False)
         self.assertEqual(clientLimitAlertState.MonitoredAlertLimits,
-                         pmtypes.AlertConditionMonitoredLimits.ALL_OFF)  # default
+                         pmtypes.AlertConditionMonitoredLimits.NONE)  # default
 
     def test_metadata_modification(self):
         for sdcClient, sdcDevice in self._all_cl_dev:

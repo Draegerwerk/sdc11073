@@ -1,7 +1,7 @@
 from concurrent.futures import Future
 
 from .serviceclientbase import HostedServiceClient, GetRequestResult
-
+from ...exceptions import ApiUsageError
 
 class ContextServiceClient(HostedServiceClient):
     subscribeable_actions = ('EpisodicContextReport', 'PeriodicContextReport')
@@ -16,7 +16,7 @@ class ContextServiceClient(HostedServiceClient):
         """
         mdib = self._mdib_wref()
         if mdib is None:
-            raise RuntimeError('no mdib information')
+            raise ApiUsageError('no mdib information')
         context_descriptor_container = mdib.descriptions.handle.get_one(descriptor_handle)
         if handle is None:
             cls = self._sdc_definitions.get_state_container_class(context_descriptor_container.STATE_QNAME)

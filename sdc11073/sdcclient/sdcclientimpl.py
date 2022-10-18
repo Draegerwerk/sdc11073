@@ -17,6 +17,7 @@ from .. import observableproperties as properties
 from ..definitions_base import ProtocolsRegistry
 from ..httprequesthandler import RequestData
 from ..namespaces import EventingActions
+from ..exceptions import ApiUsageError
 from .components import default_sdc_client_components
 
 class HostDescription:
@@ -192,7 +193,7 @@ class SdcClient:
     def set_mdib(self, mdib):
         """ SdcClient sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib is not None:
-            raise RuntimeError('SdcClient has already an registered mdib')
+            raise ApiUsageError('SdcClient has already an registered mdib')
         self._mdib = mdib
         if self.client('Set') is not None:
             self.client('Set').register_mdib(mdib)

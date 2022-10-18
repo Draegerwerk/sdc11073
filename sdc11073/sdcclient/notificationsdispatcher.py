@@ -80,7 +80,7 @@ class NotificationsDispatcherByBody(NotificationsDispatcherBase):
         super().on_notification(message_data)
         method = self._lookup.get(message_data.msg_name)
         if method is None:
-            raise RuntimeError(f'unknown message {message_data.msg_name}')
+            raise ValueError(f'unknown message {message_data.msg_name}')
         method(message_data)
 
 
@@ -110,5 +110,5 @@ class NotificationsDispatcherByAction(NotificationsDispatcherBase):
         action = message_data.address.action
         method = self._lookup.get(action)
         if method is None:
-            raise RuntimeError(f'unknown message {action}')
+            raise ValueError(f'unknown message {action}')
         method(message_data)
