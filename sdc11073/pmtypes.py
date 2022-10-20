@@ -19,13 +19,6 @@ class StringEnum(str, enum.Enum):
         return str(self.value)
 
 
-class PropertyBasedPMTypeMeta(type):
-    def __new__(mcs, name, bases, class_dict):
-        class_ = super().__new__(mcs, name, bases, class_dict)
-        class_.freedom = True
-        return class_
-
-
 class PropertyBasedPMType:
     """ Base class that assumes all data is defined as containerproperties and _props lists all property names."""
 
@@ -104,6 +97,7 @@ class PropertyBasedPMType:
 
 
 class ElementWithTextOnly(PropertyBasedPMType):
+    NODETYPE = None
     text = cp.NodeTextProperty()  # this is the text of the node. Here attribute is lower case!
     _props = ['text']
     '''An Element that has no attributes, only a text.'''
@@ -127,6 +121,7 @@ class T_TextWidth(StringEnum):  # pylint: disable=invalid-name
 
 
 class LocalizedText(PropertyBasedPMType):
+    NODETYPE = pm.LocalizedText
     text = cp.LocalizedTextContentProperty()  # this is the text of the node. Here attribute is lower case!
     # pylint: disable=invalid-name
     Ref = cp.LocalizedTextRefAttributeProperty('Ref')
@@ -137,20 +132,20 @@ class LocalizedText(PropertyBasedPMType):
     _props = ['text', 'Ref', 'Lang', 'Version', 'TextWidth']
     ''' Represents a LocalizedText type in the Participant Model. '''
 
-    def __init__(self, text, lang=None, ref=None, version=None, textWidth=None):
+    def __init__(self, text, lang=None, ref=None, version=None, text_width=None):
         """
         :param text: a string
         :param lang: a string or None
         :param ref: a string or None
         :param version: an int or None
-        :param textWidth: xs, s, m, l, xl, xxl or None
+        :param text_width: xs, s, m, l, xl, xxl or None
         """
         self.text = text
         # pylint: disable=invalid-name
         self.Lang = lang
         self.Ref = ref
         self.Version = version
-        self.TextWidth = textWidth
+        self.TextWidth = text_width
         # pylint: enable=invalid-name
 
     @classmethod
@@ -219,7 +214,7 @@ class T_Translation(PropertyBasedPMType):
         :param codingSystemVersion: optional string, min. length = 1
         """
         # pylint: disable=invalid-name
-        if not isinstance(code, str):
+        if code is not None and not isinstance(code, str):
             raise TypeError('code must be a string!')
         self.Code = code
         self.CodingSystem = coding_system
@@ -245,6 +240,7 @@ class T_Translation(PropertyBasedPMType):
 
 
 class CodedValue(PropertyBasedPMType):
+    NODETYPE = pm.CodedValue
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     CodingSystemName = cp.SubElementListProperty(pm.CodingSystemName, value_class=LocalizedText)
@@ -327,6 +323,7 @@ def have_matching_codes(code_a: Union[CodedValue, Coding], code_b: Union[CodedVa
 
 
 class Annotation(PropertyBasedPMType):
+    NODETYPE = pm.Annotation
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)
@@ -355,6 +352,7 @@ class OperatingMode(StringEnum):
 
 
 class OperationGroup(PropertyBasedPMType):
+    NODETYPE = pm.OperationGroup
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)
@@ -387,6 +385,7 @@ class OperationGroup(PropertyBasedPMType):
 
 
 class InstanceIdentifier(PropertyBasedPMType):
+    NODETYPE = pm.InstanceIdentifier
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)
@@ -428,6 +427,7 @@ class OperatingJurisdiction(InstanceIdentifier):
 
 
 class Range(PropertyBasedPMType):
+    NODETYPE = pm.Range
     # pylint: disable=invalid-name
     Extension = cp.ExtensionNodeProperty()
     Lower = cp.DecimalAttributeProperty('Lower')  # optional, an integer or float
@@ -460,6 +460,7 @@ class Range(PropertyBasedPMType):
 
 
 class Measurement(PropertyBasedPMType):
+    NODETYPE = pm.Measurement
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     MeasurementUnit = cp.SubElementProperty(pm.MeasurementUnit, value_class=CodedValue)
@@ -493,6 +494,7 @@ class Measurement(PropertyBasedPMType):
 
 
 class AllowedValue(PropertyBasedPMType):
+    NODETYPE = pm.AllowedValue
     # pylint: disable=invalid-name
     Value = cp.NodeTextProperty(pm.Value)
     Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)
@@ -544,6 +546,7 @@ class GenerationMode(StringEnum):
 
 
 class T_MetricQuality(PropertyBasedPMType):
+    NODETYPE = pm.MetricQuality
     # pylint: disable=invalid-name
     Validity = cp.EnumAttributeProperty('Validity', enum_cls=MeasurementValidity)
     Mode = cp.EnumAttributeProperty('Mode', implied_py_value='Real', enum_cls=GenerationMode)
@@ -618,16 +621,17 @@ class StringMetricValue(AbstractMetricValue):
 
 
 class ApplyAnnotation(PropertyBasedPMType):
+    NODETYPE = pm.ApplyAnnotation
     # pylint: disable=invalid-name
     AnnotationIndex = cp.UnsignedIntAttributeProperty('AnnotationIndex', is_optional=False)
     SampleIndex = cp.UnsignedIntAttributeProperty('SampleIndex', is_optional=False)
     # pylint: enable=invalid-name
     _props = ['AnnotationIndex', 'SampleIndex']
 
-    def __init__(self, annotationIndex=None, sampleIndex=None):
+    def __init__(self, annotation_index=None, sample_index=None):
         # pylint: disable=invalid-name
-        self.AnnotationIndex = annotationIndex
-        self.SampleIndex = sampleIndex
+        self.AnnotationIndex = annotation_index
+        self.SampleIndex = sample_index
         # pylint: enable=invalid-name
 
     @classmethod
@@ -659,6 +663,7 @@ class RemedyInfo(PropertyBasedPMType):
          0..1 Subelement "Extension" (not handled here)
          0..n SubElements "Description" type=pm:LocalizedText."""
     # pylint: disable=invalid-name
+    NODETYPE = pm.RemedyInfo
     ext_Extension = cp.ExtensionNodeProperty()
     Description = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)
     # pylint: enable=invalid-name
@@ -677,19 +682,20 @@ class CauseInfo(PropertyBasedPMType):
          0..1 Subelement "RemedyInfo", type = pm:RemedyInfo
          0..n SubElements "Description" type=pm:LocalizedText."""
     # pylint: disable=invalid-name
+    NODETYPE = pm.CauseInfo
     ext_Extension = cp.ExtensionNodeProperty()
     RemedyInfo = cp.SubElementProperty(pm.RemedyInfo, value_class=RemedyInfo)
     Description = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)
     # pylint: enable=invalid-name
     _props = ['ext_Extension', 'RemedyInfo', 'Description']
 
-    def __init__(self, remedyInfo=None, descriptions=None):
+    def __init__(self, remedy_info=None, descriptions=None):
         """
-        :param remedyInfo: a RemedyInfo instance or None
+        :param remedy_info: a RemedyInfo instance or None
         :param descriptions : a list of LocalizedText objects or None
         """
         # pylint: disable=invalid-name
-        self.RemedyInfo = remedyInfo
+        self.RemedyInfo = remedy_info
         self.Description = descriptions or []
         # pylint: enable=invalid-name
 
@@ -742,6 +748,7 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
     """PhysicalConnectorInfo defines a number in order to allow to guide the clinical user for a failure,
     e.g., in case of a disconnection of a sensor or an ultrasonic handpiece."""
     # pylint: disable=invalid-name
+    NODETYPE = pm.PhysicalConnectorInfo
     ext_Extension = cp.ExtensionNodeProperty()
     Label = cp.SubElementListProperty(pm.Label,
                                       value_class=LocalizedText)  # A human-readable label that describes the physical connector.
@@ -785,6 +792,7 @@ class AlertActivation(StringEnum):
 
 class SystemSignalActivation(PropertyBasedPMType):
     # pylint: disable=invalid-name
+    NODETYPE = pm.SystemSignalActivation
     Manifestation = cp.EnumAttributeProperty('Manifestation', default_py_value=AlertSignalManifestation.OTH,
                                              enum_cls=AlertSignalManifestation, is_optional=False)
     State = cp.EnumAttributeProperty('State', default_py_value=AlertActivation.ON,
@@ -814,6 +822,7 @@ class SystemSignalActivation(PropertyBasedPMType):
 
 class ProductionSpecification(PropertyBasedPMType):
     # pylint: disable=invalid-name
+    NODETYPE = pm.ProductionSpecification
     SpecType = cp.SubElementProperty(pm.SpecType, value_class=CodedValue)
     ProductionSpec = cp.NodeTextProperty(pm.ProductionSpec)
     ComponentId = cp.SubElementProperty(pm.ComponentId,
@@ -821,16 +830,16 @@ class ProductionSpecification(PropertyBasedPMType):
     # pylint: enable=invalid-name
     _props = ['SpecType', 'ProductionSpec', 'ComponentId']
 
-    def __init__(self, spectype=None, productionspec=None, componentid=None):
+    def __init__(self, spec_type=None, production_spec=None, component_id=None):
         """
-        :param spectype: a pmtypes.CodedValue value
-        :param productionspec: a string
-        :param componentid : a pmtypes.InstanceIdentifier value
+        :param spec_type: a pmtypes.CodedValue value
+        :param production_spec: a string
+        :param component_id : a pmtypes.InstanceIdentifier value
         """
         # pylint: disable=invalid-name
-        self.SpecType = spectype
-        self.ProductionSpec = productionspec
-        self.ComponentId = componentid
+        self.SpecType = spec_type
+        self.ProductionSpec = production_spec
+        self.ComponentId = component_id
         # pylint: enable=invalid-name
 
     @classmethod
@@ -842,6 +851,7 @@ class ProductionSpecification(PropertyBasedPMType):
 
 class BaseDemographics(PropertyBasedPMType):
     # pylint: disable=invalid-name
+    NODETYPE = pm.BaseDemographics
     Givenname = cp.NodeTextProperty(pm.Givenname, is_optional=True)
     Middlename = cp.SubElementTextListProperty(pm.Middlename)
     Familyname = cp.NodeTextProperty(pm.Familyname, is_optional=True)
@@ -862,6 +872,7 @@ class BaseDemographics(PropertyBasedPMType):
 
 
 class PersonReference(PropertyBasedPMType):
+    NODETYPE = pm.PersonReference
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     Identification = cp.SubElementListProperty(pm.Identification, value_class=InstanceIdentifier)  # 1...n
@@ -881,7 +892,21 @@ class PersonReference(PropertyBasedPMType):
         # pylint: enable=invalid-name
 
 
+class PersonParticipation(PersonReference):
+    # pylint: disable=invalid-name
+    NODETYPE = pm.PersonParticipation
+    Role = cp.SubElementListProperty(pm.Role, value_class=CodedValue)  # 0...n
+    # pylint: enable=invalid-name
+    _props = ['Role', ]
+
+    def __init__(self, identifications=None, name=None, roles=None):
+        super().__init__(identifications, name)
+        if roles:
+            self.Role = roles  # pylint: disable=invalid-name
+
+
 class LocationDetail(PropertyBasedPMType):
+    NODETYPE = pm.LocationDetail
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
     PoC = cp.StringAttributeProperty('PoC')
@@ -905,6 +930,7 @@ class LocationDetail(PropertyBasedPMType):
 
 
 class LocationReference(PropertyBasedPMType):
+    NODETYPE = pm.LocationReference
     # pylint: disable=invalid-name
     Identification = cp.SubElementListProperty(pm.Identification, value_class=InstanceIdentifier)  # 1...n
     LocationDetail = cp.SubElementProperty(pm.LocationDetail, value_class=LocationDetail)  # optional
@@ -919,22 +945,10 @@ class LocationReference(PropertyBasedPMType):
         # pylint: enable=invalid-name
 
 
-class PersonParticipation(PersonReference):
-    # pylint: disable=invalid-name
-    NODETYPE = pm.PersonParticipation
-    Role = cp.SubElementListProperty(pm.Role, value_class=CodedValue)  # 0...n
-    # pylint: enable=invalid-name
-    _props = ['Role', ]
-
-    def __init__(self, identifications=None, name=None, roles=None):
-        super().__init__(identifications, name)
-        if roles:
-            self.Role = roles  # pylint: disable=invalid-name
-
-
 class ReferenceRange(PropertyBasedPMType):
     """Representation of the normal or abnormal reference range for the measurement"""
     # pylint: disable=invalid-name
+    NODETYPE = pm.ReferenceRange
     Range = cp.SubElementProperty(pm.Range, value_class=Range)
     Meaning = cp.SubElementProperty(pm.Meaning, value_class=CodedValue, is_optional=True)
     # pylint: enable=invalid-name
@@ -951,6 +965,7 @@ class ReferenceRange(PropertyBasedPMType):
 class RelatedMeasurement(PropertyBasedPMType):
     """Related measurements for this clinical observation"""
     # pylint: disable=invalid-name
+    NODETYPE = pm.RelatedMeasurement
     Value = cp.SubElementProperty(pm.Value, value_class=Measurement)
     ReferenceRange = cp.SubElementListProperty(pm.ReferenceRange, value_class=ReferenceRange)  # 0...n
     # pylint: enable=invalid-name
@@ -966,29 +981,31 @@ class RelatedMeasurement(PropertyBasedPMType):
 
 class ClinicalInfo(PropertyBasedPMType):
     # pylint: disable=invalid-name
+    NODETYPE = pm.ClinicalInfo
     Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)  # optional
     Description = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)  # 0...n
     RelatedMeasurement = cp.SubElementListProperty(pm.RelatedMeasurement, value_class=Measurement)  # 0...n
     # pylint: enable=invalid-name
     _props = ['Type', 'Description', 'RelatedMeasurement']
 
-    def __init__(self, typecode=None, descriptions=None, relatedmeasurements=None):
+    def __init__(self, type_code=None, descriptions=None, related_measurements=None):
         """
-        :param typecode: a CodedValue Instance
+        :param type_code: a CodedValue Instance
         :param descriptions: a list of LocalizedText objects
-        :param relatedmeasurements: a list of Measurement objects
+        :param related_measurements: a list of Measurement objects
         """
         # pylint: disable=invalid-name
-        self.Type = typecode
+        self.Type = type_code
         if descriptions:
             self.Description = descriptions
-        if relatedmeasurements:
-            self.RelatedMeasurement = relatedmeasurements
+        if related_measurements:
+            self.RelatedMeasurement = related_measurements
         # pylint: enable=invalid-name
 
 
 class ImagingProcedure(PropertyBasedPMType):
     # pylint: disable=invalid-name
+    NODETYPE = pm.ImagingProcedure
     AccessionIdentifier = cp.SubElementProperty(pm.AccessionIdentifier,
                                                 value_class=InstanceIdentifier)  # mandatory
     RequestedProcedureId = cp.SubElementProperty(pm.RequestedProcedureId,
@@ -1002,15 +1019,15 @@ class ImagingProcedure(PropertyBasedPMType):
     _props = ['AccessionIdentifier', 'RequestedProcedureId', 'StudyInstanceUid', 'ScheduledProcedureStepId',
               'Modality', 'ProtocolCode']
 
-    def __init__(self, accessionidentifier, requestedprocedureid, studyinstanceuid, scheduledprocedurestepid,
-                 modality=None, protocolcode=None):
+    def __init__(self, accession_identifier, requested_procedure_id, study_instance_uid, scheduled_procedure_step_id,
+                 modality=None, protocol_code=None):
         # pylint: disable=invalid-name
-        self.AccessionIdentifier = accessionidentifier
-        self.RequestedProcedureId = requestedprocedureid
-        self.StudyInstanceUid = studyinstanceuid
-        self.ScheduledProcedureStepId = scheduledprocedurestepid
+        self.AccessionIdentifier = accession_identifier
+        self.RequestedProcedureId = requested_procedure_id
+        self.StudyInstanceUid = study_instance_uid
+        self.ScheduledProcedureStepId = scheduled_procedure_step_id
         self.Modality = modality
-        self.ProtocolCode = protocolcode
+        self.ProtocolCode = protocol_code
         # pylint: enable=invalid-name
 
     @classmethod
@@ -1022,6 +1039,7 @@ class ImagingProcedure(PropertyBasedPMType):
 
 class OrderDetail(PropertyBasedPMType):
     # pylint: disable=invalid-name
+    NODETYPE = pm.OrderDetail
     Start = cp.NodeTextProperty(pm.Start, is_optional=True)  # xsd:dateTime
     End = cp.NodeTextProperty(pm.End, is_optional=True)  # xsd:dateTime
     Performer = cp.SubElementListProperty(pm.Performer, value_class=PersonParticipation)  # 0...n
@@ -1030,13 +1048,13 @@ class OrderDetail(PropertyBasedPMType):
     # pylint: enable=invalid-name
     _props = ['Start', 'End', 'Performer', 'Service', 'ImagingProcedure']
 
-    def __init__(self, start=None, end=None, performer=None, service=None, imagingprocedure=None):
+    def __init__(self, start=None, end=None, performer=None, service=None, imaging_procedure=None):
         """
         :param start: a xsd:DateTime string
         :param end: a xsd:DateTime string
         :param performer: a list of PersonParticipation objects
         :param service: a list of CodedValue objects
-        :param imagingprocedure: a list of ImagingProcedure objects
+        :param imaging_procedure: a list of ImagingProcedure objects
         """
         # pylint: disable=invalid-name
         self.Start = start
@@ -1045,8 +1063,8 @@ class OrderDetail(PropertyBasedPMType):
             self.Performer = performer
         if service:
             self.Service = service
-        if imagingprocedure:
-            self.ImagingProcedure = imagingprocedure
+        if imaging_procedure:
+            self.ImagingProcedure = imaging_procedure
         # pylint: enable=invalid-name
 
 
@@ -1059,18 +1077,18 @@ class RequestedOrderDetail(OrderDetail):
     # pylint: enable=invalid-name
     _props = ['ReferringPhysician', 'RequestingPhysician', 'PlacerOrderNumber']
 
-    def __init__(self, start=None, end=None, performer=None, service=None, imagingprocedure=None,
-                 referringphysician=None, requestingphysician=None, placerordernumber=None):
+    def __init__(self, start=None, end=None, performer=None, service=None, imaging_procedure=None,
+                 referring_physician=None, requesting_physician=None, placer_order_number=None):
         """
-        :param referringphysician:  a PersonReference
-        :param requestingphysician: a PersonReference
-        :param placerordernumber:   an InstanceIdentifier
+        :param referring_physician:  a PersonReference
+        :param requesting_physician: a PersonReference
+        :param placer_order_number:   an InstanceIdentifier
         """
-        super().__init__(start, end, performer, service, imagingprocedure)
+        super().__init__(start, end, performer, service, imaging_procedure)
         # pylint: disable=invalid-name
-        self.ReferringPhysician = referringphysician
-        self.RequestingPhysician = requestingphysician
-        self.PlacerOrderNumber = placerordernumber
+        self.ReferringPhysician = referring_physician
+        self.RequestingPhysician = requesting_physician
+        self.PlacerOrderNumber = placer_order_number
         # pylint: enable=invalid-name
 
 
@@ -1082,18 +1100,18 @@ class PerformedOrderDetail(OrderDetail):
     # pylint: enable=invalid-name
     _props = ['FillerOrderNumber', 'ResultingClinicalInfo']
 
-    def __init__(self, start=None, end=None, performer=None, service=None, imagingprocedure=None,
-                 fillerordernumber=None, resultingclinicalinfos=None):
-        super().__init__(start, end, performer, service, imagingprocedure)
+    def __init__(self, start=None, end=None, performer=None, service=None, imaging_procedure=None,
+                 filler_order_number=None, resulting_clinical_info=None):
+        super().__init__(start, end, performer, service, imaging_procedure)
         # pylint: disable=invalid-name
-        self.FillerOrderNumber = fillerordernumber
-        if resultingclinicalinfos:
-            self.ResultingClinicalInfo = resultingclinicalinfos
-        # pylint: enable=invalid-name
+        self.FillerOrderNumber = filler_order_number
+        if resulting_clinical_info:
+            self.ResultingClinicalInfo = resulting_clinical_info        # pylint: enable=invalid-name
 
 
 class WorkflowDetail(PropertyBasedPMType):
     # pylint: disable=invalid-name
+    NODETYPE = pm.WorkflowDetail
     Patient = cp.SubElementProperty(pm.Patient, value_class=PersonReference)
     AssignedLocation = cp.SubElementProperty(pm.AssignedLocation,
                                              value_class=LocationReference, is_optional=True)
@@ -1109,18 +1127,18 @@ class WorkflowDetail(PropertyBasedPMType):
     _props = ['Patient', 'AssignedLocation', 'VisitNumber', 'DangerCode',
               'RelevantClinicalInfo', 'RequestedOrderDetail', 'PerformedOrderDetail']
 
-    def __init__(self, patient=None, assignedlocation=None, visitnumber=None, dangercode=None,
-                 relevantclinicalinfo=None, requestedorderdetail=None, performedorderdetail=None):
+    def __init__(self, patient=None, assigned_location=None, visit_number=None, danger_code=None,
+                 relevant_clinical_info=None, requested_order_detail=None, performed_order_detail=None):
         # pylint: disable=invalid-name
         self.Patient = patient
-        self.AssignedLocation = assignedlocation
-        self.VisitNumber = visitnumber
-        if dangercode:
-            self.DangerCode = dangercode
-        if relevantclinicalinfo:
-            self.RelevantClinicalInfo = relevantclinicalinfo
-        self.RequestedOrderDetail = requestedorderdetail
-        self.PerformedOrderDetail = performedorderdetail
+        self.AssignedLocation = assigned_location
+        self.VisitNumber = visit_number
+        if danger_code:
+            self.DangerCode = danger_code
+        if relevant_clinical_info:
+            self.RelevantClinicalInfo = relevant_clinical_info
+        self.RequestedOrderDetail = requested_order_detail
+        self.PerformedOrderDetail = performed_order_detail
         # pylint: enable=invalid-name
 
 
@@ -1208,6 +1226,7 @@ class NeonatalPatientDemographicsCoreData(PatientDemographicsCoreData):
 class T_Udi(PropertyBasedPMType):
     """Part of Meta data"""
     # pylint: disable=invalid-name
+    NODETYPE = pm.Udi
     DeviceIdentifier = cp.NodeTextProperty(pm.DeviceIdentifier)
     HumanReadableForm = cp.NodeTextProperty(pm.HumanReadableForm)
     Issuer = cp.SubElementProperty(pm.Issuer, value_class=InstanceIdentifier)
@@ -1216,17 +1235,17 @@ class T_Udi(PropertyBasedPMType):
     # pylint: enable=invalid-name
     _props = ['DeviceIdentifier', 'HumanReadableForm', 'Issuer', 'Jurisdiction']
 
-    def __init__(self, device_identifier=None, humanreadable_form=None, issuer=None, jurisdiction=None):
+    def __init__(self, device_identifier=None, human_readable_form=None, issuer=None, jurisdiction=None):
         """
         UDI fragments as defined by the FDA. (Only used in BICEPS Final)
         :param device_identifier: a string
-        :param humanreadable_form: a string
+        :param human_readable_form: a string
         :param issuer: an InstanceIdentifier
         :param jurisdiction: an InstanceIdentifier (optional)
         """
         # pylint: disable=invalid-name
         self.DeviceIdentifier = device_identifier
-        self.HumanReadableForm = humanreadable_form
+        self.HumanReadableForm = human_readable_form
         self.Issuer = issuer
         self.Jurisdiction = jurisdiction
         # pylint: enable=invalid-name
@@ -1234,6 +1253,7 @@ class T_Udi(PropertyBasedPMType):
 
 class MetaData(PropertyBasedPMType):
     # pylint: disable=invalid-name
+    NODETYPE = pm.MetaData
     Udi = cp.SubElementListProperty(pm.Udi, value_class=T_Udi)
     LotNumber = cp.NodeTextProperty(pm.LotNumber, is_optional=True)
     Manufacturer = cp.SubElementListProperty(pm.Manufacturer, value_class=LocalizedText)
@@ -1252,6 +1272,7 @@ class MetaData(PropertyBasedPMType):
 
 class T_CalibrationResult(PropertyBasedPMType):
     # pylint: disable=invalid-name
+    NODETYPE = pm.CalibrationResult
     Code = cp.SubElementProperty(pm.Code, value_class=CodedValue)
     Value = cp.SubElementProperty(pm.Value, value_class=Measurement)
     # pylint: enable=invalid-name
@@ -1260,6 +1281,7 @@ class T_CalibrationResult(PropertyBasedPMType):
 
 class T_CalibrationDocumentation(PropertyBasedPMType):
     # pylint: disable=invalid-name
+    NODETYPE = pm.CalibrationDocumentation
     Documentation = cp.SubElementListProperty(pm.Documentation, value_class=LocalizedText)
     CalibrationResult = cp.SubElementListProperty(pm.CalibrationResult, value_class=T_CalibrationResult)
     # pylint: enable=invalid-name
@@ -1283,6 +1305,7 @@ class T_CalibrationType(StringEnum):  # only used in CalibrationInfo
 
 class CalibrationInfo(PropertyBasedPMType):
     # pylint: disable=invalid-name
+    NODETYPE = pm.CalibrationInfo
     CalibrationDocumentation = cp.SubElementListProperty(pm.CalibrationDocumentation,
                                                          value_class=T_CalibrationDocumentation)
     ComponentCalibrationState = cp.EnumAttributeProperty('ComponentCalibrationState',
@@ -1297,6 +1320,7 @@ class CalibrationInfo(PropertyBasedPMType):
 
 class ApprovedJurisdictions(PropertyBasedPMType):
     # pylint: disable=invalid-name
+    NODETYPE = pm.ApprovedJurisdictions
     ApprovedJurisdiction = cp.SubElementListProperty(pm.ApprovedJurisdiction,
                                                      value_class=InstanceIdentifier)
     _props = ['ApprovedJurisdiction']

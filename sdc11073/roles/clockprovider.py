@@ -38,7 +38,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             mdib.descriptions.add_object(clock_descriptor)
         clock_state = self._mdib.states.descriptorHandle.get_one(clock_descriptor.Handle, allow_none=True)
         if clock_state is None:
-            clock_state = self._mdib.mk_state_container_from_descriptor(clock_descriptor)
+            clock_state = self._mdib.data_model.mk_state_container(clock_descriptor)
             mdib.states.add_object(clock_state)
 
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):

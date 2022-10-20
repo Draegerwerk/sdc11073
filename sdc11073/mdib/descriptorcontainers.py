@@ -8,13 +8,14 @@ from lxml import etree as etree_
 
 from . import containerproperties as cp
 from .containerbase import ContainerBase
+from .. import ext_qnames as ext
+from .. import msg_qnames as msg
 from .. import msgtypes
 from .. import observableproperties as properties
+from .. import pm_qnames as pm
 from .. import pmtypes
 from ..namespaces import Prefixes
-from .. import pm_qnames as pm
-from .. import msg_qnames as msg
-from .. import ext_qnames as ext
+
 
 @dataclass(frozen=True)
 class ChildDescriptorMapping:
@@ -81,6 +82,7 @@ class AbstractDescriptorContainer(ContainerBase):
     """
     # these class variables allow easy type-checking. Derived classes will set corresponding values to True
     # pylint: disable=invalid-name
+    is_descriptor_container = True
     is_system_context_descriptor = False
     is_realtime_sample_array_metric_descriptor = False
     is_metric_descriptor = False
@@ -91,7 +93,7 @@ class AbstractDescriptorContainer(ContainerBase):
     is_alert_condition_descriptor = False
     is_context_descriptor = False
 
-    is_leaf = True # determines if children can be added
+    is_leaf = True  # determines if children can be added
 
     node = properties.ObservableProperty()  # the etree node
 
@@ -105,7 +107,7 @@ class AbstractDescriptorContainer(ContainerBase):
     Type = cp.SubElementProperty(pm.Type, value_class=pmtypes.CodedValue)
     # pylint: enable=invalid-name
     _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'Extension', 'Type')
-    _child_elements_order = (ext.Extension, pm.Type)  # child elements in in BICEPS order
+    _child_elements_order = (ext.Extension, pm.Type)  # child elements in BICEPS order
     STATE_QNAME = None
     extension_class_lookup = {msg.Retrievability: msgtypes.Retrievability}
 
@@ -309,11 +311,11 @@ class ChannelDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     _child_elements_order = (pm.Metric,)
     _child_descriptor_name_mappings = (
         ChildDescriptorMapping(pm.Metric, (pm.NumericMetricDescriptor,
-                                                  pm.StringMetricDescriptor,
-                                                  pm.EnumStringMetricDescriptor,
-                                                  pm.RealTimeSampleArrayMetricDescriptor,
-                                                  pm.DistributionSampleArrayMetricDescriptor,
-                                                  )
+                                           pm.StringMetricDescriptor,
+                                           pm.EnumStringMetricDescriptor,
+                                           pm.RealTimeSampleArrayMetricDescriptor,
+                                           pm.DistributionSampleArrayMetricDescriptor,
+                                           )
                                ),
     )
 
@@ -519,7 +521,7 @@ class AlertSystemDescriptorContainer(AbstractAlertDescriptorContainer):
     _child_descriptor_name_mappings = (
         ChildDescriptorMapping(pm.AlertCondition, (pm.AlertConditionDescriptor,
                                                    pm.LimitAlertConditionDescriptor
-                                                          )
+                                                   )
                                ),
         ChildDescriptorMapping(pm.AlertSignal, (pm.AlertSignalDescriptor,)),
     )
@@ -577,7 +579,7 @@ class AlertSignalDescriptorContainer(AbstractAlertDescriptorContainer):
 
 class SystemContextDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     is_system_context_descriptor = True
-    NODETYPE =  pm.SystemContextDescriptor
+    NODETYPE = pm.SystemContextDescriptor
     STATE_QNAME = pm.SystemContextState
     _child_elements_order = (pm.PatientContext,
                              pm.LocationContext,
@@ -630,12 +632,11 @@ class EnsembleContextDescriptorContainer(AbstractContextDescriptorContainer):
 
 
 _classes = inspect.getmembers(sys.modules[__name__],
-                             lambda member: inspect.isclass(member) and member.__module__ == __name__)
+                              lambda member: inspect.isclass(member) and member.__module__ == __name__)
 _classes_with_NODETYPE = [c[1] for c in _classes if hasattr(c[1], 'NODETYPE') and c[1].NODETYPE is not None]
 # make a dictionary from found classes: (Key is NODETYPE, value is the class itself
 # _state_lookup_by_type = dict([(c.NODETYPE, c) for c in classes_with_NODETYPE])
 _name_class_lookup = {c.NODETYPE: c for c in _classes_with_NODETYPE}
-
 
 _name_class_xtra_lookup = {
     pm.Battery: BatteryDescriptorContainer,
@@ -656,6 +657,7 @@ _name_class_xtra_lookup = {
     pm.AlertSignal: AlertSignalDescriptorContainer,
 }
 _name_class_lookup.update(_name_class_xtra_lookup)
+
 
 def get_container_class(qname):
     """

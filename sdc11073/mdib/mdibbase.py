@@ -11,12 +11,13 @@ from .. import multikey
 from .. import observableproperties as properties
 from ..etc import apply_map
 from ..namespaces import DocNamespaceHelper
-from ..pmtypes import CodedValue, Coding, have_matching_codes
+from ..pmtypes import have_matching_codes
 from .. import pm_qnames as pm
 from .. import msg_qnames as msg
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
     from .descriptorcontainers import AbstractMetricDescriptorContainer
+    from ..pmtypes import CodedValue, Coding
 
 
 class RtSampleContainer:
@@ -161,6 +162,40 @@ class MultiStatesLookup(_MultikeyWithVersionLookup):
                 version += 1
             obj.StateVersion = version
 
+class _Model:
+    def __init__(self, sdc_definitions):
+        self._sdc_definitions = sdc_definitions
+
+    def get_descriptor_container_class(self, type_qname):
+        return self._sdc_definitions.get_descriptor_container_class(type_qname)
+
+    def mk_descriptor_container(self, type_qname, *args, **kwargs):
+        cls = self._sdc_definitions.get_descriptor_container_class(type_qname)
+        return cls(*args, **kwargs)
+
+    def get_state_container_class(self, type_qname):
+        return self._sdc_definitions.get_state_container_class(type_qname)
+
+    def get_state_class_for_descriptor(self, descriptor_container):
+        state_class_qtype = descriptor_container.STATE_QNAME
+        if state_class_qtype is None:
+            raise TypeError(f'No state association for {descriptor_container.__class__.__name__}')
+        return self._sdc_definitions.get_state_container_class(state_class_qtype)
+
+    def mk_state_container(self, descriptor_container):
+        cls = self.get_state_class_for_descriptor(descriptor_container)
+        if cls is None:
+            raise TypeError(
+                f'No state container class for descr={descriptor_container.__class__.__name__}, '
+                f'name={descriptor_container.NODETYPE}, '
+                f'type={descriptor_container.nodeType}')
+        return cls(descriptor_container)
+
+    @property
+    def pmtypes(self):
+        return self._sdc_definitions.pmtypes
+
+
 
 class MdibContainer:
     # these observables can be used to watch any change of data in the mdib. They contain lists of containers that were changed.
@@ -184,6 +219,7 @@ class MdibContainer:
         :param sdc_definitions: a class derived from Definitions_Base
         """
         self.sdc_definitions = sdc_definitions
+        self.data_model = _Model(sdc_definitions)
         self._logger = None  # must be instantiated by derived class
         self.nsmapper = DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file
         self.mdib_version = 0
@@ -456,21 +492,6 @@ class MdibContainer:
             my_operations = [op for op in my_operations if getattr(op, key) == value]
         return my_operations
 
-    def get_state_class_for_descriptor(self, descriptor_container):
-        state_class_qtype = descriptor_container.STATE_QNAME
-        if state_class_qtype is None:
-            raise TypeError(f'No state association for {descriptor_container.__class__.__name__}')
-        return self.sdc_definitions.get_state_container_class(state_class_qtype)
-
-    def mk_state_container_from_descriptor(self, descriptor_container):
-        cls = self.get_state_class_for_descriptor(descriptor_container)
-        if cls is None:
-            raise TypeError(
-                f'No state container class for descr={descriptor_container.__class__.__name__}, '
-                f'name={descriptor_container.NODETYPE}, '
-                f'type={descriptor_container.nodeType}')
-        return cls(descriptor_container)
-
     def get_operation_descriptors(self):
         """
         :return: a list of all operation descriptors
@@ -511,7 +532,7 @@ class MdibContainer:
 
             # normalize coding
             if isinstance(coding, str):
-                coding = Coding(coding)
+                coding = self.data_model.pmtypes.Coding(coding)
 
             if coding is not None:
                 # apply filter

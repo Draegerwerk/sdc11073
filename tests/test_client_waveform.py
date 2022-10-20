@@ -1,4 +1,3 @@
-import logging
 import unittest
 
 from lxml import etree as etree_
@@ -166,12 +165,12 @@ class TestClientWaveform(unittest.TestCase):
         rtBuffer = clientmdib.rt_buffers[HANDLES[1]]
         annotated = rtBuffer.rt_data[2]  # this object should have the annotation (SampleIndex="2")
         self.assertEqual(1, len(annotated.annotations))
-        self.assertEqual( Coding('4711', 'bla'), annotated.annotations[0].coding)
+        self.assertEqual(Coding('4711', 'bla'), annotated.annotations[0].coding)
         for i in (0, 1, 3, 4):
             self.assertEqual(0, len(rtBuffer.rt_data[i].annotations))
 
         # add another Report (with identical data, but that is not relevant here)
-        wf_report2 = _mk_wf_report(observation_time_ms+100, 3, 43)
+        wf_report2 = _mk_wf_report(observation_time_ms + 100, 3, 43)
         received_message_data = cl.msg_reader.read_received_message(wf_report2.encode('utf-8'))
         cl._notifications_dispatcher.on_notification(received_message_data)
         # verify only that array length is 2*bigger now
@@ -183,7 +182,7 @@ class TestClientWaveform(unittest.TestCase):
 
         # add a lot more data, verify that length limitation is working
         for i in range(100):
-            wf_report = _mk_wf_report(observation_time_ms + 100*1, 3+1, 43+i)
+            wf_report = _mk_wf_report(observation_time_ms + 100 * 1, 3 + 1, 43 + i)
             received_message_data = cl.msg_reader.read_received_message(wf_report.encode('utf-8'))
             cl._notifications_dispatcher.on_notification(received_message_data)
         # verify only that array length is limited

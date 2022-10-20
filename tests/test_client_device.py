@@ -5,17 +5,18 @@ import sys
 import time
 import unittest
 import urllib
-from itertools import product
 from decimal import Decimal
+from itertools import product
+
 from lxml import etree as etree_
 
 from sdc11073 import commlog
 from sdc11073 import compression
 from sdc11073 import loghelper
-from sdc11073 import namespaces
+from sdc11073 import msg_qnames as msg
 from sdc11073 import observableproperties
+from sdc11073 import pm_qnames as pm
 from sdc11073 import pmtypes
-from sdc11073.sdcclient.components import SdcClientComponents
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ClientMdibContainer
@@ -23,12 +24,11 @@ from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.sdcclient import SdcClient
+from sdc11073.sdcclient.components import SdcClientComponents
 from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.httpserver import DeviceHttpServerThread
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
-from sdc11073 import pm_qnames as pm
-from sdc11073 import msg_qnames as msg
 from tests.mockstuff import SomeDevice, dec_list
 
 ENABLE_COMMLOG = False
@@ -102,12 +102,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
         sdc_device.mdib.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
 
         co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveformperiod=1.0, sampleperiod=0.01)
-        sdc_device.mdib.register_waveform_generator('0x34F05506', co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
+        sdc_device.mdib.register_waveform_generator('0x34F05506',
+                                                    co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
         # make SinusGenerator (0x34F05501) the annotator source
         annotator = Annotator(annotation=pmtypes.Annotation(pmtypes.CodedValue('a', 'b')),
                               trigger_handle='0x34F05501',
-                              annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
+                              annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506'])
         sdc_device.mdib.register_annotation_generator(annotator)
 
     def test_basic_connect(self):
@@ -285,7 +286,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.MetricValue.Value = firstValue
                 st.MetricValue.MetricQuality.Validity = pmtypes.MeasurementValidity.VALID
                 st.MetricValue.DeterminationTime = now
-                st.PhysiologicalRange = [pmtypes.Range(*dec_list(1, 2, 3, 4, 5)), pmtypes.Range(*dec_list(10, 20, 30, 40, 50))]
+                st.PhysiologicalRange = [pmtypes.Range(*dec_list(1, 2, 3, 4, 5)),
+                                         pmtypes.Range(*dec_list(10, 20, 30, 40, 50))]
                 if sdcDevice is self.sdc_device:
                     st.PhysicalConnector = myPhysicalConnector
 
@@ -433,7 +435,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             proposedContext.CoreData.Familyname = 'Klammer'
             proposedContext.CoreData.Birthname = 'Bourne'
             proposedContext.CoreData.Title = 'Dr.'
-            proposedContext.CoreData.Sex = 'M'
+            proposedContext.CoreData.Sex = pmtypes.T_Sex.MALE
             proposedContext.CoreData.PatientType = pmtypes.PatientType.ADULT
             proposedContext.CoreData.set_birthdate('2000-12-12')
             proposedContext.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
@@ -489,7 +491,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             proposedContext.CoreData.Familyname = 'Klammer'
             proposedContext.CoreData.Birthname = 'Bourne'
             proposedContext.CoreData.Title = 'Dr.'
-            proposedContext.CoreData.Sex = 'F'
+            proposedContext.CoreData.Sex = pmtypes.T_Sex.FEMALE
             proposedContext.CoreData.PatientType = pmtypes.PatientType.ADULT
             proposedContext.CoreData.set_birthdate('2000-12-12')
             proposedContext.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
@@ -519,7 +521,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.CoreData.Birthname = 'Mustermann'
                 st.CoreData.Familyname = 'Musterfrau'
                 st.CoreData.Title = 'Rex'
-                st.CoreData.Sex = 'M'
+                st.CoreData.Sex = pmtypes.T_Sex.MALE
                 st.CoreData.PatientType = pmtypes.PatientType.ADULT
                 st.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
                 st.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
@@ -557,7 +559,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.CoreData.Birthname = 'Mustermann'
                 st.CoreData.Familyname = 'Musterfrau'
                 st.CoreData.Title = 'Rex'
-                st.CoreData.Sex = 'M'
+                st.CoreData.Sex = pmtypes.T_Sex.MALE
                 st.CoreData.PatientType = pmtypes.PatientType.ADULT
                 st.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
                 st.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
@@ -909,8 +911,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         sdcDevice = self.sdc_device
         sdcClient = self.sdc_client
         storage = sdcDevice.localization_storage
-        storage.add(pmtypes.LocalizedText('bla', lang='de-de', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS),
-                    pmtypes.LocalizedText('foo', lang='en-en', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS)
+        storage.add(pmtypes.LocalizedText('bla', lang='de-de', ref='a', version=1, text_width=pmtypes.T_TextWidth.XS),
+                    pmtypes.LocalizedText('foo', lang='en-en', ref='a', version=1, text_width=pmtypes.T_TextWidth.XS)
                     )
 
         get_request_response = sdcClient.localization_service_client.get_supported_languages()
@@ -923,14 +925,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
         sdcDevice = self.sdc_device
         sdcClient = self.sdc_client
         storage = sdcDevice.localization_storage
-        storage.add(pmtypes.LocalizedText('bla_a', lang='de-de', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS))
-        storage.add(pmtypes.LocalizedText('foo_a', lang='en-en', ref='a', version=1, textWidth=pmtypes.T_TextWidth.XS))
-        storage.add(pmtypes.LocalizedText('bla_b', lang='de-de', ref='b', version=1, textWidth=pmtypes.T_TextWidth.XS))
-        storage.add(pmtypes.LocalizedText('foo_b', lang='en-en', ref='b', version=1, textWidth=pmtypes.T_TextWidth.XS))
-        storage.add(pmtypes.LocalizedText('bla_aa', lang='de-de', ref='a', version=2, textWidth=pmtypes.T_TextWidth.S))
-        storage.add(pmtypes.LocalizedText('foo_aa', lang='en-en', ref='a', version=2, textWidth=pmtypes.T_TextWidth.S))
-        storage.add(pmtypes.LocalizedText('bla_bb', lang='de-de', ref='b', version=2, textWidth=pmtypes.T_TextWidth.S))
-        storage.add(pmtypes.LocalizedText('foo_bb', lang='en-en', ref='b', version=2, textWidth=pmtypes.T_TextWidth.S))
+        storage.add(pmtypes.LocalizedText('bla_a', lang='de-de', ref='a', version=1, text_width=pmtypes.T_TextWidth.XS))
+        storage.add(pmtypes.LocalizedText('foo_a', lang='en-en', ref='a', version=1, text_width=pmtypes.T_TextWidth.XS))
+        storage.add(pmtypes.LocalizedText('bla_b', lang='de-de', ref='b', version=1, text_width=pmtypes.T_TextWidth.XS))
+        storage.add(pmtypes.LocalizedText('foo_b', lang='en-en', ref='b', version=1, text_width=pmtypes.T_TextWidth.XS))
+        storage.add(pmtypes.LocalizedText('bla_aa', lang='de-de', ref='a', version=2, text_width=pmtypes.T_TextWidth.S))
+        storage.add(pmtypes.LocalizedText('foo_aa', lang='en-en', ref='a', version=2, text_width=pmtypes.T_TextWidth.S))
+        storage.add(pmtypes.LocalizedText('bla_bb', lang='de-de', ref='b', version=2, text_width=pmtypes.T_TextWidth.S))
+        storage.add(pmtypes.LocalizedText('foo_bb', lang='en-en', ref='b', version=2, text_width=pmtypes.T_TextWidth.S))
 
         get_request_response = sdcClient.localization_service_client.get_localized_texts()
         texts = get_request_response.result
@@ -1240,7 +1242,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.MetricValue.Value = firstValue
                 st.MetricValue.Validity = 'Vld'
                 st.MetricValue.DeterminationTime = time.time()
-                st.PhysiologicalRange = [pmtypes.Range(*dec_list(1, 2, 3, 4, 5)), pmtypes.Range(*dec_list(10, 20, 30, 40, 50))]
+                st.PhysiologicalRange = [pmtypes.Range(*dec_list(1, 2, 3, 4, 5)),
+                                         pmtypes.Range(*dec_list(10, 20, 30, 40, 50))]
             data = coll.result(timeout=NOTIFICATION_TIMEOUT)
             self.assertTrue(descriptor_handle in data.keys())
             self.assertEqual(st.MetricValue.Value, data[descriptor_handle].MetricValue.Value)  # compare some data
@@ -1264,7 +1267,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 descr.DeterminationPeriod = 42
             data = coll.result(timeout=NOTIFICATION_TIMEOUT)
             self.assertTrue(descriptor_handle in data.keys())
-            self.assertEqual(descr.DeterminationPeriod, data[descriptor_handle].DeterminationPeriod)  # compare some data
+            self.assertEqual(descr.DeterminationPeriod,
+                             data[descriptor_handle].DeterminationPeriod)  # compare some data
 
             coll = observableproperties.SingleValueCollector(clientMdib,
                                                              'waveform_by_handle')  # wait for the next WaveformReport
@@ -1437,7 +1441,8 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         sdc_device.mdib.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
 
         co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveformperiod=1.0, sampleperiod=0.01)
-        sdc_device.mdib.register_waveform_generator('0x34F05506', co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
+        sdc_device.mdib.register_waveform_generator('0x34F05506',
+                                                    co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
         # make SinusGenerator (0x34F05501) the annotator source
         annotator = Annotator(annotation=pmtypes.Annotation(pmtypes.CodedValue('a', 'b')),
@@ -1564,8 +1569,8 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
         location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
-#        specific_components = SdcDeviceComponents(subscriptions_manager_class=SubscriptionsManagerReferenceParam,
-#                                                  soap_client_class=SoapClientAsync)
+        #        specific_components = SdcDeviceComponents(subscriptions_manager_class=SubscriptionsManagerReferenceParam,
+        #                                                  soap_client_class=SoapClientAsync)
         specific_components = None
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<Final> ',
                                                     specific_components=specific_components,

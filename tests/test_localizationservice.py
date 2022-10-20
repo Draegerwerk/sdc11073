@@ -20,7 +20,7 @@ class TestLocationService(unittest.TestCase):
                     text = ref
                 else:
                     text = '\n'.join([ref]*lines)
-                self.localization_storage.add(LocalizedText(text, lang=lang, ref=ref, version=version, textWidth=width))
+                self.localization_storage.add(LocalizedText(text, lang=lang, ref=ref, version=version, text_width=width))
 
 
     def test_noFilter(self):

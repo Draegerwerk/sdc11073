@@ -1,6 +1,5 @@
 import time
 import uuid
-from collections import OrderedDict
 from functools import wraps
 from typing import Union, Optional, Type
 from dataclasses import dataclass
@@ -20,26 +19,26 @@ class _TrItem:
 class _TransactionBase:
     def __init__(self, device_mdib_container):
         self._device_mdib_container = device_mdib_container
-        self.descriptor_updates = OrderedDict()
-        self.metric_state_updates = OrderedDict()
-        self.alert_state_updates = OrderedDict()
-        self.component_state_updates = OrderedDict()
-        self.context_state_updates = OrderedDict()
-        self.operational_state_updates = OrderedDict()
-        self.rt_sample_state_updates = {}  # unordered dict for performance
+        self.descriptor_updates = {}
+        self.metric_state_updates = {}
+        self.alert_state_updates = {}
+        self.component_state_updates = {}
+        self.context_state_updates = {}
+        self.operational_state_updates = {}
+        self.rt_sample_state_updates = {}
         self._error = False
         self._closed = False
         self.mdib_version = None
         self._current_update_dict = None  # used to check for data type
+        self.is_descriptor_update = False
 
     def _get_descriptor_in_transaction(self, descriptor_handle):
         """ looks for new or updated descriptor in current transaction and in mdib"""
-        tr_containers = self.descriptor_updates.get(descriptor_handle)
-        if tr_containers is not None:
-            _, new = tr_containers
-            if new is None:  # descriptor is deleted in this transaction!
+        tr_container = self.descriptor_updates.get(descriptor_handle)
+        if tr_container is not None:
+            if tr_container.new is None:  # descriptor is deleted in this transaction!
                 raise ValueError(f'The descriptor {descriptor_handle} is going to be deleted')
-            return new
+            return tr_container.new
         return self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
 
     def _get_state_container(self, descriptor_handle):
@@ -58,7 +57,7 @@ class _TransactionBase:
                                                                                           allow_none=True)
         if old_state_container is None:
             # create a new state object
-            new_state_container = self._device_mdib_container.mk_state_container_from_descriptor(descriptor_container)
+            new_state_container = self._device_mdib_container.data_model.mk_state_container(descriptor_container)
             if adjust_state_version:
                 self._device_mdib_container.states.set_version(new_state_container)
         else:
@@ -66,10 +65,56 @@ class _TransactionBase:
         return old_state_container, new_state_container
 
     def _verify_correct_update_dict(self, update_dict):
+        """Mix of data types that result in different notifications is not allowed,
+        because this would result in more than one notification with the same mdib version."""
         if self._current_update_dict is None:
             self._current_update_dict = update_dict
-        elif self._current_update_dict != update_dict:
-            raise TypeError('Mix of data types in transaction is not allowed!')
+            if self._current_update_dict is self.descriptor_updates:
+                self.is_descriptor_update = True
+        elif self.is_descriptor_update:
+            # in description modification reports it is allowed to update states as well
+            return
+        elif self._current_update_dict is not update_dict:
+            raise ApiUsageError('Mix of data types in transaction is not allowed!')
+
+    def _get_states_update(self, container):
+        if container.is_state_container:
+            if container.isRealtimeSampleArrayMetricState:
+                return self.rt_sample_state_updates
+            elif container.isMetricState:
+                return self.metric_state_updates
+            elif container.isAlertState:
+                return self.alert_state_updates
+            elif container.isComponentState:
+                return self.component_state_updates
+            elif container.isSystemContextState:
+                return self.component_state_updates
+            elif container.isOperationalState:
+                return self.operational_state_updates
+            elif container.isContextState:
+                return self.context_state_updates
+            elif container.NODETYPE == pm.ScoState:
+                # special case ScoState Draft6: cannot notify updates, it is a category of its own that does not fit anywhere
+                # This is a bug in the spec, not in this implementation!
+                return
+        else:
+            if container.is_metric_descriptor:
+                return self.metric_state_updates
+            elif container.is_operational_descriptor:
+                return self.operational_state_updates
+            elif container.is_component_descriptor:
+                return self.component_state_updates
+            elif container.is_alert_descriptor:
+                return self.alert_state_updates
+            elif container.is_context_descriptor:
+                return self.context_state_updates
+        raise NotImplementedError(f'unhandled case {container}')
+
+    def _get_states_storage(self, state_container):
+        if state_container.isContextState:
+            return self._device_mdib_container.context_states
+        return self._device_mdib_container.states
+
 
     @property
     def error(self):
@@ -133,25 +178,40 @@ class MdibUpdateTransaction(_TransactionBase):
     Reason: Mdib handles each notification as a transaction (except for description modification reports,
     this can have multiple notifications with the same mdib version.)
     """
+    def __init__(self, device_mdib_container):
+        super().__init__(device_mdib_container)
+        # lookups for states that are modified due to descriptor changes
+        self.descriptor_state_new = {}
+        self.descriptor_state_upd = {}
+        self.descriptor_state_del = {}
+        self.new_descriptors = []  # handles
+        self.upd_descriptors = []  # handles
+        self.del_descriptors = []  # handles
 
     @tr_method_wrapper
-    def add_descriptor(self, descriptor_container, adjust_descriptor_version=True):
+    def add_descriptor(self, descriptor_container, adjust_descriptor_version=True, state_container=None):
         """ This method inserts a new descriptor into mdib
         :param descriptor_container: the object that shall be added to mdib
         :param adjust_descriptor_version: if True, and a descriptor with this handle does not exist,
             but was already present in this mdib before,
             the DescriptorVersion of descriptor_container is set to last known version for this handle +1
+        :param state_container: optional state container for descriptor_container
         :return: None
         """
         self._verify_correct_update_dict(self.descriptor_updates)
         descriptor_handle = descriptor_container.Handle
+        if descriptor_handle in self.descriptor_updates:
+            raise ValueError(f'Descriptor {descriptor_handle} already in updated set!')
+        if descriptor_handle in self._device_mdib_container.descriptions.handle.keys():
+            raise ValueError(f'cannot create Descriptor {descriptor_handle}, it already exists!')
         if adjust_descriptor_version:
             self._device_mdib_container.descriptions.set_version(descriptor_container)
-        if descriptor_handle in self.descriptor_updates:
-            raise ValueError(f'DescriptorHandle {descriptor_handle} already in updated set!')
-        if descriptor_handle in self._device_mdib_container.descriptions.handle.keys():
-            raise ValueError(f'cannot create DescriptorHandle {descriptor_handle}, it already exists!')
         self.descriptor_updates[descriptor_handle] = _TrItem(None, descriptor_container)
+        self.new_descriptors.append(descriptor_handle)
+        if state_container is not None:
+            if state_container.DescriptorHandle != descriptor_handle:
+                raise ValueError(f'State {state_container.DescriptorHandle} != {descriptor_handle}!')
+            self.add_state(state_container)
 
     @tr_method_wrapper
     def remove_descriptor(self, descriptor_handle):
@@ -160,6 +220,8 @@ class MdibUpdateTransaction(_TransactionBase):
             raise ValueError(f'DescriptorHandle {descriptor_handle} already in updated set!')
         orig_descriptor_container = self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
         self.descriptor_updates[descriptor_handle] = _TrItem(orig_descriptor_container, None)
+        self.del_descriptors.append(descriptor_handle)
+
 
     @tr_method_wrapper
     def get_descriptor(self, descriptor_handle):
@@ -175,6 +237,7 @@ class MdibUpdateTransaction(_TransactionBase):
         descriptor_container = orig_descriptor_container.mk_copy()
         descriptor_container.increment_descriptor_version()
         self.descriptor_updates[descriptor_handle] = _TrItem(orig_descriptor_container, descriptor_container)
+        self.upd_descriptors.append(descriptor_handle)
         return descriptor_container
 
     def has_state(self, descriptor_handle):
@@ -203,34 +266,28 @@ class MdibUpdateTransaction(_TransactionBase):
         :param adjust_state_version:
         :return: None
         """
-        my_multi_key = self._device_mdib_container.states
-        my_updates = []
-        if state_container.isRealtimeSampleArrayMetricState:
-            my_updates = self.rt_sample_state_updates
-        elif state_container.isMetricState:
-            my_updates = self.metric_state_updates
-        elif state_container.isAlertState:
-            my_updates = self.alert_state_updates
-        elif state_container.isComponentState:
-            my_updates = self.component_state_updates
-        elif state_container.isSystemContextState:
-            my_updates = self.component_state_updates
-        elif state_container.isOperationalState:
-            my_updates = self.operational_state_updates
-        elif state_container.isContextState:
-            my_updates = self.context_state_updates
-            my_multi_key = self._device_mdib_container.context_states
-        elif state_container.NODETYPE == pm.ScoState:
+        my_multi_key = self._get_states_storage(state_container)
+        my_updates = self._get_states_update(state_container)
+        if my_updates is None:
             # special case ScoState Draft6: cannot notify updates, it is a category of its own that does not fit anywhere
             # This is a bug in the spec, not in this implementation!
             return
         self._verify_correct_update_dict(my_updates)
 
-        descriptor_handle = state_container.DescriptorHandle
-        my_handle = state_container.Handle if state_container.isContextState else state_container.DescriptorHandle
-        if my_handle in my_updates:
-            raise ValueError(f'DescriptorHandle {descriptor_handle} already in updated set!')
 
+        descriptor_handle = state_container.DescriptorHandle
+        if self.is_descriptor_update:
+            # check that the descriptor is also new
+            if descriptor_handle not in self.new_descriptors:
+                raise ApiUsageError(f'This is a transaction for descriptor modifications, this state does not match')
+
+        my_handle = state_container.Handle if state_container.isContextState else descriptor_handle
+        if my_handle in my_updates:
+            raise ValueError(f'State {descriptor_handle} already in updated set!')
+
+        if state_container.descriptor_container is None:
+            descr = self._get_descriptor_in_transaction(descriptor_handle)
+            state_container.descriptor_container = descr
         if adjust_state_version:
             my_multi_key.set_version(state_container)
         my_updates[descriptor_handle] = _TrItem(None, state_container)  # old, new
@@ -257,23 +314,14 @@ class MdibUpdateTransaction(_TransactionBase):
         descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
         if descriptor_container.is_realtime_sample_array_metric_descriptor:
             return self._get_real_time_sample_array_metric_state(descriptor_handle)
-
-        if descriptor_container.is_metric_descriptor:
-            updates_dict = self.metric_state_updates
-        elif descriptor_container.is_operational_descriptor:
-            updates_dict = self.operational_state_updates
-        elif descriptor_container.is_component_descriptor:
-            updates_dict = self.component_state_updates
-        elif descriptor_container.is_alert_descriptor:
-            updates_dict = self.alert_state_updates
         elif descriptor_container.is_context_descriptor:
             raise ApiUsageError('for context states use get_context_state method!')
-        else:
-            raise NotImplementedError(f'unhandled case {descriptor_container}')
+        updates_dict = self._get_states_update(descriptor_container)
         if descriptor_handle in updates_dict:
-            raise ValueError(f'DescriptorHandle {descriptor_handle} already in updated set!')
+            raise ValueError(f'State {descriptor_handle} already in updated set!')
         self._verify_correct_update_dict(updates_dict)
-
+        if self.is_descriptor_update and descriptor_handle not in self.descriptor_updates:
+            raise ApiUsageError('this is a descriptor update transaction, state does not match!')
         mdib_state, copied_state = self._get_state_container(descriptor_handle)
         updates_dict[descriptor_handle] = _TrItem(mdib_state, copied_state)
         return copied_state
@@ -331,7 +379,7 @@ class MdibUpdateTransaction(_TransactionBase):
             if old_state_container is not None:
                 raise ValueError(f'ContextState with handle={context_state_handle} already exists')
 
-        new_state_container = self._device_mdib_container.mk_state_container_from_descriptor(descriptor_container)
+        new_state_container = self._device_mdib_container.data_model.mk_state_container(descriptor_container)
         new_state_container.Handle = uuid.uuid4().hex
         new_state_container.BindingMdibVersion = self._device_mdib_container.mdib_version  # auto-set this attribute
         new_state_container.BindingStartTime = time.time()  # auto-set this attribute
@@ -352,7 +400,7 @@ class MdibUpdateTransaction(_TransactionBase):
                                                                                       allow_none=True)
         if state_container is None:
             descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
-            new_state = self._device_mdib_container.mk_state_container_from_descriptor(descriptor_container)
+            new_state = self._device_mdib_container.data_model.mk_state_container(descriptor_container)
             if not new_state.isRealtimeSampleArrayMetricState:
                 raise ValueError(
                     f'DescriptorHandle {descriptor_handle} does not reference a RealTimeSampleArrayMetricState')
@@ -381,7 +429,6 @@ class TransactionProcessor:
         self.descr_updated = []
         self.descr_created = []
         self.descr_deleted = []
-        self.descr_updated_states = []
         self.metric_updates = []
         self.alert_updates = []
         self.comp_updates = []
@@ -389,6 +436,10 @@ class TransactionProcessor:
         self.op_updates = []
         self.rt_updates = []
         self.has_descriptor_updates = False  # for easier handling
+
+    def all_states(self):
+        return self.metric_updates + self.alert_updates + self.comp_updates +self.ctxt_updates \
+               + self.op_updates + self.rt_updates
 
     def process_transaction(self):
         self._now = time.time()
@@ -558,19 +609,16 @@ class TransactionProcessor:
                 new_state.descriptor_container = descriptor_container
                 new_state.increment_state_version()
                 new_state.update_descriptor_version()
-                self.descr_updated_states.append(new_state.mk_copy())
         else:
             # check if state is already present in this transaction
-            state_update = update_dict.get(descriptor_container.Handle)
-            new_state = None
-            if state_update is not None:
+            tr_item = update_dict.get(descriptor_container.Handle)
+            if tr_item is not None:
                 # the state has also been updated directly in transaction.
                 # update descriptor version
-                old_state, new_state = state_update
-                if new_state is None:
+                if tr_item.new is None:
                     raise ValueError(
                         f'state deleted? that should not be possible! handle = {descriptor_container.Handle}')
-                new_state.update_descriptor_version()
+                tr_item.new.update_descriptor_version()
             else:
                 old_state = self._mdib.states.descriptorHandle.get_one(
                     descriptor_container.Handle, allow_none=True)
@@ -580,8 +628,6 @@ class TransactionProcessor:
                     new_state.DescriptorVersion = descriptor_container.DescriptorVersion
                     new_state.increment_state_version()
                     update_dict[descriptor_container.Handle] = _TrItem(old_state, new_state)
-            if new_state is not None:
-                self.descr_updated_states.append(new_state.mk_copy())
 
     def _increment_parent_descriptor_version(self, descriptor_container):
         parent_descriptor_container = self._mdib.descriptions.handle.get_one(

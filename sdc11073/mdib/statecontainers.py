@@ -11,6 +11,7 @@ from .. import pm_qnames as pm
 
 class AbstractStateContainer(ContainerBase):
     # these class variables allow easy type-checking. Derived classes will set corresponding values to True
+    is_state_container = True
     isSystemContextState = False
     isRealtimeSampleArrayMetricState = False
     isMetricState = False
@@ -343,8 +344,8 @@ class AlertConditionStateContainer(AbstractAlertStateContainer):
     NODETYPE = pm.AlertConditionState
     ActualConditionGenerationDelay = cp.DurationAttributeProperty('ActualConditionGenerationDelay')
     ActualPriority = cp.EnumAttributeProperty('ActualPriority', enum_cls=pmtypes.AlertConditionPriority)
-    Rank = cp.IntegerAttributeProperty('Rank')  # Integer
-    DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime')  # Integer
+    Rank = cp.IntegerAttributeProperty('Rank')
+    DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime')
     Presence = cp.BooleanAttributeProperty('Presence', implied_py_value=False)
     _props = ('ActualConditionGenerationDelay', 'ActualPriority', 'Rank', 'DeterminationTime', 'Presence')
 

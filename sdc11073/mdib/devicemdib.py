@@ -24,6 +24,28 @@ if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
 
 
+def ensure_location_context_descriptor(mdib):
+    """Create a LocationContextDescriptor if there is none in mdib."""
+    location_context_container = mdib.descriptions.NODETYPE.get_one(pm.LocationContextDescriptor, allow_none=True)
+    if location_context_container is None:
+        system_context_container = mdib.descriptions.NODETYPE.get_one(pm.SystemContextDescriptor)
+        descr_cls = mdib.data_model.get_descriptor_container_class(pm.LocationContextDescriptor)
+        descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_container.Handle)
+        descr_container.SafetyClassification = pmtypes.SafetyClassification.INF
+        mdib.descriptions.add_object(descr_container)
+
+
+def ensure_patient_context_descriptor(mdib):
+    """Create PatientContextDescriptor if there is none in mdib."""
+    patient_context_container = mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor, allow_none=True)
+    if patient_context_container is None:
+        system_context_container = mdib.descriptions.NODETYPE.get_one(pm.SystemContextDescriptor)
+        descr_cls = mdib.data_model.get_descriptor_container_class(pm.PatientContextDescriptor)
+        descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_container.Handle)
+        descr_container.SafetyClassification = pmtypes.SafetyClassification.INF
+        mdib.descriptions.add_object(descr_container)
+
+
 class DeviceMdibContainer(mdibbase.MdibContainer):
     """Device side implementation of a mdib.
      Do not modify containers directly, use transactions for that purpose.
@@ -77,7 +99,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                         processor = self._transaction_proc_cls(self, self._current_transaction,
                                                                set_determination_time, self._logger)
                         processor.process_transaction()
-                        self.transaction = processor
+                        self.transaction = processor  # update observable
                         self._current_transaction.mdib_version = self.mdib_version
 
                         if callable(self.post_commit_handler):
@@ -142,33 +164,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             if validators is not None:
                 self._current_location.Validator = validators
 
-    # def ensure_location_context_descriptor(self):
-    #     """Create a LocationContextDescriptor if there is none in mdib."""
-    #     system_context_container = self.descriptions.NODETYPE.get_one(pm.SystemContextDescriptor('SystemContextDescriptor'))
-    #     children = self.descriptions.parent_handle.get(system_context_container.handle)
-    #     child_node_types = [ch.NODETYPE for ch in children]
-    #     q_name = pm.LocationContextDescriptor
-    #     if q_name not in child_node_types:
-    #         self._logger.info('creating a LocationContextDescriptor')
-    #         descr_cls = self.sdc_definitions.get_descriptor_container_class(q_name)
-    #         descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_container.handle)
-    #         descr_container.SafetyClassification = pmtypes.SafetyClassification.INF
-    #         self.add_descriptor(descr_container)
-
-    # def ensure_patient_context_descriptor(self):
-    #     """Create PatientContextDescriptor if there is none in mdib."""
-    #     system_context_container = self.descriptions.NODETYPE.get_one(pm.SystemContextDescriptor)
-    #     children = self.descriptions.parent_handle.get(system_context_container.handle)
-    #     child_node_types = [ch.NODETYPE for ch in children]
-    #     q_name = pm.PatientContextDescriptor
-    #     if q_name not in child_node_types:
-    #         self._logger.info('creating a PatientContextDescriptor')
-    #         descr_cls = self.sdc_definitions.get_descriptor_container_class(q_name)
-    #         descr_container = descr_cls(self.nsmapper,
-    #                                     handle=uuid.uuid4().hex, parent_handle=system_context_container.handle)
-    #         descr_container.SafetyClassification = pmtypes.SafetyClassification.INF
-    #         self.add_descriptor(descr_container)
-
     # real time data handling
     def register_waveform_generator(self, descriptor_handle: str, wf_generator):
         self._waveform_source.register_waveform_generator(self, descriptor_handle, wf_generator)
@@ -191,7 +186,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         """
         for descr in self.descriptions.objects:
             if descr.Handle not in self.states.descriptorHandle and descr.Handle not in self.context_states.descriptorHandle:
-                state_cls = self.get_state_class_for_descriptor(descr)
+                state_cls = self.data_model.get_state_class_for_descriptor(descr)
                 if state_cls.isMultiState:
                     pass  # nothing to do, it is allowed to have no state
                 else:
@@ -303,7 +298,7 @@ class DescriptorFactory:
         :param safety_classification: a pmtypes.SafetyClassification value
         :return: the created object
         """
-        cls = self._mdib.sdc_definitions.get_descriptor_container_class(pm.VmdDescriptor)
+        cls = self._mdib.data_model.get_descriptor_container_class(pm.VmdDescriptor)
         return self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
 
     def create_channel_descriptor_container(self, handle: str, parent_handle: str, coded_value: pmtypes.CodedValue,
@@ -316,7 +311,7 @@ class DescriptorFactory:
         :param safety_classification: a pmtypes.SafetyClassification value.
         :return: the created object.
         """
-        cls = self._mdib.sdc_definitions.get_descriptor_container_class(pm.ChannelDescriptor)
+        cls = self._mdib.data_model.get_descriptor_container_class(pm.ChannelDescriptor)
         return self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
 
     def create_string_metric_descriptor_container(
@@ -335,7 +330,7 @@ class DescriptorFactory:
         :param metric_category: pmtypes.MetricCategory
         :return: the created object
         """
-        cls = self._mdib.sdc_definitions.get_descriptor_container_class(pm.StringMetricDescriptor)
+        cls = self._mdib.data_model.get_descriptor_container_class(pm.StringMetricDescriptor)
         obj = self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
         obj.Unit = unit
         obj.MetricAvailability = metric_availability
@@ -360,7 +355,7 @@ class DescriptorFactory:
         :param metric_category: pmtypes.MetricCategory
         :return: the created object
         """
-        cls = self._mdib.sdc_definitions.get_descriptor_container_class(pm.EnumStringMetricDescriptor)
+        cls = self._mdib.data_model.get_descriptor_container_class(pm.EnumStringMetricDescriptor)
         obj = self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
         obj.Unit = unit
         obj.MetricAvailability = metric_availability
@@ -378,5 +373,5 @@ class DescriptorFactory:
         :param safety_classification: a pmtypes.SafetyClassification value
         :return: the created object
         """
-        cls = self._mdib.sdc_definitions.get_descriptor_container_class(pm.ClockDescriptor)
+        cls = self._mdib.data_model.get_descriptor_container_class(pm.ClockDescriptor)
         return self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)

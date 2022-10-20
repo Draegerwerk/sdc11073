@@ -3,6 +3,7 @@ import os
 from lxml import etree as etree_
 
 from .definitions_base import BaseDefinitions
+from . import pmtypes
 from .mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
 from .mdib.statecontainers import get_container_class as get_state_container_class
 
@@ -116,3 +117,4 @@ class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     get_state_container_class = get_state_container_class
     Actions = _SdcV1Actions
     SchemaFilePaths = SchemaPathsSdc
+    pmtypes = pmtypes

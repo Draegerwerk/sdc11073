@@ -137,10 +137,10 @@ class TestDescriptorContainers(unittest.TestCase):
         # set values, test updateFromNode
         dc.Source = ['A', 'B']
         dc.Cause = [pmtypes.CauseInfo(
-            remedyInfo=pmtypes.RemedyInfo([pmtypes.LocalizedText('abc'), pmtypes.LocalizedText('def')]),
+            remedy_info=pmtypes.RemedyInfo([pmtypes.LocalizedText('abc'), pmtypes.LocalizedText('def')]),
             descriptions=[pmtypes.LocalizedText('descr1'), pmtypes.LocalizedText('descr2')]),
             pmtypes.CauseInfo(
-                remedyInfo=pmtypes.RemedyInfo([pmtypes.LocalizedText('123'), pmtypes.LocalizedText('456')]),
+                remedy_info=pmtypes.RemedyInfo([pmtypes.LocalizedText('123'), pmtypes.LocalizedText('456')]),
                 descriptions=[pmtypes.LocalizedText('descr1'), pmtypes.LocalizedText('descr2')])
         ]
         dc.Kind = pmtypes.AlertConditionKind.TECHNICAL

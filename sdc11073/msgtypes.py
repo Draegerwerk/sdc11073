@@ -14,6 +14,7 @@ class RetrievabilityMethod(enum.Enum):
 
 
 class RetrievabilityInfo(PropertyBasedPMType):
+    NODETYPE = msg.RetrievabilityInfo
     Method = cp.EnumAttributeProperty('Method', enum_cls=RetrievabilityMethod, is_optional=False)
     UpdatePeriod = cp.DurationAttributeProperty('UpdatePeriod', implied_py_value=1.0)
     _props = ['Method', 'UpdatePeriod']

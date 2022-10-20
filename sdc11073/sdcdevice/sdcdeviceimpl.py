@@ -322,7 +322,7 @@ class SdcDevice:
             updated=transaction_processor.descr_updated
             created=transaction_processor.descr_created
             deleted=transaction_processor.descr_deleted
-            states=transaction_processor.descr_updated_states
+            states=transaction_processor.all_states() # descr_updated_states
             self._subscriptions_manager.send_descriptor_updates(
                 updated, created, deleted, states, ns_mapper, mdib_version, sequence_id)
 

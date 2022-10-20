@@ -343,7 +343,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         :return:
         """
         descr = self.descriptions.handle.get_one(descriptor_handle)
-        new_state = self.mk_state_container_from_descriptor(descr)
+        new_state = self.data_model.mk_state_container(descr)
         if copy_current_state:
             lookup = self.context_states if new_state.isContextState else self.states
             if new_state.isMultiState:

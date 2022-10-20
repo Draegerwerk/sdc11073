@@ -12,7 +12,8 @@ from ..namespaces import QN_TYPE
 class ContainerBase:
     NODETYPE = None  # overwrite in derived classes! determines the value of xsi:Type attribute, must be an etree_.QName object
     node = properties.ObservableProperty()
-
+    is_state_container = False
+    is_descriptor_container = False
     # every class with container properties must provide a list of property names.
     # this list is needed to create sub elements in a certain order.
     # rule is : elements are sorted from this root class to derived class. Last derived class comes last.

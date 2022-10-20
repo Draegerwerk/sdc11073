@@ -90,7 +90,7 @@ class OperationDefinition:
             # there is already a descriptor
             self._logger.info('descriptor for operation "{}" is already present, re-using it', self._handle)
         else:
-            cls = mdib.sdc_definitions.get_descriptor_container_class(self.OP_DESCR_QNAME)
+            cls = mdib.data_model.get_descriptor_container_class(self.OP_DESCR_QNAME)
             self._descriptor_container = cls(self._handle, parent_descriptor_container.Handle)
             self._init_operation_descriptor_container()
             mdib.descriptions.add_object(self._descriptor_container)
@@ -99,7 +99,7 @@ class OperationDefinition:
         if self._operation_state_container is not None:
             self._logger.info('operation state for operation "{}" is already present, re-using it', self._handle)
         else:
-            cls = mdib.sdc_definitions.get_state_container_class(self.OP_STATE_QNAME)
+            cls = mdib.data_model.get_state_container_class(self.OP_STATE_QNAME)
             self._operation_state_container = cls(self._descriptor_container)
             mdib.states.add_object(self._operation_state_container)
 
@@ -120,8 +120,7 @@ class OperationDefinition:
             self._logger.info('operation target state for operation "{}" is already present, re-using it',
                               self._operation_target_handle)
         else:
-            self._operation_target_container = self._mdib.mk_state_container_from_descriptor(
-                operation_target_descriptor)
+            self._operation_target_container = self._mdib.data_model.mk_state_container(operation_target_descriptor)
             self._logger.info('creating {} DescriptorHandle = {}', self._operation_target_container.__class__.__name__,
                               self._operation_target_handle)
             if self._operation_target_container is not None:
@@ -366,7 +365,7 @@ class AbstractScoOperationsRegistry(ABC):
         else:
             self._logger.info('not found Sco node in mds, creating it')
             # create sco and add to mdib
-            cls = mdib.sdc_definitions.get_descriptor_container_class(pm.ScoDescriptor)
+            cls = mdib.data_model.get_descriptor_container_class(pm.ScoDescriptor)
             self._mds_sco_descriptor_container = cls(self._handle, mds_descriptor_container.Handle)
             mdib.descriptions.add_object(self._mds_sco_descriptor_container)
 
