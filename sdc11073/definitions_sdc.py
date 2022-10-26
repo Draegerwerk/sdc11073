@@ -2,10 +2,13 @@ import os
 
 from lxml import etree as etree_
 
-from .definitions_base import BaseDefinitions
-from . import pmtypes
+from .definitions_base import BaseDefinitions, AbstractModel
+from . import pmtypes, pm_qnames, msg_qnames
 from .mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
 from .mdib.statecontainers import get_container_class as get_state_container_class
+from .mdib.devicemdibxtra import DeviceMdibMethods
+from .mdib.clientmdibxtra import ClientMdibMethods
+from .mdib.devicewaveform import DefaultWaveformSource
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
@@ -97,6 +100,24 @@ class SchemaPathsSdc:
         'http://schemas.xmlsoap.org/wsdl/': WSDLSchemaFile
     }
 
+class V1Model(AbstractModel):
+    def get_descriptor_container_class(self, type_qname):
+        return get_descriptor_container_class(type_qname)
+
+    def get_state_container_class(self, type_qname):
+        return get_state_container_class(type_qname)
+
+    @property
+    def pmtypes(self):
+        return pmtypes
+
+    @property
+    def pm_names(self):
+        return pm_qnames
+
+    @property
+    def msg_names(self):
+        return msg_qnames
 
 class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     BICEPSNamespace_base = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/'
@@ -111,10 +132,13 @@ class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     SDCDeviceType = etree_.QName(DPWS_SDCNamespace, 'SdcDevice')
     ActionsNamespace = DPWS_SDCNamespace
     PortTypeNamespace = DPWS_SDCNamespace
-
     MedicalDeviceTypesFilter = [BaseDefinitions.DpwsDeviceType, MedicalDeviceType]
-    get_descriptor_container_class = get_descriptor_container_class
-    get_state_container_class = get_state_container_class
+
     Actions = _SdcV1Actions
     SchemaFilePaths = SchemaPathsSdc
-    pmtypes = pmtypes
+
+    device_mdib_xtra_cls = DeviceMdibMethods
+    client_mdib_xtra_cls = ClientMdibMethods
+    waveform_provider_cls = DefaultWaveformSource
+
+SDC_v1_Definitions.data_model = V1Model()

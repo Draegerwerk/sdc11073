@@ -296,7 +296,9 @@ class EnumAttributeProperty(_AttributePropertyBase):
                     f'None value is not allowed in {instance.__class__.__name__}.{self._attribute_name}, only {self.enum_cls}')
             if py_value is not None and not isinstance(py_value, self.enum_cls):
                 raise ValueError(
-                    f'in {instance.__class__.__name__}.{self._attribute_name}: value {py_value} is not of type {self.enum_cls}')
+                    f'in {instance.__class__.__name__}.{self._attribute_name}: '
+                    f'value {py_value} of module {py_value.__class__.__module__} type {type(py_value)} '
+                    f'is not of module {self.enum_cls.__module__} type {self.enum_cls}')
         super().__set__(instance, py_value)
 
     def get_py_value_from_node(self, instance, node):

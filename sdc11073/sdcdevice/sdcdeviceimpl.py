@@ -1,7 +1,7 @@
 import copy
 import urllib
 import uuid
-from typing import List
+from typing import TYPE_CHECKING
 
 from . import httpserver
 from .components import default_sdc_device_components
@@ -10,18 +10,19 @@ from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 from .waveforms import WaveformSender
 from .. import compression
 from .. import loghelper
-from .. import pmtypes
+from .. import observableproperties as properties
 from ..addressing import EndpointReferenceType
 from ..dpws import HostServiceType
+from ..exceptions import ApiUsageError
 from ..location import SdcLocation
 from ..namespaces import Prefixes
-from ..exceptions import ApiUsageError
-from .. import observableproperties as properties
+
+if TYPE_CHECKING:
+    pass
+
 
 class SdcDevice:
     DEFAULT_CONTEXTSTATES_IN_GETMDIB = True  # defines if get_mdib and getMdStates contain context states or not.
-
-    defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extension_string='System'),)
 
     def __init__(self, ws_discovery, this_model, this_device, device_mdib_container, my_uuid=None,
                  validate=True, ssl_context=None,
@@ -110,8 +111,8 @@ class SdcDevice:
         self._periodic_reports_handler = PeriodicReportsNullHandler()
         self._setup_components()
         self.base_urls = []  # will be set after httpserver is started
-        properties.bind(device_mdib_container, transaction = self._send_notifications)
-        properties.bind(device_mdib_container, rt_updates = self._send_rt_notifications)
+        properties.bind(device_mdib_container, transaction=self._send_notifications)
+        properties.bind(device_mdib_container, rt_updates=self._send_rt_notifications)
 
     def _setup_components(self):
 
@@ -139,8 +140,10 @@ class SdcDevice:
                                                 self._mdib.sdc_definitions)
         for dpws_service in self.hosted_services.dpws_hosted_services:
             self._hosted_service_dispatcher.register_hosted_service(dpws_service)
-        self.product_roles = self._components.role_provider_class(self._log_prefix)
-        self.product_roles.init_operations(self._mdib, self._sco_operations_registry)
+        self.product_roles = self._components.role_provider_class(self._mdib,
+                                                                  self._sco_operations_registry,
+                                                                  self._log_prefix)
+        self.product_roles.init_operations()
 
     @property
     def localization_storage(self):
@@ -163,7 +166,7 @@ class SdcDevice:
         return response
 
     def set_location(self, location: SdcLocation,
-                     validators: List[pmtypes.InstanceIdentifier] = defaultInstanceIdentifiers,
+                     validators=None,
                      publish_now: bool = True):
         '''
         :param location: an SdcLocation instance
@@ -173,7 +176,9 @@ class SdcDevice:
         if location == self._location:
             return
         self._location = location
-        self._mdib.set_location(location, validators)
+        if validators is None:
+            validators = self._mdib.xtra.default_instance_identifiers
+        self._mdib.xtra.set_location(location, validators)
         if publish_now:
             self.publish()
 
@@ -319,10 +324,10 @@ class SdcDevice:
         sequence_id = self._mdib.sequence_id
         ns_mapper = self._mdib.nsmapper
         if transaction_processor.has_descriptor_updates:
-            updated=transaction_processor.descr_updated
-            created=transaction_processor.descr_created
-            deleted=transaction_processor.descr_deleted
-            states=transaction_processor.all_states() # descr_updated_states
+            updated = transaction_processor.descr_updated
+            created = transaction_processor.descr_created
+            deleted = transaction_processor.descr_deleted
+            states = transaction_processor.all_states()  # descr_updated_states
             self._subscriptions_manager.send_descriptor_updates(
                 updated, created, deleted, states, ns_mapper, mdib_version, sequence_id)
 

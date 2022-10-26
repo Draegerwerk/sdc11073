@@ -86,18 +86,22 @@ class TestDeviceSubscriptions(unittest.TestCase):
             self.assertLessEqual(len(occurances), 1)
 
     def test_waveformSubscription(self):
-        for sdcDevice in self._allDevices:
-            testSubscr = mockstuff.TestDevSubscription([sdcDevice.mdib.sdc_definitions.Actions.Waveform],
-                                                       sdcDevice.msg_factory)
-            sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
+        for sdc_device in self._allDevices:
+            testSubscr = mockstuff.TestDevSubscription([sdc_device.mdib.sdc_definitions.Actions.Waveform],
+                                                       sdc_device.msg_factory)
+            sdc_device.subscriptions_manager._subscriptions.add_object(testSubscr)
+
+            waveform_provider = sdc_device.mdib.xtra.waveform_provider
+            if waveform_provider is None:
+                continue
 
             tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.01)
             st = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.01)
             si = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=5.0, sampleperiod=0.01)
 
-            sdcDevice.mdib.register_waveform_generator(HANDLES[0], tr)
-            sdcDevice.mdib.register_waveform_generator(HANDLES[1], st)
-            sdcDevice.mdib.register_waveform_generator(HANDLES[2], si)
+            waveform_provider.register_waveform_generator(HANDLES[0], tr)
+            waveform_provider.register_waveform_generator(HANDLES[1], st)
+            waveform_provider.register_waveform_generator(HANDLES[2], si)
 
             time.sleep(3)
             self.assertGreater(len(testSubscr.reports), 20)
@@ -106,7 +110,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             # simulate data transfer from device to client
             xml_bytes = self.sdc_device.msg_factory.serialize_message(report)
             received_response_message = self.sdc_device.msg_reader.read_received_message(xml_bytes)
-            expected_action = sdcDevice.mdib.sdc_definitions.Actions.Waveform
+            expected_action = sdc_device.mdib.sdc_definitions.Actions.Waveform
             self.assertEqual(received_response_message.action, expected_action)
 
     def test_episodicMetricReportEvent(self):

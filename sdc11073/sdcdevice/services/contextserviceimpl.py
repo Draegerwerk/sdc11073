@@ -1,5 +1,4 @@
 from collections import OrderedDict
-from ... import pm_qnames as pm
 from .servicesbase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding, msg_prefix
 from .servicesbase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation
 
@@ -39,6 +38,7 @@ class ContextService(ServiceWithOperations):
                                               operation_request)
 
     def _on_get_context_states(self, request_data):
+        pm_names = self._mdib.data_model.pm_names
         self._logger.debug('_on_get_context_states')
         requested_handles = self._sdc_device.msg_reader.read_get_context_states_request(request_data.message_data)
         if len(requested_handles) > 0:
@@ -66,7 +66,7 @@ class ContextService(ServiceWithOperations):
                         # MDS descriptor, then all context states that are part of this MDS SHALL be included in the result list.
                         descr = self._mdib.descriptions.handle.get_one(handle, allow_none=True)
                         if descr:
-                            if descr.NODETYPE == pm.MdsDescriptor:
+                            if descr.NODETYPE == pm_names.MdsDescriptor:
                                 tmp = list(self._mdib.context_states.objects)
                     if tmp:
                         for state in tmp:

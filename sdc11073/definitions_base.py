@@ -1,4 +1,5 @@
 import os
+from abc import ABC, abstractmethod
 
 from .namespaces import Prefixes
 from .namespaces import dpwsTag
@@ -17,6 +18,53 @@ class ProtocolsRegistry(type):
         if name != 'BaseDefinitions':  # ignore the base class itself
             cls.protocols.append(new_cls)
         return new_cls
+
+class AbstractModel(ABC):
+
+    @abstractmethod
+    def get_descriptor_container_class(self, type_qname):
+        raise NotImplementedError
+
+    def mk_descriptor_container(self, type_qname, *args, **kwargs):
+        cls = self.get_descriptor_container_class(type_qname)
+        return cls(*args, **kwargs)
+
+    @abstractmethod
+    def get_state_container_class(self, type_qname):
+        raise NotImplementedError
+
+    def get_state_class_for_descriptor(self, descriptor_container):
+        state_class_qtype = descriptor_container.STATE_QNAME
+        if state_class_qtype is None:
+            raise TypeError(f'No state association for {descriptor_container.__class__.__name__}')
+        return self.get_state_container_class(state_class_qtype)
+
+    def mk_state_container(self, descriptor_container):
+        cls = self.get_state_class_for_descriptor(descriptor_container)
+        if cls is None:
+            raise TypeError(
+                f'No state container class for descr={descriptor_container.__class__.__name__}, '
+                f'name={descriptor_container.NODETYPE}, '
+                f'type={descriptor_container.nodeType}')
+        return cls(descriptor_container)
+
+    @property
+    @abstractmethod
+    def pmtypes(self):
+        """Gives access to a module with participant model types"""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def pm_names(self):
+        """Gives access to a module with all qualified names of the BICEPS participant model"""
+        raise NotImplementedError
+
+    @abstractmethod
+    def msg_names(self):
+        """Gives access to a module with all qualified names of the BICEPS message model"""
+        raise NotImplementedError
+
 
 
 # definitions that group all relevant dependencies for BICEPS versions
@@ -37,12 +85,8 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     DefaultSdcDeviceComponents = None
     DefaultSdcClientComponents = None
     MDPWSNameSpace = None
-
-    def get_descriptor_container_class(self, qname):
-        raise NotImplementedError
-
-    def get_state_container_class(self, qname):
-        raise NotImplementedError
+    data_model = None
+    waveform_provider_cls = None
 
     @classmethod
     def ns_matches(cls, namespace):

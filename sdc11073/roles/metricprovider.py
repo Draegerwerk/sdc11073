@@ -1,6 +1,5 @@
 from .providerbase import ProviderRole
 from ..pmtypes import ComponentActivation
-from .. import pm_qnames as pm
 
 
 class GenericMetricProvider(ProviderRole):
@@ -10,13 +9,13 @@ class GenericMetricProvider(ProviderRole):
     - SetStringOperation on (enum) string metrics
     """
 
-    def __init__(self, activation_state_can_remove_metric_value=True, log_prefix=None):
+    def __init__(self, data_model, activation_state_can_remove_metric_value=True, log_prefix=None):
         '''
 
         :param activation_state_can_remove_metric_value: if True, SF717 is handled
                SF717: A Metric Provider shall not provide a MetricValue if the ActivationState = Shtdn|Off|Fail.
         '''
-        super().__init__(log_prefix)
+        super().__init__(data_model, log_prefix)
         self.activation_state_can_remove_metric_value = activation_state_can_remove_metric_value
 
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
@@ -25,36 +24,37 @@ class GenericMetricProvider(ProviderRole):
         SetStringOperation, target = (Enum)StringMetricDescriptor: => handler = _set_string
         SetMetricStateOperationDescriptor, target = any subclass of AbstractMetricDescriptor: => handler = _set_metric_state
         '''
+        pm_names = self._mdib.data_model.pm_names
         operation_target_handle = operation_descriptor_container.OperationTarget
         op_target_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
 
-        if op_target_descriptor_container.NODETYPE not in (pm.StringMetricDescriptor,
-                                                           pm.EnumStringMetricDescriptor,
-                                                           pm.NumericMetricDescriptor,
-                                                           pm.RealTimeSampleArrayMetricDescriptor):
+        if op_target_descriptor_container.NODETYPE not in (pm_names.StringMetricDescriptor,
+                                                           pm_names.EnumStringMetricDescriptor,
+                                                           pm_names.NumericMetricDescriptor,
+                                                           pm_names.RealTimeSampleArrayMetricDescriptor):
             return None  # this is not metric provider role
 
-        if operation_descriptor_container.NODETYPE == pm.SetValueOperationDescriptor:
-            if op_target_descriptor_container.NODETYPE == pm.NumericMetricDescriptor:
-                op_cls = operation_cls_getter(pm.SetValueOperationDescriptor)
+        if operation_descriptor_container.NODETYPE == pm_names.SetValueOperationDescriptor:
+            if op_target_descriptor_container.NODETYPE == pm_names.NumericMetricDescriptor:
+                op_cls = operation_cls_getter(pm_names.SetValueOperationDescriptor)
                 return self._mk_operation(op_cls,
                                           handle=operation_descriptor_container.Handle,
                                           operation_target_handle=operation_target_handle,
                                           coded_value=operation_descriptor_container.Type,
                                           current_argument_handler=self._set_numeric_value)
             return None
-        if operation_descriptor_container.NODETYPE == pm.SetStringOperationDescriptor:
-            if op_target_descriptor_container.NODETYPE in (pm.StringMetricDescriptor,
-                                                           pm.EnumStringMetricDescriptor):
-                op_cls = operation_cls_getter(pm.SetStringOperationDescriptor)
+        if operation_descriptor_container.NODETYPE == pm_names.SetStringOperationDescriptor:
+            if op_target_descriptor_container.NODETYPE in (pm_names.StringMetricDescriptor,
+                                                           pm_names.EnumStringMetricDescriptor):
+                op_cls = operation_cls_getter(pm_names.SetStringOperationDescriptor)
                 return self._mk_operation(op_cls,
                                           handle=operation_descriptor_container.Handle,
                                           operation_target_handle=operation_target_handle,
                                           coded_value=operation_descriptor_container.Type,
                                           current_argument_handler=self._set_string)
             return None
-        if operation_descriptor_container.NODETYPE == pm.SetMetricStateOperationDescriptor:
-            op_cls = operation_cls_getter(pm.SetMetricStateOperationDescriptor)
+        if operation_descriptor_container.NODETYPE == pm_names.SetMetricStateOperationDescriptor:
+            op_cls = operation_cls_getter(pm_names.SetMetricStateOperationDescriptor)
             operation = self._mk_operation(op_cls,
                                            handle=operation_descriptor_container.Handle,
                                            operation_target_handle=operation_target_handle,

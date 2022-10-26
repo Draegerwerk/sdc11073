@@ -18,8 +18,6 @@ from ..namespaces import WSA_ANONYMOUS
 from ..namespaces import msgTag, wseTag, wsaTag, wsxTag, xmlTag, s12Tag, dpwsTag, wsdTag, QN_TYPE
 from ..namespaces import nsmap, DocNamespaceHelper, docname_from_qname
 from ..exceptions import ApiUsageError
-from .. import pm_qnames as pm
-from .. import msg_qnames as msg
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
 
@@ -34,19 +32,6 @@ class CreatedMessage:
 
 
 # pylint: disable=no-self-use
-def _handles2params(handles):
-    """
-    Internal helper, converts handles to dom elements
-    :param handles: a list of strings
-    :return: a list of etree nodes
-    """
-    params = []
-    if handles is not None:
-        for handle in handles:
-            node = etree_.Element(msg.HandleRef)
-            node.text = handle
-            params.append(node)
-    return params
 
 
 class MessageFactory:
@@ -204,6 +189,7 @@ class MessageFactoryClient(MessageFactory):
         soap_envelope.payload_element = etree_.Element('{http://schemas.xmlsoap.org/ws/2004/09/mex}GetMetadata')
         return CreatedMessage(soap_envelope, self)
 
+
     def mk_get_descriptor_message(self, addr_to, port_type, requested_handles) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
@@ -212,7 +198,7 @@ class MessageFactoryClient(MessageFactory):
         :return: a SoapEnvelope
         """
         method = 'GetMdState'
-        return self._mk_get_method_message(addr_to, port_type, method, params=_handles2params(requested_handles))
+        return self._mk_get_method_message(addr_to, port_type, method, params=self._handles2params(requested_handles))
 
     def mk_get_mdib_message(self, addr_to, port_type) -> CreatedMessage:
         """
@@ -231,7 +217,7 @@ class MessageFactoryClient(MessageFactory):
         :return: a SoapEnvelope
         """
         method = 'GetMdDescription'
-        return self._mk_get_method_message(addr_to, port_type, method, params=_handles2params(requested_handles))
+        return self._mk_get_method_message(addr_to, port_type, method, params=self._handles2params(requested_handles))
 
     def mk_get_mdstate_message(self, addr_to, port_type, requested_handles=None) -> CreatedMessage:
         """
@@ -241,7 +227,7 @@ class MessageFactoryClient(MessageFactory):
         :return: a SoapEnvelope
         """
         method = 'GetMdState'
-        return self._mk_get_method_message(addr_to, port_type, method, params=_handles2params(requested_handles))
+        return self._mk_get_method_message(addr_to, port_type, method, params=self._handles2params(requested_handles))
 
     def mk_get_containmenttree_message(self, addr_to, port_type, requested_handles) -> CreatedMessage:
         """
@@ -251,7 +237,7 @@ class MessageFactoryClient(MessageFactory):
         :return: a SoapEnvelope
         """
         method = 'GetContainmentTree'
-        return self._mk_get_method_message(addr_to, port_type, method, params=_handles2params(requested_handles))
+        return self._mk_get_method_message(addr_to, port_type, method, params=self._handles2params(requested_handles))
 
     def mk_get_contextstates_message(self, addr_to, port_type, requested_handles=None) -> CreatedMessage:
         """
@@ -261,9 +247,10 @@ class MessageFactoryClient(MessageFactory):
         :return: a SoapEnvelope
         """
         requestparams = []
+        msg_names = self._sdc_definitions.data_model.msg_names
         if requested_handles:
             for handle in requested_handles:
-                requestparams.append(etree_.Element(msg.HandleRef,
+                requestparams.append(etree_.Element(msg_names.HandleRef,
                                                     attrib={QN_TYPE: f'{Prefixes.MSG.prefix}:HandleRef'},
                                                     nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM)))
                 requestparams[-1].text = handle
@@ -277,11 +264,12 @@ class MessageFactoryClient(MessageFactory):
         :param identifications: list of identifiers (type: InstanceIdentifier from pmtypes)
         :return: a SoapEnvelope
         """
+        msg_names = self._sdc_definitions.data_model.msg_names
         requestparams = []
         if identifications:
             for identification in identifications:
                 requestparams.append(identification.as_etree_node(
-                    qname=msg.Identification, nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM)))
+                    qname=msg_names.Identification, nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM)))
         method = 'GetContextStatesByIdentification'
         return self._mk_get_method_message(addr_to, port_type, method, params=requestparams)
 
@@ -294,7 +282,8 @@ class MessageFactoryClient(MessageFactory):
         :param requested_numeric_value: a string
         :return: a SoapEnvelope
         """
-        requested_value_node = etree_.Element(msg.RequestedNumericValue,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        requested_value_node = etree_.Element(msg_names.RequestedNumericValue,
                                               attrib={QN_TYPE: f'{Prefixes.XSD.prefix}:decimal'})
         requested_value_node.text = str(requested_numeric_value)
         method = 'SetValue'
@@ -311,7 +300,8 @@ class MessageFactoryClient(MessageFactory):
         :param requested_string: a string
         :return: a SoapEnvelope
         """
-        requested_string_node = etree_.Element(msg.RequestedStringValue,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        requested_string_node = etree_.Element(msg_names.RequestedStringValue,
                                                attrib={QN_TYPE: f'{Prefixes.XSD.prefix}:string'})
         requested_string_node.text = requested_string
         method = 'SetString'
@@ -328,10 +318,11 @@ class MessageFactoryClient(MessageFactory):
         :param proposed_alert_states: a list of AbstractAlertStateContainer or derived class
         :return: a SoapEnvelope
         """
+        msg_names = self._sdc_definitions.data_model.msg_names
         _proposed_states = [p.mk_copy() for p in proposed_alert_states]
         for state in _proposed_states:
             state.nsmapper = DocNamespaceHelper()  # use my namespaces
-        _proposed_state_nodes = [p.mk_state_node(msg.ProposedAlertState, nsmapper) for p in _proposed_states]
+        _proposed_state_nodes = [p.mk_state_node(msg_names.ProposedAlertState, nsmapper) for p in _proposed_states]
         method = 'SetAlertState'
         return self._mk_set_method_message(addr_to, port_type, method, operation_handle, _proposed_state_nodes)
 
@@ -345,10 +336,11 @@ class MessageFactoryClient(MessageFactory):
         :param proposed_metric_states: a list of AbstractMetricStateContainer or derived class
         :return: a SoapEnvelope
         """
+        msg_names = self._sdc_definitions.data_model.msg_names
         _proposed_states = [p.mk_copy() for p in proposed_metric_states]
         for state in _proposed_states:
             state.nsmapper = nsmapper  # use my namespaces
-        _proposed_state_nodes = [p.mk_state_node(msg.ProposedMetricState, nsmapper) for p in _proposed_states]
+        _proposed_state_nodes = [p.mk_state_node(msg_names.ProposedMetricState, nsmapper) for p in _proposed_states]
         return self._mk_set_method_message(addr_to, port_type, 'SetMetricState', operation_handle,
                                            _proposed_state_nodes)
 
@@ -362,10 +354,11 @@ class MessageFactoryClient(MessageFactory):
         :param proposed_component_states: a list of AbstractComponentStateContainers or derived class
         :return: a SoapEnvelope
         """
+        msg_names = self._sdc_definitions.data_model.msg_names
         _proposed_states = [p.mk_copy() for p in proposed_component_states]
         for state in _proposed_states:
             state.nsmapper = nsmapper  # use my namespaces
-        _proposed_state_nodes = [p.mk_state_node(msg.ProposedComponentState, nsmapper) for p in _proposed_states]
+        _proposed_state_nodes = [p.mk_state_node(msg_names.ProposedComponentState, nsmapper) for p in _proposed_states]
         return self._mk_set_method_message(addr_to, port_type, 'SetComponentState', operation_handle,
                                            _proposed_state_nodes)
 
@@ -379,13 +372,14 @@ class MessageFactoryClient(MessageFactory):
         :param proposed_context_states: a list of AbstractContextStateContainers or derived class
         :return: a SoapEnvelope
         """
+        msg_names = self._sdc_definitions.data_model.msg_names
         _proposed_states = [p.mk_copy() for p in proposed_context_states]
         for state in _proposed_states:
             # BICEPS: if handle == DescriptorHandle, it means insert.
             if state.Handle is None:
                 state.Handle = state.DescriptorHandle
             state.nsmapper = DocNamespaceHelper()  # use my namespaces
-        _proposed_state_nodes = [p.mk_state_node(msg.ProposedContextState,
+        _proposed_state_nodes = [p.mk_state_node(msg_names.ProposedContextState,
                                                  nsmapper) for p in _proposed_states]
 
         return self._mk_set_method_message(addr_to, port_type, 'SetContextState', operation_handle,
@@ -399,13 +393,14 @@ class MessageFactoryClient(MessageFactory):
         :param arguments: a list of strings or None
         :return: a SoapEnvelope
         """
-        payload_node = etree_.Element(msg.Activate, attrib=None, nsmap=nsmap)
-        ref = etree_.SubElement(payload_node, msg.OperationHandleRef)
+        msg_names = self._sdc_definitions.data_model.msg_names
+        payload_node = etree_.Element(msg_names.Activate, attrib=None, nsmap=nsmap)
+        ref = etree_.SubElement(payload_node, msg_names.OperationHandleRef)
         ref.text = operation_handle
         if arguments is not None:
             for argument in arguments:
-                argument_node = etree_.SubElement(payload_node, msg.Argument)
-                arg_val = etree_.SubElement(argument_node, msg.ArgValue)
+                argument_node = etree_.SubElement(payload_node, msg_names.Argument)
+                arg_val = etree_.SubElement(argument_node, msg_names.ArgValue)
                 arg_val.text = argument
         action = self.get_action_string(port_type, 'Activate')
         envelope = Soap12Envelope(Prefixes.partial_map(Prefixes.MSG))
@@ -425,29 +420,30 @@ class MessageFactoryClient(MessageFactory):
         :param number_of_lines: a list of unsigned integers or None
         :return: a SoapEnvelope
         """
+        msg_names = self._sdc_definitions.data_model.msg_names
         requestparams = []
         if refs is not None:
             for ref in refs:
-                node = etree_.Element(msg.Ref)
+                node = etree_.Element(msg_names.Ref)
                 node.text = ref
                 requestparams.append(node)
         if version is not None:
-            node = etree_.Element(msg.Version)
+            node = etree_.Element(msg_names.Version)
             node.text = str(version)
             requestparams.append(node)
         if langs is not None:
             for lang in langs:
-                node = etree_.Element(msg.Lang)
+                node = etree_.Element(msg_names.Lang)
                 node.text = lang
                 requestparams.append(node)
         if text_widths is not None:
             for text_width in text_widths:
-                node = etree_.Element(msg.TextWidth)
+                node = etree_.Element(msg_names.TextWidth)
                 node.text = text_width
                 requestparams.append(node)
         if number_of_lines is not None:
             for nol in number_of_lines:
-                node = etree_.Element(msg.NumberOfLines)
+                node = etree_.Element(msg_names.NumberOfLines)
                 node.text = nol
                 requestparams.append(node)
         method = 'GetLocalizedText'
@@ -551,8 +547,9 @@ class MessageFactoryClient(MessageFactory):
         :param operation_handle: handle name as string
         :param request_nodes: a list of etree_ nodes that will become sub-element of Method name element
         """
+        msg_names = self._sdc_definitions.data_model.msg_names
         set_node = etree_.Element(msgTag(method_name))
-        ref = etree_.SubElement(set_node, msg.OperationHandleRef,
+        ref = etree_.SubElement(set_node, msg_names.OperationHandleRef,
                                 attrib={QN_TYPE: f'{Prefixes.PM.prefix}:HandleRef'},
                                 nsmap=Prefixes.partial_map(Prefixes.PM))
         ref.text = operation_handle
@@ -568,6 +565,21 @@ class MessageFactoryClient(MessageFactory):
         soap_envelope.set_address(Address(action=action_string, addr_to=addr_to))
         soap_envelope.payload_element = set_node
         return CreatedMessage(soap_envelope, self)
+
+    def _handles2params(self, handles):
+        """
+        Internal helper, converts handles to dom elements
+        :param handles: a list of strings
+        :return: a list of etree nodes
+        """
+        msg_names = self._sdc_definitions.data_model.msg_names
+        params = []
+        if handles is not None:
+            for handle in handles:
+                node = etree_.Element(msg_names.HandleRef)
+                node.text = handle
+                params.append(node)
+        return params
 
 
 class MessageFactoryDevice(MessageFactory):
@@ -661,6 +673,7 @@ class MessageFactoryDevice(MessageFactory):
         return CreatedMessage(response, self)
 
     def mk_get_mdib_response_message(self, message_data, mdib, include_context_states) -> CreatedMessage:
+        msg_names = self._sdc_definitions.data_model.msg_names
         request = message_data.p_msg
         response = Soap12Envelope(
             Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG, default=Prefixes.PM))
@@ -674,7 +687,7 @@ class MessageFactoryDevice(MessageFactory):
         mdib_version_string = mdib_node.get('MdibVersion')  # use same version a in mdib node for response
         sequence_id_string = mdib_node.get('SequenceId')
 
-        get_mdib_response_node = etree_.Element(msg.GetMdibResponse,
+        get_mdib_response_node = etree_.Element(msg_names.GetMdibResponse,
                                                 nsmap=Prefixes.partial_map(Prefixes.MSG,
                                                                            Prefixes.PM,
                                                                            Prefixes.XSI))
@@ -687,6 +700,7 @@ class MessageFactoryDevice(MessageFactory):
 
     def mk_get_mddescription_response_message(self, message_data, mdib, requested_handles) -> CreatedMessage:
         """For simplification reason this implementation returns either all descriptors or none."""
+        msg_names = self._sdc_definitions.data_model.msg_names
         request = message_data.p_msg
         return_all = len(requested_handles) == 0  # if we have handles, we need to check them
         my_namespaces = mdib.nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.MSG, Prefixes.PM)
@@ -695,7 +709,7 @@ class MessageFactoryDevice(MessageFactory):
             action=self._get_action_string(mdib.sdc_definitions, 'GetMdDescriptionResponse'))
         response_envelope.set_address(reply_address)
 
-        response_node = etree_.Element(msg.GetMdDescriptionResponse, nsmap=nsmap)
+        response_node = etree_.Element(msg_names.GetMdDescriptionResponse, nsmap=nsmap)
 
         for handle in requested_handles:
             # if at least one requested handle is valid, return all.
@@ -704,10 +718,10 @@ class MessageFactoryDevice(MessageFactory):
                 break
         if return_all:
             md_description_node, mdib_version = mdib.reconstruct_md_description()
-            md_description_node.tag = msg.MdDescription  # rename according to message
+            md_description_node.tag = msg_names.MdDescription  # rename according to message
             mdib_version_string = str(mdib_version)
         else:
-            md_description_node = etree_.Element(msg.MdDescription)
+            md_description_node = etree_.Element(msg_names.MdDescription)
             mdib_version_string = None
         sequence_id_string = mdib.sequence_id
         if mdib_version_string:
@@ -719,19 +733,21 @@ class MessageFactoryDevice(MessageFactory):
 
     def mk_get_mdstate_response_message(self, message_data, action, mdib_version, sequence_id,
                                         state_containers) -> CreatedMessage:
+        msg_names = self._sdc_definitions.data_model.msg_names
+        pm_names = self._sdc_definitions.data_model.pm_names
         request = message_data.p_msg
         response_envelope = Soap12Envelope(
             Prefixes.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG, default=Prefixes.PM))
         reply_address = request.address.mk_reply_address(
             action=action)
         response_envelope.set_address(reply_address)
-        response_node = etree_.Element(msg.GetMdStateResponse, nsmap=nsmap)
+        response_node = etree_.Element(msg_names.GetMdStateResponse, nsmap=nsmap)
         response_node.set('MdibVersion', str(mdib_version))
         response_node.set('SequenceId', sequence_id)
-        md_state_node = etree_.Element(msg.MdState, attrib=None,
+        md_state_node = etree_.Element(msg_names.MdState, attrib=None,
                                        nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM))
         for state_container in state_containers:
-            md_state_node.append(state_container.mk_state_node(pm.State,
+            md_state_node.append(state_container.mk_state_node(pm_names.State,
                                                                self._namespace_helper))
 
         response_node.append(md_state_node)
@@ -740,15 +756,16 @@ class MessageFactoryDevice(MessageFactory):
 
     def mk_get_context_states_response_message(self, message_data, action, mdib_version, sequence_id, state_containers,
                                                nsmapper) -> CreatedMessage:
+        msg_names = self._sdc_definitions.data_model.msg_names
         response = Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
         reply_address = message_data.p_msg.address.mk_reply_address(
             action=action)
         response.set_address(reply_address)
-        response_node = etree_.Element(msg.GetContextStatesResponse)
+        response_node = etree_.Element(msg_names.GetContextStatesResponse)
         response_node.set('MdibVersion', str(mdib_version))
         response_node.set('SequenceId', sequence_id)
-        tag = msg.ContextState
+        tag = msg_names.ContextState
         for container in state_containers:
             node = container.mk_state_node(tag, nsmapper)
             response_node.append(node)
@@ -757,31 +774,33 @@ class MessageFactoryDevice(MessageFactory):
 
     def mk_get_localized_texts_response_message(self, message_data, action, mdib_version, sequence_id, texts,
                                                 nsmapper) -> CreatedMessage:
+        msg_names = self._sdc_definitions.data_model.msg_names
         response_envelope = Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
         reply_address = message_data.p_msg.address.mk_reply_address(action=action)
         response_envelope.set_address(reply_address)
-        response_node = etree_.Element(msg.GetLocalizedTextResponse)
+        response_node = etree_.Element(msg_names.GetLocalizedTextResponse)
         response_node.set('MdibVersion', str(mdib_version))
         response_node.set('SequenceId', sequence_id)
 
         for text in texts:
-            response_node.append(text.as_etree_node(msg.Text, nsmap=None))
+            response_node.append(text.as_etree_node(msg_names.Text, nsmap=None))
         response_envelope.payload_element = response_node
         return CreatedMessage(response_envelope, self)
 
     def mk_get_supported_languages_response_message(self, message_data, action, mdib_version, sequence_id, languages,
                                                     nsmapper) -> CreatedMessage:
+        msg_names = self._sdc_definitions.data_model.msg_names
         response_envelope = Soap12Envelope(
             nsmapper.partial_map(Prefixes.S12, Prefixes.WSA, Prefixes.PM, Prefixes.MSG))
         reply_address = message_data.p_msg.address.mk_reply_address(action=action)
         response_envelope.set_address(reply_address)
-        response_node = etree_.Element(msg.GetSupportedLanguagesResponse)
+        response_node = etree_.Element(msg_names.GetSupportedLanguagesResponse)
         response_node.set('MdibVersion', str(mdib_version))
         response_node.set('SequenceId', sequence_id)
 
         for lang in languages:
-            node = etree_.SubElement(response_node, msg.Lang)
+            node = etree_.SubElement(response_node, msg_names.Lang)
             node.text = lang
         response_envelope.payload_element = response_node
         return CreatedMessage(response_envelope, self)
@@ -867,6 +886,7 @@ class MessageFactoryDevice(MessageFactory):
     def mk_operation_response_message(self, message_data, action, response_name, mdib_version,
                                       sequence_id, transaction_id, invocation_state, invocation_error, error_text,
                                       nsmapper) -> CreatedMessage:
+        msg_names = self._sdc_definitions.data_model.msg_names
         request = message_data.p_msg
         response = Soap12Envelope(nsmapper.partial_map(Prefixes.S12, Prefixes.MSG, Prefixes.WSA))
         reply_address = request.address.mk_reply_address(action=action)
@@ -874,91 +894,102 @@ class MessageFactoryDevice(MessageFactory):
         reply_body_node = etree_.Element(msgTag(response_name),
                                          attrib={'SequenceId': sequence_id,
                                                  'MdibVersion': str(mdib_version)})
-        invocation_info_node = etree_.SubElement(reply_body_node, msg.InvocationInfo)
+        invocation_info_node = etree_.SubElement(reply_body_node, msg_names.InvocationInfo)
 
-        transaction_id_node = etree_.SubElement(invocation_info_node, msg.TransactionId)
-        invocation_state_node = etree_.SubElement(invocation_info_node, msg.InvocationState)
+        transaction_id_node = etree_.SubElement(invocation_info_node, msg_names.TransactionId)
+        invocation_state_node = etree_.SubElement(invocation_info_node, msg_names.InvocationState)
 
         invocation_state_node.text = invocation_state
         transaction_id_node.text = str(transaction_id)
 
         if invocation_error is not None:
-            invocation_error_node = etree_.SubElement(invocation_info_node, msg.InvocationError)
+            invocation_error_node = etree_.SubElement(invocation_info_node, msg_names.InvocationError)
             invocation_error_node.text = invocation_error
         if error_text is not None:
             invocation_error_msg_node = etree_.SubElement(invocation_info_node,
-                                                          msg.InvocationErrorMessage)
+                                                          msg_names.InvocationErrorMessage)
             invocation_error_msg_node.text = error_text
         response.payload_element = reply_body_node
         return CreatedMessage(response, self)
 
-    @staticmethod
-    def mk_realtime_samples_report_body(mdib_version, sequence_id, realtime_sample_states, nsmapper) -> etree_.Element:
+    def mk_realtime_samples_report_body(self, mdib_version, sequence_id, realtime_sample_states, nsmapper) -> etree_.Element:
+        msg_names = self._sdc_definitions.data_model.msg_names
         ns_map = nsmapper.partial_map(Prefixes.PM, Prefixes.MSG, Prefixes.XSI, Prefixes.EXT, Prefixes.XML)
-        body_node = etree_.Element(msg.WaveformStream,
+        body_node = etree_.Element(msg_names.WaveformStream,
                                    attrib={'SequenceId': sequence_id,
                                            'MdibVersion': str(mdib_version)},
                                    nsmap=ns_map)
         for state in realtime_sample_states:
-            state_node = state.mk_state_node(msg.State, nsmapper, set_xsi_type=False)
+            state_node = state.mk_state_node(msg_names.State, nsmapper, set_xsi_type=False)
             body_node.append(state_node)
         return body_node
 
     def mk_episodic_metric_report_body(self, mdib_version, sequence_id, states, nsmapper) -> etree_.Element:
-        return self._mk_report_body(msg.EpisodicMetricReport,
-                                    msg.MetricState,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        return self._mk_report_body(msg_names.EpisodicMetricReport,
+                                    msg_names.MetricState,
                                     states, nsmapper, mdib_version, sequence_id)
 
     def mk_periodic_metric_report_body(self, mdib_version, sequence_id, report_parts, nsmapper) -> etree_.Element:
-        return self._mk__periodic_report_body(msg.PeriodicMetricReport,
-                                              msg.MetricState,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        return self._mk__periodic_report_body(msg_names.PeriodicMetricReport,
+                                              msg_names.MetricState,
                                               report_parts, nsmapper, mdib_version, sequence_id)
 
     def mk_episodic_operational_state_report_body(self, mdib_version, sequence_id, states, nsmapper) -> etree_.Element:
-        return self._mk_report_body(msg.EpisodicOperationalStateReport,
-                                    msg.OperationState,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        return self._mk_report_body(msg_names.EpisodicOperationalStateReport,
+                                    msg_names.OperationState,
                                     states, nsmapper, mdib_version, sequence_id)
 
     def mk_periodic_operational_state_report_body(self, mdib_version, sequence_id,
                                                   report_parts, ns_map) -> etree_.Element:
-        return self._mk__periodic_report_body(msg.PeriodicOperationalStateReport,
-                                              msg.OperationState,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        return self._mk__periodic_report_body(msg_names.PeriodicOperationalStateReport,
+                                              msg_names.OperationState,
                                               report_parts, ns_map, mdib_version, sequence_id)
 
     def mk_episodic_alert_report_body(self, mdib_version, sequence_id, states, nsmapper) -> etree_.Element:
-        return self._mk_report_body(msg.EpisodicAlertReport,
-                                    msg.AlertState,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        return self._mk_report_body(msg_names.EpisodicAlertReport,
+                                    msg_names.AlertState,
                                     states, nsmapper, mdib_version, sequence_id)
 
     def mk_periodic_alert_report_body(self, mdib_version, sequence_id, report_parts, nsmapper) -> etree_.Element:
-        return self._mk__periodic_report_body(msg.PeriodicAlertReport,
-                                              msg.AlertState,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        return self._mk__periodic_report_body(msg_names.PeriodicAlertReport,
+                                              msg_names.AlertState,
                                               report_parts, nsmapper, mdib_version, sequence_id)
 
     def mk_episodic_component_state_report_body(self, mdib_version, sequence_id, states, nsmapper) -> etree_.Element:
-        return self._mk_report_body(msg.EpisodicComponentReport,
-                                    msg.ComponentState,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        return self._mk_report_body(msg_names.EpisodicComponentReport,
+                                    msg_names.ComponentState,
                                     states, nsmapper, mdib_version, sequence_id)
 
     def mk_periodic_component_state_report_body(self, mdib_version, sequence_id,
                                                 report_parts, nsmapper) -> etree_.Element:
-        return self._mk__periodic_report_body(msg.PeriodicComponentReport,
-                                              msg.ComponentState,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        return self._mk__periodic_report_body(msg_names.PeriodicComponentReport,
+                                              msg_names.ComponentState,
                                               report_parts, nsmapper, mdib_version, sequence_id)
 
     def mk_episodic_context_report_body(self, mdib_version, sequence_id, states, nsmapper) -> etree_.Element:
-        return self._mk_report_body(msg.EpisodicContextReport,
-                                    msg.ContextState,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        return self._mk_report_body(msg_names.EpisodicContextReport,
+                                    msg_names.ContextState,
                                     states, nsmapper, mdib_version, sequence_id)
 
     def mk_periodic_context_report_body(self, mdib_version, sequence_id, report_parts, nsmapper) -> etree_.Element:
-        return self._mk__periodic_report_body(msg.PeriodicContextReport,
-                                              msg.ContextState,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        return self._mk__periodic_report_body(msg_names.PeriodicContextReport,
+                                              msg_names.ContextState,
                                               report_parts, nsmapper, mdib_version, sequence_id)
 
     def mk_description_modification_report_body(self, mdib_version, sequence_id, updated, created, deleted,
                                                 updated_states, nsmapper) -> etree_.Element:
-        body_node = etree_.Element(msg.DescriptionModificationReport,
+        msg_names = self._sdc_definitions.data_model.msg_names
+        body_node = etree_.Element(msg_names.DescriptionModificationReport,
                                    attrib={'SequenceId': sequence_id,
                                            'MdibVersion': str(mdib_version)},
                                    nsmap=Prefixes.partial_map(Prefixes.MSG, Prefixes.PM))
@@ -967,62 +998,62 @@ class MessageFactoryDevice(MessageFactory):
         self._mk_descriptor_updates_report_part(body_node, 'Del', deleted, updated_states, nsmapper)
         return body_node
 
-    @staticmethod
-    def _mk_descriptor_updates_report_part(parent_node, modification_type, descriptors, updated_states, nsmapper):
+    def _mk_descriptor_updates_report_part(self, parent_node, modification_type, descriptors, updated_states, nsmapper):
         """ Helper that creates ReportPart."""
         # This method creates one ReportPart for every descriptor.
         # An optimization is possible by grouping all descriptors with the same parent handle into one ReportPart.
         # This is not implemented, and I think it is not needed.
+        msg_names = self._sdc_definitions.data_model.msg_names
         for descriptor in descriptors:
-            report_part = etree_.SubElement(parent_node, msg.ReportPart,
+            report_part = etree_.SubElement(parent_node, msg_names.ReportPart,
                                             attrib={'ModificationType': modification_type})
             if descriptor.parent_handle is not None:  # only Mds can have None
                 report_part.set('ParentDescriptor', descriptor.parent_handle)
-            report_part.append(descriptor.mk_descriptor_node(tag=msg.Descriptor, nsmapper=nsmapper))
+            report_part.append(descriptor.mk_descriptor_node(tag=msg_names.Descriptor, nsmapper=nsmapper))
             related_state_containers = [s for s in updated_states if s.DescriptorHandle == descriptor.Handle]
-            report_part.extend([state.mk_state_node(msg.State, nsmapper) for state in related_state_containers])
+            report_part.extend([state.mk_state_node(msg_names.State, nsmapper) for state in related_state_containers])
 
-    @staticmethod
-    def _mk_report_body(body_tag, state_tag, states, nsmapper, mdib_version, sequence_id) -> etree_.Element:
+    def _mk_report_body(self, body_tag, state_tag, states, nsmapper, mdib_version, sequence_id) -> etree_.Element:
+        msg_names = self._sdc_definitions.data_model.msg_names
         ns_map = nsmapper.partial_map(Prefixes.PM, Prefixes.MSG, Prefixes.XSI, Prefixes.EXT, Prefixes.XML)
         body_node = etree_.Element(body_tag,
                                    attrib={'SequenceId': sequence_id,
                                            'MdibVersion': str(mdib_version)},
                                    nsmap=ns_map)
-        report_part_node = etree_.SubElement(body_node, msg.ReportPart)
+        report_part_node = etree_.SubElement(body_node, msg_names.ReportPart)
 
         for state in states:
             report_part_node.append(state.mk_state_node(state_tag, nsmapper))
         return body_node
 
-    @staticmethod
-    def _mk__periodic_report_body(body_tag, state_tag, report_parts, nsmapper,
+    def _mk__periodic_report_body(self, body_tag, state_tag, report_parts, nsmapper,
                                   mdib_version, sequence_id) -> etree_.Element:
+        msg_names = self._sdc_definitions.data_model.msg_names
         ns_map = nsmapper.partial_map(Prefixes.PM, Prefixes.MSG, Prefixes.XSI, Prefixes.EXT, Prefixes.XML)
         body_node = etree_.Element(body_tag,
                                    attrib={'SequenceId': sequence_id,
                                            'MdibVersion': str(mdib_version)},
                                    nsmap=ns_map)
         for part in report_parts:
-            report_part_node = etree_.SubElement(body_node, msg.ReportPart)
+            report_part_node = etree_.SubElement(body_node, msg_names.ReportPart)
             for state in part.states:
                 report_part_node.append(state.mk_state_node(state_tag, nsmapper))
         return body_node
 
-    @staticmethod
-    def mk_operation_invoked_report_body(mdib_version, sequence_id,
+    def mk_operation_invoked_report_body(self, mdib_version, sequence_id,
                                          operation_handle_ref, transaction_id, invocation_state,
                                          error, error_message, nsmapper) -> etree_.Element:
+        msg_names = self._sdc_definitions.data_model.msg_names
         ns_map = nsmapper.partial_map(Prefixes.PM, Prefixes.MSG)
-        body_node = etree_.Element(msg.OperationInvokedReport,
+        body_node = etree_.Element(msg_names.OperationInvokedReport,
                                    attrib={'SequenceId': sequence_id,
                                            'MdibVersion': str(mdib_version)},
                                    nsmap=ns_map)
         report_part_node = etree_.SubElement(body_node,
-                                             msg.ReportPart,
+                                             msg_names.ReportPart,
                                              attrib={'OperationHandleRef': operation_handle_ref})
-        invocation_info_node = etree_.SubElement(report_part_node, msg.InvocationInfo)
-        invocation_source_node = etree_.SubElement(report_part_node, msg.InvocationSource,
+        invocation_info_node = etree_.SubElement(report_part_node, msg_names.InvocationInfo)
+        invocation_source_node = etree_.SubElement(report_part_node, msg_names.InvocationSource,
                                                    attrib={'Root': Prefixes.SDC.namespace,
                                                            'Extension': 'AnonymousSdcParticipant'})
         # implemented only SDC R0077 for value of invocationSourceNode:
@@ -1030,15 +1061,15 @@ class MessageFactoryDevice(MessageFactory):
         # Extension = "AnonymousSdcParticipant".
         # a known participant (R0078) is currently not supported
         # ToDo: implement R0078
-        transaction_id_node = etree_.SubElement(invocation_info_node, msg.TransactionId)
+        transaction_id_node = etree_.SubElement(invocation_info_node, msg_names.TransactionId)
         transaction_id_node.text = str(transaction_id)
-        operation_state_node = etree_.SubElement(invocation_info_node, msg.InvocationState)
+        operation_state_node = etree_.SubElement(invocation_info_node, msg_names.InvocationState)
         operation_state_node.text = str(invocation_state)
         if error is not None:
-            error_node = etree_.SubElement(invocation_info_node, msg.InvocationError)
+            error_node = etree_.SubElement(invocation_info_node, msg_names.InvocationError)
             error_node.text = str(error)
         if error_message is not None:
-            error_message_node = etree_.SubElement(invocation_info_node, msg.InvocationErrorMessage)
+            error_message_node = etree_.SubElement(invocation_info_node, msg_names.InvocationErrorMessage)
             error_message_node.text = str(error_message)
         return body_node
 

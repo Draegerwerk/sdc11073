@@ -3,7 +3,7 @@ import urllib
 import traceback
 from collections import namedtuple
 from typing import List, Union
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from lxml import etree as etree_
 
@@ -20,12 +20,24 @@ from ..metadata import MetaData
 from ..schema_resolver import mk_schema_validator
 from ..schema_resolver import SchemaResolver
 from ..httprequesthandler import HTTPRequestHandlingError
-from .. import pm_qnames as pm
-from .. import msg_qnames as msg
 
 # pylint: disable=no-self-use
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
+
+
+@dataclass
+class DescriptionModification:
+    descriptors: list = field(default_factory=list)
+    states: list = field(default_factory=list)
+
+
+@dataclass
+class DescriptionModifications:
+    create: DescriptionModification = field(default_factory=DescriptionModification)
+    update: DescriptionModification = field(default_factory=DescriptionModification)
+    delete: DescriptionModification = field(default_factory=DescriptionModification)
+
 
 
 def validate_node(node, xml_schema, logger):
@@ -117,11 +129,19 @@ class MessageReader:
         self._validate = validate
         self._xml_schema = mk_schema_validator(SchemaResolver(sdc_definitions))
 
+    @property
+    def _msg_names(self):
+        return self.sdc_definitions.data_model.msg_names
+
+    @property
+    def _pm_names(self):
+        return self.sdc_definitions.data_model.pm_names
+
     def get_descriptor_container_class(self, qname):
-        return self.sdc_definitions.get_descriptor_container_class(qname)
+        return self.sdc_definitions.data_model.get_descriptor_container_class(qname)
 
     def get_state_container_class(self, qname):
-        return self.sdc_definitions.get_state_container_class(qname)
+        return self.sdc_definitions.data_model.get_state_container_class(qname)
 
     def read_received_message(self, xml_text: bytes, validate:bool = True) -> ReceivedMessage:
         """Reads complete message with addressing, message_id, payload,..."""
@@ -185,7 +205,7 @@ class MessageReader:
                     add_children(child_node)
 
         # iterate over tree, collect all handles of vmds, channels and metric descriptors
-        all_mds = mddescription_node.findall(pm.Mds)
+        all_mds = mddescription_node.findall(self._pm_names.Mds)
         for mds_node in all_mds:
             mds = self._mk_descriptor_container_from_node(mds_node, None)
             descriptions.append(mds)
@@ -201,7 +221,7 @@ class MessageReader:
         state_containers = []
         mdstate_nodes = node.xpath('//dom:MdState', namespaces=namespaces.nsmap)
         if mdstate_nodes:
-            all_state_nodes = mdstate_nodes[0].findall(pm.State)
+            all_state_nodes = mdstate_nodes[0].findall(self._pm_names.State)
             for state_node in all_state_nodes:
                 try:
                     state_containers.append(self._mk_state_container_from_node(state_node))
@@ -285,16 +305,16 @@ class MessageReader:
         if st_cls is None:
             raise ValueError(f'nody type {node_type} is not known')
 
-        if node.tag != pm.State:
+        if node.tag != self._pm_names.State:
             node = copy.copy(node)  # make a copy, do not modify the original report
-            node.tag = pm.State
+            node.tag = self._pm_names.State
         state = st_cls(descriptor_container)
         state.update_from_node(node)
         state.node = node
         return state
 
     def _mk_realtime_sample_array_states(self, node):
-        return self._mk_state_container_from_node(node, pm.RealTimeSampleArrayMetricState)
+        return self._mk_state_container_from_node(node, self._pm_names.RealTimeSampleArrayMetricState)
 
     def _mk_statecontainers_from_reportpart2(self, reportpart_node):
         containers = []
@@ -336,7 +356,7 @@ class MessageReaderClient(MessageReader):
         context_state_nodes = message_data.p_msg.msg_node[:]  # list of msg:ContextStatenodes
         for context_state_node in context_state_nodes:
             # hard rename to dom:State
-            context_state_node.tag = pm.State
+            context_state_node.tag = self._pm_names.State
             try:
                 state_container = self._mk_state_container_from_node(context_state_node)
                 states.append(state_container)
@@ -449,7 +469,7 @@ class MessageReaderClient(MessageReader):
             states.append(self._mk_state_container_from_node(found_node))
         return states
 
-    def read_description_modification_report(self, message_data: ReceivedMessage) -> list:
+    def read_description_modification_report(self, message_data: ReceivedMessage) -> DescriptionModifications:
         """
         Parses a description modification report
         :param message_data:  MessageData instance
@@ -457,23 +477,28 @@ class MessageReaderClient(MessageReader):
         """
         descriptors_list = []
         report_parts = list(message_data.p_msg.msg_node)  # list of msg:ReportPart nodes
+        descriptors = DescriptionModifications()
         for report_part in report_parts:
-            descriptors = {pmtypes.DescriptionModificationTypes.UPDATE: ([], []), # descriptors, states
-                           pmtypes.DescriptionModificationTypes.CREATE: ([], []),
-                           pmtypes.DescriptionModificationTypes.DELETE: ([], []),
-                           }
             descriptors_list.append(descriptors)
             parent_descriptor = report_part.get('ParentDescriptor')
             modification_type = report_part.get('ModificationType', 'Upt')  # implied Value is 'Upt'
-            descriptor_nodes = report_part.findall(msg.Descriptor)
+            if modification_type == 'Crt':
+                description_modification = descriptors.create
+            elif modification_type == 'Upt':
+                description_modification = descriptors.update
+            elif modification_type == 'Del':
+                description_modification = descriptors.delete
+            else:
+                raise ValueError(f'unknown modification type {modification_type} in description modification report')
+            descriptor_nodes = report_part.findall(self._msg_names.Descriptor)
             for descriptor_node in descriptor_nodes:
                 descr_container = self._mk_descriptor_container_from_node(descriptor_node, parent_descriptor)
-                descriptors[modification_type][0].append(descr_container)
-            state_nodes = report_part.findall(msg.State)
+                description_modification.descriptors.append(descr_container)
+            state_nodes = report_part.findall(self._msg_names.State)
             for state_node in state_nodes:
                 state_container = self._mk_state_container_from_node(state_node)
-                descriptors[modification_type][1].append(state_container)
-        return descriptors_list
+                description_modification.states.append(state_container)
+        return descriptors
 
     def read_operation_response(self, message_data: ReceivedMessage) -> OperationResult:
         msg_node = message_data.p_msg.msg_node

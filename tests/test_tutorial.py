@@ -236,8 +236,8 @@ class Test_Tutorial(unittest.TestCase):
             """ This provider handles operations with code == MY_CODE_1 and MY_CODE_2.
             Operations with these codes already exist in the mdib that is used for this test. """
 
-            def __init__(self, log_prefix):
-                super().__init__(log_prefix)
+            def __init__(self, mdib, log_prefix):
+                super().__init__(mdib, log_prefix)
                 self.operation1_called = 0
                 self.operation1_args = None
                 self.operation2_called = 0
@@ -286,8 +286,8 @@ class Test_Tutorial(unittest.TestCase):
             """ This provider handles operations with code == MY_CODE_3.
             Operations with these codes already exist in the mdib that is used for this test. """
 
-            def __init__(self, log_prefix):
-                super().__init__(log_prefix)
+            def __init__(self, mdib, log_prefix):
+                super().__init__(mdib, log_prefix)
                 self.operation3_args = None
                 self.operation3_called = 0
 
@@ -320,11 +320,11 @@ class Test_Tutorial(unittest.TestCase):
             The number of role providers does not matter, it is a question of how the code is organized.
             Each role provider should handle one specific role, e.g audio pause provider, clock provider, ..."""
 
-            def __init__(self, log_prefix=None):
-                super().__init__(log_prefix)
-                self.my_provider_1 = MyProvider1(log_prefix=log_prefix)
+            def __init__(self, mdib, sco, log_prefix=None):
+                super().__init__(mdib, sco, log_prefix)
+                self.my_provider_1 = MyProvider1(mdib, log_prefix=log_prefix)
                 self._ordered_providers.append(self.my_provider_1)
-                self.my_provider_2 = MyProvider2(log_prefix=log_prefix)
+                self.my_provider_2 = MyProvider2(mdib, log_prefix=log_prefix)
                 self._ordered_providers.append(self.my_provider_2)
 
         # Create a device like in the examples above, but provide an own role provider.

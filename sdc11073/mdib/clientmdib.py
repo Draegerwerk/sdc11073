@@ -1,108 +1,20 @@
-import copy
 import time
 import traceback
+from typing import List
 from collections import deque
 from collections import namedtuple
-from concurrent import futures
+from dataclasses import dataclass
 from statistics import mean, stdev
 from threading import Lock
 
 from . import mdibbase
 from .. import loghelper
 from .. import namespaces
-from .. import observableproperties as properties
-from .. import pmtypes
 from ..exceptions import ApiUsageError
 
 _global_nsmap = namespaces.nsmap
 
-PROFILING = False
-if PROFILING:
-    import cProfile
-    import pstats
-    from io import StringIO
-
-LOG_WF_AGE_INTERVAL = 30  # how often a log message is written with mean and stdef of waveforms age
 AGE_CALC_SAMPLES_COUNT = 100  # amount of data for wf mean age and stdev calculation
-
-A_NO_LOG = 0
-A_OUT_OF_RANGE = 1
-A_STILL_OUT_OF_RANGE = 2
-A_BACK_IN_RANGE = 3
-
-
-class DeterminationTimeWarner:
-    """A Helper to reduce log warnings regarding determination time."""
-    ST_IN_RANGE = 0
-    ST_OUT_OF_RANGE = 1
-    result_lookup = {
-        # (last, current) :  (action, shall_repeat)
-        (ST_IN_RANGE, ST_IN_RANGE): (A_NO_LOG, False),
-        (ST_IN_RANGE, ST_OUT_OF_RANGE): (A_OUT_OF_RANGE, False),
-        (ST_OUT_OF_RANGE, ST_OUT_OF_RANGE): (A_STILL_OUT_OF_RANGE, True),
-        (ST_OUT_OF_RANGE, ST_IN_RANGE): (A_BACK_IN_RANGE, False)
-    }
-
-    def __init__(self, repeat_period=30):
-        self.repeat_period = repeat_period
-        self._last_log_time = 0
-        self.last_state = self.ST_IN_RANGE
-
-    def get_out_of_determination_time_log_state(self, min_age, max_age, warn_limit):
-        """
-        @return: one of above constants
-        """
-        now = time.time()
-        if min_age < -warn_limit or max_age > warn_limit:
-            current_state = self.ST_OUT_OF_RANGE
-        else:
-            current_state = self.ST_IN_RANGE
-        action, shall_repeat = self.result_lookup[(self.last_state, current_state)]
-        if self.last_state != current_state:
-            # a state transition
-            self.last_state = current_state
-            self._last_log_time = now
-            return action
-        # no state transition, but might need repeated logging
-        if shall_repeat and now - self._last_log_time >= self.repeat_period:
-            self._last_log_time = now
-            return action
-        return A_NO_LOG
-
-class AgeLogger:
-    """A helper tht logs if incoming states are too old or in the future"""
-    def __init__(self, metric_time_warner, warn_limit, log_prefix, mdib_version):
-        self._metric_time_warner = metric_time_warner
-        self._warn_limit = warn_limit
-        self._log_prefix = log_prefix
-        self._mdib_version = mdib_version
-        self.age_list = []
-        self.now = time.time()
-
-    def add_determination_time(self, determination_time):
-        self.age_list.append(self.now - determination_time)
-
-    def log_age_warnings(self, logger):
-        if len(self.age_list) == 0:
-            return
-        min_age = min(self.age_list)
-        max_age = max(self.age_list)
-
-        shall_log = self._metric_time_warner.get_out_of_determination_time_log_state(
-            min_age, max_age, self._warn_limit)
-        if shall_log == A_OUT_OF_RANGE:
-            logger.warn(
-                '{} mdib_version {}: age of states outside limit of {} sec.: max, min = {:03f}, {:03f}',
-                self._log_prefix, self._mdib_version, self._warn_limit, max_age, min_age)
-        elif shall_log == A_STILL_OUT_OF_RANGE:
-            logger.warn(
-                '{} mdib_version {}: age of states still outside limit of {} sec.: max, min = {:03f}, {:03f}',
-                self._log_prefix, self._mdib_version, self._warn_limit, max_age, min_age)
-        elif shall_log == A_BACK_IN_RANGE:
-            logger.info(
-                '{} mdib_version {}: age of states back in limit of {} sec.: max, min = {:03f}, {:03f}',
-                self._log_prefix, self._mdib_version, self._warn_limit, max_age, min_age)
-
 
 _AgeData = namedtuple('_AgeData', 'mean_age stdev min_age max_age')
 
@@ -110,7 +22,9 @@ _AgeData = namedtuple('_AgeData', 'mean_age stdev min_age max_age')
 class ClientRtBuffer:
     """Collects data of one real time stream."""
 
-    def __init__(self, sample_period, max_samples):
+    def __init__(self,
+                 sample_period: float,
+                 max_samples: int):
         """
         :param sample_period: float value, in seconds.
                               When an incoming real time sample array is split into single RtSampleContainers, this is used to calculate the individual time stamps.
@@ -128,7 +42,7 @@ class ClientRtBuffer:
         self._reported_min_age = None
         self._reported_max_age = None
 
-    def mk_rtsample_containers(self, realtime_sample_array_container):
+    def mk_rtsample_containers(self, realtime_sample_array_container)-> List[mdibbase.RtSampleContainer]:
         """
 
         :param realtime_sample_array_container: a RealTimeSampleArrayMetricStateContainer instance
@@ -161,7 +75,7 @@ class ClientRtBuffer:
                                                                       applied_annotations))
         return rtsample_containers
 
-    def add_rt_sample_containers(self, rt_sample_containers):
+    def add_rt_sample_containers(self, rt_sample_containers: List[mdibbase.RtSampleContainer]) -> None:
         """
         Updates self.rt_data with the new rt_sample_containers
         :param rt_sample_containers: a list of mdibbase.RtSampleContainer
@@ -171,7 +85,7 @@ class ClientRtBuffer:
             return
         with self._lock:
             self.rt_data.extend(rt_sample_containers)
-            # use time of youngest sample, this is the best value for indication of delays
+            # use time of the youngest sample, this is the best value for indication of delays
             self._age_of_data_list.append(time.time() - rt_sample_containers[-1].determination_time)
         try:
             self._reported_min_age = min(self._age_of_data_list[-1], self._reported_min_age)
@@ -182,15 +96,15 @@ class ClientRtBuffer:
         except TypeError:
             self._reported_max_age = self._age_of_data_list[-1]
 
-    def read_rt_data(self):
-        """ This read method consumes all data in buffer.
+    def read_rt_data(self) -> List[mdibbase.RtSampleContainer]:
+        """ This read method consumes all currently buffered data.
         @return: a list of RtSampleContainer objects"""
         with self._lock:
-            ret = copy.copy(self.rt_data)
+            ret = list(self.rt_data)
             self.rt_data.clear()
         return ret
 
-    def get_age_stdev(self):
+    def get_age_stdev(self) -> _AgeData:
         with self._lock:
             min_value, self._reported_min_age = self._reported_min_age, None
             max_value, self._reported_max_age = self._reported_max_age, None
@@ -199,14 +113,18 @@ class ClientRtBuffer:
             return _AgeData(mean_data, std_deviation, min_value or 0, max_value or 0)
 
 
-_BufferedNotification = namedtuple('_BufferedNotification', 'report handler')
+@dataclass
+class _BufferedData:
+    mdib_version: int
+    sequence_id: str
+    data: list
+    handler: callable
 
 
 class ClientMdibContainer(mdibbase.MdibContainer):
     """ This mdib is meant to be read-only.
     Only update source is an SdcClient."""
 
-    DETERMINATIONTIME_WARN_LIMIT = 1.0  # in seconds
     MDIB_VERSION_CHECK_DISABLED = False  # for testing purpose you can disable checking of mdib version, so that every notification is accepted.
 
     # INITIAL_NOTIFICATION_BUFFERING setting determines how incoming notifications are handled between start of
@@ -224,21 +142,28 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         super().__init__(sdc_client.sdc_definitions)
         self._logger = loghelper.get_logger_adapter('sdc.client.mdib', sdc_client.log_prefix)
         self._sdc_client = sdc_client
+        self._xtra = sdc_client.sdc_definitions.client_mdib_xtra_cls(self, self._logger)
         self._is_initialized = False
         self.rt_buffers = {}  # key  is a handle, value is a ClientRtBuffer
         self._max_realtime_samples = max_realtime_samples
         self._last_wf_age_log = time.time()
-        if PROFILING:
-            self.prof = cProfile.Profile()
-
         self._context_mdib_version = None
-        self._msg_reader = sdc_client.msg_reader
         # a buffer for notifications that are received before initial getmdib is done
         self._buffered_notifications = []
         self._buffered_notifications_lock = Lock()
-        self.waveform_time_warner = DeterminationTimeWarner()
-        self.metric_time_warner = DeterminationTimeWarner()
         self._sequence_id_changed_flag = False
+
+    @property
+    def xtra(self):
+        return self._xtra
+
+    @property
+    def sdc_client(self):
+        return self._sdc_client
+
+    @property
+    def is_initialized(self):
+        return self._is_initialized
 
     def init_mdib(self):
         """
@@ -250,7 +175,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             raise ApiUsageError('ClientMdibContainer is already initialized')
         # first start receiving notifications, then call get_mdib.
         # Otherwise, we might miss notifications.
-        self._bind_to_client_observables()
+        self._xtra.bind_to_client_observables()
         self.reload_all()
         self._sdc_client.set_mdib(self)  # pylint: disable=protected-access
         self._logger.info('initializing mdib done')
@@ -258,7 +183,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     def reload_all(self):
         """
         Deletes all data and reloads everything. Useful e.g. after sequence id change.
-        THis is not called automatically, the application has to take care.
+        This is not called automatically, the application has to take care.
         :return:
         """
         self._is_initialized = False
@@ -295,70 +220,19 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         # process buffered notifications
         with self._buffered_notifications_lock:
             for buffered_report in self._buffered_notifications:
-                buffered_report.handler(buffered_report.report, is_buffered_report=True)
+                buffered_report.handler(buffered_report.mdib_version,
+                                        buffered_report.sequence_id,
+                                        buffered_report.data,
+                                        is_buffered_report=True)
             del self._buffered_notifications[:]
             self._is_initialized = True
 
-    def wait_metric_matches(self, handle, matches_func, timeout):
-        """ wait until a matching metric has been received. The matching is defined by the handle of the metric
-        and the result of a matching function. If the matching function returns true, this function returns.
-        :param handle: The handle string of the metric of interest.
-        :param matches_func: a callable, argument is the current state with matching handle. Can be None, in that case every state matches
-        Example:
-            expected = 42
-            def isMatchingValue(state):
-                if state.MetricValue is None:
-                    return False
-
-                found_value = state.MetricValue.Value
-                return [expected] == found_value
-        :param timeout: timeout in seconds
-        @return: the matching state. In case of a timeout it raises a TimeoutError exception.
-        """
-        fut = futures.Future()
-
-        # define a callback function that sets value of fut
-        def on_metrics_by_handle(metrics_by_handle):
-            metric = metrics_by_handle.get(handle)
-            if metric is not None:
-                if matches_func is None or matches_func(metric):
-                    fut.set_result(metric)
-
-        try:
-            properties.bind(self, metrics_by_handle=on_metrics_by_handle)
-            begin = time.monotonic()
-            ret = fut.result(timeout)
-            self._logger.debug('wait_metric_matches: got result after {:.2f} seconds', time.monotonic() - begin)
-            return ret
-        finally:
-            properties.unbind(self, metrics_by_handle=on_metrics_by_handle)
-
-    def mk_proposed_state(self, descriptor_handle, copy_current_state=True, handle=None):
-        """ Create a new state that can be used as proposed state in according operations.
-        The new state is not part of mdib!
-
-        :param descriptor_handle: the descriptor
-        :param copy_current_state: if True, all members of existing state will be copied to new state
-        :param handle: if this is a multi state class, then this is the handle of the existing state that shall be used for copy.
-        :return:
-        """
-        descr = self.descriptions.handle.get_one(descriptor_handle)
-        new_state = self.data_model.mk_state_container(descr)
-        if copy_current_state:
-            lookup = self.context_states if new_state.isContextState else self.states
-            if new_state.isMultiState:
-                if handle is None:  # new state
-                    return new_state
-                old_state = lookup.handle.get_one(handle)
-            else:
-                old_state = lookup.descriptorHandle.get_one(descriptor_handle)
-            new_state.update_from_other_container(old_state)
-        return new_state
-
-    def _buffer_notification(self, report, func):
+    def _buffer_data(self, mdib_version, sequence_id, data, func):
         """
         Write notification to a temporary buffer, as long as mdib is not initialized.
-        :param report: the report
+        :param mdib_version:
+        :param sequence_id:
+        :param data:
         :param func: the callable that shall be called later for delayed handling of report
         :return: True if buffered, False if report shall be processed immediately
         """
@@ -373,27 +247,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         # get lock and check if we need to write to buffer
         with self._buffered_notifications_lock:
             if not self._is_initialized:
-                self._buffered_notifications.append(_BufferedNotification(report, func))
+                self._buffered_notifications.append(_BufferedData(mdib_version, sequence_id, data, func))
                 return True
             return False
-
-    def _sync_context_states(self):
-        """This method requests all context states from device and deletes all local context states that are not
-        available in response from Device."""
-        try:
-            self._logger.info('_sync_context_states called')
-            context_service = self._sdc_client.client('Context')
-            # mdib_version, sequence_id, context_state_containers = context_service.get_context_states()
-            response = context_service.get_context_states()
-            context_state_containers = response.result
-
-            devices_context_state_handles = [s.Handle for s in context_state_containers]
-            with self.context_states.lock:
-                for obj in self.context_states.objects:
-                    if obj.Handle not in devices_context_state_handles:
-                        self.context_states.remove_object_no_lock((obj))
-        except Exception:
-            self._logger.error(traceback.format_exc())
 
     def _get_context_states(self, handles=None):
         try:
@@ -433,23 +289,10 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         finally:
             self._logger.info('_get_context_states done')
 
-    def _bind_to_client_observables(self):
-        # get notifications from sdcClient
-        if PROFILING:
-            properties.bind(self._sdc_client, waveform_report=self._on_waveform_report_profiled)
-        else:
-            properties.bind(self._sdc_client, waveform_report=self._on_waveform_report)
-        properties.bind(self._sdc_client, episodic_metric_report=self._on_episodic_metric_report)
-        properties.bind(self._sdc_client, episodic_alert_report=self._on_episodic_alert_report)
-        properties.bind(self._sdc_client, episodic_context_report=self._on_episodic_context_report)
-        properties.bind(self._sdc_client, episodic_component_report=self._on_episodic_component_report)
-        properties.bind(self._sdc_client, description_modification_report=self._on_description_modification_report)
-        properties.bind(self._sdc_client, episodic_operational_state_report=self._on_operational_state_report)
-
-    def _can_accept_message(self, received_message_data, log_prefix):
-        if not self._can_accept_mdib_version(log_prefix, received_message_data.mdib_version):
+    def _can_accept_version(self, mdib_version, sequence_id, log_prefix):
+        if not self._can_accept_mdib_version(log_prefix, mdib_version):
             return False
-        if self._sequence_id_changed(received_message_data.sequence_id):
+        if self._sequence_id_changed(sequence_id):
             return False
         return True
 
@@ -493,18 +336,18 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if show_success_log:
             self._logger.info('{}: _wait_until_initialized took {} seconds', log_prefix, delay)
 
-    def _process_incoming_states(self, report_type: str, state_containers: list, is_buffered_report: bool ) -> dict:
+    def _process_incoming_states(self, report_type: str, state_containers: list, is_buffered_report: bool) -> dict:
         """Update mdib with incoming states"""
         states_by_handle = {}
         for state_container in state_containers:
             if state_container.isContextState:
                 src = self.context_states
                 old_state_container = src.handle.get_one(state_container.Handle,
-                                                                           allow_none=True)
+                                                         allow_none=True)
             else:
                 src = self.states
                 old_state_container = src.descriptorHandle.get_one(state_container.DescriptorHandle,
-                                                                        allow_none=True)
+                                                                   allow_none=True)
             if old_state_container is not None:
                 if self._has_new_state_usable_state_version(old_state_container, state_container,
                                                             report_type,
@@ -527,113 +370,67 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 states_by_handle[state_container.DescriptorHandle] = state_container
         return states_by_handle
 
-    def _on_episodic_metric_report(self, received_message_data, is_buffered_report=False):
-        if not is_buffered_report and self._buffer_notification(received_message_data, self._on_episodic_metric_report):
+    def process_incoming_metric_states(self, mdib_version, sequence_id, state_containers, is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
+                                                        self.process_incoming_metric_states):
             return
 
-        now = time.time()
-        metrics_by_handle = {}
-        max_age = 0
-        min_age = 0
-        state_containers = self._msg_reader.read_episodic_metric_report(received_message_data)
         try:
             with self.mdib_lock:
-                if not self._can_accept_message(received_message_data, '_on_episodic_metric_report'):
+                if not self._can_accept_version(mdib_version, sequence_id, 'metric states'):
                     return
-                self.mdib_version = received_message_data.mdib_version
-                metrics_by_handle = self._process_incoming_states(
-                    'EpisodicMetricReport', state_containers, is_buffered_report)
-
-                age_logger = AgeLogger(self.metric_time_warner, self.DETERMINATIONTIME_WARN_LIMIT,
-                                       'EpisodicMetricReport', self.mdib_version)
-                for state_container in state_containers:
-                    desc_h = state_container.DescriptorHandle
-                    if state_container.MetricValue is not None:
-                        # BICEPS: While Validity is "Ong" or "NA", the enclosing METRIC value SHALL not possess a
-                        # determined value.
-                        # Also ignore determination time if measurement is invalid or not active.
-                        if state_container.ActivationState == pmtypes.ComponentActivation.ON and \
-                                state_container.MetricValue.MetricQuality.Validity not in [
-                            pmtypes.MeasurementValidity.INVALID,
-                            pmtypes.MeasurementValidity.NA,
-                            pmtypes.MeasurementValidity.MEASUREMENT_ONGOING]:
-                            determination_time = state_container.MetricValue.DeterminationTime
-                            if determination_time is None:
-                                self._logger.warn(
-                                    'EpisodicMetricReport: metric {} version {} has no DeterminationTime',
-                                    desc_h, state_container.StateVersion)
-                            else:
-                                age_logger.add_determination_time(determination_time)
-
-            age_logger.log_age_warnings(self._logger)
+                self.mdib_version = mdib_version
+                states_by_handle = self._process_incoming_states(
+                    'metric states', state_containers, is_buffered_report)
         finally:
-            self.metrics_by_handle = metrics_by_handle  # used by wait_metric_matches method
+            self.metrics_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def _on_episodic_alert_report(self, received_message_data, is_buffered_report=False):
-        if not is_buffered_report and self._buffer_notification(received_message_data, self._on_episodic_alert_report):
+    def process_incoming_alert_states(self, mdib_version, sequence_id, state_containers, is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
+                                                        self.process_incoming_alert_states):
             return
 
-        state_containers = self._msg_reader.read_episodic_alert_report(received_message_data)
-        self._logger.debug('_on_episodic_alert_report: received {} alerts', len(state_containers))
-        alert_by_handle = {}
         try:
             with self.mdib_lock:
-                if not self._can_accept_message(received_message_data, '_on_episodic_alert_report'):
+                if not self._can_accept_version(mdib_version, sequence_id, 'alert states'):
                     return
-                self.mdib_version = received_message_data.mdib_version
-                alert_by_handle = self._process_incoming_states(
-                    'EpisodicAlertReport', state_containers, is_buffered_report)
+                self.mdib_version = mdib_version
+                states_by_handle = self._process_incoming_states(
+                    'alert states', state_containers, is_buffered_report)
         finally:
-            self.alert_by_handle = alert_by_handle  # update observable
+            self.alert_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def _on_operational_state_report(self, received_message_data, is_buffered_report=False):
-        if not is_buffered_report and self._buffer_notification(received_message_data,
-                                                                self._on_operational_state_report):
+    def process_incoming_operational_states(self, mdib_version, sequence_id, state_containers,
+                                            is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
+                                                        self.process_incoming_operational_states):
             return
-        state_containers = self._msg_reader.read_operational_state_report(received_message_data)
-        operation_by_handle = {}
+
         try:
             with self.mdib_lock:
-                if not self._can_accept_message(received_message_data, '_on_operational_state_report'):
+                if not self._can_accept_version(mdib_version, sequence_id, 'operational states'):
                     return
-                self.mdib_version =  received_message_data.mdib_version
-                operation_by_handle = self._process_incoming_states(
-                    'OperationalStateReport', state_containers, is_buffered_report)
+                self.mdib_version = mdib_version
+                states_by_handle = self._process_incoming_states(
+                    'operational states', state_containers, is_buffered_report)
         finally:
-            self.operation_by_handle = operation_by_handle
+            self.operation_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def _on_waveform_report_profiled(self, report_node):
-        self.prof.enable()
-        self._on_waveform_report(report_node)
-        self.prof.disable()
-        str_io = StringIO()
-        stats = pstats.Stats(self.prof, stream=str_io).sort_stats('cumulative')
-        stats.print_stats(30)
-        print(str_io.getvalue())
-        print(f'total number of states: {len(self.states.objects)}')
-        print(f'total number of objIds: {len(self.states._object_ids)}')  # pylint:disable=protected-access
-        for name, refs in self.states._object_ids.items():  # pylint:disable=protected-access
-            if len(refs) > 50:
-                print(f'object {name} has {len(refs)} idx references, {refs}')
-
-    def _on_waveform_report(self, received_message_data, is_buffered_report=False):
-        # pylint:disable=too-many-locals
-        if not is_buffered_report and self._buffer_notification(received_message_data, self._on_waveform_report):
+    def process_incoming_waveform_states(self, mdib_version, sequence_id, state_containers, is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
+                                                        self.process_incoming_waveform_states):
             return
-        waveform_by_handle = {}
-        waveform_age = {}  # collect age of all waveforms in this report, and make one report if age is above warn limit (instead of multiple)
-        state_containers = self._msg_reader.read_waveform_report(received_message_data)
-        self._logger.debug('_on_waveform_report: {} waveforms received', len(state_containers))
+
         try:
             with self.mdib_lock:
-                if not self._can_accept_message(received_message_data, '_on_waveform_report'):
+                if not self._can_accept_version(mdib_version, sequence_id, 'waveform states'):
                     return
-                self.mdib_version = received_message_data.mdib_version
-                waveform_by_handle = self._process_incoming_states(
-                    'OperationalStateReport', state_containers, is_buffered_report)
+                self.mdib_version = mdib_version
+                states_by_handle = self._process_incoming_states(
+                    'waveform states', state_containers, is_buffered_report)
 
                 # add to Waveform Buffer
-                for state_container in waveform_by_handle.values():
+                for state_container in states_by_handle.values():
                     descriptor_container = state_container.descriptor_container
                     d_handle = state_container.DescriptorHandle
                     rt_buffer = self.rt_buffers.get(d_handle)
@@ -646,129 +443,90 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         self.rt_buffers[d_handle] = rt_buffer
                     state_containers = rt_buffer.mk_rtsample_containers(state_container)
                     rt_buffer.add_rt_sample_containers(state_containers)
-
-                    # check age
-                    if len(state_containers) > 0:
-                        waveform_age[d_handle] = state_containers[-1].age
-
-            if len(waveform_age) > 0:
-                min_age = min(waveform_age.values())
-                max_age = max(waveform_age.values())
-                shall_log = self.waveform_time_warner.get_out_of_determination_time_log_state(
-                    min_age, max_age, self.DETERMINATIONTIME_WARN_LIMIT)
-                if shall_log != A_NO_LOG:
-                    tmp = ', '.join(f'"{k}":{v:.3f}sec.' for k, v in waveform_age.items())
-                    if shall_log == A_OUT_OF_RANGE:
-                        self._logger.warn(
-                            '_on_waveform_report mdib_version {}: age of samples outside limit of {} sec.: age={}!',
-                            self.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
-                    elif shall_log == A_STILL_OUT_OF_RANGE:
-                        self._logger.warn(
-                            '_on_waveform_report mdib_version {}: age of samples still outside limit of {} sec.: age={}!',
-                            self.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
-                    elif shall_log == A_BACK_IN_RANGE:
-                        self._logger.info(
-                            '_on_waveform_report mdib_version {}: age of samples back in limit of {} sec.: age={}',
-                            self.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
-            if LOG_WF_AGE_INTERVAL:
-                now = time.time()
-                if now - self._last_wf_age_log >= LOG_WF_AGE_INTERVAL:
-                    age_data = self.get_wf_age_stdev()
-                    self._logger.info('waveform mean age={:.1f}ms., stdev={:.2f}ms. min={:.1f}ms., max={}',
-                                      age_data.mean_age * 1000., age_data.stdev * 1000.,
-                                      age_data.min_age * 1000., age_data.max_age * 1000.)
-                    self._last_wf_age_log = now
         finally:
-            self.waveform_by_handle = waveform_by_handle
+            self.waveform_by_handle = states_by_handle
 
-    def _on_episodic_context_report(self, received_message_data, is_buffered_report=False):
-        if not is_buffered_report and self._buffer_notification(received_message_data,
-                                                                self._on_episodic_context_report):
+    def process_incoming_context_states(self, mdib_version, sequence_id, state_containers, is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
+                                                        self.process_incoming_context_states):
             return
-        state_containers = self._msg_reader.read_episodic_context_report(received_message_data)
-        context_by_handle = {}
+
         try:
             with self.mdib_lock:
-                if not self._can_accept_message(received_message_data, '_on_episodic_context_report'):
+                if not self._can_accept_version(mdib_version, sequence_id, 'context states'):
                     return
-                self.mdib_version = received_message_data.mdib_version
-                context_by_handle = self._process_incoming_states(
-                    'EpisodicContextReport', state_containers, is_buffered_report)
+                self.mdib_version = mdib_version
+                states_by_handle = self._process_incoming_states(
+                    'context states', state_containers, is_buffered_report)
         finally:
-            self.context_by_handle = context_by_handle
+            self.context_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def _on_episodic_component_report(self, received_message_data, is_buffered_report=False):
-        """The EpisodicComponentReport is sent if at least one property of at least one component state has changed
-        and SHOULD contain only the changed component states.
-        Components are MDSs, VMDs, Channels. Not metrics and alarms
-        """
-        if not is_buffered_report and self._buffer_notification(received_message_data,
-                                                                self._on_episodic_component_report):
+    def process_incoming_component_states(self, mdib_version, sequence_id, state_containers, is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
+                                                        self.process_incoming_component_states):
             return
-        component_by_handle = {}
-        state_containers = self._msg_reader.read_episodic_component_report(received_message_data)
+
         try:
             with self.mdib_lock:
-                if not self._can_accept_message(received_message_data, '_on_episodic_component_report'):
+                if not self._can_accept_version(mdib_version, sequence_id, 'component states'):
                     return
-                self.mdib_version = received_message_data.mdib_version
-                component_by_handle = self._process_incoming_states(
-                    'EpisodicComponentReport', state_containers, is_buffered_report)
+                self.mdib_version = mdib_version
+                states_by_handle = self._process_incoming_states(
+                    'component states', state_containers, is_buffered_report)
         finally:
-            self.component_by_handle = component_by_handle
+            self.component_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def _on_description_modification_report(self, received_message_data, is_buffered_report=False):
-        """The DescriptionModificationReport is sent if at least one Descriptor has been created, updated or deleted during runtime.
-        It consists of 1...n DescriptionModificationReportParts.
-        """
-        if not is_buffered_report and self._buffer_notification(received_message_data,
-                                                                self._on_description_modification_report):
+    def process_incoming_descriptors(self, mdib_version, sequence_id, descriptions, is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, descriptions,
+                                                        self.process_incoming_descriptors):
             return
-        descriptions_lookup_list = self._msg_reader.read_description_modification_report(received_message_data)
-        with self.mdib_lock:
-            if not self._can_accept_message(received_message_data, '_on_description_modification_report'):
-                return
-            self.mdib_version = received_message_data.mdib_version
-            for descriptions_lookup in descriptions_lookup_list:
+
+        def multi_key(st_container):
+            if st_container.isContextState:
+                return self.context_states
+            else:
+                return self.states
+
+        try:
+            with self.mdib_lock:
+                if not self._can_accept_version(mdib_version, sequence_id, 'descriptors'):
+                    return
+                self.mdib_version = mdib_version
+
+                new_descriptor_containers = descriptions.create.descriptors
+                new_state_containers = descriptions.create.states
                 new_descriptor_by_handle = {}
                 updated_descriptor_by_handle = {}
-
-                # -- new --
-                new_descriptor_containers, new_state_containers = descriptions_lookup[
-                    pmtypes.DescriptionModificationTypes.CREATE]
+                #new
                 for descriptor_container in new_descriptor_containers:
                     self.descriptions.add_object(descriptor_container)
-                    self._logger.debug('_on_description_modification_report: created description "{}" (parent="{}")',
+                    self._logger.debug('process_incoming_descriptors: created description "{}" (parent="{}")',
                                        descriptor_container.Handle, descriptor_container.parent_handle)
                     new_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
                 for state_container in new_state_containers:
                     self._set_descriptor_container_reference(state_container)
-                    # determine multikey
-                    if state_container.isContextState:
-                        multikey = self.context_states
-                    else:
-                        multikey = self.states
-                    multikey.add_object(state_container)
-
-                # -- deleted --
-                deleted_descriptor_containers, deleted_state_containers = descriptions_lookup[
-                    pmtypes.DescriptionModificationTypes.DELETE]
+                    multi_key(state_container).add_object_no_lock(state_container)
+                # deleted
+                deleted_descriptor_containers = descriptions.delete.descriptors
+                deleted_state_containers = descriptions.delete.states
                 for descriptor_container in deleted_descriptor_containers:
-                    self._logger.debug('_on_description_modification_report: remove descriptor "{}" (parent="{}")',
+                    self._logger.debug('process_incoming_descriptors: remove descriptor "{}" (parent="{}")',
                                        descriptor_container.Handle, descriptor_container.parent_handle)
                     self.rm_descriptor_by_handle(
                         descriptor_container.Handle)  # handling of self.deleted_descriptor_by_handle inside called method
+                for state_container in deleted_state_containers:
+                    multi_key(state_container).remove_object_no_lock(state_container)
 
                 # -- updated --
-                updated_descriptor_containers, updated_state_containers = descriptions_lookup[
-                    pmtypes.DescriptionModificationTypes.UPDATE]
+                updated_descriptor_containers = descriptions.update.descriptors
+                updated_state_containers = descriptions.update.states
                 for descriptor_container in updated_descriptor_containers:
-                    self._logger.info('_on_description_modification_report: update descriptor "{}" (parent="{}")',
+                    self._logger.info('process_incoming_descriptors: update descriptor "{}" (parent="{}")',
                                       descriptor_container.Handle, descriptor_container.parent_handle)
                     old_container = self.descriptions.handle.get_one(descriptor_container.Handle, allow_none=True)
                     if old_container is None:
-                        self._logger.error('got update of descriptor "{}" , but it did not exist in mdib!',
-                                          descriptor_container.Handle)
+                        self._logger.error('process_incoming_descriptors: got update of descriptor "{}", but it did not exist in mdib!',
+                                           descriptor_container.Handle)
                     else:
                         old_container.update_from_other_container(descriptor_container)
                     updated_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
@@ -781,30 +539,29 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             descriptor_container.Handle, [])}  # set comprehension
                         to_be_deleted = my_handles - updated_handles
                         for handle in to_be_deleted:
-                            state = multikey.handle.get_one(handle)
+                            state = self.context_states.handle.get_one(handle)
                             self.context_states.remove_object_no_lock(state)
                 for state_container in updated_state_containers:
-                    # determine multikey
+                    my_multi_key = multi_key(state_container)
+
                     if state_container.isContextState:
-                        multikey = self.context_states
-                        old_state_container = multikey.handle.get_one(state_container.Handle, allow_none=True)
+                        old_state_container = my_multi_key.handle.get_one(state_container.Handle, allow_none=True)
                     else:
-                        multikey = self.states
-                        old_state_container = multikey.descriptorHandle.get_one(
+                        old_state_container = my_multi_key.descriptorHandle.get_one(
                             state_container.DescriptorHandle, allow_none=True)
                         if old_state_container is None:
-                            self._logger.error('got update of state "{}" , but it did not exist in mdib!',
+                            self._logger.error('process_incoming_descriptors: got update of state "{}" , but it did not exist in mdib!',
                                                state_container.DescriptorHandle)
                     if old_state_container is not None:
                         old_state_container.update_from_other_container(state_container)
-                        multikey.update_object(old_state_container)
-
-                self.description_modifications = descriptions_lookup_list # update observable for complete report
-                # update observables for every report part separately
-                if new_descriptor_by_handle:
-                    self.new_descriptors_by_handle = new_descriptor_by_handle
-                if updated_descriptor_by_handle:
-                    self.updated_descriptors_by_handle = updated_descriptor_by_handle
+                        my_multi_key.update_object(old_state_container)
+        finally:
+            self.description_modifications = descriptions  # update observable for complete report
+            # update observables for every report part separately
+            if new_descriptor_by_handle:
+                self.new_descriptors_by_handle = new_descriptor_by_handle
+            if updated_descriptor_by_handle:
+                self.updated_descriptors_by_handle = updated_descriptor_by_handle
 
     def _has_new_state_usable_state_version(self, old_state_container, new_state_container,
                                             report_name, is_buffered_report):
@@ -839,16 +596,3 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 report_name, old_state_container.StateVersion, old_state_container.__class__.__name__,
                 old_state_container.DescriptorHandle, diffs)
         return False
-
-    def get_wf_age_stdev(self):
-        means = []
-        stdevs = []
-        mins = []
-        maxs = []
-        for buf in self.rt_buffers.values():
-            age_data = buf.get_age_stdev()
-            means.append(age_data.mean_age)
-            stdevs.append(age_data.stdev)
-            mins.append(age_data.min_age)
-            maxs.append(age_data.max_age)
-        return _AgeData(mean(means), mean(stdevs), min(mins), max(maxs))

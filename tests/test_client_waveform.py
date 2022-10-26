@@ -122,7 +122,7 @@ class TestClientWaveform(unittest.TestCase):
         cl = self.sdc_client
 
         clientmdib = sdc11073.mdib.ClientMdibContainer(cl)
-        clientmdib._bind_to_client_observables()
+        clientmdib._xtra.bind_to_client_observables()
         clientmdib._is_initialized = True  # fake it, because we do not call init_mdib()
         clientmdib.MDIB_VERSION_CHECK_DISABLED = True  # we have no mdib version incrementing in this test, therefore disable check
         # create dummy descriptors

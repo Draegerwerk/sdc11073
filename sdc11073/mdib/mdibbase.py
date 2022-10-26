@@ -12,8 +12,6 @@ from .. import observableproperties as properties
 from ..etc import apply_map
 from ..namespaces import DocNamespaceHelper
 from ..pmtypes import have_matching_codes
-from .. import pm_qnames as pm
-from .. import msg_qnames as msg
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
     from .descriptorcontainers import AbstractMetricDescriptorContainer
@@ -162,40 +160,6 @@ class MultiStatesLookup(_MultikeyWithVersionLookup):
                 version += 1
             obj.StateVersion = version
 
-class _Model:
-    def __init__(self, sdc_definitions):
-        self._sdc_definitions = sdc_definitions
-
-    def get_descriptor_container_class(self, type_qname):
-        return self._sdc_definitions.get_descriptor_container_class(type_qname)
-
-    def mk_descriptor_container(self, type_qname, *args, **kwargs):
-        cls = self._sdc_definitions.get_descriptor_container_class(type_qname)
-        return cls(*args, **kwargs)
-
-    def get_state_container_class(self, type_qname):
-        return self._sdc_definitions.get_state_container_class(type_qname)
-
-    def get_state_class_for_descriptor(self, descriptor_container):
-        state_class_qtype = descriptor_container.STATE_QNAME
-        if state_class_qtype is None:
-            raise TypeError(f'No state association for {descriptor_container.__class__.__name__}')
-        return self._sdc_definitions.get_state_container_class(state_class_qtype)
-
-    def mk_state_container(self, descriptor_container):
-        cls = self.get_state_class_for_descriptor(descriptor_container)
-        if cls is None:
-            raise TypeError(
-                f'No state container class for descr={descriptor_container.__class__.__name__}, '
-                f'name={descriptor_container.NODETYPE}, '
-                f'type={descriptor_container.nodeType}')
-        return cls(descriptor_container)
-
-    @property
-    def pmtypes(self):
-        return self._sdc_definitions.pmtypes
-
-
 
 class MdibContainer:
     # these observables can be used to watch any change of data in the mdib. They contain lists of containers that were changed.
@@ -219,7 +183,8 @@ class MdibContainer:
         :param sdc_definitions: a class derived from Definitions_Base
         """
         self.sdc_definitions = sdc_definitions
-        self.data_model = _Model(sdc_definitions)
+        #self.data_model = _Model(sdc_definitions)
+        self.data_model = sdc_definitions.data_model
         self._logger = None  # must be instantiated by derived class
         self.nsmapper = DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file
         self.mdib_version = 0
@@ -229,11 +194,11 @@ class MdibContainer:
 
         self.descriptions = DescriptorsLookup()
 
-        self.states = StatesLookup()  # multikey.MultiKeyLookup()
+        self.states = StatesLookup()
         self.states.add_index('descriptorHandle', multikey.UIndexDefinition(lambda obj: obj.DescriptorHandle))
         self.states.add_index('NODETYPE', multikey.IndexDefinition(lambda obj: obj.NODETYPE, index_none_values=False))
 
-        self.context_states = MultiStatesLookup()  # multikey.MultiKeyLookup()
+        self.context_states = MultiStatesLookup()
 
         # descriptorHandle index is NOT unique!
         # => multiple ContextStates refer to the same descriptor( history of locations)
@@ -365,6 +330,7 @@ class MdibContainer:
         """build dom tree from current data
         @return: an etree_ node
         """
+        pm = self.data_model.pm_names
         doc_nsmap = self.nsmapper.doc_ns_map
         root_containers = self.descriptions.parent_handle.get(None) or []
         md_description_node = etree_.Element(pm.MdDescription,
@@ -383,6 +349,8 @@ class MdibContainer:
         :param add_context_states: bool
         @return: an etree_ node
         """
+        pm = self.data_model.pm_names
+        msg = self.data_model.msg_names
         doc_nsmap = self.nsmapper.doc_ns_map
         mdib_node = etree_.Element(msg.Mdib, nsmap=doc_nsmap)
         mdib_node.set('MdibVersion', str(self.mdib_version))
@@ -451,7 +419,7 @@ class MdibContainer:
         :param channel_code: a CodedValue or a Coding instance
         :param metric_code: a CodedValue or a Coding instance
         """
-
+        pm = self.data_model.pm_names
         aLL_vmds = self.descriptions.NODETYPE.get(pm.VmdDescriptor, [])
         matching_vmd_list =  [d for d in aLL_vmds if have_matching_codes(d.Type, vmd_code)]
         for vmd in matching_vmd_list:
@@ -496,6 +464,7 @@ class MdibContainer:
         """
         :return: a list of all operation descriptors
         """
+        pm = self.data_model.pm_names
         result = []
         for node_type in (pm.SetValueOperationDescriptor,
                           pm.SetStringOperationDescriptor,

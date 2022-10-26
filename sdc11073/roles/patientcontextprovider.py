@@ -1,19 +1,18 @@
 from .contextprovider import GenericContextProvider
-from .. import namespaces
-from .. import pm_qnames as pm
 
 
 class GenericPatientContextProvider(GenericContextProvider):
 
-    def __init__(self, log_prefix):
-        super().__init__(log_prefix)
+    def __init__(self, mdib, log_prefix):
+        super().__init__(mdib, log_prefix)
         self._patient_context_descriptor_container = None
         self._set_patient_context_operations = []
 
-    def init_operations(self, mdib):
-        super().init_operations(mdib)
+    def init_operations(self):
+        super().init_operations()
         # expecting exactly one PatientContextDescriptor
-        descriptor_containers = self._mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor)
+        pm_names = self._mdib.data_model.pm_names
+        descriptor_containers = self._mdib.descriptions.NODETYPE.get(pm_names.PatientContextDescriptor)
         if descriptor_containers is not None and len(descriptor_containers) == 1:
             self._patient_context_descriptor_container = descriptor_containers[0]
 
@@ -44,9 +43,10 @@ class PatientContextProvider(GenericPatientContextProvider):
     """This Implementation adds operations to mdib if they do not exist."""
 
     def make_missing_operations(self, operation_cls_getter):
+        pm_names = self._mdib.data_model.pm_names
         ops = []
         if self._patient_context_descriptor_container and not self._set_patient_context_operations:
-            set_context_state_op_cls = operation_cls_getter(pm.SetContextStateOperationDescriptor)
+            set_context_state_op_cls = operation_cls_getter(pm_names.SetContextStateOperationDescriptor)
 
             pc_operation = self._mk_operation(set_context_state_op_cls,
                                               handle='opSetPatCtx',

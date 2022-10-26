@@ -95,21 +95,24 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     @staticmethod
     def provide_realtime_data(sdc_device):
+        waveform_provider = sdc_device.mdib.xtra.waveform_provider
+        if waveform_provider is None:
+            return
         paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
-        sdc_device.mdib.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
+        waveform_provider.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
 
         flow = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=1.2, sampleperiod=0.01)
-        sdc_device.mdib.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
+        waveform_provider.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
 
         co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveformperiod=1.0, sampleperiod=0.01)
-        sdc_device.mdib.register_waveform_generator('0x34F05506',
+        waveform_provider.register_waveform_generator('0x34F05506',
                                                     co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
         # make SinusGenerator (0x34F05501) the annotator source
         annotator = Annotator(annotation=pmtypes.Annotation(pmtypes.CodedValue('a', 'b')),
                               trigger_handle='0x34F05501',
                               annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506'])
-        sdc_device.mdib.register_annotation_generator(annotator)
+        waveform_provider.register_annotation_generator(annotator)
 
     def test_basic_connect(self):
         # simply check that correct top node is returned
@@ -818,24 +821,26 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         # first we need to add a set_metric_state Operation
         scoDescriptors = sdcDevice.mdib.descriptions.NODETYPE.get(pm.ScoDescriptor)
-        cls = sdcDevice.mdib.sdc_definitions.get_descriptor_container_class(pm.SetMetricStateOperationDescriptor)
+        cls = sdcDevice.mdib.data_model.get_descriptor_container_class(pm.SetMetricStateOperationDescriptor)
         myCode = pmtypes.CodedValue('99999')
-        setMetricStateOperationDescriptorContainer = sdcDevice.mdib.descriptor_factory._create_descriptor_container(
-            cls, 'HANDLE_FOR_MY_TEST', scoDescriptors[0].Handle, myCode, pmtypes.SafetyClassification.INF)
+        #setMetricStateOperationDescriptorContainer = sdcDevice.mdib.descriptor_factory._create_descriptor_container(
+        #    cls, 'HANDLE_FOR_MY_TEST', scoDescriptors[0].Handle, myCode, pmtypes.SafetyClassification.INF)
+        setMetricStateOperationDescriptorContainer = cls('HANDLE_FOR_MY_TEST', scoDescriptors[0].Handle)
+        setMetricStateOperationDescriptorContainer.Type = myCode
+        setMetricStateOperationDescriptorContainer.SafetyClassification = pmtypes.SafetyClassification.INF
         setMetricStateOperationDescriptorContainer.OperationTarget = '0x34F001D5'
-        setMetricStateOperationDescriptorContainer.Type = pmtypes.CodedValue('999998')
         sdcDevice.mdib.descriptions.add_object(setMetricStateOperationDescriptorContainer)
         op = sdcDevice.product_roles.metric_provider.make_operation_instance(
             setMetricStateOperationDescriptorContainer, sdcDevice.sco_operations_registry.operation_cls_getter)
         sdcDevice.sco_operations_registry.register_operation(op)
-        sdcDevice.mdib.mk_state_containers_for_all_descriptors()
+        sdcDevice.mdib.xtra.mk_state_containers_for_all_descriptors()
         setService = sdcClient.client('Set')
         clientMdib = ClientMdibContainer(sdcClient)
         clientMdib.init_mdib()
 
         myOperationDescriptor = setMetricStateOperationDescriptorContainer
         operation_handle = myOperationDescriptor.Handle
-        proposedMetricState = clientMdib.mk_proposed_state('0x34F001D5')
+        proposedMetricState = clientMdib.xtra.mk_proposed_state('0x34F001D5')
         self.assertIsNone(proposedMetricState.LifeTimePeriod)  # just to be sure that we know the correct intitial value
         before_stateversion = proposedMetricState.StateVersion
         newLifeTimePeriod = 42.5
@@ -855,31 +860,31 @@ class Test_Client_SomeDevice(unittest.TestCase):
         sdcClient = self.sdc_client
         sdcDevice = self.sdc_device
 
-        operationtarget_handle = '2.1.2.1'  # a channel
+        operation_target_handle = '2.1.2.1'  # a channel
         # first we need to add a set_component_state Operation
         scoDescriptors = sdcDevice.mdib.descriptions.NODETYPE.get(pm.ScoDescriptor)
-        cls = sdcDevice.mdib.sdc_definitions.get_descriptor_container_class(pm.SetComponentStateOperationDescriptor)
-        myCode = pmtypes.CodedValue('99999')
-        setComponentStateOperationDescriptorContainer = sdcDevice.mdib.descriptor_factory._create_descriptor_container(
-            cls,
-            'HANDLE_FOR_MY_TEST',
-            scoDescriptors[0].Handle,
-            myCode,
-            pmtypes.SafetyClassification.INF)
-        setComponentStateOperationDescriptorContainer.OperationTarget = operationtarget_handle
+        cls = sdcDevice.mdib.data_model.get_descriptor_container_class(pm.SetComponentStateOperationDescriptor)
+        # myCode = pmtypes.CodedValue('99999')
+        # setComponentStateOperationDescriptorContainer = sdcDevice.mdib.descriptor_factory._create_descriptor_container(
+        #     cls, 'HANDLE_FOR_MY_TEST', scoDescriptors[0].Handle, myCode, pmtypes.SafetyClassification.INF)
+
+        setComponentStateOperationDescriptorContainer = cls('HANDLE_FOR_MY_TEST', scoDescriptors[0].Handle)
+        setComponentStateOperationDescriptorContainer.SafetyClassification = pmtypes.SafetyClassification.INF
+
+        setComponentStateOperationDescriptorContainer.OperationTarget = operation_target_handle
         setComponentStateOperationDescriptorContainer.Type = pmtypes.CodedValue('999998')
         sdcDevice.mdib.descriptions.add_object(setComponentStateOperationDescriptorContainer)
         op = sdcDevice.product_roles.make_operation_instance(setComponentStateOperationDescriptorContainer,
                                                              sdcDevice.sco_operations_registry.operation_cls_getter)
         sdcDevice.sco_operations_registry.register_operation(op)
-        sdcDevice.mdib.mk_state_containers_for_all_descriptors()
+        sdcDevice.mdib.xtra.mk_state_containers_for_all_descriptors()
         setService = sdcClient.client('Set')
         clientMdib = ClientMdibContainer(sdcClient)
         clientMdib.init_mdib()
 
         myOperationDescriptor = setComponentStateOperationDescriptorContainer
         operation_handle = myOperationDescriptor.Handle
-        proposedComponentState = clientMdib.mk_proposed_state(operationtarget_handle)
+        proposedComponentState = clientMdib.xtra.mk_proposed_state(operation_target_handle)
         self.assertIsNone(
             proposedComponentState.OperatingHours)  # just to be sure that we know the correct intitial value
         before_stateversion = proposedComponentState.StateVersion
@@ -892,7 +897,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(state, pmtypes.InvocationState.FINISHED)
         self.assertTrue(result.error in ('', 'Unspec'))
         self.assertEqual(result.errorMsg, '')
-        updatedComponentState = clientMdib.states.descriptorHandle.get_one(operationtarget_handle)
+        updatedComponentState = clientMdib.states.descriptorHandle.get_one(operation_target_handle)
         self.assertEqual(updatedComponentState.StateVersion, before_stateversion + 1)
         self.assertEqual(updatedComponentState.OperatingHours, newOperatingHours)
 
@@ -998,7 +1003,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
             # now disable one waveform
             d_handle = d_handles[0]
-            sdcDevice.mdib.set_waveform_generator_activation_state(d_handle, pmtypes.ComponentActivation.OFF)
+            waveform_provider = sdcDevice.mdib.xtra.waveform_provider
+            waveform_provider.set_activation_state(d_handle, pmtypes.ComponentActivation.OFF)
             time.sleep(0.5)
             container = clientMdib.states.descriptorHandle.get_one(d_handle)
             self.assertEqual(container.ActivationState, pmtypes.ComponentActivation.OFF)
@@ -1026,7 +1032,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             dt = values[-1].determination_time - values[1].determination_time
             self.assertAlmostEqual(0.01 * len(values), dt, delta=0.5)
 
-            age_data = clientMdib.get_wf_age_stdev()
+            age_data = clientMdib.xtra.get_wf_age_stdev()
             self.assertLess(abs(age_data.mean_age), 1)
             self.assertLess(abs(age_data.stdev), 0.5)
             self.assertLess(abs(age_data.min_age), 1)
@@ -1086,7 +1092,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(sdcClient, 'description_modification_report')
             new_handle = 'a_generated_descriptor'
             node_name = pm.NumericMetricDescriptor
-            cls = sdcDevice.mdib.sdc_definitions.get_descriptor_container_class(node_name)
+            cls = sdcDevice.mdib.data_model.get_descriptor_container_class(node_name)
             with sdcDevice.mdib.transaction_manager() as mgr:
                 newDescriptorContainer = cls(handle=new_handle,
                                              parent_handle=descriptor_container.parent_handle,
@@ -1434,21 +1440,25 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
 
     @staticmethod
     def provide_realtime_data(sdc_device):
+        waveform_provider = sdc_device.mdib.xtra.waveform_provider
+        if waveform_provider is None:
+            return
+
         paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
-        sdc_device.mdib.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
+        waveform_provider.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
 
         flow = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=1.2, sampleperiod=0.01)
-        sdc_device.mdib.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
+        waveform_provider.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
 
         co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveformperiod=1.0, sampleperiod=0.01)
-        sdc_device.mdib.register_waveform_generator('0x34F05506',
+        waveform_provider.register_waveform_generator('0x34F05506',
                                                     co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
         # make SinusGenerator (0x34F05501) the annotator source
         annotator = Annotator(annotation=pmtypes.Annotation(pmtypes.CodedValue('a', 'b')),
                               trigger_handle='0x34F05501',
                               annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
-        sdc_device.mdib.register_annotation_generator(annotator)
+        waveform_provider.register_annotation_generator(annotator)
 
     def test_basic_connect(self):
         # simply check that correct top node is returned
@@ -1524,21 +1534,24 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
 
     @staticmethod
-    def provide_realtime_data(sdcDevice):
+    def provide_realtime_data(sdc_device):
+        waveform_provider = sdc_device.mdib.xtra.waveform_provider
+        if waveform_provider is None:
+            return
         paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
-        sdcDevice.mdib.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
+        waveform_provider.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
 
         flow = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=1.2, sampleperiod=0.01)
-        sdcDevice.mdib.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
+        waveform_provider.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
 
         co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveformperiod=1.0, sampleperiod=0.01)
-        sdcDevice.mdib.register_waveform_generator('0x34F05506', co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
+        waveform_provider.register_waveform_generator('0x34F05506', co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
         # make SinusGenerator (0x34F05501) the annotator source
         annotator = Annotator(annotation=pmtypes.Annotation(pmtypes.CodedValue('a', 'b')),
                               trigger_handle='0x34F05501',
                               annotated_handles=('0x34F05500', '0x34F05501', '0x34F05506'))
-        sdcDevice.mdib.register_annotation_generator(annotator)
+        waveform_provider.register_annotation_generator(annotator)
 
     def test_basic_connect(self):
         # simply check that correct top node is returned

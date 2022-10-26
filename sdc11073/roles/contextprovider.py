@@ -1,21 +1,21 @@
 import time
 
 from . import providerbase
-from ..pmtypes import ContextAssociation
-from .. import pm_qnames as pm
+
 
 class GenericContextProvider(providerbase.ProviderRole):
     """ Handles SetContextState operations"""
 
-    def __init__(self, op_target_descr_types=None, forced_new_state_typ=None, log_prefix=None):
-        super().__init__(log_prefix)
+    def __init__(self, mdib, op_target_descr_types=None, forced_new_state_typ=None, log_prefix=None):
+        super().__init__(mdib, log_prefix)
         self._op_target_descr_types = op_target_descr_types
         self._forced_new_state_type = forced_new_state_typ
 
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         """Create a handler for SetContextStateOperationDescriptor if type of operation target
         matches opTargetDescriptorTypes"""
-        if operation_descriptor_container.NODETYPE == pm.SetContextStateOperationDescriptor:
+        pm_names = self._mdib.data_model.pm_names
+        if operation_descriptor_container.NODETYPE == pm_names.SetContextStateOperationDescriptor:
             op_target_descr_container = self._mdib.descriptions.handle.get_one(
                 operation_descriptor_container.OperationTarget)
             if (not self._op_target_descr_types) or (
@@ -29,6 +29,7 @@ class GenericContextProvider(providerbase.ProviderRole):
     def _set_context_state(self, operation_instance, proposed_context_states):
         """ This is the code that executes the operation itself.
         """
+        pm_types = self._mdib.data_model.pmtypes
         with self._mdib.transaction_manager() as mgr:
             for proposed_st in proposed_context_states:
                 old_state_container = None
@@ -45,7 +46,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                     proposed_st.Handle = handle_string
                     proposed_st.BindingMdibVersion = self._mdib.mdib_version
                     proposed_st.BindingStartTime = time.time()
-                    proposed_st.ContextAssociation = ContextAssociation.ASSOCIATED
+                    proposed_st.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
                     self._logger.info('new {}, handle={}', proposed_st.NODETYPE.localname, proposed_st.Handle)
                     mgr.add_state(proposed_st)
 
@@ -53,9 +54,9 @@ class GenericContextProvider(providerbase.ProviderRole):
                     old_state_containers = operation_instance.operation_target_storage.descriptorHandle.get(
                         proposed_st.DescriptorHandle, [])
                     for old_state in old_state_containers:
-                        if old_state.ContextAssociation != ContextAssociation.DISASSOCIATED or old_state.UnbindingMdibVersion is None:
+                        if old_state.ContextAssociation != pm_types.ContextAssociation.DISASSOCIATED or old_state.UnbindingMdibVersion is None:
                             new_state = mgr.get_context_state(old_state.DescriptorHandle, old_state.Handle)
-                            new_state.ContextAssociation = ContextAssociation.DISASSOCIATED
+                            new_state.ContextAssociation = pm_types.ContextAssociation.DISASSOCIATED
                             if new_state.UnbindingMdibVersion is None:
                                 new_state.UnbindingMdibVersion = self._mdib.mdib_version
                                 new_state.BindingEndTime = time.time()
@@ -73,12 +74,14 @@ class GenericContextProvider(providerbase.ProviderRole):
 
 
 class EnsembleContextProvider(GenericContextProvider):
-    def __init__(self, log_prefix):
-        super().__init__(op_target_descr_types=[pm.EnsembleContextDescriptor],
+    def __init__(self, mdib, log_prefix):
+        super().__init__(mdib,
+                         op_target_descr_types=[mdib.data_model.pm_names.EnsembleContextDescriptor],
                          log_prefix=log_prefix)
 
 
 class LocationContextProvider(GenericContextProvider):
-    def __init__(self, log_prefix):
-        super().__init__(op_target_descr_types=[pm.LocationContextDescriptor],
+    def __init__(self, mdib, log_prefix):
+        super().__init__(mdib,
+                         op_target_descr_types=[mdib.data_model.pm_names.LocationContextDescriptor],
                          log_prefix=log_prefix)

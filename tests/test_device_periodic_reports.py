@@ -44,7 +44,7 @@ class Test_Device_PeriodicReports(unittest.TestCase):
                 except:
                     print('!!!', descr)
                 # change = not change
-        mdib.update_retrievability_lists()
+        mdib.xtra.update_retrievability_lists()
         self.sdc_device.start_all()
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, self._locValidators)

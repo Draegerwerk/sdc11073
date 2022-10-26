@@ -2,19 +2,18 @@ from functools import partial
 
 from .. import loghelper
 from .. import observableproperties as properties
-from .. import pmtypes
 
 
 class ProviderRole:
-    def __init__(self, log_prefix):
-        self._mdib = None
+    def __init__(self, mdib, log_prefix):
+        self._mdib = mdib
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
     def stop(self):
         """ if provider uses worker threads, implement stop method"""
 
-    def init_operations(self, mdib):
-        self._mdib = mdib
+    def init_operations(self):
+        pass
 
     def make_operation_instance(self, operation_descriptor_container,  # pylint: disable=unused-argument,no-self-use
                                 operation_cls_getter):  # pylint: disable=unused-argument
@@ -39,6 +38,7 @@ class ProviderRole:
 
     def _set_numeric_value(self, operation_instance, value):
         """ sets a numerical metric value"""
+        pm_types = self._mdib.data_model.pmtypes
         operation_target_handle = self._get_operation_target_handle(operation_instance)
         self._logger.info('set value of {} via {} from {} to {}', operation_target_handle, operation_instance.handle,
                           operation_instance.current_value, value)
@@ -52,12 +52,13 @@ class ProviderRole:
             # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
             # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
             metric_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
-            if metric_descriptor_container.MetricCategory in (pmtypes.MetricCategory.SETTING,
-                                                              pmtypes.MetricCategory.PRESETTING):
-                state.MetricValue.Validity = pmtypes.MeasurementValidity.VALID
+            if metric_descriptor_container.MetricCategory in (pm_types.MetricCategory.SETTING,
+                                                              pm_types.MetricCategory.PRESETTING):
+                state.MetricValue.Validity = pm_types.MeasurementValidity.VALID
 
     def _set_string(self, operation_instance, value):
         """ sets a string value"""
+        pm_types = self._mdib.data_model.pmtypes
         operation_target_handle = self._get_operation_target_handle(operation_instance)
         self._logger.info('set value {} from {} to {}', operation_target_handle, operation_instance.current_value,
                           value)
@@ -71,9 +72,9 @@ class ProviderRole:
             # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
             # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
             metric_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
-            if metric_descriptor_container.MetricCategory in (pmtypes.MetricCategory.SETTING,
-                                                              pmtypes.MetricCategory.PRESETTING):
-                state.MetricValue.Validity = pmtypes.MeasurementValidity.VALID
+            if metric_descriptor_container.MetricCategory in (pm_types.MetricCategory.SETTING,
+                                                              pm_types.MetricCategory.PRESETTING):
+                state.MetricValue.Validity = pm_types.MeasurementValidity.VALID
 
     def _mk_operation_from_operation_descriptor(self, operation_descriptor_container,
                                                 operation_cls_getter,
@@ -102,7 +103,7 @@ class ProviderRole:
         :param cls: one of the Operations defined in sdcdevice.sco
         :param handle: the handle of this operation
         :param operation_target_handle: the handle of the operation target
-        :param codedValue: the CodedValue for the Operation ( can be None)
+        :param coded_value: the CodedValue for the Operation ( can be None)
         :param current_argument_handler: the handler that shall be called by operation
         :param current_request_handler: the handler that shall be called by operation
         :return: instance of cls
@@ -122,3 +123,10 @@ class ProviderRole:
         operation_descriptor_handle = operation_instance.handle
         operation_descriptor_container = self._mdib.descriptions.handle.get_one(operation_descriptor_handle)
         return operation_descriptor_container.OperationTarget
+
+    @staticmethod
+    def _create_descriptor_container(container_cls, handle, parent_handle, coded_value, safety_classification):
+        obj = container_cls(handle=handle, parent_handle=parent_handle)
+        obj.SafetyClassification = safety_classification
+        obj.Type = coded_value
+        return obj

@@ -91,7 +91,7 @@ class WaveformSender:
             while self._run_loop:
                 behind_schedule_seconds = timer.wait_next_interval_begin()
                 try:
-                    self._mdib.update_all_rt_samples()  # update from waveform generators
+                    self._mdib.xtra.update_all_rt_samples()  # update from waveform generators
                     self._log_waveform_timing(behind_schedule_seconds)
                 except Exception:
                     self._logger.warn(' could not update real time samples: {}', traceback.format_exc())

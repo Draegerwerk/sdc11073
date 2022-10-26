@@ -5,10 +5,8 @@ from urllib.parse import quote_plus
 
 from .hostedserviceimpl import DPWSHostedService
 from .services.servicesbase import DPWSPortTypeImpl
-from .. import pmtypes
 from .. import wsdiscovery
 from ..location import SdcLocation
-from .. import pm_qnames as pm
 
 def mk_scopes(mdib) -> List[wsdiscovery.Scope]:
     """ scopes factory
@@ -17,8 +15,10 @@ def mk_scopes(mdib) -> List[wsdiscovery.Scope]:
     :return: list of scopes
     """
     scopes = []
-    locations = mdib.context_states.NODETYPE.get(pm.LocationContextState, [])
-    assoc_loc = [l for l in locations if l.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
+    pm_types = mdib.data_model.pmtypes
+    pm_names = mdib.data_model.pm_names
+    locations = mdib.context_states.NODETYPE.get(pm_names.LocationContextState, [])
+    assoc_loc = [l for l in locations if l.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
     for loc in assoc_loc:
         det = loc.LocationDetail
         dr_loc = SdcLocation(fac=det.Facility, poc=det.PoC, bed=det.Bed, bld=det.Building,
@@ -26,15 +26,15 @@ def mk_scopes(mdib) -> List[wsdiscovery.Scope]:
         scopes.append(wsdiscovery.Scope(dr_loc.scope_string))
 
     for nodetype, scheme in (
-            (pm.OperatorContextDescriptor, 'sdc.ctxt.opr'),
-            (pm.EnsembleContextDescriptor, 'sdc.ctxt.ens'),
-            (pm.WorkflowContextDescriptor, 'sdc.ctxt.wfl'),
-            (pm.MeansContextDescriptor, 'sdc.ctxt.mns'),
+            (pm_names.OperatorContextDescriptor, 'sdc.ctxt.opr'),
+            (pm_names.EnsembleContextDescriptor, 'sdc.ctxt.ens'),
+            (pm_names.WorkflowContextDescriptor, 'sdc.ctxt.wfl'),
+            (pm_names.MeansContextDescriptor, 'sdc.ctxt.mns'),
     ):
         descriptors = mdib.descriptions.NODETYPE.get(nodetype, [])
         for descriptor in descriptors:
             states = mdib.context_states.descriptorHandle.get(descriptor.Handle, [])
-            assoc_st = [s for s in states if s.ContextAssociation == pmtypes.ContextAssociation.ASSOCIATED]
+            assoc_st = [s for s in states if s.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
             for state in assoc_st:
                 for idnt in state.Identification:
                     scopes.append(wsdiscovery.Scope(f'{scheme}:/{quote_plus(idnt.Root)}/{quote_plus(idnt.Extension)}'))
@@ -53,11 +53,13 @@ def _get_device_component_based_scopes(mdib):
     After discussion with David: use only MDSDescriptor, VmdDescriptor makes no sense.
     :return: a set of scopes
     """
+    pm_types = mdib.data_model.pmtypes
+    pm_names = mdib.data_model.pm_names
     scopes = set()
-    descriptors = mdib.descriptions.NODETYPE.get(pm.MdsDescriptor)
+    descriptors = mdib.descriptions.NODETYPE.get(pm_names.MdsDescriptor)
     for descriptor in descriptors:
         if descriptor.Type is not None:
-            coding_systems = '' if descriptor.Type.CodingSystem == pmtypes.DEFAULT_CODING_SYSTEM \
+            coding_systems = '' if descriptor.Type.CodingSystem == pm_types.DEFAULT_CODING_SYSTEM \
                 else descriptor.Type.CodingSystem
             csv = descriptor.Type.CodingSystemVersion or ''
             scope = wsdiscovery.Scope(f'sdc.cdc.type:/{coding_systems}/{csv}/{descriptor.Type.Code}')

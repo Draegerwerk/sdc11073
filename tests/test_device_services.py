@@ -135,7 +135,7 @@ class TestDeviceServices(unittest.TestCase):
         poc = 'Care Unit 1'
         bed = 'my bed'
         loc = SdcLocation(fac=facility, poc=poc, bed=bed)
-        self.sdc_device.mdib.set_location(loc)
+        self.sdc_device.set_location(loc)
         contextService = self.sdc_device.hosted_services.context_service
         path = '123'
         get_env = self._mkGetRequest(self.sdc_device, contextService.port_type_string, 'GetContextStates',

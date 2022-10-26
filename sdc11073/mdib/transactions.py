@@ -4,7 +4,7 @@ from functools import wraps
 from typing import Union, Optional, Type
 from dataclasses import dataclass
 from .containerbase import ContainerBase
-from .. import pm_qnames as pm
+#from .. import pm_qnames as pm
 from ..exceptions import ApiUsageError
 
 @dataclass(frozen=True)
