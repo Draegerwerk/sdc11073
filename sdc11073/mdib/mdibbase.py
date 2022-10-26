@@ -12,6 +12,7 @@ from .. import observableproperties as properties
 from ..etc import apply_map
 from ..namespaces import DocNamespaceHelper
 from ..pmtypes import have_matching_codes
+
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
     from .descriptorcontainers import AbstractMetricDescriptorContainer
@@ -144,7 +145,7 @@ class StatesLookup(_MultikeyWithVersionLookup):
             obj.StateVersion = version
 
     def add_object_no_lock(self, obj):
-        if obj.isMultiState:
+        if obj.is_multi_state:
             raise ValueError('no MultiState!')
         super().add_object_no_lock(obj)
 
@@ -183,7 +184,7 @@ class MdibContainer:
         :param sdc_definitions: a class derived from Definitions_Base
         """
         self.sdc_definitions = sdc_definitions
-        #self.data_model = _Model(sdc_definitions)
+        # self.data_model = _Model(sdc_definitions)
         self.data_model = sdc_definitions.data_model
         self._logger = None  # must be instantiated by derived class
         self.nsmapper = DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file
@@ -245,50 +246,6 @@ class MdibContainer:
         self.component_by_handle = None
         self.operation_by_handle = None
 
-    def _update_state_observables(self, state_container_list):
-        metrics_by_handle = {}
-        waveform_by_handle = {}
-        alert_by_handle = {}
-        context_by_handle = {}
-        component_by_handle = {}
-        operation_by_handle = {}
-        for state_container in state_container_list:
-            # add state to the corresponding dictionary, depending on type
-            if state_container.isAlertState:
-                alert_by_handle[state_container.DescriptorHandle] = state_container
-            elif state_container.isRealtimeSampleArrayMetricState:  # test for this class before AbstractMetricStateContainer!!
-                waveform_by_handle[state_container.DescriptorHandle] = state_container
-            elif state_container.isMetricState:
-                metrics_by_handle[state_container.DescriptorHandle] = state_container
-            elif state_container.isComponentState:
-                component_by_handle[state_container.DescriptorHandle] = state_container
-            elif state_container.isOperationalState:
-                operation_by_handle[state_container.DescriptorHandle] = state_container
-            elif state_container.isContextState:
-                context_by_handle[state_container.Handle] = state_container
-            elif state_container.isSystemContextState or state_container.isMultiState:
-                pass  # ignoring for now
-            elif state_container.NODETYPE == pm.ScoState:
-                # special case Draft6 ScoState (is not a component state)
-                pass  # this cannot be updated anyway over the network, but handle it here to avoid runtime error
-            else:
-                raise NotImplementedError(
-                    f'handling of {state_container.__class__.__name__} has been forgotten to implement!')
-
-        # finally update observable properties
-        if alert_by_handle:
-            self.alert_by_handle = alert_by_handle
-        if waveform_by_handle:
-            self.waveform_by_handle = waveform_by_handle
-        if metrics_by_handle:
-            self.metrics_by_handle = metrics_by_handle
-        if component_by_handle:
-            self.component_by_handle = component_by_handle
-        if operation_by_handle:
-            self.operation_by_handle = operation_by_handle
-        if context_by_handle:
-            self.context_by_handle = context_by_handle
-
     def _set_descriptor_container_reference(self, state_container):
         """
         sets state_container.descriptor_container if all is fine, otherwise logs error.
@@ -305,26 +262,22 @@ class MdibContainer:
             self._logger.warn(
                 'state "{}" (type={}) : descriptor version expect "{}", found "{}"',
                 state_container.DescriptorHandle, state_container.NODETYPE,
-                descriptor_container.DescriptorVersion, state_container.DescriptorVersion )
+                descriptor_container.DescriptorVersion, state_container.DescriptorVersion)
 
     def add_state_containers(self, state_containers):
         """Adds states to self.states and self.context_states.
+        This method does not update the observables, so use with care!
         :param state_containers: a list of StateContainer objects.
         """
         for state_container in state_containers:
             if state_container.descriptor_container is None:
                 self._set_descriptor_container_reference(state_container)
-            my_multikey = self.context_states if state_container.isContextState else self.states
+            my_multikey = self.context_states if state_container.is_context_state else self.states
             try:
                 my_multikey.add_object(state_container)
             except KeyError as ex:
                 self._logger.error('add_state_containers: {}, keys={}; {}', ex,
                                    my_multikey.Handle.keys(), traceback.format_exc())
-
-        # finally update observable properties
-        self._update_state_observables(state_containers)
-
-    setMdStates = add_state_containers  # backwards compatibility
 
     def _reconstruct_md_description(self):
         """build dom tree from current data
@@ -402,17 +355,18 @@ class MdibContainer:
 
     def _get_child_descriptors_by_code(self, parent_handle, code):
         descriptors = self.descriptions.parent_handle.get(parent_handle, [])
-        #descriptors = self.descriptions.coding.get(code, [])
+        # descriptors = self.descriptions.coding.get(code, [])
         if len(descriptors) == 0:
             return []
         with_types = [d for d in descriptors if d.Type is not None]
-        #return [d for d in with_types if d.Type.equals(code)]
+        # return [d for d in with_types if d.Type.equals(code)]
         return [d for d in with_types if have_matching_codes(d.Type, code)]
 
     def get_metric_descriptor_by_code(self,
                                       vmd_code: [Coding, CodedValue],
                                       channel_code: [Coding, CodedValue],
-                                      metric_code: [Coding, CodedValue]) -> [Type[AbstractMetricDescriptorContainer], None]:
+                                      metric_code: [Coding, CodedValue]) -> [Type[AbstractMetricDescriptorContainer],
+                                                                             None]:
         """ This is the "correct" way to find a descriptor.
         Using well known handles is shaky, because they have no meaning and can change over time!
         :param vmd_code: a CodedValue or a Coding instance
@@ -421,7 +375,7 @@ class MdibContainer:
         """
         pm = self.data_model.pm_names
         aLL_vmds = self.descriptions.NODETYPE.get(pm.VmdDescriptor, [])
-        matching_vmd_list =  [d for d in aLL_vmds if have_matching_codes(d.Type, vmd_code)]
+        matching_vmd_list = [d for d in aLL_vmds if have_matching_codes(d.Type, vmd_code)]
         for vmd in matching_vmd_list:
             matching_channels = self._get_child_descriptors_by_code(vmd.Handle, channel_code)
             for channel in matching_channels:
@@ -505,7 +459,8 @@ class MdibContainer:
 
             if coding is not None:
                 # apply filter
-                tmp_objects = [o for o in selected_objects if o.Type is not None and have_matching_codes(o.Type, coding)]
+                tmp_objects = [o for o in selected_objects if
+                               o.Type is not None and have_matching_codes(o.Type, coding)]
                 selected_objects = tmp_objects
         return selected_objects
 

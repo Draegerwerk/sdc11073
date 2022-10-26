@@ -76,12 +76,12 @@ class DeviceMdibMethods:
         for descr in mdib.descriptions.objects:
             if descr.Handle not in mdib.states.descriptorHandle and descr.Handle not in mdib.context_states.descriptorHandle:
                 state_cls = mdib.data_model.get_state_class_for_descriptor(descr)
-                if state_cls.isMultiState:
+                if state_cls.is_multi_state:
                     pass  # nothing to do, it is allowed to have no state
                 else:
                     state = state_cls(descr)
                     # add some initial values where needed
-                    if state.isAlertCondition:
+                    if state.is_alert_condition:
                         state.DeterminationTime = time.time()
                     elif state.NODETYPE == pm.AlertSystemState:
                         state.LastSelfCheck = time.time()

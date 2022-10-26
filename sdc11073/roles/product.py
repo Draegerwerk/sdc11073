@@ -63,7 +63,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
         with self._mdib.transaction_manager() as mgr:
             for proposed_state in value:
                 state = mgr.get_state(proposed_state.DescriptorHandle)
-                if state.isComponentState:
+                if state.is_component_state:
                     self._logger.info('updating {} with proposed component state', state)
                     state.update_from_other_container(proposed_state,
                                                       skipped_properties=['StateVersion', 'DescriptorVersion'])

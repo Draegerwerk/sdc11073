@@ -75,7 +75,7 @@ class GenericMetricProvider(ProviderRole):
         with self._mdib.transaction_manager() as mgr:
             for proposed_state in value:
                 state = mgr.get_state(proposed_state.DescriptorHandle)
-                if state.isMetricState:
+                if state.is_metric_state:
                     self._logger.info('updating {} with proposed metric state', state)
                     state.update_from_other_container(proposed_state,
                                                       skipped_properties=['StateVersion', 'DescriptorVersion'])
@@ -95,7 +95,7 @@ class GenericMetricProvider(ProviderRole):
         # check if MetricValue shall be removed
         for tr_item in metric_state_updates:
             new_state = tr_item.new
-            if new_state is None or not new_state.isMetricState:
+            if new_state is None or not new_state.is_metric_state:
                 continue
             # SF717: check if MetricValue shall be automatically removed
             if new_state.ActivationState in (ComponentActivation.OFF,

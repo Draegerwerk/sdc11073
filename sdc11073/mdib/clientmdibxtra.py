@@ -1,9 +1,11 @@
 import time
-from collections import namedtuple
+from collections import namedtuple, deque
 from concurrent import futures
-from statistics import mean
-
+from statistics import mean, stdev
+from threading import Lock
 from .. import observableproperties as properties
+from ..exceptions import ApiUsageError
+
 
 PROFILING = False
 if PROFILING:
@@ -17,9 +19,7 @@ A_STILL_OUT_OF_RANGE = 2
 A_BACK_IN_RANGE = 3
 
 LOG_WF_AGE_INTERVAL = 30  # how often a log message is written with mean and stdev of waveforms age
-
-_BufferedNotification = namedtuple('_BufferedNotification', 'report handler')
-
+AGE_CALC_SAMPLES_COUNT = 100  # amount of data for wf mean age and stdev calculation
 
 class DeterminationTimeWarner:
     """A Helper to reduce log warnings regarding determination time."""
@@ -99,6 +99,35 @@ class AgeLogger:
 _AgeData = namedtuple('_AgeData', 'mean_age stdev min_age max_age')
 
 
+class AgeStatistics:
+    """Keep age data of a single state over time. """
+    def __init__(self, entry_count=None):
+        length = entry_count or AGE_CALC_SAMPLES_COUNT
+        self._age_of_data_list = deque(
+            maxlen=length)  # used to calculate average age of samples when received
+        self._lock = Lock()
+
+    def process_state(self, state):
+        try:
+            age = time.time() - state.MetricValue.DeterminationTime
+            with self._lock:
+                self._age_of_data_list.append(age)
+        except AttributeError:
+            if not state.is_metric_state:
+                raise ApiUsageError(f'{self.__class__.__name__} can only handle metric states')
+            # or state.MetricValue is None or  DeterminationTime is None: ignore this
+
+    def get_age_stdev(self) -> _AgeData:
+        if len(self._age_of_data_list) < 3:
+            return _AgeData(0, 0, 0, 0)
+        with self._lock:
+            min_value = min( self._age_of_data_list )
+            max_value = max(self._age_of_data_list)
+            mean_data = mean(self._age_of_data_list)
+            std_deviation = stdev(self._age_of_data_list)
+            return _AgeData(mean_data, std_deviation, min_value, max_value)
+
+
 class ClientMdibMethods:
     DETERMINATIONTIME_WARN_LIMIT = 1.0  # in seconds
 
@@ -112,6 +141,11 @@ class ClientMdibMethods:
         self._last_wf_age_log = time.time()
         if PROFILING:
             self.prof = cProfile.Profile()
+        self._age_statistics = {}
+        self._calculate_wf_age_stats = False
+
+    def set_calculate_wf_age_stats(self, shall_calculate: bool):
+        self._calculate_wf_age_stats = shall_calculate
 
     def wait_metric_matches(self, handle, matches_func, timeout):
         """ wait until a matching metric has been received. The matching is defined by the handle of the metric
@@ -159,8 +193,8 @@ class ClientMdibMethods:
         descr = self._mdib.descriptions.handle.get_one(descriptor_handle)
         new_state = self._mdib.data_model.mk_state_container(descr)
         if copy_current_state:
-            lookup = self._mdib.context_states if new_state.isContextState else self._mdib.states
-            if new_state.isMultiState:
+            lookup = self._mdib.context_states if new_state.is_context_state else self._mdib.states
+            if new_state.is_multi_state:
                 if handle is None:  # new state
                     return new_state
                 old_state = lookup.handle.get_one(handle)
@@ -262,6 +296,8 @@ class ClientMdibMethods:
         # pylint:disable=too-many-locals
         state_containers = self._msg_reader.read_waveform_report(received_message_data)
         self._logger.debug('_on_waveform_report: received {} states', len(state_containers))
+        if self._calculate_wf_age_stats:
+            self._process_age_statistics(state_containers)
         self._mdib.process_incoming_waveform_states(received_message_data.mdib_version,
                                                     received_message_data.sequence_id,
                                                     state_containers)
@@ -331,13 +367,21 @@ class ClientMdibMethods:
                                                 received_message_data.sequence_id,
                                                 descriptors)
 
+    def _process_age_statistics(self, state_containers):
+        for st in state_containers:
+            age_stat = self._age_statistics.get(st.DescriptorHandle)
+            if age_stat is None:
+                age_stat = AgeStatistics()
+                self._age_statistics[st.DescriptorHandle] = age_stat
+            age_stat.process_state(st)
+
     def get_wf_age_stdev(self):
         means = []
         stdevs = []
         mins = []
         maxs = []
-        for buf in self._mdib.rt_buffers.values():
-            age_data = buf.get_age_stdev()
+        for age_stat in self._age_statistics.values():
+            age_data = age_stat.get_age_stdev()
             means.append(age_data.mean_age)
             stdevs.append(age_data.stdev)
             mins.append(age_data.min_age)

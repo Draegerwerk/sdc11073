@@ -2,9 +2,7 @@ import time
 import traceback
 from typing import List
 from collections import deque
-from collections import namedtuple
 from dataclasses import dataclass
-from statistics import mean, stdev
 from threading import Lock
 
 from . import mdibbase
@@ -13,10 +11,6 @@ from .. import namespaces
 from ..exceptions import ApiUsageError
 
 _global_nsmap = namespaces.nsmap
-
-AGE_CALC_SAMPLES_COUNT = 100  # amount of data for wf mean age and stdev calculation
-
-_AgeData = namedtuple('_AgeData', 'mean_age stdev min_age max_age')
 
 
 class ClientRtBuffer:
@@ -37,10 +31,6 @@ class ClientRtBuffer:
         self._logger = loghelper.get_logger_adapter('sdc.client.mdib.rt')
         self._lock = Lock()
         self.last_sc = None  # last state container that was handled
-        self._age_of_data_list = deque(
-            maxlen=AGE_CALC_SAMPLES_COUNT)  # used to calculate average age of samples when received
-        self._reported_min_age = None
-        self._reported_max_age = None
 
     def mk_rtsample_containers(self, realtime_sample_array_container)-> List[mdibbase.RtSampleContainer]:
         """
@@ -85,16 +75,6 @@ class ClientRtBuffer:
             return
         with self._lock:
             self.rt_data.extend(rt_sample_containers)
-            # use time of the youngest sample, this is the best value for indication of delays
-            self._age_of_data_list.append(time.time() - rt_sample_containers[-1].determination_time)
-        try:
-            self._reported_min_age = min(self._age_of_data_list[-1], self._reported_min_age)
-        except TypeError:
-            self._reported_min_age = self._age_of_data_list[-1]
-        try:
-            self._reported_max_age = max(self._age_of_data_list[-1], self._reported_min_age)
-        except TypeError:
-            self._reported_max_age = self._age_of_data_list[-1]
 
     def read_rt_data(self) -> List[mdibbase.RtSampleContainer]:
         """ This read method consumes all currently buffered data.
@@ -103,14 +83,6 @@ class ClientRtBuffer:
             ret = list(self.rt_data)
             self.rt_data.clear()
         return ret
-
-    def get_age_stdev(self) -> _AgeData:
-        with self._lock:
-            min_value, self._reported_min_age = self._reported_min_age, None
-            max_value, self._reported_max_age = self._reported_max_age, None
-            mean_data = 0 if len(self._age_of_data_list) == 0 else mean(self._age_of_data_list)
-            std_deviation = 0 if len(self._age_of_data_list) < 2 else stdev(self._age_of_data_list)
-            return _AgeData(mean_data, std_deviation, min_value or 0, max_value or 0)
 
 
 @dataclass
@@ -340,7 +312,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         """Update mdib with incoming states"""
         states_by_handle = {}
         for state_container in state_containers:
-            if state_container.isContextState:
+            if state_container.is_context_state:
                 src = self.context_states
                 old_state_container = src.handle.get_one(state_container.Handle,
                                                          allow_none=True)
@@ -356,7 +328,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     src.update_object(old_state_container)
                     states_by_handle[old_state_container.DescriptorHandle] = old_state_container
             else:
-                if state_container.isContextState:
+                if state_container.is_context_state:
                     self._logger.info(
                         '{}: new context state handle = {} Descriptor Handle={} Assoc={}, Validators={}',
                         report_type, state_container.Handle, state_container.DescriptorHandle,
@@ -420,7 +392,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
                                                         self.process_incoming_waveform_states):
             return
-
+        states_by_handle = None
         try:
             with self.mdib_lock:
                 if not self._can_accept_version(mdib_version, sequence_id, 'waveform states'):
@@ -441,10 +413,11 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             sample_period = descriptor_container.SamplePeriod or 0
                         rt_buffer = ClientRtBuffer(sample_period=sample_period, max_samples=self._max_realtime_samples)
                         self.rt_buffers[d_handle] = rt_buffer
-                    state_containers = rt_buffer.mk_rtsample_containers(state_container)
-                    rt_buffer.add_rt_sample_containers(state_containers)
+                    rt_sample_containers = rt_buffer.mk_rtsample_containers(state_container)
+                    rt_buffer.add_rt_sample_containers(rt_sample_containers)
         finally:
-            self.waveform_by_handle = states_by_handle
+            if states_by_handle is not None:
+                self.waveform_by_handle = states_by_handle
 
     def process_incoming_context_states(self, mdib_version, sequence_id, state_containers, is_buffered_report=False):
         if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
@@ -482,7 +455,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             return
 
         def multi_key(st_container):
-            if st_container.isContextState:
+            if st_container.is_context_state:
                 return self.context_states
             else:
                 return self.states
@@ -544,7 +517,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 for state_container in updated_state_containers:
                     my_multi_key = multi_key(state_container)
 
-                    if state_container.isContextState:
+                    if state_container.is_context_state:
                         old_state_container = my_multi_key.handle.get_one(state_container.Handle, allow_none=True)
                     else:
                         old_state_container = my_multi_key.descriptorHandle.get_one(

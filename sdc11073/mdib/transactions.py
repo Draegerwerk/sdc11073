@@ -79,19 +79,19 @@ class _TransactionBase:
 
     def _get_states_update(self, container):
         if container.is_state_container:
-            if container.isRealtimeSampleArrayMetricState:
+            if container.is_realtime_sample_array_metric_state:
                 return self.rt_sample_state_updates
-            elif container.isMetricState:
+            elif container.is_metric_state:
                 return self.metric_state_updates
-            elif container.isAlertState:
+            elif container.is_alert_state:
                 return self.alert_state_updates
-            elif container.isComponentState:
+            elif container.is_component_state:
                 return self.component_state_updates
-            elif container.isSystemContextState:
+            elif container.is_system_context_state:
                 return self.component_state_updates
-            elif container.isOperationalState:
+            elif container.is_operational_state:
                 return self.operational_state_updates
-            elif container.isContextState:
+            elif container.is_context_state:
                 return self.context_state_updates
             elif container.NODETYPE == pm.ScoState:
                 # special case ScoState Draft6: cannot notify updates, it is a category of its own that does not fit anywhere
@@ -111,7 +111,7 @@ class _TransactionBase:
         raise NotImplementedError(f'unhandled case {container}')
 
     def _get_states_storage(self, state_container):
-        if state_container.isContextState:
+        if state_container.is_context_state:
             return self._device_mdib_container.context_states
         return self._device_mdib_container.states
 
@@ -155,7 +155,7 @@ class RtDataMdibUpdateTransaction(_TransactionBase):
         if state_container is None:
             raise ValueError(f'state {descriptor_handle} not found!')
 
-        if not state_container.isRealtimeSampleArrayMetricState:
+        if not state_container.is_realtime_sample_array_metric_state:
             raise ValueError(
                 f'DescriptorHandle {descriptor_handle} does not reference a RealTimeSampleArrayMetricState')
         state_container.increment_state_version()
@@ -281,7 +281,7 @@ class MdibUpdateTransaction(_TransactionBase):
             if descriptor_handle not in self.new_descriptors:
                 raise ApiUsageError(f'This is a transaction for descriptor modifications, this state does not match')
 
-        my_handle = state_container.Handle if state_container.isContextState else descriptor_handle
+        my_handle = state_container.Handle if state_container.is_context_state else descriptor_handle
         if my_handle in my_updates:
             raise ValueError(f'State {descriptor_handle} already in updated set!')
 
@@ -401,12 +401,12 @@ class MdibUpdateTransaction(_TransactionBase):
         if state_container is None:
             descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
             new_state = self._device_mdib_container.data_model.mk_state_container(descriptor_container)
-            if not new_state.isRealtimeSampleArrayMetricState:
+            if not new_state.is_realtime_sample_array_metric_state:
                 raise ValueError(
                     f'DescriptorHandle {descriptor_handle} does not reference a RealTimeSampleArrayMetricState')
             self._device_mdib_container.states.add_object(state_container)
         else:
-            if not state_container.isRealtimeSampleArrayMetricState:
+            if not state_container.is_realtime_sample_array_metric_state:
                 raise ValueError(
                     f'DescriptorHandle {descriptor_handle} does not reference a RealTimeSampleArrayMetricState')
             new_state = state_container.mk_copy(copy_node=False)

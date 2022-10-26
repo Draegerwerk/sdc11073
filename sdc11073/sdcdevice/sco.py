@@ -124,7 +124,7 @@ class OperationDefinition:
             self._logger.info('creating {} DescriptorHandle = {}', self._operation_target_container.__class__.__name__,
                               self._operation_target_handle)
             if self._operation_target_container is not None:
-                storage = self._mdib.context_states if self._operation_target_container.isMultiState else self._mdib.states
+                storage = self._mdib.context_states if self._operation_target_container.is_multi_state else self._mdib.states
                 storage.add_object(self._operation_target_container)
 
     def set_operating_mode(self, mode):

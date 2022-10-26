@@ -12,16 +12,16 @@ from .. import pm_qnames as pm
 class AbstractStateContainer(ContainerBase):
     # these class variables allow easy type-checking. Derived classes will set corresponding values to True
     is_state_container = True
-    isSystemContextState = False
-    isRealtimeSampleArrayMetricState = False
-    isMetricState = False
-    isOperationalState = False
-    isComponentState = False
-    isAlertState = False
-    isAlertSignal = False
-    isAlertCondition = False
-    isMultiState = False
-    isContextState = False
+    is_system_context_state = False
+    is_realtime_sample_array_metric_state = False
+    is_metric_state = False
+    is_operational_state = False
+    is_component_state = False
+    is_alert_state = False
+    is_alert_signal = False
+    is_alert_condition = False
+    is_multi_state = False
+    is_context_state = False
 
     Extension = cp.ExtensionNodeProperty()
     DescriptorHandle = cp.HandleRefAttributeProperty('DescriptorHandle', is_optional=False)
@@ -69,7 +69,7 @@ class AbstractStateContainer(ContainerBase):
 
 class AbstractOperationStateContainer(AbstractStateContainer):
     NODETYPE = pm.AbstractOperationState
-    isOperationalState = True
+    is_operational_state = True
     OperatingMode = cp.EnumAttributeProperty('OperatingMode', default_py_value=pmtypes.OperatingMode.ENABLED,
                                              enum_cls=pmtypes.OperatingMode)
     _props = ('OperatingMode',)
@@ -124,7 +124,7 @@ class AbstractMetricStateContainerBase(AbstractStateContainer):
     """
     This class is not in the xml schema hierarchy, it only helps to centrally implement functionality
     """
-    isMetricState = True
+    is_metric_state = True
 
     @property
     def MetricValue(self):  # pylint: disable=invalid-name
@@ -177,7 +177,7 @@ class EnumStringMetricStateContainer(StringMetricStateContainer):
 
 class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = pm.RealTimeSampleArrayMetricState
-    isRealtimeSampleArrayMetricState = True
+    is_realtime_sample_array_metric_state = True
     _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.SampleArrayValue)
     PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pmtypes.Range)
     _props = ('_metric_value', 'PhysiologicalRange')
@@ -199,7 +199,7 @@ class DistributionSampleArrayMetricStateContainer(AbstractMetricStateContainer):
 
 
 class AbstractDeviceComponentStateContainer(AbstractStateContainer):
-    isComponentState = True
+    is_component_state = True
     CalibrationInfo = cp.SubElementProperty(pm.CalibrationInfo,
                                             value_class=pmtypes.CalibrationInfo,
                                             is_optional=True)
@@ -297,7 +297,7 @@ class BatteryStateContainer(AbstractDeviceComponentStateContainer):
 
 
 class AbstractAlertStateContainer(AbstractStateContainer):
-    isAlertState = True
+    is_alert_state = True
     ActivationState = cp.EnumAttributeProperty('ActivationState',
                                                default_py_value=pmtypes.AlertActivation.ON,
                                                enum_cls=pmtypes.AlertActivation,
@@ -324,7 +324,7 @@ class AlertSystemStateContainer(AbstractAlertStateContainer):
 
 
 class AlertSignalStateContainer(AbstractAlertStateContainer):
-    isAlertSignal = True
+    is_alert_signal = True
     NODETYPE = pm.AlertSignalState
     ActualSignalGenerationDelay = cp.DurationAttributeProperty('ActualSignalGenerationDelay')
     Presence = cp.EnumAttributeProperty('Presence', implied_py_value=pmtypes.AlertSignalPresence.OFF,
@@ -340,7 +340,7 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
 
 
 class AlertConditionStateContainer(AbstractAlertStateContainer):
-    isAlertCondition = True
+    is_alert_condition = True
     NODETYPE = pm.AlertConditionState
     ActualConditionGenerationDelay = cp.DurationAttributeProperty('ActualConditionGenerationDelay')
     ActualPriority = cp.EnumAttributeProperty('ActualPriority', enum_cls=pmtypes.AlertConditionPriority)
@@ -363,7 +363,7 @@ class LimitAlertConditionStateContainer(AlertConditionStateContainer):
 
 
 class AbstractMultiStateContainer(AbstractStateContainer):
-    isMultiState = True
+    is_multi_state = True
     Category = cp.SubElementProperty(pm.Category, value_class=pmtypes.CodedValue, is_optional=True)
     Handle = cp.HandleAttributeProperty('Handle', is_optional=False)
     _props = ('Category', 'Handle',)
@@ -390,7 +390,7 @@ class AbstractMultiStateContainer(AbstractStateContainer):
 
 
 class AbstractContextStateContainer(AbstractMultiStateContainer):
-    isContextState = True
+    is_context_state = True
     Validator = cp.SubElementListProperty(pm.Validator, value_class=pmtypes.InstanceIdentifier)
     Identification = cp.SubElementListProperty(pm.Identification, value_class=pmtypes.InstanceIdentifier)
     ContextAssociation = cp.EnumAttributeProperty('ContextAssociation',

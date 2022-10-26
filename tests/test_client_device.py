@@ -970,6 +970,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         for sdcClient, sdcDevice in self._all_cl_dev:
             clientMdib = ClientMdibContainer(sdcClient, max_realtime_samples=297)
             clientMdib.init_mdib()
+            clientMdib.xtra.set_calculate_wf_age_stats(True)
             time.sleep(3.5)  # Wait long enough to make the rt_buffers full.
             d_handles = ('0x34F05500', '0x34F05501', '0x34F05506')
 
