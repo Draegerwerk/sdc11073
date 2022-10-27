@@ -52,13 +52,3 @@ class TestIsoDate(unittest.TestCase):
         self.assertEqual(date_time_string(datetime(2015, 5, 25, 14, 45, 00, tzinfo=UTC(-60))), '2015-05-25T14:45:00-01:00')
         self.assertEqual(date_time_string(GYearMonth(2015, 5)), '2015-05')
         self.assertEqual(date_time_string(GYear(2015)), '2015')
-
-        
-
-def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(TestIsoDate)
-
-
-if __name__ == '__main__':
-    unittest.TextTestRunner(verbosity=2).run(suite())
-        

@@ -3,19 +3,14 @@ import unittest
 
 import sdc11073
 from sdc11073 import pmtypes
+from sdc11073.dpws import ThisModelType, ThisDeviceType
 from sdc11073.mdib import descriptorcontainers as dc
 from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.sdcdevice import waveforms
-from sdc11073.dpws import ThisModelType, ThisDeviceType
 from tests import mockstuff
-
-CLIENT_VALIDATE = True
 
 # data that is used in report
 HANDLES = ("0x34F05506", "0x34F05501", "0x34F05500")
-SAMPLES = {"0x34F05506": (5.566406, 5.712891, 5.712891, 5.712891, 5.800781),
-           "0x34F05501": (0.1, -0.1, 1.0, 2.0, 3.0),
-           "0x34F05500": (3.198242, 3.198242, 3.198242, 3.198242, 3.163574, 1.1)}
 
 
 class TestDeviceWaveform(unittest.TestCase):
@@ -34,12 +29,11 @@ class TestDeviceWaveform(unittest.TestCase):
             desc.MetricCategory = pmtypes.MetricCategory.MEASUREMENT
             self.mdib.descriptions.add_object(desc)
 
-        self.sdcDevice = None
-        self.nsmapper = sdc11073.namespaces.DocNamespaceHelper()
+        self.sdc_device = None
 
     def tearDown(self):
-        if self.sdcDevice:
-            self.sdcDevice.stop_all()
+        if self.sdc_device:
+            self.sdc_device.stop_all()
 
     def test_waveformGeneratorHandling(self):
         waveform_provider = self.mdib.xtra.waveform_provider
@@ -64,18 +58,18 @@ class TestDeviceWaveform(unittest.TestCase):
         time.sleep(1)
         for h in HANDLES:
             period = waveform_generators[h]._generator.sampleperiod
-            expectedCount = 1.0 / period
+            expected_count = 1.0 / period
             rt_sample_array = waveform_generators[h].get_next_sample_array()
-            # sleep is not very precise, therefore verify that number of sample is in a certein range
-            self.assertTrue(expectedCount - 5 <= len(rt_sample_array.samples) <= expectedCount + 5)  #
+            # sleep is not very precise, therefore verify that number of sample is in a certain range
+            self.assertTrue(expected_count - 5 <= len(rt_sample_array.samples) <= expected_count + 5)  #
             self.assertTrue(abs(now - rt_sample_array.determination_time) <= 0.02)
             self.assertEqual(rt_sample_array.activation_state, pmtypes.ComponentActivation.ON)
-        ca = pmtypes.ComponentActivation  # shortcut
         h = HANDLES[0]
-        for actState in (ca.OFF, ca.FAILURE, ca.NOT_READY, ca.SHUTDOWN, ca.STANDBY):
-            waveform_provider.set_activation_state(h, actState)
+        # test with all activation states
+        for act_state in pmtypes.ComponentActivation:
+            waveform_provider.set_activation_state(h, act_state)
             rt_sample_array = waveform_generators[h].get_next_sample_array()
-            self.assertEqual(rt_sample_array.activation_state, actState)
+            self.assertEqual(rt_sample_array.activation_state, act_state)
             self.assertEqual(len(rt_sample_array.samples), 0)
 
         waveform_provider.set_activation_state(h, pmtypes.ComponentActivation.ON)
@@ -87,15 +81,15 @@ class TestDeviceWaveform(unittest.TestCase):
         self.assertTrue(abs(now - rt_sample_array.determination_time) <= 0.02)
 
     def test_waveformSubscription(self):
-        self._model = ThisModelType(manufacturer='Chinakracher GmbH',
-                                    manufacturer_url='www.chinakracher.com',
-                                    model_name='BummHuba',
-                                    model_number='1.0',
-                                    model_url='www.chinakracher.com/bummhuba/model',
-                                    presentation_url='www.chinakracher.com/bummhuba/presentation')
-        self._device = ThisDeviceType(friendly_name='Big Bang Practice',
-                                      firmware_version='0.99',
-                                      serial_number='87kabuuum889')
+        this_model = ThisModelType(manufacturer='ABCDEFG GmbH',
+                                   manufacturer_url='www.abcdefg.com',
+                                   model_name='Foobar',
+                                   model_number='1.0',
+                                   model_url='www.abcdefg.com/foobar/model',
+                                   presentation_url='www.abcdefg.com/foobar/presentation')
+        this_device = ThisDeviceType(friendly_name='Big Bang Practice',
+                                     firmware_version='0.99',
+                                     serial_number='123serial')
 
         waveform_provider = self.mdib.xtra.waveform_provider
         self.assertIsNotNone(waveform_provider)
@@ -110,15 +104,15 @@ class TestDeviceWaveform(unittest.TestCase):
 
         annotator = Annotator(annotation=pmtypes.Annotation(pmtypes.CodedValue('a', 'b')),
                               trigger_handle=HANDLES[2],
-                              annotated_handles=(HANDLES[0], HANDLES[1], HANDLES[2]))
+                              annotated_handles=[HANDLES[0], HANDLES[1], HANDLES[2]])
         waveform_provider.register_annotation_generator(annotator)
 
-        self.wsDiscovery = mockstuff.MockWsDiscovery(['5.6.7.8'])
-        self.sdcDevice = sdc11073.sdcdevice.SdcDevice(self.wsDiscovery, self._model, self._device, self.mdib)
-        self.sdcDevice.start_all()
-        testSubscr = mockstuff.TestDevSubscription([self.sdcDevice.mdib.sdc_definitions.Actions.Waveform],
-                                                   self.sdcDevice.msg_factory)
-        self.sdcDevice.subscriptions_manager._subscriptions.add_object(testSubscr)
+        wsd = mockstuff.MockWsDiscovery(['5.6.7.8'])
+        self.sdc_device = sdc11073.sdcdevice.SdcDevice(wsd, this_model, this_device, self.mdib)
+        self.sdc_device.start_all()
+        test_subscription = mockstuff.TestDevSubscription([self.sdc_device.mdib.sdc_definitions.Actions.Waveform],
+                                                          self.sdc_device.msg_factory)
+        self.sdc_device.subscriptions_manager._subscriptions.add_object(test_subscription)
 
         time.sleep(3)
-        self.assertGreater(len(testSubscr.reports), 20)
+        self.assertGreater(len(test_subscription.reports), 20)

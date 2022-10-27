@@ -1,80 +1,44 @@
-import unittest
 import logging
-import os
 import time
-#pylint: disable=protected-access
+import unittest
+
 from sdc11073 import pmtypes, wsdiscovery
 from sdc11073.location import SdcLocation
 from tests.mockstuff import SomeDevice
 
+
+# pylint: disable=protected-access
+
 class Test_Device(unittest.TestCase):
-    
+
     def setUp(self):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = wsdiscovery.WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
-        location = SdcLocation(fac='tklx',
+        location = SdcLocation(fac='fac1',
                                poc='CU1',
                                bed='Bed')
-    
-#        self.sdcDevice = CoCoDeviceAnesthesia(self.wsd, my_uuid=None, useSSL=False)
-        self.sdcDevice = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
-        self.sdcDevice.start_all()
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
+        self.sdc_device.start_all()
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdcDevice.set_location(location, self._locValidators)
+        self.sdc_device.set_location(location, self._locValidators)
 
-        time.sleep(0.1) # allow full init of device
-        
-        print ('############### setUp done {} ##############'.format(self._testMethodName))
+        time.sleep(0.1)  # allow full init of device
+
+        print('############### setUp done {} ##############'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))
 
-
     def tearDown(self):
-        print ('############### tearDown {}... ##############'.format(self._testMethodName))
+        print('############### tearDown {}... ##############'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### tearDown {} ... ##############'.format(self._testMethodName))
-        self.sdcDevice.stop_all()
+        self.sdc_device.stop_all()
         self.wsd.stop()
 
-
     def test_restart(self):
-        ''' Starting 2nd device with existing mdib shall not raise an exception'''
-        self.sdcDevice.stop_all()
-#        sdcDevice2 = CoCoDeviceAnesthesia(self.wsd, my_uuid=None, useSSL=False,
-#                                          device_mdib_container=self.sdcDevice.mdib)
-        sdcDevice2 = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
+        """ Starting 2nd device with existing mdib shall not raise an exception"""
+        self.sdc_device.stop_all()
+        sdc_device2 = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         try:
-            sdcDevice2.start_all()
+            sdc_device2.start_all()
         finally:
-            sdcDevice2.stop_all()
-            
-
-
-def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(Test_Device)
-
-
-if __name__ == '__main__':
-    def mklogger(logFolder=None):
-        import logging.handlers
-        applog = logging.getLogger('sdc')
-        if len(applog.handlers) == 0:
-            ch = logging.StreamHandler()
-            # create formatter
-            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-            # add formatter to ch
-            ch.setFormatter(formatter)
-            # add ch to logger
-            applog.addHandler(ch)
-            if logFolder is not None:
-                ch2 = logging.handlers.RotatingFileHandler(os.path.join(logFolder, 'sdcclient.log'),
-                                                           maxBytes=5000000,
-                                                           backupCount=2)
-                ch2.setLevel(logging.INFO)
-                ch2.setFormatter(formatter)
-                # add ch to logger
-                applog.addHandler(ch2)
-    
-        applog.setLevel(logging.DEBUG)
-    
-    mklogger()
-    unittest.TextTestRunner(verbosity=2).run(suite())
+            sdc_device2.stop_all()
