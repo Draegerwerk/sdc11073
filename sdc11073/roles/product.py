@@ -76,7 +76,8 @@ class BaseProduct:
     def __init__(self, mdib, sco, log_prefix):
         """
 
-        :param model: a definitionsbase.AbstractModel instance
+        :param mdib: the device mdib
+        'param sco: sco of device
         :param log_prefix: str
         """
         self._sco = sco
@@ -176,15 +177,15 @@ class BaseProduct:
 
 
 class GenericProduct(BaseProduct):
-    def __init__(self, mdib, sco, audiopause_provider, daynight_provider, clock_provider, log_prefix):
+    def __init__(self, mdib, sco, audio_pause_provider, day_night_provider, clock_provider, log_prefix):
         super().__init__(mdib, sco, log_prefix)
 
-        self._ordered_providers.extend([audiopause_provider, daynight_provider, clock_provider])
-        self._ordered_providers.extend([patientcontextprovider.GenericPatientContextProvider(log_prefix=log_prefix),
-                                        alarmprovider.GenericAlarmProvider(log_prefix=log_prefix),
-                                        metricprovider.GenericMetricProvider(log_prefix=log_prefix),
-                                        operationprovider.OperationProvider(log_prefix=log_prefix),
-                                        GenericSetComponentStateOperationProvider(log_prefix=log_prefix)
+        self._ordered_providers.extend([audio_pause_provider, day_night_provider, clock_provider])
+        self._ordered_providers.extend([patientcontextprovider.GenericPatientContextProvider(mdib, log_prefix=log_prefix),
+                                        alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
+                                        metricprovider.GenericMetricProvider(mdib, log_prefix=log_prefix),
+                                        operationprovider.OperationProvider(mdib, log_prefix=log_prefix),
+                                        GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix)
                                         ])
 
 
@@ -209,7 +210,7 @@ class ExtendedProduct(MinimalProduct):
                                         clockprovider.GenericSDCClockProvider(mdib, log_prefix=log_prefix),
                                         contextprovider.EnsembleContextProvider(mdib, log_prefix=log_prefix),
                                         contextprovider.LocationContextProvider(mdib, log_prefix=log_prefix),
-                                        patientcontextprovider.GenericPatientContextProvider(data_model, log_prefix=log_prefix),
+                                        patientcontextprovider.GenericPatientContextProvider(mdib, log_prefix=log_prefix),
                                         alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
                                         self.metric_provider,
                                         operationprovider.OperationProvider(mdib, log_prefix=log_prefix),

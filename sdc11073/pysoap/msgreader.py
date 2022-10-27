@@ -1,5 +1,5 @@
 import copy
-import urllib
+from  urllib.parse import urlparse, ParseResult
 import traceback
 from collections import namedtuple
 from typing import List, Union
@@ -67,7 +67,6 @@ class MdibStructureError(Exception):
 
 OperationRequest = namedtuple('OperationRequest', 'operation_handle argument')
 OperationResult = namedtuple('OperationResult', 'transaction_id invocation_state error errorMsg soapEnvelope')
-#SubscribeResult = namedtuple('SubScribeResult', 'subscription_manager_address reference_param expire_seconds')
 SubscriptionEndResult = namedtuple('SubscriptionEndResult', 'status_list reason_list reference_parameter_list')
 LocalizedTextsRequest = namedtuple('LocalizedTextsRequest',
                                    'requested_handles requested_versions requested_langs text_widths number_of_lines')
@@ -88,7 +87,7 @@ class SubscribeRequest:
 
 @dataclass(frozen=True)
 class SubscribeResult:
-    subscription_manager_address: str
+    subscription_manager_address: ParseResult
     reference_param: ReferenceParameters
     expire_seconds: float
 
@@ -534,7 +533,7 @@ class MessageReaderClient(MessageReader):
         reference_param = None if len(reference_params) == 0 else reference_params[0]
         expires = msg_node.xpath('wse:Expires/text()', namespaces=namespaces.nsmap)
 
-        subscription_manager_address = urllib.parse.urlparse(address[0])
+        subscription_manager_address = urlparse(address[0])
         expire_seconds = isoduration.parse_duration(expires[0])
         return SubscribeResult(subscription_manager_address, ReferenceParameters(reference_param), expire_seconds)
 
