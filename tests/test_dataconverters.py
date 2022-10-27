@@ -5,8 +5,8 @@ from sdc11073 import dataconverters
 class TestDataConverters(unittest.TestCase):
 
     def test_decimal_converter(self):
+        before = dataconverters.DecimalConverter.USE_DECIMAL_TYPE
         try:
-            before = dataconverters.DecimalConverter.USE_DECIMAL_TYPE
             dataconverters.DecimalConverter.USE_DECIMAL_TYPE = False
             self.assertEqual(dataconverters.DecimalConverter.to_py('123'), 123)
             self.assertEqual(dataconverters.DecimalConverter.to_py('123.45'), 123.45)

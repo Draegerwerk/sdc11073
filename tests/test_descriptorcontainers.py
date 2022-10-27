@@ -10,12 +10,10 @@ from sdc11073.mdib import descriptorcontainers
 from tests.mockstuff import dec_list
 test_tag = namespaces.domTag('MyDescriptor')
 
-#nsmapper = namespaces.DocNamespaceHelper()
-
 class TestDescriptorContainers(unittest.TestCase):
 
     def setUp(self):
-        self.nsmapper = namespaces.DocNamespaceHelper()
+        self.ns_mapper = namespaces.DocNamespaceHelper()
 
     def test_AbstractDescriptorContainer(self):
         dc = descriptorcontainers.AbstractDescriptorContainer(handle='123', parent_handle='456')
@@ -27,7 +25,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc.Extension, None)
 
         # test creation from node
-        node = dc.mk_node(test_tag, self.nsmapper)
+        node = dc.mk_node(test_tag, self.ns_mapper)
         dc2 = descriptorcontainers.AbstractDescriptorContainer.from_node(node=node, parent_handle='467')
         self.assertEqual(dc2.DescriptorVersion, 0)
         self.assertEqual(dc2.SafetyClassification, 'Inf')
@@ -40,8 +38,8 @@ class TestDescriptorContainers(unittest.TestCase):
         dc.Type = pmtypes.CodedValue('abc', 'def')
 
         ext_node = etree_.Element(namespaces.msgTag('Whatever'))
-        etree_.SubElement(ext_node, 'foo', attrib={'someattr': 'somevalue'})
-        etree_.SubElement(ext_node, 'bar', attrib={'anotherattr': 'differentvalue'})
+        etree_.SubElement(ext_node, 'foo', attrib={'some_attr': 'some_value'})
+        etree_.SubElement(ext_node, 'bar', attrib={'another_attr': 'different_value'})
         dc.Extension.value[namespaces.msgTag('Whatever')] = ext_node
         retrievability = msgtypes.Retrievability([msgtypes.RetrievabilityInfo(msgtypes.RetrievabilityMethod.GET),
                                                   msgtypes.RetrievabilityInfo(msgtypes.RetrievabilityMethod.PERIODIC,
@@ -59,7 +57,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc2.Extension.value[msg.Retrievability], retrievability)
         self.assertEqual(dc2.retrievability, retrievability)
 
-        node = dc.mk_node(test_tag, self.nsmapper)
+        node = dc.mk_node(test_tag, self.ns_mapper)
         dc3 = descriptorcontainers.AbstractDescriptorContainer.from_node(node=node, parent_handle='467')
         self.assertEqual(dc3.DescriptorVersion, 42)
         self.assertEqual(dc3.SafetyClassification, 'MedA')
@@ -72,17 +70,17 @@ class TestDescriptorContainers(unittest.TestCase):
 
     def test_AbstractMetricDescriptorContainer(self):
         dc = descriptorcontainers.AbstractMetricDescriptorContainer(handle='123', parent_handle='456')
-        self.assertEqual(dc.MetricAvailability, 'Cont')  # the default value
-        self.assertEqual(dc.MetricCategory, 'Unspec')  # the default value
+        self.assertEqual(dc.MetricAvailability, pmtypes.MetricAvailability.CONTINUOUS)  # the default value
+        self.assertEqual(dc.MetricCategory, pmtypes.MetricCategory.UNSPECIFIED)  # the default value
         self.assertEqual(dc.DeterminationPeriod, None)
         self.assertEqual(dc.MaxMeasurementTime, None)
         self.assertEqual(dc.MaxDelayTime, None)
 
         # test creation from node
-        node = dc.mk_node(test_tag, self.nsmapper)
+        node = dc.mk_node(test_tag, self.ns_mapper)
         dc2 = descriptorcontainers.AbstractMetricDescriptorContainer.from_node(node=node, parent_handle='467')
-        self.assertEqual(dc2.MetricAvailability, 'Cont')
-        self.assertEqual(dc2.MetricCategory, 'Unspec')
+        self.assertEqual(dc2.MetricAvailability, pmtypes.MetricAvailability.CONTINUOUS)
+        self.assertEqual(dc2.MetricCategory, pmtypes.MetricCategory.UNSPECIFIED)
         self.assertEqual(dc2.DeterminationPeriod, None)
         self.assertEqual(dc2.MaxMeasurementTime, None)
         self.assertEqual(dc2.MaxDelayTime, None)
@@ -99,8 +97,8 @@ class TestDescriptorContainers(unittest.TestCase):
         dc.BodySite.append(pmtypes.CodedValue('GHI', 'JKL'))
         dc2.update_from_other_container(dc)
 
-        self.assertEqual(dc2.MetricAvailability, 'Intr')
-        self.assertEqual(dc2.MetricCategory, 'Msrmt')
+        self.assertEqual(dc2.MetricAvailability, pmtypes.MetricAvailability.INTERMITTENT)
+        self.assertEqual(dc2.MetricCategory, pmtypes.MetricCategory.MEASUREMENT)
         self.assertEqual(dc2.DeterminationPeriod, 3.5)
         self.assertEqual(dc2.MaxMeasurementTime, 2.1)
         self.assertEqual(dc2.MaxDelayTime, 4)
@@ -117,7 +115,7 @@ class TestDescriptorContainers(unittest.TestCase):
         dc = descriptorcontainers.EnumStringMetricDescriptorContainer(handle='123', parent_handle='456')
         dc.AllowedValue = [pmtypes.AllowedValue('abc')]
 
-        node = dc.mk_node(test_tag, self.nsmapper)
+        node = dc.mk_node(test_tag, self.ns_mapper)
         dc2 = descriptorcontainers.EnumStringMetricDescriptorContainer.from_node(node=node, parent_handle='467')
         self.assertEqual(dc.AllowedValue, dc2.AllowedValue)
 
@@ -130,7 +128,7 @@ class TestDescriptorContainers(unittest.TestCase):
     def test_AlertConditionDescriptorContainer(self):
         dc = descriptorcontainers.AlertConditionDescriptorContainer(handle='123', parent_handle='456')
         # create copy with default values
-        node = dc.mk_node(test_tag, self.nsmapper)
+        node = dc.mk_node(test_tag, self.ns_mapper)
         dc2 = descriptorcontainers.AlertConditionDescriptorContainer.from_node(node=node, parent_handle='467')
         self._cmp_AlertConditionDescriptorContainer(dc, dc2)
 
@@ -145,7 +143,7 @@ class TestDescriptorContainers(unittest.TestCase):
         ]
         dc.Kind = pmtypes.AlertConditionKind.TECHNICAL
         dc.Priority = pmtypes.AlertConditionPriority.HIGH
-        node = dc.mk_node(test_tag, self.nsmapper)
+        node = dc.mk_node(test_tag, self.ns_mapper)
         dc2.update_from_other_container(dc)
         self._cmp_AlertConditionDescriptorContainer(dc, dc2)
 
@@ -161,14 +159,14 @@ class TestDescriptorContainers(unittest.TestCase):
     def test_LimitAlertConditionDescriptorContainer(self):
         dc = descriptorcontainers.LimitAlertConditionDescriptorContainer(handle='123', parent_handle='456')
         # create copy with default values
-        node = dc.mk_node(test_tag, self.nsmapper)
+        node = dc.mk_node(test_tag, self.ns_mapper)
         dc2 = descriptorcontainers.LimitAlertConditionDescriptorContainer.from_node(node=node, parent_handle='467')
         self._cmp_LimitAlertConditionDescriptorContainer(dc, dc2)
 
         # set values, test updateFromNode
         dc.MaxLimits = pmtypes.Range(*dec_list(0, 100, 1, '0.1', '0.2'))
         dc.AutoLimitSupported = True
-        node = dc.mk_node(test_tag, self.nsmapper)
+        node = dc.mk_node(test_tag, self.ns_mapper)
         dc2.update_from_other_container(dc)
         self._cmp_LimitAlertConditionDescriptorContainer(dc, dc2)
 
@@ -184,19 +182,19 @@ class TestDescriptorContainers(unittest.TestCase):
 
         dc = descriptorcontainers.ActivateOperationDescriptorContainer(handle='123', parent_handle='456')
         # create copy with default values
-        node = dc.mk_node(test_tag, self.nsmapper)
+        node = dc.mk_node(test_tag, self.ns_mapper)
         dc2 = descriptorcontainers.ActivateOperationDescriptorContainer.from_node(node=node, parent_handle='456')
         _cmp_ActivateOperationDescriptorContainer(dc, dc2)
 
         dc.Argument = [pmtypes.ActivateOperationDescriptorArgument(arg_name=pmtypes.CodedValue('abc', 'def'),
-                                                                   arg=namespaces.domTag('blubb'))]
+                                                                   arg=namespaces.domTag('foo'))]
         dc2.update_from_other_container(dc)
         _cmp_ActivateOperationDescriptorContainer(dc, dc2)
 
     def test_ClockDescriptorContainer(self):
         dc = descriptorcontainers.ClockDescriptorContainer(handle='123', parent_handle='456')
         # create copy with default values
-        node = dc.mk_node(test_tag, self.nsmapper)
+        node = dc.mk_node(test_tag, self.ns_mapper)
         dc2 = descriptorcontainers.ClockDescriptorContainer.from_node(node=node, parent_handle='467')
         self.assertEqual(dc.TimeProtocol, dc2.TimeProtocol)
         self.assertEqual(dc.Resolution, dc2.Resolution)
