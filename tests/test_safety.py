@@ -1,5 +1,7 @@
 import unittest
+
 from lxml import etree as etree_
+
 from sdc11073 import safety
 from sdc11073.namespaces import Prefixes
 from sdc11073.namespaces import nsmap
@@ -63,40 +65,37 @@ class TestSafety(unittest.TestCase):
 
     def test_SafetyInfoHeader(self):
         # verify that SafetyInfoHeader creates a correct safety info header node
-        dualChannel = {'dcSel1':'TEST_VALUE', 'dcSel2': '4'}
-        safetyContext = {'scSel1':'ORIGINAL_TEST_VALUE', 'scSel2': '3'}
-        for algo in safety.sha1, safety.base64_sha1: # test with both encryption algorithms that are provided in module
-            si = safety.SafetyInfoHeader(dualChannel, safetyContext, algo)
-            rootNode = etree_.Element('bla') # name of root does not matter
-            rootNode.append(si.as_etree_node())
+        dual_channel = {'dcSel1': 'TEST_VALUE', 'dcSel2': '4'}
+        safety_context = {'scSel1': 'ORIGINAL_TEST_VALUE', 'scSel2': '3'}
+        for algo in safety.sha1, safety.base64_sha1:  # test with both encryption algorithms that are provided in module
+            si = safety.SafetyInfoHeader(dual_channel, safety_context, algo)
+            root_node = etree_.Element('bla')  # name of root does not matter
+            root_node.append(si.as_etree_node())
             # read relevant values from node anv verify that they are sha1 encoded (default encoding)
-            # xpathes are same as in above xml
-            # dcSel1 = rootNode.xpath("/bla/si:SafetyInfo/si:DualChannel/si:DcValue[@ReferencedSelector='dcSel1']", namespaces=namespaces.nsmap)
-            # dcSel2 = rootNode.xpath("/bla/si:SafetyInfo/si:DualChannel/si:DcValue[@ReferencedSelector='dcSel2']", namespaces=namespaces.nsmap)
-            #
-            # scSel1 = rootNode.xpath('/bla/si:SafetyInfo/si:SafetyContext/si:CtxtValue[@ReferencedSelector="scSel1"]', namespaces=namespaces.nsmap)
-            # scSel2 = rootNode.xpath('/bla/si:SafetyInfo/si:SafetyContext/si:CtxtValue[@ReferencedSelector="scSel2"]', namespaces=namespaces.nsmap)
-            dcSel1 = rootNode.xpath("/bla/{si}:SafetyInfo/{si}:DualChannel/{si}:DcValue[@ReferencedSelector='dcSel1']".format(si=Prefixes.MDPWS.prefix),
-                                    namespaces=nsmap)
-            dcSel2 = rootNode.xpath("/bla/{si}:SafetyInfo/{si}:DualChannel/{si}:DcValue[@ReferencedSelector='dcSel2']".format(si=Prefixes.MDPWS.prefix),
-                                    namespaces=nsmap)
+            # paths are same as in above xml
+            dc_sel1 = root_node.xpath(
+                "/bla/{si}:SafetyInfo/{si}:DualChannel/{si}:DcValue[@ReferencedSelector='dcSel1']".format(
+                    si=Prefixes.MDPWS.prefix), namespaces=nsmap)
+            dc_sel2 = root_node.xpath(
+                "/bla/{si}:SafetyInfo/{si}:DualChannel/{si}:DcValue[@ReferencedSelector='dcSel2']".format(
+                    si=Prefixes.MDPWS.prefix), namespaces=nsmap)
 
-            scSel1 = rootNode.xpath('/bla/{si}:SafetyInfo/{si}:SafetyContext/{si}:CtxtValue[@ReferencedSelector="scSel1"]'.format(si=Prefixes.MDPWS.prefix),
-                                    namespaces=nsmap)
-            scSel2 = rootNode.xpath('/bla/{si}:SafetyInfo/{si}:SafetyContext/{si}:CtxtValue[@ReferencedSelector="scSel2"]'.format(si=Prefixes.MDPWS.prefix),
-                                    namespaces=nsmap)
+            sc_sel1 = root_node.xpath(
+                '/bla/{si}:SafetyInfo/{si}:SafetyContext/{si}:CtxtValue[@ReferencedSelector="scSel1"]'.format(
+                    si=Prefixes.MDPWS.prefix), namespaces=nsmap)
+            sc_sel2 = root_node.xpath(
+                '/bla/{si}:SafetyInfo/{si}:SafetyContext/{si}:CtxtValue[@ReferencedSelector="scSel2"]'.format(
+                    si=Prefixes.MDPWS.prefix), namespaces=nsmap)
 
-            self.assertEqual(dcSel1[0].text, algo('TEST_VALUE'))
-            self.assertEqual(dcSel2[0].text, algo('4'))
-            self.assertEqual(scSel1[0].text,'ORIGINAL_TEST_VALUE')
-            self.assertEqual(scSel2[0].text,'3')
+            self.assertEqual(dc_sel1[0].text, algo('TEST_VALUE'))
+            self.assertEqual(dc_sel2[0].text, algo('4'))
+            self.assertEqual(sc_sel1[0].text, 'ORIGINAL_TEST_VALUE')
+            self.assertEqual(sc_sel2[0].text, '3')
 
 
-        
 def suite():
     return unittest.TestLoader().loadTestsFromTestCase(TestSafety)
 
 
 if __name__ == '__main__':
     unittest.TextTestRunner(verbosity=2).run(suite())
-

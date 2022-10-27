@@ -6,15 +6,15 @@ from sdc11073.exceptions import ApiUsageError
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.pmtypes import Coding
 
-mdibFolder = os.path.dirname(__file__)
+mdib_folder = os.path.dirname(__file__)
 
 
 class TestMdib(unittest.TestCase):
 
-    def test_selectDescriptors(self):
+    def test_select_descriptors(self):
 
-        device_mdib_container = DeviceMdibContainer.from_mdib_file(os.path.join(mdibFolder, '70041_MDIB_Final.xml'))
-        # from looking at the mdib file I know how many elements the tested pathes shall return
+        device_mdib_container = DeviceMdibContainer.from_mdib_file(os.path.join(mdib_folder, '70041_MDIB_Final.xml'))
+        # from looking at the mdib file I know how many elements the tested paths shall return
         for path, expectedCount in [(('70041',), 1),
                                     (('70041', '69650'), 1),  # VMDs
                                     (('70041', '69650', '69651'), 1),  # Channels
@@ -40,13 +40,13 @@ class TestMdib(unittest.TestCase):
                                                                                channel_code=Coding("130637"),
                                                                                metric_code=Coding("196174"))
         self.assertIsNotNone(metric_container)
-        metric_container = device_mdib_container.get_metric_descriptor_by_code(vmd_code=Coding("xxxxx"),
+        metric_container = device_mdib_container.get_metric_descriptor_by_code(vmd_code=Coding("98765"),
                                                                                channel_code=Coding("130637"),
                                                                                metric_code=Coding("196174"))
         self.assertIsNone(metric_container)
         metric_container = device_mdib_container.get_metric_descriptor_by_code(vmd_code=Coding("130536"),
                                                                                channel_code=Coding("130637"),
-                                                                               metric_code=Coding("xxxxx"))
+                                                                               metric_code=Coding("98765"))
         self.assertIsNone(metric_container)
 
 
@@ -81,7 +81,9 @@ class TestMdibTransaction(unittest.TestCase):
             metric_descriptor = mgr.get_descriptor('numeric.ch0.vmd0')
             metric_descriptor.DeterminationPeriod = 29.0
             state = mgr.get_state('numeric.ch0.vmd0')
-            self.assertRaises(ValueError, mgr.get_state, 'numeric.ch0.vmd0')
+            self.assertEqual(state.DescriptorHandle, 'numeric.ch0.vmd0')
+            self.assertRaises(ValueError, mgr.get_state, 'numeric.ch0.vmd0')  # second get_state call
+            # next call failed due to a previous error
             self.assertRaises(ApiUsageError, mgr.get_state, 'numeric.ch1.vmd0')
 
     def test_update_descriptor_wrong_state(self):
@@ -93,12 +95,5 @@ class TestMdibTransaction(unittest.TestCase):
     def test_get_mixed_states(self):
         with self.mdib.transaction_manager() as mgr:
             state = mgr.get_state('numeric.ch0.vmd0')
+            self.assertEqual(state.DescriptorHandle, 'numeric.ch0.vmd0')
             self.assertRaises(ApiUsageError, mgr.get_state, 'ch0.vmd0')
-
-
-def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(TestMdib)
-
-
-if __name__ == '__main__':
-    unittest.TextTestRunner(verbosity=2).run(suite())

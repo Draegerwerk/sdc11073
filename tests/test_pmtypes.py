@@ -3,7 +3,7 @@ import unittest
 from sdc11073 import pmtypes
 
 
-class TestPmtypes(unittest.TestCase):
+class TestPmTypes(unittest.TestCase):
 
     def test_CodedValue(self):
         c1 = pmtypes.CodedValue('42')
@@ -11,7 +11,7 @@ class TestPmtypes(unittest.TestCase):
         # compare with simple string or int shall return False
         self.assertFalse(c1.equals(42))
         self.assertFalse(c1.equals('42'))
-        # if CodedValue does not have default coding systen, this compare shall return False
+        # if CodedValue does not have default coding system, this compare shall return False
         self.assertFalse(c2.equals(42))
         # it shall be possible to compare with a Coding instance
         self.assertTrue(c1.equals(pmtypes.Coding('42', pmtypes.DEFAULT_CODING_SYSTEM, None)))
@@ -20,7 +20,7 @@ class TestPmtypes(unittest.TestCase):
         c2.Translation.append(pmtypes.T_Translation('41'))
         self.assertNotEqual(c2, 41)
         c3 = pmtypes.CodedValue('42')
-        c3.Translation.append(pmtypes.T_Translation('41')) # same translation as c2
+        c3.Translation.append(pmtypes.T_Translation('41'))  # same translation as c2
         self.assertTrue(c2.equals(c3))
 
     def test_have_matching_codes(self):

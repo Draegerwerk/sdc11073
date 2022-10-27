@@ -1,18 +1,18 @@
 # coding: utf-8
 import datetime
 import unittest
-from math import isclose
 from decimal import Decimal
-from lxml import etree as etree_
+from math import isclose
 
-import sdc11073.mdib.containerproperties as containerproperties
-import sdc11073.mdib.descriptorcontainers as descriptorcontainers
-import sdc11073.mdib.statecontainers as statecontainers
+import sdc11073.mdib.containerproperties as cp
+import sdc11073.mdib.descriptorcontainers as dc
+import sdc11073.mdib.statecontainers as sc
 import sdc11073.namespaces as namespaces
-import sdc11073.pmtypes as pmtypes
-from sdc11073.location import SdcLocation
 from sdc11073 import pm_qnames as pm
+from sdc11073 import pmtypes
+from sdc11073.location import SdcLocation
 from tests.mockstuff import dec_list
+
 # pylint: disable=protected-access
 _my_tag = pm.State
 
@@ -20,148 +20,149 @@ _my_tag = pm.State
 class TestStateContainers(unittest.TestCase):
 
     def setUp(self):
-        self.nsmapper = namespaces.DocNamespaceHelper()
-        self.dc = descriptorcontainers.AbstractDescriptorContainer(handle='123', parent_handle='456')
-        self.dc.DescriptorVersion = 42
+        self.ns_mapper = namespaces.DocNamespaceHelper()
+        self.descr = dc.AbstractDescriptorContainer(handle='123', parent_handle='456')
+        self.descr.DescriptorVersion = 42
 
     def test_AbstractStateContainer(self):
-        sc = statecontainers.AbstractStateContainer(descriptor_container=self.dc)
+        state = sc.AbstractStateContainer(descriptor_container=self.descr)
 
         # initially the state version shall be 0, and DescriptorVersion shall be set
-        self.assertEqual(sc.StateVersion, 0)
-        self.assertEqual(sc.DescriptorVersion, self.dc.DescriptorVersion)
+        self.assertEqual(state.StateVersion, 0)
+        self.assertEqual(state.DescriptorVersion, self.descr.DescriptorVersion)
 
         # verify incrementState works as expected
-        sc.increment_state_version()
-        self.assertEqual(sc.StateVersion, 1)
-        node = sc.mk_state_node(_my_tag, self.nsmapper)
+        state.increment_state_version()
+        self.assertEqual(state.StateVersion, 1)
+        node = state.mk_state_node(_my_tag, self.ns_mapper)
         self.assertEqual(node.get('StateVersion'), '1')
 
         # test creation from other container
-        sc2 = statecontainers.AbstractStateContainer(descriptor_container=self.dc)
-        sc2.update_from_other_container(sc)
+        state2 = sc.AbstractStateContainer(descriptor_container=self.descr)
+        state2.update_from_other_container(state)
 
-        self._verifyAbstractStateContainerDataEqual(sc, sc2)
+        self._verifyAbstractStateContainerDataEqual(state, state2)
 
         # test update from other container
-        sc.DescriptorVersion += 1
-        sc.increment_state_version()
-        sc2.update_from_other_container(sc)
-        self._verifyAbstractStateContainerDataEqual(sc, sc2)
+        state.DescriptorVersion += 1
+        state.increment_state_version()
+        state2.update_from_other_container(state)
+        self._verifyAbstractStateContainerDataEqual(state, state2)
 
-    def _verifyAbstractStateContainerDataEqual(self, sc1, sc2):
-        self.assertEqual(sc1.DescriptorVersion, sc2.DescriptorVersion)
-        self.assertEqual(sc1.StateVersion, sc2.StateVersion)
+    def _verifyAbstractStateContainerDataEqual(self, state1, state2):
+        self.assertEqual(state1.DescriptorVersion, state2.DescriptorVersion)
+        self.assertEqual(state1.StateVersion, state2.StateVersion)
 
     def test_AbstractOperationStateContainer(self):
-        sc = statecontainers.AbstractOperationStateContainer(descriptor_container=self.dc)
-        self.assertIsNotNone(sc.OperatingMode)  # this is a required attribute
+        state = sc.AbstractOperationStateContainer(descriptor_container=self.descr)
+        self.assertIsNotNone(state.OperatingMode)  # this is a required attribute
 
-        sc2 = statecontainers.AbstractOperationStateContainer(descriptor_container=self.dc)
-        self.assertIsNotNone(sc2.OperatingMode)
-        self._verifyAbstractStateContainerDataEqual(sc, sc2)
+        state2 = sc.AbstractOperationStateContainer(descriptor_container=self.descr)
+        self.assertIsNotNone(state2.OperatingMode)
+        self._verifyAbstractStateContainerDataEqual(state, state2)
 
         # test update_from_other_container
-        sc.OperatingMode = pmtypes.OperatingMode.NA
-        self.assertEqual(sc.OperatingMode, pmtypes.OperatingMode.NA)
-        sc2.update_from_other_container(sc)
-        self.assertEqual(sc2.OperatingMode, pmtypes.OperatingMode.NA)
+        state.OperatingMode = pmtypes.OperatingMode.NA
+        self.assertEqual(state.OperatingMode, pmtypes.OperatingMode.NA)
+        state2.update_from_other_container(state)
+        self.assertEqual(state2.OperatingMode, pmtypes.OperatingMode.NA)
 
     def test_AbstractMetricStateContainer(self):
-        dc = descriptorcontainers.NumericMetricDescriptorContainer(handle='123', parent_handle='456')
-        sc = statecontainers.NumericMetricStateContainer(descriptor_container=dc)
+        descr = dc.NumericMetricDescriptorContainer(handle='123', parent_handle='456')
+        state = sc.NumericMetricStateContainer(descriptor_container=descr)
 
-        self.assertEqual(sc.ActivationState, 'On')
+        self.assertEqual(state.ActivationState, 'On')
         for value in list(pmtypes.ComponentActivation):
-            sc.ActivationState = value
-            self.assertEqual(sc.ActivationState, value)
-            node = sc.mk_state_node(_my_tag, self.nsmapper)
+            state.ActivationState = value
+            self.assertEqual(state.ActivationState, value)
+            node = state.mk_state_node(_my_tag, self.ns_mapper)
             self.assertEqual(node.get('ActivationState'), value)
 
-        self.assertEqual(sc.ActiveDeterminationPeriod, None)
+        self.assertEqual(state.ActiveDeterminationPeriod, None)
         for value in (21, 42):
-            sc.ActiveDeterminationPeriod = value
-            self.assertEqual(sc.ActiveDeterminationPeriod, value)
-            node = sc.mk_state_node(_my_tag, self.nsmapper)
+            state.ActiveDeterminationPeriod = value
+            self.assertEqual(state.ActiveDeterminationPeriod, value)
+            node = state.mk_state_node(_my_tag, self.ns_mapper)
             self.assertEqual(node.get('ActiveDeterminationPeriod'),
-                             containerproperties.DurationConverter.to_xml(value))
-        sc.BodySite = [pmtypes.CodedValue('ABC')]
-        sc.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('ABC')], 1)
+                             cp.DurationConverter.to_xml(value))
+        state.BodySite = [pmtypes.CodedValue('ABC')]
+        state.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('ABC')], 1)
 
         # test creation from other container
-        sc2 = statecontainers.NumericMetricStateContainer(descriptor_container=dc)
-        sc2.update_from_other_container(sc)
-        self.assertEqual(sc.ActivationState, sc2.ActivationState)
-        self.assertEqual(sc.ActiveDeterminationPeriod, sc2.ActiveDeterminationPeriod)
-        self.assertEqual(sc.BodySite, sc2.BodySite)
-        self.assertEqual(sc.PhysicalConnector, sc2.PhysicalConnector)
-        self._verifyAbstractStateContainerDataEqual(sc, sc2)
+        state2 = sc.NumericMetricStateContainer(descriptor_container=descr)
+        state2.update_from_other_container(state)
+        self.assertEqual(state.ActivationState, state2.ActivationState)
+        self.assertEqual(state.ActiveDeterminationPeriod, state2.ActiveDeterminationPeriod)
+        self.assertEqual(state.BodySite, state2.BodySite)
+        self.assertEqual(state.PhysicalConnector, state2.PhysicalConnector)
+        self._verifyAbstractStateContainerDataEqual(state, state2)
 
         # test update from other container
-        sc.ActivationState = pmtypes.ComponentActivation.NOT_READY
-        sc.ActiveDeterminationPeriod += 1
-        sc.BodySite = [pmtypes.CodedValue('DEF')]
-        sc.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('DEF')], 2)
-        sc.increment_state_version()
-        sc2.update_from_other_container(sc)
-        self.assertEqual(sc.ActivationState, sc2.ActivationState)
-        self.assertEqual(sc.BodySite, sc2.BodySite)
-        self.assertEqual(sc.PhysicalConnector, sc2.PhysicalConnector)
-        self.assertEqual(sc.ActiveDeterminationPeriod, sc2.ActiveDeterminationPeriod)
-        self._verifyAbstractStateContainerDataEqual(sc, sc2)
+        state.ActivationState = pmtypes.ComponentActivation.NOT_READY
+        state.ActiveDeterminationPeriod += 1
+        state.BodySite = [pmtypes.CodedValue('DEF')]
+        state.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('DEF')], 2)
+        state.increment_state_version()
+        state2.update_from_other_container(state)
+        self.assertEqual(state.ActivationState, state2.ActivationState)
+        self.assertEqual(state.BodySite, state2.BodySite)
+        self.assertEqual(state.PhysicalConnector, state2.PhysicalConnector)
+        self.assertEqual(state.ActiveDeterminationPeriod, state2.ActiveDeterminationPeriod)
+        self._verifyAbstractStateContainerDataEqual(state, state2)
 
     def test_NumericMetricStateContainer(self):
-        dc = descriptorcontainers.NumericMetricDescriptorContainer(handle='123', parent_handle='456')
-        sc = statecontainers.NumericMetricStateContainer(descriptor_container=dc)
-        sc.mk_metric_value()
-        self.assertTrue(isinstance(sc.MetricValue, pmtypes.NumericMetricValue))
-        sc.MetricValue.Value = Decimal(42.21)
-        sc.MetricValue.StartTime = 1234567.21
-        sc.MetricValue.StopTime = sc.MetricValue.StartTime + 10
-        sc.MetricValue.DeterminationTime = sc.MetricValue.StartTime + 20
-        sc.MetricValue.Validity = 'Vld'
-        sc.ActiveAveragingPeriod = 42
-        sc.PhysiologicalRange = [pmtypes.Range(*dec_list(1, 2, 3, 4, 5)), pmtypes.Range(*dec_list(10, 20, 30, 40, 50))]
+        descr = dc.NumericMetricDescriptorContainer(handle='123', parent_handle='456')
+        state = sc.NumericMetricStateContainer(descriptor_container=descr)
+        state.mk_metric_value()
+        self.assertTrue(isinstance(state.MetricValue, pmtypes.NumericMetricValue))
+        state.MetricValue.Value = Decimal(42.21)
+        state.MetricValue.StartTime = 1234567.21
+        state.MetricValue.StopTime = state.MetricValue.StartTime + 10
+        state.MetricValue.DeterminationTime = state.MetricValue.StartTime + 20
+        state.MetricValue.MetricQuality.Validity = pmtypes.MeasurementValidity.VALID
+        state.ActiveAveragingPeriod = 42
+        state.PhysiologicalRange = [pmtypes.Range(*dec_list(1, 2, 3, 4, 5)),
+                                    pmtypes.Range(*dec_list(10, 20, 30, 40, 50))]
 
-        sc2 = statecontainers.NumericMetricStateContainer(descriptor_container=dc)
-        sc2.update_from_other_container(sc)
+        state2 = sc.NumericMetricStateContainer(descriptor_container=descr)
+        state2.update_from_other_container(state)
         # verify also that mkStateNode on receiving sc does not change anything
         for dummy in range(1):
-            self.assertTrue(isclose(sc.MetricValue.Value, sc2.MetricValue.Value))
-            self.assertEqual(sc.MetricValue.StartTime, sc2.MetricValue.StartTime)
-            self.assertEqual(sc.MetricValue.StopTime, sc2.MetricValue.StopTime)
-            self.assertEqual(sc.MetricValue.DeterminationTime, sc2.MetricValue.DeterminationTime)
-            self.assertEqual(sc.MetricValue.Validity, sc2.MetricValue.Validity)
-            self.assertEqual(sc.ActiveAveragingPeriod, sc2.ActiveAveragingPeriod)
-            self.assertEqual(sc.PhysiologicalRange, sc2.PhysiologicalRange)
+            self.assertTrue(isclose(state.MetricValue.Value, state2.MetricValue.Value))
+            self.assertEqual(state.MetricValue.StartTime, state2.MetricValue.StartTime)
+            self.assertEqual(state.MetricValue.StopTime, state2.MetricValue.StopTime)
+            self.assertEqual(state.MetricValue.DeterminationTime, state2.MetricValue.DeterminationTime)
+            self.assertEqual(state.MetricValue.MetricQuality.Validity, state2.MetricValue.MetricQuality.Validity)
+            self.assertEqual(state.ActiveAveragingPeriod, state2.ActiveAveragingPeriod)
+            self.assertEqual(state.PhysiologicalRange, state2.PhysiologicalRange)
 
-            self._verifyAbstractStateContainerDataEqual(sc, sc2)
-            sc.mk_state_node(_my_tag, self.nsmapper)
+            self._verifyAbstractStateContainerDataEqual(state, state2)
+            state.mk_state_node(_my_tag, self.ns_mapper)
 
-        sc.MetricValue.Value += 1
-        sc.increment_state_version()
-        sc.ActiveAveragingPeriod = 24
-        sc.PhysiologicalRange[1].Lower = Decimal(100)
-        sc2.update_from_other_container(sc)
-        self.assertTrue(isclose(sc.MetricValue.Value, sc2.MetricValue.Value))
-        self.assertEqual(sc.ActiveAveragingPeriod, sc2.ActiveAveragingPeriod)
-        self.assertEqual(sc.PhysiologicalRange, sc2.PhysiologicalRange)
-        self._verifyAbstractStateContainerDataEqual(sc, sc2)
+        state.MetricValue.Value += 1
+        state.increment_state_version()
+        state.ActiveAveragingPeriod = 24
+        state.PhysiologicalRange[1].Lower = Decimal(100)
+        state2.update_from_other_container(state)
+        self.assertTrue(isclose(state.MetricValue.Value, state2.MetricValue.Value))
+        self.assertEqual(state.ActiveAveragingPeriod, state2.ActiveAveragingPeriod)
+        self.assertEqual(state.PhysiologicalRange, state2.PhysiologicalRange)
+        self._verifyAbstractStateContainerDataEqual(state, state2)
 
     def test_StringMetricStateContainer(self):
-        dc = descriptorcontainers.StringMetricDescriptorContainer(handle='123',parent_handle='456')
-        sc = statecontainers.StringMetricStateContainer(descriptor_container=dc)
-        sc.mk_metric_value()
-        self.assertTrue(isinstance(sc.MetricValue, pmtypes.StringMetricValue))
+        descr = dc.StringMetricDescriptorContainer(handle='123', parent_handle='456')
+        state = sc.StringMetricStateContainer(descriptor_container=descr)
+        state.mk_metric_value()
+        self.assertTrue(isinstance(state.MetricValue, pmtypes.StringMetricValue))
 
     def test_EnumStringMetricStateContainer(self):
-        dc = descriptorcontainers.EnumStringMetricDescriptorContainer(handle='123', parent_handle='456')
-        sc = statecontainers.EnumStringMetricStateContainer(descriptor_container=dc)
-        sc.mk_metric_value()
-        self.assertTrue(isinstance(sc.MetricValue, pmtypes.StringMetricValue))
+        descr = dc.EnumStringMetricDescriptorContainer(handle='123', parent_handle='456')
+        state = sc.EnumStringMetricStateContainer(descriptor_container=descr)
+        state.mk_metric_value()
+        self.assertTrue(isinstance(state.MetricValue, pmtypes.StringMetricValue))
 
     def test_RealTimeSampleArrayMetricStateContainer(self):
-        dc = descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer(handle='123', parent_handle='456')
+        descr = dc.RealTimeSampleArrayMetricDescriptorContainer(handle='123', parent_handle='456')
 
         def verifyEqual(origin, copied):
             self.assertEqual(len(copied.MetricValue.Samples), len(origin.MetricValue.Samples))
@@ -172,29 +173,29 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(copied.MetricValue.ApplyAnnotations, origin.MetricValue.ApplyAnnotations)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
-        sc = statecontainers.RealTimeSampleArrayMetricStateContainer(descriptor_container=dc)
-        sc.mk_metric_value()
-        self.assertTrue(isinstance(sc.MetricValue, pmtypes.SampleArrayValue))
+        state = sc.RealTimeSampleArrayMetricStateContainer(descriptor_container=descr)
+        state.mk_metric_value()
+        self.assertTrue(isinstance(state.MetricValue, pmtypes.SampleArrayValue))
 
-        sc.MetricValue.Samples = dec_list(1, 2, 3, 4, 5.5)
-        sc.MetricValue.DeterminationTime = 1234567
-        sc.MetricValue.Annotations = []
-        sc.MetricValue.ApplyAnnotations = []
-        sc.ActivationState = pmtypes.ComponentActivation.FAILURE
+        state.MetricValue.Samples = dec_list(1, 2, 3, 4, 5.5)
+        state.MetricValue.DeterminationTime = 1234567
+        state.MetricValue.Annotations = []
+        state.MetricValue.ApplyAnnotations = []
+        state.ActivationState = pmtypes.ComponentActivation.FAILURE
 
         # test creation from other container
-        sc2 = statecontainers.RealTimeSampleArrayMetricStateContainer(descriptor_container=dc)
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        state2 = sc.RealTimeSampleArrayMetricStateContainer(descriptor_container=descr)
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
-        sc.MetricValue.Samples = dec_list(5.5, 6.6)
-        sc.MetricValue.DeterminationTime = 2345678
-        sc.MetricValue.Annotations = [pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))]
-        sc.MetricValue.ApplyAnnotations = [pmtypes.ApplyAnnotation(1, 2)]
+        state.MetricValue.Samples = dec_list(5.5, 6.6)
+        state.MetricValue.DeterminationTime = 2345678
+        state.MetricValue.Annotations = [pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))]
+        state.MetricValue.ApplyAnnotations = [pmtypes.ApplyAnnotation(1, 2)]
 
-        sc.increment_state_version()
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        state.increment_state_version()
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
     def test_AbstractDeviceComponentStateContainer(self):
 
@@ -205,26 +206,26 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(copied.PhysicalConnector, origin.PhysicalConnector)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
-        sc = statecontainers.AbstractDeviceComponentStateContainer(descriptor_container=self.dc, )
-        self.assertEqual(sc.ActivationState, None)
-        self.assertEqual(sc.OperatingHours, None)
-        self.assertEqual(sc.OperatingCycles, None)
-        self.assertEqual(sc.PhysicalConnector, None)
+        state = sc.AbstractDeviceComponentStateContainer(descriptor_container=self.descr, )
+        self.assertEqual(state.ActivationState, None)
+        self.assertEqual(state.OperatingHours, None)
+        self.assertEqual(state.OperatingCycles, None)
+        self.assertEqual(state.PhysicalConnector, None)
 
-        sc.ActivationState = pmtypes.ComponentActivation.ON
-        sc.OperatingHours = 4
-        sc.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('ABC')], 1)
+        state.ActivationState = pmtypes.ComponentActivation.ON
+        state.OperatingHours = 4
+        state.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('ABC')], 1)
 
-        sc2 = statecontainers.AbstractDeviceComponentStateContainer(descriptor_container=self.dc)
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        state2 = sc.AbstractDeviceComponentStateContainer(descriptor_container=self.descr)
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
-        sc.ActivationState = pmtypes.ComponentActivation.OFF
-        sc.OperatingHours += 1
-        sc.OperatingHours += 1
-        sc.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('DEF')], 2)
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        state.ActivationState = pmtypes.ComponentActivation.OFF
+        state.OperatingHours += 1
+        state.OperatingHours += 1
+        state.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('DEF')], 2)
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
     def test_MdsStateContainer(self):
         pass
@@ -250,34 +251,35 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(copied.PresentTechnicalAlarmConditions, origin.PresentTechnicalAlarmConditions)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
-        sc = statecontainers.AlertSystemStateContainer(descriptor_container=self.dc)
-        self.assertEqual(sc.SystemSignalActivation, [])
-        self.assertEqual(sc.LastSelfCheck, None)
-        self.assertEqual(sc.SelfCheckCount, None)
-        self.assertEqual(sc.PresentPhysiologicalAlarmConditions, [])
-        self.assertEqual(sc.PresentTechnicalAlarmConditions, [])
+        state = sc.AlertSystemStateContainer(descriptor_container=self.descr)
+        self.assertEqual(state.SystemSignalActivation, [])
+        self.assertEqual(state.LastSelfCheck, None)
+        self.assertEqual(state.SelfCheckCount, None)
+        self.assertEqual(state.PresentPhysiologicalAlarmConditions, [])
+        self.assertEqual(state.PresentTechnicalAlarmConditions, [])
 
         # test creation from other container
-        sc.SystemSignalActivation = [pmtypes.SystemSignalActivation(manifestation=pmtypes.AlertSignalManifestation.AUD,
-                                                                    state=pmtypes.AlertActivation.ON),
-                                     pmtypes.SystemSignalActivation(manifestation=pmtypes.AlertSignalManifestation.VIS,
-                                                                    state=pmtypes.AlertActivation.ON)
-                                     ]
-        sc.LastSelfCheck = 1234567
-        sc.SelfCheckCount = 3
-        sc.PresentPhysiologicalAlarmConditions = ["handle1", "handle2", "handle3"]
-        sc.increment_state_version()
-        sc2 = statecontainers.AlertSystemStateContainer(descriptor_container=self.dc)
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        state.SystemSignalActivation = [
+            pmtypes.SystemSignalActivation(manifestation=pmtypes.AlertSignalManifestation.AUD,
+                                           state=pmtypes.AlertActivation.ON),
+            pmtypes.SystemSignalActivation(manifestation=pmtypes.AlertSignalManifestation.VIS,
+                                           state=pmtypes.AlertActivation.ON)
+        ]
+        state.LastSelfCheck = 1234567
+        state.SelfCheckCount = 3
+        state.PresentPhysiologicalAlarmConditions = ["handle1", "handle2", "handle3"]
+        state.increment_state_version()
+        state2 = sc.AlertSystemStateContainer(descriptor_container=self.descr)
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
         # test update from other container
-        sc.LastSelfCheck = 12345678
-        sc.SelfCheckCount = 4
-        sc.PresentPhysiologicalAlarmConditions = ["handle2", "handle3", "handle4"]
-        sc.increment_state_version()
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        state.LastSelfCheck = 12345678
+        state.SelfCheckCount = 4
+        state.PresentPhysiologicalAlarmConditions = ["handle2", "handle3", "handle4"]
+        state.increment_state_version()
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
     def test_AlertConditionStateContainer(self):
         def verifyEqual(origin, copied):
@@ -287,23 +289,23 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(copied.Presence, origin.Presence)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
-        sc = statecontainers.AlertConditionStateContainer(descriptor_container=self.dc)
-        self.assertEqual(sc.ActualPriority, None)
-        self.assertEqual(sc.Rank, None)
-        self.assertEqual(sc.DeterminationTime, None)
-        self.assertEqual(sc.Presence, False)
+        state = sc.AlertConditionStateContainer(descriptor_container=self.descr)
+        self.assertEqual(state.ActualPriority, None)
+        self.assertEqual(state.Rank, None)
+        self.assertEqual(state.DeterminationTime, None)
+        self.assertEqual(state.Presence, False)
 
-        sc2 = statecontainers.AlertConditionStateContainer(descriptor_container=self.dc)
-        verifyEqual(sc, sc2)
+        state2 = sc.AlertConditionStateContainer(descriptor_container=self.descr)
+        verifyEqual(state, state2)
 
         # test update from other container
-        sc.ActualPriority = pmtypes.AlertConditionPriority.LOW
-        sc.Rank = 3
-        sc.DeterminationTime = 1234567
-        sc.Presence = True
-        sc.increment_state_version()
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        state.ActualPriority = pmtypes.AlertConditionPriority.LOW
+        state.Rank = 3
+        state.DeterminationTime = 1234567
+        state.Presence = True
+        state.increment_state_version()
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
     def test_LimitAlertConditionStateContainer_Final(self):
         def verifyEqual(origin, copied):
@@ -312,58 +314,58 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(copied.AutoLimitActivationState, origin.AutoLimitActivationState)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
-        sc = statecontainers.LimitAlertConditionStateContainer(descriptor_container=self.dc)
-        self.assertEqual(sc.MonitoredAlertLimits, pmtypes.AlertConditionMonitoredLimits.NONE)
-        self.assertEqual(sc.AutoLimitActivationState, None)
+        state = sc.LimitAlertConditionStateContainer(descriptor_container=self.descr)
+        self.assertEqual(state.MonitoredAlertLimits, pmtypes.AlertConditionMonitoredLimits.NONE)
+        self.assertEqual(state.AutoLimitActivationState, None)
 
-        sc2 = statecontainers.LimitAlertConditionStateContainer(descriptor_container=self.dc)
-        verifyEqual(sc, sc2)
+        state2 = sc.LimitAlertConditionStateContainer(descriptor_container=self.descr)
+        verifyEqual(state, state2)
 
         # test update from other container
-        sc.Limits = pmtypes.Range(*dec_list(5, 9, '0.1', '0.01', '0.001'))
-        sc.Rank = 3
-        sc.DeterminationTime = 1234567
-        sc.Presence = True
-        sc.increment_state_version()
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        state.Limits = pmtypes.Range(*dec_list(5, 9, '0.1', '0.01', '0.001'))
+        state.Rank = 3
+        state.DeterminationTime = 1234567
+        state.Presence = True
+        state.increment_state_version()
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
     def test_SetStringOperationStateContainer(self):
-        sc = statecontainers.SetStringOperationStateContainer(descriptor_container=self.dc)
+        state = sc.SetStringOperationStateContainer(descriptor_container=self.descr)
         # verify that initial pyValue is empty, and that no AllowedValues node is created
-        self.assertEqual(sc.AllowedValues.Value, [])
-        node = sc.mk_state_node(_my_tag, self.nsmapper)
+        self.assertEqual(state.AllowedValues.Value, [])
+        node = state.mk_state_node(_my_tag, self.ns_mapper)
         allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
         self.assertEqual(len(allowedValuesNodes), 0)
 
-        sc2 = statecontainers.SetStringOperationStateContainer(descriptor_container=self.dc)
-        sc2.update_from_other_container(sc)
-        self.assertEqual(sc2.AllowedValues.Value, [])
+        state2 = sc.SetStringOperationStateContainer(descriptor_container=self.descr)
+        state2.update_from_other_container(state)
+        self.assertEqual(state2.AllowedValues.Value, [])
 
         # verify that setting to None is identical to empty list
-        sc.AllowedValues.Value = []
-        node = sc.mk_state_node(_my_tag, self.nsmapper)
+        state.AllowedValues.Value = []
+        node = state.mk_state_node(_my_tag, self.ns_mapper)
         allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
         self.assertEqual(len(allowedValuesNodes), 0)
 
         # verify that non-empty list creates values in xml and that same list appears in container created from that xml
-        sc.AllowedValues.Value = ['a', 'b', 'c']
-        node = sc.mk_state_node(_my_tag, self.nsmapper)
+        state.AllowedValues.Value = ['a', 'b', 'c']
+        node = state.mk_state_node(_my_tag, self.ns_mapper)
         allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
         self.assertEqual(len(allowedValuesNodes), 1)
         valuesNodes = node.xpath('//dom:Value', namespaces=namespaces.nsmap)
         self.assertEqual(len(valuesNodes), 3)
-        sc2 = statecontainers.SetStringOperationStateContainer(descriptor_container=self.dc)
-        sc2.update_from_other_container(sc)
-        self.assertEqual(sc2.AllowedValues.Value, ['a', 'b', 'c'])
+        state2 = sc.SetStringOperationStateContainer(descriptor_container=self.descr)
+        state2.update_from_other_container(state)
+        self.assertEqual(state2.AllowedValues.Value, ['a', 'b', 'c'])
 
         # verify that setting it back to None clears all data
-        sc.AllowedValues.Value = None
-        node = sc.mk_state_node(_my_tag, self.nsmapper)
+        state.AllowedValues.Value = None
+        node = state.mk_state_node(_my_tag, self.ns_mapper)
         allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
         self.assertEqual(len(allowedValuesNodes), 0)
-        sc2 = statecontainers.SetStringOperationStateContainer(descriptor_container=self.dc)
-        self.assertEqual(sc2.AllowedValues.Value, [])
+        state2 = sc.SetStringOperationStateContainer(descriptor_container=self.descr)
+        self.assertEqual(state2.AllowedValues.Value, [])
 
     def test_AbstractMultiStateContainer(self):
         pass
@@ -379,54 +381,54 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(copied.Identification, origin.Identification)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
-        sc = statecontainers.AbstractContextStateContainer(descriptor_container=self.dc)
-        self.assertEqual(sc.ContextAssociation, 'No')
-        self.assertEqual(sc.BindingMdibVersion, None)
-        self.assertEqual(sc.UnbindingMdibVersion, None)
-        self.assertEqual(sc.BindingStartTime, None)
-        self.assertEqual(sc.BindingEndTime, None)
-        self.assertEqual(sc.Validator, [])
-        self.assertEqual(sc.Identification, [])
+        state = sc.AbstractContextStateContainer(descriptor_container=self.descr)
+        self.assertEqual(state.ContextAssociation, 'No')
+        self.assertEqual(state.BindingMdibVersion, None)
+        self.assertEqual(state.UnbindingMdibVersion, None)
+        self.assertEqual(state.BindingStartTime, None)
+        self.assertEqual(state.BindingEndTime, None)
+        self.assertEqual(state.Validator, [])
+        self.assertEqual(state.Identification, [])
 
         idents = [pmtypes.InstanceIdentifier(root='abc',
                                              type_coded_value=pmtypes.CodedValue('abc', 'def'),
                                              identifier_names=[pmtypes.LocalizedText('ABC')],
                                              extension_string='123')]
-        sc.Identification = idents
-        self.assertEqual(sc.Identification, idents)
+        state.Identification = idents
+        self.assertEqual(state.Identification, idents)
 
         validators = [pmtypes.InstanceIdentifier(root='ABC',
                                                  type_coded_value=pmtypes.CodedValue('123', '456'),
                                                  identifier_names=[pmtypes.LocalizedText('DEF')],
                                                  extension_string='321')]
-        sc.Validator = validators
-        self.assertEqual(sc.Validator, validators)
+        state.Validator = validators
+        self.assertEqual(state.Validator, validators)
 
         for value in list(pmtypes.ContextAssociation):
-            sc.ContextAssociation = value
-            node = sc.mk_state_node(_my_tag, self.nsmapper)
+            state.ContextAssociation = value
+            node = state.mk_state_node(_my_tag, self.ns_mapper)
             self.assertEqual(node.get('ContextAssociation'), value)
 
         for value in (12345.123, 67890.987):
-            sc.BindingStartTime = value
-            sc.BindingEndTime = value + 1
-            node = sc.mk_state_node(_my_tag, self.nsmapper)
-            self.assertEqual(node.get('BindingStartTime'), containerproperties.TimestampConverter.to_xml(value))
-            self.assertEqual(node.get('BindingEndTime'), containerproperties.TimestampConverter.to_xml(value + 1))
+            state.BindingStartTime = value
+            state.BindingEndTime = value + 1
+            node = state.mk_state_node(_my_tag, self.ns_mapper)
+            self.assertEqual(node.get('BindingStartTime'), cp.TimestampConverter.to_xml(value))
+            self.assertEqual(node.get('BindingEndTime'), cp.TimestampConverter.to_xml(value + 1))
 
         for value in (0, 42, 123):
-            sc.BindingMdibVersion = value
-            sc.UnbindingMdibVersion = value + 1
-            node = sc.mk_state_node(_my_tag, self.nsmapper)
-            self.assertEqual(node.get('BindingMdibVersion'), containerproperties.IntegerConverter.to_xml(value))
-            self.assertEqual(node.get('UnbindingMdibVersion'), containerproperties.IntegerConverter.to_xml(value + 1))
+            state.BindingMdibVersion = value
+            state.UnbindingMdibVersion = value + 1
+            node = state.mk_state_node(_my_tag, self.ns_mapper)
+            self.assertEqual(node.get('BindingMdibVersion'), cp.IntegerConverter.to_xml(value))
+            self.assertEqual(node.get('UnbindingMdibVersion'), cp.IntegerConverter.to_xml(value + 1))
 
         # test creation from other container
-        sc.Identification = idents
-        sc.Validator = validators
-        sc2 = statecontainers.AbstractContextStateContainer(descriptor_container=self.dc, )
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        state.Identification = idents
+        state.Validator = validators
+        state2 = sc.AbstractContextStateContainer(descriptor_container=self.descr, )
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
     def test_LocationContextStateContainer(self):
         def verifyEqual(origin, copied):
@@ -439,65 +441,64 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(copied.LocationDetail.Floor, origin.LocationDetail.Floor)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
-        sc = statecontainers.LocationContextStateContainer(descriptor_container=self.dc)
+        state = sc.LocationContextStateContainer(descriptor_container=self.descr)
 
-        self.assertEqual(sc.LocationDetail.PoC, None)
-        self.assertEqual(sc.LocationDetail.Room, None)
-        self.assertEqual(sc.LocationDetail.Bed, None)
-        self.assertEqual(sc.LocationDetail.Facility, None)
-        self.assertEqual(sc.LocationDetail.Building, None)
-        self.assertEqual(sc.LocationDetail.Floor, None)
+        self.assertEqual(state.LocationDetail.PoC, None)
+        self.assertEqual(state.LocationDetail.Room, None)
+        self.assertEqual(state.LocationDetail.Bed, None)
+        self.assertEqual(state.LocationDetail.Facility, None)
+        self.assertEqual(state.LocationDetail.Building, None)
+        self.assertEqual(state.LocationDetail.Floor, None)
 
         # test creation from empty node
-        node = sc.mk_state_node(_my_tag, self.nsmapper)
-        self.assertEqual(node.get('Handle'), sc.Handle)
-        print(etree_.tostring(node, pretty_print=True))
-        sc2 = statecontainers.LocationContextStateContainer(descriptor_container=self.dc)
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        node = state.mk_state_node(_my_tag, self.ns_mapper)
+        self.assertEqual(node.get('Handle'), state.Handle)
+        state2 = sc.LocationContextStateContainer(descriptor_container=self.descr)
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
-        sc.Handle = 'xyz'
-        sc.LocationDetail.PoC = 'a'
-        sc.LocationDetail.Room = 'b'
-        sc.LocationDetail.Bed = 'c'
-        sc.LocationDetail.Facility = 'd'
-        sc.LocationDetail.Building = 'e'
-        sc.LocationDetail.Floor = 'f'
+        state.Handle = 'xyz'
+        state.LocationDetail.PoC = 'a'
+        state.LocationDetail.Room = 'b'
+        state.LocationDetail.Bed = 'c'
+        state.LocationDetail.Facility = 'd'
+        state.LocationDetail.Building = 'e'
+        state.LocationDetail.Floor = 'f'
 
-        sc2 = statecontainers.LocationContextStateContainer(descriptor_container=self.dc)
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
-        sc.LocationDetail.PoC = 'aa'
-        sc.LocationDetail.Room = 'bb'
-        sc.LocationDetail.Bed = 'cc'
-        sc.LocationDetail.Facility = 'dd'
-        sc.LocationDetail.Building = 'ee'
-        sc.LocationDetail.Floor = 'ff'
+        state2 = sc.LocationContextStateContainer(descriptor_container=self.descr)
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
+        state.LocationDetail.PoC = 'aa'
+        state.LocationDetail.Room = 'bb'
+        state.LocationDetail.Bed = 'cc'
+        state.LocationDetail.Facility = 'dd'
+        state.LocationDetail.Building = 'ee'
+        state.LocationDetail.Floor = 'ff'
 
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
         loc = SdcLocation(fac='a', poc='b', bed='c', bld='d', flr='e', rm='f', root='g')
-        sc = statecontainers.LocationContextStateContainer.from_sdc_location(descriptor_container=self.dc,
-                                                                             handle='abc',
-                                                                             sdc_location=loc)
-        self.assertEqual(sc.Handle, 'abc')
-        self.assertEqual(sc.LocationDetail.PoC, 'b')
-        self.assertEqual(sc.LocationDetail.Room, 'f')
-        self.assertEqual(sc.LocationDetail.Bed, 'c')
-        self.assertEqual(sc.LocationDetail.Facility, 'a')
-        self.assertEqual(sc.LocationDetail.Building, 'd')
-        self.assertEqual(sc.LocationDetail.Floor, 'e')
+        state = sc.LocationContextStateContainer.from_sdc_location(descriptor_container=self.descr,
+                                                                   handle='abc',
+                                                                   sdc_location=loc)
+        self.assertEqual(state.Handle, 'abc')
+        self.assertEqual(state.LocationDetail.PoC, 'b')
+        self.assertEqual(state.LocationDetail.Room, 'f')
+        self.assertEqual(state.LocationDetail.Bed, 'c')
+        self.assertEqual(state.LocationDetail.Facility, 'a')
+        self.assertEqual(state.LocationDetail.Building, 'd')
+        self.assertEqual(state.LocationDetail.Floor, 'e')
 
-        sc2 = statecontainers.LocationContextStateContainer(descriptor_container=self.dc)
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        state2 = sc.LocationContextStateContainer(descriptor_container=self.descr)
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
-        sc3 = statecontainers.LocationContextStateContainer.from_sdc_location(descriptor_container=self.dc,
-                                                                              handle='abc',
-                                                                              sdc_location=loc)
-        sc2.update_from_sdc_location(loc)
-        verifyEqual(sc3, sc2)
+        state3 = sc.LocationContextStateContainer.from_sdc_location(descriptor_container=self.descr,
+                                                                    handle='abc',
+                                                                    sdc_location=loc)
+        state2.update_from_sdc_location(loc)
+        verifyEqual(state3, state2)
 
     def test_PatientContextStateContainer(self):
         def verifyEqual(origin, copied):
@@ -512,76 +513,77 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(copied.Identification, origin.Identification)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
-        sc = statecontainers.PatientContextStateContainer(descriptor_container=self.dc)
+        state = sc.PatientContextStateContainer(descriptor_container=self.descr)
 
-        sc.CoreData.Givenname = 'Karl'
-        sc.CoreData.Middlename = ['M.']
-        sc.CoreData.Familyname = 'Klammer'
-        sc.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
-        sc.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
-        sc.CoreData.Race = pmtypes.CodedValue('123', 'def')
+        state.CoreData.Givenname = 'Karl'
+        state.CoreData.Middlename = ['M.']
+        state.CoreData.Familyname = 'Klammer'
+        state.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
+        state.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
+        state.CoreData.Race = pmtypes.CodedValue('123', 'def')
 
-        sc.CoreData.DateOfBirth = datetime.date(2001, 3, 12)
+        state.CoreData.DateOfBirth = datetime.date(2001, 3, 12)
 
-        sc.Identification.append(
+        state.Identification.append(
             pmtypes.InstanceIdentifier('abc', pmtypes.CodedValue('123'), [pmtypes.LocalizedText('Peter', 'en'),
                                                                           pmtypes.LocalizedText('Paul'),
                                                                           pmtypes.LocalizedText('Mary')]))
-        sc.Identification.append(
+        state.Identification.append(
             pmtypes.InstanceIdentifier('def', pmtypes.CodedValue('456'), [pmtypes.LocalizedText('John'),
                                                                           pmtypes.LocalizedText('Jim'),
                                                                           pmtypes.LocalizedText('Jane')]))
 
-        node = sc.mk_state_node(_my_tag, self.nsmapper)
-        print(etree_.tostring(node, pretty_print=True))
-        sc2 = statecontainers.PatientContextStateContainer(descriptor_container=self.dc)
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        node = state.mk_state_node(_my_tag, self.ns_mapper)
+        state2 = sc.PatientContextStateContainer(descriptor_container=self.descr)
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
-        sc.CoreData.Middlename = ['K.']
-        sc.CoreData.DateOfBirth = datetime.datetime(2001, 3, 12, 14, 30, 1)
-        sc.increment_state_version()
-        sc.CoreData.Height._value = 42
-        sc.CoreData.Weight._value = 420
-        sc2.update_from_other_container(sc)
-        verifyEqual(sc, sc2)
+        state.CoreData.Middlename = ['K.']
+        state.CoreData.DateOfBirth = datetime.datetime(2001, 3, 12, 14, 30, 1)
+        state.increment_state_version()
+        # state.CoreData.Height._value = 42
+        # state.CoreData.Weight._value = 420
+        state.CoreData.Height = pmtypes.Measurement(Decimal('42'), unit=pmtypes.CodedValue('44444'))
+        state.CoreData.Weight = pmtypes.Measurement(Decimal('420'), unit=pmtypes.CodedValue('44444'))
+
+        state2.update_from_other_container(state)
+        verifyEqual(state, state2)
 
     def test_PatientContextStateContainerNeo(self):
         """Test if a pmtypes class derived from the value_class of a property is handled correctly.
          In this test:
-          - sc.Core becomes a NeonatalPatientDemographicsCoreData instead of PatientDemographicsCoreData.
-          - sc.Core.Mother becomes a PersonParticipation instead of PersonReference"""
-        sc = statecontainers.PatientContextStateContainer(descriptor_container=self.dc)
-        sc.CoreData = pmtypes.NeonatalPatientDemographicsCoreData(given_name='Otto',
-                                                                  family_name='Smith')
-        sc.CoreData.BirthLength = pmtypes.Measurement(Decimal('57.6'), pmtypes.CodedValue('abc', 'def'))
-        sc.CoreData.Mother = pmtypes.PersonParticipation(identifications=[pmtypes.InstanceIdentifier('root')],
-                                                         name=pmtypes.BaseDemographics(given_name='Charly'))
-        sc2 = statecontainers.PatientContextStateContainer(descriptor_container=self.dc)
-        sc2.update_from_other_container(sc)
-        self.assertTrue(isinstance(sc2.CoreData, pmtypes.NeonatalPatientDemographicsCoreData))
+          - state.Core becomes a NeonatalPatientDemographicsCoreData instead of PatientDemographicsCoreData.
+          - state.Core.Mother becomes a PersonParticipation instead of PersonReference"""
+        state = sc.PatientContextStateContainer(descriptor_container=self.descr)
+        state.CoreData = pmtypes.NeonatalPatientDemographicsCoreData(given_name='Otto',
+                                                                     family_name='Smith')
+        state.CoreData.BirthLength = pmtypes.Measurement(Decimal('57.6'), pmtypes.CodedValue('abc', 'def'))
+        state.CoreData.Mother = pmtypes.PersonParticipation(identifications=[pmtypes.InstanceIdentifier('root')],
+                                                            name=pmtypes.BaseDemographics(given_name='Charly'))
+        state2 = sc.PatientContextStateContainer(descriptor_container=self.descr)
+        state2.update_from_other_container(state)
+        self.assertTrue(isinstance(state2.CoreData, pmtypes.NeonatalPatientDemographicsCoreData))
         # also check update via xml node
-        node = sc.mk_state_node(_my_tag, self.nsmapper)
-        print(etree_.tostring(node, pretty_print=True).decode('utf-8'))
-        sc3 = statecontainers.PatientContextStateContainer(descriptor_container=self.dc)
-        sc3.update_from_node(node)
-        self.assertEqual(sc3.CoreData.__class__, pmtypes.NeonatalPatientDemographicsCoreData)
-        self.assertEqual(sc3.CoreData.Mother.__class__, pmtypes.PersonParticipation)
+        node = state.mk_state_node(_my_tag, self.ns_mapper)
+        state3 = sc.PatientContextStateContainer(descriptor_container=self.descr)
+        state3.update_from_node(node)
+        self.assertEqual(state3.CoreData.__class__, pmtypes.NeonatalPatientDemographicsCoreData)
+        self.assertEqual(state3.CoreData.Mother.__class__, pmtypes.PersonParticipation)
 
     def test_SetValueOperationStateContainer(self):
-        sc = statecontainers.SetValueOperationStateContainer(descriptor_container=self.dc)
+        state = sc.SetValueOperationStateContainer(descriptor_container=self.descr)
 
-        self.assertEqual(sc.AllowedRange, [])
-        sc.AllowedRange.append(pmtypes.Range(*dec_list(1, 2, 3, 4, 5)))
-        sc2 = statecontainers.SetValueOperationStateContainer(descriptor_container=self.dc)
-        sc2.update_from_other_container(sc)
-        self.assertEqual(sc.AllowedRange, sc2.AllowedRange)
+        self.assertEqual(state.AllowedRange, [])
+        state.AllowedRange.append(pmtypes.Range(*dec_list(1, 2, 3, 4, 5)))
+        state2 = sc.SetValueOperationStateContainer(descriptor_container=self.descr)
+        state2.update_from_other_container(state)
+        self.assertEqual(state.AllowedRange, state2.AllowedRange)
 
-        sc.AllowedRange[0].Lower = Decimal(42)
-        sc2.update_from_other_container(sc)
-        self.assertEqual(sc.AllowedRange, sc2.AllowedRange)
+        state.AllowedRange[0].Lower = Decimal(42)
+        state2.update_from_other_container(state)
+        self.assertEqual(state.AllowedRange, state2.AllowedRange)
 
-        sc.AllowedRange.append(pmtypes.Range(*dec_list(3, 4, 5, 6, 7)))
-        sc2.update_from_other_container(sc)
-        self.assertEqual(len(sc2.AllowedRange), 2)
-        self.assertEqual(sc.AllowedRange, sc2.AllowedRange)
+        state.AllowedRange.append(pmtypes.Range(*dec_list(3, 4, 5, 6, 7)))
+        state2.update_from_other_container(state)
+        self.assertEqual(len(state2.AllowedRange), 2)
+        self.assertEqual(state.AllowedRange, state2.AllowedRange)
