@@ -19,23 +19,6 @@ if TYPE_CHECKING:
     from ..pmtypes import CodedValue, Coding
 
 
-class RtSampleContainer:
-    """Contains a single Value"""
-
-    def __init__(self, value_string, timestamp, validity, annotation_list=None):
-        self.value_string = value_string
-        self.value = float(value_string)
-        self.determination_time = timestamp
-        self.validity = validity
-        self.annotations = [] if annotation_list is None else annotation_list
-
-    @property
-    def age(self):
-        return time.time() - self.determination_time
-
-    def __repr__(self):
-        return f'RtSample value="{self.value_string}" validity="{self.validity}" time={self.determination_time}'
-
 
 class _MultikeyWithVersionLookup(multikey.MultiKeyLookup):
     """

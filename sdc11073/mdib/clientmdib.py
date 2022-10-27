@@ -1,9 +1,11 @@
 import time
 import traceback
-from typing import List
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from threading import Lock
+from typing import List
+from decimal import Decimal
+from enum import Enum
 
 from . import mdibbase
 from .. import loghelper
@@ -11,6 +13,27 @@ from .. import namespaces
 from ..exceptions import ApiUsageError
 
 _global_nsmap = namespaces.nsmap
+
+
+
+@dataclass
+class RtSampleContainer:
+    """Contains a single Value"""
+    value_string: str
+    determination_time: float
+    validity: Enum
+    annotations: list
+
+    @property
+    def value(self):
+        return float(self.value_string)
+
+    @property
+    def dec_value(self):
+        return Decimal(self.value_string)
+
+    def __repr__(self):
+        return f'RtSample value="{self.value_string}" validity="{self.validity}" time={self.determination_time}'
 
 
 class ClientRtBuffer:
@@ -32,11 +55,11 @@ class ClientRtBuffer:
         self._lock = Lock()
         self.last_sc = None  # last state container that was handled
 
-    def mk_rtsample_containers(self, realtime_sample_array_container)-> List[mdibbase.RtSampleContainer]:
+    def mk_rtsample_containers(self, realtime_sample_array_container) -> List[RtSampleContainer]:
         """
 
         :param realtime_sample_array_container: a RealTimeSampleArrayMetricStateContainer instance
-        :return: a list of mdibbase.RtSampleContainer
+        :return: a list of RtSampleContainer
         """
         self.last_sc = realtime_sample_array_container
         metric_value = realtime_sample_array_container.MetricValue
@@ -60,15 +83,16 @@ class ClientRtBuffer:
                             annotation = annotations[ann_index]  # index is zero-based
                             applied_annotations.append(annotation)
                 rt_sample_time = determination_time + i * self.sample_period
-                rtsample_containers.append(mdibbase.RtSampleContainer(sample, rt_sample_time,
-                                                                      metric_value.MetricQuality.Validity,
-                                                                      applied_annotations))
+                rtsample_containers.append(RtSampleContainer(sample,
+                                                             rt_sample_time,
+                                                             metric_value.MetricQuality.Validity,
+                                                             applied_annotations))
         return rtsample_containers
 
-    def add_rt_sample_containers(self, rt_sample_containers: List[mdibbase.RtSampleContainer]) -> None:
+    def add_rt_sample_containers(self, rt_sample_containers: List[RtSampleContainer]) -> None:
         """
         Updates self.rt_data with the new rt_sample_containers
-        :param rt_sample_containers: a list of mdibbase.RtSampleContainer
+        :param rt_sample_containers: a list of RtSampleContainer
         :return: None
         """
         if not rt_sample_containers:
@@ -76,7 +100,7 @@ class ClientRtBuffer:
         with self._lock:
             self.rt_data.extend(rt_sample_containers)
 
-    def read_rt_data(self) -> List[mdibbase.RtSampleContainer]:
+    def read_rt_data(self) -> List[RtSampleContainer]:
         """ This read method consumes all currently buffered data.
         @return: a list of RtSampleContainer objects"""
         with self._lock:
@@ -470,7 +494,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 new_state_containers = descriptions.create.states
                 new_descriptor_by_handle = {}
                 updated_descriptor_by_handle = {}
-                #new
+                # new
                 for descriptor_container in new_descriptor_containers:
                     self.descriptions.add_object(descriptor_container)
                     self._logger.debug('process_incoming_descriptors: created description "{}" (parent="{}")',
@@ -498,8 +522,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                       descriptor_container.Handle, descriptor_container.parent_handle)
                     old_container = self.descriptions.handle.get_one(descriptor_container.Handle, allow_none=True)
                     if old_container is None:
-                        self._logger.error('process_incoming_descriptors: got update of descriptor "{}", but it did not exist in mdib!',
-                                           descriptor_container.Handle)
+                        self._logger.error(
+                            'process_incoming_descriptors: got update of descriptor "{}", but it did not exist in mdib!',
+                            descriptor_container.Handle)
                     else:
                         old_container.update_from_other_container(descriptor_container)
                     updated_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
@@ -523,8 +548,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         old_state_container = my_multi_key.descriptorHandle.get_one(
                             state_container.DescriptorHandle, allow_none=True)
                         if old_state_container is None:
-                            self._logger.error('process_incoming_descriptors: got update of state "{}" , but it did not exist in mdib!',
-                                               state_container.DescriptorHandle)
+                            self._logger.error(
+                                'process_incoming_descriptors: got update of state "{}" , but it did not exist in mdib!',
+                                state_container.DescriptorHandle)
                     if old_state_container is not None:
                         old_state_container.update_from_other_container(state_container)
                         my_multi_key.update_object(old_state_container)

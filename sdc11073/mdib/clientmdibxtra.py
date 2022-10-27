@@ -306,10 +306,10 @@ class ClientMdibMethods:
             return
 
         waveform_age = {}  # collect age of all waveforms in this report, and make one report if age is above warn limit (instead of multiple)
-
+        now = time.time()
         for state_container in state_containers:
             rt_sample_containers = self._mdib.rt_buffers[state_container.DescriptorHandle].rt_data
-            waveform_age[state_container.DescriptorHandle] = rt_sample_containers[-1].age
+            waveform_age[state_container.DescriptorHandle] = now - rt_sample_containers[-1].determination_time
 
             if len(waveform_age) > 0:
                 min_age = min(waveform_age.values())
