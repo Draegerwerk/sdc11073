@@ -1,19 +1,12 @@
-import copy
 import datetime
 import logging
 import sys
 import time
 import unittest
-from urllib import parse
 from decimal import Decimal
-from itertools import product
-
-from lxml import etree as etree_
 
 from sdc11073 import commlog
-from sdc11073 import compression
 from sdc11073 import loghelper
-from sdc11073 import msg_qnames as msg
 from sdc11073 import observableproperties
 from sdc11073 import pm_qnames as pm
 from sdc11073 import pmtypes
@@ -21,18 +14,11 @@ from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ClientMdibContainer
 from sdc11073.mdib.devicewaveform import Annotator
-from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.sdcclient import SdcClient
-from sdc11073.sdcclient.components import SdcClientComponents
-from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.sdcdevice import waveforms
-from sdc11073.sdcdevice.httpserver import DeviceHttpServerThread
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
-from sdc11073.sdcdevice.components import SdcDeviceComponents
-from sdc11073.sdcdevice.subscriptionmgr import SubscriptionsManagerReferenceParam
-from sdc11073.pysoap.soapclient_async import SoapClientAsync
-from tests.mockstuff import SomeDevice, dec_list
+from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
