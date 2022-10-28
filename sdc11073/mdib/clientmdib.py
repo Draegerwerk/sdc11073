@@ -8,6 +8,7 @@ from decimal import Decimal
 from enum import Enum
 
 from . import mdibbase
+from .clientmdibxtra import ClientMdibMethods
 from .. import loghelper
 from .. import namespaces
 from ..exceptions import ApiUsageError
@@ -129,7 +130,10 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     # INITIAL_NOTIFICATION_BUFFERING = True:  responses are sent immediately and first notifications are buffered.
     INITIAL_NOTIFICATION_BUFFERING = True
 
-    def __init__(self, sdc_client, max_realtime_samples=100):
+    def __init__(self,
+                 sdc_client,
+                 extras_cls=None,
+                 max_realtime_samples=100):
         """
 
         :param sdc_client: a SdcClient instance
@@ -138,7 +142,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         super().__init__(sdc_client.sdc_definitions)
         self._logger = loghelper.get_logger_adapter('sdc.client.mdib', sdc_client.log_prefix)
         self._sdc_client = sdc_client
-        self._xtra = sdc_client.sdc_definitions.client_mdib_xtra_cls(self, self._logger)
+        if extras_cls is None:
+            extras_cls = ClientMdibMethods
+        self._xtra = extras_cls(self, self._logger)
         self._is_initialized = False
         self.rt_buffers = {}  # key  is a handle, value is a ClientRtBuffer
         self._max_realtime_samples = max_realtime_samples

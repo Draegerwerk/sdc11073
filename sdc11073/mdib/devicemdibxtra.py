@@ -2,15 +2,13 @@ import uuid
 import time
 
 from ..msgtypes import RetrievabilityMethod
+from .devicewaveform import DefaultWaveformSource
 
 class DeviceMdibMethods:
-
+    waveform_provider_cls = DefaultWaveformSource
     def __init__(self, device_mdib):
         self._mdib = device_mdib
-        self.waveform_provider = None
-        waveform_provider_cls = device_mdib.sdc_definitions.waveform_provider_cls
-        if waveform_provider_cls is not None:
-            self.waveform_provider = waveform_provider_cls(device_mdib)
+        self.waveform_provider = self.waveform_provider_cls(device_mdib)
         self.descriptor_factory = DescriptorFactory(device_mdib)
         self.default_instance_identifiers = (device_mdib.data_model.pmtypes.InstanceIdentifier(
             root='rootWithNoMeaning', extension_string='System'),)

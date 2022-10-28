@@ -60,6 +60,7 @@ class AbstractModel(ABC):
         """Gives access to a module with all qualified names of the BICEPS participant model"""
         raise NotImplementedError
 
+    @property
     @abstractmethod
     def msg_names(self):
         """Gives access to a module with all qualified names of the BICEPS message model"""
@@ -86,7 +87,6 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     DefaultSdcClientComponents = None
     MDPWSNameSpace = None
     data_model = None
-    waveform_provider_cls = None
 
     @classmethod
     def ns_matches(cls, namespace):

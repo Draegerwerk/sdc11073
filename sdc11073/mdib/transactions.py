@@ -17,8 +17,9 @@ class _TrItem:
 
 
 class _TransactionBase:
-    def __init__(self, device_mdib_container):
+    def __init__(self, device_mdib_container, logger):
         self._device_mdib_container = device_mdib_container
+        self._logger = logger
         self.descriptor_updates = {}
         self.metric_state_updates = {}
         self.alert_state_updates = {}
@@ -87,16 +88,10 @@ class _TransactionBase:
                 return self.alert_state_updates
             elif container.is_component_state:
                 return self.component_state_updates
-            elif container.is_system_context_state:
-                return self.component_state_updates
             elif container.is_operational_state:
                 return self.operational_state_updates
             elif container.is_context_state:
                 return self.context_state_updates
-            elif container.NODETYPE == pm.ScoState:
-                # special case ScoState Draft6: cannot notify updates, it is a category of its own that does not fit anywhere
-                # This is a bug in the spec, not in this implementation!
-                return
         else:
             if container.is_metric_descriptor:
                 return self.metric_state_updates
@@ -178,8 +173,8 @@ class MdibUpdateTransaction(_TransactionBase):
     Reason: Mdib handles each notification as a transaction (except for description modification reports,
     this can have multiple notifications with the same mdib version.)
     """
-    def __init__(self, device_mdib_container):
-        super().__init__(device_mdib_container)
+    def __init__(self, device_mdib_container, logger):
+        super().__init__(device_mdib_container, logger)
         # lookups for states that are modified due to descriptor changes
         self.descriptor_state_new = {}
         self.descriptor_state_upd = {}
@@ -268,12 +263,7 @@ class MdibUpdateTransaction(_TransactionBase):
         """
         my_multi_key = self._get_states_storage(state_container)
         my_updates = self._get_states_update(state_container)
-        if my_updates is None:
-            # special case ScoState Draft6: cannot notify updates, it is a category of its own that does not fit anywhere
-            # This is a bug in the spec, not in this implementation!
-            return
         self._verify_correct_update_dict(my_updates)
-
 
         descriptor_handle = state_container.DescriptorHandle
         if self.is_descriptor_update:
@@ -391,6 +381,14 @@ class MdibUpdateTransaction(_TransactionBase):
         lookup_key = (descriptor_handle, new_state_container.Handle)
         self.context_state_updates[lookup_key] = _TrItem(old_state_container, new_state_container)
         return new_state_container
+
+    def process_transaction(self, set_determination_time):
+        processor = TransactionProcessor(self._device_mdib_container,
+                                         self,
+                                         set_determination_time,
+                                         self._logger)
+        processor.process_transaction()
+        return processor
 
     def _get_real_time_sample_array_metric_state(self, descriptor_handle):
         self._verify_correct_update_dict(self.rt_sample_state_updates)

@@ -137,8 +137,4 @@ class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     Actions = _SdcV1Actions
     SchemaFilePaths = SchemaPathsSdc
 
-    device_mdib_xtra_cls = DeviceMdibMethods
-    client_mdib_xtra_cls = ClientMdibMethods
-    waveform_provider_cls = DefaultWaveformSource
-
 SDC_v1_Definitions.data_model = V1Model()

@@ -12,7 +12,6 @@ from .. import pm_qnames as pm
 class AbstractStateContainer(ContainerBase):
     # these class variables allow easy type-checking. Derived classes will set corresponding values to True
     is_state_container = True
-    is_system_context_state = False
     is_realtime_sample_array_metric_state = False
     is_metric_state = False
     is_operational_state = False

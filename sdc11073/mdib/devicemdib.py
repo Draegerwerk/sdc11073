@@ -7,8 +7,8 @@ from threading import Lock
 from typing import Type, TYPE_CHECKING, Optional
 
 from . import mdibbase
-from .devicewaveform import AbstractWaveformSource
-from .transactions import RtDataMdibUpdateTransaction, MdibUpdateTransaction, TransactionProcessor
+from .devicemdibxtra import DeviceMdibMethods
+from .transactions import RtDataMdibUpdateTransaction, MdibUpdateTransaction
 from .. import loghelper
 from ..definitions_base import ProtocolsRegistry
 from ..definitions_sdc import SDC_v1_Definitions
@@ -26,19 +26,25 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
     transaction = ObservableProperty(fire_only_on_changed_value=False)
     rt_updates = ObservableProperty(fire_only_on_changed_value=False)  # different observable for performance
 
-    def __init__(self, sdc_definitions: Optional[Type[BaseDefinitions]] = None,
+    def __init__(self,
+                 sdc_definitions: Optional[Type[BaseDefinitions]] = None,
                  log_prefix: Optional[str] = None,
-                 transaction_proc_cls: Optional[Type[TransactionProcessor]] = TransactionProcessor):
+                 extras_cls=None,
+                 transaction_cls = None
+                 ):
         """
         :param sdc_definitions: defaults to sdc11073.definitions_sdc.SDC_v1_Definitions
         :param log_prefix: a string
         :param waveform_source: an instance of an object that implements devicewaveform.AbstractWaveformSource
-        :param transaction_proc_cls: runs the transaction
+        :param extras_cls: class for extra functionality
+        :param transaction_cls: runs the transaction
         """
         if sdc_definitions is None:
             sdc_definitions = SDC_v1_Definitions
         super().__init__(sdc_definitions)
-        self._xtra = sdc_definitions.device_mdib_xtra_cls(self)
+        if extras_cls is None:
+            extras_cls = DeviceMdibMethods
+        self._xtra = extras_cls(self)
         self._logger = loghelper.get_logger_adapter('sdc.device.mdib', log_prefix)
         self._tr_lock = Lock()  # transaction lock
 
@@ -50,8 +56,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
         self.pre_commit_handler = None  # pre_commit_handler can modify transaction if needed before it is committed
         self.post_commit_handler = None  # post_commit_handler can modify mdib if needed after it is committed
-        #self._waveform_source = waveform_source or DefaultWaveformSource(self.data_model)
-        self._transaction_proc_cls = transaction_proc_cls
+        self._transaction_cls = transaction_cls or MdibUpdateTransaction
         self._retrievability_episodic = []  # a list of handles
         self.retrievability_periodic = defaultdict(list)
 
@@ -65,16 +70,14 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         with self._tr_lock:
             with self.mdib_lock:
                 try:
-                    self._current_transaction = MdibUpdateTransaction(self)
+                    self._current_transaction = self._transaction_cls(self, self.logger)
                     yield self._current_transaction
                     if callable(self.pre_commit_handler):
                         self.pre_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
                     if self._current_transaction._error:
                         self._logger.info('transaction_manager: transaction without updates!')
                     else:
-                        processor = self._transaction_proc_cls(self, self._current_transaction,
-                                                               set_determination_time, self._logger)
-                        processor.process_transaction()
+                        processor = self._current_transaction.process_transaction(set_determination_time)
                         self.transaction = processor  # update observable
                         self._current_transaction.mdib_version = self.mdib_version
 
@@ -88,7 +91,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         with self._tr_lock:
             with self.mdib_lock:
                 try:
-                    self._current_transaction = RtDataMdibUpdateTransaction(self)
+                    self._current_transaction = RtDataMdibUpdateTransaction(self, self._logger)
                     yield self._current_transaction
                     if callable(self.pre_commit_handler):
                         self.pre_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable

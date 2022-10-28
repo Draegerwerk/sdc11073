@@ -14,7 +14,6 @@ from lxml import etree as etree_
 
 from .. import ext_qnames as ext
 from .. import isoduration
-from .. import namespaces
 from ..dataconverters import TimestampConverter, DecimalConverter, IntegerConverter, BooleanConverter, \
     DurationConverter, NullConverter
 from ..exceptions import ApiUsageError
@@ -447,7 +446,7 @@ class QNameAttributeProperty(_AttributePropertyBase):
             except ElementNotFoundException:
                 return
         else:
-            xml_value = namespaces.docname_from_qname(py_value, node.nsmap)
+            xml_value = docname_from_qname(py_value, node.nsmap)
             node.set(self._attribute_name, xml_value)
 
 
@@ -635,7 +634,7 @@ class NodeTextQNameProperty(_NodeProperty):
                     sub_node.text = None
         else:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
-            value = namespaces.docname_from_qname(py_value, sub_node.nsmap)
+            value = docname_from_qname(py_value, sub_node.nsmap)
             sub_node.text = value
 
 
