@@ -30,6 +30,13 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         self._worker_thread.join()
 
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
+        """
+        creates operation handler for:
+        - SetAlertStateOperationDescriptor if operation target is an AlertSignalDescriptor
+        :param operation_descriptor_container:
+        :param operation_cls_getter:
+        :return: None or an OperationDefinition instance
+        """
         pm_names = self._mdib.data_model.pm_names
         operation_target_handle = operation_descriptor_container.OperationTarget
         operation_target_descr = self._mdib.descriptions.handle.get_one(operation_target_handle)  # descriptor container
@@ -53,6 +60,11 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         return None  # None == no handler for this operation instantiated
 
     def _set_alert_system_states_initial_values(self):
+        """
+        adds audible SystemSignalActivation, state=ON to all AlertSystemState instances.
+        Why????
+        :return:
+        """
         pm_names = self._mdib.data_model.pm_names
         pm_types = self._mdib.data_model.pmtypes
         states = self._mdib.states.NODETYPE.get(pm_names.AlertSystemState, [])
@@ -109,10 +121,9 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 result.append(tmp)
         return result
 
-    def _find_alert_systems_with_modifications(self, mdib, transaction):
-        # find all alert systems with changed states
+    def _find_alert_systems_with_modifications(self, mdib, transaction, changed_alert_conditions):
+        # find all alert systems with changed alert conditions
         alert_system_states = set()
-        changed_alert_conditions = self._get_changed_alert_condition_states(transaction)
         for tmp in changed_alert_conditions:
             alert_descriptor = self._get_descriptor(tmp.DescriptorHandle, mdib, transaction)
             alert_system_descriptor = self._get_descriptor(alert_descriptor.parent_handle, mdib, transaction)
@@ -125,18 +136,29 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         return alert_system_states
 
     def on_pre_commit(self, mdib, transaction):
+        """
+        - Updates alert system states and adds them to transaction, if at least one of its alert
+          conditions changed ( is in transaction).
+        - Updates all AlertSignals for changed Alert Conditions and adds them to transaction.
+
+        :param mdib:
+        :param transaction:
+        :return:
+        """
         if not transaction.alert_state_updates:
             return
+
+        changed_alert_conditions = self._get_changed_alert_condition_states(transaction)
+        # change AlertSignal Settings in order to be compliant with changed Alert Conditions
+        for changed_alert_condition in changed_alert_conditions:
+            self._update_alert_signals(changed_alert_condition, mdib, transaction)
+
         # find all alert systems with changed states
-        alert_system_states = self._find_alert_systems_with_modifications(mdib, transaction)
+        alert_system_states = self._find_alert_systems_with_modifications(mdib, transaction, changed_alert_conditions)
         if alert_system_states:
             self._update_alert_system_states(mdib, transaction,
                                              alert_system_states)  # add found alert system states to transaction
 
-        # change AlertSignal Settings in order to be compliant with changed Alert Conditions
-        changed_alert_conditions = self._get_changed_alert_condition_states(transaction)
-        for changed_alert_condition in changed_alert_conditions:
-            self._update_alert_signals(changed_alert_condition, mdib, transaction)
 
     @staticmethod
     def _update_alert_system_states(mdib, transaction, alert_system_states):
@@ -253,6 +275,12 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 transaction.unget_state(ss_fallback)
 
     def _set_alert_signal_state(self, operation_descriptor_container, value):
+        """Handler for an operation call from remote.
+        Sets ActivationState, Presence and ActualSignalGenerationDelay
+        :param operation_descriptor_container: OperationDescriptorContainer instance
+        :param value: AlertSignalStateContainer instance
+        :return:
+        """
         pm_types = self._mdib.data_model.pmtypes
         operation_target_handle = operation_descriptor_container.OperationTarget
         self._last_set_alert_signal_state[operation_target_handle] = time.time()

@@ -331,11 +331,12 @@ class SdcClient:
         # group subscriptions per hosted service
         for _, dpws_hosted in self.host_description.relationship.hosted.items():
             available_actions = []
-            for port_type_qname in dpws_hosted.types:
-                port_type = port_type_qname.split(':')[-1]
-                client = self.client(port_type)
-                if client is not None:
-                    available_actions.extend(client.get_subscribable_actions())
+            if dpws_hosted.types is not None:
+                for port_type_qname in dpws_hosted.types:
+                    port_type = port_type_qname.split(':')[-1]
+                    client = self.client(port_type)
+                    if client is not None:
+                        available_actions.extend(client.get_subscribable_actions())
             if len(available_actions) > 0:
                 subscribe_actions = set(available_actions) - not_subscribed_actions_set
                 if not subscribe_periodic_reports:
@@ -444,7 +445,10 @@ class SdcClient:
             endpoint_reference = hosted.endpoint_references[0].address
             soap_client = self._get_soap_client(endpoint_reference)
             hosted.soap_client = soap_client
-            ns_types = [t.split(':') for t in hosted.types]
+            if hosted.types is not None:
+                ns_types = [t.split(':') for t in hosted.types]
+            else:
+                ns_types = []
             h_descr = HostedServiceDescription(
                 hosted.service_id, endpoint_reference,
                 self.msg_reader, self._msg_factory, self.log_prefix)

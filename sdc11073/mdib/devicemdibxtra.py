@@ -37,12 +37,13 @@ class DeviceMdibMethods:
             descr_container.SafetyClassification =  mdib.data_model.pmtypes.SafetyClassification.INF
             mdib.descriptions.add_object(descr_container)
 
-    def set_location(self, sdc_location, validators=None):
+    def set_location(self, sdc_location, validators=None, set_associated=True):
         """
         This method updates only the mdib internal data!
         use the SdcDevice.set_location method if you want to publish the address on the network.
         :param sdc_location: a pysdc.location.SdcLocation instance
         :param validators: a list of pysdc.pmtypes.InstanceIdentifier objects or None
+        :param set_associated: if True, DindingTime, BindingMdibVersion and ContextAssociation are set
         """
         mdib = self._mdib
         pm = mdib.data_model.pm_names
@@ -52,14 +53,14 @@ class DeviceMdibMethods:
             associated_locations = [l for l in all_location_contexts if
                                     l.ContextAssociation ==  mdib.data_model.pmtypes.ContextAssociation.ASSOCIATED]
             for location in associated_locations:
-                location_context = mgr.get_context_state(location.DescriptorHandle, location.Handle)
+                location_context = mgr.get_context_state(location.Handle)
                 location_context.ContextAssociation =  mdib.data_model.pmtypes.ContextAssociation.DISASSOCIATED
                 # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
                 location_context.UnbindingMdibVersion = mdib.mdib_version + 1
             descriptor_container = mdib.descriptions.NODETYPE.get_one(pm.LocationContextDescriptor)
 
             mdib._current_location = mgr.mk_context_state(
-                descriptor_container.Handle)  # this creates a new location state
+                descriptor_container.Handle, set_associated=set_associated)  # this creates a new location state
             mdib._current_location.update_from_sdc_location(sdc_location)
             if validators is not None:
                 mdib._current_location.Validator = validators

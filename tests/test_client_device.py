@@ -407,7 +407,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_context_report')
         with self.sdc_device.mdib.transaction_manager() as mgr:
             tr_MdibVersion = self.sdc_device.mdib.mdib_version
-            st = mgr.mk_context_state(patientDescriptorContainer.Handle)
+            st = mgr.mk_context_state(patientDescriptorContainer.Handle, set_associated=True)
             st.CoreData.Givenname = 'Max'
             st.CoreData.Middlename = ['Willy']
             st.CoreData.Birthname = 'Mustermann'
@@ -441,7 +441,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         # test update of same patient
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_context_report')
         with self.sdc_device.mdib.transaction_manager() as mgr:
-            st = mgr.get_context_state(patientDescriptorContainer.Handle, patient_context_state_container.Handle)
+            st = mgr.get_context_state(patient_context_state_container.Handle)
             st.CoreData.Givenname = 'Moritz'
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         patient_context_state_container = clientMdib.context_states.NODETYPE.get_one(
