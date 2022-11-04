@@ -544,10 +544,11 @@ class TransactionProcessor:
             if self._set_determination_time:
                 for tr_item in self._mgr.alert_state_updates.values():
                     new_state = tr_item.new
-                    if new_state is None:
+                    if new_state is None or not hasattr(new_state, 'Presence'):
                         continue
-                    if tr_item.old is None and new_state.Presence:
-                        new_state.DeterminationTime = time.time()
+                    if tr_item.old is None:
+                        if new_state.Presence:
+                            new_state.DeterminationTime = time.time()
                     elif new_state.is_alert_condition and new_state.Presence != tr_item.old.Presence:
                         new_state.DeterminationTime = time.time()
             self.alert_updates.extend(self._handle_updates(self._mgr.alert_state_updates))
