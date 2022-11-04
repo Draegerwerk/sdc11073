@@ -21,6 +21,7 @@ from sdc11073 import pm_qnames as pm
 class MyEnum(Enum):
     a = '1'
     b = '2'
+    c = '3'
 
 
 class DummyBase:
@@ -67,12 +68,15 @@ class DummyNodeText(DummyBase):
 
 
 class DummyNodeEnumText(DummyBase):
-    node_text_mand = NodeEnumTextProperty(MyEnum, etree_.QName('pref', 'node_text_mand'), implied_py_value=MyEnum.a)
+    #node_text_mand = NodeEnumTextProperty(MyEnum, etree_.QName('pref', 'node_text_mand'), implied_py_value=MyEnum.a)
+    node_text_mand = NodeEnumTextProperty(MyEnum, etree_.QName('pref', 'node_text_mand'), default_py_value=MyEnum.a)
     node_text_opt = NodeEnumTextProperty(MyEnum, etree_.QName('pref', 'node_text_opt'), is_optional=True)
+    node_text_mand_no_default = NodeEnumTextProperty(MyEnum, etree_.QName('pref', 'node_text_mand_no_default'))
 
     def props(self):
         yield self.__class__.node_text_mand
         yield self.__class__.node_text_opt
+        yield self.__class__.node_text_mand_no_default
 
 
 class DummySubElement(DummyBase):
@@ -265,17 +269,19 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(dummy.node_text_opt, 'bar')
         self.assertEqual(DummyNodeText.node_text_mand.get_actual_value(dummy), None)
         self.assertEqual(DummyNodeText.node_text_opt.get_actual_value(dummy), None)
+        self.assertRaises(ValueError, dummy.mk_node)  # implied value does not help here, we need a real value for mand. prop.
+        dummy.node_text_mand = 'foo'
         node = dummy.mk_node()
         self.assertEqual(1, len(node))  # the empty optional node is not added, only the mandatory one
         self.assertEqual(node[0].tag, '{pref}node_text_mand')
-        self.assertEqual(node[0].text, None)
+        self.assertEqual(node[0].text, 'foo')
 
         dummy.node_text_opt = 'foobar'
         self.assertEqual(dummy.node_text_opt, 'foobar')
         self.assertEqual(DummyNodeText.node_text_opt.get_actual_value(dummy), 'foobar')
         node = dummy.mk_node()
         self.assertEqual(2, len(node))
-        self.assertEqual(node[0].text, None)
+        self.assertEqual(node[0].text, 'foo')
         self.assertEqual(node[1].text, 'foobar')
 
         dummy.node_text_mand = 'hello'
@@ -293,28 +299,34 @@ class TestContainerProperties(unittest.TestCase):
 
     def test_DummyNodeEnumText(self):
         dummy = DummyNodeEnumText()
+        #verify that mandatory element without value raises a ValueError
+        self.assertRaises(ValueError, dummy.mk_node)
+        dummy.node_text_mand_no_default = MyEnum.c
+        node = dummy.mk_node()
         self.assertEqual(dummy.node_text_mand, MyEnum.a)
         self.assertEqual(dummy.node_text_opt, None)
-        self.assertEqual(DummyNodeEnumText.node_text_mand.get_actual_value(dummy), None)
+        self.assertEqual(DummyNodeEnumText.node_text_mand.get_actual_value(dummy),  MyEnum.a)
         self.assertEqual(DummyNodeEnumText.node_text_opt.get_actual_value(dummy), None)
         node = dummy.mk_node()
-        self.assertEqual(1, len(node))  # the empty optional node is not added, only the mandatory one
+        self.assertEqual(2, len(node))  # the empty optional node is not added, only the mandatory ones
         self.assertEqual(node[0].tag, '{pref}node_text_mand')
-        self.assertEqual(node[0].text, None)
+        self.assertEqual(node[0].text, MyEnum.a.value)
 
         dummy.node_text_opt = MyEnum.b
         self.assertEqual(dummy.node_text_opt, MyEnum.b)
         self.assertEqual(DummyNodeEnumText.node_text_opt.get_actual_value(dummy), MyEnum.b)
         node = dummy.mk_node()
-        self.assertEqual(2, len(node))
-        self.assertEqual(node[0].text, None)
+        self.assertEqual(3, len(node))
+        self.assertEqual(node[0].text, MyEnum.a.value)
         self.assertEqual(node[1].text, MyEnum.b.value)
+        self.assertEqual(node[2].text, MyEnum.c.value)
 
         dummy.node_text_mand = MyEnum.a
         node = dummy.mk_node()
-        self.assertEqual(2, len(node))
+        self.assertEqual(3, len(node))
         self.assertEqual(node[0].text, MyEnum.a.value)
         self.assertEqual(node[1].text, MyEnum.b.value)
+        self.assertEqual(node[2].text, MyEnum.c.value)
         for value in (42, b'hello'):
             try:
                 dummy.node_text_mand = value
@@ -335,11 +347,13 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(dummy.sub_elem_mand, CodedValue('foo'))
         self.assertEqual(dummy.sub_elem_opt, None)
 
+        self.assertRaises(ValueError, dummy.mk_node) # mand. prop has no value
+        dummy.sub_elem_mand = CodedValue('hello_again')
         node = dummy.mk_node()
         self.assertEqual(1, len(node))  # the empty optional node is not added, only the mandatory one
         self.assertEqual(node[0].tag, '{pref}sub_elem_mand')
         self.assertEqual(node[0].text, None)
-        self.assertEqual(0, len(node[0].attrib))
+        self.assertEqual(1, len(node[0].attrib))
 
         dummy.sub_elem_opt = CodedValue('foo', 'bar')
         self.assertEqual(dummy.sub_elem_opt, CodedValue('foo', 'bar'))

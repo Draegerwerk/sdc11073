@@ -18,7 +18,7 @@ from ..exceptions import ApiUsageError
 from ..namespaces import QN_TYPE, docname_from_qname, text_to_qname
 
 TYPE_CHECKING = True
-
+MANDATORY_VALUE_CHECKING = True  # checks if mandatory values are present when xml is generated
 
 class ElementNotFoundException(Exception):
     pass
@@ -170,6 +170,8 @@ class _AttributePropertyBase(_PropertyBase):
         except AttributeError:  # set to None (it is in the responsibility of the called method to do the right thing)
             py_value = None
         if py_value is None:
+            if MANDATORY_VALUE_CHECKING and not self.is_optional:
+                raise ValueError(f'mandatory value {self._attribute_name} missing')
             try:
                 if self._attribute_name in node.attrib.keys():
                     del node.attrib[self._attribute_name]
@@ -372,6 +374,8 @@ class QNameAttributeProperty(_AttributePropertyBase):
         except AttributeError:  # set to None
             py_value = None
         if py_value is None:
+            if MANDATORY_VALUE_CHECKING and not self.is_optional:
+                raise ValueError(f'mandatory value {self._attribute_name} missing')
             try:
                 if self._attribute_name in node.attrib.keys():
                     del node.attrib[self._attribute_name]
@@ -428,6 +432,8 @@ class _NodeAttributeListPropertyBase(_AttributePropertyBase):
                 return
         else:
             if py_value is None:
+                if MANDATORY_VALUE_CHECKING and not self.is_optional:
+                    raise ValueError(f'mandatory value {self._attribute_name} missing')
                 xml_value = ''
             else:
                 xml_value = ' '.join([self._converter.elem_to_xml(v) for v in py_value])
@@ -470,8 +476,9 @@ class _NodeTextProperty(_NodeProperty):
     Python representation is a string."""
 
     def __init__(self, sub_element_name, value_converter, default_py_value=None, implied_py_value=None,
-                 is_optional=False):
+                 is_optional=False, min_length=0):
         super().__init__(sub_element_name, value_converter, default_py_value, implied_py_value, is_optional)
+        self._min_length = min_length
 
     def get_py_value_from_node(self, instance, node):
         try:
@@ -486,6 +493,8 @@ class _NodeTextProperty(_NodeProperty):
         except AttributeError:  # set to None (it is in the responsibility of the called method to do the right thing)
             py_value = None
         if py_value is None:
+            py_value = self._default_py_value
+        if py_value is None:
             if not self._sub_element_name:
                 # update text of this element
                 node.text = ''
@@ -495,6 +504,8 @@ class _NodeTextProperty(_NodeProperty):
                     if sub_node is not None:
                         node.remove(sub_node)
                 else:
+                    if MANDATORY_VALUE_CHECKING and not self.is_optional and self._min_length:
+                        raise ValueError(f'mandatory value {self._sub_element_name} missing')
                     sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
                     sub_node.text = None
         else:
@@ -554,6 +565,8 @@ class NodeTextQNameProperty(_NodeProperty):
                     if sub_node is not None:
                         node.remove(sub_node)
                 else:
+                    if MANDATORY_VALUE_CHECKING and not self.is_optional:
+                        raise ValueError(f'mandatory value {self._sub_element_name} missing')
                     sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
                     sub_node.text = None
         else:
@@ -669,6 +682,8 @@ class SubElementProperty(_NodeProperty):
 
         if py_value is None:
             if not self.is_optional:
+                if MANDATORY_VALUE_CHECKING and not self.is_optional:
+                    raise ValueError(f'mandatory value {self._sub_element_name} missing')
                 etree_.SubElement(node, self._sub_element_name, nsmap=node.nsmap)
         else:
             self.remove_sub_element(node)
