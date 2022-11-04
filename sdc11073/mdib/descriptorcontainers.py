@@ -104,7 +104,7 @@ class AbstractDescriptorContainer(ContainerBase):
     SafetyClassification = cp.EnumAttributeProperty('SafetyClassification',
                                                     implied_py_value=pmtypes.SafetyClassification.INF,
                                                     enum_cls=pmtypes.SafetyClassification)
-    Type = cp.SubElementProperty(pm.Type, value_class=pmtypes.CodedValue)
+    Type = cp.SubElementProperty(pm.Type, value_class=pmtypes.CodedValue, is_optional=True)
     # pylint: enable=invalid-name
     _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'Extension', 'Type')
     _child_elements_order = (ext.Extension, pm.Type)  # child elements in BICEPS order

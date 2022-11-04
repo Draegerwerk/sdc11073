@@ -157,7 +157,7 @@ class AbstractMetricStateContainer(AbstractMetricStateContainerBase):
 
 class NumericMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = pm.NumericMetricState
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.NumericMetricValue)
+    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.NumericMetricValue, is_optional=True)
     PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pmtypes.Range)
     ActiveAveragingPeriod = cp.DurationAttributeProperty('ActiveAveragingPeriod')  # xsd:duration
     _props = ('_metric_value', 'PhysiologicalRange', 'ActiveAveragingPeriod')
@@ -165,19 +165,19 @@ class NumericMetricStateContainer(AbstractMetricStateContainer):
 
 class StringMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = pm.StringMetricState
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.StringMetricValue)
+    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.StringMetricValue, is_optional=True)
     _props = ('_metric_value',)
 
 
 class EnumStringMetricStateContainer(StringMetricStateContainer):
     NODETYPE = pm.EnumStringMetricState
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.StringMetricValue)
+    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.StringMetricValue, is_optional=True)
 
 
 class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = pm.RealTimeSampleArrayMetricState
     is_realtime_sample_array_metric_state = True
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.SampleArrayValue)
+    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.SampleArrayValue, is_optional=True)
     PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pmtypes.Range)
     _props = ('_metric_value', 'PhysiologicalRange')
     MetricValue = _metric_value
@@ -192,7 +192,7 @@ class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
 
 class DistributionSampleArrayMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = pm.DistributionSampleArrayMetricState
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.SampleArrayValue)
+    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.SampleArrayValue, is_optional=True)
     PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pmtypes.Range)
     _props = ('_metric_value', 'PhysiologicalRange')
 
@@ -255,7 +255,7 @@ class ChannelStateContainer(AbstractDeviceComponentStateContainer):
 
 class ClockStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = pm.ClockState
-    ActiveSyncProtocol = cp.SubElementProperty(pm.ActiveSyncProtocol, value_class=pmtypes.CodedValue)
+    ActiveSyncProtocol = cp.SubElementProperty(pm.ActiveSyncProtocol, value_class=pmtypes.CodedValue, is_optional=True)
     ReferenceSource = cp.SubElementListProperty(pm.ReferenceSource, value_class=pmtypes.ElementWithTextOnly)
     DateAndTime = cp.CurrentTimestampAttributeProperty('DateAndTime')
     RemoteSync = cp.BooleanAttributeProperty('RemoteSync', default_py_value=True, is_optional=False)

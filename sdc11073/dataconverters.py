@@ -2,7 +2,6 @@ from decimal import Decimal
 
 from sdc11073 import isoduration
 
-
 STRICT_VALUE_CHECK = True
 
 
@@ -19,10 +18,88 @@ class NullConverter:
     def check_valid(py_value):
         pass
 
-class TimestampConverter:
+
+class ClassCheckConverter(NullConverter):
+    """No conversion, only type checking"""
+
+    def __init__(self, *klass):
+        self._klass = klass
+
+    def check_valid(self, py_value):
+        if STRICT_VALUE_CHECK and py_value is not None:
+            for cls in self._klass:
+                if isinstance(py_value, cls):
+                    return
+            raise ValueError(f'Value can only be {[cls.__name__ for cls in self._klass]}, got {type(py_value)}')
+
+
+class EnumConverter(NullConverter):
+    """
+    Converts between enums and strings
+    """
+
+    def __init__(self, klass):
+        self._klass = klass
+
+    def to_py(self, xml_value):
+        value = self._klass(xml_value)
+        return value
+
+    def to_xml(self, py_value):
+        if hasattr(py_value, 'value'):
+            return py_value.value
+        else:
+            return py_value
+
+    def check_valid(self, py_value):
+        if STRICT_VALUE_CHECK and py_value is not None:
+            if not isinstance(py_value, self._klass):
+                raise ValueError(f'Value can only be {self._klass.__name__}, got {type(py_value)}')
+
+
+class StringConverter(NullConverter):
+    """Strings need no conversion, only type checking"""
+
+    @staticmethod
+    def check_valid(py_value):
+        if STRICT_VALUE_CHECK and py_value is not None:
+            if not isinstance(py_value, str):
+                raise ValueError(f'Value can only be str, got {type(py_value)}')
+
+
+class ListConverter(NullConverter):
+    """Each element in list is checked and converted with provided element_converter"""
+
+    def __init__(self, element_converter):
+        if not hasattr(element_converter, 'check_valid'):
+            raise TypeError
+        self._element_converter = element_converter
+
+    def check_valid(self, py_value):
+        if STRICT_VALUE_CHECK and py_value is not None:
+            if not isinstance(py_value, (list, tuple)):
+                raise ValueError(f'Value must be list or a tuple, got {type(py_value)}')
+            for elem in py_value:
+                self._element_converter.check_valid(elem)
+
+    def to_py(self):
+        raise NotImplementedError
+
+    def to_xml(self):
+        raise NotImplementedError
+
+    def elem_to_py(self, xml_value):
+        return self._element_converter.to_py(xml_value)
+
+    def elem_to_xml(self, py_value):
+        return self._element_converter.to_xml(py_value)
+
+
+class TimestampConverter(NullConverter):
     """ XML representation: integer, representing timestamp in milliseconds
      Python representation: float in seconds
     """
+
     @classmethod
     def to_py(cls, xml_value):
         if xml_value is None:
@@ -43,7 +120,7 @@ class TimestampConverter:
                 raise ValueError(f'Timestamp can only have positive values, got {py_value}')
 
 
-class DecimalConverter:
+class DecimalConverter(NullConverter):
     USE_DECIMAL_TYPE = True
 
     @classmethod
@@ -67,13 +144,13 @@ class DecimalConverter:
             else:
                 xml_value = f'{round(py_value, 3):.3f}'
         elif isinstance(py_value, Decimal):
-            xml_value = str(py_value) # converting to str never returns exponential representation
+            xml_value = str(py_value)  # converting to str never returns exponential representation
             if '.' in xml_value:
                 # Limit number of digits, because standard says:
                 # All ·minimally conforming· processors ·must· support decimal numbers with a minimum of
                 # 18 decimal digits (i.e., with a ·totalDigits· of 18).
                 head, tail = xml_value.split('.')
-                tail = tail[:18-len(head)]
+                tail = tail[:18 - len(head)]
                 if tail:
                     xml_value = f'{head}.{tail}'
                 else:
@@ -92,7 +169,7 @@ class DecimalConverter:
                 raise ValueError(f'expected a decimal, got {type(py_value)}')
 
 
-class IntegerConverter:
+class IntegerConverter(NullConverter):
     @staticmethod
     def to_py(xml_value):
         if xml_value is None:
@@ -111,7 +188,8 @@ class IntegerConverter:
 
 
 class UnsignedIntConverter(IntegerConverter):
-    MAX = 1<<32
+    MAX = 1 << 32
+
     @classmethod
     def check_valid(cls, py_value):
         if STRICT_VALUE_CHECK and py_value is not None:
@@ -120,10 +198,10 @@ class UnsignedIntConverter(IntegerConverter):
 
 
 class UnsignedLongConverter(IntegerConverter):
-    MAX = 1<<64
+    MAX = 1 << 64
 
 
-class BooleanConverter:
+class BooleanConverter(NullConverter):
     @staticmethod
     def to_py(xml_value):
         return xml_value in ('true', '1')
@@ -141,7 +219,7 @@ class BooleanConverter:
                 raise ValueError(f'expected a boolean, got {type(py_value)}')
 
 
-class DurationConverter:
+class DurationConverter(NullConverter):
     @staticmethod
     def to_py(xml_value):
         if xml_value is None:

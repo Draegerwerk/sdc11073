@@ -448,7 +448,7 @@ class CodedValue(PropertyBasedPMType):
     NODETYPE = pm.CodedValue
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
-    CodingSystemName = cp.SubElementListProperty(pm.CodingSystemName, value_class=LocalizedText)
+    CodingSystemName = cp.SubElementListProperty(pm.CodingSystemName, value_class=LocalizedText, is_optional=True)
     ConceptDescription = cp.SubElementListProperty(pm.ConceptDescription, value_class=LocalizedText)
     Translation = cp.SubElementListProperty(pm.Translation, value_class=T_Translation)
     Code = cp.CodeIdentifierAttributeProperty('Code', is_optional=False)
@@ -587,7 +587,7 @@ class InstanceIdentifier(PropertyBasedPMType):
     NODETYPE = pm.InstanceIdentifier
     # pylint: disable=invalid-name
     ext_Extension = cp.ExtensionNodeProperty()
-    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)
+    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue, is_optional=True)
     IdentifierName = cp.SubElementListProperty(pm.IdentifierName, value_class=LocalizedText)
     Root = cp.AnyURIAttributeProperty('Root',
                                       default_py_value='biceps.uri.unk')  # xsd:anyURI string, default is defined in R0135
@@ -696,11 +696,11 @@ class AllowedValue(PropertyBasedPMType):
     NODETYPE = pm.AllowedValue
     # pylint: disable=invalid-name
     Value = cp.NodeTextProperty(pm.Value)
-    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)
+    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue, is_optional=True)
+    Identification = cp.SubElementProperty(pm.Identification, value_class=InstanceIdentifier, is_optional=True)
+    Characteristic = cp.SubElementProperty(pm.Characteristic, value_class=Measurement, is_optional=True)
     # pylint: enable=invalid-name
-    _props = ['Value', 'Type']
-    type_coding = Type
-    value = Value
+    _props = ['Value', 'Type', 'Identification', 'Characteristic']
 
     def __init__(self, value_string, type_coding=None):
         """One AllowedValue of a EnumStringMetricDescriptor. It has up to two sub elements "Value" and "Type"(optional).
@@ -728,8 +728,8 @@ class T_MetricQuality(PropertyBasedPMType):
     NODETYPE = pm.MetricQuality
     # pylint: disable=invalid-name
     Validity = cp.EnumAttributeProperty('Validity', enum_cls=MeasurementValidity)
-    Mode = cp.EnumAttributeProperty('Mode', implied_py_value='Real', enum_cls=GenerationMode)
-    Qi = cp.QualityIndicatorAttributeProperty('Qi', implied_py_value=1)
+    Mode = cp.EnumAttributeProperty('Mode', implied_py_value=GenerationMode.REAL, enum_cls=GenerationMode)
+    Qi = cp.QualityIndicatorAttributeProperty('Qi', implied_py_value=Decimal('1'))
     # pylint: enable=invalid-name
     _props = ('Validity', 'Mode', 'Qi')
 
@@ -935,7 +935,7 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
     # pylint: enable=invalid-name
     _props = ['ext_Extension', 'Label', 'Number']
 
-    def __init__(self, labels=None, number=None):
+    def __init__(self, labels: Optional[list] = None, number: int = None):
         """
         :param labels: a  list of LocalizedText
         :param number : an integer
@@ -1375,7 +1375,7 @@ class T_Udi(PropertyBasedPMType):
     # pylint: enable=invalid-name
     _props = ['DeviceIdentifier', 'HumanReadableForm', 'Issuer', 'Jurisdiction']
 
-    def __init__(self, device_identifier=None, human_readable_form=None, issuer=None, jurisdiction=None):
+    def __init__(self, device_identifier, human_readable_form, issuer, jurisdiction=None):
         """
         UDI fragments as defined by the FDA. (Only used in BICEPS Final)
         :param device_identifier: a string
@@ -1390,6 +1390,11 @@ class T_Udi(PropertyBasedPMType):
         self.Jurisdiction = jurisdiction
         # pylint: enable=invalid-name
 
+    @classmethod
+    def from_node(cls, node):
+        obj = cls(None, None, None)
+        obj.update_from_node(node)
+        return obj
 
 class MetaData(PropertyBasedPMType):
     # pylint: disable=invalid-name
