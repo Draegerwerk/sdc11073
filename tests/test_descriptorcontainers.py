@@ -75,6 +75,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc.DeterminationPeriod, None)
         self.assertEqual(dc.MaxMeasurementTime, None)
         self.assertEqual(dc.MaxDelayTime, None)
+        dc.Unit = pmtypes.CodedValue('abc', 'def')
 
         # test creation from node
         node = dc.mk_node(test_tag, self.ns_mapper)
@@ -92,7 +93,6 @@ class TestDescriptorContainers(unittest.TestCase):
         dc.DeterminationPeriod = 3.5
         dc.MaxMeasurementTime = 2.1
         dc.MaxDelayTime = 4
-        dc.Unit = pmtypes.CodedValue('abc', 'def')
         dc.BodySite.append(pmtypes.CodedValue('ABC', 'DEF'))
         dc.BodySite.append(pmtypes.CodedValue('GHI', 'JKL'))
         dc2.update_from_other_container(dc)
@@ -114,6 +114,7 @@ class TestDescriptorContainers(unittest.TestCase):
     def test_EnumStringMetricDescriptorContainer(self):
         dc = descriptorcontainers.EnumStringMetricDescriptorContainer(handle='123', parent_handle='456')
         dc.AllowedValue = [pmtypes.AllowedValue('abc')]
+        dc.Unit = pmtypes.CodedValue('abc', 'def')
 
         node = dc.mk_node(test_tag, self.ns_mapper)
         dc2 = descriptorcontainers.EnumStringMetricDescriptorContainer.from_node(node=node, parent_handle='467')
@@ -181,6 +182,7 @@ class TestDescriptorContainers(unittest.TestCase):
             self.assertEqual(_dc.Retriggerable, _dc2.Retriggerable)
 
         dc = descriptorcontainers.ActivateOperationDescriptorContainer(handle='123', parent_handle='456')
+        dc.OperationTarget= 'my_handle'
         # create copy with default values
         node = dc.mk_node(test_tag, self.ns_mapper)
         dc2 = descriptorcontainers.ActivateOperationDescriptorContainer.from_node(node=node, parent_handle='456')

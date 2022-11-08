@@ -519,8 +519,8 @@ class _NodeTextProperty(_NodeProperty):
 class NodeTextProperty(_NodeTextProperty):
     """Python representation is a string."""
 
-    def __init__(self, sub_element_name=None, default_py_value=None, implied_py_value=None, is_optional=False):
-        super().__init__(sub_element_name, StringConverter, default_py_value, implied_py_value, is_optional)
+    def __init__(self, sub_element_name=None, default_py_value=None, implied_py_value=None, is_optional=False, min_length=0):
+        super().__init__(sub_element_name, StringConverter, default_py_value, implied_py_value, is_optional, min_length)
 
 
 class NodeEnumTextProperty(_NodeTextProperty):
@@ -528,7 +528,7 @@ class NodeEnumTextProperty(_NodeTextProperty):
 
     def __init__(self, enum_cls, sub_element_name, default_py_value=None, implied_py_value=None, is_optional=False):
         super().__init__(sub_element_name, EnumConverter(enum_cls), default_py_value, implied_py_value,
-                         is_optional)
+                         is_optional, min_length=1)
         self.enum_cls = enum_cls
 
 
@@ -536,7 +536,8 @@ class NodeTextQNameProperty(_NodeProperty):
     """ The handled data is a qualified name as in the text of an element"""
 
     def __init__(self, sub_element_name, default_py_value=None, is_optional=False):
-        super().__init__(sub_element_name, ClassCheckConverter(etree_.QName), default_py_value, is_optional=is_optional)
+        super().__init__(sub_element_name, ClassCheckConverter(etree_.QName), default_py_value,
+                         is_optional=is_optional)
 
     def get_py_value_from_node(self, instance, node):
         try:

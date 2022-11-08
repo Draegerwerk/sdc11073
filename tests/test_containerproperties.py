@@ -59,7 +59,7 @@ class Dummy(DummyBase):
 
 
 class DummyNodeText(DummyBase):
-    node_text_mand = NodeTextProperty(etree_.QName('pref', 'node_text_mand'), implied_py_value='foo')
+    node_text_mand = NodeTextProperty(etree_.QName('pref', 'node_text_mand'), implied_py_value='foo', min_length=1)
     node_text_opt = NodeTextProperty(etree_.QName('pref', 'node_text_opt'), implied_py_value='bar', is_optional=True)
 
     def props(self):

@@ -1353,12 +1353,11 @@ class PatientDemographicsCoreData(BaseDemographics):
 class NeonatalPatientDemographicsCoreData(PatientDemographicsCoreData):
     # pylint: disable=invalid-name
     NODETYPE = pm.NeonatalPatientDemographicsCoreData
-    GestationalAge = cp.SubElementProperty(pm.GestationalAge, value_class=Measurement,
-                                           is_optional=True)
-    BirthLength = cp.SubElementProperty(pm.BirthLength, value_class=Measurement)
-    BirthWeight = cp.SubElementProperty(pm.BirthWeight, value_class=Measurement)
-    HeadCircumference = cp.SubElementProperty(pm.HeadCircumference, value_class=Measurement)
-    Mother = cp.SubElementProperty(pm.Mother, value_class=PersonReference)
+    GestationalAge = cp.SubElementProperty(pm.GestationalAge, value_class=Measurement, is_optional=True)
+    BirthLength = cp.SubElementProperty(pm.BirthLength, value_class=Measurement, is_optional=True)
+    BirthWeight = cp.SubElementProperty(pm.BirthWeight, value_class=Measurement, is_optional=True)
+    HeadCircumference = cp.SubElementProperty(pm.HeadCircumference, value_class=Measurement, is_optional=True)
+    Mother = cp.SubElementProperty(pm.Mother, value_class=PersonReference, is_optional=True)
     # pylint: enable=invalid-name
     _props = ('GestationalAge', 'BirthLength', 'BirthWeight', 'HeadCircumference', 'Mother')
 
