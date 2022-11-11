@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import time
 import traceback
+from dataclasses import dataclass
 from threading import Lock
-from typing import Type, TYPE_CHECKING
+from typing import Type, List, TYPE_CHECKING
 
 from lxml import etree as etree_
 
@@ -15,9 +15,9 @@ from ..pmtypes import have_matching_codes
 
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
-    from .descriptorcontainers import AbstractMetricDescriptorContainer
+    from .descriptorcontainers import AbstractMetricDescriptorContainer, AbstractDescriptorContainer
+    from .statecontainers import AbstractStateContainer
     from ..pmtypes import CodedValue, Coding
-
 
 
 class _MultikeyWithVersionLookup(multikey.MultiKeyLookup):
@@ -53,7 +53,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
         self.add_index('parent_handle', multikey.IndexDefinition(lambda obj: obj.parent_handle))
         self.add_index('NODETYPE', multikey.IndexDefinition(lambda obj: obj.NODETYPE))
         self.add_index('coding', multikey.IndexDefinition(lambda obj: obj.coding))
-        self.add_index('ConditionSignaled',
+        self.add_index('condition_signaled',
                        multikey.IndexDefinition(lambda obj: obj.ConditionSignaled, index_none_values=False))
         # an index to find all alert conditions for a metric (AlertCondition is the only class that has a
         # "Source" attribute, therefore this simple approach without type testing is sufficient):
@@ -143,6 +143,18 @@ class MultiStatesLookup(_MultikeyWithVersionLookup):
             if increment:
                 version += 1
             obj.StateVersion = version
+
+
+@dataclass
+class Entity:
+    descriptor: Type[AbstractDescriptorContainer]
+    state: Type[AbstractStateContainer]
+
+
+@dataclass
+class MultiStateEntity:
+    descriptor: Type[AbstractDescriptorContainer]
+    states: List[Type[AbstractStateContainer]]
 
 
 class MdibContainer:
@@ -501,3 +513,13 @@ class MdibContainer:
         if descriptor_container is not None:
             all_descriptors = self.get_all_descriptors_in_subtree(descriptor_container)
             self.rm_descriptors_and_states(all_descriptors)
+
+    def get_entity(self, handle: str) -> Entity:
+        descr = self.descriptions.handle.getOne(handle)
+        state = self.states.descriptorHandle.getOne(handle)
+        return Entity(descr, state)
+
+    def get_context_entity(self, handle: str) -> MultiStateEntity:
+        descr = self.descriptions.handle.getOne(handle)
+        states = self.context_states.descriptorHandle.get(handle)
+        return Entity(descr, states)
