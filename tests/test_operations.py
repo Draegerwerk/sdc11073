@@ -138,10 +138,12 @@ class Test_BuiltinOperations(unittest.TestCase):
         proposed_context.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
         proposed_context.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
         proposed_context.CoreData.Race = pmtypes.CodedValue('somerace')
+        self.log_watcher.setPaused(True)
         future = context.set_context_state(operation_handle, [proposed_context])
         result = future.result(timeout=SET_TIMEOUT)
         state = result.invocation_state
         self.assertEqual(state, pmtypes.InvocationState.FAILED)
+        self.log_watcher.setPaused(False)
 
         # insert a new patient with correct handle, this shall succeed
         proposed_context.Handle = patient_descriptor_container.Handle

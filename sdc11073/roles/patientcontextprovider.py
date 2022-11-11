@@ -25,19 +25,6 @@ class GenericPatientContextProvider(GenericContextProvider):
             return pc_operation
         return None
 
-    # def make_missing_operations(self, operation_cls_getter):
-    #     ops = []
-    #     if self._patient_context_descriptor_container and not self._set_patient_context_operations:
-    #         set_context_state_op_cls = operation_cls_getter(pm.SetContextStateOperationDescriptor)
-    #
-    #         pc_operation = self._mk_operation(set_context_state_op_cls,
-    #                                           handle='opSetPatCtx',
-    #                                           operation_target_handle=self._patient_context_descriptor_container.handle,
-    #                                           coded_value=None,
-    #                                           current_argument_handler=self._set_context_state)
-    #         ops.append(pc_operation)
-    #     return ops
-
 
 class PatientContextProvider(GenericPatientContextProvider):
     """This Implementation adds operations to mdib if they do not exist."""
@@ -52,6 +39,7 @@ class PatientContextProvider(GenericPatientContextProvider):
                                               handle='opSetPatCtx',
                                               operation_target_handle=self._patient_context_descriptor_container.handle,
                                               coded_value=None,
-                                              current_argument_handler=self._set_context_state)
+                                              current_argument_handler=self._set_context_state,
+                                              timeout_handler=None)
             ops.append(pc_operation)
         return ops
