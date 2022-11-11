@@ -29,6 +29,7 @@ class OperationDefinition:
     current_value = properties.ObservableProperty(fire_only_on_changed_value=False)
     current_request = properties.ObservableProperty(fire_only_on_changed_value=False)
     current_argument = properties.ObservableProperty(fire_only_on_changed_value=False)
+    on_timeout = properties.ObservableProperty(fire_only_on_changed_value=False)
     OP_DESCR_QNAME = None
     OP_STATE_QNAME = None
     OP_QNAME = None
@@ -58,7 +59,6 @@ class OperationDefinition:
         self._coded_value = coded_value
         self.calls = []  # record when operation was called
         self.last_called_time = None
-        self.on_timeout_handler = None
 
     @property
     def handle(self):
@@ -87,14 +87,12 @@ class OperationDefinition:
     def check_timeout(self):
         if self.last_called_time is None:
             return
-        if self.on_timeout_handler is None:
-            return
         if self._descriptor_container.InvocationEffectiveTimeout is None:
             return
         age = time.time() - self.last_called_time
         if age < self._descriptor_container.InvocationEffectiveTimeout:
             return
-        self.on_timeout_handler(self)
+        self.on_timeout = True  # let observable fire
 
 
     def set_mdib(self, mdib, parent_descriptor_container):
