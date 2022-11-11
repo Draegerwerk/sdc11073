@@ -57,6 +57,8 @@ class OperationDefinition:
         self._safety_classification = safety_classification
         self._coded_value = coded_value
         self.calls = []  # record when operation was called
+        self.last_called_time = None
+        self.on_timeout_handler = None
 
     @property
     def handle(self):
@@ -70,12 +72,30 @@ class OperationDefinition:
     def operation_target_storage(self):
         return self._mdib.states
 
+    @property
+    def descriptor_container(self):
+        return self._descriptor_container
+
     def execute_operation(self, request, operation_request):  # pylint: disable=unused-argument
         """ This is the code that executes the operation itself.
         A handler that executes the operation must be bound to observable "current_request"."""
         self.calls.append((time.time(), request))
         self.current_request = request
         self.current_argument = operation_request.argument
+        self.last_called_time = time.time()
+
+    def check_timeout(self):
+        if self.last_called_time is None:
+            return
+        if self.on_timeout_handler is None:
+            return
+        if self._descriptor_container.InvocationEffectiveTimeout is None:
+            return
+        age = time.time() - self.last_called_time
+        if age < self._descriptor_container.InvocationEffectiveTimeout:
+            return
+        self.on_timeout_handler(self)
+
 
     def set_mdib(self, mdib, parent_descriptor_container):
         """ The operation needs to know the mdib that it operates on.
@@ -276,12 +296,13 @@ class _OperationsWorker(threading.Thread):
     It manages transaction ids for all operations.
     Progress notifications are sent via subscription manager."""
 
-    def __init__(self, subscriptions_mgr, mdib, log_prefix):
+    def __init__(self, operations_registry, subscriptions_mgr, mdib, log_prefix):
         """
         :param subscriptions_mgr: subscriptionsmgr.notify_operation is called in order to notify all subscribers of OperationInvokeReport Events
         """
         super().__init__(name='DeviceOperationsWorker')
         self.daemon = True
+        self._operations_registry = operations_registry
         self._subscriptions_mgr = subscriptions_mgr
         self._mdib = mdib
         self._operations_queue = queue.Queue(10)  # spooled operations
@@ -305,36 +326,40 @@ class _OperationsWorker(threading.Thread):
     def run(self):
         while True:
             try:
-                from_queue = self._operations_queue.get()
-                if from_queue == 'stop_sco':
-                    self._logger.info('stop request found. Terminating now.')
-                    return
-                tr_id, operation, request, operation_request = from_queue  # unpack tuple
-                time.sleep(0.001)
-                self._logger.info('{}: starting operation "{}" argument={}',
-                                  operation.__class__.__name__, operation.handle, operation_request.argument)
-                # duplicate the WAIT response to the operation request as notification. Standard requires this.
-                self._subscriptions_mgr.notify_operation(
-                    operation, tr_id, InvocationState.WAIT,
-                    self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper)
-                time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
-                self._subscriptions_mgr.notify_operation(
-                    operation, tr_id, InvocationState.START,
-                    self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper)
                 try:
-                    operation.execute_operation(request, operation_request)
-                    self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
-                                      operation.handle)
+                    from_queue = self._operations_queue.get(timeout=1.0)
+                except queue.Empty:
+                    self._operations_registry.check_invocation_timeouts()
+                else:
+                    if from_queue == 'stop_sco':
+                        self._logger.info('stop request found. Terminating now.')
+                        return
+                    tr_id, operation, request, operation_request = from_queue  # unpack tuple
+                    time.sleep(0.001)
+                    self._logger.info('{}: starting operation "{}" argument={}',
+                                      operation.__class__.__name__, operation.handle, operation_request.argument)
+                    # duplicate the WAIT response to the operation request as notification. Standard requires this.
                     self._subscriptions_mgr.notify_operation(
-                        operation, tr_id, InvocationState.FINISHED,
+                        operation, tr_id, InvocationState.WAIT,
                         self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper)
-                except Exception as ex:
-                    self._logger.info('{}: error executing operation "{}": {}', operation.__class__.__name__,
-                                      operation.handle, traceback.format_exc())
+                    time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
                     self._subscriptions_mgr.notify_operation(
-                        operation, tr_id, InvocationState.FAILED,
-                        self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper,
-                        error='Oth', error_message=repr(ex))
+                        operation, tr_id, InvocationState.START,
+                        self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper)
+                    try:
+                        operation.execute_operation(request, operation_request)
+                        self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
+                                          operation.handle)
+                        self._subscriptions_mgr.notify_operation(
+                            operation, tr_id, InvocationState.FINISHED,
+                            self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper)
+                    except Exception as ex:
+                        self._logger.error('{}: error executing operation "{}": {}', operation.__class__.__name__,
+                                          operation.handle, traceback.format_exc())
+                        self._subscriptions_mgr.notify_operation(
+                            operation, tr_id, InvocationState.FAILED,
+                            self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper,
+                            error='Oth', error_message=repr(ex))
             except Exception:
                 self._logger.error('{}: unexpected error while handling operation "{}": {}',
                                    operation.__class__.__name__, operation.handle, traceback.format_exc())
@@ -368,6 +393,10 @@ class AbstractScoOperationsRegistry(ABC):
             cls = mdib.data_model.get_descriptor_container_class(pm.ScoDescriptor)
             self._mds_sco_descriptor_container = cls(self._handle, mds_descriptor_container.Handle)
             mdib.descriptions.add_object(self._mds_sco_descriptor_container)
+
+    def check_invocation_timeouts(self):
+        for op in self._registered_operations.values():
+            op.check_timeout()
 
     @abstractmethod
     def register_operation(self, operation: OperationDefinition, sco_descriptor_container=None) -> None:
@@ -445,7 +474,7 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
     def start_worker(self):
         if self._worker is not None:
             raise ApiUsageError('SCO worker is already running')
-        self._worker = _OperationsWorker(self._subscriptions_mgr, self._mdib, self._log_prefix)
+        self._worker = _OperationsWorker(self, self._subscriptions_mgr, self._mdib, self._log_prefix)
         self._worker.start()
 
     def stop_worker(self):
