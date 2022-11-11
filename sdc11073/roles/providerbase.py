@@ -79,11 +79,13 @@ class ProviderRole:
     def _mk_operation_from_operation_descriptor(self, operation_descriptor_container,
                                                 operation_cls_getter,
                                                 current_argument_handler=None,
-                                                current_request_handler=None):
+                                                current_request_handler=None,
+                                                timeout_handler=None):
         """
         :param operation_descriptor_container: the operation container for which this operation Handler shall be created
         :param current_argument_handler: the handler that shall be called by operation
         :param current_request_handler: the handler that shall be called by operation
+        :para timeout_handler: callable when timeout is detected (InvocationEffectiveTimeout)
         :return: instance of cls
         """
         cls = operation_cls_getter(operation_descriptor_container.NODETYPE)
@@ -92,12 +94,13 @@ class ProviderRole:
                                        operation_descriptor_container.OperationTarget,
                                        operation_descriptor_container.coding,
                                        current_argument_handler,
-                                       current_request_handler)
+                                       current_request_handler,
+                                       timeout_handler)
         return operation
 
     def _mk_operation(self, cls, handle, operation_target_handle, # pylint: disable=no-self-use
                       coded_value, current_argument_handler=None,
-                      current_request_handler=None):
+                      current_request_handler=None, timeout_handler=None):
         """
 
         :param cls: one of the Operations defined in sdcdevice.sco
@@ -117,6 +120,9 @@ class ProviderRole:
         if current_request_handler:
             # bind method to current_request
             properties.strongbind(operation, current_request=partial(current_request_handler, operation))
+        if timeout_handler:
+            # bind method to current_request
+            properties.strongbind(operation, on_timeout=partial(timeout_handler, operation))
         return operation
 
     def _get_operation_target_handle(self, operation_instance):
