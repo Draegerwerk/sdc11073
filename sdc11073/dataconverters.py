@@ -134,32 +134,46 @@ class DecimalConverter(NullConverter):
         return int(xml_value)
 
     @staticmethod
-    def to_xml(py_value):
+    def _float_to_xml(py_value):
+        # round value to handle float inaccuracies
+        if abs(py_value) >= 100:
+            xml_value = f'{round(py_value, 1):.1f}'
+        elif abs(py_value) >= 10:
+            xml_value = f'{round(py_value, 2):.2f}'
+        else:
+            xml_value = f'{round(py_value, 3):.3f}'
+        return xml_value
+
+    @classmethod
+    def _decimal_to_xml(cls, py_value):
+        xml_value = str(py_value)
+        if 'E' in xml_value or 'e' in xml_value:
+            # no exp form allowed in xml
+            return cls._float_to_xml(float(py_value))
+        return xml_value
+
+    @classmethod
+    def to_xml(cls, py_value):
         if isinstance(py_value, float):
-            # round value to handle float inaccuracies
-            if abs(py_value) >= 100:
-                xml_value = f'{round(py_value, 1):.1f}'
-            elif abs(py_value) >= 10:
-                xml_value = f'{round(py_value, 2):.2f}'
-            else:
-                xml_value = f'{round(py_value, 3):.3f}'
+            xml_value = cls._float_to_xml(py_value)
         elif isinstance(py_value, Decimal):
-            xml_value = str(py_value)  # converting to str never returns exponential representation
-            if '.' in xml_value:
-                # Limit number of digits, because standard says:
-                # All ·minimally conforming· processors ·must· support decimal numbers with a minimum of
-                # 18 decimal digits (i.e., with a ·totalDigits· of 18).
-                head, tail = xml_value.split('.')
-                tail = tail[:18 - len(head)]
-                if tail:
-                    xml_value = f'{head}.{tail}'
-                else:
-                    xml_value = head
+            xml_value = cls._decimal_to_xml(py_value)
         else:
             xml_value = str(py_value)
-        # remove trailing zeros after decimal point
-        while '.' in xml_value and xml_value[-1] in ('0', '.'):
-            xml_value = xml_value[:-1]
+
+        if '.' in xml_value:
+            # Limit number of digits, because standard says:
+            # All ·minimally conforming· processors ·must· support decimal numbers with a minimum of
+            # 18 decimal digits (i.e., with a ·totalDigits· of 18).
+            head, tail = xml_value.split('.')
+            tail = tail[:18 - len(head)]
+            if tail:
+                xml_value = f'{head}.{tail}'
+            else:
+                xml_value = head
+            # remove trailing zeros after decimal point
+            while '.' in xml_value and xml_value[-1] in ('0', '.'):
+                xml_value = xml_value[:-1]
         return xml_value
 
     @staticmethod
