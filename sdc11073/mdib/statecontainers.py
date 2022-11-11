@@ -319,7 +319,7 @@ class AlertSystemStateContainer(AbstractAlertStateContainer):
     def __repr__(self):
         return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" ' \
                f'StateVersion={self.StateVersion} LastSelfCheck={self.LastSelfCheck} ' \
-               f'SelfCheckCount={self.SelfCheckCount}'
+               f'SelfCheckCount={self.SelfCheckCount} Activation={self.ActivationState}'
 
 
 class AlertSignalStateContainer(AbstractAlertStateContainer):
@@ -337,6 +337,11 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
         super().__init__(*args, **kwargs)
         self.last_updated = time.time()
 
+    def __repr__(self):
+        return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" ' \
+               f'StateVersion={self.StateVersion} Location={self.Location} ' \
+               f'Activation={self.ActivationState} Presence={self.Presence}'
+
 
 class AlertConditionStateContainer(AbstractAlertStateContainer):
     is_alert_condition = True
@@ -347,6 +352,11 @@ class AlertConditionStateContainer(AbstractAlertStateContainer):
     DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime')
     Presence = cp.BooleanAttributeProperty('Presence', implied_py_value=False)
     _props = ('ActualConditionGenerationDelay', 'ActualPriority', 'Rank', 'DeterminationTime', 'Presence')
+
+    def __repr__(self):
+        return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" ' \
+               f'StateVersion={self.StateVersion} ' \
+               f'Activation={self.ActivationState} Presence={self.Presence}'
 
 
 class LimitAlertConditionStateContainer(AlertConditionStateContainer):
