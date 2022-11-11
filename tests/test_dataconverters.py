@@ -23,6 +23,8 @@ class TestDataConverters(unittest.TestCase):
                 self.assertEqual(dataconverters.DecimalConverter.to_xml(Decimal('42.1')), '42.1')
                 self.assertEqual(dataconverters.DecimalConverter.to_xml(Decimal('42.0')), '42')
                 self.assertEqual(dataconverters.DecimalConverter.to_xml(Decimal('42.100')), '42.1')
+                self.assertEqual(dataconverters.DecimalConverter.to_xml(Decimal('0E-15')), '0')
+                self.assertEqual(dataconverters.DecimalConverter.to_xml(Decimal('1.23E-1')), '0.123')
         finally:
             dataconverters.DecimalConverter.USE_DECIMAL_TYPE = before # reset flag
 
