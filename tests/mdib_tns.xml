@@ -18,12 +18,17 @@ MdibVersion="5795" SequenceId="urn:uuid:4ed313b2-f925-418a-8476-6f3b4d06ee3e" In
 					<AlertSignal ConditionSignaled="ac0.mds0" Manifestation="Aud" Latching="false" Handle="as0.mds0_rem" DescriptorVersion="0" SafetyClassification="MedA" SignalDelegationSupported="true"/>
 				</AlertSystem>
 				<Sco Handle="sco.mds0" DescriptorVersion="0">
-					<Operation xsi:type="ActivateOperationDescriptor" OperationTarget="asy.mds0" MaxTimeToFinish="PT1S" Retriggerable="true" Handle="myactop.mds0_sco_0" DescriptorVersion="0" SafetyClassification="MedC">
+
+					<Operation xsi:type="SetAlertStateOperationDescriptor" OperationTarget="as0.mds0_rem" MaxTimeToFinish="PT1S" InvocationEffectiveTimeout="PT3S" Retriggerable="true" Handle="as0.mds0_rem_dele" DescriptorVersion="0">
 						<ns2:Extension/>
-						<Type Code="128502">
-							<ConceptDescription Lang="en-US">MDC_OP_ACTIVATE_ALL_DELEGABLE_ALERT_SIGNALS An Operation to activate the delegable alert signals of an alert system</ConceptDescription>
+						<Type Code="1234567">
+							<ConceptDescription Lang="en-US">An Operation to delegable an alert signal</ConceptDescription>
 						</Type>
+						<ModifiableData>ActivationState</ModifiableData>
+						<ModifiableData>Presence</ModifiableData>
+						<ModifiableData>ActualSignalGenerationDelay</ModifiableData>
 					</Operation>
+
 					<Operation xsi:type="ActivateOperationDescriptor" OperationTarget="mds0" MaxTimeToFinish="PT1S" Retriggerable="true" Handle="actop.mds0_sco_0" DescriptorVersion="0" SafetyClassification="MedC">
 						<ns2:Extension/>
 						<Type Code="196279">

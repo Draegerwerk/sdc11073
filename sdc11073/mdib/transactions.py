@@ -34,7 +34,7 @@ class _TransactionBase:
         self._current_update_dict = None  # used to check for data type
         self.is_descriptor_update = False
 
-    def _get_descriptor_in_transaction(self, descriptor_handle):
+    def get_descriptor_in_transaction(self, descriptor_handle):
         """ looks for new or updated descriptor in current transaction and in mdib"""
         tr_container = self.descriptor_updates.get(descriptor_handle)
         if tr_container is not None:
@@ -45,7 +45,7 @@ class _TransactionBase:
 
     def _get_state_container(self, descriptor_handle):
         """ returns oldContainer, newContainer"""
-        descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
+        descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
         old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.Handle,
                                                                                           allow_none=False)
         new_state_container = old_state_container.mk_copy()
@@ -54,7 +54,7 @@ class _TransactionBase:
 
     def _mk_state_container(self, descriptor_handle, adjust_state_version=True):
         """ returns oldContainer, newContainer"""
-        descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
+        descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
         old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.Handle,
                                                                                           allow_none=True)
         if old_state_container is None:
@@ -278,7 +278,7 @@ class MdibUpdateTransaction(_TransactionBase):
             raise ValueError(f'State {descriptor_handle} already in updated set!')
 
         if state_container.descriptor_container is None:
-            descr = self._get_descriptor_in_transaction(descriptor_handle)
+            descr = self.get_descriptor_in_transaction(descriptor_handle)
             state_container.descriptor_container = descr
         if adjust_state_version:
             my_multi_key.set_version(state_container)
@@ -306,7 +306,7 @@ class MdibUpdateTransaction(_TransactionBase):
         :param descriptor_handle: a string
         :return: a copy of the state
         """
-        descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
+        descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
         if descriptor_container.is_realtime_sample_array_metric_descriptor:
             return self._get_real_time_sample_array_metric_state(descriptor_container)
         elif descriptor_container.is_context_descriptor:
@@ -362,7 +362,7 @@ class MdibUpdateTransaction(_TransactionBase):
         @return: the new state.
         """
         self._verify_correct_update_dict(self.context_state_updates)
-        descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
+        descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
         if context_state_handle is None:
             old_state_container = None
         else:
@@ -401,7 +401,7 @@ class MdibUpdateTransaction(_TransactionBase):
         state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_handle,
                                                                                       allow_none=True)
         if state_container is None:
-            descriptor_container = self._get_descriptor_in_transaction(descriptor_handle)
+            descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
             new_state = self._device_mdib_container.data_model.mk_state_container(descriptor_container)
             if not new_state.is_realtime_sample_array_metric_state:
                 raise ValueError(
