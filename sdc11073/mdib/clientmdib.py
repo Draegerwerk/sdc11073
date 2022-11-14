@@ -464,9 +464,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     '_onEpisodicMetricReport mdibVersion {}: age of metrics back in limit of {} sec.: max, min = {:03f}, {:03f}',
                     newMdibVersion, self.DETERMINATIONTIME_WARN_LIMIT, maxAge, minAge)
         finally:
-            if metricsByHandle:
-                self.metricsByHandle = metricsByHandle  # used by waitMetricMatches method
-
+            self._updateStateObservables(metricsByHandle.values())
 
     def _onEpisodicAlertReport(self, reportNode, is_buffered_report=False):
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicAlertReport):
@@ -503,8 +501,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         self.states.addObject(sc)
                         alertByHandle[sc.descriptorHandle] = sc
         finally:
-            if alertByHandle:
-                self.alertByHandle = alertByHandle  # update observable
+            self._updateStateObservables(alertByHandle.values())
 
     def _onOperationalStateReport(self, reportNode, is_buffered_report=False):
         if not is_buffered_report and self._bufferNotification(reportNode, self._onOperationalStateReport):
@@ -539,9 +536,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         self.states.addObject(sc)
                         operationByHandle[sc.descriptorHandle] = sc
         finally:
-            if operationByHandle:
-                self.operationByHandle = operationByHandle
-
+            self._updateStateObservables(operationByHandle.values())
 
     def _onWaveformReportProfiled(self, reportNode):
         self.pr.enable()
@@ -638,9 +633,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                       age_data.min_age*1000., age_data.max_age*1000.)
                     self._last_wf_age_log = now
         finally:
-            if waveformByHandle:
-                self.waveformByHandle = waveformByHandle
-
+            self._updateStateObservables(waveformByHandle.values())
 
     def _onEpisodicContextReport(self, reportNode, is_buffered_report=False):
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicContextReport):
@@ -676,9 +669,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             sc.Handle, sc.descriptorHandle, sc.ContextAssociation, sc.Validator)
                         contextByHandle[sc.Handle] = sc
         finally:
-            if contextByHandle:
-                self.contextByHandle = contextByHandle
-
+            self._updateStateObservables(contextByHandle.values())
 
     def _onEpisodicComponentReport(self, reportNode, is_buffered_report=False):
         '''The EpisodicComponentReport is sent if at least one property of at least one component state has changed 
@@ -723,8 +714,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                 desc_h, sc.DescriptorVersion)
                             componentByHandle[sc.descriptorHandle] = sc
         finally:
-            if componentByHandle:
-                self.componentByHandle = componentByHandle
+            self._updateStateObservables(componentByHandle.values())
 
 
     def _onDescriptionModificationReport(self, reportNode, is_buffered_report=False):
