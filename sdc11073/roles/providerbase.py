@@ -12,24 +12,24 @@ class ProviderRole(object):
         self._logger = loghelper.getLoggerAdapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
 
     def stop(self):
-        ''' if provider uses worker threads, implement stop method'''
+        """ if provider uses worker threads, implement stop method"""
         pass
 
     def initOperations(self, mdib):
         self._mdib = mdib
 
     def makeOperationInstance(self, operationDescriptorContainer): #pylint: disable=unused-argument
-        '''returns a callable for this operation or None.
+        """returns a callable for this operation or None.
         If a mdib already has operations defined, this method can connect a handler to a given operation descriptor.
-        Use case: initialization from an existing mdib'''
+        Use case: initialization from an existing mdib"""
         return None
 
     def makeMissingOperations(self):
-        '''
+        """
         This method is called after all existing operations from mdib have been registered.
         If a role provider needs to add operations beyond that, it can do it here.
         :return: []
-        '''
+        """
         return []
 
     def onPreCommit(self, mdib, transaction):
@@ -40,7 +40,7 @@ class ProviderRole(object):
 
 
     def _setNumericValue(self, operationInstance, value):
-        ''' sets a numerical metric value'''
+        """ sets a numerical metric value"""
         operationDescriptorHandle = operationInstance.handle
         operationDescriptorContainer = self._mdib.descriptions.handle.getOne(operationDescriptorHandle)
         operationTargetHandle = operationDescriptorContainer.OperationTarget
@@ -61,7 +61,7 @@ class ProviderRole(object):
 
 
     def _setString(self, operationInstance, value):
-        ''' sets a string value'''
+        """ sets a string value"""
         operationDescriptorHandle = operationInstance.handle
         operationDescriptorContainer = self._mdib.descriptions.handle.getOne(operationDescriptorHandle)
         operationTargetHandle = operationDescriptorContainer.OperationTarget
@@ -81,25 +81,30 @@ class ProviderRole(object):
                 state.metricValue.Validity = pmtypes.MeasurementValidity.VALID
 
 
-    def _mkOperationFromOperationDescriptor(self, operationDescriptorContainer, currentArgumentHandler=None, currentRequestHandler=None):
-        '''
+    def _mkOperationFromOperationDescriptor(self, operationDescriptorContainer,
+                                            currentArgumentHandler=None, currentRequestHandler=None,
+                                            timeoutHandler=None):
+        """
         :param operationDescriptorContainer: the operation container for which this operation Handler shall be created
         :param currentArgumentHandler: the handler that shall be called by operation
         :param currentRequestHandler: the handler that shall be called by operation
+        :param timeoutHandler: callable when timeout is detected (InvocationEffectiveTimeout)
         :return: instance of cls
-        '''
+        """
         cls = sdcdevice.sco.getOperationClass(operationDescriptorContainer.NODETYPE)
         op = self._mkOperation(cls,
                                operationDescriptorContainer.handle,
                                operationDescriptorContainer.OperationTarget,
                                operationDescriptorContainer.coding,
                                currentArgumentHandler,
-                               currentRequestHandler)
+                               currentRequestHandler,
+                               timeoutHandler)
         op.safetyReq = operationDescriptorContainer.SafetyReq
         return op
 
-    def _mkOperation(self, cls, handle, operationTargetHandle, codedValue, currentArgumentHandler=None, currentRequestHandler=None):
-        '''
+    def _mkOperation(self, cls, handle, operationTargetHandle, codedValue,
+                     currentArgumentHandler=None, currentRequestHandler=None, timeoutHandler=None):
+        """
 
         :param cls: one of the Operations defined in sdcdevice.sco
         :param handle: the handle of this operation
@@ -108,7 +113,7 @@ class ProviderRole(object):
         :param currentArgumentHandler: the handler that shall be called by operation
         :param currentRequestHandler: the handler that shall be called by operation
         :return: instance of cls
-        '''
+        """
         operation = cls(handle=handle,
                         operationTarget=operationTargetHandle,
                         codedValue=codedValue)
@@ -118,4 +123,7 @@ class ProviderRole(object):
         if currentRequestHandler:
             # bind method to currentRequest
             properties.strongbind(operation, currentRequest=partial(currentRequestHandler, operation))
+        if timeoutHandler:
+            # bind method to onTimeout
+            properties.strongbind(operation, onTimeout=partial(timeoutHandler, operation))
         return operation

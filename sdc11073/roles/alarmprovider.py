@@ -43,17 +43,20 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         elif operationDescriptorContainer.NODETYPE == namespaces.domTag('ActivateOperationDescriptor'):
             pass
         elif operationDescriptorContainer.NODETYPE == namespaces.domTag('SetAlertStateOperationDescriptor'):
-            if operationTargetDescr.NODETYPE == namespaces.domTag('AlertSignalDescriptor'):
-                # no check for code, because the setAlertState operation always means setting
-                # ActivationState, Presence and ActualSignalGenerationDelay
-                # if stricter checking needed, one might add it
-                operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
-                                                                     currentArgumentHandler=self._setAlertSignalState)
+            if operationTargetDescr.NODETYPE == namespaces.domTag('AlertSignalDescriptor') and operationTargetDescr.SignalDelegationSupported:
+                modifiable_data = [d.text for d in operationDescriptorContainer.ModifiableData]
+                if 'Presence' in modifiable_data \
+                        and 'ActivationState' in modifiable_data \
+                        and 'ActualSignalGenerationDelay' in modifiable_data:
+                    # ToDo:  check for appropriate code
+                    operation = self._mkOperationFromOperationDescriptor(
+                        operationDescriptorContainer,
+                        currentArgumentHandler=self._delegate_alert_signal,
+                        timeoutHandler=self._end_delegate_alert_signal)
 
-                self._logger.info(
-                    'GenericAlarmProvider: added handler "self._setAlertState" for {} target= {} '.format(operationDescriptorContainer,
-                                                                                                          operationTargetDescr))
-                return operation
+                    self._logger.info(f'GenericAlarmProvider: added handler "self._delegate_alert_signal" '
+                                      f'for {operationDescriptorContainer} target= {operationTargetDescr} ')
+                    return operation
 
         return None  # None == no handler for this operation instantiated
 
@@ -385,21 +388,33 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             else:
                 self._activateFallbackAlertSignals(descr, None, mgr)
 
-    def _setAlertSignalState(self, operationDescriptorContainer, value):
-        operationTargetHandle = operationDescriptorContainer.operationTarget
+    def _delegate_alert_signal(self, operationInstance, value):
+        operationTargetHandle = operationInstance.operationTarget
         self._lastSetAlertSignalState[operationTargetHandle] = time.time()
         with self._mdib.mdibUpdateTransaction() as mgr:
             state = mgr.getAlertState(operationTargetHandle)
-            self._logger.info('set alert state {} of {} from {} to {}', operationTargetHandle, state, state.ActivationState, value.ActivationState)
-            state.ActivationState = value.ActivationState
-            state.Presence = value.Presence
-            state.ActualSignalGenerationDelay = value.ActualSignalGenerationDelay
+            self._logger.info('delegate alert signal {} of {} from {} to {}', operationTargetHandle, state, state.ActivationState, value.ActivationState)
+            for elem in operationInstance._descriptorContainer.ModifiableData:
+                name = elem.text
+                tmp = getattr(value, name)
+                setattr(state, name, tmp)
+
             descr = self._mdib.descriptions.handle.getOne(operationTargetHandle)
             if descr.SignalDelegationSupported:
                 if value.ActivationState == AlertActivation.ON:
                     self._pauseFallbackAlertSignals(descr, None, mgr)
                 else:
                     self._activateFallbackAlertSignals(descr, None, mgr)
+
+    def _end_delegate_alert_signal(self, operationInstance, _):
+        operationTargetHandle = operationInstance.operationTarget
+        with self._mdib.mdibUpdateTransaction() as mgr:
+            state = mgr.getAlertState(operationTargetHandle)
+            self._logger.info('timeout alert signal delegate operation={} target={} ',
+                              operationInstance.handle, operationTargetHandle)
+            state.ActivationState = AlertActivation.OFF
+            descr = self._mdib.descriptions.handle.getOne(operationTargetHandle)
+            self._activateFallbackAlertSignals(descr, None, mgr)
 
     def _workerThreadLoop(self):
         # delay start of operation

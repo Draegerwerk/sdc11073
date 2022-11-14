@@ -1,4 +1,4 @@
-'''
+"""
 This Module contains code handles Service Controller operations (sco).
 All remote control commands of a client are executed by sco's
 
@@ -6,7 +6,7 @@ These operations share a common behavior:
 A remote control command is executed async. The respone to such soap request contains a state (typically 'wait') and a transaction id.
 The progress of the transaction is reported with an OperationInvokedReport.
 A client must subscribe to the OperationInvokeReport Event of the 'Set' service, otherwise it would not get informed about progress.
-'''
+"""
 import queue
 import threading
 import time
@@ -25,16 +25,21 @@ from ..mdib import msgreader
 
 
 class _OperationsWorker(threading.Thread):
-    ''' Thread that enqueues and processes all operations.
-    It manages transaction ids for all operations. 
-    Progress notifications are sent via subscriptionmanager.'''
+    """ Thread that enqueues and processes all operations.
+    It manages transaction ids for all operations.
+    Progress notifications are sent via subscription manager."""
 
-    def __init__(self, subscriptionsmgr, mdib, log_prefix):
-        '''
-        @param subscriptionsmgr: subscriptionsmgr.notifyOperation is called in order to notify all subscribers of OperationInvokeReport Events
-        '''
-        super(_OperationsWorker, self).__init__(name='DeviceOperationsWorker')
+    def __init__(self, operations_registry, subscriptionsmgr, mdib, log_prefix):
+        """
+
+        :param operations_registry:
+        :param subscriptionsmgr: subscriptionsmgr.notifyOperation is called in order to notify all subscribers of OperationInvokeReport Events
+        :param mdib:
+        :param log_prefix:
+        """
+        super().__init__(name='DeviceOperationsWorker')
         self.daemon = True
+        self._operations_registry = operations_registry
         self._subscriptionsmgr = subscriptionsmgr
         self._mdib = mdib
         self._operationsQ = queue.Queue(10)  # spooled operations
@@ -43,11 +48,11 @@ class _OperationsWorker(threading.Thread):
         self._logger = loghelper.getLoggerAdapter('sdc.device.op_worker', log_prefix)
 
     def enqueueOperation(self, operation, request):
-        ''' enqueues operation "operation".
+        """ enqueues operation "operation".
         @param operation: a callable with signature operation(request, mdib)
         @param request: the soapEnvelope of the request
         @return: a transaction Id
-        '''
+        """
         with self._transactionIdLock:
             transactionId = self._transactionId
             self._transactionId += 1
@@ -57,34 +62,37 @@ class _OperationsWorker(threading.Thread):
     def run(self):
         while True:
             try:
-                op = self._operationsQ.get()
-                tr_id, operation, request = op
-                if tr_id == 'stop':
-                    self._logger.info('stop request found. Terminating now.')
-                    return
-                time.sleep(0.001)
-                self._logger.info('{}: starting operation "{}"', operation.__class__.__name__, operation.handle)
-                # duplicate the WAIT respnse to the operation request as notification. Standard requires this.
-                self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
-                                                       operation.handle, pmtypes.InvocationState.WAIT)
-                time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
-                self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
-                                                       operation.handle, pmtypes.InvocationState.START)
                 try:
-                    operation.executeOperation(request)
-                    self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
-                                      operation.handle)
+                    op = self._operationsQ.get(timeout=1.0)
+                    tr_id, operation, request = op
+                except queue.Empty:
+                    self._operations_registry.check_invocation_timeouts()
+                else:
+                    if tr_id == 'stop':
+                        self._logger.info('stop request found. Terminating now.')
+                        return
+                    time.sleep(0.001)
+                    self._logger.info('{}: starting operation "{}"', operation.__class__.__name__, operation.handle)
+                    # duplicate the WAIT respnse to the operation request as notification. Standard requires this.
                     self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
-                                                           operation.handle, pmtypes.InvocationState.FINISHED)
-                except Exception as ex:
-                    self._logger.info('{}: error executing operation "{}": {}', operation.__class__.__name__,
-                                      operation.handle, traceback.format_exc())
+                                                           operation.handle, pmtypes.InvocationState.WAIT)
+                    time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
                     self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
-                                                           operation.handle, pmtypes.InvocationState.FAILED,
-                                                           error='Oth', errorMessage=repr(ex))
+                                                           operation.handle, pmtypes.InvocationState.START)
+                    try:
+                        operation.executeOperation(request)
+                        self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
+                                          operation.handle)
+                        self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
+                                                               operation.handle, pmtypes.InvocationState.FINISHED)
+                    except Exception as ex:
+                        self._logger.info('{}: error executing operation "{}": {}', operation.__class__.__name__,
+                                          operation.handle, traceback.format_exc())
+                        self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
+                                                               operation.handle, pmtypes.InvocationState.FAILED,
+                                                               error='Oth', errorMessage=repr(ex))
             except Exception as ex:
-                self._logger.error('{}: unexpected error while handling operation "{}": {}',
-                                   operation.__class__.__name__, operation.handle, traceback.format_exc())
+                self._logger.error('unexpected error while handling operation : {}', traceback.format_exc())
 
     def stop(self):
         self._operationsQ.put(('stop', None, None))  # a dummy request to stop the thread
@@ -92,13 +100,13 @@ class _OperationsWorker(threading.Thread):
 
 
 class ScoOperationsRegistry(object):
-    ''' Registry for Sco operations.
+    """ Registry for Sco operations.
     from BICEPS:
     A service control object to define remote control operations. Any pm:AbstractOperationDescriptor/@OperationTarget
     within this SCO SHALL only reference this or child descriptors within the CONTAINMENT TREE.
     NOTE - In modular systems, dynamically plugged-in modules would typically be modeled as VMDs.
     Such VMDs potentially have their own SCO. In every other case, SCO operations are modeled in pm:MdsDescriptor/pm:Sco.
-    '''
+    """
 
     def __init__(self, subscriptionsmgr, mdib, handle='_sco', log_prefix=None):
         self._worker = None
@@ -129,6 +137,10 @@ class ScoOperationsRegistry(object):
 
             mdib.descriptions.addObject(self._mds_sco_descriptorContainer)
 
+    def check_invocation_timeouts(self):
+        for op in self._registeredOperations.values():
+            op.checkTimeout()
+
     def registerOperation(self, operation, scoDescriptorContainer=None):
         self._logger.info('register operation "{}"', operation)
         if operation.handle in self._registeredOperations:
@@ -144,17 +156,17 @@ class ScoOperationsRegistry(object):
         return self._registeredOperations.get(operationHandle)
 
     def enqueueOperation(self, operation, request):
-        ''' enqueues operation "operation".
+        """ enqueues operation "operation".
         @param operation: a callable with signature operation(request, mdib)
         @param request: the soapEnvelope of the request
         @return: a transaction Id
-        '''
+        """
         return self._worker.enqueueOperation(operation, request)
 
     def startWorker(self):
         if self._worker is not None:
             raise RuntimeError('SCO worker is already running')
-        self._worker = _OperationsWorker(self._subscriptionsmgr, self._mdib, self._log_prefix)
+        self._worker = _OperationsWorker(self, self._subscriptionsmgr, self._mdib, self._log_prefix)
         self._worker.start()
 
     def stopWorker(self):
@@ -164,11 +176,12 @@ class ScoOperationsRegistry(object):
 
 
 class OperationDefinition(object):
-    ''' This is the base class of all provided operations.
-    An operation is a point for remote control over the network.'''
+    """ This is the base class of all provided operations.
+    An operation is a point for remote control over the network."""
     currentValue = properties.ObservableProperty(fireOnlyOnChangedValue=False)
     currentRequest = properties.ObservableProperty(fireOnlyOnChangedValue=False)
     currentArgument = properties.ObservableProperty(fireOnlyOnChangedValue=False)
+    onTimeout = properties.ObservableProperty(fireOnlyOnChangedValue=False)
 
     def __init__(self, handle, operationTarget,
                  operationDescriptorQName,
@@ -178,7 +191,7 @@ class OperationDefinition(object):
                  safetyReq=None,
                  log_prefix=None,
                  extExtension=None):  # pylint:disable=too-many-arguments
-        '''
+        """
         @param handle: the handle of the operation itself.
         @param operationTarget: the handle of the modified data (MdDescription)
         @param operationDescriptorQName: the QName of the descriptor for this operation
@@ -187,7 +200,7 @@ class OperationDefinition(object):
         @param codedValue: a pmtypes.CodedValue instance
         @param safetyReq: a pmtypes.T_SafetyReq instance or None
         @param extExtension: list of etree.Element elements to be added to the Extension element
-        '''
+        """
         self._logger = loghelper.getLoggerAdapter('sdc.device.op.{}'.format(self.__class__.__name__), log_prefix)
         self._mdib = None
         self._descriptorContainer = None
@@ -207,6 +220,7 @@ class OperationDefinition(object):
         self._extExtension = extExtension
         self.safetyReq = safetyReq  # can become a pmtypes.T_SafetyReq instance
         self.calls = []  # record when operation was called
+        self.last_called_time = None
 
     @property
     def handle(self):
@@ -221,15 +235,27 @@ class OperationDefinition(object):
         return self._mdib.states
 
     def executeOperation(self, request):  # pylint: disable=unused-argument
-        ''' This is the code that executes the operation itself.
-        A handler that executes the operation must be bound to observable "currentRequest".'''
+        """ This is the code that executes the operation itself.
+        A handler that executes the operation must be bound to observable "currentRequest"."""
         self.calls.append((time.time(), request))
         self.currentRequest = request
+        self.last_called_time = time.time()
+
+    def checkTimeout(self):
+        if self.last_called_time is None:
+            return
+        if self._descriptorContainer.InvocationEffectiveTimeout is None:
+            return
+        age = time.time() - self.last_called_time
+        if age < self._descriptorContainer.InvocationEffectiveTimeout:
+            return
+        self.onTimeout = True  # let observable fire
+        self.last_called_time = None  # reset time
 
     def setMdib(self, mdib, parentDescriptorContainer):
-        ''' The operation needs to know the mdib that it operates on.
+        """ The operation needs to know the mdib that it operates on.
         This is called by SubscriptionManager on registration.
-        Needs to be implemented by derived classes if specific things have to be initialized.'''
+        Needs to be implemented by derived classes if specific things have to be initialized."""
         if self._mdib is not None:
             raise RuntimeError('Mdib is already set')
         self._mdib = mdib
@@ -273,7 +299,7 @@ class OperationDefinition(object):
                 self._descriptorContainer.ext_Extension.append(node)
 
     def _initOperationTargetContainer(self):
-        ''' Create the object that is manipulated by the operation'''
+        """ Create the object that is manipulated by the operation"""
         operationTargetDescriptor = self._mdib.descriptions.handle.getOne(self._operationTargetHandle)
         self._operationTargetContainer = self._mdib.states.descriptorHandle.getOne(self._operationTargetHandle,
                                                                                    allowNone=True)  # pylint:disable=protected-access
@@ -290,16 +316,16 @@ class OperationDefinition(object):
                 self.operationTargetStorage.addObject(self._operationTargetContainer)
 
     def setOperatingMode(self, mode):
-        ''' Mode is one of En, Dis, NA'''
+        """ Mode is one of En, Dis, NA"""
         with self._mdib.mdibUpdateTransaction() as tr:
             st = tr.getOperationalState(self._handle)
             st.OperatingMode = mode
 
     def collectValues(self, numberOfValues=None):
-        ''' Async way to retrieve next value(s):
+        """ Async way to retrieve next value(s):
         Returns a Future-like object that has a result() method.
         For details see properties.SingleValueCollector and propertiesValuesCollector documentation.
-        '''
+        """
         if numberOfValues is None:
             return properties.SingleValueCollector(self, 'currentValue')
         else:
@@ -359,7 +385,7 @@ class SetValueOperation(OperationDefinition):
 
 
 class SetContextStateOperation(OperationDefinition):
-    '''Default implementation of SetContextOperation.'''
+    """Default implementation of SetContextOperation."""
     OP_DESCR_QNAME = namespaces.domTag('SetContextStateOperationDescriptor')
     OP_STATE_QNAME = namespaces.domTag('SetContextStateOperationState')
 
@@ -384,7 +410,7 @@ class SetContextStateOperation(OperationDefinition):
         return self._mdib.contextStates
 
     def _initOperationTargetContainer(self):
-        ''' initially no patient context is created.'''
+        """ initially no patient context is created."""
         pass
 
     @classmethod
@@ -397,8 +423,8 @@ RecordedCall = namedtuple('RecordedCall', 'timestamp args')
 
 
 class ActivateOperation(OperationDefinition):
-    ''' This default implementation only registers calls, no manipulation of operation target
-    '''
+    """ This default implementation only registers calls, no manipulation of operation target
+    """
     OP_DESCR_QNAME = namespaces.domTag('ActivateOperationDescriptor')
     OP_STATE_QNAME = namespaces.domTag('ActivateOperationState')
 
@@ -418,8 +444,8 @@ class ActivateOperation(OperationDefinition):
 
 
 class SetAlertStateOperation(OperationDefinition):
-    ''' This default implementation only registers calls, no manipulation of operation target
-    '''
+    """ This default implementation only registers calls, no manipulation of operation target
+    """
     OP_DESCR_QNAME = namespaces.domTag('SetAlertStateOperationDescriptor')
     OP_STATE_QNAME = namespaces.domTag('SetAlertStateOperationState')
 
@@ -448,8 +474,8 @@ class SetAlertStateOperation(OperationDefinition):
 
 
 class SetComponentStateOperation(OperationDefinition):
-    ''' This default implementation only registers calls, no manipulation of operation target
-    '''
+    """ This default implementation only registers calls, no manipulation of operation target
+    """
     OP_DESCR_QNAME = namespaces.domTag('SetComponentStateOperationDescriptor')
     OP_STATE_QNAME = namespaces.domTag('SetComponentStateOperationState')
 
@@ -473,8 +499,8 @@ class SetComponentStateOperation(OperationDefinition):
 
 
 class SetMetricStateOperation(OperationDefinition):
-    ''' This default implementation only registers calls, no manipulation of operation target
-    '''
+    """ This default implementation only registers calls, no manipulation of operation target
+    """
     OP_DESCR_QNAME = namespaces.domTag('SetMetricStateOperationDescriptor')
     OP_STATE_QNAME = namespaces.domTag('SetMetricStateOperationState')
 
