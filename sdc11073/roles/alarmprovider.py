@@ -152,7 +152,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             self._update_alert_signals(changed_alert_condition, mdib, transaction)
 
         # find all alert systems with changed states
-        alert_system_states = self._find_alert_systems_with_modifications(mdib, transaction, changed_alert_conditions)
+        alert_system_states = self._find_alert_systems_with_modifications(transaction, changed_alert_conditions)
         if alert_system_states:
             self._update_alert_system_states(mdib, transaction,
                                              alert_system_states)  # add found alert system states to transaction
