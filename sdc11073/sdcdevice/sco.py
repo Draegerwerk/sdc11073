@@ -81,6 +81,8 @@ class _OperationsWorker(threading.Thread):
                                                            operation.handle, pmtypes.InvocationState.START)
                     try:
                         operation.executeOperation(request)
+                        operation.last_called_time = time.time()
+
                         self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
                                           operation.handle)
                         self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
@@ -239,7 +241,6 @@ class OperationDefinition(object):
         A handler that executes the operation must be bound to observable "currentRequest"."""
         self.calls.append((time.time(), request))
         self.currentRequest = request
-        self.last_called_time = time.time()
 
     def checkTimeout(self):
         if self.last_called_time is None:
