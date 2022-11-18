@@ -5,13 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [1.1.17] - 2022-11-11
+## [1.1.17] - 2022-11-15
 ### Fixed
 - update *ByHandle observables depending on the type of the updated state
 - in MdibBase.contextByHandle dictionary use Handle as key instead of DescriptorHandle
 - in SSLSocket wrap_socket calls set do_handshake_on_connect=False to avoid possible blocking
 ### Added
 - method to represent LocalizedText objects as string 
+- alert delecation acc. to BICEPS chapter 6.2
 
 
 ## [1.1.16] - 2022-09-30
