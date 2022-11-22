@@ -77,7 +77,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         :return:
         """
         pm_names = self._mdib.data_model.pm_names
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
 
         states = self._mdib.states.NODETYPE.get(pm_names.AlertSystemState, [])
         for state in states:
@@ -90,7 +90,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         """
         - if an AlertCondition.ActivationState is 'On', then the local AlertSignals shall also be 'On'
         - all remote alert Signals shall be 'Off' initially (must be explicitly enabled by delegating device)"""
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
         for alert_condition in self._mdib.states.NODETYPE.get(pm_names.AlertConditionState, []):
             alert_condition.ActivationState = pm_types.AlertActivation.ON
@@ -176,7 +176,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
     def _update_alert_system_states(mdib, transaction, alert_system_states):
         """update alert system states and add them to transaction
         """
-        pm_types = mdib.data_model.pmtypes
+        pm_types = mdib.data_model.pm_types
 
         def _get_alert_state(descriptor_handle):
             alert_state = None
@@ -219,7 +219,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         """ Handle alert signals for a changed alert condition.
         This method only changes states of local signals.
         Handling of delegated signals is in the responsibility of the delegated device!"""
-        pm_types = mdib.data_model.pmtypes
+        pm_types = mdib.data_model.pm_types
         alert_signal_descriptors = mdib.descriptions.condition_signaled.get(changed_alert_condition.DescriptorHandle,
                                                                             [])
         # separate remote from local
@@ -265,7 +265,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         :param transaction: the current transaction.
         :return:
         """
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         if all_signal_descriptors is None:
             all_signal_descriptors = self._mdib.descriptions.condition_signaled.get(
                 delegable_signal_descriptor.ConditionSignaled, [])
@@ -281,7 +281,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 transaction.unget_state(ss_fallback)
 
     def _activate_fallback_alert_signals(self, delegable_signal_descriptor, all_signal_descriptors, transaction):
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         if all_signal_descriptors is None:
             all_signal_descriptors = self._mdib.descriptions.condition_signaled.get(
                 delegable_signal_descriptor.ConditionSignaled, [])
@@ -309,7 +309,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             raise ValueError(f'_delegate_alert_signal expects one argument, got {len(values)}')
         value = values[0]
 
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         operation_target_handle = operation_instance.operation_target_handle
         # self._last_set_alert_signal_state[operation_target_handle] = time.time()
         with self._mdib.transaction_manager() as mgr:
@@ -327,7 +327,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                     self._activate_fallback_alert_signals(descr, None, mgr)
 
     def _end_delegate_alert_signal(self, operation_instance, _):
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         operation_target_handle = operation_instance.operation_target_handle
         with self._mdib.transaction_manager() as mgr:
             state = mgr.get_state(operation_target_handle)

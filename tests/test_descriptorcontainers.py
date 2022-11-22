@@ -3,17 +3,17 @@ import unittest
 from lxml import etree as etree_
 
 from sdc11073 import msgtypes
-from sdc11073 import namespaces
+from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073 import pmtypes
 from sdc11073 import msg_qnames as msg
 from sdc11073.mdib import descriptorcontainers
 from tests.mockstuff import dec_list
-test_tag = namespaces.domTag('MyDescriptor')
+test_tag = ns_hlp.domTag('MyDescriptor')
 
 class TestDescriptorContainers(unittest.TestCase):
 
     def setUp(self):
-        self.ns_mapper = namespaces.DocNamespaceHelper()
+        self.ns_mapper =ns_hlp
 
     def test_AbstractDescriptorContainer(self):
         dc = descriptorcontainers.AbstractDescriptorContainer(handle='123', parent_handle='456')
@@ -37,10 +37,10 @@ class TestDescriptorContainers(unittest.TestCase):
         dc.SafetyClassification = pmtypes.SafetyClassification.MED_A
         dc.Type = pmtypes.CodedValue('abc', 'def')
 
-        ext_node = etree_.Element(namespaces.msgTag('Whatever'))
+        ext_node = etree_.Element(ns_hlp.msgTag('Whatever'))
         etree_.SubElement(ext_node, 'foo', attrib={'some_attr': 'some_value'})
         etree_.SubElement(ext_node, 'bar', attrib={'another_attr': 'different_value'})
-        dc.Extension.value[namespaces.msgTag('Whatever')] = ext_node
+        dc.Extension.value[ns_hlp.msgTag('Whatever')] = ext_node
         retrievability = msgtypes.Retrievability([msgtypes.RetrievabilityInfo(msgtypes.RetrievabilityMethod.GET),
                                                   msgtypes.RetrievabilityInfo(msgtypes.RetrievabilityMethod.PERIODIC,
                                                                               update_period=42.0),
@@ -53,7 +53,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc2.Type, dc.Type)
         self.assertEqual(dc.code_id, 'abc')
         self.assertEqual(dc.coding_system, 'def')
-        self.assertEqual(dc2.Extension.value[namespaces.msgTag('Whatever')], ext_node)
+        self.assertEqual(dc2.Extension.value[ns_hlp.msgTag('Whatever')], ext_node)
         self.assertEqual(dc2.Extension.value[msg.Retrievability], retrievability)
         self.assertEqual(dc2.retrievability, retrievability)
 
@@ -64,7 +64,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc3.Type, dc.Type)
         self.assertEqual(dc3.code_id, 'abc')
         self.assertEqual(dc3.coding_system, 'def')
-        self.assertEqual(dc3.Extension.value[namespaces.msgTag('Whatever')].tag, ext_node.tag)
+        self.assertEqual(dc3.Extension.value[ns_hlp.msgTag('Whatever')].tag, ext_node.tag)
         self.assertEqual(dc3.Extension.value[msg.Retrievability], retrievability)
         self.assertEqual(dc3.retrievability, retrievability)
 
@@ -189,7 +189,7 @@ class TestDescriptorContainers(unittest.TestCase):
         _cmp_ActivateOperationDescriptorContainer(dc, dc2)
 
         dc.Argument = [pmtypes.ActivateOperationDescriptorArgument(arg_name=pmtypes.CodedValue('abc', 'def'),
-                                                                   arg=namespaces.domTag('foo'))]
+                                                                   arg=ns_hlp.domTag('foo'))]
         dc2.update_from_other_container(dc)
         _cmp_ActivateOperationDescriptorContainer(dc, dc2)
 

@@ -378,7 +378,7 @@ class MdibUpdateTransaction(_TransactionBase):
         if set_associated:
             new_state_container.BindingMdibVersion = self._device_mdib_container.mdib_version
             new_state_container.BindingStartTime = time.time()
-            new_state_container.ContextAssociation = self._device_mdib_container.data_model.pmtypes.ContextAssociation.ASSOCIATED
+            new_state_container.ContextAssociation = self._device_mdib_container.data_model.pm_types.ContextAssociation.ASSOCIATED
         if context_state_handle is not None and adjust_state_version:
             self._device_mdib_container.context_states.set_version(new_state_container)
 

@@ -4,7 +4,7 @@ from concurrent.futures import Future
 from typing import Any
 
 from ... import loghelper
-from ...namespaces import DocNamespaceHelper
+from ...namespaces import default_ns_helper  #DocNamespaceHelper
 from ...exceptions import ApiUsageError
 from ...pysoap.msgreader import ReceivedMessage
 
@@ -70,7 +70,7 @@ class HostedServiceClient:
         self._mdib_wref = None
         self._msg_factory = msg_factory
         self.predefined_actions = {}  # calculated actions for subscriptions
-        self._nsmapper = DocNamespaceHelper()
+        self._nsmapper = default_ns_helper  # DocNamespaceHelper()
         for action in self.subscribeable_actions:
             self.predefined_actions[action] = self._msg_factory.get_action_string(porttype, action)
 

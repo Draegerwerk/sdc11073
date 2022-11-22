@@ -3,7 +3,7 @@ import sys
 import time
 import unittest
 
-from pysdc.roles.product import GenericProduct_OSF
+#from pysdc.roles.product import GenericProduct_OSF
 
 # from pysdc.draft6 import pmtypes_draft6 as pmtypes
 from sdc11073 import commlog
@@ -42,7 +42,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
         location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
-        specific_components = SdcDeviceComponents(role_provider_class=GenericProduct_OSF)
+        # specific_components = SdcDeviceComponents(role_provider_class=GenericProduct_OSF)
         my_uuid = None  # let device create one
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_tns.xml',
                                                     log_prefix='<device> ')

@@ -74,7 +74,7 @@ class ContextService(ServiceWithOperations):
                 context_state_containers = context_state_containers_lookup.values()
         return self._sdc_device.msg_factory.mk_get_context_states_response_message(
             request_data.message_data, self.actions.GetContextStatesResponse, mdib_version, sequence_id,
-            context_state_containers, self._mdib.nsmapper)
+            context_state_containers)
 
     def add_wsdl_port_type(self, parent_node):
         port_type = self._mk_port_type_node(parent_node, True)

@@ -8,6 +8,7 @@ import sdc11073.mdib.containerproperties as cp
 import sdc11073.mdib.descriptorcontainers as dc
 import sdc11073.mdib.statecontainers as sc
 import sdc11073.namespaces as namespaces
+from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073 import pm_qnames as pm
 from sdc11073 import pmtypes
 from sdc11073.location import SdcLocation
@@ -20,7 +21,7 @@ _my_tag = pm.State
 class TestStateContainers(unittest.TestCase):
 
     def setUp(self):
-        self.ns_mapper = namespaces.DocNamespaceHelper()
+        self.ns_mapper = ns_hlp  #namespaces.DocNamespaceHelper()
         self.descr = dc.AbstractDescriptorContainer(handle='123', parent_handle='456')
         self.descr.DescriptorVersion = 42
 

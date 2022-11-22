@@ -64,7 +64,10 @@ class CommLogger:
         path = os.path.join(self._log_folder, self._mk_filename(ttype, direction, info))
         with self._io_lock:
             with open(path, 'wb') as my_file:
-                my_file.write(xml)
+                if isinstance(xml, bytes):
+                    my_file.write(xml)
+                else:
+                    my_file.write(xml.encode('utf-8'))
 
     def log_multicast_msg_out(self, xml, info=None):
         if self._log_out:

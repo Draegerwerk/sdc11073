@@ -53,7 +53,7 @@ class RtSampleArray:
         for timestamp in timestamps:
             i = self._nearest_index(timestamp)
             if i is not None:
-                self.apply_annotations.append(self._model.pmtypes.ApplyAnnotation(annotation_index, i))
+                self.apply_annotations.append(self._model.pm_types.ApplyAnnotation(annotation_index, i))
                 applied = True
         if applied:
             self.annotations.append(annotation)
@@ -118,7 +118,7 @@ class _SampleArrayGenerator:
         self._model = model
         self._descriptor_handle = descriptor_handle
         self._last_timestamp = None
-        self._activation_state = model.pmtypes.ComponentActivation.ON
+        self._activation_state = model.pm_types.ComponentActivation.ON
         self._generator = generator
         self.current_rt_sample_array = None
 
@@ -127,14 +127,14 @@ class _SampleArrayGenerator:
         :param component_activation_state: one of pmtypes.ComponentActivation values
         """
         self._activation_state = component_activation_state
-        if component_activation_state == self._model.pmtypes.ComponentActivation.ON:
+        if component_activation_state == self._model.pm_types.ComponentActivation.ON:
             self._last_timestamp = time.time()
 
     def get_next_sample_array(self) -> RtSampleArray:
         """ Read sample values from waveform generator and calculate determination time.
         If activation state is not 'On', no samples are returned.
         @return: RtSampleArray instance"""
-        if self._activation_state != self._model.pmtypes.ComponentActivation.ON:
+        if self._activation_state != self._model.pm_types.ComponentActivation.ON:
             self.current_rt_sample_array = RtSampleArray(
                 self._model, None, self._generator.sampleperiod, [], self._activation_state)
         else:
@@ -152,7 +152,7 @@ class _SampleArrayGenerator:
 
     @property
     def is_active(self):
-        return self._activation_state == self._model.pmtypes.ComponentActivation.ON
+        return self._activation_state == self._model.pm_types.ComponentActivation.ON
 
 
 class AbstractWaveformSource(ABC):

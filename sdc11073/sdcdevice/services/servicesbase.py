@@ -5,12 +5,12 @@ from lxml import etree as etree_
 from ..hostedserviceimpl import WSP_NS, WSDL_S12
 from ... import loghelper
 from ... import pmtypes
-from ...namespaces import Prefixes
-from ...namespaces import wseTag, dpwsTag, mdpwsTag
+from ...namespaces import default_ns_helper as ns_hlp  # Prefixes
+#from ...namespaces import wseTag, dpwsTag, mdpwsTag
 
-msg_prefix = Prefixes.MSG.prefix
+msg_prefix = ns_hlp.MSG.prefix
 
-_wsdl_ns = Prefixes.WSDL.namespace
+_wsdl_ns = ns_hlp.WSDL.namespace
 _wsdl_message = etree_.QName(_wsdl_ns, 'message')
 _wsdl_part = etree_.QName(_wsdl_ns, 'part')
 _wsdl_operation = etree_.QName(_wsdl_ns, 'operation')
@@ -55,12 +55,12 @@ class DPWSPortTypeImpl:
         if 'dt' in parent_node.nsmap:
             port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
                                           attrib={'name': self.port_type_string,
-                                                  dpwsTag('DiscoveryType'): 'dt:ServiceProvider'})
+                                                  ns_hlp.dpwsTag('DiscoveryType'): 'dt:ServiceProvider'})
         else:
             port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
                                           attrib={'name': self.port_type_string})
         if is_event_source:
-            port_type.attrib[wseTag('EventSource')] = 'true'
+            port_type.attrib[ns_hlp.wseTag('EventSource')] = 'true'
         return port_type
 
     def __repr__(self):
@@ -128,7 +128,7 @@ class ServiceWithOperations(DPWSPortTypeImpl):
     def _handle_operation_request(self, message_data, response_name, operation_request):
         """
         It enqueues an operation and generate the expected operation invoked report.
-        :param request:
+        :param message_data:
         :param response_name:
         :param operation_request:
         :return:
@@ -151,7 +151,7 @@ class ServiceWithOperations(DPWSPortTypeImpl):
 
         response = self._sdc_device.msg_factory.mk_operation_response_message(
             message_data, action, response_name, self._mdib.mdib_version, self._mdib.sequence_id,
-            transaction_id, invocation_state, invocation_error, error_text, self._mdib.nsmapper)
+            transaction_id, invocation_state, invocation_error, error_text)
         return response
 
 
@@ -199,5 +199,5 @@ def _add_policy_dpws_profile(parent_node):
           </wsp:Policy>
     """
     wsp_policy_node = etree_.SubElement(parent_node, etree_.QName(WSP_NS, 'Policy'), attrib=None)
-    _ = etree_.SubElement(wsp_policy_node, dpwsTag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
-    _ = etree_.SubElement(wsp_policy_node, mdpwsTag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
+    _ = etree_.SubElement(wsp_policy_node, ns_hlp.dpwsTag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
+    _ = etree_.SubElement(wsp_policy_node, ns_hlp.mdpwsTag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})

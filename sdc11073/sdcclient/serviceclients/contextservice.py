@@ -34,8 +34,7 @@ class ContextServiceClient(HostedServiceClient):
         tmp = ', '.join([f'{st.__class__.__name__}(DescriptorHandle={st.DescriptorHandle}, handle={st.Handle})'
                          for st in proposed_context_states])
         self._logger.info('set_context_state {}', tmp)
-        message = self._msg_factory.mk_set_context_state_message(self._nsmapper,
-                                                                 self.endpoint_reference.address, self.porttype,
+        message = self._msg_factory.mk_set_context_state_message(self.endpoint_reference.address, self.porttype,
                                                                  operation_handle, proposed_context_states)
         return self._call_operation(message, request_manipulator=request_manipulator)
 

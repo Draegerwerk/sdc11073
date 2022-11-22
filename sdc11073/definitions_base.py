@@ -1,8 +1,8 @@
 import os
 from abc import ABC, abstractmethod
 
-from .namespaces import Prefixes
-from .namespaces import dpwsTag
+from .namespaces import default_ns_helper as ns_hlp
+from .namespaces import shall_normalize
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
@@ -19,7 +19,7 @@ class ProtocolsRegistry(type):
             cls.protocols.append(new_cls)
         return new_cls
 
-class AbstractModel(ABC):
+class AbstractDataModel(ABC):
 
     @abstractmethod
     def get_descriptor_container_class(self, type_qname):
@@ -50,7 +50,7 @@ class AbstractModel(ABC):
 
     @property
     @abstractmethod
-    def pmtypes(self):
+    def pm_types(self):
         """Gives access to a module with participant model types"""
         raise NotImplementedError
 
@@ -66,6 +66,11 @@ class AbstractModel(ABC):
         """Gives access to a module with all qualified names of the BICEPS message model"""
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def ns_helper(self):
+        """Gives access to a module with all name spaces used"""
+        raise NotImplementedError
 
 
 # definitions that group all relevant dependencies for BICEPS versions
@@ -73,34 +78,41 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     """ Base class for central definitions used by SDC.
     It defines namespaces and handlers for the protocol.
     Derive from this class in order to define different protocol handling."""
-    DpwsDeviceType = dpwsTag('Device')
     SchemaFilePaths = None
     # set the following namespaces in derived classes:
     MedicalDeviceTypeNamespace = None
-    BICEPSNamespace = None
-    MessageModelNamespace = None
-    ParticipantModelNamespace = None
-    ExtensionPointNamespace = None
+    #BICEPSNamespace = None
+    #MessageModelNamespace = None
+    #ParticipantModelNamespace = None
+    #ExtensionPointNamespace = None
     MedicalDeviceType = None
     ActionsNamespace = None
     DefaultSdcDeviceComponents = None
     DefaultSdcClientComponents = None
-    MDPWSNameSpace = None
+    #MDPWSNameSpace = None
     data_model = None
 
+    Actions = None
+
+    # @classmethod
+    # def ns_matches(cls, namespace):
+    #     """ This method checks if this definition set is the correct one for a given namespace"""
+    #     return namespace in (cls.MedicalDeviceTypeNamespace, cls.BICEPSNamespace, cls.MessageModelNamespace,
+    #                          cls.ParticipantModelNamespace, cls.ExtensionPointNamespace, cls.MedicalDeviceType)
     @classmethod
-    def ns_matches(cls, namespace):
+    def types_match(cls, types):
         """ This method checks if this definition set is the correct one for a given namespace"""
-        return namespace in (cls.MedicalDeviceTypeNamespace, cls.BICEPSNamespace, cls.MessageModelNamespace,
-                             cls.ParticipantModelNamespace, cls.ExtensionPointNamespace, cls.MedicalDeviceType)
+        return cls.MedicalDeviceType in types
 
     @classmethod
     def normalize_xml_text(cls, xml_text: bytes) -> bytes:
         """ replace BICEPS namespaces with internal namespaces"""
-        for namespace, internal_ns in ((cls.MessageModelNamespace, Prefixes.MSG.namespace),
-                                       (cls.ParticipantModelNamespace, Prefixes.PM.namespace),
-                                       (cls.ExtensionPointNamespace, Prefixes.EXT.namespace),
-                                       (cls.MDPWSNameSpace, Prefixes.MDPWS.namespace)):
+        if not shall_normalize():
+            return xml_text
+        for namespace, internal_ns in ((cls.MessageModelNamespace, ns_hlp.MSG.namespace),
+                                       (cls.ParticipantModelNamespace, ns_hlp.PM.namespace),
+                                       (cls.ExtensionPointNamespace, ns_hlp.EXT.namespace),
+                                       (cls.MDPWSNameSpace, ns_hlp.MDPWS.namespace)):
             xml_text = xml_text.replace(f'"{namespace}"'.encode('utf-8'),
                                         f'"{internal_ns}"'.encode('utf-8'))
         return xml_text
@@ -108,6 +120,8 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     @classmethod
     def denormalize_xml_text(cls, xml_text: bytes) -> bytes:
         """ replace internal namespaces with BICEPS namespaces"""
+        if not shall_normalize():
+            return xml_text
         for namespace, internal_ns in ((cls.MessageModelNamespace.encode('utf-8'), b'__BICEPS_MessageModel__'),
                                        (cls.ParticipantModelNamespace.encode('utf-8'), b'__BICEPS_ParticipantModel__'),
                                        (cls.ExtensionPointNamespace.encode('utf-8'), b'__ExtensionPoint__'),

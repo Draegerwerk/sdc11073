@@ -4,7 +4,7 @@ from urllib import parse
 from lxml import etree as etree_
 
 from . import loghelper
-from .namespaces import Prefixes
+from .namespaces import default_ns_helper as ns_hlp
 
 
 def mk_schema_validator(schema_resolver: etree_.Resolver) -> etree_.XMLSchema:
@@ -20,7 +20,7 @@ def mk_schema_validator(schema_resolver: etree_.Resolver) -> etree_.XMLSchema:
      <xsd:import namespace="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01" schemaLocation="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01"/>
      <xsd:import namespace="http://www.w3.org/2005/08/addressing" schemaLocation="http://www.w3.org/2006/03/addressing/ws-addr.xsd"/>
      <xsd:import namespace="http://schemas.xmlsoap.org/wsdl/" schemaLocation="http://schemas.xmlsoap.org/wsdl/"/>
-     <xsd:import namespace="{Prefixes.MSG.namespace}" schemaLocation="http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd"/>
+     <xsd:import namespace="{ns_hlp.MSG.namespace}" schemaLocation="http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd"/>
      </xsd:schema>'''.encode('utf-8')
 
     elem_tree = etree_.fromstring(all_included, parser=parser, base_url='C://')

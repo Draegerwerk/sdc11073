@@ -5,7 +5,7 @@ import urllib
 from decimal import Decimal
 from lxml import etree as etree_
 
-from sdc11073 import namespaces
+from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073 import pmtypes
 from sdc11073.addressing import Address
 from sdc11073.dpws import ThisModelType, ThisDeviceType
@@ -61,8 +61,8 @@ class TestDevSubscription(_DevSubscription):
     notifyRef = 'a ref string'
 
     def __init__(self, filter_, msg_factory):
-        notify_ref_node = etree_.Element(namespaces.wseTag('References'))
-        identNode = etree_.SubElement(notify_ref_node, namespaces.wseTag('Identifier'))
+        notify_ref_node = etree_.Element(ns_hlp.wseTag('References'))
+        identNode = etree_.SubElement(notify_ref_node, ns_hlp.wseTag('Identifier'))
         identNode.text = self.notifyRef
         base_urls = [urllib.parse.SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
         accepted_encodings = ['foo'] # not needed here

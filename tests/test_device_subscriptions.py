@@ -3,7 +3,7 @@ import time
 import unittest
 from decimal import Decimal
 
-from sdc11073 import namespaces
+from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073 import pm_qnames as pm
 from sdc11073 import pmtypes
 from sdc11073.dpws import ThisDeviceType, ThisModelType
@@ -55,10 +55,10 @@ class TestDeviceSubscriptions(unittest.TestCase):
         """We want some namespaces declared only once for small report sizes."""
         import re
         xml_string = self.sdc_device.msg_factory.serialize_message(report).decode('utf-8')
-        for ns in (namespaces.Prefixes.PM.namespace,
-                   namespaces.Prefixes.MSG.namespace,
-                   namespaces.Prefixes.EXT.namespace,
-                   namespaces.Prefixes.XSI.namespace,):
+        for ns in (ns_hlp.PM.namespace,
+                   ns_hlp.MSG.namespace,
+                   ns_hlp.EXT.namespace,
+                   ns_hlp.XSI.namespace,):
             occurrences = [i.start() for i in re.finditer(ns, xml_string)]
             self.assertLessEqual(len(occurrences), 1)
 

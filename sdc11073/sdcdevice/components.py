@@ -5,13 +5,16 @@ from typing import Type, Callable, List, Any, TYPE_CHECKING
 
 
 from ..pysoap.soapclient import SoapClient
+from ..pysoap.soapclient_async import SoapClientAsync
 from ..pysoap.msgfactory import MessageFactoryDevice
 from ..pysoap.msgreader import MessageReaderDevice, MessageReaderClient
 from ..roles.product import MinimalProduct
 
 from .sdc_handlers import mk_scopes, mk_all_services
-from .sco import get_operation_class, ScoOperationsRegistry
+from .sco import ScoOperationsRegistry
+from .operations import get_operation_class
 from .subscriptionmgr import SubscriptionsManagerPath
+from .subscriptionmgr_async import SubscriptionsManagerPathAsync
 from .hostedserviceimpl import by_msg_tag
 from .services.waveformserviceimpl import WaveformService
 from .services.descriptioneventserviceimpl import  DescriptionEventService
@@ -73,7 +76,7 @@ class SdcDeviceComponents:
                 self.service_handlers[key] = value
 
 
-default_sdc_device_components = SdcDeviceComponents(
+default_sdc_device_components_sync = SdcDeviceComponents(
     soap_client_class = SoapClient,
     msg_factory_class=MessageFactoryDevice,
     msg_reader_class=MessageReaderDevice,
@@ -95,3 +98,28 @@ default_sdc_device_components = SdcDeviceComponents(
                       'DescriptionEventService': DescriptionEventService,
                       'LocalizationService': LocalizationService}
 )
+
+default_sdc_device_components_async = SdcDeviceComponents(
+    soap_client_class = SoapClientAsync,
+    msg_factory_class=MessageFactoryDevice,
+    msg_reader_class=MessageReaderDevice,
+    client_msg_reader_class=MessageReaderClient,
+    xml_reader_class=MessageReaderDevice,
+    services_factory=mk_all_services,
+    operation_cls_getter=get_operation_class,
+    sco_operations_registry_class=ScoOperationsRegistry,
+    subscriptions_manager_class=SubscriptionsManagerPathAsync,
+    role_provider_class=MinimalProduct,
+    scopes_factory=mk_scopes,
+    msg_dispatch_method=by_msg_tag,
+    service_handlers={'ContainmentTreeService': ContainmentTreeService,
+                      'GetService': GetService,
+                      'StateEventService': StateEventService,
+                      'ContextService': ContextService,
+                      'WaveformService': WaveformService,
+                      'SetService': SetService,
+                      'DescriptionEventService': DescriptionEventService,
+                      'LocalizationService': LocalizationService}
+)
+
+default_sdc_device_components = default_sdc_device_components_sync

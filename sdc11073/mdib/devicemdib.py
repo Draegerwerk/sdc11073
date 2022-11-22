@@ -156,8 +156,8 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         # get protocol definition that matches xml_text
         if protocol_definition is None:
             for definition_cls in ProtocolsRegistry.protocols:
-                if definition_cls.ParticipantModelNamespace is not None and definition_cls.ParticipantModelNamespace.encode(
-                        'utf-8') in xml_text:
+                pm_namespace = definition_cls.data_model.ns_helper.PM.namespace.encode('utf-8')
+                if pm_namespace in xml_text:
                     protocol_definition = definition_cls
                     break
         if protocol_definition is None:

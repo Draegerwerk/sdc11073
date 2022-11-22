@@ -11,6 +11,7 @@ from typing import Optional, Union
 from lxml import etree as etree_
 
 from . import pm_qnames as pm
+from . import ext_qnames as ext
 from .mdib import containerproperties as cp
 from .namespaces import QN_TYPE, text_to_qname
 
@@ -402,7 +403,7 @@ class T_Translation(PropertyBasedPMType):
     Translation is part of CodedValue in BICEPS FINAL
     """
     # pylint: disable=invalid-name
-    ext_Extension = cp.ExtensionNodeProperty()
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     Code = cp.CodeIdentifierAttributeProperty('Code', is_optional=False)
     CodingSystem = cp.StringAttributeProperty('CodingSystem', implied_py_value=DEFAULT_CODING_SYSTEM)
     CodingSystemVersion = cp.StringAttributeProperty('CodingSystemVersion')
@@ -447,7 +448,7 @@ class T_Translation(PropertyBasedPMType):
 class CodedValue(PropertyBasedPMType):
     NODETYPE = pm.CodedValue
     # pylint: disable=invalid-name
-    ext_Extension = cp.ExtensionNodeProperty()
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     CodingSystemName = cp.SubElementListProperty(pm.CodingSystemName, value_class=LocalizedText, is_optional=True)
     ConceptDescription = cp.SubElementListProperty(pm.ConceptDescription, value_class=LocalizedText)
     Translation = cp.SubElementListProperty(pm.Translation, value_class=T_Translation)
@@ -530,7 +531,7 @@ def have_matching_codes(code_a: Union[CodedValue, Coding], code_b: Union[CodedVa
 class Annotation(PropertyBasedPMType):
     NODETYPE = pm.Annotation
     # pylint: disable=invalid-name
-    ext_Extension = cp.ExtensionNodeProperty()
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)
     # pylint: enable=invalid-name
     _props = ['ext_Extension', 'Type']
@@ -553,7 +554,7 @@ class Annotation(PropertyBasedPMType):
 class OperationGroup(PropertyBasedPMType):
     NODETYPE = pm.OperationGroup
     # pylint: disable=invalid-name
-    ext_Extension = cp.ExtensionNodeProperty()
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)
     OperatingMode = cp.EnumAttributeProperty('OperatingMode', enum_cls=OperatingMode)
     Operations = cp.OperationRefListAttributeProperty('Operations')
@@ -586,7 +587,7 @@ class OperationGroup(PropertyBasedPMType):
 class InstanceIdentifier(PropertyBasedPMType):
     NODETYPE = pm.InstanceIdentifier
     # pylint: disable=invalid-name
-    ext_Extension = cp.ExtensionNodeProperty()
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     Type = cp.SubElementProperty(pm.Type, value_class=CodedValue, is_optional=True)
     IdentifierName = cp.SubElementListProperty(pm.IdentifierName, value_class=LocalizedText)
     Root = cp.AnyURIAttributeProperty('Root',
@@ -628,7 +629,7 @@ class OperatingJurisdiction(InstanceIdentifier):
 class Range(PropertyBasedPMType):
     NODETYPE = pm.Range
     # pylint: disable=invalid-name
-    Extension = cp.ExtensionNodeProperty()
+    Extension = cp.ExtensionNodeProperty(ext.Extension)
     Lower = cp.DecimalAttributeProperty('Lower')  # optional, an integer or float
     Upper = cp.DecimalAttributeProperty('Upper')  # optional, an integer or float
     StepWidth = cp.DecimalAttributeProperty('StepWidth')  # optional, an integer or float
@@ -661,7 +662,7 @@ class Range(PropertyBasedPMType):
 class Measurement(PropertyBasedPMType):
     NODETYPE = pm.Measurement
     # pylint: disable=invalid-name
-    ext_Extension = cp.ExtensionNodeProperty()
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     MeasurementUnit = cp.SubElementProperty(pm.MeasurementUnit, value_class=CodedValue)
     MeasuredValue = cp.DecimalAttributeProperty('MeasuredValue', is_optional=False)
     # pylint: enable=invalid-name
@@ -740,7 +741,7 @@ class T_MetricQuality(PropertyBasedPMType):
 class AbstractMetricValue(PropertyBasedPMType):
     """ This is the base class for metric values inside metric states"""
     # pylint: disable=invalid-name
-    ext_Extension = cp.ExtensionNodeProperty()
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     StartTime = cp.TimestampAttributeProperty('StartTime')
     StopTime = cp.TimestampAttributeProperty('StopTime')
     DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime')
@@ -843,7 +844,7 @@ class RemedyInfo(PropertyBasedPMType):
          0..n SubElements "Description" type=pm:LocalizedText."""
     # pylint: disable=invalid-name
     NODETYPE = pm.RemedyInfo
-    ext_Extension = cp.ExtensionNodeProperty()
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     Description = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)
     # pylint: enable=invalid-name
     _props = ['ext_Extension', 'Description']
@@ -862,7 +863,7 @@ class CauseInfo(PropertyBasedPMType):
          0..n SubElements "Description" type=pm:LocalizedText."""
     # pylint: disable=invalid-name
     NODETYPE = pm.CauseInfo
-    ext_Extension = cp.ExtensionNodeProperty()
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     RemedyInfo = cp.SubElementProperty(pm.RemedyInfo, value_class=RemedyInfo)
     Description = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)
     # pylint: enable=invalid-name
@@ -928,7 +929,7 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
     e.g., in case of a disconnection of a sensor or an ultrasonic handpiece."""
     # pylint: disable=invalid-name
     NODETYPE = pm.PhysicalConnectorInfo
-    ext_Extension = cp.ExtensionNodeProperty()
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     Label = cp.SubElementListProperty(pm.Label,
                                       value_class=LocalizedText)  # A human-readable label that describes the physical connector.
     Number = cp.IntegerAttributeProperty('Number')  # Number designates the connector number of the physical connector.
@@ -1040,7 +1041,7 @@ class BaseDemographics(PropertyBasedPMType):
 class PersonReference(PropertyBasedPMType):
     NODETYPE = pm.PersonReference
     # pylint: disable=invalid-name
-    ext_Extension = cp.ExtensionNodeProperty()
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     Identification = cp.SubElementListProperty(pm.Identification, value_class=InstanceIdentifier)  # 1...n
     Name = cp.SubElementProperty(pm.Name, value_class=BaseDemographics, is_optional=True)
     # pylint: enable=invalid-name
@@ -1074,7 +1075,7 @@ class PersonParticipation(PersonReference):
 class LocationDetail(PropertyBasedPMType):
     NODETYPE = pm.LocationDetail
     # pylint: disable=invalid-name
-    ext_Extension = cp.ExtensionNodeProperty()
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     PoC = cp.StringAttributeProperty('PoC')
     Room = cp.StringAttributeProperty('Room')
     Bed = cp.StringAttributeProperty('Bed')

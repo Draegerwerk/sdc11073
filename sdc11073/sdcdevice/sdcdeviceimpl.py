@@ -1,7 +1,6 @@
 import copy
 import urllib
 import uuid
-from typing import TYPE_CHECKING
 
 from . import httpserver
 from .components import default_sdc_device_components
@@ -15,10 +14,6 @@ from ..addressing import EndpointReferenceType
 from ..dpws import HostServiceType
 from ..exceptions import ApiUsageError
 from ..location import SdcLocation
-from ..namespaces import Prefixes
-
-if TYPE_CHECKING:
-    pass
 
 
 class SdcDevice:
@@ -89,8 +84,9 @@ class SdcDevice:
         # host dispatcher provides data of the sdc device itself.
         self._host_dispatcher = SoapMessageHandler(None, get_key_method=self._components.msg_dispatch_method,
                                                    msg_factory=self.msg_factory)
-        self._host_dispatcher.register_post_handler(f'{Prefixes.WXF.namespace}/Get', self._on_get_metadata)
-        self._host_dispatcher.register_post_handler(f'{Prefixes.WSD.namespace}/Probe', self._on_probe_request)
+        nsh = self._mdib.sdc_definitions.data_model.ns_helper
+        self._host_dispatcher.register_post_handler(f'{nsh.WXF.namespace}/Get', self._on_get_metadata)
+        self._host_dispatcher.register_post_handler(f'{nsh.WSD.namespace}/Probe', self._on_probe_request)
         self._host_dispatcher.register_post_handler('Probe', self._on_probe_request)
 
         self.dpws_host = HostServiceType(

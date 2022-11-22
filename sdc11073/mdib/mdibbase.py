@@ -10,7 +10,6 @@ from lxml import etree as etree_
 from .. import multikey
 from .. import observableproperties as properties
 from ..etc import apply_map
-from ..namespaces import DocNamespaceHelper
 from ..pmtypes import have_matching_codes
 
 if TYPE_CHECKING:
@@ -182,7 +181,7 @@ class MdibContainer:
         # self.data_model = _Model(sdc_definitions)
         self.data_model = sdc_definitions.data_model
         self._logger = None  # must be instantiated by derived class
-        self.nsmapper = DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file
+        self.nsmapper = sdc_definitions.data_model.ns_helper
         self.mdib_version = 0
         self.sequence_id = ''  # needs to be set to a reasonable value by derived class
         self.instance_id = 0
@@ -271,15 +270,19 @@ class MdibContainer:
             try:
                 my_multikey.add_object(state_container)
             except KeyError as ex:
-                self._logger.error('add_state_containers: {}, keys={}; {}', ex,
-                                   my_multikey.Handle.keys(), traceback.format_exc())
+                if state_container.is_context_state:
+                    self._logger.error('add_state_containers: {}, Handle={}; {}',
+                                       ex, state_container.Handle, traceback.format_exc())
+                else:
+                    self._logger.error('add_state_containers: {}, DescriptorHandle={}; {}',
+                                       ex, state_container.DescriptorHandle, traceback.format_exc())
 
     def _reconstruct_md_description(self):
         """build dom tree from current data
         @return: an etree_ node
         """
         pm = self.data_model.pm_names
-        doc_nsmap = self.nsmapper.doc_ns_map
+        doc_nsmap = self.nsmapper.ns_map
         root_containers = self.descriptions.parent_handle.get(None) or []
         md_description_node = etree_.Element(pm.MdDescription,
                                              attrib={'DescriptionVersion': str(self.mddescription_version)},
@@ -299,7 +302,7 @@ class MdibContainer:
         """
         pm = self.data_model.pm_names
         msg = self.data_model.msg_names
-        doc_nsmap = self.nsmapper.doc_ns_map
+        doc_nsmap = self.nsmapper.ns_map
         mdib_node = etree_.Element(msg.Mdib, nsmap=doc_nsmap)
         mdib_node.set('MdibVersion', str(self.mdib_version))
         mdib_node.set('SequenceId', self.sequence_id)
@@ -450,7 +453,7 @@ class MdibContainer:
 
             # normalize coding
             if isinstance(coding, str):
-                coding = self.data_model.pmtypes.Coding(coding)
+                coding = self.data_model.pm_types.Coding(coding)
 
             if coding is not None:
                 # apply filter
@@ -515,11 +518,11 @@ class MdibContainer:
             self.rm_descriptors_and_states(all_descriptors)
 
     def get_entity(self, handle: str) -> Entity:
-        descr = self.descriptions.handle.getOne(handle)
-        state = self.states.descriptorHandle.getOne(handle)
+        descr = self.descriptions.handle.get_one(handle)
+        state = self.states.descriptorHandle.get_one(handle)
         return Entity(descr, state)
 
     def get_context_entity(self, handle: str) -> MultiStateEntity:
-        descr = self.descriptions.handle.getOne(handle)
+        descr = self.descriptions.handle.get_one(handle)
         states = self.context_states.descriptorHandle.get(handle)
         return Entity(descr, states)

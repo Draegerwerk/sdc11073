@@ -2,20 +2,18 @@ import os
 
 from lxml import etree as etree_
 
-from .definitions_base import BaseDefinitions, AbstractModel
 from . import pmtypes, pm_qnames, msg_qnames
+from .definitions_base import BaseDefinitions, AbstractDataModel
 from .mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
 from .mdib.statecontainers import get_container_class as get_state_container_class
-from .mdib.devicemdibxtra import DeviceMdibMethods
-from .mdib.clientmdibxtra import ClientMdibMethods
-from .mdib.devicewaveform import DefaultWaveformSource
+from .namespaces import default_ns_helper as ns_hlp
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
 # the following namespace definitions reflect the initial SDC standard.
 # There might be changes or additions in the future, who knows...
 
-_DPWS_SDCNamespace = 'http://standards.ieee.org/downloads/11073/11073-20701-2018'  # pylint: disable=invalid-name
+_DPWS_SDCNamespace = ns_hlp.SDC.namespace  # pylint: disable=invalid-name
 _ActionsNamespace = _DPWS_SDCNamespace  # pylint: disable=invalid-name
 
 
@@ -100,7 +98,13 @@ class SchemaPathsSdc:
         'http://schemas.xmlsoap.org/wsdl/': WSDLSchemaFile
     }
 
-class V1Model(AbstractModel):
+
+class V1Model(AbstractDataModel):
+
+    def __init__(self):
+        super().__init__()
+        self._ns_hlp = ns_hlp
+
     def get_descriptor_container_class(self, type_qname):
         return get_descriptor_container_class(type_qname)
 
@@ -108,7 +112,7 @@ class V1Model(AbstractModel):
         return get_state_container_class(type_qname)
 
     @property
-    def pmtypes(self):
+    def pm_types(self):
         return pmtypes
 
     @property
@@ -119,22 +123,30 @@ class V1Model(AbstractModel):
     def msg_names(self):
         return msg_qnames
 
+    @property
+    def ns_helper(self):
+        """Gives access to a module with all name spaces used"""
+        return self._ns_hlp
+
+
 class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
-    BICEPSNamespace_base = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/'
-    BICEPSNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/SP'
-    DPWS_SDCNamespace = _DPWS_SDCNamespace  # 'http://standards.ieee.org/downloads/11073/11073-20701-2018'
-    MedicalDeviceTypeNamespace = 'http://standards.ieee.org/downloads/11073/11073-20702-2016'
-    MessageModelNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/message'
-    ParticipantModelNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/participant'
-    ExtensionPointNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/extension'
-    MDPWSNameSpace = 'http://standards.ieee.org/downloads/11073/11073-20702-2016'
-    MedicalDeviceType = etree_.QName(MedicalDeviceTypeNamespace, 'MedicalDevice')
-    SDCDeviceType = etree_.QName(DPWS_SDCNamespace, 'SdcDevice')
-    ActionsNamespace = DPWS_SDCNamespace
-    PortTypeNamespace = DPWS_SDCNamespace
-    MedicalDeviceTypesFilter = [BaseDefinitions.DpwsDeviceType, MedicalDeviceType]
+    #BICEPSNamespace_base = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/'
+    #BICEPSNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/SP'
+    #DPWS_SDCNamespace = _DPWS_SDCNamespace
+    #MedicalDeviceTypeNamespace = 'http://standards.ieee.org/downloads/11073/11073-20702-2016'
+    #MessageModelNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/message'
+    #ParticipantModelNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/participant'
+    #ExtensionPointNamespace = 'http://standards.ieee.org/downloads/11073/11073-10207-2017/extension'
+    #MDPWSNameSpace = 'http://standards.ieee.org/downloads/11073/11073-20702-2016'
+    MedicalDeviceType = ns_hlp.MDPWS.tag('MedicalDevice')  # etree_.QName(MedicalDeviceTypeNamespace, 'MedicalDevice')
+    DpwsDeviceType = ns_hlp.DPWS.tag('Device')   # etree_.QName('http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01', 'Device')
+    #SDCDeviceType = etree_.QName(_DPWS_SDCNamespace, 'SdcDevice')
+    ActionsNamespace = _DPWS_SDCNamespace
+    PortTypeNamespace = _DPWS_SDCNamespace
+
+    MedicalDeviceTypesFilter = [DpwsDeviceType, MedicalDeviceType]
 
     Actions = _SdcV1Actions
     SchemaFilePaths = SchemaPathsSdc
+    data_model = V1Model()
 
-SDC_v1_Definitions.data_model = V1Model()

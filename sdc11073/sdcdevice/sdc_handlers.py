@@ -15,7 +15,7 @@ def mk_scopes(mdib) -> List[wsdiscovery.Scope]:
     :return: list of scopes
     """
     scopes = []
-    pm_types = mdib.data_model.pmtypes
+    pm_types = mdib.data_model.pm_types
     pm_names = mdib.data_model.pm_names
     locations = mdib.context_states.NODETYPE.get(pm_names.LocationContextState, [])
     assoc_loc = [l for l in locations if l.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
@@ -53,7 +53,7 @@ def _get_device_component_based_scopes(mdib):
     After discussion with David: use only MDSDescriptor, VmdDescriptor makes no sense.
     :return: a set of scopes
     """
-    pm_types = mdib.data_model.pmtypes
+    pm_types = mdib.data_model.pm_types
     pm_names = mdib.data_model.pm_names
     scopes = set()
     descriptors = mdib.descriptions.NODETYPE.get(pm_names.MdsDescriptor)

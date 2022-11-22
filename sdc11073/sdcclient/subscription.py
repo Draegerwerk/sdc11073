@@ -327,7 +327,8 @@ class ClientSubscriptionManager(threading.Thread):
         return None
 
 
-    def unsubscribe_all(self):
+    def unsubscribe_all(self) -> bool:
+        ret = True
         with self._subscriptions_lock:
             current_subscriptions = list(self.subscriptions.values())  # make a copy
             self.subscriptions.clear()
@@ -335,8 +336,10 @@ class ClientSubscriptionManager(threading.Thread):
                 try:
                     subscription.unsubscribe()
                 except Exception:
-                    self._logger.warn('unsubscribe error: {}\n call stack:{} ', traceback.format_exc(),
+                    self._logger.error('unsubscribe error: {}\n call stack:{} ', traceback.format_exc(),
                                       traceback.format_stack())
+                    ret = False
+        return ret
 
 
 class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):

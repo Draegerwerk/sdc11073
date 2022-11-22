@@ -3,9 +3,9 @@ from collections import namedtuple, deque
 from concurrent import futures
 from statistics import mean, stdev
 from threading import Lock
+
 from .. import observableproperties as properties
 from ..exceptions import ApiUsageError
-
 
 PROFILING = False
 if PROFILING:
@@ -20,6 +20,7 @@ A_BACK_IN_RANGE = 3
 
 LOG_WF_AGE_INTERVAL = 30  # how often a log message is written with mean and stdev of waveforms age
 AGE_CALC_SAMPLES_COUNT = 100  # amount of data for wf mean age and stdev calculation
+
 
 class DeterminationTimeWarner:
     """A Helper to reduce log warnings regarding determination time."""
@@ -101,6 +102,7 @@ _AgeData = namedtuple('_AgeData', 'mean_age stdev min_age max_age')
 
 class AgeStatistics:
     """Keep age data of a single state over time. """
+
     def __init__(self, entry_count=None):
         length = entry_count or AGE_CALC_SAMPLES_COUNT
         self._age_of_data_list = deque(
@@ -121,7 +123,7 @@ class AgeStatistics:
         if len(self._age_of_data_list) < 3:
             return _AgeData(0, 0, 0, 0)
         with self._lock:
-            min_value = min( self._age_of_data_list )
+            min_value = min(self._age_of_data_list)
             max_value = max(self._age_of_data_list)
             mean_data = mean(self._age_of_data_list)
             std_deviation = stdev(self._age_of_data_list)
@@ -249,11 +251,11 @@ class ClientMdibMethods:
                 # BICEPS: While Validity is "Ong" or "NA", the enclosing METRIC value SHALL not possess a
                 # determined value.
                 # Also ignore determination time if measurement is invalid or not active.
-                if state_container.ActivationState == model.pmtypes.ComponentActivation.ON and \
+                if state_container.ActivationState == model.pm_types.ComponentActivation.ON and \
                         state_container.MetricValue.MetricQuality.Validity not in [
-                    model.pmtypes.MeasurementValidity.INVALID,
-                    model.pmtypes.MeasurementValidity.NA,
-                    model.pmtypes.MeasurementValidity.MEASUREMENT_ONGOING]:
+                    model.pm_types.MeasurementValidity.INVALID,
+                    model.pm_types.MeasurementValidity.NA,
+                    model.pm_types.MeasurementValidity.MEASUREMENT_ONGOING]:
                     determination_time = state_container.MetricValue.DeterminationTime
                     if determination_time is None:
                         self._logger.warn(
@@ -298,16 +300,16 @@ class ClientMdibMethods:
         self._logger.debug('_on_waveform_report: received {} states', len(state_containers))
         if self._calculate_wf_age_stats:
             self._process_age_statistics(state_containers)
-        self._mdib.process_incoming_waveform_states(received_message_data.mdib_version,
-                                                    received_message_data.sequence_id,
-                                                    state_containers)
+        accepted_states = self._mdib.process_incoming_waveform_states(received_message_data.mdib_version,
+                                                                      received_message_data.sequence_id,
+                                                                      state_containers)
 
-        if len(state_containers) == 0 or not self._mdib.is_initialized:
+        if accepted_states is None or len(accepted_states) == 0 or not self._mdib.is_initialized:
             return
 
         waveform_age = {}  # collect age of all waveforms in this report, and make one report if age is above warn limit (instead of multiple)
         now = time.time()
-        for state_container in state_containers:
+        for state_container in accepted_states.values():
             rt_sample_containers = self._mdib.rt_buffers[state_container.DescriptorHandle].rt_data
             waveform_age[state_container.DescriptorHandle] = now - rt_sample_containers[-1].determination_time
 

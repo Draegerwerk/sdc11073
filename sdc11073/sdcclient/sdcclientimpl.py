@@ -498,6 +498,30 @@ class SdcClient:
     def __str__(self):
         return f'SdcClient to {self.host_description.this_device} {self.host_description.this_model} on {self._device_location}'
 
+    # @classmethod
+    # def from_wsd_service(cls, wsd_service, ssl_context, validate=True, log_prefix='',
+    #                      default_components=None, specific_components=None):
+    #     """
+    #
+    #     :param wsd_service: a wsdiscovery.Service instance
+    #     :param ssl_context: a ssl context or None
+    #     :param validate: bool
+    #     :param log_prefix: a string
+    #     :param default_components: a SdcClientComponents instance or None
+    #     :param specific_components: a SdcClientComponents instance or None
+    #     :return:
+    #     """
+    #     device_locations = wsd_service.get_x_addrs()
+    #     if not device_locations:
+    #         raise RuntimeError(f'discovered Service has no address!{wsd_service}')
+    #     device_location = device_locations[0]
+    #     for _q_name in wsd_service.types:
+    #         q_name = etree_.QName(_q_name.namespace, _q_name.localname)
+    #         for sdc_definition in ProtocolsRegistry.protocols:
+    #             if sdc_definition.ns_matches(q_name):
+    #                 return cls(device_location, sdc_definition, ssl_context, validate=validate, log_prefix=log_prefix,
+    #                            default_components=default_components, specific_components=specific_components)
+    #     raise RuntimeError('no matching protocol definition found for this service!')
     @classmethod
     def from_wsd_service(cls, wsd_service, ssl_context, validate=True, log_prefix='',
                          default_components=None, specific_components=None):
@@ -515,10 +539,9 @@ class SdcClient:
         if not device_locations:
             raise RuntimeError(f'discovered Service has no address!{wsd_service}')
         device_location = device_locations[0]
-        for _q_name in wsd_service.types:
-            q_name = etree_.QName(_q_name.namespace, _q_name.localname)
-            for sdc_definition in ProtocolsRegistry.protocols:
-                if sdc_definition.ns_matches(q_name):
-                    return cls(device_location, sdc_definition, ssl_context, validate=validate, log_prefix=log_prefix,
-                               default_components=default_components, specific_components=specific_components)
+        #for _q_name in wsd_service.types:
+        for sdc_definition in ProtocolsRegistry.protocols:
+            if sdc_definition.types_match(wsd_service.types):
+                return cls(device_location, sdc_definition, ssl_context, validate=validate, log_prefix=log_prefix,
+                           default_components=default_components, specific_components=specific_components)
         raise RuntimeError('no matching protocol definition found for this service!')

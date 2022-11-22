@@ -231,7 +231,7 @@ class LocalizationService(DPWSPortTypeImpl):
                                                                  i_tws, i_nls)
         response_envelope = self._sdc_device.msg_factory.mk_get_localized_texts_response_message(
             request_data.message_data, self.actions.GetLocalizedTextResponse,
-            self._mdib.mdib_version, self._mdib.sequence_id, texts, self._mdib.nsmapper)
+            self._mdib.mdib_version, self._mdib.sequence_id, texts)
         return response_envelope
 
     def _on_get_supported_languages(self, request_data):
@@ -239,7 +239,7 @@ class LocalizationService(DPWSPortTypeImpl):
         languages = self.localization_storage.get_supported_languages()
         response_envelope = self._sdc_device.msg_factory.mk_get_supported_languages_response_message(
             request_data.message_data, self.actions.GetSupportedLanguagesResponse,
-            self._mdib.mdib_version, self._mdib.sequence_id, languages, self._mdib.nsmapper)
+            self._mdib.mdib_version, self._mdib.sequence_id, languages)
         return response_envelope
 
     def add_wsdl_port_type(self, parent_node):

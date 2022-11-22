@@ -7,10 +7,10 @@ from .. import loghelper
 from ..addressing import EndpointReferenceType
 from ..dpws import HostedServiceType
 from ..httprequesthandler import InvalidActionError
-from ..namespaces import Prefixes
+from ..namespaces import default_ns_helper as ns_hlp
 from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
 
-_wsdl_ns = Prefixes.WSDL.namespace
+_wsdl_ns = ns_hlp.WSDL.namespace
 
 WSP_NS = 'http://www.w3.org/ns/ws-policy'
 _WSP_PREFIX = 'wsp'
@@ -110,10 +110,10 @@ class EventService(SoapMessageHandler):
         self._sdc_device = sdc_device
         self._subscriptions_manager = sdc_device.subscriptions_manager
         self._offered_subscriptions = offered_subscriptions
-        self.register_post_handler(f'{Prefixes.WSE.namespace}/Subscribe', self._on_subscribe)
-        self.register_post_handler(f'{Prefixes.WSE.namespace}/Unsubscribe', self._on_unsubscribe)
-        self.register_post_handler(f'{Prefixes.WSE.namespace}/GetStatus', self._on_get_status)
-        self.register_post_handler(f'{Prefixes.WSE.namespace}/Renew', self._on_renew_status)
+        self.register_post_handler(f'{ns_hlp.WSE.namespace}/Subscribe', self._on_subscribe)
+        self.register_post_handler(f'{ns_hlp.WSE.namespace}/Unsubscribe', self._on_unsubscribe)
+        self.register_post_handler(f'{ns_hlp.WSE.namespace}/GetStatus', self._on_get_status)
+        self.register_post_handler(f'{ns_hlp.WSE.namespace}/Renew', self._on_renew_status)
         self.register_post_handler('Subscribe', self._on_subscribe)
         self.register_post_handler('Unsubscribe', self._on_unsubscribe)
         self.register_post_handler('GetStatus', self._on_get_status)
@@ -159,7 +159,7 @@ class DPWSHostedService(EventService):
         self._port_type_impls = port_type_impls
         self._my_port_types = [p.port_type_string for p in port_type_impls]
         self._wsdl_string = self._mk_wsdl_string()
-        self.register_post_handler(f'{Prefixes.WSX.namespace}/GetMetadata/Request', self._on_get_metadata)
+        self.register_post_handler(f'{ns_hlp.WSX.namespace}/GetMetadata/Request', self._on_get_metadata)
         self.register_post_handler('GetMetadata', self._on_get_metadata)
         self.register_get_handler('?wsdl', func=self._on_get_wsdl)
         for port_type_impl in port_type_impls:
@@ -187,9 +187,9 @@ class DPWSHostedService(EventService):
 
     def _mk_wsdl_string(self):
         sdc_definitions = self._sdc_device.mdib.sdc_definitions
-        my_nsmap = Prefixes.partial_map(
-            Prefixes.MSG, Prefixes.PM, Prefixes.WSA, Prefixes.WSE, Prefixes.DPWS, Prefixes.MDPWS)
-        my_nsmap['tns'] = Prefixes.SDC.namespace
+        my_nsmap = ns_hlp.partial_map(
+            ns_hlp.MSG, ns_hlp.PM, ns_hlp.WSA, ns_hlp.WSE, ns_hlp.DPWS, ns_hlp.MDPWS)
+        my_nsmap['tns'] = ns_hlp.SDC.namespace
         my_nsmap['dt'] = _DISCOVERY_TYPE_NS
         porttype_prefix = 'tns'
         my_nsmap['wsdl'] = _wsdl_ns

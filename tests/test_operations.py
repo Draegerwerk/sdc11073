@@ -69,7 +69,8 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         ns_mapper = self.sdc_device.mdib.nsmapper
-        ns_mapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
+        #ToDo: set default namespace
+        # ns_mapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, self._loc_validators)

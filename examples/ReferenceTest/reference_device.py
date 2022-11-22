@@ -8,9 +8,8 @@ from decimal import Decimal
 
 import sdc11073
 from sdc11073.certloader import mk_ssl_context_from_folder
-from sdc11073.dpws import ThisDevice, ThisModel
+from sdc11073.dpws import ThisDeviceType, ThisModelType
 from sdc11073.loghelper import LoggerAdapter
-from sdc11073.namespaces import domTag
 from sdc11073.sdcdevice.components import SdcDeviceComponents
 from sdc11073.sdcdevice.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
@@ -134,14 +133,14 @@ if __name__ == '__main__':
     print("UUID for this device is {}".format(my_uuid))
     loc = sdc11073.location.SdcLocation(ref_fac, ref_poc, ref_bed)
     print("location for this device is {}".format(loc))
-    dpwsModel = ThisModel(manufacturer='sdc11073',
+    dpwsModel = ThisModelType(manufacturer='sdc11073',
                           manufacturer_url='www.sdc11073.com',
                           model_name='TestDevice',
                           model_number='1.0',
                           model_url='www.sdc11073.com/model',
                           presentation_url='www.sdc11073.com/model/presentation')
 
-    dpwsDevice = ThisDevice(friendly_name='TestDevice',
+    dpwsDevice = ThisDeviceType(friendly_name='TestDevice',
                             firmware_version='Version1',
                             serial_number='12345')
     if ca_folder:
@@ -166,20 +165,23 @@ if __name__ == '__main__':
 
     validators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extension_string='System')]
     sdcDevice.set_location(loc, validators)
-    patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get(domTag('PatientContextDescriptor'))[0].handle
-    with my_mdib.mdibUpdateTransaction() as mgr:
-        patientContainer = mgr.get_state(patientDescriptorHandle)
+    pm = my_mdib.data_model.pm_names
+    pm_types = my_mdib.data_model.pm_types
+    #patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get(domTag('PatientContextDescriptor'))[0].handle
+    patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor)[0].Handle
+    with my_mdib.transaction_manager() as mgr:
+        patientContainer = mgr.mk_context_state(patientDescriptorHandle)
         patientContainer.CoreData.Givenname = "Given"
         patientContainer.CoreData.Middlename = ["Middle"]
         patientContainer.CoreData.Familyname = "Familiy"
         patientContainer.CoreData.Birthname = "Birthname"
         patientContainer.CoreData.Title = "Title"
-        patientContainer.ContextAssociation = sdc11073.pmtypes.ContextAssociation.ASSOCIATED  #"Assoc"
+        patientContainer.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED  #"Assoc"
         identifiers = []
         patientContainer.Identification = identifiers
 
     descs = list(sdcDevice.mdib.descriptions.objects)
-    descs.sort(key=lambda x: x.handle)
+    descs.sort(key=lambda x: x.Handle)
     metric = None
     alertCondition = None
     alertSignal = None
@@ -187,15 +189,15 @@ if __name__ == '__main__':
     stringOperation = None
     valueOperation = None
     for oneContainer in descs:
-        if oneContainer.handle == "numeric.ch1.vmd0":
+        if oneContainer.Handle == "numeric.ch1.vmd0":
             metric = oneContainer
-        if oneContainer.handle == "ac0.mds0":
+        if oneContainer.Handle == "ac0.mds0":
             alertCondition = oneContainer
-        if oneContainer.handle == "numeric.ch0.vmd1_sco_0":
+        if oneContainer.Handle == "numeric.ch0.vmd1_sco_0":
             valueOperation = oneContainer
-        if oneContainer.handle == "enumstring.ch0.vmd1_sco_0":
+        if oneContainer.Handle == "enumstring.ch0.vmd1_sco_0":
             stringOperation = oneContainer
-    with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
+    with sdcDevice.mdib.transaction_manager() as mgr:
         state = mgr.get_state(valueOperation.OperationTarget)
         if not state.MetricValue:
             state.mk_metric_value()
@@ -208,8 +210,8 @@ if __name__ == '__main__':
         while True:
             if metric:
                 try:
-                    with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                        state = mgr.get_state(metric.handle)
+                    with sdcDevice.mdib.transaction_manager() as mgr:
+                        state = mgr.get_state(metric.Handle)
                         if not state.MetricValue:
                             state.mk_metric_value()
                         state.MetricValue.Value = Decimal(currentValue)
@@ -220,8 +222,8 @@ if __name__ == '__main__':
                 print("Metric not found in MDIB!")
             if alertCondition:
                 try:
-                    with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                        state = mgr.get_state(alertCondition.handle)
+                    with sdcDevice.mdib.transaction_manager() as mgr:
+                        state = mgr.get_state(alertCondition.Handle)
                         state.Presence = not state.Presence
                 except Exception as ex:
                     print(traceback.format_exc())

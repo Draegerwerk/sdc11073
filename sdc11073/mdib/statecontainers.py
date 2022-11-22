@@ -7,6 +7,7 @@ from . import containerproperties as cp
 from .containerbase import ContainerBase
 from .. import pmtypes
 from .. import pm_qnames as pm
+from .. import ext_qnames as ext
 
 
 class AbstractStateContainer(ContainerBase):
@@ -22,7 +23,7 @@ class AbstractStateContainer(ContainerBase):
     is_multi_state = False
     is_context_state = False
 
-    Extension = cp.ExtensionNodeProperty()
+    Extension = cp.ExtensionNodeProperty(ext.Extension)
     DescriptorHandle = cp.HandleRefAttributeProperty('DescriptorHandle', is_optional=False)
     DescriptorVersion = cp.ReferencedVersionAttributeProperty('DescriptorVersion', default_py_value=0)
     StateVersion = cp.VersionCounterAttributeProperty('StateVersion', default_py_value=0)

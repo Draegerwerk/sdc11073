@@ -10,7 +10,7 @@ class DeviceMdibMethods:
         self._mdib = device_mdib
         self.waveform_provider = self.waveform_provider_cls(device_mdib)
         self.descriptor_factory = DescriptorFactory(device_mdib)
-        self.default_instance_identifiers = (device_mdib.data_model.pmtypes.InstanceIdentifier(
+        self.default_instance_identifiers = (device_mdib.data_model.pm_types.InstanceIdentifier(
             root='rootWithNoMeaning', extension_string='System'),)
 
     def ensure_location_context_descriptor(self):
@@ -22,7 +22,7 @@ class DeviceMdibMethods:
             system_context_container = mdib.descriptions.NODETYPE.get_one(pm.SystemContextDescriptor)
             descr_cls = mdib.data_model.get_descriptor_container_class(pm.LocationContextDescriptor)
             descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_container.Handle)
-            descr_container.SafetyClassification = mdib.data_model.pmtypes.SafetyClassification.INF
+            descr_container.SafetyClassification = mdib.data_model.pm_types.SafetyClassification.INF
             mdib.descriptions.add_object(descr_container)
 
     def ensure_patient_context_descriptor(self):
@@ -34,7 +34,7 @@ class DeviceMdibMethods:
             system_context_container = mdib.descriptions.NODETYPE.get_one(pm.SystemContextDescriptor)
             descr_cls = mdib.data_model.get_descriptor_container_class(pm.PatientContextDescriptor)
             descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_container.Handle)
-            descr_container.SafetyClassification =  mdib.data_model.pmtypes.SafetyClassification.INF
+            descr_container.SafetyClassification =  mdib.data_model.pm_types.SafetyClassification.INF
             mdib.descriptions.add_object(descr_container)
 
     def set_location(self, sdc_location, validators=None, set_associated=True):
@@ -51,10 +51,10 @@ class DeviceMdibMethods:
             all_location_contexts = mdib.context_states.NODETYPE.get(pm.LocationContextState, [])
             # set all to currently associated Locations to Disassociated
             associated_locations = [l for l in all_location_contexts if
-                                    l.ContextAssociation ==  mdib.data_model.pmtypes.ContextAssociation.ASSOCIATED]
+                                    l.ContextAssociation ==  mdib.data_model.pm_types.ContextAssociation.ASSOCIATED]
             for location in associated_locations:
                 location_context = mgr.get_context_state(location.Handle)
-                location_context.ContextAssociation =  mdib.data_model.pmtypes.ContextAssociation.DISASSOCIATED
+                location_context.ContextAssociation =  mdib.data_model.pm_types.ContextAssociation.DISASSOCIATED
                 # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
                 location_context.UnbindingMdibVersion = mdib.mdib_version + 1
             descriptor_container = mdib.descriptions.NODETYPE.get_one(pm.LocationContextDescriptor)

@@ -3,7 +3,7 @@ from typing import Optional, List
 
 from lxml import etree as etree_
 
-from ..namespaces import nsmap, Prefixes
+from ..namespaces import nsmap, default_ns_helper as ns_hlp
 from ..exceptions import ApiUsageError
 
 CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
@@ -58,7 +58,7 @@ class Soap12Envelope:
             self._nsmap = {}
         else:
             self._nsmap = ns_map
-        for prefix in (Prefixes.S12, Prefixes.WSA):  # these are always needed
+        for prefix in (ns_hlp.S12, ns_hlp.WSA):  # these are always needed
             self._nsmap[prefix.prefix] = prefix.namespace
         self.address = None
 

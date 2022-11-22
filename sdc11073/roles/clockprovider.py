@@ -11,7 +11,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
         super().__init__(mdib, log_prefix)
         self._set_ntp_operations = []
         self._set_tz_operations = []
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
 
         self.MDC_OP_SET_TIME_SYNC_REF_SRC = pm_types.CodedValue(nc.MDC_OP_SET_TIME_SYNC_REF_SRC)
         self.MDC_ACT_SET_TIME_ZONE = pm_types.CodedValue(nc.MDC_ACT_SET_TIME_ZONE)
@@ -21,7 +21,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
 
     def init_operations(self):
         super().init_operations()
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
         # create a clock descriptor and state if they do not exist in mdib
         clock_descriptor = self._mdib.descriptions.NODETYPE.get_one(pm_names.ClockDescriptor,
@@ -63,7 +63,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
     def _set_ntp_string(self, operation_instance, value):
         """This is the handler for the set ntp server operation.
          It sets the ReferenceSource value of clock state"""
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
         operation_target_handle = self._get_operation_target_handle(operation_instance)
         self._logger.info('set value {} from {} to {}', operation_target_handle, operation_instance.current_value,

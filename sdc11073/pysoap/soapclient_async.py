@@ -12,7 +12,7 @@ from .. import commlog
 from .. import observableproperties
 from ..compression import CompressionHandler
 from ..httprequesthandler import mk_chunks
-from ..namespaces import Prefixes
+from ..namespaces import default_ns_helper as ns_hlp
 
 if TYPE_CHECKING:
     from ssl import SSLContext
@@ -146,7 +146,7 @@ class SoapClientAsync:
             return None
 
         message_data = self._msg_reader.read_received_message(xml_response.encode('utf-8'))
-        if message_data.action == f'{Prefixes.WSA.namespace}/fault':
+        if message_data.action == f'{ns_hlp.WSA.namespace}/fault':
             soap_fault = self._msg_reader.read_fault_message(message_data)
             raise HTTPReturnCodeError(resp.status, resp.reason, soap_fault)
         return message_data

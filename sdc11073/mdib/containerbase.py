@@ -5,8 +5,7 @@ from typing import Optional, List
 from lxml import etree as etree_
 
 from .. import observableproperties as properties
-from ..namespaces import Prefixes
-from ..namespaces import QN_TYPE
+from ..namespaces import QN_TYPE, NamespaceHelper
 
 
 class ContainerBase:
@@ -29,28 +28,31 @@ class ContainerBase:
         """ ignores default value and implied value, e.g. returns None if value is not present in xml"""
         return getattr(self.__class__, attr_name).get_actual_value(self)
 
-    def mk_node(self, tag, nsmapper, set_xsi_type=False):
+    def mk_node(self, tag:etree_.QName, ns_helper: NamespaceHelper, set_xsi_type: bool=False):
         """
         create an etree node from instance data
         :param tag: tag of the newly created node
-        :param nsmapper: namespaces.DocNamespaceHelper instance
+        :param ns_helper: namespaces.NamespaceHelper instance
         :param set_xsi_type: if True, adds Type attribute to node
         :return: etree node
         """
-        node = etree_.Element(tag, nsmap=nsmapper.partial_map(Prefixes.PM, Prefixes.MSG, Prefixes.XSI))
-        self.update_node(node, nsmapper, set_xsi_type)
+        ns_map = ns_helper.partial_map(ns_helper.PM,
+                                       ns_helper.MSG,
+                                       ns_helper.XSI,)
+        node = etree_.Element(tag, nsmap=ns_map)
+        self.update_node(node, ns_helper, set_xsi_type)
         return node
 
-    def update_node(self, node, nsmapper, set_xsi_type=False):
+    def update_node(self, node: etree_._Element, ns_helper: NamespaceHelper, set_xsi_type: bool = False):
         """
         update node with own data
         :param node: node to be updated
-        :param nsmapper: namespaces.DocNamespaceHelper instance
+        :param ns_helper: namespaces.NamespaceHelper instance
         :param set_xsi_type:if True, adds Type attribute to node
         :return: etree node
         """
         if set_xsi_type and self.NODETYPE is not None:
-            node.set(QN_TYPE, nsmapper.doc_name_from_qname(self.NODETYPE))
+            node.set(QN_TYPE, ns_helper.doc_name_from_qname(self.NODETYPE))
         for dummy_name, prop in self.sorted_container_properties():
             prop.update_xml_value(self, node)
         return node

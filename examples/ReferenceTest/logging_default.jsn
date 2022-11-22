@@ -75,7 +75,7 @@
         },
         "sdc.client": {
             "comment": "base logger for client",
-            "level": null
+            "level": "WARN"
         },
         "sdc.client.soap": {
             "level": null

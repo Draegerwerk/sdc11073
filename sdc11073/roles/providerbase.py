@@ -38,7 +38,7 @@ class ProviderRole:
 
     def _set_numeric_value(self, operation_instance, value):
         """ sets a numerical metric value"""
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         operation_target_handle = self._get_operation_target_handle(operation_instance)
         self._logger.info('set value of {} via {} from {} to {}', operation_target_handle, operation_instance.handle,
                           operation_instance.current_value, value)
@@ -58,7 +58,7 @@ class ProviderRole:
 
     def _set_string(self, operation_instance, value):
         """ sets a string value"""
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         operation_target_handle = self._get_operation_target_handle(operation_instance)
         self._logger.info('set value {} from {} to {}', operation_target_handle, operation_instance.current_value,
                           value)

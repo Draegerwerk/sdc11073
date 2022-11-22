@@ -10,7 +10,6 @@ from datetime import datetime, date
 
 from lxml import etree as etree_
 
-from .. import ext_qnames as ext
 from .. import isoduration
 from ..dataconverters import TimestampConverter, DecimalConverter, IntegerConverter, BooleanConverter, \
     DurationConverter, ClassCheckConverter, ListConverter, EnumConverter, StringConverter
@@ -594,9 +593,7 @@ class _ExtensionLocalValue:
 class ExtensionNodeProperty(_NodeProperty):
     """ Represents an ext:Extension Element that contains xml tree of any kind."""
 
-    def __init__(self, sub_element_name=None, default_py_value=None):
-        if sub_element_name is None:
-            sub_element_name = ext.Extension
+    def __init__(self, sub_element_name, default_py_value=None):
         super().__init__(sub_element_name, ClassCheckConverter(_ExtensionLocalValue), default_py_value,
                          is_optional=True,
                          local_var_prefix='ext')

@@ -1,7 +1,7 @@
 import time
 import traceback
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from threading import Lock
 from typing import List
 from decimal import Decimal
@@ -10,11 +10,7 @@ from enum import Enum
 from . import mdibbase
 from .clientmdibxtra import ClientMdibMethods
 from .. import loghelper
-from .. import namespaces
 from ..exceptions import ApiUsageError
-
-_global_nsmap = namespaces.nsmap
-
 
 
 @dataclass
@@ -126,7 +122,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     # INITIAL_NOTIFICATION_BUFFERING setting determines how incoming notifications are handled between start of
     # subscription ond handling of GetMib Response.
-    # INITIAL_NOTIFICATION_BUFFERING = False: the response for the first incoming notification is answered after the getmdib is done.
+    # INITIAL_NOTIFICATION_BUFFERING = False: the response for the first incoming notification is answered after the get_mdib is done.
     # INITIAL_NOTIFICATION_BUFFERING = True:  responses are sent immediately and first notifications are buffered.
     INITIAL_NOTIFICATION_BUFFERING = True
 
@@ -150,7 +146,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self._max_realtime_samples = max_realtime_samples
         self._last_wf_age_log = time.time()
         self._context_mdib_version = None
-        # a buffer for notifications that are received before initial getmdib is done
+        # a buffer for notifications that are received before initial get_mdib is done
         self._buffered_notifications = []
         self._buffered_notifications_lock = Lock()
         self._sequence_id_changed_flag = False
@@ -304,7 +300,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if new_mdib_version is None:
             self._logger.error('{}: could not check MdibVersion!', log_prefix)
         else:
-            # log deviations from expected mdib versionb
+            # log deviations from expected mdib version
             if new_mdib_version < self.mdib_version:
                 self._logger.warn('{}: ignoring too old Mdib version, have {}, got {}', log_prefix, self.mdib_version,
                                   new_mdib_version)
@@ -376,7 +372,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
                                                         self.process_incoming_metric_states):
             return
-
+        states_by_handle = {}
         try:
             with self.mdib_lock:
                 if not self._can_accept_version(mdib_version, sequence_id, 'metric states'):
@@ -391,7 +387,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
                                                         self.process_incoming_alert_states):
             return
-
+        states_by_handle = {}
         try:
             with self.mdib_lock:
                 if not self._can_accept_version(mdib_version, sequence_id, 'alert states'):
@@ -407,6 +403,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
                                                         self.process_incoming_operational_states):
             return
+        states_by_handle = {}
 
         try:
             with self.mdib_lock:
@@ -422,7 +419,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
                                                         self.process_incoming_waveform_states):
             return
-        states_by_handle = None
+        states_by_handle = {}
         try:
             with self.mdib_lock:
                 if not self._can_accept_version(mdib_version, sequence_id, 'waveform states'):
@@ -448,6 +445,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         finally:
             if states_by_handle is not None:
                 self.waveform_by_handle = states_by_handle
+        return states_by_handle
+
 
     def process_incoming_context_states(self, mdib_version, sequence_id, state_containers, is_buffered_report=False):
         if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,

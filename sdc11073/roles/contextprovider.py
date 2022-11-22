@@ -29,7 +29,7 @@ class GenericContextProvider(providerbase.ProviderRole):
     def _set_context_state(self, operation_instance, proposed_context_states):
         """ This is the code that executes the operation itself.
         """
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         with self._mdib.transaction_manager() as mgr:
             for proposed_st in proposed_context_states:
                 old_state_container = None

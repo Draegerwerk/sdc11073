@@ -14,7 +14,7 @@ from .. import msgtypes
 from .. import observableproperties as properties
 from .. import pm_qnames as pm
 from .. import pmtypes
-from ..namespaces import Prefixes
+from ..namespaces import NamespaceHelper
 
 
 @dataclass(frozen=True)
@@ -47,30 +47,32 @@ def sorted_child_data(obj, member_name):
             continue
 
 
-def make_descriptor_node(descriptor_container, tag, nsmapper, set_xsi_type=True, connect_child_descriptors=False):
+def make_descriptor_node(descriptor_container, tag: etree_.QName, ns_helper: NamespaceHelper, set_xsi_type: bool=True, connect_child_descriptors: bool =False):
     """
     Creates a lxml etree node from instance data.
     :param descriptor_container: a descriptor container instance
-    :param nsmapper:  namespaces.DocNamespaceHelper instance
+    :param ns_helper:  namespaces.NamespaceHelper instance
     :param set_xsi_type: if true, the NODETYPE will be used to set the xsi:type attribute of the node
     :param tag: tag of node
     :param connect_child_descriptors: if True, the whole sub-tree is included
     :return: an etree node
     """
     if set_xsi_type:
-        namespace_map = nsmapper.partial_map(Prefixes.PM, Prefixes.XSI)
+        ns_map = ns_helper.partial_map(ns_helper.PM,
+                                       ns_helper.XSI,)
+
     else:
-        namespace_map = nsmapper.partial_map(Prefixes.PM)
+        ns_map = ns_helper.partial_map(ns_helper.PM)
     node = etree_.Element(tag,
                           attrib={'Handle': descriptor_container.Handle},
-                          nsmap=namespace_map)
-    descriptor_container.update_node(node, nsmapper, set_xsi_type)  # create all
+                          nsmap=ns_map)
+    descriptor_container.update_node(node, ns_helper, set_xsi_type)  # create all
     if connect_child_descriptors:
         # append all child containers, then bring all child elements in correct order
         for node_type, child_list in descriptor_container.child_containers_by_type.items():
             child_tag, set_xsi = descriptor_container.tag_name_for_child_descriptor(node_type)
             for child in child_list:
-                child_node = make_descriptor_node(child, child_tag, nsmapper, set_xsi, connect_child_descriptors=True)
+                child_node = make_descriptor_node(child, child_tag, ns_helper, set_xsi, connect_child_descriptors=True)
                 node.append(child_node)
     descriptor_container.sort_child_nodes(node)
     return node
@@ -98,7 +100,7 @@ class AbstractDescriptorContainer(ContainerBase):
     node = properties.ObservableProperty()  # the etree node
 
     Handle = cp.HandleAttributeProperty('Handle', is_optional=False)
-    Extension = cp.ExtensionNodeProperty()
+    Extension = cp.ExtensionNodeProperty(ext.Extension)
     DescriptorVersion = cp.VersionCounterAttributeProperty('DescriptorVersion',
                                                            default_py_value=0)
     SafetyClassification = cp.EnumAttributeProperty('SafetyClassification',

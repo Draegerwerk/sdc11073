@@ -4,7 +4,7 @@ import http.client
 import socket
 import time
 import traceback
-import urllib
+from urllib.parse import urlparse
 import uuid
 from collections import deque, defaultdict
 from typing import List, Optional, TYPE_CHECKING
@@ -17,8 +17,8 @@ from .. import multikey
 from .. import observableproperties
 from ..addressing import ReferenceParameters, Address
 from ..etc import apply_map, short_filter_string
-from ..namespaces import Prefixes
-from ..namespaces import wseTag, DocNamespaceHelper
+#from ..namespaces import default_ns_helper as ns_hlp
+from ..namespaces import NamespaceHelper
 from ..pmtypes import InvocationError, InvocationState
 from ..pysoap.soapclient import HTTPReturnCodeError
 from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
@@ -26,7 +26,7 @@ from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
 if TYPE_CHECKING:
     from ssl import SSLContext
     from ..definitions_base import BaseDefinitions
-    from ..pysoap.msgfactory import MessageFactory, CreatedMessage
+    from ..pysoap.msgfactory import MessageFactoryDevice, CreatedMessage
     from ..httprequesthandler import RequestData
     from ..pysoap.msgreader import SubscribeRequest, MessageReader
     from ..mdib.statecontainers import AbstractStateContainer
@@ -73,22 +73,24 @@ class _DevSubscription:
     def __init__(self, subscribe_request, base_urls, max_subscription_duration, ssl_context,
                  msg_factory):
         """
-        :param notify_to_address: dom node of Subscribe Request
-        :param end_to_address: dom node of Subscribe Request
-        :param expires: seconds as float
-        :param filter: a space separated list of actions, or only one action
+
+        :param subscribe_request:
+        :param base_urls:
+        :param max_subscription_duration:
+        :param ssl_context:
+        :param msg_factory:
         """
         self.mode = subscribe_request.mode
         self.base_urls = base_urls
         self._msg_factory = msg_factory
         self.notify_to_address = subscribe_request.notify_to_address
-        self._notify_to_url = urllib.parse.urlparse(subscribe_request.notify_to_address)
+        self.notify_to_url = urlparse(subscribe_request.notify_to_address)
 
         self.notify_ref_params = subscribe_request.notify_ref_params
 
         self.end_to_address = subscribe_request.end_to_address
         if self.end_to_address is not None:
-            self._end_to_url = urllib.parse.urlparse(self.end_to_address)
+            self._end_to_url =urlparse(self.end_to_address)
         else:
             self._end_to_url = None
         self.end_to_ref_params = subscribe_request.end_to_ref_params
@@ -100,13 +102,13 @@ class _DevSubscription:
         self._started = None
         self._expire_seconds = None
         self.renew(subscribe_request.expires)  # sets self._started and self._expire_seconds
-        self._filters = subscribe_request.subscription_filters
+        self.filters = subscribe_request.subscription_filters
         self._ssl_context = ssl_context
 
         self._accepted_encodings = subscribe_request.accepted_encodings  # these encodings does the other side accept
         self._soap_client = None
 
-        self._notify_errors = 0
+        self.notify_errors = 0
         self._is_closed = False
         self._is_connection_error = False
         self.last_roundtrip_times = deque(
@@ -144,7 +146,7 @@ class _DevSubscription:
 
     @property
     def has_delivery_failure(self):
-        return self._notify_errors >= self.MAX_NOTIFY_ERRORS
+        return self.notify_errors >= self.MAX_NOTIFY_ERRORS
 
     @property
     def has_connection_error(self):
@@ -158,7 +160,7 @@ class _DevSubscription:
 
     def matches(self, action):
         action = action.strip()  # just to be sure there are no spaces....
-        for filter_string in self._filters:
+        for filter_string in self.filters:
             if filter_string.endswith(action):
                 return True
         return False
@@ -176,7 +178,7 @@ class _DevSubscription:
         try:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
 
-            self._soap_client.post_message_to(self._notify_to_url.path, message,
+            self._soap_client.post_message_to(self.notify_to_url.path, message,
                                               msg=f'send_notification_report {action}')
             try:
                 roundtrip_time = roundtrip_timer.result(0)
@@ -184,13 +186,13 @@ class _DevSubscription:
                 self.max_roundtrip_time = max(self.max_roundtrip_time, roundtrip_time)
             except observableproperties.CollectTimeoutError:
                 pass
-            self._notify_errors = 0
+            self.notify_errors = 0
             self._is_connection_error = False
         except HTTPReturnCodeError:
-            self._notify_errors += 1
+            self.notify_errors += 1
             raise
         except Exception:  # any other exception is handled as an unreachable location (disconnected)
-            self._notify_errors += 1
+            self.notify_errors += 1
             self._is_connection_error = True
             raise
 
@@ -205,10 +207,10 @@ class _DevSubscription:
             return
         message = msg_factory.mk_notification_end_message(self, my_addr, code, reason)
         try:
-            url = self._end_to_url or self._notify_to_url
+            url = self._end_to_url or self.notify_to_url
             self._soap_client.post_message_to(url.path, message,
                                               msg='send_notification_end_message')
-            self._notify_errors = 0
+            self.notify_errors = 0
             self._is_connection_error = False
             self._is_closed = True
         except Exception:
@@ -232,7 +234,7 @@ class _DevSubscription:
             ref_ident = '<unknown>'
         return f'Subscription(notify_to={self.notify_to_address} ident={ref_ident}, ' \
                f'my identifier={self.identifier_uuid.hex}, expires={self.remaining_seconds}, ' \
-               f'filter={short_filter_string(self._filters)})'
+               f'filter={short_filter_string(self.filters)})'
 
     def get_roundtrip_stats(self):
         if len(self.last_roundtrip_times) > 0:
@@ -240,18 +242,16 @@ class _DevSubscription:
         return _RoundTripData(None, None)
 
     def short_filter_names(self):
-        return tuple([f.split('/')[-1] for f in self._filters])
+        return tuple([f.split('/')[-1] for f in self.filters])
 
 
 class SubscriptionsManagerBase:
     """This implementation uses ReferenceParameters to identify subscriptions."""
-    BodyNodePrefixes = [Prefixes.PM, Prefixes.MSG, Prefixes.XSI, Prefixes.EXT, Prefixes.XML]
-    NotificationPrefixes = [Prefixes.PM, Prefixes.S12, Prefixes.WSA, Prefixes.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
     def __init__(self, ssl_context: SSLContext,
                  sdc_definitions: BaseDefinitions,
-                 msg_factory: MessageFactory,
+                 msg_factory: MessageFactoryDevice,
                  msg_reader: MessageReader,
                  soap_client_class,
                  supported_encodings: List[str],
@@ -275,7 +275,7 @@ class SubscriptionsManagerBase:
             multikey.UIndexDefinition(lambda obj: _mk_dispatch_identifier(obj.reference_parameters, obj.path_suffix)))
         self._subscriptions.add_index('identifier', multikey.UIndexDefinition(lambda obj: obj.identifier_uuid.hex))
         self._subscriptions.add_index('netloc', multikey.IndexDefinition(
-            lambda obj: obj._notify_to_url.netloc))  # pylint:disable=protected-access
+            lambda obj: obj.notify_to_url.netloc))  # pylint:disable=protected-access
         self.base_urls = None
 
     def set_base_urls(self, base_urls):
@@ -290,7 +290,7 @@ class SubscriptionsManagerBase:
 
         subscr = self._mk_subscription_instance(subscribe_request)
         # assign a soap client
-        key = subscr._notify_to_url.netloc  # pylint:disable=protected-access
+        key = subscr.notify_to_url.netloc  # pylint:disable=protected-access
         soap_client = self.soap_clients.get(key)
         if soap_client is None:
             soap_client = self._soap_client_class(key, loghelper.get_logger_adapter('sdc.device.soap', self.log_prefix),
@@ -312,7 +312,7 @@ class SubscriptionsManagerBase:
         if subscription is None:
             fault = SoapFault(code=SoapFaultCode.RECEIVER,
                               reason='unknown Subscription identifier',
-                              sub_code=wseTag('InvalidMessage')
+                              sub_code=self.sdc_definitions.data_model.ns_helper.wseTag('InvalidMessage')
                               )
             response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
         else:
@@ -321,9 +321,9 @@ class SubscriptionsManagerBase:
                 self._subscriptions.remove_object(subscription)
             self._logger.info('unsubscribe: object found and removed (Xaddr = {}, filter = {})',
                               subscription.notify_to_address,
-                              subscription._filters)  # pylint: disable=protected-access
+                              subscription.filters)  # pylint: disable=protected-access
             # now check if we can close the soap client
-            key = subscription._notify_to_url.netloc  # pylint: disable=protected-access
+            key = subscription.notify_to_url.netloc  # pylint: disable=protected-access
             subscriptions_with_same_soap_client = self._subscriptions.netloc.get(key, [])
             if len(subscriptions_with_same_soap_client) == 0:
                 self.soap_clients[key].close()
@@ -338,7 +338,7 @@ class SubscriptionsManagerBase:
         if subscription is None:
             fault = SoapFault(code=SoapFaultCode.RECEIVER,
                               reason='unknown Subscription identifier',
-                              sub_code=wseTag('InvalidMessage')
+                              sub_code=self.sdc_definitions.data_model.ns_helper.wseTag('InvalidMessage')
                               )
             response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
         else:
@@ -352,7 +352,7 @@ class SubscriptionsManagerBase:
         if subscription is None:
             fault = SoapFault(code=SoapFaultCode.RECEIVER,
                               reason='unknown Subscription identifier',
-                              sub_code=wseTag('UnableToRenew')
+                              sub_code=self.sdc_definitions.data_model.ns_helper.wseTag('UnableToRenew')
                               )
             response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
 
@@ -376,7 +376,7 @@ class SubscriptionsManagerBase:
                          invocation_state: InvocationState,
                          mdib_version: int,
                          sequence_id: str,
-                         nsmapper: DocNamespaceHelper,
+                         nsmapper: NamespaceHelper,
                          error: Optional[InvocationError] = None,
                          error_message: Optional[str] = None):
         operation_handle_ref = operation.handle
@@ -388,12 +388,12 @@ class SubscriptionsManagerBase:
 
         body_node = self._msg_factory.mk_operation_invoked_report_body(mdib_version, sequence_id,
                                                                        operation_handle_ref, transaction_id,
-                                                                       invocation_state, error, error_message, nsmapper)
+                                                                       invocation_state, error, error_message)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'notify_operation')
         self._do_housekeeping()
 
     def send_episodic_metric_report(self, states: List[AbstractStateContainer],
-                                    nsmapper: DocNamespaceHelper,
+                                    nsmapper: NamespaceHelper,
                                     mdib_version: int,
                                     sequence_id: str):
         action = self.sdc_definitions.Actions.EpisodicMetricReport
@@ -402,12 +402,12 @@ class SubscriptionsManagerBase:
             return
         self._logger.debug('sending episodic metric report {}', states)
         body_node = self._msg_factory.mk_episodic_metric_report_body(
-            mdib_version, sequence_id, states, nsmapper)
+            mdib_version, sequence_id, states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_metric_report')
         self._do_housekeeping()
 
     def send_periodic_metric_report(self, periodic_states_list: List[PeriodicStates],
-                                    nsmapper: DocNamespaceHelper,
+                                    nsmapper: NamespaceHelper,
                                     sequence_id: str):
         action = self.sdc_definitions.Actions.PeriodicMetricReport
         subscribers = self._get_subscriptions_for_action(action)
@@ -416,12 +416,12 @@ class SubscriptionsManagerBase:
         self._logger.debug('sending periodic metric report, contains last {} episodic updates',
                            len(periodic_states_list))
         body_node = self._msg_factory.mk_periodic_metric_report_body(
-            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list, nsmapper)
+            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_metric_report')
         self._do_housekeeping()
 
     def send_episodic_alert_report(self, states: List[AbstractStateContainer],
-                                   nsmapper: DocNamespaceHelper,
+                                   nsmapper: NamespaceHelper,
                                    mdib_version: int,
                                    sequence_id: str):
         action = self.sdc_definitions.Actions.EpisodicAlertReport
@@ -430,12 +430,12 @@ class SubscriptionsManagerBase:
             return
         self._logger.debug('sending episodic alert report {}', states)
         body_node = self._msg_factory.mk_episodic_alert_report_body(
-            mdib_version, sequence_id, states, nsmapper)
+            mdib_version, sequence_id, states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_alert_report')
         self._do_housekeeping()
 
     def send_periodic_alert_report(self, periodic_states_list: List[PeriodicStates],
-                                   nsmapper: DocNamespaceHelper,
+                                   nsmapper: NamespaceHelper,
                                    sequence_id: str):
         action = self.sdc_definitions.Actions.PeriodicAlertReport
         subscribers = self._get_subscriptions_for_action(action)
@@ -444,12 +444,12 @@ class SubscriptionsManagerBase:
         self._logger.debug('sending periodic alert report, contains last {} episodic updates',
                            len(periodic_states_list))
         body_node = self._msg_factory.mk_periodic_alert_report_body(
-            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list, nsmapper)
+            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_alert_report')
         self._do_housekeeping()
 
     def send_episodic_operational_state_report(self, states: List[AbstractStateContainer],
-                                               nsmapper: DocNamespaceHelper,
+                                               nsmapper: NamespaceHelper,
                                                mdib_version: int,
                                                sequence_id: str):
         action = self.sdc_definitions.Actions.EpisodicOperationalStateReport
@@ -458,12 +458,12 @@ class SubscriptionsManagerBase:
             return
         self._logger.debug('sending episodic operational state report {}', states)
         body_node = self._msg_factory.mk_episodic_operational_state_report_body(
-            mdib_version, sequence_id, states, nsmapper)
+            mdib_version, sequence_id, states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_operational_state_report')
         self._do_housekeeping()
 
     def send_periodic_operational_state_report(self, periodic_states_list: List[PeriodicStates],
-                                               nsmapper: DocNamespaceHelper,
+                                               nsmapper: NamespaceHelper,
                                                sequence_id: str):
         action = self.sdc_definitions.Actions.PeriodicOperationalStateReport
         subscribers = self._get_subscriptions_for_action(action)
@@ -472,12 +472,12 @@ class SubscriptionsManagerBase:
         self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
                            len(periodic_states_list))
         body_node = self._msg_factory.mk_periodic_operational_state_report_body(
-            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list, nsmapper)
+            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_operational_state_report')
         self._do_housekeeping()
 
     def send_episodic_component_state_report(self, states: List[AbstractStateContainer],
-                                             nsmapper: DocNamespaceHelper,
+                                             nsmapper: NamespaceHelper,
                                              mdib_version: int,
                                              sequence_id: str):
         action = self.sdc_definitions.Actions.EpisodicComponentReport
@@ -486,12 +486,12 @@ class SubscriptionsManagerBase:
             return
         self._logger.debug('sending episodic component report {}', states)
         body_node = self._msg_factory.mk_episodic_component_state_report_body(
-            mdib_version, sequence_id, states, nsmapper)
+            mdib_version, sequence_id, states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_component_state_report')
         self._do_housekeeping()
 
     def send_periodic_component_state_report(self, periodic_states_list: List[PeriodicStates],
-                                             nsmapper: DocNamespaceHelper,
+                                             nsmapper: NamespaceHelper,
                                              sequence_id: str):
         action = self.sdc_definitions.Actions.PeriodicComponentReport
         subscribers = self._get_subscriptions_for_action(action)
@@ -500,12 +500,12 @@ class SubscriptionsManagerBase:
         self._logger.debug('sending periodic component report, contains last {} episodic updates',
                            len(periodic_states_list))
         body_node = self._msg_factory.mk_periodic_component_state_report_body(
-            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list, nsmapper)
+            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_component_state_report')
         self._do_housekeeping()
 
     def send_episodic_context_report(self, states: List[AbstractStateContainer],
-                                     nsmapper: DocNamespaceHelper,
+                                     nsmapper: NamespaceHelper,
                                      mdib_version: int,
                                      sequence_id: str):
         action = self.sdc_definitions.Actions.EpisodicContextReport
@@ -514,12 +514,12 @@ class SubscriptionsManagerBase:
             return
         self._logger.debug('sending episodic context report {}', states)
         body_node = self._msg_factory.mk_episodic_context_report_body(
-            mdib_version, sequence_id, states, nsmapper)
+            mdib_version, sequence_id, states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_context_report')
         self._do_housekeeping()
 
     def send_periodic_context_report(self, periodic_states_list: List[PeriodicStates],
-                                     nsmapper: DocNamespaceHelper,
+                                     nsmapper: NamespaceHelper,
                                      sequence_id: str):
         action = self.sdc_definitions.Actions.PeriodicContextReport
         subscribers = self._get_subscriptions_for_action(action)
@@ -528,12 +528,12 @@ class SubscriptionsManagerBase:
         self._logger.debug('sending periodic context report, contains last {} episodic updates',
                            len(periodic_states_list))
         body_node = self._msg_factory.mk_periodic_context_report_body(
-            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list, nsmapper)
+            periodic_states_list[-1].mdib_version, sequence_id, periodic_states_list)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_context_report')
         self._do_housekeeping()
 
     def send_realtime_samples_report(self, realtime_sample_states: List[AbstractStateContainer],
-                                     nsmapper: DocNamespaceHelper,
+                                     nsmapper: NamespaceHelper,
                                      mdib_version: int,
                                      sequence_id: str):
         action = self.sdc_definitions.Actions.Waveform
@@ -542,7 +542,7 @@ class SubscriptionsManagerBase:
             return
         self._logger.debug('sending real time samples report {}', realtime_sample_states)
         body_node = self._msg_factory.mk_realtime_samples_report_body(
-            mdib_version, sequence_id, realtime_sample_states, nsmapper)
+            mdib_version, sequence_id, realtime_sample_states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, None)
         self._do_housekeeping()
 
@@ -550,7 +550,7 @@ class SubscriptionsManagerBase:
                                 created: List[AbstractDescriptorContainer],
                                 deleted: List[AbstractDescriptorContainer],
                                 updated_states: List[AbstractStateContainer],
-                                nsmapper: DocNamespaceHelper,
+                                nsmapper: NamespaceHelper,
                                 mdib_version: int,
                                 sequence_id: str):
         action = self.sdc_definitions.Actions.DescriptionModificationReport
@@ -559,7 +559,7 @@ class SubscriptionsManagerBase:
             return
         self._logger.debug('sending DescriptionModificationReport upd={} crt={} del={}', updated, created, deleted)
         body_node = self._msg_factory.mk_description_modification_report_body(
-            mdib_version, sequence_id, updated, created, deleted, updated_states, nsmapper)
+            mdib_version, sequence_id, updated, created, deleted, updated_states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_descriptor_updates')
         self._do_housekeeping()
 
@@ -568,7 +568,7 @@ class SubscriptionsManagerBase:
             if what:
                 self._logger.debug('{}: sending report to {}', what, subscriber.notify_to_address)
             self._send_notification_report(
-                subscriber, body_node, action, nsmapper.partial_map(*self.NotificationPrefixes))
+                subscriber, body_node, action, nsmapper.partial_map(nsmapper.PM, nsmapper.S12, nsmapper.WSA, nsmapper.WSE))
 
     def _send_notification_report(self, subscription, body_node, action, doc_nsmap):
         try:
@@ -645,7 +645,7 @@ class SubscriptionsManagerBase:
                     self._logger.error('error in soap client.close(): {}', traceback.format_exc())
 
             self._logger.info('deleting {}, errors={}', invalid_subscription,
-                              invalid_subscription._notify_errors)  # pylint: disable=protected-access
+                              invalid_subscription.notify_errors)  # pylint: disable=protected-access
             with self._subscriptions.lock:
                 self._subscriptions.remove_object(invalid_subscription)
 

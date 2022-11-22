@@ -1,7 +1,6 @@
-from typing import Optional, Any
+from typing import Optional
 import uuid
 import copy
-from .namespaces import wsaTag
 
 class ReferenceParameters:
     def __init__(self, reference_parameters):

@@ -49,7 +49,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
         SF959: If signal pause is initiated for an ACKNOWLEDGEABLE ALERT SIGNAL, the the Alert Provider shall set the
         AlertSignalState/ActivationState to 'Psd' and AlertSignalState/Presence to 'Ack' for that ALERT SIGNAL.
          """
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
         alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(pm_names.AlertSystemDescriptor)
         if alert_system_descriptors is None:
@@ -103,7 +103,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
         If global audio pause is initiated, all SystemSignalActivation/State for all alarm systems of the product with
         SystemSignalActivation/Manifestation evaluating to 'Aud' shall be set to 'Psd'.
          """
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
         alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(pm_names.AlertSystemDescriptor)
         with self._mdib.transaction_manager() as mgr:
@@ -148,7 +148,7 @@ class AudioPauseProvider(GenericAudioPauseProvider):
     """This Implementation adds operations to mdib if they do not exist."""
 
     def make_missing_operations(self, operation_cls_getter):
-        pm_types = self._mdib.data_model.pmtypes
+        pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
         ops = []
         operation_target_container = self._mdib.descriptions.NODETYPE.get_one(
