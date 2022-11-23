@@ -3,7 +3,7 @@ from typing import Optional, List
 
 from lxml import etree as etree_
 
-from ..namespaces import nsmap, default_ns_helper as ns_hlp
+from ..namespaces import default_ns_helper as ns_hlp
 from ..exceptions import ApiUsageError
 
 CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
@@ -94,8 +94,8 @@ class ReceivedSoapMessage:
     def __init__(self, xml_string, doc_root):
         self.raw_data = xml_string
         self._doc_root = doc_root
-        self.header_node = self._doc_root.find('s12:Header', nsmap)
-        self.body_node = self._doc_root.find('s12:Body', nsmap)
+        self.header_node = self._doc_root.find('s12:Header', ns_hlp.ns_map)
+        self.body_node = self._doc_root.find('s12:Body', ns_hlp.ns_map)
         self.address = None  # WsAddress.from_etree_node(self.header_node)
         try:
             self.msg_node = self.body_node[0]

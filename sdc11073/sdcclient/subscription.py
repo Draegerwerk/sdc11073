@@ -13,7 +13,7 @@ from .. import etc
 from .. import loghelper
 from .. import observableproperties as properties
 from ..namespaces import EventingActions
-from ..namespaces import nsmap as _global_nsmap
+from ..namespaces import default_ns_helper as ns_hlp #
 
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 
@@ -359,7 +359,7 @@ class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):
 
     def _find_subscription(self, request_data, reference_parameters, log_prefix):
         subscr_ident_list = request_data.message_data.p_msg.header_node.findall(ClSubscription.IDENT_TAG,
-                                                                                namespaces=_global_nsmap)
+                                                                                namespaces=ns_hlp.ns_map)
         if not subscr_ident_list:
             return None
         subscr_ident = subscr_ident_list[0]

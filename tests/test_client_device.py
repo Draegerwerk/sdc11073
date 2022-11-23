@@ -859,12 +859,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.log_watcher.setPaused(True)
         self.sdc_client.get_service_client._validate = False  # want to send an invalid request
         try:
-            method = 'Nonsense'
+            method = self.sdc_device.mdib.data_model.ns_helper.msgTag('Nonsense')
+            action_string = 'Nonsense'
             message = self.sdc_client.get_service_client._msg_factory._mk_get_method_message(
                 self.sdc_client.get_service_client.endpoint_reference.address,
-                self.sdc_client.get_service_client.porttype,
+                action_string,
                 method)
-            self.sdc_client.get_service_client._call_get_method(message, method)
+            self.sdc_client.get_service_client.post_message(message)
+
         except HTTPReturnCodeError as ex:
             self.assertEqual(ex.status, 400)
             self.assertEqual(ex.soap_fault.code, 's12:Sender')

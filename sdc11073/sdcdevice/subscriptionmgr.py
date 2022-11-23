@@ -229,7 +229,7 @@ class _DevSubscription:
                 ref_ident = '<none>'
             else:
                 ref_ident = str(
-                    self.notify_ref_params)  # ', '.join([node.text for node in self.notify_ref_params.parameters])
+                    self.notify_ref_params)
         except TypeError:
             ref_ident = '<unknown>'
         return f'Subscription(notify_to={self.notify_to_address} ident={ref_ident}, ' \
@@ -567,12 +567,16 @@ class SubscriptionsManagerBase:
         for subscriber in subscribers:
             if what:
                 self._logger.debug('{}: sending report to {}', what, subscriber.notify_to_address)
-            self._send_notification_report(
-                subscriber, body_node, action, nsmapper.partial_map(nsmapper.PM, nsmapper.S12, nsmapper.WSA, nsmapper.WSE))
-
+            try:
+                self._send_notification_report(
+                    subscriber, body_node, action, nsmapper.partial_map(nsmapper.PM, nsmapper.S12, nsmapper.WSA, nsmapper.WSE))
+            except:
+                pass
     def _send_notification_report(self, subscription, body_node, action, doc_nsmap):
         try:
             subscription.send_notification_report(self._msg_factory, body_node, action, doc_nsmap)
+        except ConnectionRefusedError as ex:
+            self._logger.error('could not send notification report: {!r}:  subscr = {}', ex, subscription)
         except HTTPReturnCodeError as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report: HTTP status= {}, reason={}, {}', ex.status,

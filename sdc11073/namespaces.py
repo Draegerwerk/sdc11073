@@ -19,27 +19,16 @@ class PrefixNamespace(_PrefixNamespaceTuple):
         return localname
 
 
-
-def shall_normalize():
-    return False
-
-
 # these are internally used namespaces, they are not all identical the ones that are used in sdc.
 # it is in the responsibility of the sdc definitions class(es) to convert between internal and external namespaces.
 # Originally this abstraction was needed, because during development of the sdc standard the namespaces changed.
 # Although the standard is meanwhile final, this abstraction might again be needed if in the future a new revision
 # of the standard appears.
 class PrefixesEnum(PrefixNamespace, Enum):
-    if shall_normalize():
-        MSG = PrefixNamespace('msg', "__BICEPS_MessageModel__")
-        PM = PrefixNamespace('dom', "__BICEPS_ParticipantModel__")
-        MDPWS = PrefixNamespace('mdpws', "__MDPWS__")
-        EXT = PrefixNamespace('ext', "__ExtensionPoint__")
-    else:
-        MSG = PrefixNamespace('msg', 'http://standards.ieee.org/downloads/11073/11073-10207-2017/message')
-        PM = PrefixNamespace('dom', 'http://standards.ieee.org/downloads/11073/11073-10207-2017/participant')
-        MDPWS = PrefixNamespace('mdpws', 'http://standards.ieee.org/downloads/11073/11073-20702-2016')
-        EXT = PrefixNamespace('ext', 'http://standards.ieee.org/downloads/11073/11073-10207-2017/extension')
+    MSG = PrefixNamespace('msg', 'http://standards.ieee.org/downloads/11073/11073-10207-2017/message')
+    PM = PrefixNamespace('dom', 'http://standards.ieee.org/downloads/11073/11073-10207-2017/participant')
+    MDPWS = PrefixNamespace('mdpws', 'http://standards.ieee.org/downloads/11073/11073-20702-2016')
+    EXT = PrefixNamespace('ext', 'http://standards.ieee.org/downloads/11073/11073-10207-2017/extension')
     SDC = PrefixNamespace('sdc', 'http://standards.ieee.org/downloads/11073/11073-20701-2018')
     WSE = PrefixNamespace('wse', 'http://schemas.xmlsoap.org/ws/2004/08/eventing')
     XSD = PrefixNamespace('xsd', 'http://www.w3.org/2001/XMLSchema')
@@ -52,18 +41,6 @@ class PrefixesEnum(PrefixNamespace, Enum):
     XML = PrefixNamespace('xml', 'http://www.w3.org/XML/1998/namespace')
     WXF = PrefixNamespace('wxf', 'http://schemas.xmlsoap.org/ws/2004/09/transfer')  # ws-transfer
     WSDL = PrefixNamespace('wsdl', 'http://schemas.xmlsoap.org/wsdl/')
-
-    # @staticmethod
-    # def partial_map(*prefix, default: Optional[PrefixNamespace] = None):
-    #     """
-    #     :param prefix: Prefix_Namespace_Tuples
-    #     :param default: if given, the default name space
-    #     :return: a dictionary with prefix as key, namespace as value
-    #     """
-    #     ret = dict((v.prefix, v.namespace) for v in prefix)
-    #     if default is not None:
-    #         ret[None] = default.namespace
-    #     return ret
 
 
 class NamespaceHelper:
@@ -211,7 +188,7 @@ class NamespaceHelper:
         return ret
 
     def doc_name_from_qname(self, qname: etree_.QName) -> str:
-        """ returns the docprefix:name string, or only name (if default namespace is used) """
+        """ returns the prefix:name string, or only name (if default namespace is used) """
         if qname.namespace is not None and qname.namespace == self.default_ns:
             return qname.localname
         prefix = self._prefix_map[qname.namespace]
@@ -227,7 +204,7 @@ class NamespaceHelper:
         except KeyError as ex:
             raise KeyError(f'Cannot make QName for {text}, prefix is not in nsmap: {ns_map.keys()}') from ex
 
-    def _tag(self, prefix_namespace: str, localname: str) -> etree_.QName:
+    def _tag(self, prefix_namespace: PrefixNamespace, localname: str) -> etree_.QName:
         return etree_.QName(prefix_namespace.namespace, localname)
 
 
@@ -257,6 +234,7 @@ def text_to_qname(text: str, doc_nsmap: dict) -> etree_.QName:
         return etree_.QName(doc_nsmap[prefix], name)
     except KeyError as ex:
         raise KeyError(f'Cannot make QName for {text}, prefix is not in nsmap: {doc_nsmap.keys()}') from ex
+
 
 QN_TYPE = etree_.QName(PrefixesEnum.XSI.namespace, 'type')  # frequently used QName, central definition
 

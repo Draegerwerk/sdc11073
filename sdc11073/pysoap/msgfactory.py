@@ -25,8 +25,8 @@ class CreatedMessage:
         self.p_msg = message
         self.msg_factory = msg_factory
 
-    def serialize_message(self, pretty=False, normalized=False, request_manipulator=None, validate=True):
-        return self.msg_factory.serialize_message(self, pretty, normalized, request_manipulator, validate)
+    def serialize_message(self, pretty=False, request_manipulator=None, validate=True):
+        return self.msg_factory.serialize_message(self, pretty, request_manipulator, validate)
 
 
 # pylint: disable=no-self-use
@@ -66,13 +66,12 @@ class MessageFactory:
             raise ApiUsageError('MessageFactory has already an registered mdib')
         self._mdib_wref = None if mdib is None else weakref.ref(mdib)
 
-    def serialize_message(self, message: CreatedMessage, pretty=False, normalized=False,
+    def serialize_message(self, message: CreatedMessage, pretty=False,
                           request_manipulator=None, validate=True) -> bytes:
         """
 
         :param message: a soap envelope
         :param pretty:
-        :param normalized: id True, the internal namespaces are used (__BICEPS_MessageModel__, .... )
         :param request_manipulator: can modify data before sending
         :param validate: if False, no validation is performed, independent of constructor setting
         :return: bytes
@@ -97,10 +96,7 @@ class MessageFactory:
             if _doc:
                 doc = _doc
         doc.write(tmp, encoding='UTF-8', xml_declaration=True, pretty_print=pretty)
-        ret = tmp.getvalue()
-        if normalized:
-            return ret
-        return self._sdc_definitions.denormalize_xml_text(ret)
+        return tmp.getvalue()
 
     def mk_fault_message(self, message_data, soap_fault, action_string=None) -> CreatedMessage:
         ns_hlp = self._ns_hlp
@@ -201,59 +197,59 @@ class MessageFactoryClient(MessageFactory):
         soap_envelope.payload_element = etree_.Element('{http://schemas.xmlsoap.org/ws/2004/09/mex}GetMetadata')
         return CreatedMessage(soap_envelope, self)
 
-    def mk_get_descriptor_message(self, addr_to, port_type, requested_handles) -> CreatedMessage:
+    def mk_get_descriptor_message(self, addr_to, requested_handles) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param requested_handles: a list of strings
         :return: a SoapEnvelope
         """
-        method = 'GetMdState'
-        return self._mk_get_method_message(addr_to, port_type, method, params=self._handles2params(requested_handles))
+        method = self._msg_names.GetMdState
+        action = self._sdc_definitions.Actions.GetMdState
+        return self._mk_get_method_message(addr_to, action, method, params=self._handles2params(requested_handles))
 
-    def mk_get_mdib_message(self, addr_to, port_type) -> CreatedMessage:
+    def mk_get_mdib_message(self, addr_to) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :return: a SoapEnvelope
         """
-        method = 'GetMdib'
-        return self._mk_get_method_message(addr_to, port_type, method)
+        method = self._msg_names.GetMdib
+        action = self._sdc_definitions.Actions.GetMdib
+        return self._mk_get_method_message(addr_to, action, method)
 
-    def mk_get_mddescription_message(self, addr_to, port_type, requested_handles=None) -> CreatedMessage:
+    def mk_get_mddescription_message(self, addr_to, requested_handles=None) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param requested_handles: a list of strings
         :return: a SoapEnvelope
         """
-        method = 'GetMdDescription'
-        return self._mk_get_method_message(addr_to, port_type, method, params=self._handles2params(requested_handles))
+        method = self._msg_names.GetMdDescription
+        action = self._sdc_definitions.Actions.GetMdDescription
+        return self._mk_get_method_message(addr_to, action, method, params=self._handles2params(requested_handles))
 
-    def mk_get_mdstate_message(self, addr_to, port_type, requested_handles=None) -> CreatedMessage:
+    def mk_get_mdstate_message(self, addr_to, requested_handles=None) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param requested_handles: a list of strings
         :return: a SoapEnvelope
         """
-        method = 'GetMdState'
-        return self._mk_get_method_message(addr_to, port_type, method, params=self._handles2params(requested_handles))
+        method = self._msg_names.GetMdState
+        action = self._sdc_definitions.Actions.GetMdState
 
-    def mk_get_containmenttree_message(self, addr_to, port_type, requested_handles) -> CreatedMessage:
+        return self._mk_get_method_message(addr_to, action, method, params=self._handles2params(requested_handles))
+
+    def mk_get_containmenttree_message(self, addr_to, requested_handles) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param requested_handles: a list of strings
         :return: a SoapEnvelope
         """
-        method = 'GetContainmentTree'
-        return self._mk_get_method_message(addr_to, port_type, method, params=self._handles2params(requested_handles))
+        method = self._msg_names.GetContainmentTree
+        action = self._sdc_definitions.Actions.GetContainmentTree
+        return self._mk_get_method_message(addr_to, action, method, params=self._handles2params(requested_handles))
 
-    def mk_get_contextstates_message(self, addr_to, port_type, requested_handles=None) -> CreatedMessage:
+    def mk_get_contextstates_message(self, addr_to, requested_handles=None) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param requested_handles: a list of strings
         :return: a SoapEnvelope
         """
@@ -264,13 +260,13 @@ class MessageFactoryClient(MessageFactory):
                                                     attrib={QN_TYPE: f'{self._ns_hlp.MSG.prefix}:HandleRef'},
                                                     nsmap=self._ns_hlp.partial_map(self._ns_hlp.MSG, self._ns_hlp.PM)))
                 requestparams[-1].text = handle
-        method = 'GetContextStates'
-        return self._mk_get_method_message(addr_to, port_type, method, params=requestparams)
+        method = self._msg_names.GetContextStates
+        action = self._sdc_definitions.Actions.GetContextStates
+        return self._mk_get_method_message(addr_to, action, method, params=requestparams)
 
-    def mk_get_contextstates_by_identification_message(self, addr_to, port_type, identifications) -> CreatedMessage:
+    def mk_get_contextstates_by_identification_message(self, addr_to, identifications) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param identifications: list of identifiers (type: InstanceIdentifier from pmtypes)
         :return: a SoapEnvelope
         """
@@ -279,14 +275,14 @@ class MessageFactoryClient(MessageFactory):
             for identification in identifications:
                 requestparams.append(identification.as_etree_node(
                     qname=self._msg_names.Identification, nsmap=self._ns_hlp.partial_map(self._ns_hlp.MSG, self._ns_hlp.PM)))
-        method = 'GetContextStatesByIdentification'
-        return self._mk_get_method_message(addr_to, port_type, method, params=requestparams)
+        method = self._msg_names.GetContextStatesByIdentification
+        action = self._sdc_definitions.Actions.GetContextStatesByIdentification
+        return self._mk_get_method_message(addr_to, action, method, params=requestparams)
 
-    def mk_set_value_message(self, addr_to, port_type, operation_handle,
+    def mk_set_value_message(self, addr_to, operation_handle,
                              requested_numeric_value) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param requested_numeric_value: a string
         :return: a SoapEnvelope
@@ -295,15 +291,15 @@ class MessageFactoryClient(MessageFactory):
                                               attrib={QN_TYPE: f'{self._ns_hlp.XSD.prefix}:decimal'})
         requested_value_node.text = str(requested_numeric_value)
         method = self._msg_names.SetValue
-        return self._mk_set_method_message(addr_to, port_type, method,
+        action = self._sdc_definitions.Actions.SetValue
+        return self._mk_set_method_message(addr_to, action, method,
                                            operation_handle,
                                            [requested_value_node],
                                            additional_namespaces=[self._ns_hlp.XSD])
 
-    def mk_set_string_message(self, addr_to, port_type, operation_handle, requested_string) -> CreatedMessage:
+    def mk_set_string_message(self, addr_to, operation_handle, requested_string) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param requested_string: a string
         :return: a SoapEnvelope
@@ -312,14 +308,13 @@ class MessageFactoryClient(MessageFactory):
                                                attrib={QN_TYPE: f'{self._ns_hlp.XSD.prefix}:string'})
         requested_string_node.text = requested_string
         method = self._msg_names.SetString
-        return self._mk_set_method_message(addr_to, port_type, method, operation_handle, [requested_string_node],
+        action = self._sdc_definitions.Actions.SetString
+        return self._mk_set_method_message(addr_to, action, method, operation_handle, [requested_string_node],
                                            additional_namespaces=[self._ns_hlp.XSD])
 
-    def mk_set_alert_message(self, addr_to, port_type, operation_handle,
-                             proposed_alert_states) -> CreatedMessage:
+    def mk_set_alert_message(self, addr_to, operation_handle, proposed_alert_states) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param proposed_alert_states: a list of AbstractAlertStateContainer or derived class
         :return: a SoapEnvelope
@@ -329,13 +324,12 @@ class MessageFactoryClient(MessageFactory):
             state.nsmapper = self._ns_hlp
         _proposed_state_nodes = [p.mk_state_node(self._msg_names.ProposedAlertState, self._ns_hlp) for p in _proposed_states]
         method = self._msg_names.SetAlertState
-        return self._mk_set_method_message(addr_to, port_type, method, operation_handle, _proposed_state_nodes)
+        action = self._sdc_definitions.Actions.SetAlertState
+        return self._mk_set_method_message(addr_to, action, method, operation_handle, _proposed_state_nodes)
 
-    def mk_set_metric_state_message(self, addr_to, port_type, operation_handle,
-                                    proposed_metric_states) -> CreatedMessage:
+    def mk_set_metric_state_message(self, addr_to, operation_handle, proposed_metric_states) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param proposed_metric_states: a list of AbstractMetricStateContainer or derived class
         :return: a SoapEnvelope
@@ -346,14 +340,13 @@ class MessageFactoryClient(MessageFactory):
         _proposed_state_nodes = [p.mk_state_node(self._msg_names.ProposedMetricState, self._ns_hlp) for p in
                                  _proposed_states]
         method = self._msg_names.SetMetricState
-        return self._mk_set_method_message(addr_to, port_type, method, operation_handle,
+        action = self._sdc_definitions.Actions.SetMetricState
+        return self._mk_set_method_message(addr_to, action, method, operation_handle,
                                            _proposed_state_nodes)
 
-    def mk_set_component_state_message(self, addr_to, port_type, operation_handle,
-                                       proposed_component_states) -> CreatedMessage:
+    def mk_set_component_state_message(self, addr_to, operation_handle, proposed_component_states) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param proposed_component_states: a list of AbstractComponentStateContainers or derived class
         :return: a SoapEnvelope
@@ -364,14 +357,13 @@ class MessageFactoryClient(MessageFactory):
         _proposed_state_nodes = [p.mk_state_node(self._msg_names.ProposedComponentState, self._ns_hlp) for p in
                                  _proposed_states]
         method = self._msg_names.SetComponentState
-        return self._mk_set_method_message(addr_to, port_type, method, operation_handle,
+        action = self._sdc_definitions.Actions.SetComponentState
+        return self._mk_set_method_message(addr_to, action, method, operation_handle,
                                            _proposed_state_nodes)
 
-    def mk_set_context_state_message(self, addr_to, port_type, operation_handle,
-                                     proposed_context_states) -> CreatedMessage:
+    def mk_set_context_state_message(self, addr_to, operation_handle, proposed_context_states) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param proposed_context_states: a list of AbstractContextStateContainers or derived class
         :return: a SoapEnvelope
@@ -385,13 +377,13 @@ class MessageFactoryClient(MessageFactory):
         _proposed_state_nodes = [p.mk_state_node(self._msg_names.ProposedContextState,
                                                  self._ns_hlp) for p in _proposed_states]
         method = self._msg_names.SetContextState
-        return self._mk_set_method_message(addr_to, port_type, method, operation_handle,
+        action = self._sdc_definitions.Actions.SetContextState
+        return self._mk_set_method_message(addr_to, action, method, operation_handle,
                                            _proposed_state_nodes)
 
-    def mk_activate_message(self, addr_to, port_type, operation_handle, arguments=None) -> CreatedMessage:
+    def mk_activate_message(self, addr_to, operation_handle, arguments=None) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param operation_handle: the handle of operation that is called
         :param arguments: a list of strings or None
         :return: a SoapEnvelope
@@ -405,17 +397,16 @@ class MessageFactoryClient(MessageFactory):
                 argument_node = etree_.SubElement(payload_node, self._msg_names.Argument)
                 arg_val = etree_.SubElement(argument_node, self._msg_names.ArgValue)
                 arg_val.text = argument
-        action = self.get_action_string(port_type, 'Activate')
+        action = self._sdc_definitions.Actions.Activate
         envelope = Soap12Envelope(nsh.partial_map(nsh.MSG))
         envelope.set_address(Address(action=action, addr_to=addr_to))
         envelope.payload_element = payload_node
         return CreatedMessage(envelope, self)
 
-    def mk_get_localized_text_message(self, addr_to, port_type, refs=None, version=None, langs=None,
+    def mk_get_localized_text_message(self, addr_to, refs=None, version=None, langs=None,
                                       text_widths=None, number_of_lines=None) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :param refs: a list of strings or None
         :param version: an unsigned integer or None
         :param langs: a list of strings or None
@@ -448,17 +439,18 @@ class MessageFactoryClient(MessageFactory):
                 node = etree_.Element(self._msg_names.NumberOfLines)
                 node.text = nol
                 requestparams.append(node)
-        method = 'GetLocalizedText'
-        return self._mk_get_method_message(addr_to, port_type, method, params=requestparams)
+        method = self._msg_names.GetLocalizedText
+        action = self._sdc_definitions.Actions.GetLocalizedText
+        return self._mk_get_method_message(addr_to, action, method, params=requestparams)
 
-    def mk_get_supported_languages_message(self, addr_to, port_type) -> CreatedMessage:
+    def mk_get_supported_languages_message(self, addr_to) -> CreatedMessage:
         """
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
         :return: a SoapEnvelope
         """
-        method = 'GetSupportedLanguages'
-        return self._mk_get_method_message(addr_to, port_type, method)
+        method = self._msg_names.GetSupportedLanguages
+        action = self._sdc_definitions.Actions.GetSupportedLanguages
+        return self._mk_get_method_message(addr_to, action, method)
 
     def mk_subscribe_message(self, addr_to,
                              notifyto_url, notify_to_identifier,
@@ -523,25 +515,17 @@ class MessageFactoryClient(MessageFactory):
         soap_envelope.payload_element = etree_.Element(self._ns_hlp.wseTag('Unsubscribe'))
         return CreatedMessage(soap_envelope, self)
 
-    def get_action_string(self, port_type, method_name):
-        actions_lookup = self._sdc_definitions.Actions
-        try:
-            return getattr(actions_lookup, method_name)
-        except AttributeError:  # fallback, if a definition is missing
-            return f'{self._sdc_definitions.ActionsNamespace}/{port_type}/{method_name}'
-
-    def _mk_get_method_message(self, addr_to, port_type, method_name, params=None) -> CreatedMessage:
-        get_node = etree_.Element(self._ns_hlp.msgTag(method_name))
+    def _mk_get_method_message(self, addr_to, action: str, method: etree_.QName, params=None) -> CreatedMessage:
+        get_node = etree_.Element(method)
         soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.MSG))
-        action_string = self.get_action_string(port_type, method_name)
-        soap_envelope.set_address(Address(action=action_string, addr_to=addr_to))
+        soap_envelope.set_address(Address(action=action, addr_to=addr_to))
         if params:
             for param in params:
                 get_node.append(param)
         soap_envelope.payload_element = get_node
         return CreatedMessage(soap_envelope, self)
 
-    def _mk_set_method_message(self, addr_to: str, port_type: str, method_qname: etree_.QName, operation_handle: str,
+    def _mk_set_method_message(self, addr_to: str, action_string: str, method_qname: etree_.QName, operation_handle: str,
                                request_nodes, additional_namespaces=None) -> CreatedMessage:
         """ helper to create the soap envelope
         :param addr_to: to-field value in address
@@ -564,7 +548,6 @@ class MessageFactoryClient(MessageFactory):
             my_ns = nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG)
 
         soap_envelope = Soap12Envelope(my_ns)
-        action_string = self.get_action_string(port_type, method_qname.localname)
         soap_envelope.set_address(Address(action=action_string, addr_to=addr_to))
         soap_envelope.payload_element = set_node
         return CreatedMessage(soap_envelope, self)

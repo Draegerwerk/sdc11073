@@ -84,7 +84,7 @@ class HostedServiceDispatcher(PathElementDispatcher):
     def on_get(self, request_data) -> str:
         """ Get Requests are handled as they are, no soap envelopes"""
         response_string = self._dispatch_get_request(request_data)
-        return self.sdc_definitions.denormalize_xml_text(response_string)
+        return response_string
 
     def _dispatch_get_request(self, request_data):
         dispatcher = self.get_dispatcher(request_data.consume_current_path_element())
@@ -92,7 +92,7 @@ class HostedServiceDispatcher(PathElementDispatcher):
             raise KeyError(f'HostedServiceDispatcher.on_get: unknown path "{request_data.consumed_path_elements}", '
                            f'known = {self.sub_dispatchers.keys()}')
         response_string = dispatcher.on_get(request_data)
-        return self.sdc_definitions.denormalize_xml_text(response_string)
+        return response_string
 
 
 class _SdcServerRequestHandler(HTTPRequestHandler):

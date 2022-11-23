@@ -60,7 +60,7 @@ class HostedServiceClient:
         """
         self.endpoint_reference = dpws_hosted.endpoint_references[0]
         self._url = urllib.parse.urlparse(self.endpoint_reference.address)
-        self.porttype = porttype
+        self._porttype = porttype
         self._logger = loghelper.get_logger_adapter(f'sdc.client.{porttype}', log_prefix)
         self._operations_manager = None
         self._sdc_definitions = sdc_definitions
@@ -69,15 +69,13 @@ class HostedServiceClient:
         self.log_prefix = log_prefix
         self._mdib_wref = None
         self._msg_factory = msg_factory
-        self.predefined_actions = {}  # calculated actions for subscriptions
-        self._nsmapper = default_ns_helper  # DocNamespaceHelper()
-        for action in self.subscribeable_actions:
-            self.predefined_actions[action] = self._msg_factory.get_action_string(porttype, action)
+        self.supported_actions = [getattr(sdc_definitions.Actions, action) for action in self.subscribeable_actions]
+        self._nsmapper = default_ns_helper
 
     def register_mdib(self, mdib):
         """ Client sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib_wref is not None:
-            raise ApiUsageError(f'Client "{self.porttype}" has already an registered mdib')
+            raise ApiUsageError(f'Client "{self._porttype}" has already an registered mdib')
         self._mdib_wref = None if mdib is None else weakref.ref(mdib)
 
     def set_operations_manager(self, operations_manager):
@@ -88,16 +86,14 @@ class HostedServiceClient:
 
     def get_subscribable_actions(self):
         """ action strings only predefined"""
-        return self.predefined_actions.values()
+        return self.supported_actions
 
     def __repr__(self):
-        return f'{self.__class__.__name__} "{self.porttype}" endpoint = {self.endpoint_reference}'
+        return f'{self.__class__.__name__} "{self._porttype}" endpoint = {self.endpoint_reference}'
 
-    def post_message(self, created_message, msg, request_manipulator=None):
+    def post_message(self, created_message, msg=None, request_manipulator=None):
+        msg = msg or created_message.p_msg.payload_element.tag.split('}')[-1]
+
         return self.soap_client.post_message_to(self._url.path, created_message, msg=msg,
                                                 request_manipulator=request_manipulator)
 
-    def _call_get_method(self, message, method, request_manipulator=None):
-        self._logger.info('calling {} on {}:{}', method, self._url.netloc, self._url.path)
-        message_data = self.post_message(message, msg=f'get {method}', request_manipulator=request_manipulator)
-        return message_data

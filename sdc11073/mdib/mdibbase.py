@@ -343,13 +343,13 @@ class MdibContainer:
         with self.mdib_lock:
             return self._reconstruct_mdib(add_context_states=True)
 
-    def node_to_string(self, etree_node, pretty_print=False, xml_declaration=True, encoding='utf-8'):
-        """Special toString converter that replaces the internal normalized namespaces with the correct external namespaces.
-        @return: a string
-        """
-        mdib_string = etree_.tostring(etree_node, pretty_print=pretty_print, xml_declaration=xml_declaration,
-                                      encoding=encoding)
-        return self.sdc_definitions.denormalize_xml_text(mdib_string)
+    # def node_to_string(self, etree_node, pretty_print=False, xml_declaration=True, encoding='utf-8'):
+    #     """Special toString converter.
+    #     @return: a string
+    #     """
+    #     mdib_string = etree_.tostring(etree_node, pretty_print=pretty_print, xml_declaration=xml_declaration,
+    #                                   encoding=encoding)
+    #     return mdib_string
 
     def _get_child_descriptors_by_code(self, parent_handle, code):
         descriptors = self.descriptions.parent_handle.get(parent_handle, [])

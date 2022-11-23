@@ -149,17 +149,16 @@ class MessageReader:
 
     def read_received_message(self, xml_text: bytes, validate:bool = True) -> ReceivedMessage:
         """Reads complete message with addressing, message_id, payload,..."""
-        normalized_xml = self.sdc_definitions.normalize_xml_text(xml_text)
         parser = etree_.ETCompatXMLParser(resolve_entities=False)
         try:
-            doc_root = etree_.fromstring(normalized_xml, parser=parser)
+            doc_root = etree_.fromstring(xml_text, parser=parser)
         except etree_.XMLSyntaxError as ex:
             self._logger.error('Error reading response ex={} xml={}', ex, xml_text.decode('utf-8'))
             raise
         if validate:
             self._validate_node(doc_root)
 
-        message = ReceivedSoapMessage(normalized_xml, doc_root)
+        message = ReceivedSoapMessage(xml_text, doc_root)
         if message.msg_node is not None and validate:
             self._validate_node(message.msg_node)
         message.address = self._mk_address_from_header(message.header_node)
@@ -174,8 +173,7 @@ class MessageReader:
 
     def read_payload_data(self, xml_text: bytes) -> ReceivedMessage:
         """ Read only payload part of a message"""
-        normalized_xml = self.sdc_definitions.normalize_xml_text(xml_text)
-        payload  = PayloadData(normalized_xml)
+        payload  = PayloadData(xml_text)
         data = ReceivedMessage(self, payload)
         q_name = payload.msg_name
         data.msg_name = q_name.localname if q_name else None

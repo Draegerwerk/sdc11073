@@ -27,11 +27,6 @@ def mk_schema_validator(schema_resolver: etree_.Resolver) -> etree_.XMLSchema:
     return etree_.XMLSchema(etree=elem_tree)
 
 
-def _needs_normalize(filename):
-    return filename.endswith('ExtensionPoint.xsd') or \
-           filename.endswith('BICEPS_ParticipantModel.xsd') or \
-           filename.endswith('BICEPS_MessageModel.xsd')
-
 
 class SchemaResolver(etree_.Resolver):
 
@@ -61,6 +56,4 @@ class SchemaResolver(etree_.Resolver):
             return None
         with open(path, 'rb') as my_file:
             xml_text = my_file.read()
-        if _needs_normalize(path):
-            xml_text = self._base_definitions.normalize_xml_text(xml_text)
         return self.resolve_string(xml_text, context, base_url=path)

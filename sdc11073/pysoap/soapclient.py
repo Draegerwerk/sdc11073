@@ -142,8 +142,7 @@ class SoapClient:
                 created_message.p_msg = tmp
                 # in this case do not validate , because the manipulator might intentionally have created invalid xml.
                 validate = False
-        xml_request = created_message.serialize_message(pretty=False, normalized=False,
-                                                        request_manipulator=request_manipulator,
+        xml_request = created_message.serialize_message(request_manipulator=request_manipulator,
                                                         validate=validate)
 
         if hasattr(request_manipulator, 'manipulate_string'):
@@ -159,9 +158,8 @@ class SoapClient:
         """
         :param path: url path component
         :param created_message: The message that shall be sent
-        :param response_factory: a callable that creates a response object from received xml. If None, a ReceivedSoap12Envelope will be created
-        :param schema: If given, the request is validated against this schema
         :param msg: used in logs, helps to identify the context in which the method was called
+        :param request_manipulator:
         """
         if self.is_closed():
             self.connect()

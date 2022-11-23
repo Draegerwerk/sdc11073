@@ -1,9 +1,6 @@
 import os
 from abc import ABC, abstractmethod
 
-from .namespaces import default_ns_helper as ns_hlp
-from .namespaces import shall_normalize
-
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
 
@@ -78,56 +75,20 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     """ Base class for central definitions used by SDC.
     It defines namespaces and handlers for the protocol.
     Derive from this class in order to define different protocol handling."""
-    SchemaFilePaths = None
-    # set the following namespaces in derived classes:
-    MedicalDeviceTypeNamespace = None
-    #BICEPSNamespace = None
-    #MessageModelNamespace = None
-    #ParticipantModelNamespace = None
-    #ExtensionPointNamespace = None
-    MedicalDeviceType = None
-    ActionsNamespace = None
-    DefaultSdcDeviceComponents = None
-    DefaultSdcClientComponents = None
-    #MDPWSNameSpace = None
-    data_model = None
-
+    # set the following values in derived classes:
+    MedicalDeviceType = None  # a QName, needed for types_match method
+    ActionsNamespace = None  # needed for wsdl generation
+    PortTypeNamespace = None # needed for wsdl generation
+    MedicalDeviceTypesFilter = None  # list of QNames that are used / expected in "types" of wsdiscovery
     Actions = None
+    SchemaFilePaths = None
+    data_model = None  # AbstractDataModel instance
 
-    # @classmethod
-    # def ns_matches(cls, namespace):
-    #     """ This method checks if this definition set is the correct one for a given namespace"""
-    #     return namespace in (cls.MedicalDeviceTypeNamespace, cls.BICEPSNamespace, cls.MessageModelNamespace,
-    #                          cls.ParticipantModelNamespace, cls.ExtensionPointNamespace, cls.MedicalDeviceType)
+
     @classmethod
     def types_match(cls, types):
-        """ This method checks if this definition set is the correct one for a given namespace"""
+        """ This method checks if this definition can be used for the provided types."""
         return cls.MedicalDeviceType in types
-
-    @classmethod
-    def normalize_xml_text(cls, xml_text: bytes) -> bytes:
-        """ replace BICEPS namespaces with internal namespaces"""
-        if not shall_normalize():
-            return xml_text
-        for namespace, internal_ns in ((cls.MessageModelNamespace, ns_hlp.MSG.namespace),
-                                       (cls.ParticipantModelNamespace, ns_hlp.PM.namespace),
-                                       (cls.ExtensionPointNamespace, ns_hlp.EXT.namespace),
-                                       (cls.MDPWSNameSpace, ns_hlp.MDPWS.namespace)):
-            xml_text = xml_text.replace(f'"{namespace}"'.encode('utf-8'),
-                                        f'"{internal_ns}"'.encode('utf-8'))
-        return xml_text
-
-    @classmethod
-    def denormalize_xml_text(cls, xml_text: bytes) -> bytes:
-        """ replace internal namespaces with BICEPS namespaces"""
-        if not shall_normalize():
-            return xml_text
-        for namespace, internal_ns in ((cls.MessageModelNamespace.encode('utf-8'), b'__BICEPS_MessageModel__'),
-                                       (cls.ParticipantModelNamespace.encode('utf-8'), b'__BICEPS_ParticipantModel__'),
-                                       (cls.ExtensionPointNamespace.encode('utf-8'), b'__ExtensionPoint__'),
-                                       (cls.MDPWSNameSpace.encode('utf-8'), b'__MDPWS__')):
-            xml_text = xml_text.replace(internal_ns, namespace)
-        return xml_text
 
     @classmethod
     def get_schema_file_path(cls, url):

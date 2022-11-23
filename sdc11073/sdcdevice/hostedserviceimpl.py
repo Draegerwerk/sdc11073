@@ -171,9 +171,6 @@ class DPWSHostedService(EventService):
             endpoint_references_list.append(
                 EndpointReferenceType(f'{addr.geturl()}/{self.path_element}'))
         porttype_ns = self._mdib.sdc_definitions.PortTypeNamespace
-        # little bit ugly: normalize_xml_text needs bytes, not string. and it looks for namespace in "".
-        _normalized = self._mdib.sdc_definitions.normalize_xml_text(b'"' + porttype_ns.encode('utf-8') + b'"')
-        porttype_ns = _normalized[1:-1].decode('utf-8')
         dpws_hosted = HostedServiceType(
             endpoint_references_list=endpoint_references_list,
             types_list=[etree_.QName(porttype_ns, p) for p in self._my_port_types],
@@ -217,7 +214,7 @@ class DPWSHostedService(EventService):
             _port_type_impl.add_wsdl_port_type(wsdl_definitions)
         for _port_type_impl in self._port_type_impls:
             _port_type_impl.add_wsdl_binding(wsdl_definitions, porttype_prefix)
-        return sdc_definitions.denormalize_xml_text(etree_.tostring(wsdl_definitions))
+        return etree_.tostring(wsdl_definitions)
 
     @staticmethod
     def _remove_annotations(root_node):

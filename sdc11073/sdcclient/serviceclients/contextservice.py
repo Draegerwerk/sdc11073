@@ -34,7 +34,7 @@ class ContextServiceClient(HostedServiceClient):
         tmp = ', '.join([f'{st.__class__.__name__}(DescriptorHandle={st.DescriptorHandle}, handle={st.Handle})'
                          for st in proposed_context_states])
         self._logger.info('set_context_state {}', tmp)
-        message = self._msg_factory.mk_set_context_state_message(self.endpoint_reference.address, self.porttype,
+        message = self._msg_factory.mk_set_context_state_message(self.endpoint_reference.address,
                                                                  operation_handle, proposed_context_states)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
@@ -42,10 +42,8 @@ class ContextServiceClient(HostedServiceClient):
         """
         :param handles: a list of handles
         """
-        message = self._msg_factory.mk_get_contextstates_message(
-            self.endpoint_reference.address, self.porttype, handles)
-        received_message_data = self._call_get_method(
-            message, 'GetContextStates', request_manipulator=request_manipulator)
+        message = self._msg_factory.mk_get_contextstates_message(self.endpoint_reference.address, handles)
+        received_message_data = self.post_message(message, request_manipulator=request_manipulator)
         context_state_containers = received_message_data.msg_reader.read_context_states(received_message_data)
         return GetRequestResult(received_message_data, context_state_containers)
 
@@ -57,8 +55,7 @@ class ContextServiceClient(HostedServiceClient):
         :return:
         """
         message = self._msg_factory.mk_get_contextstates_by_identification_message(
-            self.endpoint_reference.address, self.porttype, identifications)
-        received_message_data = self._call_get_method(
-            message, 'GetContextStatesByIdentification', request_manipulator=request_manipulator)
+            self.endpoint_reference.address, identifications)
+        received_message_data = self.post_message(message, request_manipulator=request_manipulator)
         context_state_containers = received_message_data.msg_reader.read_context_states(received_message_data)
         return GetRequestResult(received_message_data, context_state_containers)
