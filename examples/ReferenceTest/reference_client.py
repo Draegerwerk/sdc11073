@@ -20,7 +20,7 @@ ssl_passwd = os.getenv('ref_ssl_passwd') or None
 search_epr = os.getenv('ref_search_epr') or 'abc' # 'abc' # abc is fixed ending in reference_device uuid.
 
 
-ENABLE_COMMLOG = True
+ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
     comm_logger = commlog.CommLogger(log_folder=r'c:\temp\sdc_refclient_commlog',
                                      log_out=True,

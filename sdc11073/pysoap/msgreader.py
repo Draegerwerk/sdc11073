@@ -325,16 +325,17 @@ class MessageReader:
     def _mk_realtime_sample_array_states(self, node):
         return self._mk_state_container_from_node(node, self._pm_names.RealTimeSampleArrayMetricState)
 
-    def _mk_statecontainers_from_reportpart2(self, reportpart_node):
+    def _mk_statecontainers_from_reportpart(self, reportpart_node, state_qname):
         containers = []
-        for child_node in reportpart_node:
-            desc_h = child_node.get('DescriptorHandle')
+        state_nodes = reportpart_node.findall(state_qname)
+        for state_node in state_nodes:
+            desc_h = state_node.get('DescriptorHandle')
             if desc_h is None:
-                self._logger.error('{}_on_episodic_component_report: missing descriptor handle in {}!',
+                self._logger.error('{}_mk_statecontainers_from_reportpart: missing descriptor handle in {}!',
                                    self._log_prefix,
-                                   lambda: etree_.tostring(child_node))  # pylint: disable=cell-var-from-loop
+                                   lambda: etree_.tostring(state_node))  # pylint: disable=cell-var-from-loop
             else:
-                containers.append(self._mk_state_container_from_node(child_node))
+                containers.append(self._mk_state_container_from_node(state_node))
         return containers
 
     def _validate_node(self, node):
@@ -413,10 +414,8 @@ class MessageReaderClient(MessageReader):
         :return: a list of StateContainer objects
         """
         states = []
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        reportpart_nodes = report_node.xpath('msg:ReportPart', namespaces=ns)
-        for reportpart_node in reportpart_nodes:
-            states.extend(self._mk_statecontainers_from_reportpart2(reportpart_node))
+        for reportpart_node in report_node :
+            states.extend(self._mk_statecontainers_from_reportpart(reportpart_node, self._msg_names.MetricState))
         return states
 
     def read_episodic_alert_report(self, message_data):
@@ -432,10 +431,8 @@ class MessageReaderClient(MessageReader):
         :return: a list of StateContainer objects
         """
         states = []
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        all_alerts = report_node.xpath('msg:ReportPart/msg:AlertState', namespaces=ns)
-        for alert in all_alerts:
-            states.append(self._mk_state_container_from_node(alert))
+        for reportpart_node in report_node:
+            states.extend(self._mk_statecontainers_from_reportpart(reportpart_node, self._msg_names.AlertState))
         return states
 
     def read_operational_state_report(self, message_data):
@@ -445,11 +442,9 @@ class MessageReaderClient(MessageReader):
         :return: a list of StateContainer objects
         """
         states = []
-        ns = { 'msg': self.ns_hlp.MSG.namespace}
-        found_nodes = message_data.p_msg.msg_node.xpath('msg:ReportPart/msg:OperationState',
-                                                        namespaces=ns)
-        for found_node in found_nodes:
-            states.append(self._mk_state_container_from_node(found_node))
+        for reportpart_node in  message_data.p_msg.msg_node :
+            states.extend(self._mk_statecontainers_from_reportpart(reportpart_node, self._msg_names.OperationState))
+
         return states
 
     def read_episodic_context_report(self, message_data):
@@ -459,10 +454,8 @@ class MessageReaderClient(MessageReader):
         :return: a list of StateContainer objects
         """
         states = []
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        found_nodes = message_data.p_msg.msg_node.xpath('msg:ReportPart', namespaces=ns)
-        for found_node in found_nodes:
-            states.extend(self._mk_statecontainers_from_reportpart2(found_node))
+        for reportpart_node in  message_data.p_msg.msg_node :  #reportpart_nodes:
+            states.extend(self._mk_statecontainers_from_reportpart(reportpart_node, self._msg_names.ContextState))
         return states
 
     def read_periodic_component_report(self, message_data):
@@ -478,10 +471,8 @@ class MessageReaderClient(MessageReader):
         :return: a list of StateContainer objects
         """
         states = []
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        found_nodes = report_node.xpath('msg:ReportPart/msg:ComponentState', namespaces=ns)
-        for found_node in found_nodes:
-            states.append(self._mk_state_container_from_node(found_node))
+        for reportpart_node in  report_node :
+            states.extend(self._mk_statecontainers_from_reportpart(reportpart_node, self._msg_names.ComponentState))
         return states
 
     def read_description_modification_report(self, message_data: ReceivedMessage) -> DescriptionModifications:
