@@ -3,12 +3,10 @@ import sys
 import time
 import unittest
 
-#from pysdc.roles.product import GenericProduct_OSF
-
-# from pysdc.draft6 import pmtypes_draft6 as pmtypes
 from sdc11073 import commlog
 from sdc11073 import loghelper
 from sdc11073 import pmtypes
+from sdc11073 import msgtypes
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib.clientmdib import ClientMdibContainer
@@ -111,7 +109,10 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         proposed_alert_state.ActivationState = pmtypes.AlertActivation.ON
         proposed_alert_state.Presence = pmtypes.AlertSignalPresence.ON
         future = self.sdc_client.set_service_client.set_alert_state('as0.mds0_rem_dele', proposed_alert_state)
-        self.assertEqual('Fin', future.result().invocation_state)
+
+        result = future.result(timeout=SET_TIMEOUT)
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msgtypes.InvocationState.FINISHED)
 
         # verify that now remote signal in on and local signal is off
         local_alert_signal_state = cl_mdib.states.descriptorHandle.get_one('as0.mds0')

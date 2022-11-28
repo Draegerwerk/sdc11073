@@ -105,29 +105,6 @@ class MetricCategory(StringEnum):
     RECOMMENDATION = 'Rcmm'
 
 
-class InvocationState(StringEnum):  # a namespace class
-    WAIT = 'Wait'  # Wait = Waiting. The operation has been queued and waits for execution.
-    START = 'Start'  # Start = Started. The execution of the operation has been started
-    CANCELLED = 'Cnclld'  # Cnclld = Cancelled. The execution has been cancelled by the SERVICE PROVIDER.
-    CANCELLED_MANUALLY = 'CnclldMan'  # CnclldMan = Cancelled Manually. The execution has been cancelled by the operator.
-    FINISHED = 'Fin'  # Fin = Finished. The execution has been finished.
-    FINISHED_MOD = 'FinMod'  # FinMod = Finished with modification. As the requested target value could not be reached, the next best value has been chosen and used as target value.
-    FAILED = 'Fail'  # The execution has been failed.
-
-
-class InvocationError(StringEnum):
-    UNSPECIFIED = 'Unspec'  # An unspecified error has occurred. No more information about the error is available.
-    UNKNOWN_OPERATION = 'Unkn'  # Unknown Operation. The HANDLE to the operation object is not known.
-    INVALID_VALUE = 'Inv'  # Invalid Value. The HANDLE to the operation object does not match the invocation request message
-    OTHER = 'Oth'  # Another type of error has occurred. More information on the error MAY be available.
-
-
-class DescriptionModificationTypes(StringEnum):
-    CREATE = 'Crt'
-    UPDATE = 'Upt'
-    DELETE = 'Del'
-
-
 class DerivationMethod(StringEnum):
     AUTOMATIC = 'Auto'
     MANUAL = 'Man'
@@ -314,7 +291,7 @@ class PropertyBasedPMType:
 
 class ElementWithTextOnly(PropertyBasedPMType):
     NODETYPE = None
-    text = cp.NodeTextProperty()  # this is the text of the node. Here attribute is lower case!
+    text = cp.NodeStringProperty()  # this is the text of the node. Here attribute is lower case!
     _props = ['text']
     '''An Element that has no attributes, only a text.'''
 
@@ -696,7 +673,7 @@ class Measurement(PropertyBasedPMType):
 class AllowedValue(PropertyBasedPMType):
     NODETYPE = pm.AllowedValue
     # pylint: disable=invalid-name
-    Value = cp.NodeTextProperty(pm.Value)
+    Value = cp.NodeStringProperty(pm.Value)
     Type = cp.SubElementProperty(pm.Type, value_class=CodedValue, is_optional=True)
     Identification = cp.SubElementProperty(pm.Identification, value_class=InstanceIdentifier, is_optional=True)
     Characteristic = cp.SubElementProperty(pm.Characteristic, value_class=Measurement, is_optional=True)
@@ -991,7 +968,7 @@ class ProductionSpecification(PropertyBasedPMType):
     # pylint: disable=invalid-name
     NODETYPE = pm.ProductionSpecification
     SpecType = cp.SubElementProperty(pm.SpecType, value_class=CodedValue)
-    ProductionSpec = cp.NodeTextProperty(pm.ProductionSpec)
+    ProductionSpec = cp.NodeStringProperty(pm.ProductionSpec)
     ComponentId = cp.SubElementProperty(pm.ComponentId,
                                         value_class=InstanceIdentifier, is_optional=True)
     # pylint: enable=invalid-name
@@ -1019,11 +996,11 @@ class ProductionSpecification(PropertyBasedPMType):
 class BaseDemographics(PropertyBasedPMType):
     # pylint: disable=invalid-name
     NODETYPE = pm.BaseDemographics
-    Givenname = cp.NodeTextProperty(pm.Givenname, is_optional=True)
+    Givenname = cp.NodeStringProperty(pm.Givenname, is_optional=True)
     Middlename = cp.SubElementTextListProperty(pm.Middlename)
-    Familyname = cp.NodeTextProperty(pm.Familyname, is_optional=True)
-    Birthname = cp.NodeTextProperty(pm.Birthname, is_optional=True)
-    Title = cp.NodeTextProperty(pm.Title, is_optional=True)
+    Familyname = cp.NodeStringProperty(pm.Familyname, is_optional=True)
+    Birthname = cp.NodeStringProperty(pm.Birthname, is_optional=True)
+    Title = cp.NodeStringProperty(pm.Title, is_optional=True)
     # pylint: enable=invalid-name
     _props = ('Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title')
 
@@ -1207,8 +1184,8 @@ class ImagingProcedure(PropertyBasedPMType):
 class OrderDetail(PropertyBasedPMType):
     # pylint: disable=invalid-name
     NODETYPE = pm.OrderDetail
-    Start = cp.NodeTextProperty(pm.Start, is_optional=True)  # xsd:dateTime
-    End = cp.NodeTextProperty(pm.End, is_optional=True)  # xsd:dateTime
+    Start = cp.NodeStringProperty(pm.Start, is_optional=True)  # xsd:dateTime
+    End = cp.NodeStringProperty(pm.End, is_optional=True)  # xsd:dateTime
     Performer = cp.SubElementListProperty(pm.Performer, value_class=PersonParticipation)  # 0...n
     Service = cp.SubElementListProperty(pm.Service, value_class=CodedValue)  # 0...n
     ImagingProcedure = cp.SubElementListProperty(pm.ImagingProcedure, value_class=ImagingProcedure)
@@ -1367,8 +1344,8 @@ class T_Udi(PropertyBasedPMType):
     """Part of Meta data"""
     # pylint: disable=invalid-name
     NODETYPE = pm.Udi
-    DeviceIdentifier = cp.NodeTextProperty(pm.DeviceIdentifier)
-    HumanReadableForm = cp.NodeTextProperty(pm.HumanReadableForm)
+    DeviceIdentifier = cp.NodeStringProperty(pm.DeviceIdentifier)
+    HumanReadableForm = cp.NodeStringProperty(pm.HumanReadableForm)
     Issuer = cp.SubElementProperty(pm.Issuer, value_class=InstanceIdentifier)
     Jurisdiction = cp.SubElementProperty(pm.Jurisdiction,
                                          value_class=InstanceIdentifier, is_optional=True)
@@ -1400,12 +1377,12 @@ class MetaData(PropertyBasedPMType):
     # pylint: disable=invalid-name
     NODETYPE = pm.MetaData
     Udi = cp.SubElementListProperty(pm.Udi, value_class=T_Udi)
-    LotNumber = cp.NodeTextProperty(pm.LotNumber, is_optional=True)
+    LotNumber = cp.NodeStringProperty(pm.LotNumber, is_optional=True)
     Manufacturer = cp.SubElementListProperty(pm.Manufacturer, value_class=LocalizedText)
-    ManufactureDate = cp.NodeTextProperty(pm.ManufactureDate, is_optional=True)
-    ExpirationDate = cp.NodeTextProperty(pm.ExpirationDate, is_optional=True)
+    ManufactureDate = cp.NodeStringProperty(pm.ManufactureDate, is_optional=True)
+    ExpirationDate = cp.NodeStringProperty(pm.ExpirationDate, is_optional=True)
     ModelName = cp.SubElementListProperty(pm.ModelName, value_class=LocalizedText)
-    ModelNumber = cp.NodeTextProperty(pm.ModelNumber, is_optional=True)
+    ModelNumber = cp.NodeStringProperty(pm.ModelNumber, is_optional=True)
     SerialNumber = cp.SubElementTextListProperty(pm.SerialNumber)
     # pylint: enable=invalid-name
     _props = ['Udi', 'LotNumber', 'Manufacturer', 'ManufactureDate', 'ExpirationDate',

@@ -59,6 +59,12 @@ class AbstractDataModel(ABC):
 
     @property
     @abstractmethod
+    def msg_types(self):
+        """Gives access to a module with message model types"""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
     def msg_names(self):
         """Gives access to a module with all qualified names of the BICEPS message model"""
         raise NotImplementedError

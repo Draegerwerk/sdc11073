@@ -7,7 +7,7 @@ from .. import loghelper
 from ..httprequesthandler import HTTPRequestHandler, mk_chunks
 from ..httprequesthandler import HttpServerThreadBase
 from ..httprequesthandler import RequestData
-from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
+from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
 from ..exceptions import ApiUsageError
 
 
@@ -26,7 +26,7 @@ class PathElementDispatcher:
     def get_dispatcher(self, path_element):
         dispatcher = self.sub_dispatchers.get(path_element)
         if dispatcher is None:
-            soap_fault = SoapFault(code=SoapFaultCode.SENDER, reason=f'invalid path {path_element}')
+            soap_fault = SoapFault(code=FaultCodeEnum.SENDER, reason=f'invalid path {path_element}')
             raise HTTPRequestHandlingError(status=404, reason='not found', soap_fault=soap_fault)
         return dispatcher
 
@@ -66,7 +66,7 @@ class HostedServiceDispatcher(PathElementDispatcher):
     def _dispatch_post_request(self, request_data):
         hosted_service = self.get_dispatcher(request_data.consume_current_path_element())
         if not hosted_service:
-            fault = SoapFault(code=SoapFaultCode.SENDER,
+            fault = SoapFault(code=FaultCodeEnum.SENDER,
                               reason=f'invalid path {request_data.consumed_path_elements}')
             raise InvalidPathError(fault)
         try:
@@ -144,7 +144,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             # make an error 500 response with the soap fault as content
             self.server.logger.error(traceback.format_exc())
             message_data = self.server.msg_reader.read_received_message(request_bytes, validate=False)
-            fault = SoapFault(code=SoapFaultCode.SENDER, reason=str(ex))
+            fault = SoapFault(code=FaultCodeEnum.SENDER, reason=str(ex))
             response = self.server.msg_factory.mk_fault_message(message_data, fault)
             response_xml_string = response.serialize_message()
             self.send_response(500)

@@ -470,7 +470,7 @@ class DecimalListAttributeProperty(_NodeAttributeListPropertyBase):
         super().__init__(attribute_name, ListConverter(DecimalConverter))
 
 
-class _NodeTextProperty(_NodeProperty):
+class NodeTextProperty(_NodeProperty):
     """ The handled data is the text of an element.
     Python representation is a string."""
 
@@ -515,14 +515,14 @@ class _NodeTextProperty(_NodeProperty):
         return f'{self.__class__.__name__} in sub-element {self._sub_element_name}'
 
 
-class NodeTextProperty(_NodeTextProperty):
+class NodeStringProperty(NodeTextProperty):
     """Python representation is a string."""
 
     def __init__(self, sub_element_name=None, default_py_value=None, implied_py_value=None, is_optional=False, min_length=0):
         super().__init__(sub_element_name, StringConverter, default_py_value, implied_py_value, is_optional, min_length)
 
 
-class NodeEnumTextProperty(_NodeTextProperty):
+class NodeEnumTextProperty(NodeTextProperty):
     """Python representation is an Enum."""
 
     def __init__(self, enum_cls, sub_element_name, default_py_value=None, implied_py_value=None, is_optional=False):
@@ -575,7 +575,7 @@ class NodeTextQNameProperty(_NodeProperty):
             sub_node.text = value
 
 
-class LocalizedTextContentProperty(NodeTextProperty):
+class LocalizedTextContentProperty(NodeStringProperty):
     def __init__(self, sub_element_name=None, default_py_value=None, is_optional=False):
         super().__init__(sub_element_name, default_py_value, is_optional=is_optional)
 

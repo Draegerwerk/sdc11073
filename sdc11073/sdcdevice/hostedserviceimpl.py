@@ -8,7 +8,7 @@ from ..addressing import EndpointReferenceType
 from ..dpws import HostedServiceType
 from ..httprequesthandler import InvalidActionError
 from ..namespaces import default_ns_helper as ns_hlp
-from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
+from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
 
 _wsdl_ns = ns_hlp.WSDL.namespace
 
@@ -68,7 +68,7 @@ class SoapMessageHandler:
         action = request_data.message_data.action
         func = self.get_post_handler(request_data)
         if func is None:
-            fault = SoapFault(code=SoapFaultCode.SENDER, reason=f'invalid action {action}')
+            fault = SoapFault(code=FaultCodeEnum.SENDER, reason=f'invalid action {action}')
             raise InvalidActionError(fault)
         returned_envelope = func(request_data)
         duration = time.monotonic() - begin

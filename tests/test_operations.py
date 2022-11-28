@@ -10,6 +10,7 @@ from sdc11073 import loghelper
 from sdc11073 import observableproperties
 from sdc11073 import pm_qnames as pm
 from sdc11073 import pmtypes
+from sdc11073 import msgtypes
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ClientMdibContainer
@@ -142,18 +143,18 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.log_watcher.setPaused(True)
         future = context.set_context_state(operation_handle, [proposed_context])
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.invocation_state
-        self.assertEqual(state, pmtypes.InvocationState.FAILED)
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msgtypes.InvocationState.FAILED)
         self.log_watcher.setPaused(False)
 
         # insert a new patient with correct handle, this shall succeed
         proposed_context.Handle = patient_descriptor_container.Handle
         future = context.set_context_state(operation_handle, [proposed_context])
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.invocation_state
-        self.assertEqual(state, pmtypes.InvocationState.FINISHED)
-        self.assertTrue(result.error in ('', 'Unspec'))
-        self.assertEqual(result.errorMsg, '')
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msgtypes.InvocationState.FINISHED)
+        self.assertIsNone(result.InvocationInfo.InvocationError)
+        self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
         # check client side patient context, this shall have been set via notification
         patient_context_state_container = client_mdib.context_states.NODETYPE.get_one(pm.PatientContextState)
@@ -177,8 +178,8 @@ class Test_BuiltinOperations(unittest.TestCase):
         proposed_context.CoreData.Givenname = 'Karla'
         future = context.set_context_state(operation_handle, [proposed_context])
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.invocation_state
-        self.assertEqual(state, pmtypes.InvocationState.FINISHED)
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msgtypes.InvocationState.FINISHED)
         patient_context_state_container = client_mdib.context_states.handle.get_one(
             patient_context_state_container.Handle)
         self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Karla')
@@ -199,10 +200,10 @@ class Test_BuiltinOperations(unittest.TestCase):
         proposed_context.CoreData.Race = pmtypes.CodedValue('somerace')
         future = context.set_context_state(operation_handle, [proposed_context])
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.invocation_state
-        self.assertEqual(state, pmtypes.InvocationState.FINISHED)
-        self.assertTrue(result.error in ('', 'Unspec'))
-        self.assertEqual(result.errorMsg, '')
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msgtypes.InvocationState.FINISHED)
+        self.assertIsNone(result.InvocationInfo.InvocationError)
+        self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
         patient_context_state_containers = client_mdib.context_states.NODETYPE.get(pm.PatientContextState, [])
         # sort by BindingMdibVersion
         patient_context_state_containers.sort(key=lambda obj: obj.BindingMdibVersion)
@@ -236,8 +237,8 @@ class Test_BuiltinOperations(unittest.TestCase):
         proposed_context.CoreData.Givenname = 'Karl123'
         future = context.set_context_state(operation_handle, [proposed_context])
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.invocation_state
-        self.assertEqual(state, pmtypes.InvocationState.FINISHED)
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msgtypes.InvocationState.FINISHED)
         my_patient2 = self.sdc_device.mdib.context_states.handle.get_one(my_patient.Handle)
         self.assertEqual(my_patient2.CoreData.Givenname, 'Karl123')
 
@@ -303,8 +304,8 @@ class Test_BuiltinOperations(unittest.TestCase):
         operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
         future = set_service.activate(operation_handle=operation.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.invocation_state
-        self.assertEqual(state, pmtypes.InvocationState.FINISHED)
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msgtypes.InvocationState.FINISHED)
         time.sleep(0.5)  # allow notifications to arrive
         # the whole tests only makes sense if there is an alert system
         alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
@@ -319,8 +320,8 @@ class Test_BuiltinOperations(unittest.TestCase):
         operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
         future = set_service.activate(operation_handle=operation.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.invocation_state
-        self.assertEqual(state, pmtypes.InvocationState.FINISHED)
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msgtypes.InvocationState.FINISHED)
         time.sleep(0.5)  # allow notifications to arrive
         # the whole tests only makes sense if there is an alert system
         alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
@@ -353,8 +354,8 @@ class Test_BuiltinOperations(unittest.TestCase):
         operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
         future = set_service.activate(operation_handle=operation.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.invocation_state
-        self.assertEqual(state, pmtypes.InvocationState.FINISHED)
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msgtypes.InvocationState.FINISHED)
         time.sleep(0.5)  # allow notifications to arrive
         # the whole tests only makes sense if there is an alert system
         alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
@@ -370,8 +371,8 @@ class Test_BuiltinOperations(unittest.TestCase):
         operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
         future = set_service.activate(operation_handle=operation.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.invocation_state
-        self.assertEqual(state, pmtypes.InvocationState.FINISHED)
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msgtypes.InvocationState.FINISHED)
         time.sleep(0.5)  # allow notifications to arrive
         # the whole tests only makes sense if there is an alert system
         alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
@@ -398,10 +399,10 @@ class Test_BuiltinOperations(unittest.TestCase):
             print('ntp server', value)
             future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
             result = future.result(timeout=SET_TIMEOUT)
-            state = result.invocation_state
-            self.assertEqual(state, pmtypes.InvocationState.FINISHED)
-            self.assertTrue(result.error in ('', 'Unspec'))
-            self.assertEqual(result.errorMsg, '')
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msgtypes.InvocationState.FINISHED)
+            self.assertIsNone(result.InvocationInfo.InvocationError)
+            self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
             # verify that the corresponding state has been updated
             state = client_mdib.states.descriptorHandle.get_one(my_operation_descriptor.OperationTarget)
@@ -431,10 +432,10 @@ class Test_BuiltinOperations(unittest.TestCase):
             print('time zone', value)
             future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
             result = future.result(timeout=SET_TIMEOUT)
-            state = result.invocation_state
-            self.assertEqual(state, pmtypes.InvocationState.FINISHED)
-            self.assertTrue(result.error in ('', 'Unspec'))
-            self.assertEqual(result.errorMsg, '')
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msgtypes.InvocationState.FINISHED)
+            self.assertIsNone(result.InvocationInfo.InvocationError)
+            self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
             # verify that the corresponding state has been updated
             state = client_mdib.states.descriptorHandle.get_one(my_operation_descriptor.OperationTarget)
@@ -474,10 +475,10 @@ class Test_BuiltinOperations(unittest.TestCase):
         future = setService.set_metric_state(operation_handle=operation_handle,
                                              proposed_metric_states=[proposed_metric_state])
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.invocation_state
-        self.assertEqual(state, pmtypes.InvocationState.FINISHED)
-        self.assertTrue(result.error in ('', 'Unspec'))
-        self.assertEqual(result.errorMsg, '')
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msgtypes.InvocationState.FINISHED)
+        self.assertIsNone(result.InvocationInfo.InvocationError)
+        self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
         updated_metric_state = clientMdib.states.descriptorHandle.get_one(operation_target_handle)
         self.assertEqual(updated_metric_state.StateVersion, before_state_version + 1)
         self.assertAlmostEqual(updated_metric_state.LifeTimePeriod, newLifeTimePeriod)
@@ -512,10 +513,10 @@ class Test_BuiltinOperations(unittest.TestCase):
         future = set_service.set_component_state(operation_handle=operation_handle,
                                                 proposed_component_states=[proposed_component_state])
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.invocation_state
-        self.assertEqual(state, pmtypes.InvocationState.FINISHED)
-        self.assertTrue(result.error in ('', 'Unspec'))
-        self.assertEqual(result.errorMsg, '')
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msgtypes.InvocationState.FINISHED)
+        self.assertIsNone(result.InvocationInfo.InvocationError)
+        self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
         updated_component_state = client_mdib.states.descriptorHandle.get_one(operation_target_handle)
         self.assertEqual(updated_component_state.StateVersion, before_state_version + 1)
         self.assertEqual(updated_component_state.OperatingHours, new_operating_hours)

@@ -6,7 +6,7 @@ from .mdib import containerproperties as cp
 
 class T_Selector(PropertyBasedPMType): # pylint: disable=invalid-name
     Id = cp.StringAttributeProperty('Id')
-    text = cp.NodeTextProperty()
+    text = cp.NodeStringProperty()
     _props = ['Id', 'text']
 
     def __init__(self, id_, text):

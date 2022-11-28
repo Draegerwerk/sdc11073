@@ -17,7 +17,8 @@ from abc import ABC, abstractmethod
 
 from .. import loghelper
 from .. import observableproperties as properties
-from ..pmtypes import InvocationState, SafetyClassification
+from ..pmtypes import SafetyClassification
+from ..msgtypes import InvocationState
 from ..exceptions import ApiUsageError
 
 

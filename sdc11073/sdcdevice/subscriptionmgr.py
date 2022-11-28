@@ -17,11 +17,10 @@ from .. import multikey
 from .. import observableproperties
 from ..addressing import ReferenceParameters, Address
 from ..etc import apply_map, short_filter_string
-#from ..namespaces import default_ns_helper as ns_hlp
 from ..namespaces import NamespaceHelper
-from ..pmtypes import InvocationError, InvocationState
+from ..msgtypes import InvocationError, InvocationState
 from ..pysoap.soapclient import HTTPReturnCodeError
-from ..pysoap.soapenvelope import SoapFault, SoapFaultCode
+from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
 
 if TYPE_CHECKING:
     from ssl import SSLContext
@@ -310,7 +309,7 @@ class SubscriptionsManagerBase:
     def on_unsubscribe_request(self, request_data: RequestData) -> CreatedMessage:
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            fault = SoapFault(code=SoapFaultCode.RECEIVER,
+            fault = SoapFault(code=FaultCodeEnum.RECEIVER,
                               reason='unknown Subscription identifier',
                               sub_code=self.sdc_definitions.data_model.ns_helper.wseTag('InvalidMessage')
                               )
@@ -336,7 +335,7 @@ class SubscriptionsManagerBase:
         self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.p_msg.raw_data)
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            fault = SoapFault(code=SoapFaultCode.RECEIVER,
+            fault = SoapFault(code=FaultCodeEnum.RECEIVER,
                               reason='unknown Subscription identifier',
                               sub_code=self.sdc_definitions.data_model.ns_helper.wseTag('InvalidMessage')
                               )
@@ -350,7 +349,7 @@ class SubscriptionsManagerBase:
         expires = reader.read_renew_request(request_data.message_data)
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            fault = SoapFault(code=SoapFaultCode.RECEIVER,
+            fault = SoapFault(code=FaultCodeEnum.RECEIVER,
                               reason='unknown Subscription identifier',
                               sub_code=self.sdc_definitions.data_model.ns_helper.wseTag('UnableToRenew')
                               )

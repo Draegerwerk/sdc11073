@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from sdc11073 import pm_qnames as pm
 from sdc11073 import pmtypes
+from sdc11073 import msgtypes
 from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.dpws import ThisDeviceType, ThisModelType
@@ -325,7 +326,7 @@ class Test_Tutorial(unittest.TestCase):
         future = context_service.set_context_state(operation_handle=my_operation.Handle,
                                                    proposed_context_states=[proposed_patient])
         result = future.result(timeout=5)
-        self.assertEqual(result.invocation_state, pmtypes.InvocationState.FINISHED)
+        self.assertEqual(result.InvocationInfo.InvocationState, msgtypes.InvocationState.FINISHED)
 
     def test_operation_handler(self):
         """ This example shows how to implement own handlers for operations, and it shows multiple ways how a client can

@@ -20,14 +20,6 @@ class ExtendedDocumentInvalid(etree_.DocumentInvalid):
     pass
 
 
-def _get_text(node, id_string, namespace_map):
-    if node is None:
-        return None
-    tmp = node.find(id_string, namespace_map)
-    if tmp is None:
-        return None
-    return tmp.text
-
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
 
@@ -94,9 +86,9 @@ class ReceivedSoapMessage:
     def __init__(self, xml_string, doc_root):
         self.raw_data = xml_string
         self._doc_root = doc_root
-        self.header_node = self._doc_root.find('s12:Header', ns_hlp.ns_map)
-        self.body_node = self._doc_root.find('s12:Body', ns_hlp.ns_map)
-        self.address = None  # WsAddress.from_etree_node(self.header_node)
+        self.header_node = self._doc_root.find(ns_hlp.s12Tag('Header'))
+        self.body_node = self._doc_root.find(ns_hlp.s12Tag('Body'))
+        self.address = None
         try:
             self.msg_node = self.body_node[0]
             self.msg_name = etree_.QName(self.msg_node.tag)
@@ -105,7 +97,7 @@ class ReceivedSoapMessage:
             self.msg_name = None
 
 
-class SoapFaultCode:
+class FaultCodeEnum:
     """
         Soap Fault codes, see https://www.w3.org/TR/soap12-part1/#faultcodes
     """
@@ -115,6 +107,7 @@ class SoapFaultCode:
     SENDER = 'Sender'
     RECEIVER = 'Receiver'
 
+#class FaultCode:
 
 class SoapFault:
     def __init__(self, code: str, reason: str, sub_code: Optional[etree_.QName] = None, details: Optional[str] = None):

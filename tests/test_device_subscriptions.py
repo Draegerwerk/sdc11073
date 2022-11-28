@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073 import pm_qnames as pm
-from sdc11073 import pmtypes
+from sdc11073 import pmtypes, msgtypes
 from sdc11073.dpws import ThisDeviceType, ThisModelType
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import DeviceMdibContainer
@@ -141,10 +141,10 @@ class TestDeviceSubscriptions(unittest.TestCase):
         dummy_operation.handle = 'something'
         self.sdc_device.subscriptions_manager.notify_operation(dummy_operation,
                                                                123,
-                                                               pmtypes.InvocationState.FINISHED,
+                                                               msgtypes.InvocationState.FINISHED,
                                                                mdib_version=1234,
                                                                sequence_id='urn:uuid:abc',
                                                                nsmapper=self.sdc_device.mdib.nsmapper,
-                                                               error=pmtypes.InvocationError.UNSPECIFIED,
+                                                               error=msgtypes.InvocationError.UNSPECIFIED,
                                                                error_message='')
         self.assertEqual(len(test_subscription.reports), 1)

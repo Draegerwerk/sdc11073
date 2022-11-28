@@ -7,7 +7,7 @@ from lxml import etree as etree_
 
 from sdc11073.isoduration import UTC
 from sdc11073.mdib.containerproperties import DateOfBirthProperty as DoB
-from sdc11073.mdib.containerproperties import NodeTextProperty, SubElementProperty, NodeEnumTextProperty
+from sdc11073.mdib.containerproperties import NodeStringProperty, SubElementProperty, NodeEnumTextProperty
 from sdc11073.mdib.containerproperties import SubElementWithSubElementListProperty
 from sdc11073.mdib.containerproperties import HandleRefListAttributeProperty
 from sdc11073.mdib.containerproperties import StringAttributeProperty, IntegerAttributeProperty, EnumAttributeProperty
@@ -59,8 +59,8 @@ class Dummy(DummyBase):
 
 
 class DummyNodeText(DummyBase):
-    node_text_mand = NodeTextProperty(etree_.QName('pref', 'node_text_mand'), implied_py_value='foo', min_length=1)
-    node_text_opt = NodeTextProperty(etree_.QName('pref', 'node_text_opt'), implied_py_value='bar', is_optional=True)
+    node_text_mand = NodeStringProperty(etree_.QName('pref', 'node_text_mand'), implied_py_value='foo', min_length=1)
+    node_text_opt = NodeStringProperty(etree_.QName('pref', 'node_text_opt'), implied_py_value='bar', is_optional=True)
 
     def props(self):
         yield self.__class__.node_text_mand

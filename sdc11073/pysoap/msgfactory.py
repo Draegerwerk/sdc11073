@@ -55,6 +55,10 @@ class MessageFactory:
         return self._sdc_definitions.data_model.msg_names
 
     @property
+    def _msg_types(self):
+        return self._sdc_definitions.data_model.msg_types
+
+    @property
     def _ns_hlp(self):
         return self._sdc_definitions.data_model.ns_helper
 
@@ -966,13 +970,14 @@ class MessageFactoryDevice(MessageFactory):
     def mk_description_modification_report_body(self, mdib_version, sequence_id, updated, created, deleted,
                                                 updated_states) -> etree_.Element:
         nsh = self._ns_hlp
+        DescriptionModificationType = self._msg_types.DescriptionModificationType
         body_node = etree_.Element(self._msg_names.DescriptionModificationReport,
                                    attrib={'SequenceId': sequence_id,
                                            'MdibVersion': str(mdib_version)},
                                    nsmap=nsh.partial_map(nsh.MSG, nsh.PM))
-        self._mk_descriptor_updates_report_part(body_node, 'Upt', updated, updated_states)
-        self._mk_descriptor_updates_report_part(body_node, 'Crt', created, updated_states)
-        self._mk_descriptor_updates_report_part(body_node, 'Del', deleted, updated_states)
+        self._mk_descriptor_updates_report_part(body_node, DescriptionModificationType.UPDATE, updated, updated_states)
+        self._mk_descriptor_updates_report_part(body_node, DescriptionModificationType.CREATE, created, updated_states)
+        self._mk_descriptor_updates_report_part(body_node, DescriptionModificationType.DELETE, deleted, updated_states)
         return body_node
 
     def _mk_descriptor_updates_report_part(self, parent_node, modification_type, descriptors, updated_states):

@@ -1,6 +1,6 @@
 import os
 
-from . import pmtypes, pm_qnames, msg_qnames
+from . import pmtypes, pm_qnames, msgtypes, msg_qnames
 from .definitions_base import BaseDefinitions, AbstractDataModel
 from .mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
 from .mdib.statecontainers import get_container_class as get_state_container_class
@@ -116,6 +116,10 @@ class V1Model(AbstractDataModel):
     @property
     def pm_names(self):
         return pm_qnames
+
+    @property
+    def msg_types(self):
+        return msgtypes
 
     @property
     def msg_names(self):
