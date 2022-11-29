@@ -16,7 +16,6 @@ from .. import wsdiscovery
 from ..location import SdcLocation
 from .. import namespaces
 from .. import pysoap
-from ..schema_resolver import mk_schema_validator
 
 from .sdcservicesimpl import SOAPActionDispatcher, DPWSHostedService
 from .sdcservicesimpl import GetService, SetService, StateEventService,  ContainmentTreeService, ContextService, WaveformService, DescriptionEventService
@@ -431,47 +430,39 @@ class SdcHandler_Base(object):
             with self._periodic_reports_lock:
                 dest_list.append(PeriodicStates(mdib_version, copied_updates))
 
-    def sendMetricStateUpdates(self, mdibVersion, stateUpdates):
+    def sendMetricStateUpdates(self, mdib_version_grp, stateUpdates):
         self._logger.debug('sending metric state updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicMetricReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                            self.mdib.sequenceId)
-        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_metric_reports)
+        self._subscriptionsManager.sendEpisodicMetricReport(stateUpdates, self._mdib.nsmapper, mdib_version_grp)
+        self._store_for_periodic_report(mdib_version_grp.mdib_version, stateUpdates, self._periodic_metric_reports)
 
-    def sendAlertStateUpdates(self, mdibVersion, stateUpdates):
+    def sendAlertStateUpdates(self, mdib_version_grp, stateUpdates):
         self._logger.debug('sending alert updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicAlertReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                           self.mdib.sequenceId)
-        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_alert_reports)
+        self._subscriptionsManager.sendEpisodicAlertReport(stateUpdates, self._mdib.nsmapper, mdib_version_grp)
+        self._store_for_periodic_report(mdib_version_grp.mdib_version, stateUpdates, self._periodic_alert_reports)
 
-    def sendComponentStateUpdates(self, mdibVersion, stateUpdates):
+    def sendComponentStateUpdates(self, mdib_version_grp, stateUpdates):
         self._logger.debug('sending component state updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicComponentStateReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                                    self.mdib.sequenceId)
-        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_component_state_reports)
+        self._subscriptionsManager.sendEpisodicComponentStateReport(stateUpdates, self._mdib.nsmapper, mdib_version_grp)
+        self._store_for_periodic_report(mdib_version_grp.mdib_version, stateUpdates, self._periodic_component_state_reports)
 
-    def sendContextStateUpdates(self, mdibVersion, stateUpdates):
+    def sendContextStateUpdates(self, mdib_version_grp, stateUpdates):
         self._logger.debug('sending context updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicContextReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                             self.mdib.sequenceId)
-        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_context_state_reports)
+        self._subscriptionsManager.sendEpisodicContextReport(stateUpdates, self._mdib.nsmapper, mdib_version_grp)
+        self._store_for_periodic_report(mdib_version_grp.mdib_version, stateUpdates, self._periodic_context_state_reports)
 
-    def sendOperationalStateUpdates(self, mdibVersion, stateUpdates):
+    def sendOperationalStateUpdates(self, mdib_version_grp, stateUpdates):
         self._logger.debug('sending operational state updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicOperationalStateReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                                      self.mdib.sequenceId)
-        self._store_for_periodic_report(mdibVersion, stateUpdates, self._periodic_operational_state_reports)
+        self._subscriptionsManager.sendEpisodicOperationalStateReport(stateUpdates, self._mdib.nsmapper, mdib_version_grp)
+        self._store_for_periodic_report(mdib_version_grp.mdib_version, stateUpdates, self._periodic_operational_state_reports)
 
-    def sendRealtimeSamplesStateUpdates(self, mdibVersion, stateUpdates):
+    def sendRealtimeSamplesStateUpdates(self, mdib_version_grp, stateUpdates):
         self._logger.debug('sending real time sample state updates {}', stateUpdates)
-        self._subscriptionsManager.sendRealtimeSamplesReport(stateUpdates, self._mdib.nsmapper, mdibVersion,
-                                                             self.mdib.sequenceId)
+        self._subscriptionsManager.sendRealtimeSamplesReport(stateUpdates, self._mdib.nsmapper, mdib_version_grp)
 
-    def sendDescriptorUpdates(self, mdibVersion, updated, created, deleted, updated_states):
+    def sendDescriptorUpdates(self, mdib_version_grp, updated, created, deleted, updated_states):
         self._logger.debug('sending descriptor updates updated={} created={} deleted={}', updated, created, deleted)
         self._subscriptionsManager.sendDescriptorUpdates(updated, created, deleted, updated_states,
-                                                         self._mdib.nsmapper,
-                                                         mdibVersion,
-                                                         self.mdib.sequenceId)
+                                                         self._mdib.nsmapper, mdib_version_grp)
 
     def _rt_sample_sendloop(self):
         """Periodically send waveform samples."""
@@ -511,7 +502,7 @@ class SdcHandler_Base(object):
                         del reports_list[:]
                 if tmp:
                     self._logger.debug('send periodic %s report', msg)
-                    send_func(tmp, self._mdib.nsmapper, self.mdib.sequenceId)
+                    send_func(tmp, self._mdib.nsmapper, self.mdib.mdib_version_group)
 
     def _setupLogging(self, logLevel):
         loghelper.ensureLogStream()

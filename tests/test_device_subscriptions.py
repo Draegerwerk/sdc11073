@@ -4,11 +4,11 @@ import time
 import logging
 import logging.handlers
 from tests import mockstuff
-from sdc11073 import observableproperties
 import sdc11073
 from sdc11073.sdcdevice import waveforms
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
+from sdc11073.mdib.mdibbase import MdibVersionGroup
 
 
 mdibFolder = os.path.dirname(__file__)
@@ -206,12 +206,12 @@ class TestDeviceSubscriptions(unittest.TestCase):
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.OperationInvokedReport)
             sdcDevice.subscriptionsManager._subscriptions.addObject(testSubscr)
-            sdcDevice.subscriptionsManager.notifyOperation('urn:uuid:abc', 1234,
-                                                            transactionId=123, 
-                                                            operationHandleRef='something', 
-                                                            operationState='Fin', 
-                                                            error='Unspec', 
-                                                            errorMessage='')
+            sdcDevice.subscriptionsManager.notifyOperation(MdibVersionGroup(1234, 'seq', 12),
+                                                           transactionId=123,
+                                                           operationHandleRef='something',
+                                                           operationState='Fin',
+                                                           error='Unspec',
+                                                           errorMessage='')
             self.assertEqual(len(testSubscr.reports), 1)
 
 

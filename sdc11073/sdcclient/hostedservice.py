@@ -148,7 +148,7 @@ class HostedServiceClient(object):
         if self._mdib_wref is not None:
             op_descriptor = self._mdib_wref().descriptions.handle.getOne(operationHandle, allowNone=True)
             if op_descriptor is not None and op_descriptor.SafetyReq is not None:
-                mdib_node = self._mdib_wref().reconstructMdibWithContextStates()
+                mdib_node, mdib_version_group = self._mdib_wref().reconstructMdibWithContextStates()
                 return self._mkSoapSafetyHeader(soapBodyNode, op_descriptor.SafetyReq, mdib_node)
         return None
 

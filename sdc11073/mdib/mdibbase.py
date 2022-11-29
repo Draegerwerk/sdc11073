@@ -1,6 +1,7 @@
 import traceback
 import time
 from threading import Lock
+from dataclasses import dataclass
 from lxml import etree as etree_
 from .. import observableproperties as properties
 from .. import namespaces
@@ -24,6 +25,19 @@ class RtSampleContainer(object):
     def __repr__(self):
         return 'RtSample value="{}" validity="{}" time={}'.format(self.valueString, self.validity, self.observationTime)
 
+
+@dataclass
+class MdibVersionGroup:
+    mdib_version: int
+    sequence_id: str
+    instance_id: Union[int, None]
+
+    def update_node(self, node):
+        """sets attributes in Node"""
+        node.set('MdibVersion', str(self.mdib_version))
+        node.set('SequenceId', self.sequence_id)
+        if self.instance_id is not None:
+            node.set('InstanceId', str(self.instance_id))
 
 
 class _MultikeyWithVersionLookup(multikey.MultiKeyLookup):
@@ -173,6 +187,7 @@ class MdibContainer(object):
     operationByHandle = properties.ObservableProperty(fireOnlyOnChangedValue=False)
     deletedStatesByHandle = properties.ObservableProperty(fireOnlyOnChangedValue=False) # is a result of deleted descriptors
     sequenceId = properties.ObservableProperty()
+    instanceId = properties.ObservableProperty()
 
     def __init__(self, sdc_definitions):
         '''
@@ -182,7 +197,8 @@ class MdibContainer(object):
         self._logger = None # must to be instantiated by derived class
         self.nsmapper = namespaces.DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file  
         self.mdibVersion = 0
-        self.sequenceId = ''  # needs to be set to a reasonable value by derived class 
+        self.sequenceId = ''  # needs to be set to a reasonable value by derived class
+        self.instanceId = None # None or an unsigned int
         self.log_prefix = ''
         
         self.descriptions = DescriptorsLookup()
@@ -209,6 +225,9 @@ class MdibContainer(object):
     def logger(self):
         return self._logger
 
+    @property
+    def mdib_version_group(self):
+        return MdibVersionGroup(self.mdibVersion, self.sequenceId, self.instanceId)
 
     def addDescriptionContainers(self, descriptionContainers):
         ''' init self.descriptions with provided descriptors
@@ -337,8 +356,7 @@ class MdibContainer(object):
         '''
         doc_nsmap = self.nsmapper.docNssmap
         mdibNode = etree_.Element(namespaces.msgTag('Mdib'), nsmap=doc_nsmap)
-        mdibNode.set('MdibVersion', str(self.mdibVersion))
-        mdibNode.set('SequenceId', self.sequenceId)
+        self.mdib_version_group.update_node(mdibNode)
         mdDescriptionNode = self._reconstructMdDescription()
         mdibNode.append(mdDescriptionNode)
 
@@ -365,7 +383,7 @@ class MdibContainer(object):
         '''
         with self.mdibLock:
             node = self._reconstructMdDescription()
-            return (node, self.mdibVersion)
+            return node, self.mdib_version_group
 
     def reconstructMdib(self):
         '''build dom tree from current data
@@ -373,14 +391,14 @@ class MdibContainer(object):
         @return: an etree_ node
         '''
         with self.mdibLock:
-            return self._reconstructMdib(addContextStates=False)
+            return self._reconstructMdib(addContextStates=False), self.mdib_version_group
 
 
     def reconstructMdibWithContextStates(self):
         ''' this method includes the context states in mdib tree.
         '''
         with self.mdibLock:
-            return self._reconstructMdib(addContextStates=True)
+            return self._reconstructMdib(addContextStates=True), self.mdib_version_group
 
 
     def nodeToString(self, etree_node, pretty_print=False, xml_declaration=True, encoding='utf-8'):

@@ -385,7 +385,7 @@ class SubscriptionsManager(object):
         # response has empty body
         return response
 
-    def notifyOperation(self, sequenceId, mdibVersion, transactionId, operationHandleRef, operationState, error=None,
+    def notifyOperation(self, mdib_version_group, transactionId, operationHandleRef, operationState, error=None,
                         errorMessage=None):
         self._logger.info(
             'notifyOperation transaction={} operationHandleRef={}, operationState={}, error={}, errorMessage={}',
@@ -394,9 +394,8 @@ class SubscriptionsManager(object):
         subscribers = self._getSubscriptionsForAction(action)
 
         bodyNode = etree_.Element(msgTag('OperationInvokedReport'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(mdibVersion)},
                                   nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
+        mdib_version_group.update_node(bodyNode)
         reportPartNode = etree_.SubElement(bodyNode,
                                            msgTag('ReportPart'),
                                            attrib={'OperationHandleRef': operationHandleRef})
@@ -478,16 +477,15 @@ class SubscriptionsManager(object):
             response.addBodyElement(renewResponseNode)
         return response
 
-    def sendEpisodicMetricReport(self, updatedMetricStates, nsmapper, mdibVersion, sequenceId):
+    def sendEpisodicMetricReport(self, updatedMetricStates, nsmapper, mdib_version_group):
         action = self.sdc_definitions.Actions.EpisodicMetricReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending episodic metric report {}', updatedMetricStates)
         bodyNode = etree_.Element(msgTag('EpisodicMetricReport'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(mdibVersion)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
+        mdib_version_group.update_node(bodyNode)
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedMetricStates:
@@ -499,16 +497,16 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendPeriodicMetricReport(self, updatedMetricStatesList, nsmapper, sequenceId):
+    def sendPeriodicMetricReport(self, updatedMetricStatesList, nsmapper, mdib_version_group):
         action = self.sdc_definitions.Actions.PeriodicMetricReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending periodic metric report, contains last {} episodic updates', len(updatedMetricStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicMetricReport'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(updatedMetricStatesList[-1].mdib_version)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
+        mdib_version_group.update_node(bodyNode)
+        bodyNode.set('MdibVersion', str(updatedMetricStatesList[-1].mdib_version))  # use mdib version from latest part
         for part in updatedMetricStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
@@ -520,16 +518,16 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendEpisodicOperationalStateReport(self, updatedStates, nsmapper, mdibVersion, sequenceId):
+    def sendEpisodicOperationalStateReport(self, updatedStates, nsmapper, mdib_version_group):
         action = self.sdc_definitions.Actions.EpisodicOperationalStateReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending episodic operational state report {}', updatedStates)
         bodyNode = etree_.Element(msgTag('EpisodicOperationalStateReport'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(mdibVersion)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
+        mdib_version_group.update_node(bodyNode)
+
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedStates:
@@ -541,16 +539,16 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendPeriodicOperationalStateReport(self, updatedStatesList, nsmapper, sequenceId):
+    def sendPeriodicOperationalStateReport(self, updatedStatesList, nsmapper, mdib_version_group):
         action = self.sdc_definitions.Actions.PeriodicOperationalStateReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending periodic operational state report, contains last {} episodic updates', len(updatedStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicOperationalStateReport'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(updatedStatesList[-1].mdib_version)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
+        mdib_version_group.update_node(bodyNode)
+        bodyNode.set('MdibVersion', str(updatedStatesList[-1].mdib_version))  # use mdib version from latest part
         for part in updatedStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
@@ -562,16 +560,15 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendEpisodicAlertReport(self, updatedAlertStates, nsmapper, mdibVersion, sequenceId):
+    def sendEpisodicAlertReport(self, updatedAlertStates, nsmapper, mdib_version_group):
         action = self.sdc_definitions.Actions.EpisodicAlertReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending episodic alert report {}', updatedAlertStates)
         bodyNode = etree_.Element(msgTag('EpisodicAlertReport'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(mdibVersion)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
+        mdib_version_group.update_node(bodyNode)
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedAlertStates:
@@ -583,16 +580,16 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendPeriodicAlertReport(self, updatedStatesList, nsmapper, sequenceId):
+    def sendPeriodicAlertReport(self, updatedStatesList, nsmapper, mdib_version_group):
         action = self.sdc_definitions.Actions.PeriodicAlertReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending periodic alert report, contains last {} episodic updates', len(updatedStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicAlertReport'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(updatedStatesList[-1].mdib_version)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
+        mdib_version_group.update_node(bodyNode)
+        bodyNode.set('MdibVersion', str(updatedStatesList[-1].mdib_version))  # use mdib version from latest part
         for part in updatedStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
@@ -604,16 +601,15 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendEpisodicComponentStateReport(self, updatedComponentStates, nsmapper, mdibVersion, sequenceId):
+    def sendEpisodicComponentStateReport(self, updatedComponentStates, nsmapper, mdib_version_group):
         action = self.sdc_definitions.Actions.EpisodicComponentReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending episodic component report {}', updatedComponentStates)
         bodyNode = etree_.Element(msgTag('EpisodicComponentReport'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(mdibVersion)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
+        mdib_version_group.update_node(bodyNode)
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedComponentStates:
@@ -625,16 +621,16 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendPeriodicComponentStateReport(self, updatedStatesList, nsmapper, sequenceId):
+    def sendPeriodicComponentStateReport(self, updatedStatesList, nsmapper, mdib_version_group):
         action = self.sdc_definitions.Actions.PeriodicComponentReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending periodic component report, contains last {} episodic updates', len(updatedStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicComponentReport'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(updatedStatesList[-1].mdib_version)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
+        mdib_version_group.update_node(bodyNode)
+        bodyNode.set('MdibVersion', str(updatedStatesList[-1].mdib_version))  # use mdib version from latest part
         for part in updatedStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
@@ -646,17 +642,15 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendEpisodicContextReport(self, updatedContextStates, nsmapper, mdibVersion, sequenceId):
+    def sendEpisodicContextReport(self, updatedContextStates, nsmapper, mdib_version_group):
         action = self.sdc_definitions.Actions.EpisodicContextReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending episodic context report {}', updatedContextStates)
         bodyNode = etree_.Element(msgTag('EpisodicContextReport'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(mdibVersion)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
-
+        mdib_version_group.update_node(bodyNode)
         reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
 
         for s in updatedContextStates:
@@ -668,16 +662,16 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendPeriodicContextReport(self, updatedStatesList, nsmapper, sequenceId):
+    def sendPeriodicContextReport(self, updatedStatesList, nsmapper, mdib_version_group):
         action = self.sdc_definitions.Actions.PeriodicContextReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending periodic context report, contains last {} episodic updates', len(updatedStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicContextReport'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(updatedStatesList[-1].mdib_version)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
+        mdib_version_group.update_node(bodyNode)
+        bodyNode.set('MdibVersion', str(updatedStatesList[-1].mdib_version))  # use mdib version from latest part
         for part in updatedStatesList:
             reportPartNode = etree_.SubElement(bodyNode, msgTag('ReportPart'))
             for s in part.states:
@@ -689,16 +683,15 @@ class SubscriptionsManager(object):
             self._sendNotificationReport(s, bodyNode, action, nsmapper.partialMap(*self.NotificationPrefixes))
         self._doHousekeeping()
 
-    def sendRealtimeSamplesReport(self, updatedRealTimeSampleStates, nsmapper, mdibVersion, sequenceId):
+    def sendRealtimeSamplesReport(self, updatedRealTimeSampleStates, nsmapper, mdib_version_group):
         action = self.sdc_definitions.Actions.Waveform
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending real time samples report {}', updatedRealTimeSampleStates)
         bodyNode = etree_.Element(msgTag('WaveformStream'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(mdibVersion)},
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
+        mdib_version_group.update_node(bodyNode)
 
         for s in updatedRealTimeSampleStates:
             stateNode = s.mkStateNode(msgTag('State'))
@@ -733,16 +726,15 @@ class SubscriptionsManager(object):
                 node = stateContainer.mkStateNode(msgTag('State'))
                 reportPart.append(node)
 
-    def sendDescriptorUpdates(self, updated, created, deleted, updated_states, nsmapper, mdibVersion, sequenceId):
+    def sendDescriptorUpdates(self, updated, created, deleted, updated_states, nsmapper, mdib_version_group):
         action = self.sdc_definitions.Actions.DescriptionModificationReport
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
         self._logger.debug('sending DescriptionModificationReport upd={} crt={} del={}', updated, created, deleted)
         bodyNode = etree_.Element(msgTag('DescriptionModificationReport'),
-                                  attrib={'SequenceId': sequenceId,
-                                          'MdibVersion': str(mdibVersion)},
                                   nsmap=nsmapper.partialMap(Prefix.MSG, Prefix.PM))
+        mdib_version_group.update_node(bodyNode)
         self._mkDescriptorUpdatesReportPart(bodyNode, 'Upt', updated, updated_states)
         self._mkDescriptorUpdatesReportPart(bodyNode, 'Crt', created, updated_states)
         self._mkDescriptorUpdatesReportPart(bodyNode, 'Del', deleted, updated_states)

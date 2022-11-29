@@ -292,6 +292,15 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(len(descriptors), 1)
 
 
+    def test_instance_id(self):
+        """ verify that the client receives correct EpisodicMetricReports and PeriodicMetricReports"""
+        for sdcClient, sdcDevice in self._all_cl_dev:
+            cl_mdib = ClientMdibContainer(sdcClient)
+            cl_mdib.initMdib()
+            self.assertIsNotNone(sdcDevice.mdib.instanceId)
+            self.assertEqual(sdcDevice.mdib.instanceId, cl_mdib.instanceId)
+            self.assertEqual(sdcDevice.mdib.sequenceId, cl_mdib.sequenceId)
+
     def test_metric_reports(self):
         """ verify that the client receives correct EpisodicMetricReports and PeriodicMetricReports"""
         for sdcClient, sdcDevice in self._all_cl_dev:
@@ -347,6 +356,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
             state_nodes = periodic_report.xpath('//msg:MetricState', namespaces=namespaces.nsmap)
             self.assertGreaterEqual(len(state_nodes), 1)
 
+            #verify that instance id and sequence id are still identical
+            self.assertEqual(sdcDevice.mdib.instanceId, cl_mdib.instanceId)
+            self.assertEqual(sdcDevice.mdib.sequenceId, cl_mdib.sequenceId)
+
 
     def test_component_state_reports(self):
         for sdcClient, sdcDevice in self._all_cl_dev:
@@ -376,11 +389,15 @@ class Test_Client_SomeDevice(unittest.TestCase):
             state_nodes = periodic_report.xpath('//msg:ComponentState', namespaces=namespaces.nsmap)
             self.assertGreaterEqual(len(state_nodes), 1)
 
+            #verify that instance id and sequence id are still identical
+            self.assertEqual(sdcDevice.mdib.instanceId, cl_mdib.instanceId)
+            self.assertEqual(sdcDevice.mdib.sequenceId, cl_mdib.sequenceId)
+
     def test_alert_reports(self):
         """ verify that the client receives correct EpisodicAlertReports and PeriodicAlertReports"""
         for sdcClient, sdcDevice in self._all_cl_dev:
-            clientMdib = ClientMdibContainer(sdcClient)
-            clientMdib.initMdib()
+            cl_mdib = ClientMdibContainer(sdcClient)
+            cl_mdib.initMdib()
 
             # wait for the next PeriodicAlertReport
             coll2 = observableproperties.SingleValueCollector(sdcClient, 'periodicAlertReport')
@@ -397,7 +414,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     st.ActualPriority =_actualPriority
                     st.Presence = _presence
                 coll.result(timeout=NOTIFICATION_TIMEOUT)
-                clientStateContainer = clientMdib.states.descriptorHandle.getOne(descriptorHandle) # this shall be updated by notification
+                clientStateContainer = cl_mdib.states.descriptorHandle.getOne(descriptorHandle) # this shall be updated by notification
                 self.assertEqual(clientStateContainer.diff(st), [])
 
             # pick an AlertSignal for testing
@@ -413,14 +430,17 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     st.Location =_location
                     st.Slot = _slot
                 coll.result(timeout=NOTIFICATION_TIMEOUT)
-                clientStateContainer = clientMdib.states.descriptorHandle.getOne(descriptorHandle) # this shall be updated by notification
+                clientStateContainer = cl_mdib.states.descriptorHandle.getOne(descriptorHandle) # this shall be updated by notification
                 self.assertEqual(clientStateContainer.diff(st), [])
 
             # verify that client also got a PeriodicAlertReport
             periodic_report = coll2.result(timeout=NOTIFICATION_TIMEOUT)
             state_nodes = periodic_report.xpath('//msg:AlertState', namespaces=namespaces.nsmap)
             self.assertGreaterEqual(len(state_nodes), 1)
-            pass
+
+            #verify that instance id and sequence id are still identical
+            self.assertEqual(sdcDevice.mdib.instanceId, cl_mdib.instanceId)
+            self.assertEqual(sdcDevice.mdib.sequenceId, cl_mdib.sequenceId)
 
     def test_mdibversion_consistency_checker(self):
         """ verify that the client logs an error when received MdibVersion is not as expected"""
@@ -1256,7 +1276,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_remove_add_mds(self):
         for sdcClient, sdcDevice in self._all_cl_dev:
-            full_mdib = copy.deepcopy(sdcDevice.mdib.reconstructMdibWithContextStates())
+            full_mdib, mdib_version_group = copy.deepcopy(sdcDevice.mdib.reconstructMdibWithContextStates())
             sdcDevice._runRtSampleThread = False
             time.sleep(0.1)
             clientMdib = ClientMdibContainer(sdcClient)

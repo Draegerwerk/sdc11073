@@ -358,6 +358,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
 
     def _workerThreadLoop(self):
         # delay start of operation
+        time.sleep(5)
         shall_stop = self._stopWorker.wait(timeout=self.WORKERTHREAD_INTERVAL)
         if shall_stop:
             return
