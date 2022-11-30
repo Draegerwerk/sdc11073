@@ -218,6 +218,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
         mdibVersion = mdibNode.get('MdibVersion')
         sequenceId = mdibNode.get('SequenceId')
+        instanceId = mdibNode.get('InstanceId')
         if mdibVersion is not None:
             self.mdibVersion = int(mdibVersion)
             self._logger.info('setting initial mdib version to {}', mdibVersion)
@@ -225,8 +226,12 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             self._logger.warn('found no mdib version in GetMdib response, assuming "0"')
             self.mdibVersion = 0
         self.sequenceId = sequenceId
-        self._logger.info('setting sequence Id to {}', sequenceId)
-        
+        self._logger.info('setting initial sequence Id to {}', sequenceId)
+
+        if instanceId is not None:
+            self.instanceId = int(instanceId)
+            self._logger.info('setting initial instance id  to {}', instanceId)
+
         # retrieve context states only if there were none in mdibNode
         if len(self.contextStates.objects) == 0:
             self._getContextStates()
@@ -376,10 +381,16 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         return False
 
 
-    def _updateSequenceId(self, reportNode):
+    def _update_mdib_version_group(self, reportNode):
+        self.mdibVersion = int(reportNode.get('MdibVersion', '0'))
+
         sequenceId = reportNode.get('SequenceId')
         if sequenceId != self.sequenceId:
             self.sequenceId = sequenceId
+
+        instance_id = reportNode.get('InstanceId')
+        if instance_id != self.instanceId:
+            self.instanceId = int(instance_id)
 
 
     def _waitUntilInitialized(self, log_prefix):
@@ -412,8 +423,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         statecontainers = self._msgReader.readEpisodicMetricReport(reportNode)
         try:
             with self.mdibLock:
-                self.mdibVersion = newMdibVersion
-                self._updateSequenceId(reportNode)
+                self._update_mdib_version_group(reportNode)
                 for sc in statecontainers:
                     if sc.descriptorContainer is not None and sc.descriptorContainer.DescriptorVersion != sc.DescriptorVersion:
                         self._logger.warn(
@@ -478,8 +488,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self._logger.debug('_onEpisodicAlertReport: received {} alerts', len(allAlertContainers))
         try:
             with self.mdibLock:
-                self.mdibVersion = newMdibVersion
-                self._updateSequenceId(reportNode)
+                self._update_mdib_version_group(reportNode)
                 for sc in allAlertContainers:
                     if sc.descriptorContainer is not None and sc.descriptorContainer.DescriptorVersion != sc.DescriptorVersion:
                         self._logger.warn(
@@ -514,8 +523,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         allOperationStateContainers = self._msgReader.readOperationalStateReport(reportNode)
         try:
             with self.mdibLock:
-                self.mdibVersion = newMdibVersion
-                self._updateSequenceId(reportNode)
+                self._update_mdib_version_group(reportNode)
                 for sc in allOperationStateContainers:
                     if sc.descriptorContainer is not None and sc.descriptorContainer.DescriptorVersion != sc.DescriptorVersion:
                         self._logger.warn('_onOperationalStateReport: OperationState "{}": descriptor version expect "{}", found "{}"',
@@ -567,8 +575,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self._logger.debug('_onWaveformReport: {} waveforms received', len(allRtSampleArrayContainers))
         try:
             with self.mdibLock:
-                self.mdibVersion = newMdibVersion
-                self._updateSequenceId(reportNode)
+                self._update_mdib_version_group(reportNode)
                 for new_sac in allRtSampleArrayContainers:
                     d_handle = new_sac.descriptorHandle
                     descriptorContainer = new_sac.descriptorContainer
@@ -645,8 +652,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         stateContainers = self._msgReader.readEpisodicContextReport(reportNode)
         try:
             with self.mdibLock:
-                self.mdibVersion = newMdibVersion
-                self._updateSequenceId(reportNode)
+                self._update_mdib_version_group(reportNode)
                 for sc in stateContainers:
                     try:
                         oldStateContainer = self.contextStates.handle.getOne(sc.Handle, allowNone=True)
@@ -685,8 +691,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         statecontainers = self._msgReader.readEpisodicComponentReport(reportNode)
         try:
             with self.mdibLock:
-                self.mdibVersion = newMdibVersion
-                self._updateSequenceId(reportNode)
+                self._update_mdib_version_group(reportNode)
                 for sc in statecontainers:
                     desc_h = sc.descriptorHandle
                     if desc_h is None:
@@ -731,8 +736,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
         descriptions_lookup_list = self._msgReader.readDescriptionModificationReport(reportNode)
         with self.mdibLock:
-            self.mdibVersion = newMdibVersion
-            self._updateSequenceId(reportNode)
+            self._update_mdib_version_group(reportNode)
             for descriptions_lookup in descriptions_lookup_list:
                 newDescriptorByHandle = {}
                 updatedDescriptorByHandle = {}

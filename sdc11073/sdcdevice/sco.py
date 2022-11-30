@@ -74,10 +74,10 @@ class _OperationsWorker(threading.Thread):
                     time.sleep(0.001)
                     self._logger.info('{}: starting operation "{}"', operation.__class__.__name__, operation.handle)
                     # duplicate the WAIT respnse to the operation request as notification. Standard requires this.
-                    self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
+                    self._subscriptionsmgr.notifyOperation(self._mdib.mdib_version_group, tr_id,
                                                            operation.handle, pmtypes.InvocationState.WAIT)
                     time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
-                    self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
+                    self._subscriptionsmgr.notifyOperation(self._mdib.mdib_version_group, tr_id,
                                                            operation.handle, pmtypes.InvocationState.START)
                     try:
                         operation.executeOperation(request)
@@ -85,12 +85,12 @@ class _OperationsWorker(threading.Thread):
 
                         self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
                                           operation.handle)
-                        self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
+                        self._subscriptionsmgr.notifyOperation(self._mdib.mdib_version_group, tr_id,
                                                                operation.handle, pmtypes.InvocationState.FINISHED)
                     except Exception as ex:
                         self._logger.info('{}: error executing operation "{}": {}', operation.__class__.__name__,
                                           operation.handle, traceback.format_exc())
-                        self._subscriptionsmgr.notifyOperation(self._mdib.sequenceId, self._mdib.mdibVersion, tr_id,
+                        self._subscriptionsmgr.notifyOperation(self._mdib.mdib_version_group, tr_id,
                                                                operation.handle, pmtypes.InvocationState.FAILED,
                                                                error='Oth', errorMessage=repr(ex))
             except Exception as ex:

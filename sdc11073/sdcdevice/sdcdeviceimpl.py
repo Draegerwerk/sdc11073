@@ -100,29 +100,26 @@ class SdcDevice(object):
         return self._handler.getXAddrs()
 
 
-    def sendMetricStateUpdates(self, mdibVersion, stateUpdates):
-        return self._handler.sendMetricStateUpdates(mdibVersion, stateUpdates)
+    def sendMetricStateUpdates(self, mdib_version_grp, stateUpdates):
+        return self._handler.sendMetricStateUpdates(mdib_version_grp, stateUpdates)
 
-    def sendAlertStateUpdates(self, mdibVersion, stateUpdates):
-        return self._handler.sendAlertStateUpdates(mdibVersion, stateUpdates)
+    def sendAlertStateUpdates(self, mdib_version_grp, stateUpdates):
+        return self._handler.sendAlertStateUpdates(mdib_version_grp, stateUpdates)
 
-    def sendComponentStateUpdates(self, mdibVersion, stateUpdates):
-        return self._handler.sendComponentStateUpdates(mdibVersion, stateUpdates)
+    def sendComponentStateUpdates(self, mdib_version_grp, stateUpdates):
+        return self._handler.sendComponentStateUpdates(mdib_version_grp, stateUpdates)
 
-    def sendContextStateUpdates(self, mdibVersion, stateUpdates):
-        return self._handler.sendContextStateUpdates(mdibVersion, stateUpdates)
+    def sendContextStateUpdates(self, mdib_version_grp, stateUpdates):
+        return self._handler.sendContextStateUpdates(mdib_version_grp, stateUpdates)
 
-    def sendOperationalStateUpdates(self, mdibVersion, stateUpdates):
-        return self._handler.sendOperationalStateUpdates(mdibVersion, stateUpdates)
+    def sendOperationalStateUpdates(self, mdib_version_grp, stateUpdates):
+        return self._handler.sendOperationalStateUpdates(mdib_version_grp, stateUpdates)
 
-    def sendRealtimeSamplesStateUpdates (self, mdibVersion, stateUpdates):
-        return self._handler.sendRealtimeSamplesStateUpdates(mdibVersion, stateUpdates)
+    def sendRealtimeSamplesStateUpdates (self, mdib_version_grp, stateUpdates):
+        return self._handler.sendRealtimeSamplesStateUpdates(mdib_version_grp, stateUpdates)
 
-    def sendDescriptorUpdates(self, mdibVersion, updated, created, deleted, updated_states):
-        return self._handler.sendDescriptorUpdates(mdibVersion, updated, created, deleted, updated_states)
-
-    def sendWaveformUpdates(self, changedSamples):
-        return self._handler.sendWaveformUpdates(changedSamples)
+    def sendDescriptorUpdates(self, mdib_version_grp, updated, created, deleted, updated_states):
+        return self._handler.sendDescriptorUpdates(mdib_version_grp, updated, created, deleted, updated_states)
 
     def setUsedCompression(self, *compression_methods):
         return self._handler.setUsedCompression(*compression_methods)

@@ -226,8 +226,7 @@ class LocalizationService(DPWSPortTypeImpl):
         replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetLocalizedTextResponse'))
         responseSoapEnvelope.addHeaderObject(replyAddress)
         getLocalizedTextResponseNode = etree_.Element(msgTag('GetLocalizedTextResponse'))
-        getLocalizedTextResponseNode.set('MdibVersion', str(self._mdib.mdibVersion))
-        getLocalizedTextResponseNode.set('SequenceId', self._mdib.sequenceId)
+        self._mdib.mdib_version_group.update_node(getLocalizedTextResponseNode)
 
         for text in texts:
             getLocalizedTextResponseNode.append(text.asEtreeNode(msgTag('Text'), nsmap=None))
@@ -245,8 +244,7 @@ class LocalizationService(DPWSPortTypeImpl):
         replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetSupportedLanguagesResponse'))
         responseSoapEnvelope.addHeaderObject(replyAddress)
         getSupportedLanguagesResponseNode = etree_.Element(msgTag('GetSupportedLanguagesResponse'))
-        getSupportedLanguagesResponseNode.set('MdibVersion', str(self._mdib.mdibVersion))
-        getSupportedLanguagesResponseNode.set('SequenceId', self._mdib.sequenceId)
+        self._mdib.mdib_version_group.update_node(getSupportedLanguagesResponseNode)
 
         for lang in languages:
             n = etree_.SubElement(getSupportedLanguagesResponseNode, msgTag('Lang'))

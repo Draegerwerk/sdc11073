@@ -1,5 +1,4 @@
 import time
-import traceback
 from collections import namedtuple, OrderedDict
 from io import BytesIO
 from lxml import etree as etree_
@@ -499,8 +498,7 @@ class GetService(DPWSPortTypeImpl):
             replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdStateResponse'))
             responseSoapEnvelope.addHeaderObject(replyAddress)
             getMdStateResponseNode = etree_.Element(msgTag('GetMdStateResponse'), nsmap=nsmap)
-            getMdStateResponseNode.set('MdibVersion', str(self._mdib.mdibVersion))
-            getMdStateResponseNode.set('SequenceId', self._mdib.sequenceId)
+            self._mdib.mdib_version_group.update_node(getMdStateResponseNode)
 
             mdStateNode = etree_.Element(msgTag('MdState'), attrib=None, nsmap=self._mdib.nsmapper.docNssmap)
             for stateContainer in stateContainers:
@@ -519,16 +517,11 @@ class GetService(DPWSPortTypeImpl):
         replyAddress = request.address.mkReplyAddress(action=self._getActionString('GetMdibResponse'))
         responseSoapEnvelope.addHeaderObject(replyAddress)
         if self._sdcDevice.contextstates_in_getmdib:
-            mdibNode = self._mdib.reconstructMdibWithContextStates()
+            mdibNode, mdib_version_group = self._mdib.reconstructMdibWithContextStates()
         else:
-            mdibNode = self._mdib.reconstructMdib()
-        mdibVersionString = mdibNode.get('MdibVersion') # use same version a in mdib node for response
-        sequenceIdString = mdibNode.get('SequenceId')
-
+            mdibNode, mdib_version_group = self._mdib.reconstructMdib()
         getMdibResponseNode = etree_.Element(msgTag('GetMdibResponse'), nsmap=Prefix.partialMap(Prefix.MSG, Prefix.PM))
-        if mdibVersionString:
-            getMdibResponseNode.set('MdibVersion', mdibVersionString)
-        getMdibResponseNode.set('SequenceId', sequenceIdString)
+        mdib_version_group.update_node(getMdibResponseNode)
         getMdibResponseNode.append(mdibNode)
         responseSoapEnvelope.addBodyElement(getMdibResponseNode)
         self._logger.debug('_onGetMdib returns {}', lambda: responseSoapEnvelope.as_xml(pretty=False))
@@ -562,16 +555,12 @@ class GetService(DPWSPortTypeImpl):
                                                       nsmap=nsmap)
 
         if includeMds:
-            mdDescriptionNode, mdibVersion = self._mdib.reconstructMdDescription()
+            mdDescriptionNode, mdib_version_group = self._mdib.reconstructMdDescription()
             mdDescriptionNode.tag = msgTag('MdDescription')  # rename according to message
-            mdibVersionString = str(mdibVersion)
+            mdib_version_group.update_node(getMdDescriptionResponseNode)
         else:
             mdDescriptionNode = etree_.Element(msgTag('MdDescription'))
-            mdibVersionString = None
-        sequenceIdString = self._mdib.sequenceId
-        if mdibVersionString:
-            getMdDescriptionResponseNode.set('MdibVersion', mdibVersionString)
-        getMdDescriptionResponseNode.set('SequenceId', sequenceIdString)
+            self._mdib.mdib_version_group.update_node(getMdDescriptionResponseNode)
 
         getMdDescriptionResponseNode.append(mdDescriptionNode)
         responseSoapEnvelope.addBodyElement(getMdDescriptionResponseNode)
@@ -729,9 +718,9 @@ class SetService(DPWSPortTypeImpl):
         replyAddress = request.address.mkReplyAddress(action=self._getActionString(responseName))
         response.addHeaderObject(replyAddress)
         replyBodyNode = etree_.Element(msgTag(responseName),
-                                       attrib={'SequenceId': self._mdib.sequenceId,
-                                               'MdibVersion': str(self._mdib.mdibVersion)},
                                        nsmap=Prefix.partialMap(Prefix.MSG))
+        self._mdib.mdib_version_group.update_node(replyBodyNode)
+
         invocationInfoNode = etree_.SubElement(replyBodyNode, msgTag('InvocationInfo'))
 
         transactionIdNode = etree_.SubElement(invocationInfoNode, msgTag('TransactionId'))
@@ -911,8 +900,7 @@ class ContextService(DPWSPortTypeImpl):
         response.addHeaderObject(replyAddress)
         getContextStatesResponseNode = etree_.Element(msgTag('GetContextStatesResponse'))
         with self._mdib.mdibLock:
-            getContextStatesResponseNode.set('MdibVersion', str(self._mdib.mdibVersion))
-            getContextStatesResponseNode.set('SequenceId', self._mdib.sequenceId)
+            self._mdib.mdib_version_group.update_node(getContextStatesResponseNode)
             if len(requestedHandles) == 0:
                 # MessageModel: If the HANDLE reference list is empty, all states in the MDIB SHALL be included in the result list.
                 contextStateContainers = list(self._mdib.contextStates.objects)

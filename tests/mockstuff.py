@@ -104,6 +104,7 @@ class SomeDevice(SdcDevice):
                                 firmwareVersion='0.99',
                                 serialNumber='12345')
         deviceMdibContainer = DeviceMdibContainer.fromString(mdib_xml_string, log_prefix=log_prefix)
+        deviceMdibContainer.instanceId = 42
         # set Metadata
         mdsDescriptor = deviceMdibContainer.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
         mdsDescriptor.Manufacturer.append(pmtypes.LocalizedText(u'Dräger'))

@@ -680,33 +680,33 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     except:
                         raise
 
-        mdib_version = self.mdibVersion
+        mdib_version_grp = self.mdib_version_group
         if self._sdcDevice is not None:
             if len(mgr.descriptorUpdates) > 0:
                 updated = [d.mkCopy() for d in descr_updated]
                 created = [d.mkCopy() for d in descr_created]
                 deleted = [d.mkCopy() for d in descr_deleted]
                 updated_states = [s.mkCopy() for s in descr_updated_states]
-                self._sdcDevice.sendDescriptorUpdates(mdib_version, updated=updated, created=created, deleted=deleted,
+                self._sdcDevice.sendDescriptorUpdates(mdib_version_grp, updated=updated, created=created, deleted=deleted,
                                                       updated_states=updated_states)
             if len(metric_updates) > 0:
                 updates = [s.mkCopy() for s in metric_updates]
-                self._sdcDevice.sendMetricStateUpdates(mdib_version, updates)
+                self._sdcDevice.sendMetricStateUpdates(mdib_version_grp, updates)
             if len(alert_updates) > 0:
                 updates = [s.mkCopy() for s in alert_updates]
-                self._sdcDevice.sendAlertStateUpdates(mdib_version, updates)
+                self._sdcDevice.sendAlertStateUpdates(mdib_version_grp, updates)
             if len(comp_updates) > 0:
                 updates = [s.mkCopy() for s in comp_updates]
-                self._sdcDevice.sendComponentStateUpdates(mdib_version, updates)
+                self._sdcDevice.sendComponentStateUpdates(mdib_version_grp, updates)
             if len(ctxt_updates) > 0:
                 updates = [s.mkCopy() for s in ctxt_updates]
-                self._sdcDevice.sendContextStateUpdates(mdib_version, updates)
+                self._sdcDevice.sendContextStateUpdates(mdib_version_grp, updates)
             if len(op_updates) > 0:
                 updates = [s.mkCopy() for s in op_updates]
-                self._sdcDevice.sendOperationalStateUpdates(mdib_version, updates)
+                self._sdcDevice.sendOperationalStateUpdates(mdib_version_grp, updates)
             if len(rt_updates) > 0:
                 updates = [s.mkCopy() for s in rt_updates]
-                self._sdcDevice.sendRealtimeSamplesStateUpdates(mdib_version, updates)
+                self._sdcDevice.sendRealtimeSamplesStateUpdates(mdib_version_grp, updates)
         mgr.mdib_version = self.mdibVersion
 
     def _process_internal_rt_transaction(self):
@@ -727,7 +727,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             # makes copies of all states for sending, so that they can't be affected by transactions after this one
             updates = [s.mkCopy() for s in updates]
             if self._sdcDevice is not None:
-                self._sdcDevice.sendRealtimeSamplesStateUpdates(self.mdibVersion, updates)
+                self._sdcDevice.sendRealtimeSamplesStateUpdates(self.mdib_version_group, updates)
 
         mgr.mdib_version = self.mdibVersion
 
