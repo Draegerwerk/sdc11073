@@ -92,6 +92,24 @@ class SubscribeResult:
     reference_param: ReferenceParameters
     expire_seconds: float
 
+@dataclass
+class MdibVersionGroupReader:
+    mdib_version: int
+    sequence_id: str
+    instance_id: Union[int, None]
+
+    @classmethod
+    def from_node(cls, node):
+        mdib_version = int(node.get('MdibVersion', '0'))
+        sequence_id = node.get('SequenceId')
+        instance_id = node.get('InstanceId')
+        if instance_id is not None:
+            instance_id = int(instance_id)
+        if sequence_id is None:
+            raise ValueError('missing mandatory SequenceId attribute')
+        return cls(mdib_version, sequence_id, instance_id)
+
+
 
 class ReceivedMessage:
     """This class contains all data of a received Message"""
@@ -99,9 +117,7 @@ class ReceivedMessage:
     def __init__(self, reader_instance, parsed_message):
         self.msg_reader = reader_instance  #
         self.p_msg = parsed_message  # parsed message, e g. a Soap12Envelope
-        self.instance_id = None  # a number
-        self.sequence_id = None  # a string
-        self.mdib_version = None  # a number
+        self.mdib_version_group = None  # MdibVersionGroupReader instance
         self.action = None
         self.msg_name = None
 
@@ -175,8 +191,10 @@ class MessageReader:
         q_name = message.msg_name
         data.msg_name = q_name.localname if q_name else None
         if message.msg_node is not None:
-            data.mdib_version = int(message.msg_node.get('MdibVersion', '0'))
-            data.sequence_id = message.msg_node.get('SequenceId')
+            try:
+                data.mdib_version_group = MdibVersionGroupReader.from_node(message.msg_node)
+            except ValueError:
+                data.mdib_version_group = None
         return data
 
     def read_payload_data(self, xml_text: bytes) -> ReceivedMessage:
@@ -186,8 +204,7 @@ class MessageReader:
         q_name = payload.msg_name
         data.msg_name = q_name.localname if q_name else None
         if payload.msg_node is not None:
-            data.mdib_version = int(payload.msg_node.get('MdibVersion', '0'))
-            data.sequence_id = payload.msg_node.get('SequenceId')
+            data.mdib_version_group = MdibVersionGroupReader.from_node(payload.msg_node)
             self._validate_node(payload.msg_node)
         return data
 

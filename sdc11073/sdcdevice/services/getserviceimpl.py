@@ -39,8 +39,8 @@ class GetService(DPWSPortTypeImpl):
         # get the requested state containers from mdib
         state_containers = []
         with self._mdib.mdib_lock:
-            mdib_version = self._mdib.mdib_version
-            sequence_id = self._mdib.sequence_id
+            #mdib_version = self._mdib.mdib_version
+            #sequence_id = self._mdib.sequence_id
             if len(requested_handles) == 0:
                 # MessageModel: If the HANDLE reference list is empty, all states in the MDIB SHALL be included in the result list.
                 state_containers.extend(self._mdib.states.objects)
@@ -65,7 +65,7 @@ class GetService(DPWSPortTypeImpl):
 
             response = self._sdc_device.msg_factory.mk_get_mdstate_response_message(
                 request_data.message_data, self.actions.GetMdStateResponse,
-                mdib_version, sequence_id, state_containers)
+                self._mdib.mdib_version_group, state_containers)
         self._logger.debug('_on_get_md_state returns {}',
                            lambda: response.serialize_message())
         return response

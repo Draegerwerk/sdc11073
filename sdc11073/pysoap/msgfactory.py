@@ -12,8 +12,8 @@ from ..dpws import DeviceEventingFilterDialectURI
 from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
 from ..exceptions import ApiUsageError
 from ..namespaces import EventingActions
-from ..namespaces import WSA_ANONYMOUS
 from ..namespaces import QN_TYPE
+from ..namespaces import WSA_ANONYMOUS
 from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator
 
@@ -278,7 +278,8 @@ class MessageFactoryClient(MessageFactory):
         if identifications:
             for identification in identifications:
                 requestparams.append(identification.as_etree_node(
-                    qname=self._msg_names.Identification, nsmap=self._ns_hlp.partial_map(self._ns_hlp.MSG, self._ns_hlp.PM)))
+                    qname=self._msg_names.Identification,
+                    nsmap=self._ns_hlp.partial_map(self._ns_hlp.MSG, self._ns_hlp.PM)))
         method = self._msg_names.GetContextStatesByIdentification
         action = self._sdc_definitions.Actions.GetContextStatesByIdentification
         return self._mk_get_method_message(addr_to, action, method, params=requestparams)
@@ -326,7 +327,8 @@ class MessageFactoryClient(MessageFactory):
         _proposed_states = [p.mk_copy() for p in proposed_alert_states]
         for state in _proposed_states:
             state.nsmapper = self._ns_hlp
-        _proposed_state_nodes = [p.mk_state_node(self._msg_names.ProposedAlertState, self._ns_hlp) for p in _proposed_states]
+        _proposed_state_nodes = [p.mk_state_node(self._msg_names.ProposedAlertState, self._ns_hlp) for p in
+                                 _proposed_states]
         method = self._msg_names.SetAlertState
         action = self._sdc_definitions.Actions.SetAlertState
         return self._mk_set_method_message(addr_to, action, method, operation_handle, _proposed_state_nodes)
@@ -529,11 +531,12 @@ class MessageFactoryClient(MessageFactory):
         soap_envelope.payload_element = get_node
         return CreatedMessage(soap_envelope, self)
 
-    def _mk_set_method_message(self, addr_to: str, action_string: str, method_qname: etree_.QName, operation_handle: str,
+    def _mk_set_method_message(self, addr_to: str, action_string: str, method_qname: etree_.QName,
+                               operation_handle: str,
                                request_nodes, additional_namespaces=None) -> CreatedMessage:
         """ helper to create the soap envelope
         :param addr_to: to-field value in address
-        :param port_type: needed to construct the action string
+        :param action_string: the action string
         :param method_qname: name of the called action
         :param operation_handle: handle name as string
         :param request_nodes: a list of etree_ nodes that will become sub-element of Method name element
@@ -671,17 +674,12 @@ class MessageFactoryDevice(MessageFactory):
             action=self._get_action_string(mdib.sdc_definitions, 'GetMdibResponse'))
         response.set_address(reply_address)
         if include_context_states:
-            mdib_node = mdib.reconstruct_mdib_with_context_states()
+            mdib_node, mdib_version_group = mdib.reconstruct_mdib_with_context_states()
         else:
-            mdib_node = mdib.reconstruct_mdib()
-        mdib_version_string = mdib_node.get('MdibVersion')  # use same version a in mdib node for response
-        sequence_id_string = mdib_node.get('SequenceId')
-
+            mdib_node, mdib_version_group = mdib.reconstruct_mdib()
         get_mdib_response_node = etree_.Element(self._msg_names.GetMdibResponse,
-                                                nsmap=nsh.partial_map(nsh.MSG,  nsh.PM, nsh.XSI))
-        if mdib_version_string:
-            get_mdib_response_node.set('MdibVersion', mdib_version_string)
-        get_mdib_response_node.set('SequenceId', sequence_id_string)
+                                                nsmap=nsh.partial_map(nsh.MSG, nsh.PM, nsh.XSI))
+        self._set_mdib_version_group(get_mdib_response_node, mdib_version_group)
         get_mdib_response_node.append(mdib_node)
         response.payload_element = get_mdib_response_node
         return CreatedMessage(response, self)
@@ -705,21 +703,17 @@ class MessageFactoryDevice(MessageFactory):
                 return_all = True
                 break
         if return_all:
-            md_description_node, mdib_version = mdib.reconstruct_md_description()
+            md_description_node, mdib_version_group = mdib.reconstruct_md_description()
             md_description_node.tag = self._msg_names.MdDescription  # rename according to message
-            mdib_version_string = str(mdib_version)
+            self._set_mdib_version_group(response_node, mdib_version_group)
         else:
             md_description_node = etree_.Element(self._msg_names.MdDescription)
-            mdib_version_string = None
-        sequence_id_string = mdib.sequence_id
-        if mdib_version_string:
-            response_node.set('MdibVersion', mdib_version_string)
-        response_node.set('SequenceId', sequence_id_string)
+            self._set_mdib_version_group(response_node, mdib.mdib_version_group)
         response_node.append(md_description_node)
         response_envelope.payload_element = response_node
         return CreatedMessage(response_envelope, self)
 
-    def mk_get_mdstate_response_message(self, message_data, action, mdib_version, sequence_id,
+    def mk_get_mdstate_response_message(self, message_data, action, mdib_version_group,
                                         state_containers) -> CreatedMessage:
         nsh = self._ns_hlp
         request = message_data.p_msg
@@ -729,8 +723,7 @@ class MessageFactoryDevice(MessageFactory):
             action=action)
         response_envelope.set_address(reply_address)
         response_node = etree_.Element(self._msg_names.GetMdStateResponse, nsmap=nsh.ns_map)
-        response_node.set('MdibVersion', str(mdib_version))
-        response_node.set('SequenceId', sequence_id)
+        self._set_mdib_version_group(response_node, mdib_version_group)
         md_state_node = etree_.Element(self._msg_names.MdState, attrib=None,
                                        nsmap=nsh.partial_map(nsh.MSG, nsh.PM))
         for state_container in state_containers:
@@ -740,7 +733,7 @@ class MessageFactoryDevice(MessageFactory):
         response_envelope.payload_element = response_node
         return CreatedMessage(response_envelope, self)
 
-    def mk_get_context_states_response_message(self, message_data, action, mdib_version, sequence_id,
+    def mk_get_context_states_response_message(self, message_data, action, mdib_version_group,
                                                state_containers) -> CreatedMessage:
         nsh = self._ns_hlp
         response = Soap12Envelope(
@@ -749,8 +742,7 @@ class MessageFactoryDevice(MessageFactory):
             action=action)
         response.set_address(reply_address)
         response_node = etree_.Element(self._msg_names.GetContextStatesResponse)
-        response_node.set('MdibVersion', str(mdib_version))
-        response_node.set('SequenceId', sequence_id)
+        self._set_mdib_version_group(response_node, mdib_version_group)
         tag = self._msg_names.ContextState
         for container in state_containers:
             node = container.mk_state_node(tag, nsh)
@@ -758,7 +750,7 @@ class MessageFactoryDevice(MessageFactory):
         response.payload_element = response_node
         return CreatedMessage(response, self)
 
-    def mk_get_localized_texts_response_message(self, message_data, action, mdib_version, sequence_id,
+    def mk_get_localized_texts_response_message(self, message_data, action, mdib_version_group,
                                                 texts) -> CreatedMessage:
         nsh = self._ns_hlp
         response_envelope = Soap12Envelope(
@@ -766,15 +758,14 @@ class MessageFactoryDevice(MessageFactory):
         reply_address = message_data.p_msg.address.mk_reply_address(action=action)
         response_envelope.set_address(reply_address)
         response_node = etree_.Element(self._msg_names.GetLocalizedTextResponse)
-        response_node.set('MdibVersion', str(mdib_version))
-        response_node.set('SequenceId', sequence_id)
+        self._set_mdib_version_group(response_node, mdib_version_group)
 
         for text in texts:
             response_node.append(text.as_etree_node(self._msg_names.Text, nsmap=None))
         response_envelope.payload_element = response_node
         return CreatedMessage(response_envelope, self)
 
-    def mk_get_supported_languages_response_message(self, message_data, action, mdib_version, sequence_id, languages
+    def mk_get_supported_languages_response_message(self, message_data, action, mdib_version_group, languages
                                                     ) -> CreatedMessage:
         nsh = self._ns_hlp
         response_envelope = Soap12Envelope(
@@ -782,8 +773,7 @@ class MessageFactoryDevice(MessageFactory):
         reply_address = message_data.p_msg.address.mk_reply_address(action=action)
         response_envelope.set_address(reply_address)
         response_node = etree_.Element(self._msg_names.GetSupportedLanguagesResponse)
-        response_node.set('MdibVersion', str(mdib_version))
-        response_node.set('SequenceId', sequence_id)
+        self._set_mdib_version_group(response_node, mdib_version_group)
 
         for lang in languages:
             node = etree_.SubElement(response_node, self._msg_names.Lang)
@@ -874,17 +864,17 @@ class MessageFactoryDevice(MessageFactory):
             soap_envelope.add_header_element(ref_param_node)
         return CreatedMessage(soap_envelope, self)
 
-    def mk_operation_response_message(self, message_data, action, response_name, mdib_version,
-                                      sequence_id, transaction_id, invocation_state, invocation_error, error_text
+    def mk_operation_response_message(self, message_data, action, response_name, mdib_version_group,
+                                      transaction_id, invocation_state, invocation_error, error_text
                                       ) -> CreatedMessage:
         nsh = self._ns_hlp
         request = message_data.p_msg
         response = Soap12Envelope(nsh.partial_map(nsh.S12, nsh.MSG, nsh.WSA))
         reply_address = request.address.mk_reply_address(action=action)
         response.set_address(reply_address)
-        reply_body_node = etree_.Element(nsh.msgTag(response_name),
-                                         attrib={'SequenceId': sequence_id,
-                                                 'MdibVersion': str(mdib_version)})
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        reply_body_node = etree_.Element(nsh.msgTag(response_name), nsmap=ns_map)
+        self._set_mdib_version_group(reply_body_node, mdib_version_group)
         invocation_info_node = etree_.SubElement(reply_body_node, self._msg_names.InvocationInfo)
 
         transaction_id_node = etree_.SubElement(invocation_info_node, self._msg_names.TransactionId)
@@ -903,78 +893,75 @@ class MessageFactoryDevice(MessageFactory):
         response.payload_element = reply_body_node
         return CreatedMessage(response, self)
 
-    def mk_realtime_samples_report_body(self, mdib_version, sequence_id, realtime_sample_states) -> etree_.Element:
+    def mk_realtime_samples_report_body(self, mdib_version_group, realtime_sample_states) -> etree_.Element:
         nsh = self._ns_hlp
         ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        body_node = etree_.Element(self._msg_names.WaveformStream,
-                                   attrib={'SequenceId': sequence_id,
-                                           'MdibVersion': str(mdib_version)},
-                                   nsmap=ns_map)
+        body_node = etree_.Element(self._msg_names.WaveformStream, nsmap=ns_map)
+        self._set_mdib_version_group(body_node, mdib_version_group)
         for state in realtime_sample_states:
             state_node = state.mk_state_node(self._msg_names.State, nsh, set_xsi_type=False)
             body_node.append(state_node)
         return body_node
 
-    def mk_episodic_metric_report_body(self, mdib_version, sequence_id, states) -> etree_.Element:
+    def mk_episodic_metric_report_body(self, mdib_version_group, states) -> etree_.Element:
         return self._mk_report_body(self._msg_names.EpisodicMetricReport,
                                     self._msg_names.MetricState,
-                                    states, mdib_version, sequence_id)
+                                    mdib_version_group, states)
 
-    def mk_periodic_metric_report_body(self, mdib_version, sequence_id, report_parts) -> etree_.Element:
+    def mk_periodic_metric_report_body(self, actual_mdib_version, mdib_version_group, report_parts) -> etree_.Element:
         return self._mk__periodic_report_body(self._msg_names.PeriodicMetricReport,
                                               self._msg_names.MetricState,
-                                              report_parts, mdib_version, sequence_id)
+                                              report_parts, actual_mdib_version, mdib_version_group)
 
-    def mk_episodic_operational_state_report_body(self, mdib_version, sequence_id, states) -> etree_.Element:
+    def mk_episodic_operational_state_report_body(self, mdib_version_group, states) -> etree_.Element:
         return self._mk_report_body(self._msg_names.EpisodicOperationalStateReport,
                                     self._msg_names.OperationState,
-                                    states, mdib_version, sequence_id)
+                                    mdib_version_group, states)
 
-    def mk_periodic_operational_state_report_body(self, mdib_version, sequence_id,
+    def mk_periodic_operational_state_report_body(self, actual_mdib_version, mdib_version_group,
                                                   report_parts) -> etree_.Element:
         return self._mk__periodic_report_body(self._msg_names.PeriodicOperationalStateReport,
                                               self._msg_names.OperationState,
-                                              report_parts, mdib_version, sequence_id)
+                                              report_parts, actual_mdib_version, mdib_version_group)
 
-    def mk_episodic_alert_report_body(self, mdib_version, sequence_id, states) -> etree_.Element:
+    def mk_episodic_alert_report_body(self, mdib_version_group, states) -> etree_.Element:
         return self._mk_report_body(self._msg_names.EpisodicAlertReport,
                                     self._msg_names.AlertState,
-                                    states, mdib_version, sequence_id)
+                                    mdib_version_group, states)
 
-    def mk_periodic_alert_report_body(self, mdib_version, sequence_id, report_parts) -> etree_.Element:
+    def mk_periodic_alert_report_body(self, actual_mdib_version, mdib_version_group, report_parts) -> etree_.Element:
         return self._mk__periodic_report_body(self._msg_names.PeriodicAlertReport,
                                               self._msg_names.AlertState,
-                                              report_parts, mdib_version, sequence_id)
+                                              report_parts, actual_mdib_version, mdib_version_group)
 
-    def mk_episodic_component_state_report_body(self, mdib_version, sequence_id, states) -> etree_.Element:
+    def mk_episodic_component_state_report_body(self, mdib_version_group, states) -> etree_.Element:
         return self._mk_report_body(self._msg_names.EpisodicComponentReport,
                                     self._msg_names.ComponentState,
-                                    states, mdib_version, sequence_id)
+                                    mdib_version_group, states)
 
-    def mk_periodic_component_state_report_body(self, mdib_version, sequence_id,
+    def mk_periodic_component_state_report_body(self, actual_mdib_version, mdib_version_group,
                                                 report_parts) -> etree_.Element:
         return self._mk__periodic_report_body(self._msg_names.PeriodicComponentReport,
                                               self._msg_names.ComponentState,
-                                              report_parts, mdib_version, sequence_id)
+                                              report_parts, actual_mdib_version, mdib_version_group)
 
-    def mk_episodic_context_report_body(self, mdib_version, sequence_id, states) -> etree_.Element:
+    def mk_episodic_context_report_body(self, mdib_version_group, states) -> etree_.Element:
         return self._mk_report_body(self._msg_names.EpisodicContextReport,
                                     self._msg_names.ContextState,
-                                    states, mdib_version, sequence_id)
+                                    mdib_version_group, states)
 
-    def mk_periodic_context_report_body(self, mdib_version, sequence_id, report_parts) -> etree_.Element:
+    def mk_periodic_context_report_body(self, actual_mdib_version, mdib_version_group, report_parts) -> etree_.Element:
         return self._mk__periodic_report_body(self._msg_names.PeriodicContextReport,
                                               self._msg_names.ContextState,
-                                              report_parts, mdib_version, sequence_id)
+                                              report_parts, actual_mdib_version, mdib_version_group)
 
-    def mk_description_modification_report_body(self, mdib_version, sequence_id, updated, created, deleted,
+    def mk_description_modification_report_body(self, mdib_version_group, updated, created, deleted,
                                                 updated_states) -> etree_.Element:
         nsh = self._ns_hlp
         DescriptionModificationType = self._msg_types.DescriptionModificationType
         body_node = etree_.Element(self._msg_names.DescriptionModificationReport,
-                                   attrib={'SequenceId': sequence_id,
-                                           'MdibVersion': str(mdib_version)},
                                    nsmap=nsh.partial_map(nsh.MSG, nsh.PM))
+        self._set_mdib_version_group(body_node, mdib_version_group)
         self._mk_descriptor_updates_report_part(body_node, DescriptionModificationType.UPDATE, updated, updated_states)
         self._mk_descriptor_updates_report_part(body_node, DescriptionModificationType.CREATE, created, updated_states)
         self._mk_descriptor_updates_report_part(body_node, DescriptionModificationType.DELETE, deleted, updated_states)
@@ -996,13 +983,19 @@ class MessageFactoryDevice(MessageFactory):
             report_part.extend(
                 [state.mk_state_node(self._msg_names.State, nsh) for state in related_state_containers])
 
-    def _mk_report_body(self, body_tag, state_tag, states, mdib_version, sequence_id) -> etree_.Element:
+    @staticmethod
+    def _set_mdib_version_group(node, mdib_version_group):
+        if mdib_version_group.mdib_version is not None:
+            node.set('MdibVersion', str(mdib_version_group.mdib_version))
+        node.set('SequenceId', str(mdib_version_group.sequence_id))
+        if mdib_version_group.instance_id is not None:
+            node.set('InstanceId', str(mdib_version_group.instance_id))
+
+    def _mk_report_body(self, body_tag, state_tag, mdib_version_group, states) -> etree_.Element:
         nsh = self._ns_hlp
         ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        body_node = etree_.Element(body_tag,
-                                   attrib={'SequenceId': sequence_id,
-                                           'MdibVersion': str(mdib_version)},
-                                   nsmap=ns_map)
+        body_node = etree_.Element(body_tag, nsmap=ns_map)
+        self._set_mdib_version_group(body_node, mdib_version_group)
         report_part_node = etree_.SubElement(body_node, self._msg_names.ReportPart)
 
         for state in states:
@@ -1010,35 +1003,34 @@ class MessageFactoryDevice(MessageFactory):
         return body_node
 
     def _mk__periodic_report_body(self, body_tag, state_tag, report_parts,
-                                  mdib_version, sequence_id) -> etree_.Element:
+                                  actual_mdib_version, mdib_version_group) -> etree_.Element:
         nsh = self._ns_hlp
         ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
         body_node = etree_.Element(body_tag,
-                                   attrib={'SequenceId': sequence_id,
-                                           'MdibVersion': str(mdib_version)},
                                    nsmap=ns_map)
+        self._set_mdib_version_group(body_node, mdib_version_group)
+        body_node.set('MdibVersion', str(actual_mdib_version))  # overwrite MdibVersion
         for part in report_parts:
             report_part_node = etree_.SubElement(body_node, self._msg_names.ReportPart)
             for state in part.states:
                 report_part_node.append(state.mk_state_node(state_tag, nsh))
         return body_node
 
-    def mk_operation_invoked_report_body(self, mdib_version, sequence_id,
+    def mk_operation_invoked_report_body(self, mdib_version_group,
                                          operation_handle_ref, transaction_id, invocation_state,
                                          error, error_message) -> etree_.Element:
         nsh = self._ns_hlp
         ns_map = nsh.partial_map(nsh.PM, nsh.MSG)
         body_node = etree_.Element(self._msg_names.OperationInvokedReport,
-                                   attrib={'SequenceId': sequence_id,
-                                           'MdibVersion': str(mdib_version)},
                                    nsmap=ns_map)
+        self._set_mdib_version_group(body_node, mdib_version_group)
         report_part_node = etree_.SubElement(body_node,
                                              self._msg_names.ReportPart,
                                              attrib={'OperationHandleRef': operation_handle_ref})
         invocation_info_node = etree_.SubElement(report_part_node, self._msg_names.InvocationInfo)
-        invocation_source_node = etree_.SubElement(report_part_node, self._msg_names.InvocationSource,
-                                                   attrib={'Root': nsh.SDC.namespace,
-                                                           'Extension': 'AnonymousSdcParticipant'})
+        etree_.SubElement(report_part_node, self._msg_names.InvocationSource,
+                          attrib={'Root': nsh.SDC.namespace,
+                                  'Extension': 'AnonymousSdcParticipant'})
         # implemented only SDC R0077 for value of invocationSourceNode:
         # Root =  "http://standards.ieee.org/downloads/11073/11073-20701-2018"
         # Extension = "AnonymousSdcParticipant".

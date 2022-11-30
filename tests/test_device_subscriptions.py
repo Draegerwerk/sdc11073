@@ -11,6 +11,7 @@ from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.sdcdevice import waveforms, SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.mdib.mdibbase import MdibVersionGroup
 from tests import mockstuff
 
 mdib_folder = os.path.dirname(__file__)
@@ -142,8 +143,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
         self.sdc_device.subscriptions_manager.notify_operation(dummy_operation,
                                                                123,
                                                                msgtypes.InvocationState.FINISHED,
-                                                               mdib_version=1234,
-                                                               sequence_id='urn:uuid:abc',
+                                                               mdib_version_group=MdibVersionGroup(1234, 'urn:uuid:abc', None),
                                                                nsmapper=self.sdc_device.mdib.nsmapper,
                                                                error=msgtypes.InvocationError.UNSPECIFIED,
                                                                error_message='')

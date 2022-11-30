@@ -4,9 +4,9 @@ import logging
 import sys
 import time
 import unittest
-from urllib import parse
 from decimal import Decimal
 from itertools import product
+from urllib import parse
 
 from lxml import etree as etree_
 
@@ -22,16 +22,15 @@ from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ClientMdibContainer
 from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
-from sdc11073.roles.nomenclature import NomenclatureCodes as nc
+from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcclient.components import SdcClientComponents
 from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.sdcdevice import waveforms
-from sdc11073.sdcdevice.httpserver import DeviceHttpServerThread
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.sdcdevice.components import SdcDeviceComponents
+from sdc11073.sdcdevice.httpserver import DeviceHttpServerThread
 from sdc11073.sdcdevice.subscriptionmgr import SubscriptionsManagerReferenceParam
-from sdc11073.pysoap.soapclient_async import SoapClientAsync
+from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from tests.mockstuff import SomeDevice, dec_list
 
 ENABLE_COMMLOG = False
@@ -80,8 +79,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         ns_mapper = self.sdc_device.mdib.nsmapper
-        #ns_mapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
-        #ToDo: set a default namespace
+        # ns_mapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
+        # ToDo: set a default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, self._loc_validators)
@@ -258,6 +257,30 @@ class Test_Client_SomeDevice(unittest.TestCase):
         descriptors = list(node[0])
         self.assertEqual(len(descriptors), 1)
 
+    def test_instance_id(self):
+        """ verify that the client receives correct EpisodicMetricReports and PeriodicMetricReports"""
+        self.assertIsNone(self.sdc_device.mdib.instance_id)
+        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib.init_mdib()
+        self.assertEqual(self.sdc_device.mdib.sequence_id, cl_mdib.sequence_id)
+        self.assertEqual(self.sdc_device.mdib.instance_id, cl_mdib.instance_id)
+
+        self.sdc_device.mdib.instance_id = 42
+
+        x_addr = self.sdc_device.get_xaddrs()
+        try:
+            sdc_client = SdcClient(x_addr[0],
+                                   sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                   ssl_context=None,
+                                   validate=CLIENT_VALIDATE)
+            sdc_client.start_all(subscribe_periodic_reports=True, async_dispatch=False)
+
+            cl_mdib = ClientMdibContainer(sdc_client)
+            cl_mdib.init_mdib()
+            self.assertEqual(self.sdc_device.mdib.instance_id, cl_mdib.instance_id)
+        finally:
+            sdc_client.stop_all()
+
     def test_metric_reports(self):
         """ verify that the client receives correct EpisodicMetricReports and PeriodicMetricReports"""
         cl_mdib = ClientMdibContainer(self.sdc_client)
@@ -355,9 +378,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
         descriptor_handle = alert_condition_state.DescriptorHandle
 
         for _activation_state, _actual_priority, _presence in product(list(pmtypes.AlertActivation),
-                                                                    list(pmtypes.AlertConditionPriority),
-                                                                    (True,
-                                                                     False)):  # test every possible combination
+                                                                      list(pmtypes.AlertConditionPriority),
+                                                                      (True,
+                                                                       False)):  # test every possible combination
             # wait for the next EpisodicAlertReport
             coll = observableproperties.SingleValueCollector(self.sdc_client,
                                                              'episodic_alert_report')
@@ -376,9 +399,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
         descriptor_handle = alert_condition_state.DescriptorHandle
 
         for _activation_state, _presence, _location, _slot in product(list(pmtypes.AlertActivation),
-                                                                     list(pmtypes.AlertSignalPresence),
-                                                                     list(pmtypes.AlertSignalPrimaryLocation),
-                                                                     (0, 1, 2)):
+                                                                      list(pmtypes.AlertSignalPresence),
+                                                                      list(pmtypes.AlertSignalPrimaryLocation),
+                                                                      (0, 1, 2)):
             # wait for the next EpisodicAlertReport
             coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_alert_report')
             with self.sdc_device.mdib.transaction_manager() as mgr:
@@ -452,8 +475,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
                          tr_MdibVersion)  # created at the beginning
         self.assertEqual(patient_context_state_container.UnbindingMdibVersion, None)
 
-
-
     def test_get_containment_tree(self):
         self.log_watcher.setPaused(True)  # this will create an error log, but that shall be ignored
         self.assertRaises(HTTPReturnCodeError,
@@ -500,14 +521,16 @@ class Test_Client_SomeDevice(unittest.TestCase):
         for t in texts:
             self.assertEqual(t.TextWidth, 'xs')
 
-        get_request_response = self.sdc_client.localization_service_client.get_localized_texts(refs=['a'], langs=['de-de'],
-                                                                                         version=1)
+        get_request_response = self.sdc_client.localization_service_client.get_localized_texts(refs=['a'],
+                                                                                               langs=['de-de'],
+                                                                                               version=1)
         texts = get_request_response.result
         self.assertEqual(len(texts), 1)
         self.assertEqual(texts[0].text, 'bla_a')
 
-        get_request_response = self.sdc_client.localization_service_client.get_localized_texts(refs=['b'], langs=['en-en'],
-                                                                                         version=2)
+        get_request_response = self.sdc_client.localization_service_client.get_localized_texts(refs=['b'],
+                                                                                               langs=['en-en'],
+                                                                                               version=2)
         texts = get_request_response.result
         self.assertEqual(len(texts), 1)
         self.assertEqual(texts[0].text, 'foo_bb')
@@ -642,8 +665,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         cls = self.sdc_device.mdib.data_model.get_descriptor_container_class(node_name)
         with self.sdc_device.mdib.transaction_manager() as mgr:
             new_descriptor_container = cls(handle=new_handle,
-                                         parent_handle=descriptor_container.parent_handle,
-                                         )
+                                           parent_handle=descriptor_container.parent_handle,
+                                           )
             new_descriptor_container.Type = pmtypes.CodedValue('12345')
             new_descriptor_container.Unit = pmtypes.CodedValue('hector')
             new_descriptor_container.Resolution = Decimal('0.42')
@@ -1005,7 +1028,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         ns_mapper = self.sdc_device.mdib.nsmapper
         # ToDo: set a default namespace
-        #ns_mapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
+        # ns_mapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
         self.sdc_device.start_all()
         self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, self._loc_validators)
@@ -1074,7 +1097,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
                                                     chunked_messages=True)
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         ns_mapper = self.sdc_device.mdib.nsmapper
-        #ns_mapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
+        # ns_mapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
         # ToDo: set default namespace
         self.sdc_device.start_all()
         self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]

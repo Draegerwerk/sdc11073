@@ -4,7 +4,7 @@ from concurrent.futures import Future
 from typing import Any
 
 from ... import loghelper
-from ...namespaces import default_ns_helper  #DocNamespaceHelper
+from ...namespaces import default_ns_helper
 from ...exceptions import ApiUsageError
 from ...pysoap.msgreader import ReceivedMessage
 
@@ -25,16 +25,8 @@ class GetRequestResult:
         return self._received_message.p_msg
 
     @property
-    def instance_id(self):
-        return self._received_message.instance_id
-
-    @property
-    def sequence_id(self):
-        return self._received_message.sequence_id
-
-    @property
-    def mdib_version(self):
-        return self._received_message.mdib_version
+    def mdib_version_group(self):
+        return self._received_message.mdib_version_group
 
     @property
     def action(self):
@@ -56,7 +48,14 @@ class HostedServiceClient:
     def __init__(self, soap_client, msg_factory, dpws_hosted, porttype, sdc_definitions, biceps_parser,
                  log_prefix=''):
         """
-        :param simple_xml_hosted_node: a "Hosted" node in a simplexml document
+
+        :param soap_client:
+        :param msg_factory:
+        :param dpws_hosted:
+        :param porttype:
+        :param sdc_definitions:
+        :param biceps_parser:
+        :param log_prefix:
         """
         self.endpoint_reference = dpws_hosted.endpoint_references[0]
         self._url = urllib.parse.urlparse(self.endpoint_reference.address)

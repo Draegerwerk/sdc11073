@@ -236,9 +236,7 @@ class ClientMdibMethods:
     def _on_episodic_metric_report(self, received_message_data):
         model = self._mdib.data_model
         state_containers = self._msg_reader.read_episodic_metric_report(received_message_data)
-        self._mdib.process_incoming_metric_states(received_message_data.mdib_version,
-                                                  received_message_data.sequence_id,
-                                                  state_containers)
+        self._mdib.process_incoming_metric_states(received_message_data.mdib_version_group, state_containers)
 
         if not self._mdib.is_initialized:
             return
@@ -269,16 +267,12 @@ class ClientMdibMethods:
     def _on_episodic_alert_report(self, received_message_data):
         state_containers = self._msg_reader.read_episodic_alert_report(received_message_data)
         self._logger.debug('_on_episodic_alert_report: received {} alerts', len(state_containers))
-        self._mdib.process_incoming_alert_states(received_message_data.mdib_version,
-                                                 received_message_data.sequence_id,
-                                                 state_containers)
+        self._mdib.process_incoming_alert_states(received_message_data.mdib_version_group, state_containers)
 
     def _on_operational_state_report(self, received_message_data):
         state_containers = self._msg_reader.read_operational_state_report(received_message_data)
         self._logger.debug('_on_operational_state_report: received {} states', len(state_containers))
-        self._mdib.process_incoming_operational_states(received_message_data.mdib_version,
-                                                       received_message_data.sequence_id,
-                                                       state_containers)
+        self._mdib.process_incoming_operational_states(received_message_data.mdib_version_group, state_containers)
 
     def _on_waveform_report_profiled(self, report_node):
         self.prof.enable()
@@ -300,8 +294,7 @@ class ClientMdibMethods:
         self._logger.debug('_on_waveform_report: received {} states', len(state_containers))
         if self._calculate_wf_age_stats:
             self._process_age_statistics(state_containers)
-        accepted_states = self._mdib.process_incoming_waveform_states(received_message_data.mdib_version,
-                                                                      received_message_data.sequence_id,
+        accepted_states = self._mdib.process_incoming_waveform_states(received_message_data.mdib_version_group,
                                                                       state_containers)
 
         if accepted_states is None or len(accepted_states) == 0 or not self._mdib.is_initialized:
@@ -344,9 +337,7 @@ class ClientMdibMethods:
     def _on_episodic_context_report(self, received_message_data):
         state_containers = self._msg_reader.read_episodic_context_report(received_message_data)
         self._logger.debug('_on_episodic_context_report: received {} states', len(state_containers))
-        self._mdib.process_incoming_context_states(received_message_data.mdib_version,
-                                                   received_message_data.sequence_id,
-                                                   state_containers)
+        self._mdib.process_incoming_context_states(received_message_data.mdib_version_group, state_containers)
 
     def _on_episodic_component_report(self, received_message_data):
         """The EpisodicComponentReport is sent if at least one property of at least one component state has changed
@@ -355,9 +346,7 @@ class ClientMdibMethods:
         """
         state_containers = self._msg_reader.read_episodic_component_report(received_message_data)
         self._logger.debug('_on_episodic_component_report: received {} states', len(state_containers))
-        self._mdib.process_incoming_component_states(received_message_data.mdib_version,
-                                                     received_message_data.sequence_id,
-                                                     state_containers)
+        self._mdib.process_incoming_component_states(received_message_data.mdib_version_group, state_containers)
 
     def _on_description_modification_report(self, received_message_data):
         """The EpisodicComponentReport is sent if at least one property of at least one component state has changed
@@ -365,9 +354,7 @@ class ClientMdibMethods:
         Components are MDSs, VMDs, Channels. Not metrics and alarms
         """
         descriptors = self._msg_reader.read_description_modification_report(received_message_data)
-        self._mdib.process_incoming_descriptors(received_message_data.mdib_version,
-                                                received_message_data.sequence_id,
-                                                descriptors)
+        self._mdib.process_incoming_descriptors(received_message_data.mdib_version_group, descriptors)
 
     def _process_age_statistics(self, state_containers):
         for st in state_containers:

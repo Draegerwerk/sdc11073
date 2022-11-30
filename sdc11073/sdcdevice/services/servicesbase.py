@@ -149,7 +149,7 @@ class ServiceWithOperations(DPWSPortTypeImpl):
             invocation_state = InvocationState.WAIT
 
         response = self._sdc_device.msg_factory.mk_operation_response_message(
-            message_data, action, response_name, self._mdib.mdib_version, self._mdib.sequence_id,
+            message_data, action, response_name, self._mdib.mdib_version_group,
             transaction_id, invocation_state, invocation_error, error_text)
         return response
 

@@ -3,7 +3,7 @@ import traceback
 from collections import deque
 from dataclasses import dataclass
 from threading import Lock
-from typing import List
+from typing import List, Any
 from decimal import Decimal
 from enum import Enum
 
@@ -108,8 +108,7 @@ class ClientRtBuffer:
 
 @dataclass
 class _BufferedData:
-    mdib_version: int
-    sequence_id: str
+    mdib_version_group: Any  # MdibVersionGroup
     data: list
     handler: callable
 
@@ -198,16 +197,18 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self._logger.info('creating state containers...')
         self.add_state_containers(state_containers)
 
-        mdib_version = response.mdib_version
-        sequence_id = response.sequence_id
-        if mdib_version is not None:
-            self.mdib_version = mdib_version
-            self._logger.info('setting initial mdib version to {}', mdib_version)
+        mdib_version_group = response.mdib_version_group
+        if mdib_version_group.mdib_version is not None:
+            self.mdib_version = mdib_version_group.mdib_version
+            self._logger.info('setting initial mdib version to {}', mdib_version_group.mdib_version)
         else:
             self._logger.warn('found no mdib version in GetMdib response, assuming "0"')
             self.mdib_version = 0
-        self.sequence_id = sequence_id
-        self._logger.info('setting sequence Id to {}', sequence_id)
+        self.sequence_id = mdib_version_group.sequence_id
+        self._logger.info('setting initial sequence id to {}', mdib_version_group.sequence_id)
+        if mdib_version_group.instance_id != self.instance_id:
+            self.instance_id = mdib_version_group.instance_id
+        self._logger.info('setting initial instance id to {}', mdib_version_group.instance_id)
 
         # retrieve context states only if there were none in mdib
         if len(self.context_states.objects) == 0:
@@ -218,14 +219,13 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         # process buffered notifications
         with self._buffered_notifications_lock:
             for buffered_report in self._buffered_notifications:
-                buffered_report.handler(buffered_report.mdib_version,
-                                        buffered_report.sequence_id,
+                buffered_report.handler(buffered_report.mdib_version_group,
                                         buffered_report.data,
                                         is_buffered_report=True)
             del self._buffered_notifications[:]
             self._is_initialized = True
 
-    def _buffer_data(self, mdib_version, sequence_id, data, func):
+    def _buffer_data(self, mdib_version_group, data, func):
         """
         Write notification to a temporary buffer, as long as mdib is not initialized.
         :param mdib_version:
@@ -245,7 +245,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         # get lock and check if we need to write to buffer
         with self._buffered_notifications_lock:
             if not self._is_initialized:
-                self._buffered_notifications.append(_BufferedData(mdib_version, sequence_id, data, func))
+                self._buffered_notifications.append(_BufferedData(mdib_version_group, data, func))
                 return True
             return False
 
@@ -319,6 +319,14 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             self.sequence_id = sequence_id
         return self._sequence_id_changed_flag
 
+    def _update_from_mdib_version_group(self, mdib_version_group):
+        if mdib_version_group.mdib_version != self.mdib_version:
+            self.mdib_version = mdib_version_group.mdib_version
+        if mdib_version_group.sequence_id != self.sequence_id:
+            self.sequence_id = mdib_version_group.sequence_id
+        if mdib_version_group.instance_id != self.instance_id:
+            self.instance_id = mdib_version_group.instance_id
+
     def _wait_until_initialized(self, log_prefix):
         show_success_log = False
         started = time.monotonic()
@@ -368,63 +376,63 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 states_by_handle[state_container.DescriptorHandle] = state_container
         return states_by_handle
 
-    def process_incoming_metric_states(self, mdib_version, sequence_id, state_containers, is_buffered_report=False):
-        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
+    def process_incoming_metric_states(self, mdib_version_group, state_containers, is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version_group, state_containers,
                                                         self.process_incoming_metric_states):
             return
         states_by_handle = {}
         try:
             with self.mdib_lock:
-                if not self._can_accept_version(mdib_version, sequence_id, 'metric states'):
+                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id, 'metric states'):
                     return
-                self.mdib_version = mdib_version
+                self._update_from_mdib_version_group(mdib_version_group)
                 states_by_handle = self._process_incoming_states(
                     'metric states', state_containers, is_buffered_report)
         finally:
             self.metrics_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def process_incoming_alert_states(self, mdib_version, sequence_id, state_containers, is_buffered_report=False):
-        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
+    def process_incoming_alert_states(self, mdib_version_group, state_containers, is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version_group, state_containers,
                                                         self.process_incoming_alert_states):
             return
         states_by_handle = {}
         try:
             with self.mdib_lock:
-                if not self._can_accept_version(mdib_version, sequence_id, 'alert states'):
+                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id, 'alert states'):
                     return
-                self.mdib_version = mdib_version
+                self._update_from_mdib_version_group(mdib_version_group)
                 states_by_handle = self._process_incoming_states(
                     'alert states', state_containers, is_buffered_report)
         finally:
             self.alert_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def process_incoming_operational_states(self, mdib_version, sequence_id, state_containers,
+    def process_incoming_operational_states(self, mdib_version_group, state_containers,
                                             is_buffered_report=False):
-        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
+        if not is_buffered_report and self._buffer_data(mdib_version_group, state_containers,
                                                         self.process_incoming_operational_states):
             return
         states_by_handle = {}
 
         try:
             with self.mdib_lock:
-                if not self._can_accept_version(mdib_version, sequence_id, 'operational states'):
+                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id, 'operational states'):
                     return
-                self.mdib_version = mdib_version
+                self._update_from_mdib_version_group(mdib_version_group)
                 states_by_handle = self._process_incoming_states(
                     'operational states', state_containers, is_buffered_report)
         finally:
             self.operation_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def process_incoming_waveform_states(self, mdib_version, sequence_id, state_containers, is_buffered_report=False):
-        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
+    def process_incoming_waveform_states(self, mdib_version_group, state_containers, is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version_group, state_containers,
                                                         self.process_incoming_waveform_states):
             return
         states_by_handle = {}
         try:
             with self.mdib_lock:
-                if not self._can_accept_version(mdib_version, sequence_id, 'waveform states'):
+                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id, 'waveform states'):
                     return
-                self.mdib_version = mdib_version
+                self._update_from_mdib_version_group(mdib_version_group)
                 states_by_handle = self._process_incoming_states(
                     'waveform states', state_containers, is_buffered_report)
 
@@ -448,38 +456,38 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         return states_by_handle
 
 
-    def process_incoming_context_states(self, mdib_version, sequence_id, state_containers, is_buffered_report=False):
-        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
+    def process_incoming_context_states(self, mdib_version_group, state_containers, is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version_group, state_containers,
                                                         self.process_incoming_context_states):
             return
 
         try:
             with self.mdib_lock:
-                if not self._can_accept_version(mdib_version, sequence_id, 'context states'):
+                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id, 'context states'):
                     return
-                self.mdib_version = mdib_version
+                self._update_from_mdib_version_group(mdib_version_group)
                 states_by_handle = self._process_incoming_states(
                     'context states', state_containers, is_buffered_report)
         finally:
             self.context_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def process_incoming_component_states(self, mdib_version, sequence_id, state_containers, is_buffered_report=False):
-        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, state_containers,
+    def process_incoming_component_states(self, mdib_version_group, state_containers, is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version_group, state_containers,
                                                         self.process_incoming_component_states):
             return
 
         try:
             with self.mdib_lock:
-                if not self._can_accept_version(mdib_version, sequence_id, 'component states'):
+                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id, 'component states'):
                     return
-                self.mdib_version = mdib_version
+                self._update_from_mdib_version_group(mdib_version_group)
                 states_by_handle = self._process_incoming_states(
                     'component states', state_containers, is_buffered_report)
         finally:
             self.component_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def process_incoming_descriptors(self, mdib_version, sequence_id, descriptions, is_buffered_report=False):
-        if not is_buffered_report and self._buffer_data(mdib_version, sequence_id, descriptions,
+    def process_incoming_descriptors(self, mdib_version_group, descriptions, is_buffered_report=False):
+        if not is_buffered_report and self._buffer_data(mdib_version_group, descriptions,
                                                         self.process_incoming_descriptors):
             return
 
@@ -491,9 +499,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
         try:
             with self.mdib_lock:
-                if not self._can_accept_version(mdib_version, sequence_id, 'descriptors'):
+                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id, 'descriptors'):
                     return
-                self.mdib_version = mdib_version
+                self._update_from_mdib_version_group(mdib_version_group)
 
                 new_descriptor_containers = descriptions.create.descriptors
                 new_state_containers = descriptions.create.states

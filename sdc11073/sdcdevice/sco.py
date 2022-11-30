@@ -7,9 +7,7 @@ A remote control command is executed async. The respone to such soap request con
 The progress of the transaction is reported with an OperationInvokedReport.
 A client must subscribe to the OperationInvokeReport Event of the 'Set' service, otherwise it would not get informed about progress.
 """
-import inspect
 import queue
-import sys
 import threading
 import time
 import traceback
@@ -214,28 +212,28 @@ class _OperationsWorker(threading.Thread):
                     # duplicate the WAIT response to the operation request as notification. Standard requires this.
                     self._subscriptions_mgr.notify_operation(
                         operation, tr_id, InvocationState.WAIT,
-                        self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper)
+                        self._mdib.mdib_version_group, self._mdib.nsmapper)
                     time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
                     self._subscriptions_mgr.notify_operation(
                         operation, tr_id, InvocationState.START,
-                        self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper)
+                        self._mdib.mdib_version_group, self._mdib.nsmapper)
                     try:
                         operation.execute_operation(request, operation_request)
                         self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
                                           operation.handle)
                         self._subscriptions_mgr.notify_operation(
                             operation, tr_id, InvocationState.FINISHED,
-                            self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper)
+                            self._mdib.mdib_version_group, self._mdib.nsmapper)
                     except Exception as ex:
                         self._logger.error('{}: error executing operation "{}": {}', operation.__class__.__name__,
                                           operation.handle, traceback.format_exc())
                         self._subscriptions_mgr.notify_operation(
                             operation, tr_id, InvocationState.FAILED,
-                            self._mdib.mdib_version, self._mdib.sequence_id, self._mdib.nsmapper,
+                            self._mdib.mdib_version_group, self._mdib.nsmapper,
                             error='Oth', error_message=repr(ex))
             except Exception:
-                self._logger.error('{}: unexpected error while handling operation "{}": {}',
-                                   operation.__class__.__name__, operation.handle, traceback.format_exc())
+                self._logger.error('{}: unexpected error while handling operation: {}',
+                                   self.__class__.__name__, traceback.format_exc())
 
     def stop(self):
         self._operations_queue.put('stop_sco')  # a dummy request to stop the thread

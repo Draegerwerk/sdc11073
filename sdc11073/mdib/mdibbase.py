@@ -3,7 +3,7 @@ from __future__ import annotations
 import traceback
 from dataclasses import dataclass
 from threading import Lock
-from typing import Type, List, TYPE_CHECKING
+from typing import Type, List, TYPE_CHECKING, Union
 
 from lxml import etree as etree_
 
@@ -17,6 +17,17 @@ if TYPE_CHECKING:
     from .descriptorcontainers import AbstractMetricDescriptorContainer, AbstractDescriptorContainer
     from .statecontainers import AbstractStateContainer
     from ..pmtypes import CodedValue, Coding
+
+
+@dataclass
+class MdibVersionGroup:
+    mdib_version: int
+    sequence_id: str
+    instance_id: Union[int, None]
+
+    @classmethod
+    def from_mdib(cls, mdib):
+        return cls(mdib.mdib_version, mdib.sequence_id, mdib.instance_id)
 
 
 class _MultikeyWithVersionLookup(multikey.MultiKeyLookup):
@@ -172,6 +183,7 @@ class MdibContainer:
     description_modifications = properties.ObservableProperty(fire_only_on_changed_value=False)
     operation_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
     sequence_id = properties.ObservableProperty()
+    instance_id = properties.ObservableProperty()
 
     def __init__(self, sdc_definitions: Type[BaseDefinitions]):
         """
@@ -184,7 +196,7 @@ class MdibContainer:
         self.nsmapper = sdc_definitions.data_model.ns_helper
         self.mdib_version = 0
         self.sequence_id = ''  # needs to be set to a reasonable value by derived class
-        self.instance_id = 0
+        self.instance_id = None  # None or an unsigned int
         self.log_prefix = ''
 
         self.descriptions = DescriptorsLookup()
@@ -211,6 +223,10 @@ class MdibContainer:
     @property
     def logger(self):
         return self._logger
+
+    @property
+    def mdib_version_group(self):
+        return MdibVersionGroup(self.mdib_version, self.sequence_id, self.instance_id)
 
     def add_description_containers(self, description_containers):
         """ init self.descriptions with provided descriptors
@@ -327,7 +343,7 @@ class MdibContainer:
         """
         with self.mdib_lock:
             node = self._reconstruct_md_description()
-            return node, self.mdib_version
+            return node, self.mdib_version_group
 
     def reconstruct_mdib(self):
         """build dom tree from current data
@@ -335,21 +351,13 @@ class MdibContainer:
         @return: an etree_ node
         """
         with self.mdib_lock:
-            return self._reconstruct_mdib(add_context_states=False)
+            return self._reconstruct_mdib(add_context_states=False), self.mdib_version_group
 
     def reconstruct_mdib_with_context_states(self):
         """ this method includes the context states in mdib tree.
         """
         with self.mdib_lock:
-            return self._reconstruct_mdib(add_context_states=True)
-
-    # def node_to_string(self, etree_node, pretty_print=False, xml_declaration=True, encoding='utf-8'):
-    #     """Special toString converter.
-    #     @return: a string
-    #     """
-    #     mdib_string = etree_.tostring(etree_node, pretty_print=pretty_print, xml_declaration=xml_declaration,
-    #                                   encoding=encoding)
-    #     return mdib_string
+            return self._reconstruct_mdib(add_context_states=True), self.mdib_version_group
 
     def _get_child_descriptors_by_code(self, parent_handle, code):
         descriptors = self.descriptions.parent_handle.get(parent_handle, [])
@@ -525,4 +533,4 @@ class MdibContainer:
     def get_context_entity(self, handle: str) -> MultiStateEntity:
         descr = self.descriptions.handle.get_one(handle)
         states = self.context_states.descriptorHandle.get(handle)
-        return Entity(descr, states)
+        return MultiStateEntity(descr, states)
