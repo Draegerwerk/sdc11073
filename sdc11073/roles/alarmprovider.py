@@ -201,7 +201,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             all_tech_states = [_get_alert_state(d.Handle) for d in all_tech_descr]
             all_tech_states = [s for s in all_tech_states if s is not None]
             all_present_tech_states = [s for s in all_tech_states if s.Presence]
-            # select all state containers with physiolocical alarms present
+            # select all state containers with physiological alarms present
             all_phys_descr = [d for d in all_alert_condition_descr if
                               d.Kind == pm_types.AlertConditionKind.PHYSIOLOGICAL]
             all_phys_states = [_get_alert_state(d.Handle) for d in all_phys_descr]
