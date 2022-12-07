@@ -154,8 +154,8 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         # find all alert systems with changed states
         alert_system_states = self._find_alert_systems_with_modifications(transaction, changed_alert_conditions)
         if alert_system_states:
-            self._update_alert_system_states(mdib, transaction,
-                                             alert_system_states)  # add found alert system states to transaction
+            # add found alert system states to transaction
+            self._update_alert_system_states(mdib, transaction, alert_system_states, is_self_check=False)
 
     @staticmethod
     def _find_alert_systems_with_modifications(transaction, changed_alert_conditions):
@@ -173,9 +173,15 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         return alert_system_states
 
     @staticmethod
-    def _update_alert_system_states(mdib, transaction, alert_system_states):
-        """update alert system states and add them to transaction
+    def _update_alert_system_states(mdib, transaction, alert_system_states, is_self_check=True):
         """
+         update alert system states
+         :param mdib:
+         :param transaction:
+         :param alert_system_states: list of AlertSystemStateContainer instances
+         :param is_self_check: if True, LastSelfCheck and SelfCheckCount are set
+         :return:
+         """
         pm_types = mdib.data_model.pm_types
 
         def _get_alert_state(descriptor_handle):
@@ -210,9 +216,9 @@ class GenericAlarmProvider(providerbase.ProviderRole):
 
             state.PresentTechnicalAlarmConditions = [s.DescriptorHandle for s in all_present_tech_states]
             state.PresentPhysiologicalAlarmConditions = [s.DescriptorHandle for s in all_present_phys_states]
-
-            state.LastSelfCheck = time.time()
-            state.SelfCheckCount = 1 if state.SelfCheckCount is None else state.SelfCheckCount + 1
+            if is_self_check:
+                state.LastSelfCheck = time.time()
+                state.SelfCheckCount = 1 if state.SelfCheckCount is None else state.SelfCheckCount + 1
 
     @staticmethod
     def _update_alert_signals(changed_alert_condition, mdib, transaction):
