@@ -567,7 +567,7 @@ class Measurement(PropertyBasedPMType):
 
 
 class AllowedValue(PropertyBasedPMType):
-    Value = cp.NodeTextProperty([namespaces.domTag('Value')])
+    Value = cp.NodeTextProperty([namespaces.domTag('Value')], isOptional=False)
     Type = cp.SubElementProperty([namespaces.domTag('Type')], valueClass=CodedValue)
     _props=['Value', 'Type']
     typeCoding = Type
