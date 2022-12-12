@@ -116,6 +116,12 @@ MdibVersion="5795" SequenceId="urn:uuid:4ed313b2-f925-418a-8476-6f3b4d06ee3e" In
 								<ConceptDescription Lang="en-US">no unit</ConceptDescription>
 							</Unit>
 							<AllowedValue>
+								<Value></Value>
+								<Type Code="192834">
+									<ConceptDescription Lang="en-US">empty string!</ConceptDescription>
+								</Type>
+							</AllowedValue>
+							<AllowedValue>
 								<Value>ON</Value>
 								<Type Code="192834">
 									<ConceptDescription Lang="en-US">ON</ConceptDescription>

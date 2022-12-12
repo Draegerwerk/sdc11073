@@ -132,15 +132,22 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         # find all alert systems with changed states
         alertSystemStates = self._findAlertSystemsWithModifications( mdib, transaction)
         if alertSystemStates:
-            self._updateAlertSystemStates(mdib, transaction, alertSystemStates) # add found alert system states to transaction
+            # add found alert system states to transaction. This is not part of cyclich self check
+            self._updateAlertSystemStates(mdib, transaction, alertSystemStates, is_self_check=False)
 
         # change AlertSignal Settings in order to be compliant with changed Alert Conditions
         changedAlertConditions = self._getChangedAlertConditionStates(transaction)
         for changedAlertCondition in changedAlertConditions:
             self._updateAlertSignals(changedAlertCondition, mdib, transaction)
 
-    def _updateAlertSystemStates(self, mdib, transaction, alertSystemStates):
-        """update alert system states and add them to transaction
+    def _updateAlertSystemStates(self, mdib, transaction, alertSystemStates, is_self_check=True):
+        """
+        update alert system states
+        :param mdib:
+        :param transaction:
+        :param alertSystemStates: list of AlertSystemStateContainer instances
+        :param is_self_check: if True, LastSelfCheck and SelfCheckCount are set
+        :return:
         """
         def _getAlertState(descriptorHandle):
             alertState = None
@@ -153,7 +160,9 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             if alertState is None:
                 raise RuntimeError('there is no alert state for {}'.format(descriptorHandle))
             return alertState
+
         for st in alertSystemStates:
+            # find all alert condition descriptors of alert system
             all_child_descriptors = mdib.descriptions.parentHandle.get(st.descriptorHandle, list())
             all_child_descriptors.extend([i.new for i in transaction.descriptorUpdates.values() if i.new.parentHandle == st.descriptorHandle])
             all_alert_condition_descr = [d for d in all_child_descriptors if hasattr(d, 'Kind')]
@@ -162,7 +171,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             all_tech_states = [_getAlertState(d.handle) for d in all_tech_descr]
             all_tech_states = [s for s in all_tech_states if s is not None]
             all_present_tech_states = [s for s in all_tech_states if s.Presence]
-            # select all state containers with physiolocical alarms present
+            # select all state containers with physiological alarms present
             all_phys_descr = [ d for d in all_alert_condition_descr if d.Kind == AlertConditionKind.PHYSIOLOGICAL]
             all_phys_states = [_getAlertState(d.handle) for d in all_phys_descr]
             all_phys_states = [ s for s in all_phys_states if s is not None]
@@ -170,9 +179,9 @@ class GenericAlarmProvider(providerbase.ProviderRole):
 
             st.PresentTechnicalAlarmConditions = [s.descriptorHandle for s in all_present_tech_states]
             st.PresentPhysiologicalAlarmConditions = [s.descriptorHandle for s in all_present_phys_states]
-
-            st.LastSelfCheck = time.time()
-            st.SelfCheckCount = 1 if st.SelfCheckCount is None else st.SelfCheckCount + 1
+            if is_self_check:
+                st.LastSelfCheck = time.time()
+                st.SelfCheckCount = 1 if st.SelfCheckCount is None else st.SelfCheckCount + 1
 
     def _updateAlertSignals(self, changedAlertCondition, mdib, transaction):
         """ Handle alert signals for a changed alert condition.
