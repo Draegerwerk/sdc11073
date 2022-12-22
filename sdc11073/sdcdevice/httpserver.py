@@ -211,7 +211,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
     def do_GET(self):
         parsedPath = urllib.parse.urlparse(self.path)
         try:
-            commlog.defaultLogger.logSoapReqIn('', 'GET') # GET has no content, log it to document duration of processing
+            commlog.defaultLogger.logSoapReqIn(b'', 'GET')  # GET has no content, log it to document duration of processing
             response_string = self.server.dispatcher.on_get(self.path, self.headers)
             self.send_response(200, 'Ok')
             response_string = self._compressIfRequired(response_string)
