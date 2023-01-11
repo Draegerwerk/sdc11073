@@ -2,12 +2,14 @@ from collections import namedtuple
 
 from lxml import etree as etree_
 
-from ..hostedserviceimpl import WSP_NS, WSDL_S12
 from ... import loghelper
 from ...msgtypes import InvocationState, InvocationError
 from ...namespaces import default_ns_helper as ns_hlp
 
 msg_prefix = ns_hlp.MSG.prefix
+
+WSP_NS = ns_hlp.WSP.namespace
+WSDL_S12 = ns_hlp.WSDL12.namespace  # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
 
 _wsdl_ns = ns_hlp.WSDL.namespace
 _wsdl_message = etree_.QName(_wsdl_ns, 'message')
@@ -21,7 +23,7 @@ WSDLOperationBinding = namedtuple('WSDLOperationBinding', 'name input output')
 
 
 class DPWSPortTypeImpl:
-    """ Base class of all PortType implementations. Its resposibilities are:
+    """ Base class of all PortType implementations. Its responsibilities are:
         - handling of messages
         - creation of wsdl information.
         Handlers are registered in the hosting service instance. """
@@ -32,12 +34,15 @@ class DPWSPortTypeImpl:
         """
         :param port_type_string: port type without namespace, e.g 'Get'
         :param sdc_device:
+        :param log_prefix:
         """
         self.port_type_string = port_type_string
         self._sdc_device = sdc_device
         self._mdib = sdc_device.mdib
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
         self.hosting_service = None  # the parent
+        # calculate offered subscriptions from WSDLOperationBindings
+        self.offered_subscriptions = self._mk_offered_subscriptions()
 
     def register_handlers(self, hosting_service):
         """Register callbacks in hosting_service"""
@@ -122,6 +127,17 @@ class DPWSPortTypeImpl:
                 wsdl_output = etree_.SubElement(wsdl_operation, etree_.QName(_wsdl_ns, 'output'))
                 etree_.SubElement(wsdl_output, etree_.QName(WSDL_S12, 'body'), attrib={'use': wsdl_op.output})
 
+    def _mk_offered_subscriptions(self) -> list:
+        """ Takes action strings from sdc_definitions.Actions.
+        The name of the WSDLOperationBinding is used to reference the action string."""
+        actions = self._sdc_device.mdib.sdc_definitions.Actions
+        offered_subscriptions = []
+        for bdg in self.WSDLOperationBindings:
+            if bdg.input is None:
+                action_string = getattr(actions, bdg.name)
+                offered_subscriptions.append(action_string)
+        return offered_subscriptions
+
 
 class ServiceWithOperations(DPWSPortTypeImpl):
     def _handle_operation_request(self, message_data, response_name, operation_request):
@@ -199,4 +215,5 @@ def _add_policy_dpws_profile(parent_node):
     """
     wsp_policy_node = etree_.SubElement(parent_node, etree_.QName(WSP_NS, 'Policy'), attrib=None)
     _ = etree_.SubElement(wsp_policy_node, ns_hlp.dpwsTag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
-    _ = etree_.SubElement(wsp_policy_node, ns_hlp.mdpwsTag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
+    _ = etree_.SubElement(wsp_policy_node, ns_hlp.mdpwsTag('Profile'),
+                          attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})

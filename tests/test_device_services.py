@@ -40,7 +40,7 @@ class TestDeviceServices(unittest.TestCase):
         self.wsd.stop()
         print('############### tearDown {} done ##############'.format(self._testMethodName))
 
-    def _mkGetRequest(self, sdc_device, porttype, method, path) -> CreatedMessage:
+    def _mk_get_request(self, sdc_device, porttype, method, path) -> CreatedMessage:
         # if sdc_device is self.sdc_device:
         #     name_space = sdc_device.mdib.data_model.ns_helper.SDC.namespace # sdc_device.mdib.sdc_definitions.DPWS_SDCNamespace
         # else:
@@ -62,7 +62,7 @@ class TestDeviceServices(unittest.TestCase):
         get_service = self.sdc_device.hosted_services.get_service
         # path = get_service.hosting_service.path_element
         path = self.sdc_device.path_prefix + '/Get'
-        get_env = self._mkGetRequest(self.sdc_device, get_service.port_type_string, 'GetMdib', path)
+        get_env = self._mk_get_request(self.sdc_device, get_service.port_type_string, 'GetMdib', path)
         http_header = {}
         response_string = dispatcher.on_post(
             RequestData(http_header, path, 'foo', self.sdc_device.msg_factory.serialize_message(get_env)))
@@ -70,7 +70,7 @@ class TestDeviceServices(unittest.TestCase):
 
         context_service = self.sdc_device.hosted_services.context_service
         path = self.sdc_device.path_prefix + '/StateEvent'
-        get_env = self._mkGetRequest(self.sdc_device, context_service.port_type_string, 'GetContextStates',
+        get_env = self._mk_get_request(self.sdc_device, context_service.port_type_string, 'GetContextStates',
                                      path)
         http_header = {}
         response_string = dispatcher.on_post(
@@ -81,7 +81,7 @@ class TestDeviceServices(unittest.TestCase):
     def test_getMdib(self):
         get_service = self.sdc_device.hosted_services.get_service
         path = '123'
-        get_env = self._mkGetRequest(self.sdc_device, get_service.port_type_string, 'GetMdib', path)
+        get_env = self._mk_get_request(self.sdc_device, get_service.port_type_string, 'GetMdib', path)
         http_header = {}
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(
@@ -94,7 +94,7 @@ class TestDeviceServices(unittest.TestCase):
     def test_getMdState(self):
         get_service = self.sdc_device.hosted_services.get_service
         path = '123'
-        get_env = self._mkGetRequest(self.sdc_device, get_service.port_type_string, 'GetMdState', path)
+        get_env = self._mk_get_request(self.sdc_device, get_service.port_type_string, 'GetMdState', path)
         http_header = {}
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(
@@ -107,7 +107,7 @@ class TestDeviceServices(unittest.TestCase):
     def test_getMdDescription(self):
         get_service = self.sdc_device.hosted_services.get_service
         path = '123'
-        get_env = self._mkGetRequest(self.sdc_device, get_service.port_type_string, 'GetMdDescription', path)
+        get_env = self._mk_get_request(self.sdc_device, get_service.port_type_string, 'GetMdDescription', path)
         http_header = {}
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(
@@ -123,7 +123,7 @@ class TestDeviceServices(unittest.TestCase):
         with self.sdc_device.mdib.transaction_manager() as tr:
             alarmConditionDescriptor = tr.get_descriptor('0xD3C00109')
             alarmConditionDescriptor.Priority = AlertConditionPriority.LOW
-        get_env = self._mkGetRequest(self.sdc_device, get_service.port_type_string, 'GetMdDescription', path)
+        get_env = self._mk_get_request(self.sdc_device, get_service.port_type_string, 'GetMdDescription', path)
         http_header = {}
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(
@@ -141,7 +141,7 @@ class TestDeviceServices(unittest.TestCase):
         self.sdc_device.set_location(loc)
         context_service = self.sdc_device.hosted_services.context_service
         path = '123'
-        get_env = self._mkGetRequest(self.sdc_device, context_service.port_type_string, 'GetContextStates',
+        get_env = self._mk_get_request(self.sdc_device, context_service.port_type_string, 'GetContextStates',
                                      path)
         http_header = {}
         request = RequestData(http_header, path, 'foo')

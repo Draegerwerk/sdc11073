@@ -41,6 +41,8 @@ class PrefixesEnum(PrefixNamespace, Enum):
     XML = PrefixNamespace('xml', 'http://www.w3.org/XML/1998/namespace')
     WXF = PrefixNamespace('wxf', 'http://schemas.xmlsoap.org/ws/2004/09/transfer')  # ws-transfer
     WSDL = PrefixNamespace('wsdl', 'http://schemas.xmlsoap.org/wsdl/')
+    WSDL12 = PrefixNamespace('wsdl12', 'http://schemas.xmlsoap.org/wsdl/soap12/')  # old soap 12 namespace, used in wsdl 1.1. only for wsdl
+    WSP = PrefixNamespace('wsp', 'http://www.w3.org/ns/ws-policy')
 
 
 class NamespaceHelper:
@@ -167,6 +169,20 @@ class NamespaceHelper:
 
     def wsdlTag(self, tag_name) -> etree_.QName:
         return self.WSDL.tag(tag_name)
+
+    @property
+    def WSDL12(self) -> PrefixNamespace:
+        return self._lookup['WSDL12']
+
+    def wsdl12Tag(self, tag_name) -> etree_.QName:
+        return self.WSDL12.tag(tag_name)
+
+    @property
+    def WSP(self) -> PrefixNamespace:
+        return self._lookup['WSP']
+
+    def wspTag(self, tag_name) -> etree_.QName:
+        return self.WSP.tag(tag_name)
 
     @property
     def WXF(self) -> PrefixNamespace:

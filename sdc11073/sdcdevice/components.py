@@ -1,30 +1,28 @@
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from typing import Type, Callable, List, Any, TYPE_CHECKING
 
-
-from ..pysoap.soapclient import SoapClient
-from ..pysoap.soapclient_async import SoapClientAsync
-from ..pysoap.msgfactory import MessageFactoryDevice
-from ..pysoap.msgreader import MessageReaderDevice, MessageReaderClient
-from ..roles.product import MinimalProduct
-
-from .sdc_handlers import mk_scopes, mk_all_services
-from .sco import ScoOperationsRegistry
+from .hostedserviceimpl import by_msg_tag, mk_all_services
 from .operations import get_operation_class
+from .sco import ScoOperationsRegistry
+from .scopesfactory import mk_scopes
+from .services.containmenttreeserviceimpl import ContainmentTreeService
+from .services.contextserviceimpl import ContextService
+from .services.descriptioneventserviceimpl import DescriptionEventService
+from .services.getserviceimpl import GetService
+from .services.localizationservice import LocalizationService
+from .services.setserviceimpl import SetService
+from .services.stateeventserviceimpl import StateEventService
+from .services.waveformserviceimpl import WaveformService
 from .subscriptionmgr import SubscriptionsManagerPath
 from .subscriptionmgr_async import SubscriptionsManagerPathAsync
-from .hostedserviceimpl import by_msg_tag
-from .services.waveformserviceimpl import WaveformService
-from .services.descriptioneventserviceimpl import  DescriptionEventService
-from .services.contextserviceimpl import ContextService
-from .services.getserviceimpl import GetService
-from .services.setserviceimpl import SetService
-from .services.containmenttreeserviceimpl import ContainmentTreeService
-from .services.stateeventserviceimpl import StateEventService
-from .services.localizationservice import LocalizationService
-
+from ..pysoap.msgfactory import MessageFactoryDevice
+from ..pysoap.msgreader import MessageReaderDevice, MessageReaderClient
+from ..pysoap.soapclient import SoapClient
+from ..pysoap.soapclient_async import SoapClientAsync
+from ..roles.product import MinimalProduct
 
 # pylint: disable=cyclic-import
 if TYPE_CHECKING:
@@ -32,11 +30,13 @@ if TYPE_CHECKING:
     from ..wsdiscovery import Scope
     from ..pysoap.msgfactory import MessageFactory
     from ..pysoap.msgreader import MessageReader
-    from ..sdcdevice.sdc_handlers import HostedServices
+    from ..sdcdevice.hostedserviceimpl import HostedServices
     from .sco import AbstractScoOperationsRegistry
     from .subscriptionmgr import SubscriptionsManagerBase
     from ..mdib.devicemdib import DeviceMdibContainer
     from ..httprequesthandler import RequestData
+
+
 # pylint: enable=cyclic-import
 
 
@@ -46,7 +46,7 @@ class SdcDeviceComponents:
     soap_client_class: Type[Any] = None
     msg_factory_class: Type[MessageFactory] = None
     msg_reader_class: Type[MessageReader] = None
-    client_msg_reader_class: Type[MessageReader] = None   # the corresponding reader for client
+    client_msg_reader_class: Type[MessageReader] = None  # the corresponding reader for client
     xml_reader_class: Type[MessageReader] = None  # needed to read xml based mdib files
     services_factory: Callable[[Any, dict, Any], HostedServices] = None
     operation_cls_getter: Callable[[QName], type] = None
@@ -55,7 +55,7 @@ class SdcDeviceComponents:
     role_provider_class: type = None
     scopes_factory: Callable[[DeviceMdibContainer], List[Scope]] = None
     msg_dispatch_method: Callable[[RequestData], str] = None
-    service_handlers: dict = None
+    hosted_services: dict = None
 
     def merge(self, other):
         def _merge(attr_name):
@@ -71,13 +71,12 @@ class SdcDeviceComponents:
         _merge('subscriptions_manager_class')
         _merge('role_provider_class')
         _merge('scopes_factory')
-        if other.service_handlers:
-            for key, value in other.service_handlers.items():
-                self.service_handlers[key] = value
+        if other.hosted_services is not None:
+            self.hosted_services = other.hosted_services
 
 
 default_sdc_device_components_sync = SdcDeviceComponents(
-    soap_client_class = SoapClient,
+    soap_client_class=SoapClient,
     msg_factory_class=MessageFactoryDevice,
     msg_reader_class=MessageReaderDevice,
     client_msg_reader_class=MessageReaderClient,
@@ -89,37 +88,21 @@ default_sdc_device_components_sync = SdcDeviceComponents(
     role_provider_class=MinimalProduct,
     scopes_factory=mk_scopes,
     msg_dispatch_method=by_msg_tag,
-    service_handlers={'ContainmentTreeService': ContainmentTreeService,
-                      'GetService': GetService,
-                      'StateEventService': StateEventService,
-                      'ContextService': ContextService,
-                      'WaveformService': WaveformService,
-                      'SetService': SetService,
-                      'DescriptionEventService': DescriptionEventService,
-                      'LocalizationService': LocalizationService}
+    # this defines the structure of the services: top dict are the names of the dpws hosts,
+    # 2nd level the hosted services with name and dpws service class
+    hosted_services={'Get': {'GetService': GetService,
+                             'LocalizationService': LocalizationService},
+                     'StateEvent': {'StateEventService': StateEventService,
+                                    'ContextService': ContextService,
+                                    'DescriptionEventService': DescriptionEventService,
+                                    'WaveformService': WaveformService},
+                     'Set': {'SetService': SetService},
+                     'ContainmentTree': {'ContainmentTreeService': ContainmentTreeService}},
 )
 
-default_sdc_device_components_async = SdcDeviceComponents(
-    soap_client_class = SoapClientAsync,
-    msg_factory_class=MessageFactoryDevice,
-    msg_reader_class=MessageReaderDevice,
-    client_msg_reader_class=MessageReaderClient,
-    xml_reader_class=MessageReaderDevice,
-    services_factory=mk_all_services,
-    operation_cls_getter=get_operation_class,
-    sco_operations_registry_class=ScoOperationsRegistry,
-    subscriptions_manager_class=SubscriptionsManagerPathAsync,
-    role_provider_class=MinimalProduct,
-    scopes_factory=mk_scopes,
-    msg_dispatch_method=by_msg_tag,
-    service_handlers={'ContainmentTreeService': ContainmentTreeService,
-                      'GetService': GetService,
-                      'StateEventService': StateEventService,
-                      'ContextService': ContextService,
-                      'WaveformService': WaveformService,
-                      'SetService': SetService,
-                      'DescriptionEventService': DescriptionEventService,
-                      'LocalizationService': LocalizationService}
-)
+# async variant
+default_sdc_device_components_async = copy.deepcopy(default_sdc_device_components_sync)
+default_sdc_device_components_async.soap_client_class = SoapClientAsync
+default_sdc_device_components_async.subscriptions_manager_class = SubscriptionsManagerPathAsync
 
 default_sdc_device_components = default_sdc_device_components_sync

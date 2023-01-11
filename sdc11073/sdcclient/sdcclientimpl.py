@@ -456,11 +456,16 @@ class SdcClient:
             h_descr.read_metadata(soap_client)
             for _, porttype in ns_types:
                 hosted_service_client = self._mk_hosted_service_client(porttype, soap_client, hosted)
-                self._service_clients[porttype] = hosted_service_client
-                h_descr.services[porttype] = hosted_service_client
+                if hosted_service_client is not None:
+                    self._service_clients[porttype] = hosted_service_client
+                    h_descr.services[porttype] = hosted_service_client
+                else:
+                    self._logger.warning('Unknown port type {}', porttype)
 
     def _mk_hosted_service_client(self, port_type, soap_client, hosted):
-        cls = self._components.service_handlers[port_type]
+        cls = self._components.service_handlers.get(port_type)
+        if cls is None:
+            return
         return cls(soap_client, self._msg_factory, hosted, port_type, self.sdc_definitions, self.log_prefix)
 
     def _start_event_sink(self, async_dispatch):

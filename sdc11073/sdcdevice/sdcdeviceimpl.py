@@ -131,9 +131,7 @@ class SdcDevice:
                                             log_prefix=self._log_prefix)
 
         services_factory = self._components.services_factory
-        self.hosted_services = services_factory(self,
-                                                self._components,
-                                                self._mdib.sdc_definitions)
+        self.hosted_services = services_factory(self, self._components)
         for dpws_service in self.hosted_services.dpws_hosted_services:
             self._hosted_service_dispatcher.register_hosted_service(dpws_service)
         self.product_roles = self._components.role_provider_class(self._mdib,

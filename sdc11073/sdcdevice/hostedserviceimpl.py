@@ -1,6 +1,10 @@
 import time
 from io import BytesIO
 
+from dataclasses import dataclass
+from typing import Iterable
+from typing import Type
+
 from lxml import etree as etree_
 
 from .. import loghelper
@@ -9,16 +13,17 @@ from ..dpws import HostedServiceType
 from ..httprequesthandler import InvalidActionError
 from ..namespaces import default_ns_helper as ns_hlp
 from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
+from .services.servicesbase import DPWSPortTypeImpl
 
 _wsdl_ns = ns_hlp.WSDL.namespace
 
-WSP_NS = 'http://www.w3.org/ns/ws-policy'
-_WSP_PREFIX = 'wsp'
+WSP_NS =  ns_hlp.WSP.namespace
+_WSP_PREFIX = ns_hlp.WSP.prefix
 
 # DiscoveryType, only used in SDC
 _DISCOVERY_TYPE_NS = "http://standards.ieee.org/downloads/11073/11073-10207-2017"
 
-WSDL_S12 = "http://schemas.xmlsoap.org/wsdl/soap12/"  # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
+WSDL_S12 = ns_hlp.WSDL12.namespace # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
 
 
 def by_action(request_data):
@@ -145,15 +150,18 @@ class EventService(SoapMessageHandler):
 class DPWSHostedService(EventService):
     """ Container for DPWSPortTypeImpl instances"""
 
-    def __init__(self, sdc_device, path_element, get_key_method, port_type_impls, offered_subscriptions):
+    def __init__(self, sdc_device, path_element, get_key_method, port_type_impls):
         """
 
         :param sdc_device:
         :param path_element:
         :param port_type_impls: list of DPWSPortTypeImpl
-        :param offered_subscriptions: list of action strings
         """
+        offered_subscriptions = []
+        for p in port_type_impls:
+            offered_subscriptions.extend(p.offered_subscriptions)
         super().__init__(sdc_device, path_element, get_key_method, offered_subscriptions)
+
         self._sdc_device = sdc_device
         self._mdib = sdc_device.mdib
         self._port_type_impls = port_type_impls
@@ -255,3 +263,49 @@ class DPWSHostedService(EventService):
     def __repr__(self):
         return f'{self.__class__.__name__} path={self.path_element} ' \
                f'Porttypes={[dp.port_type_string for dp in self._port_type_impls]}'
+
+
+@dataclass(frozen=True)
+class HostedServices:
+    dpws_hosted_services: Iterable[DPWSHostedService]
+    get_service: Type[DPWSPortTypeImpl]
+    set_service: Type[DPWSPortTypeImpl] = None
+    context_service: Type[DPWSPortTypeImpl] = None
+    description_event_service: Type[DPWSPortTypeImpl] = None
+    state_event_service: Type[DPWSPortTypeImpl] = None
+    waveform_service: Type[DPWSPortTypeImpl] = None
+    containment_tree_service: Type[DPWSPortTypeImpl] = None
+    localization_service: Type[DPWSPortTypeImpl] = None
+
+
+def mk_dpws_hosts(sdc_device, components, dpws_hosted_service_cls):
+    dpws_services = []
+    services_by_name = {}
+    for host_name, service_cls_dict in components.hosted_services.items():
+        services = []
+        for service_name, service_cls in service_cls_dict.items():
+            service = service_cls(service_name, sdc_device)
+            services.append(service)
+            services_by_name[service_name] = service
+
+        hosted = dpws_hosted_service_cls(sdc_device, host_name,
+                                         components.msg_dispatch_method,
+                                         services)
+        dpws_services.append(hosted)
+    return dpws_services, services_by_name
+
+
+def mk_all_services(sdc_device, components) -> HostedServices:
+    # register all services with their endpoint references acc. to structure in components
+    dpws_services, services_by_name = mk_dpws_hosts(sdc_device, components, DPWSHostedService)
+    hosted_services = HostedServices(dpws_services,
+                                     services_by_name['GetService'],
+                                     set_service=services_by_name.get('SetService'),
+                                     context_service=services_by_name.get('ContextService'),
+                                     description_event_service=services_by_name.get('DescriptionEventService'),
+                                     state_event_service=services_by_name.get('StateEventService'),
+                                     waveform_service=services_by_name.get('WaveformService'),
+                                     containment_tree_service=services_by_name.get('ContainmentTreeService'),
+                                     localization_service=services_by_name.get('LocalizationService')
+                                     )
+    return hosted_services
