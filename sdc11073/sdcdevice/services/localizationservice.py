@@ -3,6 +3,7 @@ from collections import defaultdict
 from .servicesbase import DPWSPortTypeImpl
 from .servicesbase import WSDLMessageDescription, WSDLOperationBinding
 from .servicesbase import mk_wsdl_two_way_operation, msg_prefix
+from ..hostedserviceimpl import DispatchKey
 
 
 
@@ -206,10 +207,11 @@ class LocalizationService(DPWSPortTypeImpl):
     def register_handlers(self, hosting_service):
         super().register_handlers(hosting_service)
         actions = self._mdib.sdc_definitions.Actions
-        hosting_service.register_post_handler(actions.GetLocalizedText, self._on_get_localized_text)
-        hosting_service.register_post_handler(actions.GetSupportedLanguages, self._on_get_supported_languages)
-        hosting_service.register_post_handler('GetLocalizedText', self._on_get_localized_text)
-        hosting_service.register_post_handler('GetSupportedLanguages', self._on_get_supported_languages)
+        msg_names = self._mdib.sdc_definitions.data_model.msg_names
+        hosting_service.register_post_handler(DispatchKey(actions.GetLocalizedText, msg_names.GetLocalizedText),
+                                              self._on_get_localized_text)
+        hosting_service.register_post_handler(DispatchKey(actions.GetSupportedLanguages, msg_names.GetSupportedLanguages),
+                                              self._on_get_supported_languages)
 
     def _on_get_localized_text(self, request_data):
         self._logger.debug('_on_get_localized_text')

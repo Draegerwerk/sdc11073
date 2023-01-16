@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import traceback
 from collections import namedtuple
@@ -92,6 +94,7 @@ class SubscribeResult:
     reference_param: ReferenceParameters
     expire_seconds: float
 
+
 @dataclass
 class MdibVersionGroupReader:
     mdib_version: int
@@ -110,16 +113,17 @@ class MdibVersionGroupReader:
         return cls(mdib_version, sequence_id, instance_id)
 
 
-
+@dataclass(frozen=True)
 class ReceivedMessage:
     """This class contains all data of a received Message"""
-
-    def __init__(self, reader_instance, parsed_message):
-        self.msg_reader = reader_instance  #
-        self.p_msg = parsed_message  # parsed message, e g. a Soap12Envelope
-        self.mdib_version_group = None  # MdibVersionGroupReader instance
-        self.action = None
-        self.msg_name = None
+    msg_reader: MessageReader
+    p_msg: Union[ReceivedSoapMessage, PayloadData]
+    action: Union[str, None]
+    q_name: etree_.QName
+    mdib_version_group: MdibVersionGroupReader
+    # action: Optional[str] = None
+    # q_name: Optional[etree_.QName] = None
+    # mdib_version_group: Optional[MdibVersionGroupReader] = None
 
 
 class PayloadData:
@@ -186,26 +190,26 @@ class MessageReader:
         if message.msg_node is not None and validate:
             self._validate_node(message.msg_node)
         message.address = self._mk_address_from_header(message.header_node)
-        data = ReceivedMessage(self, message)
-        data.action = message.address.action
-        q_name = message.msg_name
-        data.msg_name = q_name.localname if q_name else None
+        mdib_version_group = None
         if message.msg_node is not None:
             try:
-                data.mdib_version_group = MdibVersionGroupReader.from_node(message.msg_node)
+                mdib_version_group = MdibVersionGroupReader.from_node(message.msg_node)
             except ValueError:
-                data.mdib_version_group = None
+                mdib_version_group = None
+        data = ReceivedMessage(self, message, message.address.action, message.msg_name, mdib_version_group)
         return data
 
     def read_payload_data(self, xml_text: bytes) -> ReceivedMessage:
         """ Read only payload part of a message"""
         payload = PayloadData(xml_text)
-        data = ReceivedMessage(self, payload)
-        q_name = payload.msg_name
-        data.msg_name = q_name.localname if q_name else None
+        action = None
+        #q_name = payload.msg_name
+        #data.msg_name = q_name.localname if q_name else None
+        mdib_version_group = None
         if payload.msg_node is not None:
-            data.mdib_version_group = MdibVersionGroupReader.from_node(payload.msg_node)
+            mdib_version_group = MdibVersionGroupReader.from_node(payload.msg_node)
             self._validate_node(payload.msg_node)
+        data = ReceivedMessage(self, payload, action, payload.msg_name, mdib_version_group)
         return data
 
     def read_get_mdib_response(self, received_message_data):
@@ -369,7 +373,7 @@ class MessageReaderClient(MessageReader):
         return descriptors
 
     def read_get_mdstate_response(self, message_data: ReceivedMessage):
-        md_state_node =  message_data.p_msg.msg_node[0]
+        md_state_node = message_data.p_msg.msg_node[0]
         return self._read_md_state_node(md_state_node)
 
     def read_context_states(self, message_data: ReceivedMessage):
@@ -501,7 +505,8 @@ class MessageReaderClient(MessageReader):
         for report_part in report_parts:
             descriptors_list.append(descriptors)
             parent_descriptor = report_part.get('ParentDescriptor')
-            modification_type = report_part.get('ModificationType', DescriptionModificationType.UPDATE)  # implied Value is 'Upt'
+            modification_type = report_part.get('ModificationType',
+                                                DescriptionModificationType.UPDATE)  # implied Value is 'Upt'
             if modification_type == DescriptionModificationType.CREATE:
                 description_modification = descriptors.create
             elif modification_type == DescriptionModificationType.UPDATE:
@@ -520,13 +525,12 @@ class MessageReaderClient(MessageReader):
                 description_modification.states.append(state_container)
         return descriptors
 
-
     def read_operation_response(self, message_data: ReceivedMessage) -> OperationResult:
         msg_node = message_data.p_msg.msg_node
         abstract_set_response = self._msg_types.AbstractSetResponse.from_node(msg_node)
         return OperationResult(abstract_set_response, message_data.p_msg)
 
-    def _read_invocation_info(self, invocation_info_node: etree_._Element) :
+    def _read_invocation_info(self, invocation_info_node: etree_._Element):
         return self._msg_types.InvocationInfo.from_node(invocation_info_node)
 
     def read_operation_invoked_report(self, message_data: ReceivedMessage) -> OperationReportResult:

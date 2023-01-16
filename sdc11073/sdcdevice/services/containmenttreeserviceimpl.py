@@ -1,8 +1,8 @@
 from .servicesbase import DPWSPortTypeImpl, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_two_way_operation
 from .servicesbase import msg_prefix
-from ...pysoap.soapenvelope import SoapFault, FaultCodeEnum
+from ..hostedserviceimpl import DispatchKey
 from ...httprequesthandler import FunctionNotImplementedError
-
+from ...pysoap.soapenvelope import SoapFault, FaultCodeEnum
 
 
 class ContainmentTreeService(DPWSPortTypeImpl):
@@ -21,10 +21,11 @@ class ContainmentTreeService(DPWSPortTypeImpl):
     def register_handlers(self, hosting_service):
         super().register_handlers(hosting_service)
         actions = self._mdib.sdc_definitions.Actions
-        hosting_service.register_post_handler(actions.GetContainmentTree, self._on_get_containment_tree)
-        hosting_service.register_post_handler(actions.GetDescriptor, self._on_get_descriptor)
-        hosting_service.register_post_handler('GetContainmentTree', self._on_get_containment_tree)
-        hosting_service.register_post_handler('GetDescriptor', self._on_get_descriptor)
+        msg_names = self._mdib.sdc_definitions.data_model.msg_names
+        hosting_service.register_post_handler(DispatchKey(actions.GetContainmentTree, msg_names.GetContainmentTree),
+                                              self._on_get_containment_tree)
+        hosting_service.register_post_handler(DispatchKey(actions.GetDescriptor, msg_names.GetDescriptor),
+                                              self._on_get_descriptor)
 
     def _on_get_containment_tree(self, request_data):  # pylint: disable=no-self-use
         # ToDo: implement, currently method only raises a soap fault

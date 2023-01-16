@@ -1,5 +1,6 @@
 from .servicesbase import DPWSPortTypeImpl, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_two_way_operation
 from .servicesbase import msg_prefix
+from ..hostedserviceimpl import DispatchKey
 
 class GetService(DPWSPortTypeImpl):
     WSDLMessageDescriptions = (WSDLMessageDescription('GetMdState',
@@ -22,12 +23,13 @@ class GetService(DPWSPortTypeImpl):
     def register_handlers(self, hosting_service):
         super().register_handlers(hosting_service)
         actions = self._sdc_device.mdib.sdc_definitions.Actions
-        hosting_service.register_post_handler(actions.GetMdState, self._on_get_md_state)
-        hosting_service.register_post_handler(actions.GetMdib, self._on_get_mdib)
-        hosting_service.register_post_handler(actions.GetMdDescription, self._on_get_md_description)
-        hosting_service.register_post_handler('GetMdState', self._on_get_md_state)
-        hosting_service.register_post_handler('GetMdib', self._on_get_mdib)
-        hosting_service.register_post_handler('GetMdDescription', self._on_get_md_description)
+        msg_names = self._sdc_device.mdib.sdc_definitions.data_model.msg_names
+        hosting_service.register_post_handler(DispatchKey(actions.GetMdState, msg_names.GetMdState),
+                                              self._on_get_md_state)
+        hosting_service.register_post_handler(DispatchKey(actions.GetMdib, msg_names.GetMdib),
+                                              self._on_get_mdib)
+        hosting_service.register_post_handler(DispatchKey(actions.GetMdDescription, msg_names.GetMdDescription),
+                                              self._on_get_md_description)
 
     def _on_get_md_state(self, request_data):
         requested_handles = self._sdc_device.msg_reader.read_getmdstate_request(request_data.message_data)

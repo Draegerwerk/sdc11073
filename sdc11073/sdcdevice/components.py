@@ -4,7 +4,7 @@ import copy
 from dataclasses import dataclass
 from typing import Type, Callable, List, Any, TYPE_CHECKING
 
-from .hostedserviceimpl import by_msg_tag, mk_all_services
+from .hostedserviceimpl import mk_all_services
 from .operations import get_operation_class
 from .sco import ScoOperationsRegistry
 from .scopesfactory import mk_scopes
@@ -34,8 +34,6 @@ if TYPE_CHECKING:
     from .sco import AbstractScoOperationsRegistry
     from .subscriptionmgr import SubscriptionsManagerBase
     from ..mdib.devicemdib import DeviceMdibContainer
-    from ..httprequesthandler import RequestData
-
 
 # pylint: enable=cyclic-import
 
@@ -54,7 +52,6 @@ class SdcDeviceComponents:
     subscriptions_manager_class: Type[SubscriptionsManagerBase] = None
     role_provider_class: type = None
     scopes_factory: Callable[[DeviceMdibContainer], List[Scope]] = None
-    msg_dispatch_method: Callable[[RequestData], str] = None
     hosted_services: dict = None
 
     def merge(self, other):
@@ -87,7 +84,6 @@ default_sdc_device_components_sync = SdcDeviceComponents(
     subscriptions_manager_class=SubscriptionsManagerPath,
     role_provider_class=MinimalProduct,
     scopes_factory=mk_scopes,
-    msg_dispatch_method=by_msg_tag,
     # this defines the structure of the services: top dict are the names of the dpws hosts,
     # 2nd level the hosted services with name and dpws service class
     hosted_services={'Get': {'GetService': GetService,
@@ -105,4 +101,5 @@ default_sdc_device_components_async = copy.deepcopy(default_sdc_device_component
 default_sdc_device_components_async.soap_client_class = SoapClientAsync
 default_sdc_device_components_async.subscriptions_manager_class = SubscriptionsManagerPathAsync
 
+#set default to sync or async variant
 default_sdc_device_components = default_sdc_device_components_sync

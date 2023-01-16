@@ -34,7 +34,7 @@ class GetRequestResult:
 
     @property
     def msg_name(self):
-        return self._received_message.msg_name
+        return self._received_message.q_name.localname
 
     @property
     def result(self):

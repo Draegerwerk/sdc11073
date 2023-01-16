@@ -1,5 +1,6 @@
 from .servicesbase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding
 from .servicesbase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation, msg_prefix
+from ..hostedserviceimpl import DispatchKey
 
 
 class SetService(ServiceWithOperations):
@@ -42,18 +43,19 @@ class SetService(ServiceWithOperations):
     def register_handlers(self, hosting_service):
         super().register_handlers(hosting_service)
         actions = self._mdib.sdc_definitions.Actions
-        hosting_service.register_post_handler(actions.Activate, self._on_activate)
-        hosting_service.register_post_handler(actions.SetValue, self._on_set_value)
-        hosting_service.register_post_handler(actions.SetString, self._on_set_string)
-        hosting_service.register_post_handler(actions.SetMetricState, self._on_set_metric_state)
-        hosting_service.register_post_handler(actions.SetAlertState, self._on_set_alert_state)
-        hosting_service.register_post_handler(actions.SetComponentState, self._on_set_component_state)
-        hosting_service.register_post_handler('Activate', self._on_activate)
-        hosting_service.register_post_handler('SetValue', self._on_set_value)
-        hosting_service.register_post_handler('SetString', self._on_set_string)
-        hosting_service.register_post_handler('SetMetricState', self._on_set_metric_state)
-        hosting_service.register_post_handler('SetAlertState', self._on_set_alert_state)
-        hosting_service.register_post_handler('SetComponentState', self._on_set_component_state)
+        msg_names = self._mdib.sdc_definitions.data_model.msg_names
+        hosting_service.register_post_handler(DispatchKey(actions.Activate, msg_names.Activate),
+                                              self._on_activate)
+        hosting_service.register_post_handler(DispatchKey(actions.SetValue, msg_names.SetValue),
+                                              self._on_set_value)
+        hosting_service.register_post_handler(DispatchKey(actions.SetString, msg_names.SetString),
+                                              self._on_set_string)
+        hosting_service.register_post_handler(DispatchKey(actions.SetMetricState, msg_names.SetMetricState),
+                                              self._on_set_metric_state)
+        hosting_service.register_post_handler(DispatchKey(actions.SetAlertState, msg_names.SetAlertState),
+                                              self._on_set_alert_state)
+        hosting_service.register_post_handler(DispatchKey(actions.SetComponentState, msg_names.SetComponentState),
+                                              self._on_set_component_state)
 
     def _on_activate(self, request_data):  # pylint:disable=unused-argument
         """Handler for Active calls.

@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from .servicesbase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding, msg_prefix
 from .servicesbase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation
-
+from ..hostedserviceimpl import DispatchKey
 
 class ContextService(ServiceWithOperations):
     WSDLMessageDescriptions = (WSDLMessageDescription('SetContextState',
@@ -26,10 +26,11 @@ class ContextService(ServiceWithOperations):
     def register_handlers(self, hosting_service):
         super().register_handlers(hosting_service)
         actions = self._mdib.sdc_definitions.Actions
-        hosting_service.register_post_handler(actions.SetContextState, self._on_set_context_state)
-        hosting_service.register_post_handler(actions.GetContextStates, self._on_get_context_states)
-        hosting_service.register_post_handler('SetContextState', self._on_set_context_state)
-        hosting_service.register_post_handler('GetContextStates', self._on_get_context_states)
+        msg_names = self._mdib.sdc_definitions.data_model.msg_names
+        hosting_service.register_post_handler(DispatchKey(actions.SetContextState, msg_names.SetContextState),
+                                              self._on_set_context_state)
+        hosting_service.register_post_handler(DispatchKey(actions.GetContextStates, msg_names.GetContextStates),
+                                              self._on_get_context_states)
 
     def _on_set_context_state(self, request_data):
         operation_request = self._sdc_device.msg_reader.read_set_context_state_request(request_data.message_data)

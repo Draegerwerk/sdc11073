@@ -5,6 +5,7 @@ import uuid
 from . import httpserver
 from .components import default_sdc_device_components
 from .hostedserviceimpl import SoapMessageHandler
+from .hostedserviceimpl import DispatchKey
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 from .waveforms import WaveformSender
 from .. import compression
@@ -82,12 +83,12 @@ class SdcDevice:
                                                               validate=validate)
 
         # host dispatcher provides data of the sdc device itself.
-        self._host_dispatcher = SoapMessageHandler(None, get_key_method=self._components.msg_dispatch_method,
-                                                   msg_factory=self.msg_factory)
+        self._host_dispatcher = SoapMessageHandler(path_element=None, msg_factory=self.msg_factory)
         nsh = self._mdib.sdc_definitions.data_model.ns_helper
-        self._host_dispatcher.register_post_handler(f'{nsh.WXF.namespace}/Get', self._on_get_metadata)
-        self._host_dispatcher.register_post_handler(f'{nsh.WSD.namespace}/Probe', self._on_probe_request)
-        self._host_dispatcher.register_post_handler('Probe', self._on_probe_request)
+        self._host_dispatcher.register_post_handler(DispatchKey(f'{nsh.WXF.namespace}/Get', None),
+                                                    self._on_get_metadata)
+        self._host_dispatcher.register_post_handler(DispatchKey(f'{nsh.WSD.namespace}/Probe', 'Probe'),
+                                                                self._on_probe_request)
 
         self.dpws_host = HostServiceType(
             endpoint_reference=EndpointReferenceType(self.epr),

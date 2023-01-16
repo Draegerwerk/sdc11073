@@ -1,42 +1,32 @@
-import time
-from io import BytesIO
+from __future__ import annotations
 
+import time
 from dataclasses import dataclass
-from typing import Iterable
-from typing import Type
+from io import BytesIO
+from typing import Iterable, Type, Callable
 
 from lxml import etree as etree_
 
+from .services.servicesbase import DPWSPortTypeImpl
 from .. import loghelper
 from ..addressing import EndpointReferenceType
 from ..dpws import HostedServiceType
 from ..httprequesthandler import InvalidActionError
+from ..httprequesthandler import RequestData
 from ..namespaces import default_ns_helper as ns_hlp
+from ..namespaces import EventingActions
+from ..pysoap.msgfactory import CreatedMessage
 from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
-from .services.servicesbase import DPWSPortTypeImpl
 
 _wsdl_ns = ns_hlp.WSDL.namespace
 
-WSP_NS =  ns_hlp.WSP.namespace
+WSP_NS = ns_hlp.WSP.namespace
 _WSP_PREFIX = ns_hlp.WSP.prefix
 
 # DiscoveryType, only used in SDC
 _DISCOVERY_TYPE_NS = "http://standards.ieee.org/downloads/11073/11073-10207-2017"
 
-WSDL_S12 = ns_hlp.WSDL12.namespace # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
-
-
-def by_action(request_data):
-    """returns the action string of the request"""
-    return request_data.message_data.action
-
-
-def by_msg_tag(request_data):
-    """returns Qname of the message if the soap body is not empty, otherwise the action string"""
-    ret = request_data.message_data.msg_name
-    if ret is None:
-        ret = by_action(request_data)
-    return ret
+WSDL_S12 = ns_hlp.WSDL12.namespace  # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
 
 
 def etree_from_file(path):
@@ -46,27 +36,45 @@ def etree_from_file(path):
     return etree_.fromstring(xml_text, parser=parser, base_url=path)
 
 
+@dataclass(frozen=True)
+class DispatchKey:
+    """"Used to associate a handler to a soap message by action - message combination"""
+    action: str
+    message_tag: etree_.QName
+
+    def __repr__(self):
+        """"This shows namespace and localname of the QName."""
+        if isinstance(self.message_tag, etree_.QName):
+            return f'{self.__class__.__name__} action={self.action} ' \
+                   f'msg={self.message_tag.namespace}::{self.message_tag.localname}'
+        return f'{self.__class__.__name__} action={self.action} msg={self.message_tag}'
+
+
+OnPostHandler = Callable[[RequestData], CreatedMessage]
+
+OnGetHandler = Callable[[RequestData], str]
+
+
 class SoapMessageHandler:
     """This class handles SOAP messages.
     It allows to register handlers for requests. If a message is passed via on_post, it determines the key,
     gets the registered callback for the key and calls it.
-    The key of a message is determined by the provided get_key_method in constructor. It usually is the
+    The key of a message is determined by the provided get_key_method in constructor. Usually it is the
     tag of the message in the body or the action in the SOAP header.
     """
 
-    def __init__(self, path_element, get_key_method, msg_factory, log_prefix=None):
+    def __init__(self, path_element, msg_factory, log_prefix=None):
         self.path_element = path_element
         self._post_handlers = {}
         self._get_handlers = {}
-        self._get_key_method = get_key_method
         self._msg_factory = msg_factory
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
-    def register_post_handler(self, key, func):
-        self._post_handlers[key] = func
+    def register_post_handler(self, dispatch_key: DispatchKey, on_post_handler: OnPostHandler):
+        self._post_handlers[dispatch_key] = on_post_handler
 
-    def register_get_handler(self, key, func):
-        self._get_handlers[key] = func
+    def register_get_handler(self, dispatch_key: str, on_get_handler: OnGetHandler):
+        self._get_handlers[dispatch_key] = on_get_handler
 
     def on_post(self, request_data):
         begin = time.monotonic()
@@ -96,7 +104,7 @@ class SoapMessageHandler:
         raise KeyError(error_text)
 
     def get_post_handler(self, request_data):
-        key = self._get_key_method(request_data)
+        key = DispatchKey(request_data.message_data.action, request_data.message_data.q_name)
         handler = self._post_handlers.get(key)
         if handler is None:
             self._logger.info('no handler for key={}', key)
@@ -110,19 +118,19 @@ class SoapMessageHandler:
 class EventService(SoapMessageHandler):
     """ A service that offers subscriptions"""
 
-    def __init__(self, sdc_device, path_element, get_key_method, offered_subscriptions):
-        super().__init__(path_element, get_key_method, sdc_device.msg_factory)
+    def __init__(self, sdc_device, path_element, offered_subscriptions):
+        super().__init__(path_element, sdc_device.msg_factory)
         self._sdc_device = sdc_device
         self._subscriptions_manager = sdc_device.subscriptions_manager
         self._offered_subscriptions = offered_subscriptions
-        self.register_post_handler(f'{ns_hlp.WSE.namespace}/Subscribe', self._on_subscribe)
-        self.register_post_handler(f'{ns_hlp.WSE.namespace}/Unsubscribe', self._on_unsubscribe)
-        self.register_post_handler(f'{ns_hlp.WSE.namespace}/GetStatus', self._on_get_status)
-        self.register_post_handler(f'{ns_hlp.WSE.namespace}/Renew', self._on_renew_status)
-        self.register_post_handler('Subscribe', self._on_subscribe)
-        self.register_post_handler('Unsubscribe', self._on_unsubscribe)
-        self.register_post_handler('GetStatus', self._on_get_status)
-        self.register_post_handler('Renew', self._on_renew_status)
+        self.register_post_handler(DispatchKey(EventingActions.Subscribe, ns_hlp.wseTag('Subscribe')),
+                                   self._on_subscribe)
+        self.register_post_handler(DispatchKey(EventingActions.Unsubscribe, ns_hlp.wseTag('Unsubscribe')),
+                                   self._on_unsubscribe)
+        self.register_post_handler(DispatchKey(EventingActions.GetStatus, ns_hlp.wseTag('GetStatus')),
+                                   self._on_get_status)
+        self.register_post_handler(DispatchKey(EventingActions.Renew, ns_hlp.wseTag('Renew')),
+                                   self._on_renew_status)
 
     def _on_subscribe(self, request_data):
         subscribe_request = self._sdc_device.msg_reader.read_subscribe_request(request_data)
@@ -150,7 +158,7 @@ class EventService(SoapMessageHandler):
 class DPWSHostedService(EventService):
     """ Container for DPWSPortTypeImpl instances"""
 
-    def __init__(self, sdc_device, path_element, get_key_method, port_type_impls):
+    def __init__(self, sdc_device, path_element, port_type_impls):
         """
 
         :param sdc_device:
@@ -160,16 +168,17 @@ class DPWSHostedService(EventService):
         offered_subscriptions = []
         for p in port_type_impls:
             offered_subscriptions.extend(p.offered_subscriptions)
-        super().__init__(sdc_device, path_element, get_key_method, offered_subscriptions)
+        super().__init__(sdc_device, path_element, offered_subscriptions)
 
         self._sdc_device = sdc_device
         self._mdib = sdc_device.mdib
         self._port_type_impls = port_type_impls
         self._my_port_types = [p.port_type_string for p in port_type_impls]
         self._wsdl_string = self._mk_wsdl_string()
-        self.register_post_handler(f'{ns_hlp.WSX.namespace}/GetMetadata/Request', self._on_get_metadata)
-        self.register_post_handler('GetMetadata', self._on_get_metadata)
-        self.register_get_handler('?wsdl', func=self._on_get_wsdl)
+        self.register_post_handler(DispatchKey(f'{ns_hlp.WSX.namespace}/GetMetadata/Request',
+                                               ns_hlp.wsxTag('GetMetadata')),
+                                   self._on_get_metadata)
+        self.register_get_handler('?wsdl', self._on_get_wsdl)
         for port_type_impl in port_type_impls:
             port_type_impl.register_handlers(self)
 
@@ -178,10 +187,10 @@ class DPWSHostedService(EventService):
         for addr in self._sdc_device.base_urls:
             endpoint_references_list.append(
                 EndpointReferenceType(f'{addr.geturl()}/{self.path_element}'))
-        porttype_ns = self._mdib.sdc_definitions.PortTypeNamespace
+        port_type_ns = self._mdib.sdc_definitions.PortTypeNamespace
         dpws_hosted = HostedServiceType(
             endpoint_references_list=endpoint_references_list,
-            types_list=[etree_.QName(porttype_ns, p) for p in self._my_port_types],
+            types_list=[etree_.QName(port_type_ns, p) for p in self._my_port_types],
             service_id=self._my_port_types[0])
         return dpws_hosted
 
@@ -262,7 +271,7 @@ class DPWSHostedService(EventService):
 
     def __repr__(self):
         return f'{self.__class__.__name__} path={self.path_element} ' \
-               f'Porttypes={[dp.port_type_string for dp in self._port_type_impls]}'
+               f'port types={[dp.port_type_string for dp in self._port_type_impls]}'
 
 
 @dataclass(frozen=True)
@@ -288,9 +297,7 @@ def mk_dpws_hosts(sdc_device, components, dpws_hosted_service_cls):
             services.append(service)
             services_by_name[service_name] = service
 
-        hosted = dpws_hosted_service_cls(sdc_device, host_name,
-                                         components.msg_dispatch_method,
-                                         services)
+        hosted = dpws_hosted_service_cls(sdc_device, host_name, services)
         dpws_services.append(hosted)
     return dpws_services, services_by_name
 

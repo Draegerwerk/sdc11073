@@ -78,9 +78,9 @@ class NotificationsDispatcherByBody(NotificationsDispatcherBase):
     def on_notification(self, message_data):
         """ dispatch by message body"""
         super().on_notification(message_data)
-        method = self._lookup.get(message_data.msg_name)
+        method = self._lookup.get(message_data.q_name.localname)
         if method is None:
-            raise ValueError(f'unknown message {message_data.msg_name}')
+            raise ValueError(f'unknown message {message_data.q_name}')
         method(message_data)
 
 

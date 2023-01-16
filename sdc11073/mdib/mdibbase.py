@@ -25,9 +25,9 @@ class MdibVersionGroup:
     sequence_id: str
     instance_id: Union[int, None]
 
-    @classmethod
-    def from_mdib(cls, mdib):
-        return cls(mdib.mdib_version, mdib.sequence_id, mdib.instance_id)
+    # @classmethod
+    # def from_mdib(cls, mdib):
+    #     return cls(mdib.mdib_version, mdib.sequence_id, mdib.instance_id)
 
 
 class _MultikeyWithVersionLookup(multikey.MultiKeyLookup):
