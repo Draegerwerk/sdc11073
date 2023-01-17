@@ -311,7 +311,7 @@ class MdibContainer:
             md_description_node.append(node)
         return md_description_node
 
-    def _reconstruct_mdib(self, add_context_states):
+    def _reconstruct_mdib(self, add_context_states) -> etree_.Element:
         """build dom tree from current data
         :param add_context_states: bool
         @return: an etree_ node
@@ -337,7 +337,7 @@ class MdibContainer:
                 md_state_node.append(state_container.mk_state_node(tag, self.nsmapper))
         return mdib_node
 
-    def reconstruct_md_description(self):
+    def reconstruct_md_description(self) -> (etree_.Element, MdibVersionGroup):
         """build dom tree from current data
         @return: a tuple etree_ node, mdib_version
         """
@@ -345,7 +345,7 @@ class MdibContainer:
             node = self._reconstruct_md_description()
             return node, self.mdib_version_group
 
-    def reconstruct_mdib(self):
+    def reconstruct_mdib(self) -> (etree_.Element, MdibVersionGroup):
         """build dom tree from current data
         This method does not include context states!
         @return: an etree_ node
@@ -353,7 +353,7 @@ class MdibContainer:
         with self.mdib_lock:
             return self._reconstruct_mdib(add_context_states=False), self.mdib_version_group
 
-    def reconstruct_mdib_with_context_states(self):
+    def reconstruct_mdib_with_context_states(self) -> (etree_.Element, MdibVersionGroup):
         """ this method includes the context states in mdib tree.
         """
         with self.mdib_lock:

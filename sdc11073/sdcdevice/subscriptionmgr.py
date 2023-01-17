@@ -248,6 +248,9 @@ class SubscriptionsManagerBase:
     """This implementation uses ReferenceParameters to identify subscriptions."""
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
+    episodic_notification_body_node = observableproperties.ObservableProperty(fire_only_on_changed_value=False)
+    operation_notification_body_node = observableproperties.ObservableProperty(fire_only_on_changed_value=False)
+
     def __init__(self, ssl_context: SSLContext,
                  sdc_definitions: BaseDefinitions,
                  msg_factory: MessageFactoryDevice,
@@ -387,18 +390,20 @@ class SubscriptionsManagerBase:
         body_node = self._msg_factory.mk_operation_invoked_report_body(mdib_version_group,
                                                                        operation_handle_ref, transaction_id,
                                                                        invocation_state, error, error_message)
+        self.operation_notification_body_node = body_node  # update observable
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'notify_operation')
         self._do_housekeeping()
 
     def send_episodic_metric_report(self, states: List[AbstractStateContainer],
                                     nsmapper: NamespaceHelper,
                                     mdib_version_group):
+        body_node = self._msg_factory.mk_episodic_metric_report_body(mdib_version_group, states)
+        self.episodic_notification_body_node = body_node  # update observable
         action = self.sdc_definitions.Actions.EpisodicMetricReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
             return
         self._logger.debug('sending episodic metric report {}', states)
-        body_node = self._msg_factory.mk_episodic_metric_report_body(mdib_version_group, states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_metric_report')
         self._do_housekeeping()
 
@@ -419,12 +424,13 @@ class SubscriptionsManagerBase:
     def send_episodic_alert_report(self, states: List[AbstractStateContainer],
                                    nsmapper: NamespaceHelper,
                                    mdib_version_group):
+        body_node = self._msg_factory.mk_episodic_alert_report_body(mdib_version_group, states)
+        self.episodic_notification_body_node = body_node  # update observable
         action = self.sdc_definitions.Actions.EpisodicAlertReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
             return
         self._logger.debug('sending episodic alert report {}', states)
-        body_node = self._msg_factory.mk_episodic_alert_report_body(mdib_version_group, states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_alert_report')
         self._do_housekeeping()
 
@@ -445,12 +451,13 @@ class SubscriptionsManagerBase:
     def send_episodic_operational_state_report(self, states: List[AbstractStateContainer],
                                                nsmapper: NamespaceHelper,
                                                mdib_version_group):
+        body_node = self._msg_factory.mk_episodic_operational_state_report_body(mdib_version_group, states)
+        self.episodic_notification_body_node = body_node  # update observable
         action = self.sdc_definitions.Actions.EpisodicOperationalStateReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
             return
         self._logger.debug('sending episodic operational state report {}', states)
-        body_node = self._msg_factory.mk_episodic_operational_state_report_body(mdib_version_group, states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_operational_state_report')
         self._do_housekeeping()
 
@@ -471,12 +478,13 @@ class SubscriptionsManagerBase:
     def send_episodic_component_state_report(self, states: List[AbstractStateContainer],
                                              nsmapper: NamespaceHelper,
                                              mdib_version_group):
+        body_node = self._msg_factory.mk_episodic_component_state_report_body(mdib_version_group, states)
+        self.episodic_notification_body_node = body_node  # update observable
         action = self.sdc_definitions.Actions.EpisodicComponentReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
             return
         self._logger.debug('sending episodic component report {}', states)
-        body_node = self._msg_factory.mk_episodic_component_state_report_body(mdib_version_group, states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_component_state_report')
         self._do_housekeeping()
 
@@ -497,12 +505,13 @@ class SubscriptionsManagerBase:
     def send_episodic_context_report(self, states: List[AbstractStateContainer],
                                      nsmapper: NamespaceHelper,
                                      mdib_version_group):
+        body_node = self._msg_factory.mk_episodic_context_report_body(mdib_version_group, states)
+        self.episodic_notification_body_node = body_node  # update observable
         action = self.sdc_definitions.Actions.EpisodicContextReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
             return
         self._logger.debug('sending episodic context report {}', states)
-        body_node = self._msg_factory.mk_episodic_context_report_body(mdib_version_group, states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_context_report')
         self._do_housekeeping()
 
@@ -523,12 +532,13 @@ class SubscriptionsManagerBase:
     def send_realtime_samples_report(self, realtime_sample_states: List[AbstractStateContainer],
                                      nsmapper: NamespaceHelper,
                                      mdib_version_group):
+        body_node = self._msg_factory.mk_realtime_samples_report_body(mdib_version_group, realtime_sample_states)
+        self.episodic_notification_body_node = body_node  # update observable
         action = self.sdc_definitions.Actions.Waveform
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
             return
         self._logger.debug('sending real time samples report {}', realtime_sample_states)
-        body_node = self._msg_factory.mk_realtime_samples_report_body(mdib_version_group, realtime_sample_states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, None)
         self._do_housekeeping()
 
@@ -538,13 +548,14 @@ class SubscriptionsManagerBase:
                                 updated_states: List[AbstractStateContainer],
                                 nsmapper: NamespaceHelper,
                                 mdib_version_group):
+        body_node = self._msg_factory.mk_description_modification_report_body(
+            mdib_version_group, updated, created, deleted, updated_states)
+        self.episodic_notification_body_node = body_node  # update observable
         action = self.sdc_definitions.Actions.DescriptionModificationReport
         subscribers = self._get_subscriptions_for_action(action)
         if not subscribers:
             return
         self._logger.debug('sending DescriptionModificationReport upd={} crt={} del={}', updated, created, deleted)
-        body_node = self._msg_factory.mk_description_modification_report_body(
-            mdib_version_group, updated, created, deleted, updated_states)
         self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_descriptor_updates')
         self._do_housekeeping()
 
