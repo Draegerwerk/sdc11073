@@ -69,7 +69,7 @@ class TestDevSubscription(_DevSubscription):
         subscribe_request = SubscribeRequest(accepted_encodings, filter_, self.notify_to,
                                              ReferenceParameters([notify_ref_node]), None, None, self.mode,
                                              self.expires)
-        super().__init__(subscribe_request, base_urls, 42, None, msg_factory=msg_factory)
+        super().__init__(subscribe_request, base_urls, 42, msg_factory=msg_factory)
         self.reports = []
 
     def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):

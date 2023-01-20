@@ -98,7 +98,7 @@ class ContextService(ServiceWithOperations):
         action = self._sdc_definitions.Actions.EpisodicContextReport
         body_node = self._msg_factory.mk_episodic_context_report_body(mdib_version_group, states)
         self._logger.debug('sending episodic context report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_episodic_context_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_episodic_context_report')
 
     def send_periodic_context_report(self, periodic_states_list: List[PeriodicStates],
                                      nsmapper: NamespaceHelper,
@@ -109,4 +109,4 @@ class ContextService(ServiceWithOperations):
             periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
         self._logger.debug('sending periodic context report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_periodic_context_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_periodic_context_report')

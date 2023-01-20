@@ -63,7 +63,7 @@ class StateEventService(DPWSPortTypeImpl):
         action = self._sdc_definitions.Actions.EpisodicMetricReport
         body_node = self._msg_factory.mk_episodic_metric_report_body(mdib_version_group, states)
         self._logger.debug('sending episodic metric report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_episodic_metric_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_episodic_metric_report')
 
     def send_periodic_metric_report(self, periodic_states_list: List[PeriodicStates],
                                     nsmapper: NamespaceHelper,
@@ -74,7 +74,7 @@ class StateEventService(DPWSPortTypeImpl):
             periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
         self._logger.debug('sending periodic metric report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_periodic_metric_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_periodic_metric_report')
 
     def send_episodic_alert_report(self, states: List[AbstractStateContainer],
                                    nsmapper: NamespaceHelper,
@@ -83,7 +83,7 @@ class StateEventService(DPWSPortTypeImpl):
         action = self._sdc_definitions.Actions.EpisodicAlertReport
         body_node = self._msg_factory.mk_episodic_alert_report_body(mdib_version_group, states)
         self._logger.debug('sending episodic alert report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_episodic_alert_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_episodic_alert_report')
 
     def send_periodic_alert_report(self, periodic_states_list: List[PeriodicStates],
                                    nsmapper: NamespaceHelper,
@@ -94,7 +94,7 @@ class StateEventService(DPWSPortTypeImpl):
             periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
         self._logger.debug('sending periodic alert report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_periodic_alert_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_periodic_alert_report')
 
     def send_episodic_operational_state_report(self, states: List[AbstractStateContainer],
                                                nsmapper: NamespaceHelper,
@@ -103,7 +103,7 @@ class StateEventService(DPWSPortTypeImpl):
         action = self._sdc_definitions.Actions.EpisodicOperationalStateReport
         body_node = self._msg_factory.mk_episodic_operational_state_report_body(mdib_version_group, states)
         self._logger.debug('sending episodic operational state report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_episodic_operational_state_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_episodic_operational_state_report')
 
     def send_periodic_operational_state_report(self, periodic_states_list: List[PeriodicStates],
                                                nsmapper: NamespaceHelper,
@@ -114,7 +114,7 @@ class StateEventService(DPWSPortTypeImpl):
             periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
         self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_periodic_operational_state_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_periodic_operational_state_report')
 
     def send_episodic_component_state_report(self, states: List[AbstractStateContainer],
                                              nsmapper: NamespaceHelper,
@@ -123,7 +123,7 @@ class StateEventService(DPWSPortTypeImpl):
         action = self._sdc_definitions.Actions.EpisodicComponentReport
         body_node = self._msg_factory.mk_episodic_component_state_report_body(mdib_version_group, states)
         self._logger.debug('sending episodic component report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_episodic_component_state_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_episodic_component_state_report')
 
     def send_periodic_component_state_report(self, periodic_states_list: List[PeriodicStates],
                                              nsmapper: NamespaceHelper,
@@ -134,4 +134,4 @@ class StateEventService(DPWSPortTypeImpl):
             periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
         self._logger.debug('sending periodic component report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_periodic_component_state_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_periodic_component_state_report')

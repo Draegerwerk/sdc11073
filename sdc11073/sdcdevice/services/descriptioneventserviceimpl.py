@@ -34,4 +34,4 @@ class DescriptionEventService(DPWSPortTypeImpl):
         body_node = self._msg_factory.mk_description_modification_report_body(
             mdib_version_group, updated, created, deleted, updated_states)
         self._logger.debug('sending DescriptionModificationReport upd={} crt={} del={}', updated, created, deleted)
-        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_descriptor_updates')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_descriptor_updates')

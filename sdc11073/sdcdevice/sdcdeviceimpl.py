@@ -90,10 +90,12 @@ class SdcDevice:
         # host dispatcher provides data of the sdc device itself.
         self._host_dispatcher = SoapMessageHandler(path_element=None, msg_factory=self.msg_factory)
         nsh = self._mdib.sdc_definitions.data_model.ns_helper
-        self._host_dispatcher.register_post_handler(DispatchKey(f'{nsh.WXF.namespace}/Get', None),
-                                                    self._on_get_metadata)
-        self._host_dispatcher.register_post_handler(DispatchKey(f'{nsh.WSD.namespace}/Probe', 'Probe'),
-                                                    self._on_probe_request)
+        self._host_dispatcher.register_post_handler(
+            DispatchKey(f'{nsh.WXF.namespace}/Get', None),
+            self._on_get_metadata)
+        self._host_dispatcher.register_post_handler(
+            DispatchKey(f'{nsh.WSD.namespace}/Probe', nsh.wsdTag('Probe')),
+            self._on_probe_request)
 
         self.dpws_host = HostServiceType(
             endpoint_reference=EndpointReferenceType(self.epr),
@@ -106,7 +108,7 @@ class SdcDevice:
 
         # these are initialized in _setup_components:
         self._subscriptions_managers = {}
-        self._soap_client_pool = SoapClientPool()
+        self._soap_client_pool = SoapClientPool(self._mk_soap_client)
         self._sco_operations_registry = None
         self._service_factory = None
         self.product_roles = None
@@ -117,19 +119,27 @@ class SdcDevice:
         properties.bind(device_mdib_container, transaction=self._send_episodic_reports)
         properties.bind(device_mdib_container, rt_updates=self._send_rt_notifications)
 
+    def _mk_soap_client(self, netloc, accepted_encodings):
+        cls = self._components.soap_client_class
+        soap_client = cls(netloc,
+                          loghelper.get_logger_adapter('sdc.device.soap', self._log_prefix),
+                          ssl_context=self._ssl_context,
+                          sdc_definitions=self._mdib.sdc_definitions,
+                          msg_reader=self.msg_reader,
+                          supported_encodings=self._compression_methods,
+                          request_encodings=accepted_encodings,
+                          chunked_requests=self.chunked_messages)
+        return soap_client
+
     def _setup_components(self):
         self._subscriptions_managers = {}
         for name, cls in self._components.subscriptions_manager_class.items():
-            mgr = cls(self._ssl_context,
-                      self._mdib.sdc_definitions,
+            mgr = cls(self._mdib.sdc_definitions,
                       self.msg_factory,
-                      self.msg_reader,
-                      self._components.soap_client_class,
                       self._soap_client_pool,
-                      self._compression_methods,
                       self._max_subscription_duration,
-                      log_prefix=self._log_prefix,
-                      chunked_messages=self.chunked_messages)
+                      log_prefix=self._log_prefix
+                      )
             self._subscriptions_managers[name] = mgr
 
         services_factory = self._components.services_factory

@@ -29,4 +29,4 @@ class WaveformService(DPWSPortTypeImpl):
         action = self._sdc_definitions.Actions.Waveform
         body_node = self._msg_factory.mk_realtime_samples_report_body(mdib_version_group, realtime_sample_states)
         self._logger.debug('sending real time samples report {}', realtime_sample_states)
-        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, None)
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, None)

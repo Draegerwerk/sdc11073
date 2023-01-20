@@ -408,183 +408,183 @@ class SubscriptionsManagerBaseAsync:
 
             self._subscriptions.clear()
 
-    def notify_operation(self, operation: OperationDefinition,
-                         transaction_id: int,
-                         invocation_state: InvocationState,
-                         mdib_version_group,
-                         nsmapper: NamespaceHelper,
-                         error: Optional[InvocationError] = None,
-                         error_message: Optional[str] = None):
-        operation_handle_ref = operation.handle
-        self._logger.info(
-            'notify_operation transaction={} operation_handle_ref={}, operationState={}, error={}, errorMessage={}',
-            transaction_id, operation_handle_ref, invocation_state, error, error_message)
-        action = self.sdc_definitions.Actions.OperationInvokedReport
-        subscribers = self._get_subscriptions_for_action(action)
-
-        body_node = self._msg_factory.mk_operation_invoked_report_body(mdib_version_group,
-                                                                       operation_handle_ref, transaction_id,
-                                                                       invocation_state, error, error_message)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'notify_operation')
-        self._do_housekeeping()
-
-    def send_episodic_metric_report(self, states: List[AbstractStateContainer],
-                                    nsmapper: NamespaceHelper,
-                                    mdib_version_group):
-        action = self.sdc_definitions.Actions.EpisodicMetricReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending episodic metric report {}', states)
-        body_node = self._msg_factory.mk_episodic_metric_report_body(mdib_version_group, states)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_metric_report')
-        self._do_housekeeping()
-
-    def send_periodic_metric_report(self, periodic_states_list: List[PeriodicStates],
-                                    nsmapper: NamespaceHelper,
-                                    mdib_version_group):
-        action = self.sdc_definitions.Actions.PeriodicMetricReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending periodic metric report, contains last {} episodic updates',
-                           len(periodic_states_list))
-        body_node = self._msg_factory.mk_periodic_metric_report_body(
-            periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_metric_report')
-        self._do_housekeeping()
-
-    def send_episodic_alert_report(self, states: List[AbstractStateContainer],
-                                   nsmapper: NamespaceHelper,
-                                   mdib_version_group):
-        action = self.sdc_definitions.Actions.EpisodicAlertReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending episodic alert report {}', states)
-        body_node = self._msg_factory.mk_episodic_alert_report_body(mdib_version_group, states)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_alert_report')
-        self._do_housekeeping()
-
-    def send_periodic_alert_report(self, periodic_states_list: List[PeriodicStates],
-                                   nsmapper: NamespaceHelper,
-                                   mdib_version_group):
-        action = self.sdc_definitions.Actions.PeriodicAlertReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending periodic alert report, contains last {} episodic updates',
-                           len(periodic_states_list))
-        body_node = self._msg_factory.mk_periodic_alert_report_body(
-            periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_alert_report')
-        self._do_housekeeping()
-
-    def send_episodic_operational_state_report(self, states: List[AbstractStateContainer],
-                                               nsmapper: NamespaceHelper,
-                                               mdib_version_group):
-        action = self.sdc_definitions.Actions.EpisodicOperationalStateReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending episodic operational state report {}', states)
-        body_node = self._msg_factory.mk_episodic_operational_state_report_body(mdib_version_group, states)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_operational_state_report')
-        self._do_housekeeping()
-
-    def send_periodic_operational_state_report(self, periodic_states_list: List[PeriodicStates],
-                                               nsmapper: NamespaceHelper,
-                                               mdib_version_group):
-        action = self.sdc_definitions.Actions.PeriodicOperationalStateReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
-                           len(periodic_states_list))
-        body_node = self._msg_factory.mk_periodic_operational_state_report_body(
-            periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_operational_state_report')
-        self._do_housekeeping()
-
-    def send_episodic_component_state_report(self, states: List[AbstractStateContainer],
-                                             nsmapper: NamespaceHelper,
-                                             mdib_version_group):
-        action = self.sdc_definitions.Actions.EpisodicComponentReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending episodic component report {}', states)
-        body_node = self._msg_factory.mk_episodic_component_state_report_body(mdib_version_group, states)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_component_state_report')
-        self._do_housekeeping()
-
-    def send_periodic_component_state_report(self, periodic_states_list: List[PeriodicStates],
-                                             nsmapper: NamespaceHelper,
-                                             mdib_version_group):
-        action = self.sdc_definitions.Actions.PeriodicComponentReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending periodic component report, contains last {} episodic updates',
-                           len(periodic_states_list))
-        body_node = self._msg_factory.mk_periodic_component_state_report_body(
-            periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_component_state_report')
-        self._do_housekeeping()
-
-    def send_episodic_context_report(self, states: List[AbstractStateContainer],
-                                     nsmapper: NamespaceHelper,
-                                     mdib_version_group):
-        action = self.sdc_definitions.Actions.EpisodicContextReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending episodic context report {}', states)
-        body_node = self._msg_factory.mk_episodic_context_report_body(mdib_version_group, states)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_context_report')
-        self._do_housekeeping()
-
-    def send_periodic_context_report(self, periodic_states_list: List[PeriodicStates],
-                                     nsmapper: NamespaceHelper,
-                                     mdib_version_group):
-        action = self.sdc_definitions.Actions.PeriodicContextReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending periodic context report, contains last {} episodic updates',
-                           len(periodic_states_list))
-        body_node = self._msg_factory.mk_periodic_context_report_body(
-            periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_context_report')
-        self._do_housekeeping()
-
-    def send_realtime_samples_report(self, realtime_sample_states: List[AbstractStateContainer],
-                                     nsmapper: NamespaceHelper,
-                                     mdib_version_group):
-        action = self.sdc_definitions.Actions.Waveform
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending real time samples report {}', realtime_sample_states)
-        body_node = self._msg_factory.mk_realtime_samples_report_body(mdib_version_group, realtime_sample_states)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, None)
-        self._do_housekeeping()
-
-    def send_descriptor_updates(self, updated: List[AbstractDescriptorContainer],
-                                created: List[AbstractDescriptorContainer],
-                                deleted: List[AbstractDescriptorContainer],
-                                updated_states: List[AbstractStateContainer],
-                                nsmapper: NamespaceHelper,
-                                mdib_version_group):
-        action = self.sdc_definitions.Actions.DescriptionModificationReport
-        subscribers = self._get_subscriptions_for_action(action)
-        if not subscribers:
-            return
-        self._logger.debug('sending DescriptionModificationReport upd={} crt={} del={}', updated, created, deleted)
-        body_node = self._msg_factory.mk_description_modification_report_body(
-            mdib_version_group, updated, created, deleted, updated_states)
-        self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_descriptor_updates')
-        self._do_housekeeping()
+    # def notify_operation(self, operation: OperationDefinition,
+    #                      transaction_id: int,
+    #                      invocation_state: InvocationState,
+    #                      mdib_version_group,
+    #                      nsmapper: NamespaceHelper,
+    #                      error: Optional[InvocationError] = None,
+    #                      error_message: Optional[str] = None):
+    #     operation_handle_ref = operation.handle
+    #     self._logger.info(
+    #         'notify_operation transaction={} operation_handle_ref={}, operationState={}, error={}, errorMessage={}',
+    #         transaction_id, operation_handle_ref, invocation_state, error, error_message)
+    #     action = self.sdc_definitions.Actions.OperationInvokedReport
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #
+    #     body_node = self._msg_factory.mk_operation_invoked_report_body(mdib_version_group,
+    #                                                                    operation_handle_ref, transaction_id,
+    #                                                                    invocation_state, error, error_message)
+    #     self._send_to_subscribers(subscribers, body_node, action, mdib_version_group, nsmapper, 'notify_operation')
+    #     self._do_housekeeping()
+    #
+    # def send_episodic_metric_report(self, states: List[AbstractStateContainer],
+    #                                 nsmapper: NamespaceHelper,
+    #                                 mdib_version_group):
+    #     action = self.sdc_definitions.Actions.EpisodicMetricReport
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #     if not subscribers:
+    #         return
+    #     self._logger.debug('sending episodic metric report {}', states)
+    #     body_node = self._msg_factory.mk_episodic_metric_report_body(mdib_version_group, states)
+    #     self._send_to_subscribers(subscribers, body_node, action, mdib_version_group, nsmapper, 'send_episodic_metric_report')
+    #     self._do_housekeeping()
+    #
+    # def send_periodic_metric_report(self, periodic_states_list: List[PeriodicStates],
+    #                                 nsmapper: NamespaceHelper,
+    #                                 mdib_version_group):
+    #     action = self.sdc_definitions.Actions.PeriodicMetricReport
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #     if not subscribers:
+    #         return
+    #     self._logger.debug('sending periodic metric report, contains last {} episodic updates',
+    #                        len(periodic_states_list))
+    #     body_node = self._msg_factory.mk_periodic_metric_report_body(
+    #         periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
+    #     self._send_to_subscribers(subscribers, body_node, action, mdib_version_group, nsmapper, 'send_periodic_metric_report')
+    #     self._do_housekeeping()
+    #
+    # def send_episodic_alert_report(self, states: List[AbstractStateContainer],
+    #                                nsmapper: NamespaceHelper,
+    #                                mdib_version_group):
+    #     action = self.sdc_definitions.Actions.EpisodicAlertReport
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #     if not subscribers:
+    #         return
+    #     self._logger.debug('sending episodic alert report {}', states)
+    #     body_node = self._msg_factory.mk_episodic_alert_report_body(mdib_version_group, states)
+    #     self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_alert_report')
+    #     self._do_housekeeping()
+    #
+    # def send_periodic_alert_report(self, periodic_states_list: List[PeriodicStates],
+    #                                nsmapper: NamespaceHelper,
+    #                                mdib_version_group):
+    #     action = self.sdc_definitions.Actions.PeriodicAlertReport
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #     if not subscribers:
+    #         return
+    #     self._logger.debug('sending periodic alert report, contains last {} episodic updates',
+    #                        len(periodic_states_list))
+    #     body_node = self._msg_factory.mk_periodic_alert_report_body(
+    #         periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
+    #     self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_alert_report')
+    #     self._do_housekeeping()
+    #
+    # def send_episodic_operational_state_report(self, states: List[AbstractStateContainer],
+    #                                            nsmapper: NamespaceHelper,
+    #                                            mdib_version_group):
+    #     action = self.sdc_definitions.Actions.EpisodicOperationalStateReport
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #     if not subscribers:
+    #         return
+    #     self._logger.debug('sending episodic operational state report {}', states)
+    #     body_node = self._msg_factory.mk_episodic_operational_state_report_body(mdib_version_group, states)
+    #     self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_operational_state_report')
+    #     self._do_housekeeping()
+    #
+    # def send_periodic_operational_state_report(self, periodic_states_list: List[PeriodicStates],
+    #                                            nsmapper: NamespaceHelper,
+    #                                            mdib_version_group):
+    #     action = self.sdc_definitions.Actions.PeriodicOperationalStateReport
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #     if not subscribers:
+    #         return
+    #     self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
+    #                        len(periodic_states_list))
+    #     body_node = self._msg_factory.mk_periodic_operational_state_report_body(
+    #         periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
+    #     self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_operational_state_report')
+    #     self._do_housekeeping()
+    #
+    # def send_episodic_component_state_report(self, states: List[AbstractStateContainer],
+    #                                          nsmapper: NamespaceHelper,
+    #                                          mdib_version_group):
+    #     action = self.sdc_definitions.Actions.EpisodicComponentReport
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #     if not subscribers:
+    #         return
+    #     self._logger.debug('sending episodic component report {}', states)
+    #     body_node = self._msg_factory.mk_episodic_component_state_report_body(mdib_version_group, states)
+    #     self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_component_state_report')
+    #     self._do_housekeeping()
+    #
+    # def send_periodic_component_state_report(self, periodic_states_list: List[PeriodicStates],
+    #                                          nsmapper: NamespaceHelper,
+    #                                          mdib_version_group):
+    #     action = self.sdc_definitions.Actions.PeriodicComponentReport
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #     if not subscribers:
+    #         return
+    #     self._logger.debug('sending periodic component report, contains last {} episodic updates',
+    #                        len(periodic_states_list))
+    #     body_node = self._msg_factory.mk_periodic_component_state_report_body(
+    #         periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
+    #     self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_component_state_report')
+    #     self._do_housekeeping()
+    #
+    # def send_episodic_context_report(self, states: List[AbstractStateContainer],
+    #                                  nsmapper: NamespaceHelper,
+    #                                  mdib_version_group):
+    #     action = self.sdc_definitions.Actions.EpisodicContextReport
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #     if not subscribers:
+    #         return
+    #     self._logger.debug('sending episodic context report {}', states)
+    #     body_node = self._msg_factory.mk_episodic_context_report_body(mdib_version_group, states)
+    #     self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_episodic_context_report')
+    #     self._do_housekeeping()
+    #
+    # def send_periodic_context_report(self, periodic_states_list: List[PeriodicStates],
+    #                                  nsmapper: NamespaceHelper,
+    #                                  mdib_version_group):
+    #     action = self.sdc_definitions.Actions.PeriodicContextReport
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #     if not subscribers:
+    #         return
+    #     self._logger.debug('sending periodic context report, contains last {} episodic updates',
+    #                        len(periodic_states_list))
+    #     body_node = self._msg_factory.mk_periodic_context_report_body(
+    #         periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
+    #     self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_periodic_context_report')
+    #     self._do_housekeeping()
+    #
+    # def send_realtime_samples_report(self, realtime_sample_states: List[AbstractStateContainer],
+    #                                  nsmapper: NamespaceHelper,
+    #                                  mdib_version_group):
+    #     action = self.sdc_definitions.Actions.Waveform
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #     if not subscribers:
+    #         return
+    #     self._logger.debug('sending real time samples report {}', realtime_sample_states)
+    #     body_node = self._msg_factory.mk_realtime_samples_report_body(mdib_version_group, realtime_sample_states)
+    #     self._send_to_subscribers(subscribers, body_node, action, nsmapper, None)
+    #     self._do_housekeeping()
+    #
+    # def send_descriptor_updates(self, updated: List[AbstractDescriptorContainer],
+    #                             created: List[AbstractDescriptorContainer],
+    #                             deleted: List[AbstractDescriptorContainer],
+    #                             updated_states: List[AbstractStateContainer],
+    #                             nsmapper: NamespaceHelper,
+    #                             mdib_version_group):
+    #     action = self.sdc_definitions.Actions.DescriptionModificationReport
+    #     subscribers = self._get_subscriptions_for_action(action)
+    #     if not subscribers:
+    #         return
+    #     self._logger.debug('sending DescriptionModificationReport upd={} crt={} del={}', updated, created, deleted)
+    #     body_node = self._msg_factory.mk_description_modification_report_body(
+    #         mdib_version_group, updated, created, deleted, updated_states)
+    #     self._send_to_subscribers(subscribers, body_node, action, nsmapper, 'send_descriptor_updates')
+    #     self._do_housekeeping()
 
     async def _coro_send_to_subscribers(self, tasks):
         return await asyncio.gather(*tasks, return_exceptions=True)

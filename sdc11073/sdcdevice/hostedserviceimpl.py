@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Iterable, Type, Callable
+from typing import Iterable, Type, Callable, Union
 
 from lxml import etree as etree_
 
@@ -40,7 +40,7 @@ def etree_from_file(path):
 class DispatchKey:
     """"Used to associate a handler to a soap message by action - message combination"""
     action: str
-    message_tag: etree_.QName
+    message_tag: Union[etree_.QName, None]
 
     def __repr__(self):
         """This shows namespace and localname of the QName."""
