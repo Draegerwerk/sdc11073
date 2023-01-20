@@ -112,7 +112,8 @@ class TestDeviceWaveform(unittest.TestCase):
         self.sdc_device.start_all()
         test_subscription = mockstuff.TestDevSubscription([self.sdc_device.mdib.sdc_definitions.Actions.Waveform],
                                                           self.sdc_device.msg_factory)
-        self.sdc_device.subscriptions_manager._subscriptions.add_object(test_subscription)
+        mgr = self.sdc_device.hosted_services.state_event_service.hosting_service.subscriptions_manager
+        mgr._subscriptions.add_object(test_subscription)
 
         time.sleep(3)
         self.assertGreater(len(test_subscription.reports), 20)

@@ -1,14 +1,14 @@
 import traceback
 import urllib
 
-from ..httprequesthandler import HTTPRequestHandlingError, InvalidPathError, InvalidActionError
 from .. import commlog
 from .. import loghelper
+from ..exceptions import ApiUsageError
 from ..httprequesthandler import HTTPRequestHandler, mk_chunks
+from ..httprequesthandler import HTTPRequestHandlingError, InvalidPathError, InvalidActionError
 from ..httprequesthandler import HttpServerThreadBase
 from ..httprequesthandler import RequestData
 from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
-from ..exceptions import ApiUsageError
 
 
 class PathElementDispatcher:
@@ -72,7 +72,7 @@ class HostedServiceDispatcher(PathElementDispatcher):
         try:
             return hosted_service.on_post(request_data)
         except InvalidActionError as ex:
-            # error: no handler for this action; log this error with all known pathes, the re-raise
+            # error: no handler for this action; log this error with all known paths, then re-raise
             all_actions = []
             for dispatcher in self._hosted_services:
                 all_actions.extend(', '.join([dispatcher.path_element or '', str(k)]) for k in dispatcher.get_keys())
@@ -98,7 +98,7 @@ class HostedServiceDispatcher(PathElementDispatcher):
 class _SdcServerRequestHandler(HTTPRequestHandler):
     protocol_version = "HTTP/1.1"  # this enables keep-alive
     # This server does NOT disable nagle algorithm. It sends Large responses,
-    # and network efficiency is more important tahn short latencies.
+    # and network efficiency is more important than short latencies.
     disable_nagle_algorithm = False
 
     def do_POST(self):  # pylint: disable=invalid-name
@@ -137,7 +137,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(mk_chunks(response_xml_string))
             else:
-                self.send_header("Content-length", len(response_xml_string))
+                self.send_header("Content-length", str(len(response_xml_string)))
                 self.end_headers()
                 self.wfile.write(response_xml_string)
         except Exception as ex:
@@ -149,7 +149,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             response_xml_string = response.serialize_message()
             self.send_response(500)
             self.send_header("Content-type", "application/soap+xml; charset=utf-8")
-            self.send_header("Content-length", len(response_xml_string))
+            self.send_header("Content-length", str(len(response_xml_string)))
             self.end_headers()
             self.wfile.write(response_xml_string)
 
@@ -174,7 +174,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             content_type = "text"
 
         self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", len(response_string))
+        self.send_header("Content-Length", str(len(response_string)))
         self.end_headers()
         self.wfile.write(response_string)
 

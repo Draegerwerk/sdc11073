@@ -1,6 +1,27 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional, List, Protocol, runtime_checkable
+
 from .servicesbase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding
 from .servicesbase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation, msg_prefix
 from ..hostedserviceimpl import DispatchKey
+
+if TYPE_CHECKING:
+    from ..sco import OperationDefinition, InvocationState
+    from enum import Enum
+    from ...namespaces import NamespaceHelper
+
+
+@runtime_checkable
+class SetServiceProtocol(Protocol):
+    def notify_operation(self, operation: OperationDefinition,
+                         transaction_id: int,
+                         invocation_state: InvocationState,
+                         mdib_version_group,
+                         nsmapper: NamespaceHelper,
+                         error: Optional[Enum] = None,
+                         error_message: Optional[str] = None):
+        ...
 
 
 class SetService(ServiceWithOperations):
@@ -110,6 +131,27 @@ class SetService(ServiceWithOperations):
         return self._handle_operation_request(request_data.message_data,
                                               'SetComponentStateResponse',
                                               operation_request)
+
+    def notify_operation(self,
+                         operation: OperationDefinition,
+                         transaction_id: int,
+                         invocation_state: InvocationState,
+                         mdib_version_group,
+                         nsmapper: NamespaceHelper,
+                         error: Optional[Enum] = None,
+                         error_message: Optional[str] = None):
+        operation_handle_ref = operation.handle
+        subscription_mgr = self.hosting_service.subscriptions_manager
+        action = self._sdc_definitions.Actions.OperationInvokedReport
+        body_node = self._msg_factory.mk_operation_invoked_report_body(
+            mdib_version_group, operation_handle_ref, transaction_id, invocation_state, error, error_message)
+        self._logger.info(
+            'notify_operation transaction={} operation_handle_ref={}, operationState={}, error={}, errorMessage={}',
+            transaction_id, operation_handle_ref, invocation_state, error, error_message)
+        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'notify_operation')
+
+    def handled_actions(self) -> List[str]:
+        return [self._sdc_device.sdc_definitions.Actions.OperationInvokedReport]
 
     def add_wsdl_port_type(self, parent_node):
         port_type = self._mk_port_type_node(parent_node, True)

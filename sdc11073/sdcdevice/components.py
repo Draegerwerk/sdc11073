@@ -32,8 +32,8 @@ if TYPE_CHECKING:
     from ..pysoap.msgreader import MessageReader
     from ..sdcdevice.hostedserviceimpl import HostedServices
     from .sco import AbstractScoOperationsRegistry
-    from .subscriptionmgr import SubscriptionsManagerBase
     from ..mdib.devicemdib import DeviceMdibContainer
+
 
 # pylint: enable=cyclic-import
 
@@ -49,7 +49,7 @@ class SdcDeviceComponents:
     services_factory: Callable[[Any, dict, Any], HostedServices] = None
     operation_cls_getter: Callable[[QName], type] = None
     sco_operations_registry_class: Type[AbstractScoOperationsRegistry] = None
-    subscriptions_manager_class: Type[SubscriptionsManagerBase] = None
+    subscriptions_manager_class: dict[str, Any] = None
     role_provider_class: type = None
     scopes_factory: Callable[[DeviceMdibContainer], List[Scope]] = None
     hosted_services: dict = None
@@ -65,11 +65,14 @@ class SdcDeviceComponents:
         _merge('services_factory')
         _merge('operation_cls_getter')
         _merge('sco_operations_registry_class')
-        _merge('subscriptions_manager_class')
+        # _merge('subscriptions_manager_class')
         _merge('role_provider_class')
         _merge('scopes_factory')
         if other.hosted_services is not None:
             self.hosted_services = other.hosted_services
+        if other.subscriptions_manager_class is not None:
+            for key, value in other.subscriptions_manager_class.items():
+                self.subscriptions_manager_class[key] = value
 
 
 default_sdc_device_components_sync = SdcDeviceComponents(
@@ -81,7 +84,8 @@ default_sdc_device_components_sync = SdcDeviceComponents(
     services_factory=mk_all_services,
     operation_cls_getter=get_operation_class,
     sco_operations_registry_class=ScoOperationsRegistry,
-    subscriptions_manager_class=SubscriptionsManagerPath,
+    subscriptions_manager_class={'StateEvent': SubscriptionsManagerPath,
+                                 'Set': SubscriptionsManagerPath},
     role_provider_class=MinimalProduct,
     scopes_factory=mk_scopes,
     # this defines the structure of the services: top dict are the names of the dpws hosts,
@@ -99,7 +103,7 @@ default_sdc_device_components_sync = SdcDeviceComponents(
 # async variant
 default_sdc_device_components_async = copy.deepcopy(default_sdc_device_components_sync)
 default_sdc_device_components_async.soap_client_class = SoapClientAsync
-default_sdc_device_components_async.subscriptions_manager_class = SubscriptionsManagerPathAsync
+default_sdc_device_components_async.subscriptions_manager_class['StateEvent'] = SubscriptionsManagerPathAsync
 
-#set default to sync or async variant
+# set default to sync or async variant
 default_sdc_device_components = default_sdc_device_components_sync

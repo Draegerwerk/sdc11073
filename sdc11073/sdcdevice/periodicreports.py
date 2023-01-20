@@ -36,11 +36,10 @@ class PeriodicReportsNullHandler:
 
 
 class PeriodicReportsHandler:
-    def __init__(self, mdib, subscriptions_manager, fixed_interval=None):
+    def __init__(self, mdib, hosted_services, fixed_interval=None):
         self._periodic_reports_interval = fixed_interval
         self._mdib = mdib
-        self._subscriptions_manager = subscriptions_manager
-        # self._logger = logger
+        self._hosted_services = hosted_services
         self._logger = get_logger_adapter('sdc.device.pReports')
         self._periodic_reports_lock = threading.Lock()
         self._periodic_reports_thread = None
@@ -63,7 +62,7 @@ class PeriodicReportsHandler:
             self._periodic_reports_thread.daemon = True
             self._periodic_reports_thread.start()
         elif self._mdib.retrievability_periodic:
-            # Periodic Retrievalility is set at least once, start handler loop
+            # Periodic retrievability is set at least once, start handler loop
             self._run_periodic_reports_thread = True
             self._periodic_reports_thread = threading.Thread(target=self._periodic_reports_send_loop,
                                                              name='DevPeriodicSendLoop')
@@ -93,10 +92,10 @@ class PeriodicReportsHandler:
         self._logger.debug('store %d operational states', len(state_updates))
         self._store_for_periodic_report(mdib_version, state_updates, self._periodic_operational_state_reports)
 
-    def _store_for_periodic_report(self, mdib_version, state_updates, dest_list):
+    def _store_for_periodic_report(self, mdib_version, state_updates, destination_list):
         copied_updates = [s.mk_copy() for s in state_updates]
         with self._periodic_reports_lock:
-            dest_list.append(PeriodicStates(mdib_version, copied_updates))
+            destination_list.append(PeriodicStates(mdib_version, copied_updates))
 
     def _simple_periodic_reports_send_loop(self):
         """This is a very basic implementation of periodic reports, it only supports fixed interval.
@@ -108,13 +107,14 @@ class PeriodicReportsHandler:
         while self._run_periodic_reports_thread:
             timer.wait_next_interval_begin()
             self._logger.debug('_simple_periodic_reports_send_loop')
-            mgr = self._subscriptions_manager
+            ses = self._hosted_services.state_event_service
+            cs = self._hosted_services.context_service
             for reports_list, send_func, msg in \
-                    [(self._periodic_metric_reports, mgr.send_periodic_metric_report, 'metric'),
-                     (self._periodic_alert_reports, mgr.send_periodic_alert_report, 'alert'),
-                     (self._periodic_component_state_reports, mgr.send_periodic_component_state_report, 'component'),
-                     (self._periodic_context_state_reports, mgr.send_periodic_context_report, 'context'),
-                     (self._periodic_operational_state_reports, mgr.send_periodic_operational_state_report,
+                    [(self._periodic_metric_reports, ses.send_periodic_metric_report, 'metric'),
+                     (self._periodic_alert_reports, ses.send_periodic_alert_report, 'alert'),
+                     (self._periodic_component_state_reports, ses.send_periodic_component_state_report, 'component'),
+                     (self._periodic_context_state_reports, cs.send_periodic_context_report, 'context'),
+                     (self._periodic_operational_state_reports, ses.send_periodic_operational_state_report,
                       'operational'),
                      ]:
                 tmp = None
@@ -141,7 +141,7 @@ class PeriodicReportsHandler:
         for period_ms in self._mdib.retrievability_periodic.keys():
             timers[period_ms] = intervaltimer.IntervalTimer(period_in_seconds=period_ms / 1000)
         while self._run_periodic_reports_thread:
-            # find timer with shortest remaining time
+            # find timer with the shortest remaining time
             period_ms, timer = reduce(lambda x, y: _next(x, y), timers.items())  # pylint: disable=invalid-name
             timer.wait_next_interval_begin()
             self._logger.debug('_periodic_reports_send_loop {} msec timer', period_ms)
@@ -167,7 +167,6 @@ class PeriodicReportsHandler:
 
             with self._mdib.mdib_lock:
                 mdib_version = self._mdib.mdib_version
-                sequence_id = self._mdib.sequence_id
                 metric_states = [self._mdib.states.descriptorHandle.get_one(h).mk_copy() for h in metrics]
                 component_states = [self._mdib.states.descriptorHandle.get_one(h).mk_copy() for h in components]
                 alert_states = [self._mdib.states.descriptorHandle.get_one(h).mk_copy() for h in alerts]
@@ -183,23 +182,25 @@ class PeriodicReportsHandler:
             self._logger.debug('   _periodic_reports_send_loop {} alert_states', len(alert_states))
             self._logger.debug('   _periodic_reports_send_loop {} alert_states', len(alert_states))
             self._logger.debug('   _periodic_reports_send_loop {} context_states', len(context_states))
+            srv = self._hosted_services.state_event_service
             if metric_states:
                 periodic_states = PeriodicStates(mdib_version, metric_states)
-                self._subscriptions_manager.send_periodic_metric_report(
+                srv.send_periodic_metric_report(
                     [periodic_states], self._mdib.nsmapper, self._mdib.mdib_version_group)
             if component_states:
                 periodic_states = PeriodicStates(mdib_version, component_states)
-                self._subscriptions_manager.send_periodic_component_state_report(
+                srv.send_periodic_component_state_report(
                     [periodic_states], self._mdib.nsmapper, self._mdib.mdib_version_group)
             if alert_states:
                 periodic_states = PeriodicStates(mdib_version, alert_states)
-                self._subscriptions_manager.send_periodic_alert_report(
+                srv.send_periodic_alert_report(
                     [periodic_states], self._mdib.nsmapper, self._mdib.mdib_version_group)
             if operational_states:
                 periodic_states = PeriodicStates(mdib_version, operational_states)
-                self._subscriptions_manager.send_periodic_operational_state_report(
+                srv.send_periodic_operational_state_report(
                     [periodic_states], self._mdib.nsmapper, self._mdib.mdib_version_group)
             if context_states:
+                ctx_srv = self._hosted_services.context_service
                 periodic_states = PeriodicStates(mdib_version, context_states)
-                self._subscriptions_manager.send_periodic_context_report(
+                ctx_srv.send_periodic_context_report(
                     [periodic_states], self._mdib.nsmapper, self._mdib.mdib_version_group)

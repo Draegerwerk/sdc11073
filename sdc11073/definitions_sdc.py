@@ -17,7 +17,6 @@ _ActionsNamespace = _DPWS_SDCNamespace  # pylint: disable=invalid-name
 
 class _Actions:
     OperationInvokedReport = _ActionsNamespace + '/SetService/OperationInvokedReport'
-    SetOperationInvokedReport = _ActionsNamespace + '/SetService/OperationInvokedReport'
     ContextOperationInvokedReport = _ActionsNamespace + '/ContextService/OperationInvokedReport'
     EpisodicContextReport = _ActionsNamespace + '/ContextService/EpisodicContextReport'
     EpisodicMetricReport = _ActionsNamespace + '/StateEventService/EpisodicMetricReport'
@@ -140,4 +139,3 @@ class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     Actions = _Actions
     SchemaFilePaths = SchemaPathsSdc
     data_model = V1Model()
-

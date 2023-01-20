@@ -3,15 +3,15 @@ import time
 import unittest
 from decimal import Decimal
 
-from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073 import pm_qnames as pm
 from sdc11073 import pmtypes, msgtypes
 from sdc11073.dpws import ThisDeviceType, ThisModelType
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import DeviceMdibContainer
+from sdc11073.mdib.mdibbase import MdibVersionGroup
+from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.sdcdevice import waveforms, SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
-from sdc11073.mdib.mdibbase import MdibVersionGroup
 from tests import mockstuff
 
 mdib_folder = os.path.dirname(__file__)
@@ -66,7 +66,8 @@ class TestDeviceSubscriptions(unittest.TestCase):
     def test_waveformSubscription(self):
         test_subscription = mockstuff.TestDevSubscription([self.sdc_device.mdib.sdc_definitions.Actions.Waveform],
                                                           self.sdc_device.msg_factory)
-        self.sdc_device.subscriptions_manager._subscriptions.add_object(test_subscription)
+        mgr = self.sdc_device.hosted_services.state_event_service.hosting_service.subscriptions_manager
+        mgr._subscriptions.add_object(test_subscription)
 
         waveform_provider = self.sdc_device.mdib.xtra.waveform_provider
 
@@ -94,7 +95,8 @@ class TestDeviceSubscriptions(unittest.TestCase):
         test_subscription = mockstuff.TestDevSubscription(
             [self.sdc_device.mdib.sdc_definitions.Actions.EpisodicMetricReport],
             self.sdc_device.msg_factory)
-        self.sdc_device.subscriptions_manager._subscriptions.add_object(test_subscription)
+        mgr = self.sdc_device.hosted_services.state_event_service.hosting_service.subscriptions_manager
+        mgr._subscriptions.add_object(test_subscription)
 
         descriptor_handle = '0x34F00100'  # '0x34F04380'
         first_value = Decimal(12)
@@ -119,7 +121,8 @@ class TestDeviceSubscriptions(unittest.TestCase):
         test_subscription = mockstuff.TestDevSubscription(
             [self.sdc_device.mdib.sdc_definitions.Actions.EpisodicContextReport],
             self.sdc_device.msg_factory)
-        self.sdc_device.subscriptions_manager._subscriptions.add_object(test_subscription)
+        mgr = self.sdc_device.hosted_services.context_service.hosting_service.subscriptions_manager
+        mgr._subscriptions.add_object(test_subscription)
         patient_context_descriptor = self.sdc_device.mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
         descriptor_handle = patient_context_descriptor.Handle
         with self.sdc_device.mdib.transaction_manager() as mgr:
@@ -133,18 +136,22 @@ class TestDeviceSubscriptions(unittest.TestCase):
         test_subscription = mockstuff.TestDevSubscription(
             [self.sdc_device.mdib.sdc_definitions.Actions.OperationInvokedReport],
             self.sdc_device.msg_factory)
-        self.sdc_device.subscriptions_manager._subscriptions.add_object(test_subscription)
+        mgr = self.sdc_device.hosted_services.set_service.hosting_service.subscriptions_manager
+        mgr._subscriptions.add_object(test_subscription)
 
         class DummyOperation:
             pass
 
         dummy_operation = DummyOperation()
         dummy_operation.handle = 'something'
-        self.sdc_device.subscriptions_manager.notify_operation(dummy_operation,
-                                                               123,
-                                                               msgtypes.InvocationState.FINISHED,
-                                                               mdib_version_group=MdibVersionGroup(1234, 'urn:uuid:abc', None),
-                                                               nsmapper=self.sdc_device.mdib.nsmapper,
-                                                               error=msgtypes.InvocationError.UNSPECIFIED,
-                                                               error_message='')
+        port_type_impl = self.sdc_device.hosted_services.set_service
+        port_type_impl.notify_operation(dummy_operation,
+                                        123,
+                                        msgtypes.InvocationState.FINISHED,
+                                        mdib_version_group=MdibVersionGroup(1234,
+                                                                            'urn:uuid:abc',
+                                                                            None),
+                                        nsmapper=self.sdc_device.mdib.nsmapper,
+                                        error=msgtypes.InvocationError.UNSPECIFIED,
+                                        error_message='')
         self.assertEqual(len(test_subscription.reports), 1)

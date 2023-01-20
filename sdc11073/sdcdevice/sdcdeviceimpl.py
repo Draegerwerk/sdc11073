@@ -1,12 +1,13 @@
 import copy
-from urllib.parse import SplitResult
 import uuid
+from urllib.parse import SplitResult
 
 from . import httpserver
 from .components import default_sdc_device_components
-from .hostedserviceimpl import SoapMessageHandler
 from .hostedserviceimpl import DispatchKey
+from .hostedserviceimpl import SoapMessageHandler
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
+from .subscriptionmgr import SoapClientPool
 from .waveforms import WaveformSender
 from .. import compression
 from .. import loghelper
@@ -15,6 +16,10 @@ from ..addressing import EndpointReferenceType
 from ..dpws import HostServiceType
 from ..exceptions import ApiUsageError
 from ..location import SdcLocation
+
+
+class ConfigurationError(Exception):
+    """Raised if something is wrong with provided components"""
 
 
 class SdcDevice:
@@ -88,7 +93,7 @@ class SdcDevice:
         self._host_dispatcher.register_post_handler(DispatchKey(f'{nsh.WXF.namespace}/Get', None),
                                                     self._on_get_metadata)
         self._host_dispatcher.register_post_handler(DispatchKey(f'{nsh.WSD.namespace}/Probe', 'Probe'),
-                                                                self._on_probe_request)
+                                                    self._on_probe_request)
 
         self.dpws_host = HostServiceType(
             endpoint_reference=EndpointReferenceType(self.epr),
@@ -100,7 +105,8 @@ class SdcDevice:
         self._hosted_service_dispatcher.register_hosted_service(self._host_dispatcher)
 
         # these are initialized in _setup_components:
-        self._subscriptions_manager = None
+        self._subscriptions_managers = {}
+        self._soap_client_pool = SoapClientPool()
         self._sco_operations_registry = None
         self._service_factory = None
         self.product_roles = None
@@ -108,33 +114,36 @@ class SdcDevice:
         self._periodic_reports_handler = PeriodicReportsNullHandler()
         self._setup_components()
         self.base_urls = []  # will be set after httpserver is started
-        properties.bind(device_mdib_container, transaction=self._send_notifications)
+        properties.bind(device_mdib_container, transaction=self._send_episodic_reports)
         properties.bind(device_mdib_container, rt_updates=self._send_rt_notifications)
 
     def _setup_components(self):
+        self._subscriptions_managers = {}
+        for name, cls in self._components.subscriptions_manager_class.items():
+            mgr = cls(self._ssl_context,
+                      self._mdib.sdc_definitions,
+                      self.msg_factory,
+                      self.msg_reader,
+                      self._components.soap_client_class,
+                      self._soap_client_pool,
+                      self._compression_methods,
+                      self._max_subscription_duration,
+                      log_prefix=self._log_prefix,
+                      chunked_messages=self.chunked_messages)
+            self._subscriptions_managers[name] = mgr
 
-        cls = self._components.subscriptions_manager_class
-        self._subscriptions_manager = cls(self._ssl_context,
-                                          self._mdib.sdc_definitions,
-                                          self.msg_factory,
-                                          self.msg_reader,
-                                          self._components.soap_client_class,
-                                          self._compression_methods,
-                                          self._max_subscription_duration,
-                                          log_prefix=self._log_prefix,
-                                          chunked_messages=self.chunked_messages)
+        services_factory = self._components.services_factory
+        self.hosted_services = services_factory(self, self._components, self._subscriptions_managers)
+        for dpws_service in self.hosted_services.dpws_hosted_services:
+            self._hosted_service_dispatcher.register_hosted_service(dpws_service)
 
         cls = self._components.sco_operations_registry_class
-        self._sco_operations_registry = cls(self._subscriptions_manager,
+        self._sco_operations_registry = cls(self.hosted_services.set_service,
                                             self._components.operation_cls_getter,
                                             self._mdib,
                                             handle='_sco',
                                             log_prefix=self._log_prefix)
 
-        services_factory = self._components.services_factory
-        self.hosted_services = services_factory(self, self._components)
-        for dpws_service in self.hosted_services.dpws_hosted_services:
-            self._hosted_service_dispatcher.register_hosted_service(dpws_service)
         self.product_roles = self._components.role_provider_class(self._mdib,
                                                                   self._sco_operations_registry,
                                                                   self._log_prefix)
@@ -192,10 +201,6 @@ class SdcDevice:
         return self._mdib
 
     @property
-    def subscriptions_manager(self):
-        return self._subscriptions_manager
-
-    @property
     def sco_operations_registry(self):
         return self._sco_operations_registry
 
@@ -232,7 +237,8 @@ class SdcDevice:
         if periodic_reports_interval or self._mdib.retrievability_periodic:
             self._logger.info('starting PeriodicReportsHandler')
             self._periodic_reports_handler = PeriodicReportsHandler(self._mdib,
-                                                                    self._subscriptions_manager,
+                                                                    self.hosted_services,
+                                                                    # self._subscriptions_managers['StateEvent'],
                                                                     periodic_reports_interval)
             self._periodic_reports_handler.start()
         else:
@@ -280,13 +286,15 @@ class SdcDevice:
 
         for host_ip in host_ips:
             self._logger.info('serving Services on {}:{}', host_ip, port)
-        self._subscriptions_manager.set_base_urls(self.base_urls)
+        for subscriptions_manager in self._subscriptions_managers.values():
+            subscriptions_manager.set_base_urls(self.base_urls)
 
     def stop_all(self, send_subscription_end=True):
         self.stop_realtime_sample_loop()
         if self._periodic_reports_handler:
             self._periodic_reports_handler.stop()
-        self._subscriptions_manager.stop_all(send_subscription_end)
+        for subscriptions_manager in self._subscriptions_managers.values():
+            subscriptions_manager.stop_all(send_subscription_end)
         self._sco_operations_registry.stop_worker()
         try:
             self._wsdiscovery.clear_service(self.epr)
@@ -313,55 +321,62 @@ class SdcDevice:
             xaddrs.append(f'{self._urlschema}://{addr}:{port}/{self.path_prefix}')
         return xaddrs
 
-    def _send_notifications(self, transaction_processor):
+    def _send_episodic_reports(self, transaction_processor):
         mdib_version_group = self._mdib.mdib_version_group
         ns_mapper = self._mdib.nsmapper
         if transaction_processor.has_descriptor_updates:
+            port_type_impl = self.hosted_services.description_event_service
             updated = transaction_processor.descr_updated
             created = transaction_processor.descr_created
             deleted = transaction_processor.descr_deleted
             states = transaction_processor.all_states()
-            self._subscriptions_manager.send_descriptor_updates(
+            port_type_impl.send_descriptor_updates(
                 updated, created, deleted, states, ns_mapper, mdib_version_group)
 
         states = transaction_processor.metric_updates
         if len(states) > 0:
-            self._subscriptions_manager.send_episodic_metric_report(
+            port_type_impl = self.hosted_services.state_event_service
+            port_type_impl.send_episodic_metric_report(
                 states, ns_mapper, mdib_version_group)
-            self._periodic_reports_handler.store_metric_states(mdib_version_group.mdib_version, transaction_processor.metric_updates)
+            self._periodic_reports_handler.store_metric_states(mdib_version_group.mdib_version,
+                                                               transaction_processor.metric_updates)
 
         states = transaction_processor.alert_updates
         if len(states) > 0:
-            self._subscriptions_manager.send_episodic_alert_report(
+            port_type_impl = self.hosted_services.state_event_service
+            port_type_impl.send_episodic_alert_report(
                 states, ns_mapper, mdib_version_group)
             self._periodic_reports_handler.store_alert_states(mdib_version_group.mdib_version, states)
 
         states = transaction_processor.comp_updates
         if len(states) > 0:
-            self._subscriptions_manager.send_episodic_component_state_report(
+            port_type_impl = self.hosted_services.state_event_service
+            port_type_impl.send_episodic_component_state_report(
                 states, ns_mapper, mdib_version_group)
             self._periodic_reports_handler.store_component_states(mdib_version_group.mdib_version, states)
 
         states = transaction_processor.ctxt_updates
         if len(states) > 0:
-            self._subscriptions_manager.send_episodic_context_report(
-                states, ns_mapper,mdib_version_group)
+            port_type_impl = self.hosted_services.context_service
+            port_type_impl.send_episodic_context_report(
+                states, ns_mapper, mdib_version_group)
             self._periodic_reports_handler.store_context_states(mdib_version_group.mdib_version, states)
 
         states = transaction_processor.op_updates
         if len(states) > 0:
-            self._subscriptions_manager.send_episodic_operational_state_report(states, ns_mapper, mdib_version_group)
+            port_type_impl = self.hosted_services.state_event_service
+            port_type_impl.send_episodic_operational_state_report(states, ns_mapper, mdib_version_group)
             self._periodic_reports_handler.store_operational_states(mdib_version_group.mdib_version, states)
 
         states = transaction_processor.rt_updates
         if len(states) > 0:
-            self._subscriptions_manager.send_realtime_samples_report(
-                states, ns_mapper, mdib_version_group)
+            port_type_impl = self.hosted_services.waveform_service
+            port_type_impl.send_realtime_samples_report(states, ns_mapper, mdib_version_group)
 
     def _send_rt_notifications(self, rt_states):
         if len(rt_states) > 0:
-            self._subscriptions_manager.send_realtime_samples_report(
-                rt_states, self._mdib.nsmapper, self._mdib.mdib_version_group)
+            port_type_impl = self.hosted_services.waveform_service
+            port_type_impl.send_realtime_samples_report(rt_states, self._mdib.nsmapper, self._mdib.mdib_version_group)
 
     def set_used_compression(self, *compression_methods):
         del self._compression_methods[:]

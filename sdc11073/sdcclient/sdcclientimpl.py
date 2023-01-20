@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from lxml import etree as etree_
 
+from .components import default_sdc_client_components
 from .subscription import ClSubscription
 from .. import commlog
 from .. import compression
@@ -15,10 +16,10 @@ from .. import loghelper
 from .. import netconn
 from .. import observableproperties as properties
 from ..definitions_base import ProtocolsRegistry
+from ..exceptions import ApiUsageError
 from ..httprequesthandler import RequestData
 from ..namespaces import EventingActions
-from ..exceptions import ApiUsageError
-from .components import default_sdc_client_components
+
 
 class HostDescription:
     def __init__(self, dpws_envelope):
@@ -365,12 +366,12 @@ class SdcClient:
             if unsubscribe:
                 self._subscription_mgr.unsubscribe_all()
             self._subscription_mgr.stop()
-        self._stop_event_sink()
         self.set_mdib(None)
 
         for client in self._soap_clients.values():
             client.close()
         self._soap_clients = {}
+        self._stop_event_sink()
 
     def set_used_compression(self, *compression_methods):
         # update list in place

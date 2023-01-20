@@ -1,7 +1,14 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING, List
 from collections import OrderedDict
 from .servicesbase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding, msg_prefix
 from .servicesbase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation
 from ..hostedserviceimpl import DispatchKey
+if TYPE_CHECKING:
+    from ...mdib.statecontainers import AbstractStateContainer
+    from ..periodicreports import PeriodicStates
+    from ...namespaces import NamespaceHelper
+
 
 class ContextService(ServiceWithOperations):
     WSDLMessageDescriptions = (WSDLMessageDescription('SetContextState',
@@ -83,3 +90,23 @@ class ContextService(ServiceWithOperations):
         mk_wsdl_two_way_operation(port_type, operation_name='GetContextStates')
         _mk_wsdl_one_way_operation(port_type, operation_name='EpisodicContextReport')
         _mk_wsdl_one_way_operation(port_type, operation_name='PeriodicContextReport')
+
+    def send_episodic_context_report(self, states: List[AbstractStateContainer],
+                                     nsmapper: NamespaceHelper,
+                                     mdib_version_group):
+        subscription_mgr = self.hosting_service.subscriptions_manager
+        action = self._sdc_definitions.Actions.EpisodicContextReport
+        body_node = self._msg_factory.mk_episodic_context_report_body(mdib_version_group, states)
+        self._logger.debug('sending episodic context report {}', states)
+        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_episodic_context_report')
+
+    def send_periodic_context_report(self, periodic_states_list: List[PeriodicStates],
+                                     nsmapper: NamespaceHelper,
+                                     mdib_version_group):
+        subscription_mgr = self.hosting_service.subscriptions_manager
+        action = self._sdc_definitions.Actions.PeriodicContextReport
+        body_node = self._msg_factory.mk_periodic_context_report_body(
+            periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
+        self._logger.debug('sending periodic context report, contains last {} episodic updates',
+                           len(periodic_states_list))
+        subscription_mgr.send_to_subscribers(body_node, action, nsmapper, 'send_periodic_context_report')

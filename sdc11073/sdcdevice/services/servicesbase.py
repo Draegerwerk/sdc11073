@@ -39,14 +39,16 @@ class DPWSPortTypeImpl:
         self.port_type_string = port_type_string
         self._sdc_device = sdc_device
         self._mdib = sdc_device.mdib
+        self._sdc_definitions = self._mdib.sdc_definitions
+        self._msg_factory = self._sdc_device.msg_factory
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
         self.hosting_service = None  # the parent
         # calculate offered subscriptions from WSDLOperationBindings
         self.offered_subscriptions = self._mk_offered_subscriptions()
 
-    def register_handlers(self, hosting_service):
+    def register_handlers(self, dpws_hosted_service):
         """Register callbacks in hosting_service"""
-        self.hosting_service = hosting_service
+        self.hosting_service = dpws_hosted_service
 
     @property
     def actions(self):  # just a shortcut

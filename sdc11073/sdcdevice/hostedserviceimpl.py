@@ -13,8 +13,8 @@ from ..addressing import EndpointReferenceType
 from ..dpws import HostedServiceType
 from ..httprequesthandler import InvalidActionError
 from ..httprequesthandler import RequestData
-from ..namespaces import default_ns_helper as ns_hlp
 from ..namespaces import EventingActions
+from ..namespaces import default_ns_helper as ns_hlp
 from ..pysoap.msgfactory import CreatedMessage
 from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
 
@@ -43,7 +43,7 @@ class DispatchKey:
     message_tag: etree_.QName
 
     def __repr__(self):
-        """"This shows namespace and localname of the QName."""
+        """This shows namespace and localname of the QName."""
         if isinstance(self.message_tag, etree_.QName):
             return f'{self.__class__.__name__} action={self.action} ' \
                    f'msg={self.message_tag.namespace}::{self.message_tag.localname}'
@@ -115,13 +115,13 @@ class SoapMessageHandler:
         return list(self._post_handlers.keys())
 
 
-class EventService(SoapMessageHandler):
+class _EventService(SoapMessageHandler):
     """ A service that offers subscriptions"""
 
-    def __init__(self, sdc_device, path_element, offered_subscriptions):
+    def __init__(self, sdc_device, subscriptions_manager, path_element, offered_subscriptions):
         super().__init__(path_element, sdc_device.msg_factory)
-        self._sdc_device = sdc_device
-        self._subscriptions_manager = sdc_device.subscriptions_manager
+        self._msg_reader = sdc_device.msg_reader
+        self._subscriptions_manager = subscriptions_manager
         self._offered_subscriptions = offered_subscriptions
         self.register_post_handler(DispatchKey(EventingActions.Subscribe, ns_hlp.wseTag('Subscribe')),
                                    self._on_subscribe)
@@ -132,8 +132,12 @@ class EventService(SoapMessageHandler):
         self.register_post_handler(DispatchKey(EventingActions.Renew, ns_hlp.wseTag('Renew')),
                                    self._on_renew_status)
 
+    @property
+    def subscriptions_manager(self):
+        return self._subscriptions_manager
+
     def _on_subscribe(self, request_data):
-        subscribe_request = self._sdc_device.msg_reader.read_subscribe_request(request_data)
+        subscribe_request = self._msg_reader.read_subscribe_request(request_data)
         for subscription_filter in subscribe_request.subscription_filters:
             if subscription_filter not in self._offered_subscriptions:
                 raise Exception(f'{self.__class__.__name__}::{self.path_element}: "{subscription_filter}" '
@@ -155,10 +159,10 @@ class EventService(SoapMessageHandler):
         return returned_envelope
 
 
-class DPWSHostedService(EventService):
+class DPWSHostedService(_EventService):
     """ Container for DPWSPortTypeImpl instances"""
 
-    def __init__(self, sdc_device, path_element, port_type_impls):
+    def __init__(self, sdc_device, subscriptions_manager, path_element, port_type_impls):
         """
 
         :param sdc_device:
@@ -168,7 +172,7 @@ class DPWSHostedService(EventService):
         offered_subscriptions = []
         for p in port_type_impls:
             offered_subscriptions.extend(p.offered_subscriptions)
-        super().__init__(sdc_device, path_element, offered_subscriptions)
+        super().__init__(sdc_device, subscriptions_manager, path_element, offered_subscriptions)
 
         self._sdc_device = sdc_device
         self._mdib = sdc_device.mdib
@@ -287,7 +291,7 @@ class HostedServices:
     localization_service: Type[DPWSPortTypeImpl] = None
 
 
-def mk_dpws_hosts(sdc_device, components, dpws_hosted_service_cls):
+def mk_dpws_hosts(sdc_device, components, dpws_hosted_service_cls, subscription_managers: dict):
     dpws_services = []
     services_by_name = {}
     for host_name, service_cls_dict in components.hosted_services.items():
@@ -296,15 +300,15 @@ def mk_dpws_hosts(sdc_device, components, dpws_hosted_service_cls):
             service = service_cls(service_name, sdc_device)
             services.append(service)
             services_by_name[service_name] = service
-
-        hosted = dpws_hosted_service_cls(sdc_device, host_name, services)
+        subscription_manager = subscription_managers.get(host_name)
+        hosted = dpws_hosted_service_cls(sdc_device, subscription_manager, host_name, services)
         dpws_services.append(hosted)
     return dpws_services, services_by_name
 
 
-def mk_all_services(sdc_device, components) -> HostedServices:
+def mk_all_services(sdc_device, components, subscription_managers) -> HostedServices:
     # register all services with their endpoint references acc. to structure in components
-    dpws_services, services_by_name = mk_dpws_hosts(sdc_device, components, DPWSHostedService)
+    dpws_services, services_by_name = mk_dpws_hosts(sdc_device, components, DPWSHostedService, subscription_managers)
     hosted_services = HostedServices(dpws_services,
                                      services_by_name['GetService'],
                                      set_service=services_by_name.get('SetService'),

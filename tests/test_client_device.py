@@ -179,52 +179,107 @@ class Test_Client_SomeDevice(unittest.TestCase):
         """ verify that sockets get closed"""
         cl_mdib = ClientMdibContainer(self.sdc_client)
         cl_mdib.init_mdib()
+
+        services = [s for s in self.sdc_device.hosted_services.dpws_hosted_services
+                    if s.subscriptions_manager is not None]
+
+        all_subscriptions = []
+        for hosted_service in services:
+            all_subscriptions.extend(hosted_service.subscriptions_manager._subscriptions.objects)
+
         # first check that we see subscriptions on devices side
-        self.assertEqual(len(self.sdc_device.subscriptions_manager._subscriptions.objects),
-                         len(self.sdc_client._subscription_mgr.subscriptions))
-        subscriptions = list(self.sdc_device.subscriptions_manager._subscriptions.objects)  # make a copy of this list
-        for s in subscriptions:
-            self.assertFalse(s.is_closed())
+        for hosted_service in services:
+            mgr = hosted_service.subscriptions_manager
+            self.assertEqual(len(mgr._subscriptions.objects), 1)
+
+        # check that no subscription is closed
+        for hosted_service in services:
+            mgr = hosted_service.subscriptions_manager
+            subscriptions = list(mgr._subscriptions.objects)  # make a copy of this list
+            for s in subscriptions:
+                self.assertFalse(s.is_closed())
+
         self.sdc_client._subscription_mgr.unsubscribe_all()
-        self.assertEqual(len(self.sdc_device.subscriptions_manager._subscriptions.objects), 0)
-        for s in subscriptions:
+
+        # all subscriptions shall be closed immediately
+        for s in all_subscriptions:
             self.assertTrue(s.is_closed())
+
+        # subscription managers shall have no subscriptions
+        for hosted_service in services:
+            mgr = hosted_service.subscriptions_manager
+            self.assertEqual(len(mgr._subscriptions.objects), 0)
 
     def test_device_stop(self):
         """ verify that sockets get closed"""
         cl_mdib = ClientMdibContainer(self.sdc_client)
         cl_mdib.init_mdib()
+        services = [s for s in self.sdc_device.hosted_services.dpws_hosted_services
+                    if s.subscriptions_manager is not None]
+
+        all_subscriptions = []
+        for hosted_service in services:
+            all_subscriptions.extend(hosted_service.subscriptions_manager._subscriptions.objects)
+
         # first check that we see subscriptions on devices side
-        self.assertEqual(len(self.sdc_device.subscriptions_manager._subscriptions.objects),
-                         len(self.sdc_client._subscription_mgr.subscriptions))
-        subscriptions = list(self.sdc_device.subscriptions_manager._subscriptions.objects)  # make a copy of this list
-        for s in subscriptions:
-            self.assertFalse(s.is_closed())
+        for hosted_service in services:
+            mgr = hosted_service.subscriptions_manager
+            self.assertEqual(len(mgr._subscriptions.objects), 1)
+
+        # check that no subscription is closed
+        for hosted_service in services:
+            mgr = hosted_service.subscriptions_manager
+            subscriptions = list(mgr._subscriptions.objects)  # make a copy of this list
+            for s in subscriptions:
+                self.assertFalse(s.is_closed())
 
         self.sdc_device.stop_all()
 
-        self.assertEqual(len(self.sdc_device.subscriptions_manager._subscriptions.objects), 0)
-        for s in subscriptions:
+        # all subscriptions shall be closed immediately
+        for s in all_subscriptions:
             self.assertTrue(s.is_closed())
+
+        # subscription managers shall have no subscriptions
+        for hosted_service in services:
+            mgr = hosted_service.subscriptions_manager
+            self.assertEqual(len(mgr._subscriptions.objects), 0)
 
     def test_client_stop_no_unsubscribe(self):
         self.log_watcher.setPaused(True)  # this test will have error logs, no check
         cl_mdib = ClientMdibContainer(self.sdc_client)
         cl_mdib.init_mdib()
+        services = [s for s in self.sdc_device.hosted_services.dpws_hosted_services
+                    if s.subscriptions_manager is not None]
+        self.assertTrue(len(services) >= 2)
+
+        all_subscriptions = []
+        for hosted_service in services:
+            all_subscriptions.extend(hosted_service.subscriptions_manager._subscriptions.objects)
+
         # first check that we see subscriptions on devices side
-        self.assertEqual(len(self.sdc_device.subscriptions_manager._subscriptions.objects),
-                         len(self.sdc_client._subscription_mgr.subscriptions))
-        subscriptions = list(self.sdc_device.subscriptions_manager._subscriptions.objects)  # make a copy of this list
-        for s in subscriptions:
-            self.assertFalse(s.is_closed())
+        for hosted_service in services:
+            mgr = hosted_service.subscriptions_manager
+            self.assertEqual(len(mgr._subscriptions.objects), 1)
+
+        # check that no subscription is closed
+        for hosted_service in services:
+            mgr = hosted_service.subscriptions_manager
+            subscriptions = list(mgr._subscriptions.objects)  # make a copy of this list
+            for s in subscriptions:
+                self.assertFalse(s.is_closed())
+
         self.sdc_client.stop_all(unsubscribe=False)
         time.sleep(SoapClient.SOCKET_TIMEOUT + 2)  # just a little longer than socket timeout 5 seconds
-        self.assertLess(len(self.sdc_device.subscriptions_manager._subscriptions.objects),
-                        8)  # at least waveform subscription must have ended
 
-        subscriptions = list(self.sdc_device.subscriptions_manager._subscriptions.objects)  # make a copy of this list
-        for s in subscriptions:
-            self.assertTrue(s.is_closed(), msg=f'subscription is not closed: {s}')
+        # all subscriptions shall be closed now
+        for s in all_subscriptions:
+            print(s)
+            self.assertTrue(s.is_closed())
+
+        # subscription managers shall have no subscriptions
+        for hosted_service in services:
+            mgr = hosted_service.subscriptions_manager
+            self.assertEqual(len(mgr._subscriptions.objects), 0)
 
     def test_subscription_end(self):
         self.sdc_device.stop_all()
@@ -1089,9 +1144,11 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
-        specific_components = SdcDeviceComponents(subscriptions_manager_class=SubscriptionsManagerReferenceParam,
-                                                  soap_client_class=SoapClientAsync
-                                                  )
+
+        specific_components = SdcDeviceComponents(
+            subscriptions_manager_class={'StateEvent': SubscriptionsManagerReferenceParam},
+            soap_client_class=SoapClientAsync
+            )
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<Final> ',
                                                     specific_components=specific_components,
                                                     chunked_messages=True)

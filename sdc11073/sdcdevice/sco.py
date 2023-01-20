@@ -7,17 +7,24 @@ A remote control command is executed async. The respone to such soap request con
 The progress of the transaction is reported with an OperationInvokedReport.
 A client must subscribe to the OperationInvokeReport Event of the 'Set' service, otherwise it would not get informed about progress.
 """
+from __future__ import annotations
+
 import queue
 import threading
 import time
 import traceback
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Callable
 
 from .. import loghelper
 from .. import observableproperties as properties
-from ..pmtypes import SafetyClassification
-from ..msgtypes import InvocationState
 from ..exceptions import ApiUsageError
+from ..msgtypes import InvocationState
+from ..pmtypes import SafetyClassification
+
+if TYPE_CHECKING:
+    from .services.setserviceimpl import SetServiceProtocol
+    from lxml.etree import QName
 
 
 class OperationDefinition:
@@ -91,7 +98,6 @@ class OperationDefinition:
             return
         self.on_timeout = True  # let observable fire
 
-
     def set_mdib(self, mdib, parent_descriptor_container):
         """ The operation needs to know the mdib that it operates on.
         This is called by SubscriptionManager on registration.
@@ -161,20 +167,19 @@ class OperationDefinition:
         return f'{self.__class__.__name__} handle={self._handle} operation-target={self._operation_target_handle}'
 
 
-
 class _OperationsWorker(threading.Thread):
     """ Thread that enqueues and processes all operations.
     It manages transaction ids for all operations.
     Progress notifications are sent via subscription manager."""
 
-    def __init__(self, operations_registry, subscriptions_mgr, mdib, log_prefix):
+    def __init__(self, operations_registry, set_service: SetServiceProtocol, mdib, log_prefix):
         """
-        :param subscriptions_mgr: subscriptionsmgr.notify_operation is called in order to notify all subscribers of OperationInvokeReport Events
+        :param set_service: set_service.notify_operation is called in order to notify all subscribers of OperationInvokeReport Events
         """
         super().__init__(name='DeviceOperationsWorker')
         self.daemon = True
         self._operations_registry = operations_registry
-        self._subscriptions_mgr = subscriptions_mgr
+        self._set_service: SetServiceProtocol = set_service
         self._mdib = mdib
         self._operations_queue = queue.Queue(10)  # spooled operations
         self._transaction_id = 1
@@ -210,24 +215,24 @@ class _OperationsWorker(threading.Thread):
                     self._logger.info('{}: starting operation "{}" argument={}',
                                       operation.__class__.__name__, operation.handle, operation_request.argument)
                     # duplicate the WAIT response to the operation request as notification. Standard requires this.
-                    self._subscriptions_mgr.notify_operation(
+                    self._set_service.notify_operation(
                         operation, tr_id, InvocationState.WAIT,
                         self._mdib.mdib_version_group, self._mdib.nsmapper)
                     time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
-                    self._subscriptions_mgr.notify_operation(
+                    self._set_service.notify_operation(
                         operation, tr_id, InvocationState.START,
                         self._mdib.mdib_version_group, self._mdib.nsmapper)
                     try:
                         operation.execute_operation(request, operation_request)
                         self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
                                           operation.handle)
-                        self._subscriptions_mgr.notify_operation(
+                        self._set_service.notify_operation(
                             operation, tr_id, InvocationState.FINISHED,
                             self._mdib.mdib_version_group, self._mdib.nsmapper)
                     except Exception as ex:
                         self._logger.error('{}: error executing operation "{}": {}', operation.__class__.__name__,
-                                          operation.handle, traceback.format_exc())
-                        self._subscriptions_mgr.notify_operation(
+                                           operation.handle, traceback.format_exc())
+                        self._set_service.notify_operation(
                             operation, tr_id, InvocationState.FAILED,
                             self._mdib.mdib_version_group, self._mdib.nsmapper,
                             error='Oth', error_message=repr(ex))
@@ -241,9 +246,13 @@ class _OperationsWorker(threading.Thread):
 
 
 class AbstractScoOperationsRegistry(ABC):
-    def __init__(self, subscriptions_mgr, operation_cls_getter, mdib, handle='_sco', log_prefix=None):
+    def __init__(self, set_service: SetServiceProtocol,
+                 operation_cls_getter: Callable[[QName], type],
+                 mdib,
+                 handle='_sco',
+                 log_prefix=None):
         self._worker = None
-        self._subscriptions_mgr = subscriptions_mgr
+        self._set_service: SetServiceProtocol = set_service
         self.operation_cls_getter = operation_cls_getter
         self._mdib = mdib
         self._log_prefix = log_prefix
@@ -346,7 +355,7 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
     def start_worker(self):
         if self._worker is not None:
             raise ApiUsageError('SCO worker is already running')
-        self._worker = _OperationsWorker(self, self._subscriptions_mgr, self._mdib, self._log_prefix)
+        self._worker = _OperationsWorker(self, self._set_service, self._mdib, self._log_prefix)
         self._worker.start()
 
     def stop_worker(self):
