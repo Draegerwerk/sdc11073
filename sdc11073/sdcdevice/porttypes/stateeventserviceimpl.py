@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List
 
-from .servicesbase import DPWSPortTypeImpl, WSDLMessageDescription, WSDLOperationBinding, _mk_wsdl_one_way_operation
-from .servicesbase import msg_prefix
+from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, _mk_wsdl_one_way_operation
+from .porttypebase import msg_prefix
 
 if TYPE_CHECKING:
     from ...mdib.statecontainers import AbstractStateContainer
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from ...namespaces import NamespaceHelper
 
 
-class StateEventService(DPWSPortTypeImpl):
+class StateEventService(DPWSPortTypeBase):
     WSDLMessageDescriptions = (
         WSDLMessageDescription('EpisodicAlertReport',
                                (f'{msg_prefix}:EpisodicAlertReport',)),

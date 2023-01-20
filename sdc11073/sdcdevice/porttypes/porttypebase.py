@@ -22,7 +22,7 @@ WSDLMessageDescription = namedtuple('WSDLMessageDescription', 'name parameters '
 WSDLOperationBinding = namedtuple('WSDLOperationBinding', 'name input output')
 
 
-class DPWSPortTypeImpl:
+class DPWSPortTypeBase:
     """ Base class of all PortType implementations. Its responsibilities are:
         - handling of messages
         - creation of wsdl information.
@@ -141,7 +141,7 @@ class DPWSPortTypeImpl:
         return offered_subscriptions
 
 
-class ServiceWithOperations(DPWSPortTypeImpl):
+class ServiceWithOperations(DPWSPortTypeBase):
     def _handle_operation_request(self, message_data, response_name, operation_request):
         """
         It enqueues an operation and generate the expected operation invoked report.

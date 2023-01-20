@@ -1,8 +1,8 @@
 from collections import defaultdict
 
-from .servicesbase import DPWSPortTypeImpl
-from .servicesbase import WSDLMessageDescription, WSDLOperationBinding
-from .servicesbase import mk_wsdl_two_way_operation, msg_prefix
+from .porttypebase import DPWSPortTypeBase
+from .porttypebase import WSDLMessageDescription, WSDLOperationBinding
+from .porttypebase import mk_wsdl_two_way_operation, msg_prefix
 from ..hostedserviceimpl import DispatchKey
 
 
@@ -187,7 +187,7 @@ class LocalizationStorage():
         return texts
 
 
-class LocalizationService(DPWSPortTypeImpl):
+class LocalizationService(DPWSPortTypeBase):
     WSDLMessageDescriptions = (WSDLMessageDescription('GetLocalizedText',
                                                       (f'{msg_prefix}:GetLocalizedText',)),
                                WSDLMessageDescription('GetLocalizedTextResponse',

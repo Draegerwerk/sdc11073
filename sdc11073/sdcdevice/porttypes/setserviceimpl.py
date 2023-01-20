@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, List, Protocol, runtime_checkable
 
-from .servicesbase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding
-from .servicesbase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation, msg_prefix
+from .porttypebase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding
+from .porttypebase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation, msg_prefix
 from ..hostedserviceimpl import DispatchKey
 
 if TYPE_CHECKING:

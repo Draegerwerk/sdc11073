@@ -7,7 +7,7 @@ from typing import Iterable, Type, Callable, Union
 
 from lxml import etree as etree_
 
-from .services.servicesbase import DPWSPortTypeImpl
+from .porttypes.porttypebase import DPWSPortTypeBase
 from .. import loghelper
 from ..addressing import EndpointReferenceType
 from ..dpws import HostedServiceType
@@ -160,14 +160,14 @@ class _EventService(SoapMessageHandler):
 
 
 class DPWSHostedService(_EventService):
-    """ Container for DPWSPortTypeImpl instances"""
+    """ Container for DPWSPortTypeBase instances"""
 
     def __init__(self, sdc_device, subscriptions_manager, path_element, port_type_impls):
         """
 
         :param sdc_device:
         :param path_element:
-        :param port_type_impls: list of DPWSPortTypeImpl
+        :param port_type_impls: list of DPWSPortTypeBase
         """
         offered_subscriptions = []
         for p in port_type_impls:
@@ -281,14 +281,14 @@ class DPWSHostedService(_EventService):
 @dataclass(frozen=True)
 class HostedServices:
     dpws_hosted_services: Iterable[DPWSHostedService]
-    get_service: Type[DPWSPortTypeImpl]
-    set_service: Type[DPWSPortTypeImpl] = None
-    context_service: Type[DPWSPortTypeImpl] = None
-    description_event_service: Type[DPWSPortTypeImpl] = None
-    state_event_service: Type[DPWSPortTypeImpl] = None
-    waveform_service: Type[DPWSPortTypeImpl] = None
-    containment_tree_service: Type[DPWSPortTypeImpl] = None
-    localization_service: Type[DPWSPortTypeImpl] = None
+    get_service: Type[DPWSPortTypeBase]
+    set_service: Type[DPWSPortTypeBase] = None
+    context_service: Type[DPWSPortTypeBase] = None
+    description_event_service: Type[DPWSPortTypeBase] = None
+    state_event_service: Type[DPWSPortTypeBase] = None
+    waveform_service: Type[DPWSPortTypeBase] = None
+    containment_tree_service: Type[DPWSPortTypeBase] = None
+    localization_service: Type[DPWSPortTypeBase] = None
 
 
 def mk_dpws_hosts(sdc_device, components, dpws_hosted_service_cls, subscription_managers: dict):

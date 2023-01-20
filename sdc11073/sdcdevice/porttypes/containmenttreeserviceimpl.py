@@ -1,11 +1,11 @@
-from .servicesbase import DPWSPortTypeImpl, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_two_way_operation
-from .servicesbase import msg_prefix
+from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_two_way_operation
+from .porttypebase import msg_prefix
 from ..hostedserviceimpl import DispatchKey
 from ...httprequesthandler import FunctionNotImplementedError
 from ...pysoap.soapenvelope import SoapFault, FaultCodeEnum
 
 
-class ContainmentTreeService(DPWSPortTypeImpl):
+class ContainmentTreeService(DPWSPortTypeBase):
     WSDLMessageDescriptions = (WSDLMessageDescription('GetDescriptor',
                                                       (f'{msg_prefix}:GetDescriptor',)),
                                WSDLMessageDescription('GetDescriptorResponse',

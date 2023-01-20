@@ -1,8 +1,8 @@
-from .servicesbase import DPWSPortTypeImpl, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_two_way_operation
-from .servicesbase import msg_prefix
+from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_two_way_operation
+from .porttypebase import msg_prefix
 from ..hostedserviceimpl import DispatchKey
 
-class GetService(DPWSPortTypeImpl):
+class GetService(DPWSPortTypeBase):
     WSDLMessageDescriptions = (WSDLMessageDescription('GetMdState',
                                                       (f'{msg_prefix}:GetMdState',)),
                                WSDLMessageDescription('GetMdStateResponse',

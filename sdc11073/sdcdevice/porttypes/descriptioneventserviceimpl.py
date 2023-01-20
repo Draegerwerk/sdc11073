@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List
 
-from .servicesbase import DPWSPortTypeImpl, WSDLMessageDescription, WSDLOperationBinding, _mk_wsdl_one_way_operation
-from .servicesbase import msg_prefix
+from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, _mk_wsdl_one_way_operation
+from .porttypebase import msg_prefix
 
 if TYPE_CHECKING:
     from ...mdib.descriptorcontainers import AbstractDescriptorContainer
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from ...namespaces import NamespaceHelper
 
 
-class DescriptionEventService(DPWSPortTypeImpl):
+class DescriptionEventService(DPWSPortTypeBase):
     WSDLMessageDescriptions = (
         WSDLMessageDescription('DescriptionModificationReport',
                                (f'{msg_prefix}:DescriptionModificationReport',)),
