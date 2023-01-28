@@ -45,30 +45,26 @@ class HostedServiceClient:
     """ Base class of clients that call hosted services of a dpws device."""
     subscribeable_actions = tuple()
 
-    def __init__(self, soap_client, msg_factory, dpws_hosted, porttype, sdc_definitions, biceps_parser,
-                 log_prefix=''):
+    def __init__(self, sdc_client, soap_client, dpws_hosted, port_type):
         """
 
+        :param sdc_client:
         :param soap_client:
-        :param msg_factory:
         :param dpws_hosted:
-        :param porttype:
-        :param sdc_definitions:
-        :param biceps_parser:
-        :param log_prefix:
+        :param port_type:
         """
+        self.soap_client = soap_client
+        self._sdc_client = sdc_client
+        self._sdc_definitions = sdc_client.sdc_definitions
+        self._msg_factory = sdc_client._msg_factory
+        self.log_prefix = sdc_client.log_prefix
         self.endpoint_reference = dpws_hosted.endpoint_references[0]
         self._url = urllib.parse.urlparse(self.endpoint_reference.address)
-        self._porttype = porttype
-        self._logger = loghelper.get_logger_adapter(f'sdc.client.{porttype}', log_prefix)
+        self._porttype = port_type
+        self._logger = loghelper.get_logger_adapter(f'sdc.client.{port_type}', self.log_prefix)
         self._operations_manager = None
-        self._sdc_definitions = sdc_definitions
-        self._biceps_parser = biceps_parser
-        self.soap_client = soap_client
-        self.log_prefix = log_prefix
         self._mdib_wref = None
-        self._msg_factory = msg_factory
-        self.supported_actions = [getattr(sdc_definitions.Actions, action) for action in self.subscribeable_actions]
+        self.supported_actions = [getattr(self._sdc_definitions.Actions, action) for action in self.subscribeable_actions]
         self._nsmapper = default_ns_helper
 
     def register_mdib(self, mdib):

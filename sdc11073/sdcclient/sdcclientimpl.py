@@ -1,10 +1,13 @@
 """ Using lxml based SoapClient"""
+from __future__ import annotations
+
 import copy
 import functools
 import ssl
 import traceback
 import urllib
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional, List, Callable
 
 from lxml import etree as etree_
 
@@ -19,6 +22,9 @@ from ..definitions_base import ProtocolsRegistry
 from ..exceptions import ApiUsageError
 from ..httprequesthandler import RequestData
 from ..namespaces import EventingActions
+
+if TYPE_CHECKING:
+    from ..metadata import MetaData
 
 
 class HostDescription:
@@ -163,7 +169,7 @@ class SdcClient:
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
         self._my_ipaddress = self._find_best_own_ip_address()
         self._logger.info('SdcClient for {} uses own IP Address {}', self._device_location, self._my_ipaddress)
-        self.host_description = None
+        self.host_description: MetaData = None
         self.hosted_services = {}  # lookup by service id
         self._validate = validate
         try:
@@ -220,20 +226,41 @@ class SdcClient:
         sort_ip_addresses(my_addresses, device_addr)
         return my_addresses[0]
 
-    def _subscribe(self, dpws_hosted, actions, callback):
-        """ creates a subscription object and registers it in
+    def mk_subscription(self, dpws_hosted, actions: List[str]) -> ClSubscription:
+        """ creates a subscription object and registers it in dispatcher
         :param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
                            This is the target for all subscribe/unsubscribe ... messages
         :param actions: a list of filters. this (joined) string is sent to the sdc server in the Subscribe message
-        :param callback: callable with signature callback(soapEnvlope)
-        @return: a subscription object that has callback already registerd
+        :return: a subscription object
         """
         subscription = self._subscription_mgr.mk_subscription(dpws_hosted, actions)
         for action in actions:
             self._notifications_dispatcher_thread.dispatcher.register_function(action, subscription.on_notification)
+        return subscription
+
+    def do_subscribe(self, dpws_hosted,
+                     actions: List[str],
+                     expire_minutes: Optional[int] = 60,
+                     any_elements: Optional[list] = None,
+                     any_attributes: Optional[dict] = None,
+                     callback: Optional[Callable] = None) -> ClSubscription:
+        """ creates a subscription object and registers it in
+        :param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
+                           This is the target for all subscribe/unsubscribe ... messages
+        :param actions: a list of filters. this (joined) string is sent to the sdc server in the Subscribe message
+        :param expire_minutes: defaults to 1 hour
+        :param any_elements: optional list of etree.Element objects
+        :param any_attributes: optional dictionary of name:str - value:str pairs
+        :param callback: optional callable with signature callback(soapEnvlope)
+        @return: a subscription object that has callback already registerd
+        """
+        # subscription = self._subscription_mgr.mk_subscription(dpws_hosted, actions)
+        # for action in actions:
+        #     self._notifications_dispatcher_thread.dispatcher.register_function(action, subscription.on_notification)
+        subscription = self.mk_subscription(dpws_hosted, actions)
         if callback is not None:
             properties.bind(subscription, notification_data=callback)
-        subscription.subscribe()
+        subscription.subscribe(expire_minutes, any_elements, any_attributes)
         return subscription
 
     def client(self, port_type_name):
@@ -294,7 +321,18 @@ class SdcClient:
                                 if False, response is sent after the complete processing is done.
         :return: None
         """
-        self._discover_hosted_services()
+        if self.host_description is None:
+            self._logger.debug('reading meta data from {}', self._device_location)
+            self.host_description = self._get_metadata()
+
+        # now query also meta data of hosted services
+        self._mk_hosted_services(self.host_description)
+        self._logger.debug('Services: {}', self._service_clients.keys())
+
+        # only GetService is mandatory!!!
+        if self.get_service_client is None:
+            raise RuntimeError(f'GetService not detected! found services = {list(self._service_clients.keys())}')
+
         self._start_event_sink(async_dispatch)
         periodic_actions = {self.sdc_definitions.Actions.PeriodicMetricReport,
                             self.sdc_definitions.Actions.PeriodicAlertReport,
@@ -343,8 +381,8 @@ class SdcClient:
                 if not subscribe_periodic_reports:
                     subscribe_actions -= set(periodic_actions)
                 try:
-                    self._subscribe(dpws_hosted, subscribe_actions,
-                                    self._notifications_dispatcher.on_notification)
+                    self.do_subscribe(dpws_hosted, subscribe_actions,
+                                      callback=self._notifications_dispatcher.on_notification)
                 except Exception:
                     self.all_subscribed = False  # => do not log errors when mdib versions are missing in notifications
                     self._logger.error('start_all: could not subscribe: error = {}, actions= {}',
@@ -378,7 +416,7 @@ class SdcClient:
         del self._compression_methods[:]
         self._compression_methods.extend(compression_methods)
 
-    def _get_metadata(self):
+    def _get_metadata(self) -> MetaData:
         _url = urllib.parse.urlparse(self._device_location)
         wsc = self._get_soap_client(self._device_location)
 
@@ -393,23 +431,6 @@ class SdcClient:
         message = self._msg_factory.mk_transfer_get_message(self._device_location)
         received_message_data = wsc.post_message_to(_url.path, message, msg='getMetadata')
         return self.msg_reader.read_get_metadata_response(received_message_data)
-
-    def _discover_hosted_services(self):
-        """ Discovers all hosted services.
-        Raises RuntimeError if device does not provide the expected BICEPS services
-        """
-        # we need to read the meta data of the device only once => temporary soap client is sufficient
-        self._logger.debug('reading meta data from {}', self._device_location)
-        if self.host_description is None:
-            self.host_description = self._get_metadata()
-
-        # now query also meta data of hosted services
-        self._mk_hosted_services()
-        self._logger.debug('Services: {}', self._service_clients.keys())
-
-        # only GetService is mandatory!!!
-        if self.get_service_client is None:
-            raise RuntimeError(f'GetService not detected! found services = {list(self._service_clients.keys())}')
 
     def _get_soap_client(self, address):
         _url = urllib.parse.urlparse(address)
@@ -441,8 +462,8 @@ class SdcClient:
                    request_encodings=request_encodings,
                    chunked_requests=chunked_requests)
 
-    def _mk_hosted_services(self):
-        for hosted in self.host_description.relationship.hosted.values():
+    def _mk_hosted_services(self, host_description):
+        for hosted in host_description.relationship.hosted.values():
             endpoint_reference = hosted.endpoint_references[0].address
             soap_client = self._get_soap_client(endpoint_reference)
             hosted.soap_client = soap_client
@@ -455,19 +476,19 @@ class SdcClient:
                 self.msg_reader, self._msg_factory, self.log_prefix)
             self.hosted_services[hosted.service_id] = h_descr
             h_descr.read_metadata(soap_client)
-            for _, porttype in ns_types:
-                hosted_service_client = self._mk_hosted_service_client(porttype, soap_client, hosted)
+            for _, port_type in ns_types:
+                hosted_service_client = self._mk_hosted_service_client(port_type, soap_client, hosted)
                 if hosted_service_client is not None:
-                    self._service_clients[porttype] = hosted_service_client
-                    h_descr.services[porttype] = hosted_service_client
+                    self._service_clients[port_type] = hosted_service_client
+                    h_descr.services[port_type] = hosted_service_client
                 else:
-                    self._logger.warning('Unknown port type {}', porttype)
+                    self._logger.warning('Unknown port type {}', port_type)
 
     def _mk_hosted_service_client(self, port_type, soap_client, hosted):
         cls = self._components.service_handlers.get(port_type)
         if cls is None:
             return
-        return cls(soap_client, self._msg_factory, hosted, port_type, self.sdc_definitions, self.log_prefix)
+        return cls(self, soap_client, hosted, port_type)
 
     def _start_event_sink(self, async_dispatch):
         ssl_context = self._ssl_context if self._device_uses_https else None
@@ -489,9 +510,6 @@ class SdcClient:
         self._notifications_dispatcher_thread.started_evt.wait(timeout=5)
         self._logger.info('serving EventSink on {}', self._notifications_dispatcher_thread.base_url)
 
-    # def _stop_event_sink(self, close_all_connections):
-    #     if self._notifications_dispatcher_thread is not None:
-    #         self._notifications_dispatcher_thread.stop(close_all_connections)
     def _stop_event_sink(self):
         if self._notifications_dispatcher_thread is not None:
             self._notifications_dispatcher_thread.stop()

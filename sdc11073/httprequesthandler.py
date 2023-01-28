@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import socket
 import threading
 import traceback
@@ -5,8 +7,12 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from http.server import HTTPServer
 from io import BytesIO
+from typing import TYPE_CHECKING, Optional
 
 from .compression import CompressionHandler
+
+if TYPE_CHECKING:
+    from .pysoap.msgreader import ReceivedMessage
 
 
 class HTTPRequestHandlingError(Exception):
@@ -232,6 +238,10 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
     """
     protocol_version = "HTTP/1.1"  # this enables keep-alive
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dispatcher = None
+
     def _read_request(self):
         """ checks header for content-length, chunk-encoding and compression entries.
         Handles incoming bytes correspondingly.
@@ -404,16 +414,21 @@ class HttpServerThreadBase(threading.Thread):
 class RequestData:
     """This class holds all information about the processing of a http request together"""
 
-    def __init__(self, http_header, path, peer_name, request=None):
-        self.http_header = http_header
-        self.request = request
-        self.peer_name = peer_name  # for logging
-        self.consumed_path_elements = []
+    def __init__(self,
+                 http_header: dict,
+                 path: str,
+                 peer_name: str,
+                 request: Optional[bytes] = None,
+                 message_data: Optional[ReceivedMessage] = None):
+        self.http_header: dict = http_header
         self.path = path
+        self.peer_name: str = peer_name  # for logging
+        self.request: Optional[bytes] = request
+        self.message_data: Optional[ReceivedMessage] = message_data
+        self.consumed_path_elements = []
         if path.startswith('/'):
             path = path[1:]
         self.path_elements = path.split('/')
-        self.message_data = None
 
     def consume_current_path_element(self):
         if len(self.path_elements) == 0:

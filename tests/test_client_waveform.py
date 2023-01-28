@@ -1,12 +1,17 @@
+import logging
+import sys
 import unittest
 
 from lxml import etree as etree_
 
-import sdc11073
 from sdc11073 import definitions_sdc
+from sdc11073 import loghelper
+from sdc11073 import namespaces
+from sdc11073.mdib import ClientMdibContainer
+from sdc11073.mdib.descriptorcontainers import RealTimeSampleArrayMetricDescriptorContainer
+from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
 from sdc11073.pmtypes import Coding
-
-# pylint: disable=protected-access
+from sdc11073.sdcclient import SdcClient
 
 DEV_ADDRESS = 'http://169.254.0.200:10000'
 CLIENT_VALIDATE = True
@@ -97,10 +102,23 @@ def _mk_wf_report(observation_time_ms: int, mdib_version: int, state_version: in
 class TestClientWaveform(unittest.TestCase):
 
     def setUp(self):
-        self.sdc_client = sdc11073.sdcclient.SdcClient(DEV_ADDRESS,
-                                                       sdc_definitions=definitions_sdc.SDC_v1_Definitions,
-                                                       ssl_context=None,
-                                                       validate=CLIENT_VALIDATE)
+        loghelper.basic_logging_setup()
+        self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
+        self.sdc_client = SdcClient(DEV_ADDRESS,
+                                    sdc_definitions=definitions_sdc.SDC_v1_Definitions,
+                                    ssl_context=None,
+                                    validate=CLIENT_VALIDATE)
+
+    def tearDown(self):
+        sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
+        self.log_watcher.setPaused(True)
+        self.sdc_client.stop_all()
+        try:
+            self.log_watcher.check()
+        except loghelper.LogWatchException as ex:
+            sys.stderr.write(repr(ex))
+            raise
+        sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
 
     def test_basic_handling(self):
         """ call _onWaveformReport method directly. Verify that observable is a WaveformStream Element"""
@@ -120,21 +138,23 @@ class TestClientWaveform(unittest.TestCase):
 
         cl = self.sdc_client
 
-        client_mdib = sdc11073.mdib.ClientMdibContainer(cl)
+        client_mdib = ClientMdibContainer(cl)
         client_mdib._xtra.bind_to_client_observables()
         client_mdib._is_initialized = True  # fake it, because we do not call init_mdib()
         client_mdib.MDIB_VERSION_CHECK_DISABLED = True  # we have no mdib version incrementing in this test, therefore disable check
         # create dummy descriptors
         for handle in HANDLES:
             attributes = {'SamplePeriod': 'P0Y0M0DT0H0M0.0157S',  # use a unique sample period
-                          etree_.QName(sdc11073.namespaces.nsmap['xsi'],
+                          etree_.QName(namespaces.nsmap['xsi'],
                                        'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
                           'Handle': handle,
                           'DescriptorVersion': '2'}
-            element = etree_.Element('Metric', attrib=attributes, nsmap=sdc11073.namespaces.nsmap)
-            client_mdib.descriptions.add_object(
-                sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.from_node(
-                    element, None))  # None = no parent handle
+            element = etree_.Element('Metric', attrib=attributes, nsmap=namespaces.nsmap)
+            descr = RealTimeSampleArrayMetricDescriptorContainer.from_node(element, None) # None = no parent handle
+            client_mdib.descriptions.add_object(descr)
+            state = RealTimeSampleArrayMetricStateContainer(descr)
+            state.StateVersion = 41
+            client_mdib.states.add_object(state)
 
         wf_report1 = _mk_wf_report(observation_time_ms, 2, 42)
         received_message_data = cl.msg_reader.read_received_message(wf_report1.encode('utf-8'))

@@ -1,29 +1,108 @@
 import copy
+import traceback
 import uuid
-from urllib.parse import SplitResult
+from urllib.parse import SplitResult, urlparse
 
 from . import httpserver
 from .components import default_sdc_device_components
 from .hostedserviceimpl import DispatchKey
-from .hostedserviceimpl import SoapMessageHandler
+from .hostedserviceimpl import RequestHandlerRegistry
+from .httpserver import PathElementRegistry
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 from .subscriptionmgr import SoapClientPool
 from .waveforms import WaveformSender
+from .. import commlog
 from .. import compression
 from .. import loghelper
 from .. import observableproperties as properties
 from ..addressing import EndpointReferenceType
 from ..dpws import HostServiceType
 from ..exceptions import ApiUsageError
+from ..httprequesthandler import HTTPRequestHandlingError
+from ..httprequesthandler import RequestData
 from ..location import SdcLocation
+from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
 
 
 class ConfigurationError(Exception):
     """Raised if something is wrong with provided components"""
 
 
+class _RequestDispatcher(PathElementRegistry):
+    def dispatch_post(self, request_data: RequestData) -> str:
+        path_element = request_data.consume_current_path_element()
+        dispatcher = self.get_instance(path_element)
+        return dispatcher.on_post(request_data)
+
+    def dispatch_get(self, request_data: RequestData) -> str:
+        dispatcher = self.get_instance(request_data.consume_current_path_element())
+        return dispatcher.on_get(request_data)
+
+
+class _MessageConverterMiddleware:
+    """ Converts between http server message format and internal format
+    http server is strings, internal is RequestData."""
+
+    def __init__(self, msg_reader, msg_factory, logger, dispatcher: _RequestDispatcher):
+        self._logger = logger
+        self._msg_reader = msg_reader
+        self._msg_factory = msg_factory
+        self._dispatcher: _RequestDispatcher = dispatcher
+        self.sdc_definitions = msg_reader.sdc_definitions
+
+    def do_post(self, headers: dict, path: str, peer_name: str, request_bytes: bytes) -> (int, str, str):
+        http_status = 200
+        http_reason = 'Ok'
+        response_xml_string = 'not set yet'
+        try:
+            commlog.get_communication_logger().log_soap_request_in(request_bytes, 'POST')
+            message_data = self._msg_reader.read_received_message(request_bytes)
+            request_data = RequestData(headers, path, peer_name, request_bytes, message_data)
+            request_data.consume_current_path_element()  # uuid is already used
+            response_envelope = self._dispatcher.dispatch_post(request_data)
+            response_xml_string = self._msg_factory.serialize_message(response_envelope)
+        except HTTPRequestHandlingError as ex:
+            message_data = self._msg_reader.read_received_message(request_bytes, validate=False)
+            response = self._msg_factory.mk_fault_message(message_data, ex.soap_fault)
+            response_xml_string = response.serialize_message()
+            http_status = ex.status
+            http_reason = ex.reason
+        except Exception as ex:
+            # make an error 500 response with the soap fault as content
+            self._logger.error(traceback.format_exc())
+            message_data = self._msg_reader.read_received_message(request_bytes, validate=False)
+            fault = SoapFault(code=FaultCodeEnum.SENDER, reason=str(ex))
+            response = self._msg_factory.mk_fault_message(message_data, fault)
+            response_xml_string = response.serialize_message()
+            http_status = 500
+            http_reason = 'exception'
+        finally:
+            commlog.get_communication_logger().log_soap_response_out(response_xml_string, 'POST')
+            return http_status, http_reason, response_xml_string
+
+    def do_get(self, headers: dict, path: str, peer_name: str) -> (int, str, str, str):
+        parsed_path = urlparse(path)
+        try:
+            # GET has no content, log it to document duration of processing
+            commlog.get_communication_logger().log_soap_request_in('', 'GET')
+            request_data = RequestData(headers, path, peer_name)
+            request_data.consume_current_path_element()  # uuid is already used
+            response_string = self._dispatcher.dispatch_get(request_data)
+            commlog.get_communication_logger().log_soap_response_out(response_string, 'GET')
+            if parsed_path.query == 'wsdl':
+                content_type = "text/xml; charset=utf-8"
+            else:
+                content_type = "application/soap+xml; charset=utf-8"
+            return 200, 'Ok', response_string, content_type
+        except Exception as ex:
+            self._logger.error(traceback.format_exc())
+            response_string = str(ex).encode('utf-8')
+            content_type = "text"
+            return 500, 'Exception', response_string, content_type
+
+
 class SdcDevice:
-    DEFAULT_CONTEXTSTATES_IN_GETMDIB = True  # defines if get_mdib and getMdStates contain context states or not.
+    DEFAULT_CONTEXTSTATES_IN_GETMDIB = True  # defines weather get_mdib and getMdStates contain context states or not.
 
     def __init__(self, ws_discovery, this_model, this_device, device_mdib_container, my_uuid=None,
                  validate=True, ssl_context=None,
@@ -36,7 +115,7 @@ class SdcDevice:
         :param this_model: a pysoap.soapenvelope.DPWSThisModel instance
         :param this_device: a pysoap.soapenvelope.DPWSThisDevice instance
         :param device_mdib_container: a DeviceMdibContainer instance
-        :param my_uuid: a uuid instance or None
+        :param my_uuid: an uuid instance or None
         :param validate: bool
         :param ssl_context: if not None, this context is used and https url is used. Otherwise http
         :param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
@@ -88,7 +167,7 @@ class SdcDevice:
                                                               validate=validate)
 
         # host dispatcher provides data of the sdc device itself.
-        self._host_dispatcher = SoapMessageHandler(path_element=None, msg_factory=self.msg_factory)
+        self._host_dispatcher = RequestHandlerRegistry(path_element=None, msg_factory=self.msg_factory)
         nsh = self._mdib.sdc_definitions.data_model.ns_helper
         self._host_dispatcher.register_post_handler(
             DispatchKey(f'{nsh.WXF.namespace}/Get', None),
@@ -101,10 +180,11 @@ class SdcDevice:
             endpoint_reference=EndpointReferenceType(self.epr),
             types_list=self._mdib.sdc_definitions.MedicalDeviceTypesFilter)
 
-        self._hosted_service_dispatcher = httpserver.HostedServiceDispatcher(
-            self.msg_reader, self.msg_factory, self._logger)
+        self._hosted_service_dispatcher = _RequestDispatcher()
+        self._hosted_service_dispatcher.register_instance(None, self._host_dispatcher)
 
-        self._hosted_service_dispatcher.register_hosted_service(self._host_dispatcher)
+        self._msg_converter = _MessageConverterMiddleware(
+            self.msg_reader, self.msg_factory, self._logger, self._hosted_service_dispatcher)
 
         # these are initialized in _setup_components:
         self._subscriptions_managers = {}
@@ -145,7 +225,7 @@ class SdcDevice:
         services_factory = self._components.services_factory
         self.hosted_services = services_factory(self, self._components, self._subscriptions_managers)
         for dpws_service in self.hosted_services.dpws_hosted_services:
-            self._hosted_service_dispatcher.register_hosted_service(dpws_service)
+            self._hosted_service_dispatcher.register_instance(dpws_service.path_element, dpws_service)
 
         cls = self._components.sco_operations_registry_class
         self._sco_operations_registry = cls(self.hosted_services.set_service,
@@ -279,7 +359,7 @@ class SdcDevice:
                 raise RuntimeError('Cannot start device, start event of http server not set.')
 
         host_ips = self._wsdiscovery.get_active_addresses()
-        self._http_server_thread.dispatcher.register_dispatcher(self.path_prefix, self._hosted_service_dispatcher)
+        self._http_server_thread.dispatcher.register_instance(self.path_prefix, self._msg_converter)
         if len(host_ips) == 0:
             self._logger.error('Cannot start device, there is no IP address to bind it to.')
             raise RuntimeError('Cannot start device, there is no IP address to bind it to.')

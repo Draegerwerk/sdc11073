@@ -46,7 +46,7 @@ class DPWSPortTypeBase:
         # calculate offered subscriptions from WSDLOperationBindings
         self.offered_subscriptions = self._mk_offered_subscriptions()
 
-    def register_handlers(self, dpws_hosted_service):
+    def register_hosting_service(self, dpws_hosted_service):
         """Register callbacks in hosting_service"""
         self.hosting_service = dpws_hosted_service
 

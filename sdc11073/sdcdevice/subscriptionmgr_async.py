@@ -200,7 +200,7 @@ class _DevSubscription:
             self._is_connection_error = True
             raise
 
-    async def async_send_notification_end_message(self, msg_factory, code='SourceShuttingDown',
+    async def async_send_notification_end_message(self, code='SourceShuttingDown',
                                       reason='Event source going off line.'):
         url = self.base_urls[0]
         my_addr = f'{url.scheme}:{url.netloc}/{url.path}'
@@ -209,7 +209,7 @@ class _DevSubscription:
             return
         if self._soap_client is None:
             return
-        message = msg_factory.mk_notification_end_message(self, my_addr, code, reason)
+        message = self._msg_factory.mk_notification_end_message(self, my_addr, code, reason)
         try:
             url = self._end_to_url or self.notify_to_url
             result = await self._soap_client.async_post_message_to(url.path, message,
@@ -403,7 +403,7 @@ class SubscriptionsManagerBaseAsync:
                 for subscriber in self._subscriptions.objects:
                     self._logger.info(f'send subscription end for {subscriber}')
                     result = self._async_send_thread.run_coro(
-                        subscriber.async_send_notification_end_message(self._msg_factory))
+                        subscriber.async_send_notification_end_message())
                     self._logger.info(f'result for  subscription end: {result}, is_closed ={subscriber.is_closed()} ')
 
             self._subscriptions.clear()

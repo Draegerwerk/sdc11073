@@ -5,7 +5,7 @@ import traceback
 from collections import namedtuple
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import List, Union
+from typing import List, Dict, Union, Optional
 from urllib.parse import urlparse, ParseResult
 
 from lxml import etree as etree_
@@ -86,6 +86,8 @@ class SubscribeRequest:
     end_to_ref_params: Union[ReferenceParameters, None]
     mode: str
     expires: float
+    any_nodes:Optional[List[etree_.Element]] = None
+    any_attributes:Optional[Dict[str,str]] = None
 
 
 @dataclass(frozen=True)
@@ -679,26 +681,26 @@ class MessageReaderDevice(MessageReader):
         accepted_encodings = CompressionHandler.parse_header(request_data.http_header.get('Accept-Encoding'))
         ns = {'wse': self.ns_hlp.WSE.namespace, 'wsa': self.ns_hlp.WSA.namespace}
 
-        subscription_filter_nodes = envelope.body_node.xpath(
-            f"//wse:Filter[@Dialect='{self.ns_hlp.DPWS.namespace}/Action']",
-            namespaces=ns)
-        if len(subscription_filter_nodes) != 1:
-            raise Exception
-        subscription_filters = subscription_filter_nodes[0].text.split()
-        end_to_addresses = envelope.body_node.xpath('wse:Subscribe/wse:EndTo', namespaces=ns)
-        end_to_address = None
+        subscribe_node = envelope.body_node.find(self.ns_hlp.wseTag('Subscribe'))
+        subscribe_node_children = subscribe_node[:]
+        index = 0
+        # read optional EndTo element
         end_to_ref = None
-        if len(end_to_addresses) == 1:
-            end_to_node = end_to_addresses[0]
-            end_to_address = end_to_node.xpath('wsa:Address/text()', namespaces=ns)[0]
+        end_to_address = None
+        if subscribe_node_children[index].tag == self.ns_hlp.wseTag('EndTo'):
+            end_to_node = subscribe_node_children[index]
+            end_to_address = end_to_node.find(self.ns_hlp.wsaTag('Address')).text
             end_to_ref_node = end_to_node.find(self.ns_hlp.wsaTag('ReferenceParameters'))
             if end_to_ref_node is not None:
                 end_to_ref = ReferenceParameters(end_to_ref_node[:])
             else:
                 end_to_ref = ReferenceParameters(None)
+            index +=1
 
-        # determine (mandatory) notification address
-        delivery_node = envelope.body_node.xpath('wse:Subscribe/wse:Delivery', namespaces=ns)[0]
+        # read Delivery element
+        delivery_node = subscribe_node_children[index]
+        if delivery_node.tag != self.ns_hlp.wseTag('Delivery'):
+            raise Exception
         notify_to_node = delivery_node.find(self.ns_hlp.wseTag('NotifyTo'))
         notify_to_address = notify_to_node.xpath('wsa:Address/text()', namespaces=ns)[0]
         notify_ref_node = notify_to_node.find(self.ns_hlp.wsaTag('ReferenceParameters'))
@@ -706,17 +708,30 @@ class MessageReaderDevice(MessageReader):
             notify_ref = ReferenceParameters(notify_ref_node[:])
         else:
             notify_ref = ReferenceParameters(None)
-
         mode = delivery_node.get('Mode')  # mandatory attribute
+        index += 1
 
-        expires_nodes = envelope.body_node.xpath('wse:Subscribe/wse:Expires/text()', namespaces=ns)
-        if len(expires_nodes) == 0:
-            expires = None
-        else:
-            expires = isoduration.parse_duration(str(expires_nodes[0]))
+        # read optional Expires element
+        expires = None
+        if subscribe_node_children[index].tag == self.ns_hlp.wseTag('Expires'):
+            expires_node = subscribe_node_children[index]
+            expires = isoduration.parse_duration(str(expires_node.text))
+            index += 1
 
+        # read optional Filter element
+        subscription_filters = None
+        if subscribe_node_children[index].tag == self.ns_hlp.wseTag('Filter'):
+            subscription_filter_node = subscribe_node_children[index]
+            dialect = subscription_filter_node.get('Dialect')
+            if dialect == f'{self.ns_hlp.DPWS.namespace}/Action':
+                subscription_filters = subscription_filter_node.text.split()
+            index += 1
+
+        # remaining "any" nodes
+        any_nodes = subscribe_node_children[index:]
+        any_attributes = subscribe_node.attrib
         return SubscribeRequest(accepted_encodings, subscription_filters, str(notify_to_address), notify_ref,
-                                str(end_to_address), end_to_ref, mode, expires)
+                                str(end_to_address), end_to_ref, mode, expires, any_nodes, any_attributes)
 
     def read_renew_request(self, message_data):
         ns = {'wse': self.ns_hlp.WSE.namespace}

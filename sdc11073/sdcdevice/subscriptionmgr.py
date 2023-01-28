@@ -107,7 +107,7 @@ class SoapClientPool:
         self._soap_clients.pop(netloc)
 
 
-class _DevSubscription:
+class SubscriptionBase:
     MAX_NOTIFY_ERRORS = 1
     IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
 
@@ -203,38 +203,7 @@ class _DevSubscription:
                 return True
         return False
 
-    def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
-        if not self.is_valid:
-            return
-        addr = Address(addr_to=self.notify_to_address,
-                       action=action,
-                       addr_from=None,
-                       reply_to=None,
-                       fault_to=None,
-                       reference_parameters=None)
-        message = msg_factory.mk_notification_message(addr, body_node, self.notify_ref_params, doc_nsmap)
-        try:
-            roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
-
-            self._soap_client.post_message_to(self.notify_to_url.path, message,
-                                              msg=f'send_notification_report {action}')
-            try:
-                roundtrip_time = roundtrip_timer.result(0)
-                self.last_roundtrip_times.append(roundtrip_time)
-                self.max_roundtrip_time = max(self.max_roundtrip_time, roundtrip_time)
-            except observableproperties.CollectTimeoutError:
-                pass
-            self.notify_errors = 0
-            self._is_connection_error = False
-        except HTTPReturnCodeError:
-            self.notify_errors += 1
-            raise
-        except Exception:  # any other exception is handled as an unreachable location (disconnected)
-            self.notify_errors += 1
-            self._is_connection_error = True
-            raise
-
-    def send_notification_end_message(self, msg_factory, code='SourceShuttingDown',
+    def send_notification_end_message(self, code='SourceShuttingDown',
                                       reason='Event source going off line.'):
         url = self.base_urls[0]
         my_addr = f'{url.scheme}:{url.netloc}/{url.path}'
@@ -243,7 +212,7 @@ class _DevSubscription:
             return
         if self._soap_client is None:
             return
-        message = msg_factory.mk_notification_end_message(self, my_addr, code, reason)
+        message = self._msg_factory.mk_notification_end_message(self, my_addr, code, reason)
         try:
             url = self._end_to_url or self.notify_to_url
             self._soap_client.post_message_to(url.path, message,
@@ -282,6 +251,39 @@ class _DevSubscription:
     def short_filter_names(self):
         return tuple([f.split('/')[-1] for f in self.filters])
 
+class DevSubscription(SubscriptionBase):
+
+    def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
+        if not self.is_valid:
+            return
+        addr = Address(addr_to=self.notify_to_address,
+                       action=action,
+                       addr_from=None,
+                       reply_to=None,
+                       fault_to=None,
+                       reference_parameters=None)
+        message = msg_factory.mk_notification_message(addr, body_node, self.notify_ref_params, doc_nsmap)
+        try:
+            roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
+
+            self._soap_client.post_message_to(self.notify_to_url.path, message,
+                                              msg=f'send_notification_report {action}')
+            try:
+                roundtrip_time = roundtrip_timer.result(0)
+                self.last_roundtrip_times.append(roundtrip_time)
+                self.max_roundtrip_time = max(self.max_roundtrip_time, roundtrip_time)
+            except observableproperties.CollectTimeoutError:
+                pass
+            self.notify_errors = 0
+            self._is_connection_error = False
+        except HTTPReturnCodeError:
+            self.notify_errors += 1
+            raise
+        except Exception:  # any other exception is handled as an unreachable location (disconnected)
+            self.notify_errors += 1
+            self._is_connection_error = True
+            raise
+
 
 class SubscriptionsManagerBase:
     """This implementation uses ReferenceParameters to identify subscriptions."""
@@ -314,7 +316,7 @@ class SubscriptionsManagerBase:
         self.base_urls = base_urls
 
     def _mk_subscription_instance(self, subscribe_request):
-        return _DevSubscription(subscribe_request, self.base_urls, self._max_subscription_duration,
+        return DevSubscription(subscribe_request, self.base_urls, self._max_subscription_duration,
                                 msg_factory=self._msg_factory)
 
     def on_subscribe_request(self, request_data: RequestData,
@@ -389,7 +391,7 @@ class SubscriptionsManagerBase:
     def end_all_subscriptions(self, send_subscription_end: bool):
         with self._subscriptions.lock:
             if send_subscription_end:
-                apply_map(lambda subscription: subscription.send_notification_end_message(self._msg_factory),
+                apply_map(lambda subscription: subscription.send_notification_end_message(),
                           self._subscriptions.objects)
             self._subscriptions.clear()
 

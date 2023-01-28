@@ -55,8 +55,8 @@ OnPostHandler = Callable[[RequestData], CreatedMessage]
 OnGetHandler = Callable[[RequestData], str]
 
 
-class SoapMessageHandler:
-    """This class handles SOAP messages.
+class RequestHandlerRegistry:
+    """This class handles messages.
     It allows to register handlers for requests. If a message is passed via on_post, it determines the key,
     gets the registered callback for the key and calls it.
     The key of a message is determined by the provided get_key_method in constructor. Usually it is the
@@ -115,7 +115,7 @@ class SoapMessageHandler:
         return list(self._post_handlers.keys())
 
 
-class _EventService(SoapMessageHandler):
+class _EventService(RequestHandlerRegistry):
     """ A service that offers subscriptions"""
 
     def __init__(self, sdc_device, subscriptions_manager, path_element, offered_subscriptions):
@@ -184,7 +184,7 @@ class DPWSHostedService(_EventService):
                                    self._on_get_metadata)
         self.register_get_handler('?wsdl', self._on_get_wsdl)
         for port_type_impl in port_type_impls:
-            port_type_impl.register_handlers(self)
+            port_type_impl.register_hosting_service(self)
 
     def mk_dpws_hosted_instance(self) -> HostedServiceType:
         endpoint_references_list = []

@@ -18,8 +18,8 @@ class ContainmentTreeService(DPWSPortTypeBase):
     WSDLOperationBindings = (WSDLOperationBinding('GetDescriptor', 'literal', 'literal'),
                              WSDLOperationBinding('GetContainmentTree', 'literal', 'literal'))
 
-    def register_handlers(self, hosting_service):
-        super().register_handlers(hosting_service)
+    def register_hosting_service(self, hosting_service):
+        super().register_hosting_service(hosting_service)
         actions = self._mdib.sdc_definitions.Actions
         msg_names = self._mdib.sdc_definitions.data_model.msg_names
         hosting_service.register_post_handler(DispatchKey(actions.GetContainmentTree, msg_names.GetContainmentTree),

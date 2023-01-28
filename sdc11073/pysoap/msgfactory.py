@@ -1,7 +1,7 @@
 import uuid
 import weakref
 from io import BytesIO
-
+from typing import Optional
 from lxml import etree as etree_
 
 from .msgreader import validate_node
@@ -461,7 +461,10 @@ class MessageFactoryClient(MessageFactory):
     def mk_subscribe_message(self, addr_to,
                              notifyto_url, notify_to_identifier,
                              endto_url, endto_identifier,
-                             expire_minutes, subscribe_filter) -> CreatedMessage:
+                             expire_minutes,
+                             subscribe_filter,
+                             any_elements: Optional[list]=None,
+                             any_attributes: Optional[dict]=None) -> CreatedMessage:
         soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.WSE))
         soap_envelope.set_address(Address(action=EventingActions.Subscribe, addr_to=addr_to))
         if notify_to_identifier is None:
@@ -470,27 +473,43 @@ class MessageFactoryClient(MessageFactory):
             notify_to = EndpointReferenceType(notifyto_url,
                                               reference_parameters=ReferenceParameters([notify_to_identifier]))
 
-        if endto_identifier is None:
-            end_to = EndpointReferenceType(endto_url, reference_parameters=None)
-        else:
-            end_to = EndpointReferenceType(endto_url, reference_parameters=ReferenceParameters([endto_identifier]))
-
         subscribe_node = etree_.Element(self._ns_hlp.wseTag('Subscribe'),
                                         nsmap=self._ns_hlp.partial_map(self._ns_hlp.WSE, self._ns_hlp.WSA))
-        if end_to is not None:
+
+        # EndTo is an optional element
+        if endto_url is not None:
+            if endto_identifier is None:
+                end_to = EndpointReferenceType(endto_url, reference_parameters=None)
+            else:
+                end_to = EndpointReferenceType(endto_url, reference_parameters=ReferenceParameters([endto_identifier]))
             end_to_node = etree_.SubElement(subscribe_node, self._ns_hlp.wseTag('EndTo'))
             self._mk_endpoint_reference_sub_node(end_to, end_to_node)
+
+        # Delivery is mandatory
         delivery = etree_.SubElement(subscribe_node, self._ns_hlp.wseTag('Delivery'))
         delivery.set('Mode', f'{self._ns_hlp.WSE.namespace}/DeliveryModes/Push')
-
         notify_to_node = etree_.SubElement(delivery, self._ns_hlp.wseTag('NotifyTo'))
         self._mk_endpoint_reference_sub_node(notify_to, notify_to_node)
 
-        exp = etree_.SubElement(subscribe_node, self._ns_hlp.wseTag('Expires'))
-        exp.text = isoduration.duration_string(expire_minutes * 60)
-        fil = etree_.SubElement(subscribe_node, self._ns_hlp.wseTag('Filter'))
-        fil.set('Dialect', DeviceEventingFilterDialectURI.ACTION)
-        fil.text = subscribe_filter
+        # Expires is optional
+        if expire_minutes is not None:
+            exp = etree_.SubElement(subscribe_node, self._ns_hlp.wseTag('Expires'))
+            exp.text = isoduration.duration_string(expire_minutes * 60)
+
+        # Filter is optional
+        if subscribe_filter is not None:
+            fil = etree_.SubElement(subscribe_node, self._ns_hlp.wseTag('Filter'))
+            fil.set('Dialect', DeviceEventingFilterDialectURI.ACTION)
+            fil.text = subscribe_filter
+
+        # any_elements is optional
+        if any_elements is not None:
+            subscribe_node.extend(any_elements)
+
+        # any_attributes is optional
+        if any_attributes is not None:
+            for name, value in any_attributes.items():
+                subscribe_node[name] = value
         soap_envelope.payload_element = subscribe_node
         return CreatedMessage(soap_envelope, self)
 
@@ -666,13 +685,8 @@ class MessageFactoryDevice(MessageFactory):
         response.payload_element = probe_match_node
         return CreatedMessage(response, self)
 
-    def mk_get_mdib_response_message(self, message_data, mdib, include_context_states) -> CreatedMessage:
+    def mk_get_mdib_response_node(self, mdib, include_context_states) -> etree_.Element:
         nsh = self._ns_hlp
-        request = message_data.p_msg
-        response = Soap12Envelope(nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG, default=nsh.PM))
-        reply_address = request.address.mk_reply_address(
-            action=self._get_action_string(mdib.sdc_definitions, 'GetMdibResponse'))
-        response.set_address(reply_address)
         if include_context_states:
             mdib_node, mdib_version_group = mdib.reconstruct_mdib_with_context_states()
         else:
@@ -681,6 +695,16 @@ class MessageFactoryDevice(MessageFactory):
                                                 nsmap=nsh.partial_map(nsh.MSG, nsh.PM, nsh.XSI))
         self._set_mdib_version_group(get_mdib_response_node, mdib_version_group)
         get_mdib_response_node.append(mdib_node)
+        return get_mdib_response_node
+
+    def mk_get_mdib_response_message(self, message_data, mdib, include_context_states) -> CreatedMessage:
+        nsh = self._ns_hlp
+        request = message_data.p_msg
+        response = Soap12Envelope(nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG, default=nsh.PM))
+        reply_address = request.address.mk_reply_address(
+            action=self._get_action_string(mdib.sdc_definitions, 'GetMdibResponse'))
+        response.set_address(reply_address)
+        get_mdib_response_node = self.mk_get_mdib_response_node(mdib, include_context_states)
         response.payload_element = get_mdib_response_node
         return CreatedMessage(response, self)
 

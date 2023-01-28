@@ -12,7 +12,7 @@ from sdc11073.dpws import ThisModelType, ThisDeviceType
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.pysoap.msgreader import SubscribeRequest, ReferenceParameters
 from sdc11073.sdcdevice import SdcDevice
-from sdc11073.sdcdevice.subscriptionmgr import _DevSubscription
+from sdc11073.sdcdevice.subscriptionmgr import DevSubscription
 from sdc11073 import pm_qnames as pm
 
 portsLock = threading.Lock()
@@ -52,7 +52,7 @@ class MockWsDiscovery(object):
         _logger.info('clear_service "{}"'.format(epr))
 
 
-class TestDevSubscription(_DevSubscription):
+class TestDevSubscription(DevSubscription):
     """ Can be used instead of real Subscription objects"""
     mode = 'SomeMode'
     notify_to = 'http://self.com:123'
@@ -92,7 +92,7 @@ class TestDevSubscription(_DevSubscription):
         message = msg_factory.mk_notification_message(addr, body_node, self.notify_ref_params, doc_nsmap)
         self.reports.append(message)
 
-    async def async_send_notification_end_message(self, msg_factory, code='SourceShuttingDown',
+    async def async_send_notification_end_message(self, code='SourceShuttingDown',
                                       reason='Event source going off line.'):
         pass
 

@@ -4,6 +4,7 @@ import time
 import traceback
 import urllib
 import uuid
+from typing import Optional, TYPE_CHECKING
 
 from lxml import etree as etree_
 
@@ -13,7 +14,10 @@ from .. import etc
 from .. import loghelper
 from .. import observableproperties as properties
 from ..namespaces import EventingActions
-from ..namespaces import default_ns_helper as ns_hlp #
+from ..namespaces import default_ns_helper as ns_hlp  #
+
+if TYPE_CHECKING:
+    from ..pysoap.msgfactory import CreatedMessage
 
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 
@@ -54,11 +58,6 @@ class ClSubscription:
         self.cl_ident = log_prefix
         self._device_epr = urllib.parse.urlparse(self.dpws_hosted.endpoint_references[0].address).path
 
-    def _mk_subscribe_message(self, subscribe_epr, expire_minutes):
-        return self._msg_factory.mk_subscribe_message(
-            subscribe_epr, self.notification_url, self.notify_to_identifier,
-            self.end_to_url, self.end_to_identifier, expire_minutes, self._filter)
-
     def _handle_subscribe_response(self, subscribe_result):
         # Check content of response; raise Error if subscription was not successful
         self.dev_reference_param = subscribe_result.reference_param
@@ -68,13 +67,19 @@ class ClSubscription:
         self._logger.info('Subscribe was successful: expires at {}, address="{}"',
                           self.expire_at, self._subscription_manager_address)
 
-    def subscribe(self, expire_minutes=60):
+    def subscribe(self, expire_minutes: int = 60,
+                  any_elements: Optional[list] = None,
+                  any_attributes: Optional[dict] = None):
         self._logger.info('### startSubscription "{}" ###', self._filter)
         self.event_counter = 0
         self.expire_minutes = expire_minutes  # saved for later renewal, we will use the same interval
         # ToDo: check if there is more than one address. In that case a clever selection is needed
         address = self.dpws_hosted.endpoint_references[0].address
-        message = self._mk_subscribe_message(address, expire_minutes)
+        message = self._msg_factory.mk_subscribe_message(
+            address, self.notification_url, self.notify_to_identifier,
+            self.end_to_url, self.end_to_identifier, expire_minutes, self._filter,
+            any_elements, any_attributes)
+
         msg = f'subscribe {self._filter}'
         try:
             message_data = self.dpws_hosted.soap_client.post_message_to(self._device_epr, message, msg=msg)
@@ -286,7 +291,7 @@ class ClientSubscriptionManager(threading.Thread):
         notification_url = f'{self._notification_url}{uuid.uuid4().hex}'
         end_to_url = f'{self._end_to_url}{uuid.uuid4().hex}'
         subscription = ClSubscription(self._msg_factory, dpws_hosted, filters, notification_url,
-                                       end_to_url, self.log_prefix)
+                                      end_to_url, self.log_prefix)
         filter_ = ' '.join(filters)
         with self._subscriptions_lock:
             self.subscriptions[filter_] = subscription
@@ -326,7 +331,6 @@ class ClientSubscriptionManager(threading.Thread):
             return subscription
         return None
 
-
     def unsubscribe_all(self) -> bool:
         ret = True
         with self._subscriptions_lock:
@@ -337,7 +341,7 @@ class ClientSubscriptionManager(threading.Thread):
                     subscription.unsubscribe()
                 except Exception:
                     self._logger.error('unsubscribe error: {}\n call stack:{} ', traceback.format_exc(),
-                                      traceback.format_stack())
+                                       traceback.format_stack())
                     ret = False
         return ret
 
@@ -345,8 +349,8 @@ class ClientSubscriptionManager(threading.Thread):
 class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):
     def mk_subscription(self, dpws_hosted, filters):
         subscription = ClSubscription(self._msg_factory, dpws_hosted, filters,
-                                       self._notification_url,
-                                       self._end_to_url, self.log_prefix)
+                                      self._notification_url,
+                                      self._end_to_url, self.log_prefix)
         subscription.notify_to_identifier = etree_.Element(ClSubscription.IDENT_TAG)
         subscription.notify_to_identifier.text = uuid.uuid4().urn
         subscription.end_to_identifier = etree_.Element(ClSubscription.IDENT_TAG)

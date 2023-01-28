@@ -12,7 +12,7 @@ from sdc11073.namespaces import default_ns_helper as ns_hlp   # Prefixes
 from sdc11073.pmtypes import AlertConditionPriority
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapenvelope import Soap12Envelope
-from sdc11073.sdcdevice.httpserver import RequestData
+from sdc11073.httprequesthandler import RequestData
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from tests import mockstuff
 
@@ -40,7 +40,7 @@ class TestDeviceServices(unittest.TestCase):
         self.wsd.stop()
         print('############### tearDown {} done ##############'.format(self._testMethodName))
 
-    def _mk_get_request(self, sdc_device, porttype, method, path) -> CreatedMessage:
+    def _mk_get_request(self, sdc_device, port_type, method, path) -> CreatedMessage:
         # if sdc_device is self.sdc_device:
         #     name_space = sdc_device.mdib.data_model.ns_helper.SDC.namespace # sdc_device.mdib.sdc_definitions.DPWS_SDCNamespace
         # else:
@@ -48,7 +48,7 @@ class TestDeviceServices(unittest.TestCase):
         name_space = sdc_device.mdib.sdc_definitions.ActionsNamespace
         nsm = self.sdc_device.mdib.nsmapper  # shortcut
 
-        action = '{}/{}/{}'.format(name_space, porttype, method)
+        action = '{}/{}/{}'.format(name_space, port_type, method)
         body_node = etree_.Element(nsm.msgTag(method))
         soap_envelope = Soap12Envelope(nsm.partial_map(nsm.S12, nsm.WSA, nsm.MSG))
         soap_envelope.set_address(Address(action=action, addr_to=path))
@@ -64,19 +64,24 @@ class TestDeviceServices(unittest.TestCase):
         path = self.sdc_device.path_prefix + '/Get'
         get_env = self._mk_get_request(self.sdc_device, get_service.port_type_string, 'GetMdib', path)
         http_header = {}
-        response_string = dispatcher.on_post(
-            RequestData(http_header, path, 'foo', self.sdc_device.msg_factory.serialize_message(get_env)))
-        self.assertTrue('/{}/GetMdibResponse'.format(get_service.port_type_string).encode('utf-8') in response_string)
+        peer_name = 'foo'
+        sub_dispatcher = dispatcher.get_instance(self.sdc_device.path_prefix)
+        response = sub_dispatcher.do_post(http_header, path, peer_name,
+                                          self.sdc_device.msg_factory.serialize_message(get_env))
+        code, reason, response_string = response
+        self.assertTrue(f'/{get_service.port_type_string}/GetMdibResponse'.encode('utf-8') in response_string)
 
         context_service = self.sdc_device.hosted_services.context_service
         path = self.sdc_device.path_prefix + '/StateEvent'
         get_env = self._mk_get_request(self.sdc_device, context_service.port_type_string, 'GetContextStates',
                                      path)
         http_header = {}
-        response_string = dispatcher.on_post(
-            RequestData(http_header, path, 'foo', self.sdc_device.msg_factory.serialize_message(get_env)))
+        response = sub_dispatcher.do_post(http_header, path, peer_name,
+                                          self.sdc_device.msg_factory.serialize_message(get_env))
+        code, reason, response_string = response
+
         self.assertTrue(
-            '/{}/GetContextStatesResponse'.format(context_service.port_type_string).encode('utf-8') in response_string)
+            f'/{context_service.port_type_string}/GetContextStatesResponse'.encode('utf-8') in response_string)
 
     def test_getMdib(self):
         get_service = self.sdc_device.hosted_services.get_service
@@ -164,14 +169,12 @@ class TestDeviceServices(unittest.TestCase):
 
     def test_wsdl(self):
         """
-        check porttype and action namespaces in wsdl
+        check port type and action namespaces in wsdl
         """
         dev = self.sdc_device
         _ns = dev.mdib.nsmapper  # shortcut
         for hosted in dev.hosted_services.dpws_hosted_services:
             wsdl = etree_.fromstring(hosted._wsdl_string)
-            # inputs = wsdl.xpath('//wsdl:input', namespaces=_ns.ns_map)  # {'wsdl':'http://schemas.xmlsoap.org/wsdl/'})
-            # outputs = wsdl.xpath('//wsdl:output', namespaces=_ns.ns_map)  # {'wsdl':'http://schemas.xmlsoap.org/wsdl/'})
             inputs = wsdl.xpath(f'//{_ns.WSDL.doc_name("input")}', namespaces=_ns.ns_map)  # {'wsdl':'http://schemas.xmlsoap.org/wsdl/'})
             outputs = wsdl.xpath(f'//{_ns.WSDL.doc_name("output")}', namespaces=_ns.ns_map)  # {'wsdl':'http://schemas.xmlsoap.org/wsdl/'})
             self.assertGreater(len(inputs), 0)
