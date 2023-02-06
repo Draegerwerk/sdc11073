@@ -31,7 +31,7 @@ my_mdib_path = os.path.join(here, '70041_MDIB_Final.xml')
 
 def createGenericDevice(wsdiscovery_instance, location, mdib_path, specific_components=None):
     my_mdib = DeviceMdibContainer.from_mdib_file(mdib_path)
-    my_uuid = uuid.uuid4()
+    my_epr = uuid.uuid4().hex
     this_model = ThisModelType(manufacturer='Draeger',
                                manufacturer_url='www.draeger.com',
                                model_name='TestDevice',
@@ -46,7 +46,7 @@ def createGenericDevice(wsdiscovery_instance, location, mdib_path, specific_comp
                            this_model,
                            this_device,
                            my_mdib,
-                           my_uuid=my_uuid,
+                           epr=my_epr,
                            specific_components=specific_components)
     for desc in sdc_device.mdib.descriptions.objects:
         desc.SafetyClassification = pmtypes.SafetyClassification.MED_A

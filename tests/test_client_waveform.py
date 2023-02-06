@@ -128,7 +128,7 @@ class TestClientWaveform(unittest.TestCase):
 
         report = _mk_wf_report(observation_time_ms, 2, 42)
         data = cl.msg_reader.read_received_message(report.encode('utf-8'))
-        cl._notifications_dispatcher.on_notification(data)
+        cl._on_notification(data)
 
     def test_stream_handling(self):
         """ Connect a mdib with client. Call _onWaveformReport method directly.
@@ -158,7 +158,7 @@ class TestClientWaveform(unittest.TestCase):
 
         wf_report1 = _mk_wf_report(observation_time_ms, 2, 42)
         received_message_data = cl.msg_reader.read_received_message(wf_report1.encode('utf-8'))
-        cl._notifications_dispatcher.on_notification(received_message_data)
+        cl._on_notification(received_message_data)
 
         # verify that all handles of reported RealTimeSampleArrays are present
         for handle in HANDLES:
@@ -191,7 +191,7 @@ class TestClientWaveform(unittest.TestCase):
         # add another Report (with identical data, but that is not relevant here)
         wf_report2 = _mk_wf_report(observation_time_ms + 100, 3, 43)
         received_message_data = cl.msg_reader.read_received_message(wf_report2.encode('utf-8'))
-        cl._notifications_dispatcher.on_notification(received_message_data)
+        cl._on_notification(received_message_data)
         # verify only that array length is 2*bigger now
         for handle in HANDLES:
             current_samples = SAMPLES[handle]
@@ -203,7 +203,7 @@ class TestClientWaveform(unittest.TestCase):
         for i in range(100):
             wf_report = _mk_wf_report(observation_time_ms + 100 * 1, 3 + 1, 43 + i)
             received_message_data = cl.msg_reader.read_received_message(wf_report.encode('utf-8'))
-            cl._notifications_dispatcher.on_notification(received_message_data)
+            cl._on_notification(received_message_data)
         # verify only that array length is limited
         for handle in HANDLES:
             rtBuffer = client_mdib.rt_buffers[handle]

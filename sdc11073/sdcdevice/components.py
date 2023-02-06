@@ -4,7 +4,7 @@ import copy
 from dataclasses import dataclass
 from typing import Type, Callable, List, Any, TYPE_CHECKING
 
-from .hostedserviceimpl import mk_all_services
+from .servicesfactory import mk_all_services
 from .operations import get_operation_class
 from .sco import ScoOperationsRegistry
 from .scopesfactory import mk_scopes
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from ..wsdiscovery import Scope
     from ..pysoap.msgfactory import MessageFactory
     from ..pysoap.msgreader import MessageReader
-    from ..sdcdevice.hostedserviceimpl import HostedServices
+    from ..sdcdevice.servicesfactory import HostedServices
     from .sco import AbstractScoOperationsRegistry
     from ..mdib.devicemdib import DeviceMdibContainer
 

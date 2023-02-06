@@ -1,12 +1,12 @@
 import urllib
 import weakref
 from concurrent.futures import Future
-from typing import Any
+from typing import Any, List
 
 from ... import loghelper
-from ...namespaces import default_ns_helper
 from ...exceptions import ApiUsageError
 from ...pysoap.msgreader import ReceivedMessage
+from ...dispatch import DispatchKey
 
 
 class GetRequestResult:
@@ -64,8 +64,17 @@ class HostedServiceClient:
         self._logger = loghelper.get_logger_adapter(f'sdc.client.{port_type}', self.log_prefix)
         self._operations_manager = None
         self._mdib_wref = None
-        self.supported_actions = [getattr(self._sdc_definitions.Actions, action) for action in self.subscribeable_actions]
-        self._nsmapper = default_ns_helper
+        self._supported_actions = []
+        ns_helper = self._sdc_definitions.data_model.ns_helper
+        msg_names = self._sdc_definitions.data_model.msg_names
+        for action in self.subscribeable_actions:
+            if isinstance(action, tuple):
+                action, msg_name = action
+            else:
+                msg_name = action
+            self._supported_actions.append(DispatchKey(getattr(self._sdc_definitions.Actions, action),
+                                                       getattr(msg_names, msg_name)))
+        self._nsmapper = ns_helper
 
     def register_mdib(self, mdib):
         """ Client sometimes must know the mdib data (e.g. Set service, activate method)."""
@@ -79,9 +88,9 @@ class HostedServiceClient:
     def _call_operation(self, envelope, request_manipulator=None) -> Future:
         return self._operations_manager.call_operation(self, envelope, request_manipulator)
 
-    def get_subscribable_actions(self):
+    def get_subscribable_actions(self) -> List[DispatchKey]:
         """ action strings only predefined"""
-        return self.supported_actions
+        return self._supported_actions
 
     def __repr__(self):
         return f'{self.__class__.__name__} "{self._porttype}" endpoint = {self.endpoint_reference}'

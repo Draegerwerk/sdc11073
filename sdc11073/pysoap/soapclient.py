@@ -3,6 +3,7 @@
 """Pythonic simple SOAP Client implementation
 Using lxml based SoapEnvelope."""
 from __future__ import annotations
+
 import http.client as httplib
 import socket
 import sys
@@ -13,9 +14,10 @@ from typing import List, Optional, TYPE_CHECKING
 
 from .. import commlog
 from .. import observableproperties
-from ..compression import CompressionHandler
-from ..httprequesthandler import HTTPReader, mk_chunks
+from ..httpserver.compression import CompressionHandler
+from ..httpserver.httpreader import HTTPReader, mk_chunks
 from ..namespaces import default_ns_helper as ns_hlp
+
 if TYPE_CHECKING:
     from ssl import SSLContext
     from ..pysoap.msgfactory import CreatedMessage
@@ -63,14 +65,14 @@ class SoapClient:
     roundtrip_time = observableproperties.ObservableProperty()
 
     def __init__(self,
-         netloc: str,
-        logger: LoggerAdapter,
-        ssl_context: [SSLContext, None],
-        sdc_definitions: BaseDefinitions,
-        msg_reader: MessageReaderClient,
-        supported_encodings: Optional[List[str]] = None,
-        request_encodings: Optional[List[str]] = None,
-        chunked_requests: Optional[bool] = False):
+                 netloc: str,
+                 logger: LoggerAdapter,
+                 ssl_context: [SSLContext, None],
+                 sdc_definitions: BaseDefinitions,
+                 msg_reader: MessageReaderClient,
+                 supported_encodings: Optional[List[str]] = None,
+                 request_encodings: Optional[List[str]] = None,
+                 chunked_requests: Optional[bool] = False):
         """ Connects to one url
         :param netloc: the location of the service (domainname:port) ###url of the service
         :param logger: a python logger instance
@@ -257,7 +259,7 @@ class SoapClient:
                 self._http_connection.connect()
                 return
             except ConnectionRefusedError as ex:
-                self._log.error("{}: could not reopen the connection, error={}",  msg, ex)
+                self._log.error("{}: could not reopen the connection, error={}", msg, ex)
             except Exception as ex:
                 self._log.error("{}: could not reopen the connection, error={!r}\n{}\ncall-stack ={}",
                                 msg, ex, traceback.format_exc(), ''.join(traceback.format_stack()))

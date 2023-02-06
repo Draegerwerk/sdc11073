@@ -1,22 +1,14 @@
 from __future__ import annotations
 
-import time
-from dataclasses import dataclass
 from io import BytesIO
-from typing import Iterable, Type, Callable, Union
 
 from lxml import etree as etree_
 
-from .porttypes.porttypebase import DPWSPortTypeBase
-from .. import loghelper
+from ..dispatch import DispatchKeyRegistry, DispatchKey
 from ..addressing import EndpointReferenceType
 from ..dpws import HostedServiceType
-from ..httprequesthandler import InvalidActionError
-from ..httprequesthandler import RequestData
 from ..namespaces import EventingActions
 from ..namespaces import default_ns_helper as ns_hlp
-from ..pysoap.msgfactory import CreatedMessage
-from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
 
 _wsdl_ns = ns_hlp.WSDL.namespace
 
@@ -36,90 +28,11 @@ def etree_from_file(path):
     return etree_.fromstring(xml_text, parser=parser, base_url=path)
 
 
-@dataclass(frozen=True)
-class DispatchKey:
-    """"Used to associate a handler to a soap message by action - message combination"""
-    action: str
-    message_tag: Union[etree_.QName, None]
-
-    def __repr__(self):
-        """This shows namespace and localname of the QName."""
-        if isinstance(self.message_tag, etree_.QName):
-            return f'{self.__class__.__name__} action={self.action} ' \
-                   f'msg={self.message_tag.namespace}::{self.message_tag.localname}'
-        return f'{self.__class__.__name__} action={self.action} msg={self.message_tag}'
-
-
-OnPostHandler = Callable[[RequestData], CreatedMessage]
-
-OnGetHandler = Callable[[RequestData], str]
-
-
-class RequestHandlerRegistry:
-    """This class handles messages.
-    It allows to register handlers for requests. If a message is passed via on_post, it determines the key,
-    gets the registered callback for the key and calls it.
-    The key of a message is determined by the provided get_key_method in constructor. Usually it is the
-    tag of the message in the body or the action in the SOAP header.
-    """
-
-    def __init__(self, path_element, msg_factory, log_prefix=None):
-        self.path_element = path_element
-        self._post_handlers = {}
-        self._get_handlers = {}
-        self._msg_factory = msg_factory
-        self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
-
-    def register_post_handler(self, dispatch_key: DispatchKey, on_post_handler: OnPostHandler):
-        self._post_handlers[dispatch_key] = on_post_handler
-
-    def register_get_handler(self, dispatch_key: str, on_get_handler: OnGetHandler):
-        self._get_handlers[dispatch_key] = on_get_handler
-
-    def on_post(self, request_data):
-        begin = time.monotonic()
-        action = request_data.message_data.action
-        func = self.get_post_handler(request_data)
-        if func is None:
-            fault = SoapFault(code=FaultCodeEnum.SENDER, reason=f'invalid action {action}')
-            raise InvalidActionError(fault)
-        returned_envelope = func(request_data)
-        duration = time.monotonic() - begin
-        self._logger.debug('incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements,
-                           duration)
-        return returned_envelope
-
-    def on_get(self, request_data):
-        begin = time.monotonic()
-        key = request_data.current
-        func = self._get_handlers.get(key)
-        if func is not None:
-            self._logger.debug('on_get:path="{}" ,function="{}"', key, func.__name__)
-            result = func()
-            duration = time.monotonic() - begin
-            self._logger.debug('on_get:duration="{:.4f}"', duration)
-            return result
-        error_text = f'on_get:path="{key}", no handler found!'
-        self._logger.error(error_text)
-        raise KeyError(error_text)
-
-    def get_post_handler(self, request_data):
-        key = DispatchKey(request_data.message_data.action, request_data.message_data.q_name)
-        handler = self._post_handlers.get(key)
-        if handler is None:
-            self._logger.info('no handler for key={}', key)
-        return self._post_handlers.get(key)
-
-    def get_keys(self):
-        """ returns a list of action strings that can be handled."""
-        return list(self._post_handlers.keys())
-
-
-class _EventService(RequestHandlerRegistry):
+class _EventService(DispatchKeyRegistry):
     """ A service that offers subscriptions"""
 
-    def __init__(self, sdc_device, subscriptions_manager, path_element, offered_subscriptions):
-        super().__init__(path_element, sdc_device.msg_factory)
+    def __init__(self, sdc_device, subscriptions_manager, offered_subscriptions):
+        super().__init__()
         self._msg_reader = sdc_device.msg_reader
         self._subscriptions_manager = subscriptions_manager
         self._offered_subscriptions = offered_subscriptions
@@ -140,7 +53,7 @@ class _EventService(RequestHandlerRegistry):
         subscribe_request = self._msg_reader.read_subscribe_request(request_data)
         for subscription_filter in subscribe_request.subscription_filters:
             if subscription_filter not in self._offered_subscriptions:
-                raise Exception(f'{self.__class__.__name__}::{self.path_element}: "{subscription_filter}" '
+                raise Exception(f'{self.__class__.__name__}::{request_data.path}: "{subscription_filter}" '
                                 f'is not in offered subscriptions: {self._offered_subscriptions}')
 
         returned_envelope = self._subscriptions_manager.on_subscribe_request(request_data, subscribe_request)
@@ -172,7 +85,8 @@ class DPWSHostedService(_EventService):
         offered_subscriptions = []
         for p in port_type_impls:
             offered_subscriptions.extend(p.offered_subscriptions)
-        super().__init__(sdc_device, subscriptions_manager, path_element, offered_subscriptions)
+        super().__init__(sdc_device, subscriptions_manager, offered_subscriptions)
+        self.path_element = path_element
 
         self._sdc_device = sdc_device
         self._mdib = sdc_device.mdib
@@ -277,46 +191,3 @@ class DPWSHostedService(_EventService):
         return f'{self.__class__.__name__} path={self.path_element} ' \
                f'port types={[dp.port_type_string for dp in self._port_type_impls]}'
 
-
-@dataclass(frozen=True)
-class HostedServices:
-    dpws_hosted_services: Iterable[DPWSHostedService]
-    get_service: Type[DPWSPortTypeBase]
-    set_service: Type[DPWSPortTypeBase] = None
-    context_service: Type[DPWSPortTypeBase] = None
-    description_event_service: Type[DPWSPortTypeBase] = None
-    state_event_service: Type[DPWSPortTypeBase] = None
-    waveform_service: Type[DPWSPortTypeBase] = None
-    containment_tree_service: Type[DPWSPortTypeBase] = None
-    localization_service: Type[DPWSPortTypeBase] = None
-
-
-def mk_dpws_hosts(sdc_device, components, dpws_hosted_service_cls, subscription_managers: dict):
-    dpws_services = []
-    services_by_name = {}
-    for host_name, service_cls_dict in components.hosted_services.items():
-        services = []
-        for service_name, service_cls in service_cls_dict.items():
-            service = service_cls(service_name, sdc_device)
-            services.append(service)
-            services_by_name[service_name] = service
-        subscription_manager = subscription_managers.get(host_name)
-        hosted = dpws_hosted_service_cls(sdc_device, subscription_manager, host_name, services)
-        dpws_services.append(hosted)
-    return dpws_services, services_by_name
-
-
-def mk_all_services(sdc_device, components, subscription_managers) -> HostedServices:
-    # register all services with their endpoint references acc. to structure in components
-    dpws_services, services_by_name = mk_dpws_hosts(sdc_device, components, DPWSHostedService, subscription_managers)
-    hosted_services = HostedServices(dpws_services,
-                                     services_by_name['GetService'],
-                                     set_service=services_by_name.get('SetService'),
-                                     context_service=services_by_name.get('ContextService'),
-                                     description_event_service=services_by_name.get('DescriptionEventService'),
-                                     state_event_service=services_by_name.get('StateEventService'),
-                                     waveform_service=services_by_name.get('WaveformService'),
-                                     containment_tree_service=services_by_name.get('ContainmentTreeService'),
-                                     localization_service=services_by_name.get('LocalizationService')
-                                     )
-    return hosted_services

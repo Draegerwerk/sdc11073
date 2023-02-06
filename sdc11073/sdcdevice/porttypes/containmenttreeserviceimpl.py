@@ -1,7 +1,7 @@
 from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_two_way_operation
 from .porttypebase import msg_prefix
-from ..hostedserviceimpl import DispatchKey
-from ...httprequesthandler import FunctionNotImplementedError
+from ...dispatch import DispatchKey
+from ...exceptions import FunctionNotImplementedError
 from ...pysoap.soapenvelope import SoapFault, FaultCodeEnum
 
 

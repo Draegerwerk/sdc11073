@@ -8,11 +8,11 @@ from sdc11073.addressing import Address
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
-from sdc11073.namespaces import default_ns_helper as ns_hlp   # Prefixes
+from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.pmtypes import AlertConditionPriority
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapenvelope import Soap12Envelope
-from sdc11073.httprequesthandler import RequestData
+from sdc11073.dispatch.request import RequestData
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from tests import mockstuff
 
@@ -41,10 +41,6 @@ class TestDeviceServices(unittest.TestCase):
         print('############### tearDown {} done ##############'.format(self._testMethodName))
 
     def _mk_get_request(self, sdc_device, port_type, method, path) -> CreatedMessage:
-        # if sdc_device is self.sdc_device:
-        #     name_space = sdc_device.mdib.data_model.ns_helper.SDC.namespace # sdc_device.mdib.sdc_definitions.DPWS_SDCNamespace
-        # else:
-        #     name_space =   sdc_device.mdib.data_model.ns_helper.MSG.namespace# sdc_device.mdib.sdc_definitions.MessageModelNamespace
         name_space = sdc_device.mdib.sdc_definitions.ActionsNamespace
         nsm = self.sdc_device.mdib.nsmapper  # shortcut
 
@@ -57,10 +53,9 @@ class TestDeviceServices(unittest.TestCase):
         return CreatedMessage(soap_envelope, sdc_device.msg_factory)
 
     def test_dispatch(self):
-        dispatcher = self.sdc_device._http_server_thread.dispatcher
+        dispatcher = self.sdc_device._http_server.dispatcher
 
         get_service = self.sdc_device.hosted_services.get_service
-        # path = get_service.hosting_service.path_element
         path = self.sdc_device.path_prefix + '/Get'
         get_env = self._mk_get_request(self.sdc_device, get_service.port_type_string, 'GetMdib', path)
         http_header = {}
@@ -173,10 +168,10 @@ class TestDeviceServices(unittest.TestCase):
         """
         dev = self.sdc_device
         _ns = dev.mdib.nsmapper  # shortcut
-        for hosted in dev.hosted_services.dpws_hosted_services:
+        for hosted in dev.hosted_services.dpws_hosted_services.values():
             wsdl = etree_.fromstring(hosted._wsdl_string)
-            inputs = wsdl.xpath(f'//{_ns.WSDL.doc_name("input")}', namespaces=_ns.ns_map)  # {'wsdl':'http://schemas.xmlsoap.org/wsdl/'})
-            outputs = wsdl.xpath(f'//{_ns.WSDL.doc_name("output")}', namespaces=_ns.ns_map)  # {'wsdl':'http://schemas.xmlsoap.org/wsdl/'})
+            inputs = wsdl.xpath(f'//{_ns.WSDL.doc_name("input")}', namespaces=_ns.ns_map)
+            outputs = wsdl.xpath(f'//{_ns.WSDL.doc_name("output")}', namespaces=_ns.ns_map)
             self.assertGreater(len(inputs), 0)
             self.assertGreater(len(outputs), 0)
             for src in (inputs, outputs):

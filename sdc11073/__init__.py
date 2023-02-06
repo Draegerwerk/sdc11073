@@ -6,7 +6,6 @@ from . import location
 from . import sdcclient
 from . import sdcdevice
 from . import commlog
-from . import compression
 
 try:
     from . import version

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Optional, List, Protocol, runtime_checkable
 
 from .porttypebase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding
 from .porttypebase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation, msg_prefix
-from ..hostedserviceimpl import DispatchKey
+from ...dispatch import DispatchKey
 
 if TYPE_CHECKING:
     from ..sco import OperationDefinition, InvocationState
@@ -80,7 +80,7 @@ class SetService(ServiceWithOperations):
 
     def _on_activate(self, request_data):  # pylint:disable=unused-argument
         """Handler for Active calls.
-        It enques an operation and generates the expected operation invoked report. """
+        It enqueues an operation and generates the expected operation invoked report. """
         operation_request = self._sdc_device.msg_reader.read_activate_request(request_data.message_data)
         operation_descriptor = self._mdib.descriptions.handle.get_one(operation_request.operation_handle)
         # convert arguments to python types; need operation descriptor for this.

@@ -3,8 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Type, Any, TYPE_CHECKING
 
-from .httpserver import SOAPNotificationsHandler, NotificationsReceiver
-from .notificationsdispatcher import NotificationsDispatcherByBody
+from .request_handler_deferred import DispatchKeyRegistryDeferred
 from .operations import OperationsManager
 from .serviceclients.containmenttreeservice import CTreeServiceClient
 from .serviceclients.contextservice import ContextServiceClient
@@ -34,23 +33,20 @@ class SdcClientComponents:
     soap_client_class: Type[Any] = None
     msg_factory_class: Type[MessageFactory] = None
     msg_reader_class: Type[MessageReader] = None
-    notifications_receiver_class: type = None
-    notifications_handler_class: type = None
-    notifications_dispatcher_class: type = None
+    action_dispatcher_class: type = None
     subscription_manager_class: type = None
     operations_manager_class: type = None
     service_handlers: dict = None
 
     def merge(self, other):
-        def _merge(attrname):
-            other_value = getattr(other, attrname)
+        def _merge(attr_name):
+            other_value = getattr(other, attr_name)
             if other_value:
-                setattr(self, attrname, other_value)
+                setattr(self, attr_name, other_value)
 
         _merge('msg_factory_class')
         _merge('msg_reader_class')
-        _merge('notifications_receiver_class')
-        _merge('notifications_handler_class')
+        _merge('action_dispatcher_class')
         _merge('subscription_manager_class')
         _merge('operations_manager_class')
         if other.service_handlers:
@@ -62,9 +58,7 @@ default_sdc_client_components = SdcClientComponents(
     soap_client_class=SoapClient,
     msg_factory_class=MessageFactoryClient,
     msg_reader_class=MessageReaderClient,
-    notifications_receiver_class=NotificationsReceiver,
-    notifications_handler_class=SOAPNotificationsHandler,
-    notifications_dispatcher_class=NotificationsDispatcherByBody,
+    action_dispatcher_class = DispatchKeyRegistryDeferred, # defaults to deferred handling
     subscription_manager_class=ClientSubscriptionManager,
     operations_manager_class=OperationsManager,
     service_handlers={'ContainmentTreeService': CTreeServiceClient,

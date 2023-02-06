@@ -3,8 +3,7 @@ from collections import defaultdict
 from .porttypebase import DPWSPortTypeBase
 from .porttypebase import WSDLMessageDescription, WSDLOperationBinding
 from .porttypebase import mk_wsdl_two_way_operation, msg_prefix
-from ..hostedserviceimpl import DispatchKey
-
+from ...dispatch import DispatchKey
 
 
 def _tw2i(textwidth_string):
@@ -156,7 +155,7 @@ class LocalizationStorage():
                     for lines_cnt in i_nls:
                         candidates = _n_o_l_filter(value_list, lines_cnt)
                         if candidates:
-                            tmp.append(candidates[-1])  # use largest one
+                            tmp.append(candidates[-1])  # use the largest one
             texts = list(tmp)
         return texts
 
@@ -210,8 +209,9 @@ class LocalizationService(DPWSPortTypeBase):
         msg_names = self._mdib.sdc_definitions.data_model.msg_names
         hosting_service.register_post_handler(DispatchKey(actions.GetLocalizedText, msg_names.GetLocalizedText),
                                               self._on_get_localized_text)
-        hosting_service.register_post_handler(DispatchKey(actions.GetSupportedLanguages, msg_names.GetSupportedLanguages),
-                                              self._on_get_supported_languages)
+        hosting_service.register_post_handler(
+            DispatchKey(actions.GetSupportedLanguages, msg_names.GetSupportedLanguages),
+            self._on_get_supported_languages)
 
     def _on_get_localized_text(self, request_data):
         self._logger.debug('_on_get_localized_text')

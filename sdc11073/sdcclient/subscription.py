@@ -2,22 +2,20 @@ import http.client
 import threading
 import time
 import traceback
-import urllib
 import uuid
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, Union
+from urllib.parse import urlparse, urlunparse, urljoin
 
 from lxml import etree as etree_
 
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import SoapResponseException
+from .request_handler_deferred import EmptyResponse
 from .. import etc
 from .. import loghelper
 from .. import observableproperties as properties
 from ..namespaces import EventingActions
-from ..namespaces import default_ns_helper as ns_hlp  #
-
-if TYPE_CHECKING:
-    from ..pysoap.msgfactory import CreatedMessage
+from ..namespaces import default_ns_helper as ns_hlp
 
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 
@@ -30,10 +28,7 @@ class ClSubscription:
     IDENT_TAG = etree_.QName('http.local.com', 'MyClIdentifier')
 
     def __init__(self, msg_factory, dpws_hosted, actions, notification_url, end_to_url, log_prefix):
-        """
-        :param serviceClient:
-        :param filter_:
-        :param notification_url: e.g. http://1.2.3.4:9999, or https://1.2.3.4:9999
+        """ A single Subscription
         """
         self._msg_factory = msg_factory
         self.dpws_hosted = dpws_hosted
@@ -56,7 +51,7 @@ class ClSubscription:
         self._logger = loghelper.get_logger_adapter('sdc.client.subscr', log_prefix)
         self.event_counter = 0  # for display purpose, we count notifications
         self.cl_ident = log_prefix
-        self._device_epr = urllib.parse.urlparse(self.dpws_hosted.endpoint_references[0].address).path
+        self._device_epr = urlparse(self.dpws_hosted.endpoint_references[0].address).path
 
     def _handle_subscribe_response(self, subscribe_result):
         # Check content of response; raise Error if subscription was not successful
@@ -96,7 +91,7 @@ class ClSubscription:
 
     def _mk_renew_message(self, expire_minutes):
         return self._msg_factory.mk_renew_message(
-            urllib.parse.urlunparse(self._subscription_manager_address),
+            urlunparse(self._subscription_manager_address),
             dev_reference_param=self.dev_reference_param, expire_minutes=expire_minutes)
 
     def renew(self, expire_minutes: int = 60) -> float:
@@ -130,12 +125,12 @@ class ClSubscription:
         if not self.is_subscribed:
             return
         message = self._msg_factory.mk_unsubscribe_message(
-            urllib.parse.urlunparse(self._subscription_manager_address),
+            urlunparse(self._subscription_manager_address),
             dev_reference_param=self.dev_reference_param)
 
         received_message_data = self.dpws_hosted.soap_client.post_message_to(self._subscription_manager_address.path,
                                                                              message, msg='unsubscribe')
-        response_action = received_message_data.action  # result_envelope.address.action
+        response_action = received_message_data.action
         # check response: response does not contain explicit status. If action== UnsubscribeResponse all is fine.
         if response_action == EventingActions.UnsubscribeResponse:
             self._logger.info('unsubscribe: end of subscription {} was confirmed.', self._filter)
@@ -145,7 +140,7 @@ class ClSubscription:
 
     def _mk_get_status_message(self):
         return self._msg_factory.mk_get_status_message(
-            urllib.parse.urlunparse(self._subscription_manager_address),
+            urlunparse(self._subscription_manager_address),
             dev_reference_param=self.dev_reference_param)
 
     def get_status(self) -> float:
@@ -177,7 +172,7 @@ class ClSubscription:
             return expire_seconds
         return 0.0
 
-    def check_status(self, renew_limit):
+    def check_status(self, renew_limit: Union[int, float]):
         """ Calls get_status and updates internal data.
         :param renew_limit: a value in seconds. If remaining duration of subscription is less than this value, it renews the subscription.
         @return: None
@@ -211,8 +206,11 @@ class ClSubscription:
 
     def on_notification(self, request_data):
         self.event_counter += 1
+        self._logger.debug('received notification {} version= {}',
+                           request_data.message_data.action, request_data.message_data.mdib_version_group)
         self.notification_data = request_data.message_data
         self.notification_msg = request_data.message_data.p_msg
+        return EmptyResponse()
 
     @property
     def short_filter_string(self):
@@ -252,6 +250,7 @@ class ClientSubscriptionManager(threading.Thread):
         self._end_to_url = end_to_url or notification_url
         self._logger = loghelper.get_logger_adapter('sdc.client.subscrMgr', log_prefix)
         self.log_prefix = log_prefix
+        self._counter = 1  # used to generate unique path for each subscription
 
     def stop(self):
         self._run = False
@@ -288,8 +287,11 @@ class ClientSubscriptionManager(threading.Thread):
             self._logger.info('terminating subscriptions check loop! self._run={}', self._run)
 
     def mk_subscription(self, dpws_hosted, filters):
-        notification_url = f'{self._notification_url}{uuid.uuid4().hex}'
-        end_to_url = f'{self._end_to_url}{uuid.uuid4().hex}'
+        sep = '' if self._notification_url.endswith('/') else '/'
+        notification_url = f'{self._notification_url}{sep}subscr{self._counter}'
+        sep = '' if self._end_to_url.endswith('/') else '/'
+        end_to_url = f'{self._end_to_url}{sep}subscr{self._counter}_e'
+        self._counter += 1
         subscription = ClSubscription(self._msg_factory, dpws_hosted, filters, notification_url,
                                       end_to_url, self.log_prefix)
         filter_ = ' '.join(filters)

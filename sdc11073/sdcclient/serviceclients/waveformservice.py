@@ -2,4 +2,4 @@ from .serviceclientbase import HostedServiceClient
 
 
 class WaveformClient(HostedServiceClient):
-    subscribeable_actions = ('Waveform',)
+    subscribeable_actions = (('Waveform', 'WaveformStream'),)

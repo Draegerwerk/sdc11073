@@ -5,22 +5,26 @@ import copy
 import functools
 import ssl
 import traceback
-import urllib
+import uuid
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, List, Callable
+from typing import TYPE_CHECKING, Optional, List, Union, Set
+from urllib.parse import urlparse, urlsplit
 
 from lxml import etree as etree_
 
+from sdc11073.dispatch.request import RequestData
 from .components import default_sdc_client_components
+from .request_handler_deferred import EmptyResponse
 from .subscription import ClSubscription
 from .. import commlog
-from .. import compression
 from .. import loghelper
 from .. import netconn
 from .. import observableproperties as properties
 from ..definitions_base import ProtocolsRegistry
+from ..dispatch import DispatchKey, MessageConverterMiddleware
 from ..exceptions import ApiUsageError
-from ..httprequesthandler import RequestData
+from ..httpserver import compression
+from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..namespaces import EventingActions
 
 if TYPE_CHECKING:
@@ -50,7 +54,7 @@ class HostedServiceDescription:
         self.wsdl_string = None
         self.wsdl_node = None
         self._logger = loghelper.get_logger_adapter(f'sdc.client.{service_id}', log_prefix)
-        self._url = urllib.parse.urlparse(endpoint_address)
+        self._url = urlparse(endpoint_address)
         self.services = {}
 
     def read_metadata(self, soap_client):
@@ -62,7 +66,7 @@ class HostedServiceDescription:
         self._read_wsdl(soap_client, self.meta_data.wsdl_location)
 
     def _read_wsdl(self, soap_client, wsdl_url):
-        parsed = urllib.parse.urlparse(wsdl_url)
+        parsed = urlparse(wsdl_url)
         actual_path = parsed.path + f'?{parsed.query}' if parsed.query else parsed.path
         self.wsdl_string = soap_client.get_url(actual_path, msg=f'{self.log_prefix}:getwsdl').decode('utf-8')
         commlog.get_communication_logger().log_wsdl(self.wsdl_string, self.service_id)
@@ -94,17 +98,48 @@ def _cmp(address_a, address_bb, _ref_int):
     return 0
 
 
-def sort_ip_addresses(adresses, ref_ip):
+def sort_ip_addresses(addresses, ref_ip):
     """ sorts list addresses by distance to refIP, shortest distance first"""
     _ref = ip_addr_to_int(ref_ip)
-    adresses.sort(key=lambda a: abs(ip_addr_to_int(a) - _ref))
-    return adresses
+    addresses.sort(key=lambda a: abs(ip_addr_to_int(a) - _ref))
+    return addresses
 
 
 @dataclass(frozen=True)
 class SubscriptionEndData:
     subscription: ClSubscription
     request_data: RequestData
+
+
+class _NotificationsSplitter:
+
+    def __init__(self, sdc_client):
+        self._sdc_client = sdc_client
+        self._lookup = self._mk_lookup()
+
+    def on_notification(self, message_data):
+        observable_name = self._lookup.get(message_data.action)
+        if observable_name is None:
+            raise ValueError(f'unknown message {message_data.action}')
+        setattr(self._sdc_client, observable_name, message_data)
+
+    def _mk_lookup(self):
+        actions = self._sdc_client.sdc_definitions.Actions
+        return {
+            actions.Waveform: 'waveform_report',
+            actions.EpisodicMetricReport: 'episodic_metric_report',
+            actions.EpisodicAlertReport: 'episodic_alert_report',
+            actions.EpisodicComponentReport: 'episodic_component_report',
+            actions.EpisodicOperationalStateReport: 'operational_state_report',
+            actions.EpisodicContextReport: 'episodic_context_report',
+            actions.PeriodicMetricReport: 'periodic_metric_report',
+            actions.PeriodicAlertReport: 'periodic_alert_report',
+            actions.PeriodicComponentReport: 'periodic_component_report',
+            actions.PeriodicOperationalStateReport: 'periodic_operational_state_report',
+            actions.PeriodicContextReport: 'periodic_context_report',
+            actions.DescriptionModificationReport: 'description_modification_report',
+            actions.OperationInvokedReport: 'operation_invoked_report',
+        }
 
 
 class SdcClient:
@@ -123,7 +158,6 @@ class SdcClient:
     # They contain only the body node of the notification, not the envelope
     waveform_report = properties.ObservableProperty()
     episodic_metric_report = properties.ObservableProperty()
-    episodic_metric_states = properties.ObservableProperty()  # state containers
     episodic_alert_report = properties.ObservableProperty()
     episodic_component_report = properties.ObservableProperty()
     episodic_operational_state_report = properties.ObservableProperty()
@@ -139,13 +173,16 @@ class SdcClient:
 
     SSL_CIPHERS = None  # None : use SSL default
 
-    def __init__(self, device_location, sdc_definitions, ssl_context, validate=True,
+    def __init__(self, device_location, sdc_definitions, ssl_context,
+                 epr: Union[str, uuid.UUID, None] = None,
+                 validate=True,
                  log_prefix='',
                  default_components=None, specific_components=None,
                  chunked_requests=False):  # pylint:disable=too-many-arguments
         """
         :param device_location: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         :param sdc_definitions: a class derived from BaseDefinitions
+        :param epr: the path of this client in http server
         :param ssl_context: used for ssl connection to device and for own HTTP Server (notifications receiver)
         :param validate: bool
         :param log_prefix: a string used as prefix for logging
@@ -161,7 +198,7 @@ class SdcClient:
         self._components = copy.deepcopy(default_components)
         if specific_components is not None:
             self._components.merge(specific_components)
-        splitted = urllib.parse.urlsplit(self._device_location)
+        splitted = urlsplit(self._device_location)
         self._device_uses_https = splitted.scheme.lower() == 'https'
 
         self.log_prefix = log_prefix
@@ -169,7 +206,7 @@ class SdcClient:
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
         self._my_ipaddress = self._find_best_own_ip_address()
         self._logger.info('SdcClient for {} uses own IP Address {}', self._device_location, self._my_ipaddress)
-        self.host_description: MetaData = None
+        self.host_description: Optional[MetaData] = None
         self.hosted_services = {}  # lookup by service id
         self._validate = validate
         try:
@@ -177,7 +214,10 @@ class SdcClient:
         except AttributeError:
             self._logger.info('Using SSL is enabled. TLS 1.3 is not supported')
         self._ssl_context = ssl_context
-        self._notifications_dispatcher_thread = None
+        self._epr = epr or uuid.uuid4()
+
+        self._http_server = None
+        self._is_internal_http_server = False
 
         self._logger.info('created {} for {}', self.__class__.__name__, self._device_location)
 
@@ -190,12 +230,20 @@ class SdcClient:
         self.peer_certificate = None
         self.binary_peer_certificate = None
         self.all_subscribed = False
+
         msg_reader_cls = self._components.msg_reader_class
         self.msg_reader = msg_reader_cls(self.sdc_definitions, self._logger, 'msg_reader', validate=validate)
+
         msg_factory_cls = self._components.msg_factory_class
         self._msg_factory = msg_factory_cls(self.sdc_definitions, self._logger, validate=validate)
-        notifications_dispatcher_cls = self._components.notifications_dispatcher_class
-        self._notifications_dispatcher = notifications_dispatcher_cls(self, self._logger)
+
+        action_dispatcher_class = self._components.action_dispatcher_class
+        self._services_dispatcher = action_dispatcher_class(log_prefix)
+
+        self._notifications_splitter = _NotificationsSplitter(self)
+
+        self._msg_converter = MessageConverterMiddleware(
+            self.msg_reader, self._msg_factory, self._logger, self._services_dispatcher)
 
     def set_mdib(self, mdib):
         """ SdcClient sometimes must know the mdib data (e.g. Set service, activate method)."""
@@ -216,34 +264,59 @@ class SdcClient:
     def my_ipaddress(self):
         return self._my_ipaddress
 
+    @property
+    def _epr_urn(self):
+        # End Point Reference, e.g 'urn:uuid:8c26f673-fdbf-4380-b5ad-9e2454a65b6b'
+        try:
+            return self._epr.urn
+        except AttributeError:
+            return self._epr
+
+    @property
+    def path_prefix(self):
+        # http path prefix of service e.g '8c26f673fdbf4380b5ad9e2454a65b6b'
+        try:
+            return self._epr.hex
+        except AttributeError:
+            return self._epr
+
+    @property
+    def base_url(self):
+        # replace servers ip address with own ip address (server might have 0.0.0.0)
+        p = urlparse(self._http_server.base_url)
+        tmp = f'{p.scheme}://{self._my_ipaddress}:{p.port}{p.path}'
+        sep = '' if tmp.endswith('/') else '/'
+        tmp = f'{tmp}{sep}{self.path_prefix}/'
+        return tmp
+
     def _find_best_own_ip_address(self):
-        # my_addresses = [conn.ip for conn in netconn.get_network_adapter_configs() if conn.ip not in (None, '0.0.0.0')]
         my_addresses = netconn.get_ipv4_addresses()
-        splitted = urllib.parse.urlsplit(self._device_location)
-        device_addr = splitted.hostname
+        split_result = urlsplit(self._device_location)
+        device_addr = split_result.hostname
         if device_addr is None:
-            device_addr = splitted.netloc.split(':')[0]  # without port
+            device_addr = split_result.netloc.split(':')[0]  # without port
         sort_ip_addresses(my_addresses, device_addr)
         return my_addresses[0]
 
-    def mk_subscription(self, dpws_hosted, actions: List[str]) -> ClSubscription:
+    def mk_subscription(self, dpws_hosted, actions: List[DispatchKey]) -> ClSubscription:
         """ creates a subscription object and registers it in dispatcher
         :param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
                            This is the target for all subscribe/unsubscribe ... messages
         :param actions: a list of filters. this (joined) string is sent to the sdc server in the Subscribe message
         :return: a subscription object
         """
-        subscription = self._subscription_mgr.mk_subscription(dpws_hosted, actions)
+        tmp = [d.action for d in actions]
+        subscription = self._subscription_mgr.mk_subscription(dpws_hosted, tmp)
+        # direct subscribed notifications to this subscription
         for action in actions:
-            self._notifications_dispatcher_thread.dispatcher.register_function(action, subscription.on_notification)
+            self._services_dispatcher.register_post_handler(action, subscription.on_notification)
         return subscription
 
     def do_subscribe(self, dpws_hosted,
-                     actions: List[str],
+                     actions: Union[List[DispatchKey], Set[DispatchKey]],
                      expire_minutes: Optional[int] = 60,
                      any_elements: Optional[list] = None,
-                     any_attributes: Optional[dict] = None,
-                     callback: Optional[Callable] = None) -> ClSubscription:
+                     any_attributes: Optional[dict] = None) -> ClSubscription:
         """ creates a subscription object and registers it in
         :param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
                            This is the target for all subscribe/unsubscribe ... messages
@@ -251,21 +324,16 @@ class SdcClient:
         :param expire_minutes: defaults to 1 hour
         :param any_elements: optional list of etree.Element objects
         :param any_attributes: optional dictionary of name:str - value:str pairs
-        :param callback: optional callable with signature callback(soapEnvlope)
-        @return: a subscription object that has callback already registerd
+        :return: a subscription object that has callback already registered
         """
-        # subscription = self._subscription_mgr.mk_subscription(dpws_hosted, actions)
-        # for action in actions:
-        #     self._notifications_dispatcher_thread.dispatcher.register_function(action, subscription.on_notification)
         subscription = self.mk_subscription(dpws_hosted, actions)
-        if callback is not None:
-            properties.bind(subscription, notification_data=callback)
+        properties.bind(subscription, notification_data=self._on_notification)
         subscription.subscribe(expire_minutes, any_elements, any_attributes)
         return subscription
 
     def client(self, port_type_name):
         """ returns the client for the given port type name.
-        WDP and SDC use different port type names, e.g WPF="Get", SDC="GetService".
+        WDP and SDC use different port type names, e.g. WPF="Get", SDC="GetService".
         If the port type is not found directly, it tries also with or without "Service" in name.
         :param port_type_name: string, e.g "Get", or "GetService", ...
         """
@@ -312,13 +380,15 @@ class SdcClient:
     def localization_service_client(self):
         return self.client('LocalizationService')
 
-    def start_all(self, not_subscribed_actions=None, subscriptions_check_interval=None, async_dispatch=True,
-                  subscribe_periodic_reports=False):
+    def start_all(self, not_subscribed_actions=None,
+                  subscriptions_check_interval=None,
+                  subscribe_periodic_reports=False,
+                  shared_http_server=None):
         """
         :param not_subscribed_actions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
         :param subscriptions_check_interval: an interval in seconds or None
-        :param async_dispatch: if True, incoming requests are queued and response is sent immediately (processing is done later).
-                                if False, response is sent after the complete processing is done.
+        :param subscribe_periodic_reports:
+        :param shared_http_server: if provided, use this http server, else client creates its own.
         :return: None
         """
         if self.host_description is None:
@@ -333,7 +403,7 @@ class SdcClient:
         if self.get_service_client is None:
             raise RuntimeError(f'GetService not detected! found services = {list(self._service_clients.keys())}')
 
-        self._start_event_sink(async_dispatch)
+        self._start_event_sink(shared_http_server)
         periodic_actions = {self.sdc_definitions.Actions.PeriodicMetricReport,
                             self.sdc_definitions.Actions.PeriodicAlertReport,
                             self.sdc_definitions.Actions.PeriodicComponentReport,
@@ -344,7 +414,7 @@ class SdcClient:
         subscription_manager_class = self._components.subscription_manager_class
         self._subscription_mgr = subscription_manager_class(self.msg_reader,
                                                             self._msg_factory,
-                                                            self._notifications_dispatcher_thread.base_url,
+                                                            self.base_url,
                                                             log_prefix=self.log_prefix,
                                                             check_interval=subscriptions_check_interval)
         self._subscription_mgr.start()
@@ -381,18 +451,19 @@ class SdcClient:
                 if not subscribe_periodic_reports:
                     subscribe_actions -= set(periodic_actions)
                 try:
-                    self.do_subscribe(dpws_hosted, subscribe_actions,
-                                      callback=self._notifications_dispatcher.on_notification)
+                    self.do_subscribe(dpws_hosted, subscribe_actions)
                 except Exception:
                     self.all_subscribed = False  # => do not log errors when mdib versions are missing in notifications
                     self._logger.error('start_all: could not subscribe: error = {}, actions= {}',
                                        traceback.format_exc(), subscribe_actions)
 
         # register callback for end of subscription
-        self._notifications_dispatcher_thread.dispatcher.register_function(
-            EventingActions.SubscriptionEnd, self._on_subscription_end)
+        self._services_dispatcher.register_post_handler(
+            DispatchKey(EventingActions.SubscriptionEnd,
+                        self.sdc_definitions.data_model.ns_helper.wseTag('SubscriptionEnd')),
+            self._on_subscription_end)
 
-        # connect self.is_connected observable to all_subscriptions_okay observable in subscriptionsmanager
+        # connect self.is_connected observable to all_subscriptions_okay observable in subscriptions manager
         def set_is_connected(is_ok):
             self.is_connected = is_ok
 
@@ -416,8 +487,9 @@ class SdcClient:
         del self._compression_methods[:]
         self._compression_methods.extend(compression_methods)
 
+
     def _get_metadata(self) -> MetaData:
-        _url = urllib.parse.urlparse(self._device_location)
+        _url = urlparse(self._device_location)
         wsc = self._get_soap_client(self._device_location)
 
         if self._ssl_context is not None and _url.scheme == 'https':
@@ -433,7 +505,7 @@ class SdcClient:
         return self.msg_reader.read_get_metadata_response(received_message_data)
 
     def _get_soap_client(self, address):
-        _url = urllib.parse.urlparse(address)
+        _url = urlparse(address)
         key = (_url.scheme, _url.netloc)
         soap_client = self._soap_clients.get(key)
         if soap_client is None:
@@ -490,34 +562,38 @@ class SdcClient:
             return
         return cls(self, soap_client, hosted, port_type)
 
-    def _start_event_sink(self, async_dispatch):
-        ssl_context = self._ssl_context if self._device_uses_https else None
-
-        # create Event Server
-        notifications_receiver_class = self._components.notifications_receiver_class  # thread
-        notifications_handler_class = self._components.notifications_handler_class
-        self._notifications_dispatcher_thread = notifications_receiver_class(
-            self._my_ipaddress,
-            ssl_context,
-            log_prefix=self.log_prefix,
-            msg_reader=self.msg_reader,
-            msg_factory=self._msg_factory,
-            supported_encodings=self._compression_methods,
-            notifications_handler_class=notifications_handler_class,
-            async_dispatch=async_dispatch)
-
-        self._notifications_dispatcher_thread.start()
-        self._notifications_dispatcher_thread.started_evt.wait(timeout=5)
-        self._logger.info('serving EventSink on {}', self._notifications_dispatcher_thread.base_url)
+    def _start_event_sink(self, shared_http_server):
+        if shared_http_server is None:
+            self._is_internal_http_server = True
+            ssl_context = self._ssl_context if self._device_uses_https else None
+            logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', self.log_prefix)
+            self._http_server = HttpServerThreadBase(
+                self._my_ipaddress,
+                ssl_context,
+                logger=logger,
+                supported_encodings=self._compression_methods
+            )
+            self._http_server.start()
+            self._http_server.started_evt.wait(timeout=5)
+            self._logger.info('serving EventSink on {}', self._http_server.base_url)
+        else:
+            self._http_server = shared_http_server
+        # register own epr in http server
+        self._http_server.dispatcher.register_instance(self.path_prefix, self._msg_converter)
 
     def _stop_event_sink(self):
-        if self._notifications_dispatcher_thread is not None:
-            self._notifications_dispatcher_thread.stop()
+        if self._is_internal_http_server and self._http_server is not None:
+            self._http_server.stop()
+
+    def _on_notification(self, message_data):
+        self.state_event_report = message_data  # update observable
+        self._notifications_splitter.on_notification(message_data)
 
     def _on_subscription_end(self, request_data):
-        self.state_event_report = request_data.message_data.p_msg  # update observable
+        #self.state_event_report = request_data.message_data.p_msg  # update observable
         subscription = self._subscription_mgr.on_subscription_end(request_data)  # subscription can be None
         self.subscription_end_data = SubscriptionEndData(subscription, request_data)
+        return EmptyResponse()
 
     def __str__(self):
         return f'SdcClient to {self.host_description.this_device} {self.host_description.this_model} on {self._device_location}'

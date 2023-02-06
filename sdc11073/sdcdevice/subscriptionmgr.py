@@ -23,7 +23,7 @@ from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
     from ..pysoap.msgfactory import MessageFactoryDevice, CreatedMessage
-    from ..httprequesthandler import RequestData
+    from ..dispatch import RequestData
     from ..pysoap.msgreader import SubscribeRequest
 
 MAX_ROUNDTRIP_VALUES = 20

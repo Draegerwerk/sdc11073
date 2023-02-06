@@ -1,19 +1,24 @@
+from __future__ import annotations
 import logging
 import os.path
 import threading
 import urllib
 from decimal import Decimal
+from typing import TYPE_CHECKING, Union
 from lxml import etree as etree_
 
-from sdc11073.namespaces import default_ns_helper as ns_hlp
+from sdc11073 import pm_qnames as pm
 from sdc11073 import pmtypes
 from sdc11073.addressing import Address
 from sdc11073.dpws import ThisModelType, ThisDeviceType
 from sdc11073.mdib import DeviceMdibContainer
+from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.pysoap.msgreader import SubscribeRequest, ReferenceParameters
 from sdc11073.sdcdevice import SdcDevice
 from sdc11073.sdcdevice.subscriptionmgr import DevSubscription
-from sdc11073 import pm_qnames as pm
+
+if TYPE_CHECKING:
+    import uuid
 
 portsLock = threading.Lock()
 _ports = 10000
@@ -25,6 +30,7 @@ _logger = logging.getLogger('sdc.mock')
 
 def dec_list(*args):
     return [Decimal(x) for x in args]
+
 
 def resetModule():
     global _ports
@@ -65,7 +71,7 @@ class TestDevSubscription(DevSubscription):
         identNode = etree_.SubElement(notify_ref_node, ns_hlp.wseTag('Identifier'))
         identNode.text = self.notifyRef
         base_urls = [urllib.parse.SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
-        accepted_encodings = ['foo'] # not needed here
+        accepted_encodings = ['foo']  # not needed here
         subscribe_request = SubscribeRequest(accepted_encodings, filter_, self.notify_to,
                                              ReferenceParameters([notify_ref_node]), None, None, self.mode,
                                              self.expires)
@@ -93,15 +99,17 @@ class TestDevSubscription(DevSubscription):
         self.reports.append(message)
 
     async def async_send_notification_end_message(self, code='SourceShuttingDown',
-                                      reason='Event source going off line.'):
+                                                  reason='Event source going off line.'):
         pass
+
 
 class SomeDevice(SdcDevice):
     """A device used for unit tests
 
     """
 
-    def __init__(self, wsdiscovery, mdib_xml_string, my_uuid=None,
+    def __init__(self, wsdiscovery, mdib_xml_string,
+                 epr: Union[str, uuid.UUID, None] = None,
                  validate=True, ssl_context=None, log_prefix='',
                  default_components=None, specific_components=None,
                  chunked_messages=False):
@@ -122,11 +130,11 @@ class SomeDevice(SdcDevice):
         mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(model.model_name[None]))
         mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')
         mdsDescriptor.MetaData.ModelNumber = '0.99'
-        super(SomeDevice, self).__init__(wsdiscovery, model, device, device_mdib_container, my_uuid, validate,
-                                         ssl_context=ssl_context, log_prefix=log_prefix,
-                                         default_components=default_components,
-                                         specific_components=specific_components,
-                                         chunked_messages=chunked_messages)
+        super().__init__(wsdiscovery, model, device, device_mdib_container, epr, validate,
+                         ssl_context=ssl_context, log_prefix=log_prefix,
+                         default_components=default_components,
+                         specific_components=specific_components,
+                         chunked_messages=chunked_messages)
 
     @classmethod
     def from_mdib_file(cls, wsdiscovery, my_uuid, mdib_xml_path,

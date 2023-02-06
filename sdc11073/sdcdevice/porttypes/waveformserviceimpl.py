@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, List
 
 from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, _mk_wsdl_one_way_operation
 from .porttypebase import msg_prefix
+
 if TYPE_CHECKING:
     from ...mdib.statecontainers import AbstractStateContainer
     from ...namespaces import NamespaceHelper
@@ -20,7 +21,7 @@ class WaveformService(DPWSPortTypeBase):
 
     def _mk_offered_subscriptions(self):
         # unclear if this is needed, it seems wsdl uses Waveform name, action uses WaveformStream
-        return  [self._sdc_device.mdib.sdc_definitions.Actions.Waveform]
+        return [self._sdc_device.mdib.sdc_definitions.Actions.Waveform]
 
     def send_realtime_samples_report(self, realtime_sample_states: List[AbstractStateContainer],
                                      nsmapper: NamespaceHelper,

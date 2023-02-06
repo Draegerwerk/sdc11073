@@ -46,25 +46,16 @@ class PrefixesEnum(PrefixNamespace, Enum):
 
 
 class NamespaceHelper:
-    def __init__(self, prefixes_enum: Type[PrefixesEnum], actual_ns_map=None, default_ns_key=None):
+    def __init__(self, prefixes_enum: Type[PrefixesEnum], default_ns:Optional[str]=None):
         self.prefix_enum = prefixes_enum
         self._lookup = {}
         for enum_item in prefixes_enum:
             self._lookup[enum_item.name] = enum_item.value
 
-        self.default_ns = None if default_ns_key is None else self._lookup[default_ns_key].namespace
+        self._default_ns = default_ns
 
-        if actual_ns_map:
-            # replace default prefixes with actual prefixes
-            ns_prefix_map = dict((v, k) for k, v in actual_ns_map.items())  # lookup by namespace
-            for key, prefix_namespace_tuple in self._lookup.items():
-                ns = prefix_namespace_tuple.namespace
-                if ns in ns_prefix_map:
-                    self._lookup[key] = PrefixNamespace(ns_prefix_map[ns], ns)
         self._prefix_map = dict((x.namespace, x.prefix) for x in self._lookup.values())  # map namespace to prefix
         self.ns_map = dict((x.prefix, x.namespace) for x in self._lookup.values())  # map prefix to namespace
-        if self.default_ns:
-            self.ns_map[None] = self.default_ns
 
     @property
     def nsmap(self) -> dict:
@@ -76,7 +67,6 @@ class NamespaceHelper:
 
     def msgTag(self, tag_name) -> etree_.QName:
         return self._tag(self.MSG, tag_name)
-        # return self.MSG.tag(tag_name)
 
     @property
     def PM(self) -> PrefixNamespace:
@@ -84,7 +74,6 @@ class NamespaceHelper:
 
     def domTag(self, tag_name) -> etree_.QName:
         return self._tag(self.PM, tag_name)
-        # return self.PM.tag(tag_name)
 
     @property
     def EXT(self) -> PrefixNamespace:
@@ -192,20 +181,26 @@ class NamespaceHelper:
     def XSD(self) -> PrefixNamespace:
         return self._lookup['XSD']
 
-    def partial_map(self, *prefix, default: Optional[PrefixNamespace] = None) -> dict:
+    def partial_map(self, *prefix) -> dict:
         """
         :param prefix: Prefix_Namespace_Tuples
         :param default: if given, the default name space
         :return: a dictionary with prefix as key, namespace as value
         """
-        ret = dict((v.prefix, v.namespace) for v in prefix)
-        if default is not None:
-            ret[None] = default.namespace
+        # ret = dict((v.prefix, v.namespace) for v in prefix)
+        # if default is not None:
+        #     ret[None] = default.namespace
+        # return ret
+        ret = {}
+        for p in prefix:
+            if p.namespace == self._default_ns:
+                ret[None] = p.namespace
+            ret[p.prefix] = p.namespace
         return ret
 
     def doc_name_from_qname(self, qname: etree_.QName) -> str:
         """ returns the prefix:name string, or only name (if default namespace is used) """
-        if qname.namespace is not None and qname.namespace == self.default_ns:
+        if qname.namespace is not None and qname.namespace == self._default_ns:
             return qname.localname
         prefix = self._prefix_map[qname.namespace]
         return f'{prefix}:{qname.localname}'
@@ -224,7 +219,7 @@ class NamespaceHelper:
         return etree_.QName(prefix_namespace.namespace, localname)
 
 
-default_ns_helper = NamespaceHelper(PrefixesEnum)
+default_ns_helper = NamespaceHelper(PrefixesEnum) #, default_ns=PrefixesEnum.PM.namespace)
 
 nsmap = default_ns_helper.ns_map
 

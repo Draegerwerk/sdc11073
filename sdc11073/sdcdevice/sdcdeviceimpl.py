@@ -1,121 +1,87 @@
-import copy
-import traceback
-import uuid
-from urllib.parse import SplitResult, urlparse
+from __future__ import annotations
 
-from . import httpserver
+import copy
+import uuid
+from typing import TYPE_CHECKING, Optional, Union, Protocol
+from urllib.parse import SplitResult
+
 from .components import default_sdc_device_components
-from .hostedserviceimpl import DispatchKey
-from .hostedserviceimpl import RequestHandlerRegistry
-from .httpserver import PathElementRegistry
+from ..dispatch import DispatchKey, DispatchKeyRegistry
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 from .subscriptionmgr import SoapClientPool
 from .waveforms import WaveformSender
-from .. import commlog
-from .. import compression
 from .. import loghelper
 from .. import observableproperties as properties
 from ..addressing import EndpointReferenceType
+from ..dispatch import PathElementRegistry
+from ..dispatch import RequestData, MessageConverterMiddleware
 from ..dpws import HostServiceType
 from ..exceptions import ApiUsageError
-from ..httprequesthandler import HTTPRequestHandlingError
-from ..httprequesthandler import RequestData
+from ..httpserver import compression
+from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..location import SdcLocation
-from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
+
+if TYPE_CHECKING:
+    from ..pysoap.msgfactory import CreatedMessage
+    from ..dpws import ThisDeviceType, ThisModelType
+    from ..mdib.devicemdib import DeviceMdibContainer
+    from .components import SdcDeviceComponents
+    from ssl import SSLContext
 
 
-class ConfigurationError(Exception):
-    """Raised if something is wrong with provided components"""
+class _PathElementDispatcher(PathElementRegistry):
+    """ Dispatch to one of the registered instances, based on path element.
+    Implements RequestHandlerProtocol"""
 
+    def register_instance(self, path_element: Union[str, None], instance: DispatchKeyRegistry):
+        super().register_instance(path_element, instance)
 
-class _RequestDispatcher(PathElementRegistry):
-    def dispatch_post(self, request_data: RequestData) -> str:
+    def on_post(self, request_data: RequestData) -> CreatedMessage:
         path_element = request_data.consume_current_path_element()
         dispatcher = self.get_instance(path_element)
         return dispatcher.on_post(request_data)
 
-    def dispatch_get(self, request_data: RequestData) -> str:
+    def on_get(self, request_data: RequestData) -> str:
         dispatcher = self.get_instance(request_data.consume_current_path_element())
         return dispatcher.on_get(request_data)
 
 
-class _MessageConverterMiddleware:
-    """ Converts between http server message format and internal format
-    http server is strings, internal is RequestData."""
+class WsDiscoveryProtocol(Protocol):
+    """This is the interface that SdcDevice expects"""
 
-    def __init__(self, msg_reader, msg_factory, logger, dispatcher: _RequestDispatcher):
-        self._logger = logger
-        self._msg_reader = msg_reader
-        self._msg_factory = msg_factory
-        self._dispatcher: _RequestDispatcher = dispatcher
-        self.sdc_definitions = msg_reader.sdc_definitions
+    def publish_service(self, epr: str, types: list, scopes: list, x_addrs: list):
+        ...
 
-    def do_post(self, headers: dict, path: str, peer_name: str, request_bytes: bytes) -> (int, str, str):
-        http_status = 200
-        http_reason = 'Ok'
-        response_xml_string = 'not set yet'
-        try:
-            commlog.get_communication_logger().log_soap_request_in(request_bytes, 'POST')
-            message_data = self._msg_reader.read_received_message(request_bytes)
-            request_data = RequestData(headers, path, peer_name, request_bytes, message_data)
-            request_data.consume_current_path_element()  # uuid is already used
-            response_envelope = self._dispatcher.dispatch_post(request_data)
-            response_xml_string = self._msg_factory.serialize_message(response_envelope)
-        except HTTPRequestHandlingError as ex:
-            message_data = self._msg_reader.read_received_message(request_bytes, validate=False)
-            response = self._msg_factory.mk_fault_message(message_data, ex.soap_fault)
-            response_xml_string = response.serialize_message()
-            http_status = ex.status
-            http_reason = ex.reason
-        except Exception as ex:
-            # make an error 500 response with the soap fault as content
-            self._logger.error(traceback.format_exc())
-            message_data = self._msg_reader.read_received_message(request_bytes, validate=False)
-            fault = SoapFault(code=FaultCodeEnum.SENDER, reason=str(ex))
-            response = self._msg_factory.mk_fault_message(message_data, fault)
-            response_xml_string = response.serialize_message()
-            http_status = 500
-            http_reason = 'exception'
-        finally:
-            commlog.get_communication_logger().log_soap_response_out(response_xml_string, 'POST')
-            return http_status, http_reason, response_xml_string
+    def get_active_addresses(self) -> list:
+        ...
 
-    def do_get(self, headers: dict, path: str, peer_name: str) -> (int, str, str, str):
-        parsed_path = urlparse(path)
-        try:
-            # GET has no content, log it to document duration of processing
-            commlog.get_communication_logger().log_soap_request_in('', 'GET')
-            request_data = RequestData(headers, path, peer_name)
-            request_data.consume_current_path_element()  # uuid is already used
-            response_string = self._dispatcher.dispatch_get(request_data)
-            commlog.get_communication_logger().log_soap_response_out(response_string, 'GET')
-            if parsed_path.query == 'wsdl':
-                content_type = "text/xml; charset=utf-8"
-            else:
-                content_type = "application/soap+xml; charset=utf-8"
-            return 200, 'Ok', response_string, content_type
-        except Exception as ex:
-            self._logger.error(traceback.format_exc())
-            response_string = str(ex).encode('utf-8')
-            content_type = "text"
-            return 500, 'Exception', response_string, content_type
+    def clear_service(self, epr: str):
+        ...
 
 
 class SdcDevice:
     DEFAULT_CONTEXTSTATES_IN_GETMDIB = True  # defines weather get_mdib and getMdStates contain context states or not.
 
-    def __init__(self, ws_discovery, this_model, this_device, device_mdib_container, my_uuid=None,
-                 validate=True, ssl_context=None,
-                 max_subscription_duration=7200, log_prefix='',
-                 default_components=None, specific_components=None,
-                 chunked_messages=False):  # pylint:disable=too-many-arguments
+    def __init__(self, ws_discovery: WsDiscoveryProtocol,
+                 this_model: ThisModelType,
+                 this_device: ThisDeviceType,
+                 device_mdib_container: DeviceMdibContainer,
+                 epr: Union[str, uuid.UUID, None] = None,
+                 validate: bool = True,
+                 ssl_context: Optional[SSLContext] = None,
+                 max_subscription_duration: int = 7200,
+                 log_prefix: str = '',
+                 default_components: Optional[SdcDeviceComponents] = None,
+                 specific_components: Optional[SdcDeviceComponents] = None,
+                 chunked_messages: bool = False):
         """
 
         :param ws_discovery: a WsDiscovers instance
-        :param this_model: a pysoap.soapenvelope.DPWSThisModel instance
-        :param this_device: a pysoap.soapenvelope.DPWSThisDevice instance
+        :param this_model: a ThisModelType instance
+        :param this_device: a ThisDeviceType instance
         :param device_mdib_container: a DeviceMdibContainer instance
-        :param my_uuid: an uuid instance or None
+        :param epr: something that serves as a unique identifier of this device for discovery.
+                    If epr is a string, it must be usable as a path element in an url (no spaces, ...)
         :param validate: bool
         :param ssl_context: if not None, this context is used and https url is used. Otherwise http
         :param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
@@ -129,7 +95,10 @@ class SdcDevice:
         self.model = this_model
         self.device = this_device
         self._mdib = device_mdib_container
-        self._my_uuid = my_uuid or uuid.uuid4()
+        if epr is None:
+            self._epr = uuid.uuid4()
+        else:
+            self._epr = epr
         self._validate = validate
         self._ssl_context = ssl_context
         self._max_subscription_duration = max_subscription_duration
@@ -146,7 +115,8 @@ class SdcDevice:
         self._compression_methods = compression.CompressionHandler.available_encodings[:]
         self._logger = loghelper.get_logger_adapter('sdc.device', log_prefix)
         self._location = None
-        self._http_server_thread = None
+        self._http_server = None
+        self._is_internal_http_server = False
 
         if self._ssl_context is not None:
             self._urlschema = 'https'
@@ -167,7 +137,7 @@ class SdcDevice:
                                                               validate=validate)
 
         # host dispatcher provides data of the sdc device itself.
-        self._host_dispatcher = RequestHandlerRegistry(path_element=None, msg_factory=self.msg_factory)
+        self._host_dispatcher = DispatchKeyRegistry()
         nsh = self._mdib.sdc_definitions.data_model.ns_helper
         self._host_dispatcher.register_post_handler(
             DispatchKey(f'{nsh.WXF.namespace}/Get', None),
@@ -177,13 +147,13 @@ class SdcDevice:
             self._on_probe_request)
 
         self.dpws_host = HostServiceType(
-            endpoint_reference=EndpointReferenceType(self.epr),
+            endpoint_reference=EndpointReferenceType(self.epr_urn),
             types_list=self._mdib.sdc_definitions.MedicalDeviceTypesFilter)
 
-        self._hosted_service_dispatcher = _RequestDispatcher()
+        self._hosted_service_dispatcher = _PathElementDispatcher()
         self._hosted_service_dispatcher.register_instance(None, self._host_dispatcher)
 
-        self._msg_converter = _MessageConverterMiddleware(
+        self._msg_converter = MessageConverterMiddleware(
             self.msg_reader, self.msg_factory, self._logger, self._hosted_service_dispatcher)
 
         # these are initialized in _setup_components:
@@ -224,7 +194,7 @@ class SdcDevice:
 
         services_factory = self._components.services_factory
         self.hosted_services = services_factory(self, self._components, self._subscriptions_managers)
-        for dpws_service in self.hosted_services.dpws_hosted_services:
+        for dpws_service in self.hosted_services.dpws_hosted_services.values():
             self._hosted_service_dispatcher.register_instance(dpws_service.path_element, dpws_service)
 
         cls = self._components.sco_operations_registry_class
@@ -283,7 +253,7 @@ class SdcDevice:
         """
         scopes = self._components.scopes_factory(self._mdib)
         x_addrs = self.get_xaddrs()
-        self._wsdiscovery.publish_service(self.epr, self._mdib.sdc_definitions.MedicalDeviceTypesFilter, scopes,
+        self._wsdiscovery.publish_service(self.epr_urn, self._mdib.sdc_definitions.MedicalDeviceTypesFilter, scopes,
                                           x_addrs)
 
     @property
@@ -295,14 +265,20 @@ class SdcDevice:
         return self._sco_operations_registry
 
     @property
-    def epr(self):
+    def epr_urn(self):
         # End Point Reference, e.g 'urn:uuid:8c26f673-fdbf-4380-b5ad-9e2454a65b6b'
-        return str(self._my_uuid.urn)
+        try:
+            return self._epr.urn
+        except AttributeError:
+            return self._epr
 
     @property
     def path_prefix(self):
-        # http path prefix of service e.g '8c26f673-fdbf-4380-b5ad-9e2454a65b6b'
-        return str(self._my_uuid.hex)
+        # http path prefix of service e.g '8c26f673fdbf4380b5ad9e2454a65b6b'
+        try:
+            return self._epr.hex
+        except AttributeError:
+            return self._epr
 
     def register_operation(self, operation):
         self._sco_operations_registry.register_operation(operation)
@@ -321,7 +297,7 @@ class SdcDevice:
 
         :param start_rtsample_loop: flag
         :param periodic_reports_interval: if provided, a value in seconds
-        :param shared_http_server: id provided, use this http server. Otherwise device creates its own.
+        :param shared_http_server: if provided, use this http server, else device creates its own.
         :return:
         """
         if periodic_reports_interval or self._mdib.retrievability_periodic:
@@ -344,27 +320,29 @@ class SdcDevice:
         self._logger.info('starting services, addr = {}', self._wsdiscovery.get_active_addresses())
         self._sco_operations_registry.start_worker()
         if shared_http_server:
-            self._http_server_thread = shared_http_server
+            self._http_server = shared_http_server
         else:
-            self._http_server_thread = httpserver.DeviceHttpServerThread(
+            self._is_internal_http_server = True
+            logger = loghelper.get_logger_adapter('sdc.device.httpsrv', self._log_prefix)
+
+            self._http_server = HttpServerThreadBase(
                 my_ipaddress='0.0.0.0', ssl_context=self._ssl_context, supported_encodings=self._compression_methods,
-                msg_reader=self.msg_reader, msg_factory=self.msg_factory,
-                log_prefix=self._log_prefix, chunked_responses=self.chunked_messages)
+                logger=logger, chunked_responses=self.chunked_messages)
 
             # first start http server, the services need to know the ip port number
-            self._http_server_thread.start()
-            event_is_set = self._http_server_thread.started_evt.wait(timeout=15.0)
+            self._http_server.start()
+            event_is_set = self._http_server.started_evt.wait(timeout=15.0)
             if not event_is_set:
                 self._logger.error('Cannot start device, start event of http server not set.')
                 raise RuntimeError('Cannot start device, start event of http server not set.')
 
         host_ips = self._wsdiscovery.get_active_addresses()
-        self._http_server_thread.dispatcher.register_instance(self.path_prefix, self._msg_converter)
+        self._http_server.dispatcher.register_instance(self.path_prefix, self._msg_converter)
         if len(host_ips) == 0:
             self._logger.error('Cannot start device, there is no IP address to bind it to.')
             raise RuntimeError('Cannot start device, there is no IP address to bind it to.')
 
-        port = self._http_server_thread.my_port
+        port = self._http_server.my_port
         if port is None:
             self._logger.error('Cannot start device, could not bind HTTP server to a port.')
             raise RuntimeError('Cannot start device, could not bind HTTP server to a port.')
@@ -387,11 +365,14 @@ class SdcDevice:
             subscriptions_manager.stop_all(send_subscription_end)
         self._sco_operations_registry.stop_worker()
         try:
-            self._wsdiscovery.clear_service(self.epr)
+            self._wsdiscovery.clear_service(self.epr_urn)
         except KeyError:
-            self._logger.info('epr "{}" not known in self._wsdiscovery', self.epr)
+            self._logger.info('epr "{}" not known in self._wsdiscovery', self.epr_urn)
         if self.product_roles is not None:
             self.product_roles.stop()
+        if self._is_internal_http_server and self._http_server is not None:
+            self._http_server.stop()
+
 
     def start_rt_sample_loop(self):
         if self._waveform_sender:
@@ -405,7 +386,7 @@ class SdcDevice:
 
     def get_xaddrs(self):
         addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery
-        port = self._http_server_thread.my_port
+        port = self._http_server.my_port
         xaddrs = []
         for addr in addresses:
             xaddrs.append(f'{self._urlschema}://{addr}:{port}/{self.path_prefix}')

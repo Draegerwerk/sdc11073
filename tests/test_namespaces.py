@@ -17,7 +17,8 @@ class TestNamespaces(unittest.TestCase):
         self.assertEqual('msg:bla', bla_string)
 
     def test_default_ns(self):
-        hlp = namespaces.NamespaceHelper(namespaces.PrefixesEnum, default_ns_key='MSG')
+        default_ns = namespaces.PrefixesEnum.MSG.namespace
+        hlp = namespaces.NamespaceHelper(namespaces.PrefixesEnum, default_ns)
         self.assertEqual(hlp.MSG.prefix, 'msg')
 
         bla_tag = hlp.msgTag('bla')
@@ -26,13 +27,3 @@ class TestNamespaces(unittest.TestCase):
 
         bla_string = hlp.doc_name_from_qname(bla_tag)
         self.assertEqual('bla', bla_string)
-
-    def test_mapped(self):
-        ns_map = {
-            'abc': namespaces.PrefixesEnum.MSG.namespace
-        }
-        hlp = namespaces.NamespaceHelper(namespaces.PrefixesEnum, ns_map)
-
-        bla_tag = hlp.MSG.tag('bla')
-        bla_string = hlp.doc_name_from_qname(bla_tag)
-        self.assertEqual('abc:bla', bla_string)

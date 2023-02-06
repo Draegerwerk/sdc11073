@@ -1,9 +1,12 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, List
+
 from collections import OrderedDict
+from typing import TYPE_CHECKING, List
+
 from .porttypebase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding, msg_prefix
 from .porttypebase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation
-from ..hostedserviceimpl import DispatchKey
+from ...dispatch import DispatchKey
+
 if TYPE_CHECKING:
     from ...mdib.statecontainers import AbstractStateContainer
     from ..periodicreports import PeriodicStates
@@ -52,8 +55,6 @@ class ContextService(ServiceWithOperations):
         if len(requested_handles) > 0:
             self._logger.info('_on_get_context_states requested Handles:{}', requested_handles)
         with self._mdib.mdib_lock:
-            #mdib_version = self._mdib.mdib_version
-            #sequence_id = self._mdib.sequence_id
             if len(requested_handles) == 0:
                 # MessageModel: If the HANDLE reference list is empty, all states in the MDIB SHALL be included in the result list.
                 context_state_containers = list(self._mdib.context_states.objects)
@@ -98,7 +99,8 @@ class ContextService(ServiceWithOperations):
         action = self._sdc_definitions.Actions.EpisodicContextReport
         body_node = self._msg_factory.mk_episodic_context_report_body(mdib_version_group, states)
         self._logger.debug('sending episodic context report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_episodic_context_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper,
+                                             'send_episodic_context_report')
 
     def send_periodic_context_report(self, periodic_states_list: List[PeriodicStates],
                                      nsmapper: NamespaceHelper,
@@ -109,4 +111,5 @@ class ContextService(ServiceWithOperations):
             periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
         self._logger.debug('sending periodic context report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_periodic_context_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper,
+                                             'send_periodic_context_report')

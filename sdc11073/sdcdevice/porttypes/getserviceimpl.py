@@ -1,6 +1,7 @@
 from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_two_way_operation
 from .porttypebase import msg_prefix
-from ..hostedserviceimpl import DispatchKey
+from ...dispatch import DispatchKey
+
 
 class GetService(DPWSPortTypeBase):
     WSDLMessageDescriptions = (WSDLMessageDescription('GetMdState',
@@ -41,8 +42,6 @@ class GetService(DPWSPortTypeBase):
         # get the requested state containers from mdib
         state_containers = []
         with self._mdib.mdib_lock:
-            #mdib_version = self._mdib.mdib_version
-            #sequence_id = self._mdib.sequence_id
             if len(requested_handles) == 0:
                 # MessageModel: If the HANDLE reference list is empty, all states in the MDIB SHALL be included in the result list.
                 state_containers.extend(self._mdib.states.objects)
@@ -63,7 +62,7 @@ class GetService(DPWSPortTypeBase):
                         state_containers.extend(self._mdib.states.descriptorHandle.get(handle, []))
 
                 self._logger.debug('_on_get_md_state requested Handles:{} found {} states', requested_handles,
-                                  len(state_containers))
+                                   len(state_containers))
 
             response = self._sdc_device.msg_factory.mk_get_mdstate_response_message(
                 request_data.message_data, self.actions.GetMdStateResponse,
@@ -90,7 +89,8 @@ class GetService(DPWSPortTypeBase):
         # => if at least one handle matches any descriptor, the one mds is returned, otherwise empty payload
 
         self._logger.debug('_on_get_md_description')
-        requested_handles = request_data.message_data.msg_reader.read_getmddescription_request(request_data.message_data)
+        requested_handles = request_data.message_data.msg_reader.read_getmddescription_request(
+            request_data.message_data)
         if len(requested_handles) > 0:
             self._logger.info('_on_get_md_description requested Handles:{}', requested_handles)
         response = self._sdc_device.msg_factory.mk_get_mddescription_response_message(

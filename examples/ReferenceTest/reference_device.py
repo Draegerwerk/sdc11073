@@ -13,8 +13,8 @@ from sdc11073.loghelper import LoggerAdapter
 from sdc11073.sdcdevice.components import SdcDeviceComponents
 from sdc11073.sdcdevice.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
-from sdc11073.sdcdevice.hostedserviceimpl import DPWSHostedService
-from sdc11073.sdcdevice.sdc_handlers import HostedServices
+from sdc11073.sdcdevice.servicesfactory import DPWSHostedService
+from sdc11073.sdcdevice.servicesfactory import HostedServices, mk_dpws_hosts
 
 here = os.path.dirname(__file__)
 default_mdib_path = os.path.join(here, 'reference_mdib.xml')
@@ -34,82 +34,18 @@ ssl_passwd = os.getenv('ref_ssl_passwd') or None
 
 USE_REFERENCE_PARAMETERS = False
 
-def mk_all_services_except_localization(sdc_device, components, sdc_definitions) -> HostedServices:
-    # register all services with their endpoint references acc. to sdc standard
-    actions = sdc_definitions.Actions
-    service_handlers_lookup = components.service_handlers
-    cls = service_handlers_lookup['GetService']
-    get_service = cls('GetService', sdc_device)
-    # cls = service_handlers_lookup['LocalizationService']
-    # localization_service = cls('LocalizationService', sdc_device)
-    offered_subscriptions = []
-    get_service_hosted = DPWSHostedService(sdc_device, 'Get',
-                                           components.msg_dispatch_method,
-                                           [get_service],
-                                           offered_subscriptions)
-
-    # grouped acc to sdc REQ 0035
-    cls = service_handlers_lookup['ContextService']
-    context_service = cls('ContextService', sdc_device)
-    cls = service_handlers_lookup['DescriptionEventService']
-    description_event_service = cls('DescriptionEventService', sdc_device)
-    cls = service_handlers_lookup['StateEventService']
-    state_event_service = cls('StateEventService', sdc_device)
-    cls = service_handlers_lookup['WaveformService']
-    waveform_service = cls('WaveformService', sdc_device)
-
-    offered_subscriptions = [actions.EpisodicContextReport,
-                             actions.DescriptionModificationReport,
-                             actions.EpisodicMetricReport,
-                             actions.EpisodicAlertReport,
-                             actions.EpisodicComponentReport,
-                             actions.EpisodicOperationalStateReport,
-                             actions.Waveform,
-                             actions.SystemErrorReport,
-                             actions.PeriodicMetricReport,
-                             actions.PeriodicAlertReport,
-                             actions.PeriodicContextReport,
-                             actions.PeriodicComponentReport,
-                             actions.PeriodicOperationalStateReport
-                             ]
-
-    sdc_service_hosted = DPWSHostedService(sdc_device, 'StateEvent',
-                                           components.msg_dispatch_method,
-                                           [context_service,
-                                            description_event_service,
-                                            state_event_service,
-                                            waveform_service],
-                                           offered_subscriptions)
-
-    cls = service_handlers_lookup['SetService']
-    set_dispatcher = cls('SetService', sdc_device)
-    offered_subscriptions = [actions.OperationInvokedReport]
-
-    set_service_hosted = DPWSHostedService(sdc_device, 'Set',
-                                           components.msg_dispatch_method,
-                                           [set_dispatcher],
-                                           offered_subscriptions)
-
-    cls = service_handlers_lookup['ContainmentTreeService']
-    containment_tree_dispatcher = cls('ContainmentTreeService', sdc_device)
-    offered_subscriptions = []
-    containment_tree_service_hosted = DPWSHostedService(sdc_device, 'ContainmentTree',
-                                                        components.msg_dispatch_method,
-                                                        [containment_tree_dispatcher],
-                                                        offered_subscriptions)
-    dpws_services = (get_service_hosted,
-                     sdc_service_hosted,
-                     set_service_hosted,
-                     containment_tree_service_hosted)
+def mk_all_services_except_localization(sdc_device, components, subscription_managers) -> HostedServices:
+    # register all services with their endpoint references acc. to structure in components
+    dpws_services, services_by_name = mk_dpws_hosts(sdc_device, components, DPWSHostedService, subscription_managers)
     hosted_services = HostedServices(dpws_services,
-                                     get_service,
-                                     set_service=set_dispatcher,
-                                     context_service=context_service,
-                                     description_event_service=description_event_service,
-                                     state_event_service=state_event_service,
-                                     waveform_service=waveform_service,
-                                     containment_tree_service=containment_tree_dispatcher,
-#                                      localization_service=localization_service
+                                     services_by_name['GetService'],
+                                     set_service=services_by_name.get('SetService'),
+                                     context_service=services_by_name.get('ContextService'),
+                                     description_event_service=services_by_name.get('DescriptionEventService'),
+                                     state_event_service=services_by_name.get('StateEventService'),
+                                     waveform_service=services_by_name.get('WaveformService'),
+                                     containment_tree_service=services_by_name.get('ContainmentTreeService'),
+                                     # localization_service=services_by_name.get('LocalizationService')
                                      )
     return hosted_services
 
@@ -157,7 +93,7 @@ if __name__ == '__main__':
                                                   services_factory=mk_all_services_except_localization,
                                                   soap_client_class=SoapClientAsync)
     else:
-        specific_components = SdcDeviceComponents(services_factory=mk_all_services_except_localization)
+        specific_components = None # SdcDeviceComponents(services_factory=mk_all_services_except_localization)
     sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.SdcDevice(wsd, dpwsModel, dpwsDevice, my_mdib, my_uuid,
                                                            ssl_context=ssl_context,
                                                            specific_components=specific_components)

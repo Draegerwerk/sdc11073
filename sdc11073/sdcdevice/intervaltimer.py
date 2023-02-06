@@ -35,5 +35,3 @@ class IntervalTimer:
 
     def remaining_time(self):
         return self._next_interval_start - monotonic()
-
-    sleep = wait_next_interval_begin  # alias

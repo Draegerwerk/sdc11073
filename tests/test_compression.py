@@ -4,7 +4,7 @@ from tests.mockstuff import SomeDevice
 from lxml import etree
 from sdc11073.sdcclient import SdcClient
 from sdc11073 import pmtypes
-from sdc11073 import compression
+from sdc11073.httpserver import compression
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.location import SdcLocation
 

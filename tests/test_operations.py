@@ -19,6 +19,8 @@ from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice import waveforms
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.sdcclient.components import SdcClientComponents
+from sdc11073.dispatch import DispatchKeyRegistry
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
@@ -69,9 +71,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         # in order to test correct handling of default namespaces, we make participant model the default namespace
-        ns_mapper = self.sdc_device.mdib.nsmapper
-        #ToDo: set default namespace
-        # ns_mapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, self._loc_validators)
@@ -80,11 +79,16 @@ class Test_BuiltinOperations(unittest.TestCase):
         time.sleep(0.5)  # allow init of devices to complete
 
         x_addr = self.sdc_device.get_xaddrs()
+        # no deferred action handling for easier debugging
+        specific_components = SdcClientComponents(
+            action_dispatcher_class=DispatchKeyRegistry
+        )
         self.sdc_client = SdcClient(x_addr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
-                                    validate=CLIENT_VALIDATE)
-        self.sdc_client.start_all(subscribe_periodic_reports=True, async_dispatch=False)
+                                    validate=CLIENT_VALIDATE,
+                                    specific_components=specific_components)
+        self.sdc_client.start_all(subscribe_periodic_reports=True)
         time.sleep(1)
         sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))
@@ -342,11 +346,16 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         # connect a 2nd client
         x_addr = self.sdc_device.get_xaddrs()
+        # no deferred action handling for easier debugging
+        specific_components = SdcClientComponents(
+            action_dispatcher_class=DispatchKeyRegistry
+        )
         sdc_client2 = SdcClient(x_addr[0],
                                 sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                 ssl_context=None,
-                                validate=CLIENT_VALIDATE)
-        sdc_client2.start_all(subscribe_periodic_reports=True, async_dispatch=False)
+                                validate=CLIENT_VALIDATE,
+                                specific_components=specific_components)
+        sdc_client2.start_all(subscribe_periodic_reports=True)
         client_mdib2 = ClientMdibContainer(sdc_client2)
         client_mdib2.init_mdib()
         clients = (self.sdc_client, sdc_client2)

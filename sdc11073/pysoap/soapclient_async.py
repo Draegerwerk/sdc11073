@@ -10,8 +10,8 @@ from aiohttp.client import ClientSession, TCPConnector, ClientTimeout
 from .soapclient import HTTPReturnCodeError
 from .. import commlog
 from .. import observableproperties
-from ..compression import CompressionHandler
-from ..httprequesthandler import mk_chunks
+from ..httpserver.compression import CompressionHandler
+from ..httpserver.httpreader import mk_chunks
 from ..namespaces import default_ns_helper as ns_hlp
 
 if TYPE_CHECKING:
@@ -48,8 +48,10 @@ class SoapClientAsync:
         self.__class__._usedSoapClients += 1  # pylint: disable=protected-access
         self._client_number = self.__class__._usedSoapClients  # pylint: disable=protected-access
         self._log.info('created soap client No. {} for {}', self._client_number, netloc)
-        self.supported_encodings = supported_encodings if supported_encodings is not None else CompressionHandler.available_encodings
-        self.request_encodings = request_encodings if request_encodings is not None else []  # these compression alg's does the other side accept ( set at runtime)
+        self.supported_encodings = supported_encodings if supported_encodings is not None\
+            else CompressionHandler.available_encodings
+        # these compression alg's does the other side accept ( set at runtime):
+        self.request_encodings = request_encodings if request_encodings is not None else []
         self._get_headers = self._make_get_headers()
         self._lock = Lock()
         self._chunked_requests = chunked_requests
@@ -78,6 +80,11 @@ class SoapClientAsync:
         """Connects to netloc"""
         self._http_connection = await self._mk_http_connection()
 
+    def close(self):
+        #ToDo: run async_close in event loop
+        self._http_connection = None
+        return
+
     async def async_close(self):
         with self._lock:
             if self._http_connection is not None:
@@ -92,8 +99,6 @@ class SoapClientAsync:
         """
         :param path: url path component
         :param created_message: The message that shall be sent
-        :param response_factory: a callable that creates a response object from received xml. If None, a ReceivedSoap12Envelope will be created
-        :param schema: If given, the request is validated against this schema
         :param msg: used in logs, helps to identify the context in which the method was called
         :param request_manipulator: can manipulate data before sending
         """

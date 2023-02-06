@@ -31,7 +31,7 @@ class EndpointReferenceType:
     def __init__(self, address: str, reference_parameters: Optional[ReferenceParameters]=None):
         """
 
-        :param address: wsa:AttributedURI
+        :param address: wsa:AttributedURIType
         :param reference_parameters:  ReferenceParameters instance
         (MetaData element is not implemented)
         """

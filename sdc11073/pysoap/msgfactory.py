@@ -2,6 +2,7 @@ import uuid
 import weakref
 from io import BytesIO
 from typing import Optional
+
 from lxml import etree as etree_
 
 from .msgreader import validate_node
@@ -463,8 +464,8 @@ class MessageFactoryClient(MessageFactory):
                              endto_url, endto_identifier,
                              expire_minutes,
                              subscribe_filter,
-                             any_elements: Optional[list]=None,
-                             any_attributes: Optional[dict]=None) -> CreatedMessage:
+                             any_elements: Optional[list] = None,
+                             any_attributes: Optional[dict] = None) -> CreatedMessage:
         soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.WSE))
         soap_envelope.set_address(Address(action=EventingActions.Subscribe, addr_to=addr_to))
         if notify_to_identifier is None:
@@ -597,7 +598,7 @@ class MessageFactoryDevice(MessageFactory):
     """This class creates all messages that a device needs to create"""
 
     def mk_get_metadata_response_message(self, message_data, this_device, this_model,
-                                         dpws_host, dpws_hosted_services) -> CreatedMessage:
+                                         dpws_host, dpws_hosted_services: dict) -> CreatedMessage:
         nsh = self._ns_hlp
         response = Soap12Envelope(nsh.partial_map(nsh.WXF))
         reply_address = message_data.p_msg.address.mk_reply_address(f'{nsh.WXF.namespace}/GetResponse')
@@ -629,7 +630,7 @@ class MessageFactoryDevice(MessageFactory):
         self._mk_host_service_type_sub_node(dpws_host, relationship_node)
 
         # add all hosted services:
-        for service in dpws_hosted_services:
+        for service in dpws_hosted_services.values():
             hosted_service_type = service.mk_dpws_hosted_instance()
             self._mk_hosted_service_type_sub_node(hosted_service_type, relationship_node)
         response.payload_element = metadata_node
@@ -700,7 +701,7 @@ class MessageFactoryDevice(MessageFactory):
     def mk_get_mdib_response_message(self, message_data, mdib, include_context_states) -> CreatedMessage:
         nsh = self._ns_hlp
         request = message_data.p_msg
-        response = Soap12Envelope(nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG, default=nsh.PM))
+        response = Soap12Envelope(nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG))
         reply_address = request.address.mk_reply_address(
             action=self._get_action_string(mdib.sdc_definitions, 'GetMdibResponse'))
         response.set_address(reply_address)
@@ -742,7 +743,7 @@ class MessageFactoryDevice(MessageFactory):
         nsh = self._ns_hlp
         request = message_data.p_msg
         response_envelope = Soap12Envelope(
-            nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG, default=nsh.PM))
+            nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG))
         reply_address = request.address.mk_reply_address(
             action=action)
         response_envelope.set_address(reply_address)

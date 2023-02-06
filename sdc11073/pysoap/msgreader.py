@@ -14,11 +14,11 @@ from sdc11073.namespaces import QN_TYPE, text_to_qname
 from .soapenvelope import SoapFault, FaultCodeEnum, ReceivedSoapMessage
 from .. import isoduration
 from ..addressing import EndpointReferenceType, Address, ReferenceParameters
-from ..compression import CompressionHandler
+from ..httpserver.compression import CompressionHandler
 from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
 from ..dpws import LocalizedStringTypeDict
 from ..dpws import ThisDeviceType, ThisModelType, HostServiceType, HostedServiceType, Relationship
-from ..httprequesthandler import HTTPRequestHandlingError
+from ..exceptions import HTTPRequestHandlingError
 from ..metadata import MetaData
 from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator
@@ -837,7 +837,7 @@ class MessageReaderDevice(MessageReader):
         requested_handles = body_node.xpath('*/msg:Ref/text()',
                                             namespaces=ns)  # handle strings 0...n
         requested_versions = body_node.xpath('*/msg:Version/text()',
-                                             namespaces=self.ns_map)  # unsigned long int 0..1
+                                             namespaces=ns)  # unsigned long int 0..1
         requested_langs = body_node.xpath('*/msg:Lang/text()',
                                           namespaces=ns)  # unsigned long int 0..n
         text_widths = body_node.xpath('*/msg:TextWidth/text()',
