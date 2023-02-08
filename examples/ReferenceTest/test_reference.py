@@ -9,15 +9,15 @@ from concurrent import futures
 from decimal import Decimal
 
 from sdc11073 import observableproperties
-from sdc11073 import pmtypes
+from sdc11073 import pmtypes, msgtypes
 from sdc11073.definitions_sdc import SDC_v1_Definitions
-from sdc11073.dpws import ThisDevice, ThisModel
+from sdc11073.dpws import ThisDeviceType, ThisModelType
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import DeviceMdibContainer, ClientMdibContainer
-from sdc11073.namespaces import domTag
-from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
 from sdc11073.sdcclient import SdcClient
+from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist, Scope
+from sdc11073 import pm_qnames as pm
 
 here = os.path.dirname(__file__)
 default_mdib_path = os.path.join(here, 'reference_mdib.xml')
@@ -44,21 +44,21 @@ class DeviceActivity(threading.Thread):
     def run(self):
         self.running = True
         descs = list(self.device.mdib.descriptions.objects)
-        descs.sort(key=lambda x: x.handle)
+        descs.sort(key=lambda x: x.Handle)
         metric = None
         alertCondition = None
         stringOperation = None
         valueOperation = None
         for oneContainer in descs:
-            if oneContainer.handle == "numeric.ch1.vmd0":
+            if oneContainer.Handle == "numeric.ch1.vmd0":
                 metric = oneContainer
-            if oneContainer.handle == "ac0.mds0":
+            if oneContainer.Handle == "ac0.mds0":
                 alertCondition = oneContainer
-            if oneContainer.handle == "numeric.ch0.vmd1_sco_0":
+            if oneContainer.Handle == "numeric.ch0.vmd1_sco_0":
                 valueOperation = oneContainer
-            if oneContainer.handle == "enumstring.ch0.vmd1_sco_0":
+            if oneContainer.Handle == "enumstring.ch0.vmd1_sco_0":
                 stringOperation = oneContainer
-        with self.device.mdib.mdibUpdateTransaction() as mgr:
+        with self.device.mdib.transaction_manager() as mgr:
             state = mgr.get_state(valueOperation.OperationTarget)
             if not state.MetricValue:
                 state.mk_metric_value()
@@ -70,8 +70,8 @@ class DeviceActivity(threading.Thread):
             currentValue = Decimal(0)
             while True:
                 if metric:
-                    with self.device.mdib.mdibUpdateTransaction() as mgr:
-                        state = mgr.get_state(metric.handle)
+                    with self.device.mdib.transaction_manager() as mgr:
+                        state = mgr.get_state(metric.Handle)
                         if not state.MetricValue:
                             state.mk_metric_value()
                         state.MetricValue.Value = currentValue
@@ -80,8 +80,8 @@ class DeviceActivity(threading.Thread):
                 else:
                     print("Metric not found in MDIB!")
                 if alertCondition:
-                    with self.device.mdib.mdibUpdateTransaction() as mgr:
-                        state = mgr.get_state(alertCondition.handle)
+                    with self.device.mdib.transaction_manager() as mgr:
+                        state = mgr.get_state(alertCondition.Handle)
                         state.Presence = not state.Presence
                         print('set alertstate presence to {}'.format(state.Presence))
                 else:
@@ -100,16 +100,16 @@ class DeviceActivity(threading.Thread):
 def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
     my_mdib = DeviceMdibContainer.from_mdib_file(mdibPath)
     my_uuid = uuid.UUID(My_Dev_UUID_str)
-    dpwsModel = ThisModel(manufacturer='sdc11073',
-                          manufacturer_url='www.sdc11073.com',
-                          model_name='TestDevice',
-                          model_number='1.0',
-                          model_url='www.draeger.com/model',
-                          presentation_url='www.draeger.com/model/presentation')
+    dpwsModel = ThisModelType(manufacturer='sdc11073',
+                              manufacturer_url='www.sdc11073.com',
+                              model_name='TestDevice',
+                              model_number='1.0',
+                              model_url='www.draeger.com/model',
+                              presentation_url='www.draeger.com/model/presentation')
 
-    dpwsDevice = ThisDevice(friendly_name='TestDevice',
-                            firmware_version='Version1',
-                            serial_number='12345')
+    dpwsDevice = ThisDeviceType(friendly_name='TestDevice',
+                                firmware_version='Version1',
+                                serial_number='12345')
     sdcDevice = SdcDevice(wsdiscovery_instance,
                           dpwsModel,
                           dpwsDevice,
@@ -121,9 +121,9 @@ def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
     validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
     sdcDevice.set_location(location, validators)
 
-    patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get_one(domTag('PatientContextDescriptor')).handle
-    with my_mdib.mdibUpdateTransaction() as mgr:
-        patientContainer = mgr.get_state(patientDescriptorHandle)
+    patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor).Handle
+    with my_mdib.transaction_manager() as mgr:
+        patientContainer = mgr.mk_context_state(patientDescriptorHandle)
         patientContainer.CoreData.Givenname = "Given"
         patientContainer.CoreData.Middlename = ["Middle"]
         patientContainer.CoreData.Familyname = "Familiy"
@@ -218,12 +218,12 @@ class Test_Reference(unittest.TestCase):
 
         # we want to exec. ALL following steps, therefore collect data and do test at the end.
         print('Test step 5: check that at least one patient context exists')
-        patients = mdib.context_states.NODETYPE.get(domTag('PatientContextState'), [])
+        patients = mdib.context_states.NODETYPE.get(pm.PatientContextState, [])
         if not patients:
             errors.append('### Test 5 ### failed')
 
         print('Test step 6: check that at least one location context exists')
-        locations = mdib.context_states.NODETYPE.get(domTag('LocationContextState'), [])
+        locations = mdib.context_states.NODETYPE.get(pm.LocationContextState, [])
         if not locations:
             errors.append('### Test 6 ### failed')
         _passed, _errors = self._test_state_updates(mdib)
@@ -301,7 +301,7 @@ class Test_Reference(unittest.TestCase):
         passed = []
         errors = []
         print('Test step 9: call SetString operation')
-        setstring_operations = mdib.descriptions.NODETYPE.get(domTag('SetStringOperationDescriptor'),
+        setstring_operations = mdib.descriptions.NODETYPE.get(pm.SetStringOperationDescriptor,
                                                               [])
         setst_handle = 'string.ch0.vmd1_sco_0'
         if len(setstring_operations) == 0:
@@ -309,18 +309,18 @@ class Test_Reference(unittest.TestCase):
             errors.append('### Test 9 ### failed')
         else:
             for s in setstring_operations:
-                if s.handle != setst_handle:
+                if s.Handle != setst_handle:
                     continue
                 print('setString Op ={}'.format(s))
-                fut = client.set_service_client.set_string(s.handle, 'hoppeldipop')
+                fut = client.set_service_client.set_string(s.Handle, 'hoppeldipop')
                 try:
                     res = fut.result(timeout=10)
                     print(res)
-                    if res.invocation_state != pmtypes.InvocationState.FINISHED:
-                        print('set string operation {} did not finish with "Fin":{}'.format(s.handle, res))
+                    if res.InvocationInfo.InvocationState != msgtypes.InvocationState.FINISHED:
+                        print('set string operation {} did not finish with "Fin":{}'.format(s.Handle, res))
                         errors.append('### Test 9 ### failed')
                     else:
-                        print('set value operation {} ok:{}'.format(s.handle, res))
+                        print('set value operation {} ok:{}'.format(s.Handle, res))
                         passed.append('### Test 9 ### passed')
                 except futures.TimeoutError:
                     print('timeout error')
@@ -331,7 +331,7 @@ class Test_Reference(unittest.TestCase):
         passed = []
         errors = []
         print('Test step 10: call SetValue operation')
-        setvalue_operations = mdib.descriptions.NODETYPE.get(domTag('SetValueOperationDescriptor'),
+        setvalue_operations = mdib.descriptions.NODETYPE.get(pm.SetValueOperationDescriptor,
                                                              [])
         #    print('setvalue_operations', setvalue_operations)
         setval_handle = 'numeric.ch0.vmd1_sco_0'
@@ -340,17 +340,17 @@ class Test_Reference(unittest.TestCase):
             errors.append('### Test 10 ### failed')
         else:
             for s in setvalue_operations:
-                if s.handle != setval_handle:
+                if s.Handle != setval_handle:
                     continue
                 print('setNumericValue Op ={}'.format(s))
-                fut = client.set_service_client.set_numeric_value(s.handle, 42)
+                fut = client.set_service_client.set_numeric_value(s.Handle, 42)
                 try:
                     res = fut.result(timeout=10)
                     print(res)
-                    if res.invocation_state != pmtypes.InvocationState.FINISHED:
-                        print('set value operation {} did not finish with "Fin":{}'.format(s.handle, res))
+                    if res.InvocationInfo.InvocationState != msgtypes.InvocationState.FINISHED:
+                        print('set value operation {} did not finish with "Fin":{}'.format(s.Handle, res))
                     else:
-                        print('set value operation {} ok:{}'.format(s.handle, res))
+                        print('set value operation {} ok:{}'.format(s.Handle, res))
                     passed.append('### Test 10 ### passed')
                 except futures.TimeoutError:
                     print('timeout error')

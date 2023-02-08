@@ -60,7 +60,7 @@ class HostServiceType:
 
 
 class HostedServiceType:
-    __slots__ = ('endpoint_references', 'types', 'service_id', 'soap_client')
+    __slots__ = ('endpoint_references', 'types', 'service_id')
 
     def __init__(self,
                  endpoint_references_list: List[EndpointReferenceType],
@@ -69,7 +69,6 @@ class HostedServiceType:
         self.endpoint_references = endpoint_references_list
         self.types = types_list
         self.service_id = service_id
-        self.soap_client = None
 
     def __str__(self):
         return f'HostedServiceType: endpointReference={self.endpoint_references}, types="{self.types}" ' \

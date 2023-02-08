@@ -6,7 +6,7 @@ import time
 import unittest
 from decimal import Decimal
 from itertools import product
-from urllib import parse
+from urllib.parse import urlparse, urlunparse, ParseResult
 
 from lxml import etree as etree_
 
@@ -291,9 +291,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 tmp = s._subscription_manager_address
                 try:
                     # manipulate path
-                    s._subscription_manager_address = parse.ParseResult(
-                        scheme=tmp.scheme, netloc=tmp.netloc, path=tmp.path + 'xxx', params=tmp.params,
-                        query=tmp.query, fragment=tmp.fragment)
+                    s._subscription_manager_path = s._subscription_manager_path[:-1] + 'xxx'
                     # renew
                     self.log_watcher.setPaused(True)  # ignore logged error
                     remaining_seconds = s.renew(1)  # one minute

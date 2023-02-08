@@ -35,11 +35,8 @@ class EndpointReferenceType:
         :param reference_parameters:  ReferenceParameters instance
         (MetaData element is not implemented)
         """
-        self.address = address  # type="wsa:AttributedURI", which is an xs:anyURI element
-        if reference_parameters is not None:
-            self.reference_parameters = reference_parameters
-        else:
-            self.reference_parameters = ReferenceParameters(None)
+        self.address: str = address  # type="wsa:AttributedURI", which is an xs:anyURI element
+        self.reference_parameters : ReferenceParameters = reference_parameters or ReferenceParameters(None)
 
     def __str__(self):
         return f'{self.__class__.__name__}: address={self.address}'

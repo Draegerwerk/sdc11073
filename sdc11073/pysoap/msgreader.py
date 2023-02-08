@@ -92,7 +92,7 @@ class SubscribeRequest:
 
 @dataclass(frozen=True)
 class SubscribeResult:
-    subscription_manager_address: ParseResult
+    subscription_manager_address: str
     reference_param: ReferenceParameters
     expire_seconds: float
 
@@ -552,7 +552,7 @@ class MessageReaderClient(MessageReader):
         reference_param = None if len(reference_params) == 0 else reference_params[0]
         expires = msg_node.xpath('wse:Expires/text()', namespaces=ns)
 
-        subscription_manager_address = urlparse(address[0])
+        subscription_manager_address = address[0]
         expire_seconds = isoduration.parse_duration(expires[0])
         return SubscribeResult(subscription_manager_address, ReferenceParameters(reference_param), expire_seconds)
 
@@ -599,7 +599,8 @@ class MessageReaderClient(MessageReader):
                     dialect = dialect[:-1]
                 if dialect == "http://schemas.xmlsoap.org/wsdl":
                     location_node = metadata_section_node.find(self.ns_hlp.wsxTag('Location'))
-                    meta_data.wsdl_location = location_node.text
+                    if location_node is not None:
+                        meta_data.wsdl_location = location_node.text
                 elif dialect == DeviceMetadataDialectURI.THIS_MODEL:
                     this_model_node = metadata_section_node.find(self.ns_hlp.dpwsTag('ThisModel'))
                     meta_data.this_model = self._mk_this_model(this_model_node)

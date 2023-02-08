@@ -63,7 +63,8 @@ class HostedServiceDescription:
                                                    created_message,
                                                    msg=f'<{self.service_id}> read_metadata')
         self.meta_data = self._msg_reader.read_get_metadata_response(message_data)
-        self._read_wsdl(soap_client, self.meta_data.wsdl_location)
+        if self.meta_data.wsdl_location is not None:
+            self._read_wsdl(soap_client, self.meta_data.wsdl_location)
 
     def _read_wsdl(self, soap_client, wsdl_url):
         parsed = urlparse(wsdl_url)
@@ -414,6 +415,7 @@ class SdcClient:
         subscription_manager_class = self._components.subscription_manager_class
         self._subscription_mgr = subscription_manager_class(self.msg_reader,
                                                             self._msg_factory,
+                                                            self.get_soap_client,
                                                             self.base_url,
                                                             log_prefix=self.log_prefix,
                                                             check_interval=subscriptions_check_interval)
@@ -490,7 +492,7 @@ class SdcClient:
 
     def _get_metadata(self) -> MetaData:
         _url = urlparse(self._device_location)
-        wsc = self._get_soap_client(self._device_location)
+        wsc = self.get_soap_client(self._device_location)
 
         if self._ssl_context is not None and _url.scheme == 'https':
             if wsc.is_closed():
@@ -504,7 +506,7 @@ class SdcClient:
         received_message_data = wsc.post_message_to(_url.path, message, msg='getMetadata')
         return self.msg_reader.read_get_metadata_response(received_message_data)
 
-    def _get_soap_client(self, address):
+    def get_soap_client(self, address):
         _url = urlparse(address)
         key = (_url.scheme, _url.netloc)
         soap_client = self._soap_clients.get(key)
@@ -537,8 +539,8 @@ class SdcClient:
     def _mk_hosted_services(self, host_description):
         for hosted in host_description.relationship.hosted.values():
             endpoint_reference = hosted.endpoint_references[0].address
-            soap_client = self._get_soap_client(endpoint_reference)
-            hosted.soap_client = soap_client
+            soap_client = self.get_soap_client(endpoint_reference)
+            #hosted.soap_client = soap_client
             if hosted.types is not None:
                 ns_types = [t.split(':') for t in hosted.types]
             else:
