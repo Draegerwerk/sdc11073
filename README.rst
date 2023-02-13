@@ -26,6 +26,16 @@ Usage
 The sdc11073 library is not intended for use in medical products. The
 focus is on testing and demonstration.
 
+Notices
+======
+
+sdc11073 is not intended for use in medical products, clinical trials, clinical studies, or in clinical routine.
+
+ISO 9001
+--------
+
+sdc11073 was not developed according to ISO 9001.
+
 Support
 =======
 
