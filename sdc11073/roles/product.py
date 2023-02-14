@@ -104,7 +104,7 @@ class BaseProduct:
         self._register_existing_mdib_operations(self._sco)
 
         for role_handler in self._all_providers_sorted():
-            operations = role_handler.make_missing_operations(self._sco.operation_cls_getter)
+            operations = role_handler.make_missing_operations(self._sco)
             for operation in operations:
                 self._sco.register_operation(operation)
 
@@ -160,7 +160,7 @@ class BaseProduct:
         for descriptor in operation_descriptor_containers:
             registered_op = sco.get_operation_by_handle(descriptor.Handle)
             if registered_op is None:
-                self._logger.info(
+                self._logger.debug(
                     f'found unregistered {descriptor.NODETYPE.localname} in mdib, handle={descriptor.Handle}, '
                     f'code={descriptor.Type} target={descriptor.OperationTarget}')
                 operation = self.make_operation_instance(descriptor, sco.operation_cls_getter)

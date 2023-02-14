@@ -11,7 +11,6 @@ from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib.clientmdib import ClientMdibContainer
 from sdc11073.sdcclient import SdcClient
-from sdc11073.sdcdevice.components import SdcDeviceComponents
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from tests.mockstuff import SomeDevice
 
@@ -40,10 +39,8 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
         location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
-        # specific_components = SdcDeviceComponents(role_provider_class=GenericProduct_OSF)
         my_uuid = None  # let device create one
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_tns.xml',
-                                                    log_prefix='<device> ')
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_two_mds.xml', log_prefix='<device> ')
         self.sdc_device.start_all()
         self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.mdib.xtra.ensure_location_context_descriptor()
@@ -117,9 +114,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         # verify that now remote signal in on and local signal is off
         local_alert_signal_state = cl_mdib.states.descriptorHandle.get_one('as0.mds0')
         remote_alert_signal_state = cl_mdib.states.descriptorHandle.get_one('as0.mds0_rem')
-        # self.assertEqual(pmtypes.AlertSignalPresence.OFF, local_alert_signal_state.Presence)
         self.assertEqual(pmtypes.AlertActivation.PAUSED, local_alert_signal_state.ActivationState)
-        # self.assertEqual(pmtypes.AlertSignalPresence.ON, remote_alert_signal_state.Presence)
         self.assertEqual(pmtypes.AlertActivation.ON, remote_alert_signal_state.ActivationState)
         time.sleep(5)
         self.assertEqual(pmtypes.AlertActivation.ON, local_alert_signal_state.ActivationState)

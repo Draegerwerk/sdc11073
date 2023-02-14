@@ -63,8 +63,18 @@ class AbstractStateContainer(ContainerBase):
         if self.descriptor_container.DescriptorVersion != self.DescriptorVersion:
             self.DescriptorVersion = self.descriptor_container.DescriptorVersion
 
+    @property
+    def source_mds(self):
+        return self.descriptor_container.source_mds
+
     def __repr__(self):
         return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" StateVersion={self.StateVersion}'
+
+    @classmethod
+    def from_node(cls, node, descriptor_container=None):
+        obj = cls(descriptor_container)
+        obj.update_from_node(node)
+        return obj
 
 
 class AbstractOperationStateContainer(AbstractStateContainer):

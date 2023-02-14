@@ -28,6 +28,7 @@ class TestDeviceWaveform(unittest.TestCase):
             desc.MetricAvailability = pmtypes.MetricAvailability.CONTINUOUS
             desc.MetricCategory = pmtypes.MetricCategory.MEASUREMENT
             self.mdib.descriptions.add_object(desc)
+        self.mdib.xtra.mk_state_containers_for_all_descriptors()
 
         self.sdc_device = None
 

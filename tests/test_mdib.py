@@ -8,12 +8,15 @@ from sdc11073.pmtypes import Coding
 
 mdib_folder = os.path.dirname(__file__)
 
+#mdib_tns_path = os.path.join(mdib_folder, 'mdib_tns.xml')
+mdib_tns_path = os.path.join(mdib_folder, 'mdib_two_mds.xml')
+mdib_70041_path = os.path.join(mdib_folder, '70041_MDIB_Final.xml')
 
 class TestMdib(unittest.TestCase):
 
     def test_select_descriptors(self):
 
-        device_mdib_container = DeviceMdibContainer.from_mdib_file(os.path.join(mdib_folder, '70041_MDIB_Final.xml'))
+        device_mdib_container = DeviceMdibContainer.from_mdib_file(mdib_70041_path)
         # from looking at the mdib file I know how many elements the tested paths shall return
         for path, expectedCount in [(('70041',), 1),
                                     (('70041', '69650'), 1),  # VMDs
@@ -34,8 +37,7 @@ class TestMdib(unittest.TestCase):
         self.assertTrue(device_mdib_container is not None)
 
     def test_get_metric_descriptor_by_code(self):
-        device_mdib_container = DeviceMdibContainer.from_mdib_file(
-            os.path.join(os.path.dirname(__file__), 'mdib_tns.xml'))
+        device_mdib_container = DeviceMdibContainer.from_mdib_file(mdib_tns_path)
         metric_container = device_mdib_container.get_metric_descriptor_by_code(vmd_code=Coding("130536"),
                                                                                channel_code=Coding("130637"),
                                                                                metric_code=Coding("196174"))
@@ -53,7 +55,7 @@ class TestMdib(unittest.TestCase):
 class TestMdibTransaction(unittest.TestCase):
 
     def setUp(self):
-        self.mdib = DeviceMdibContainer.from_mdib_file(os.path.join(os.path.dirname(__file__), 'mdib_tns.xml'))
+        self.mdib = DeviceMdibContainer.from_mdib_file(mdib_tns_path)
 
     def test_create_descriptor(self):
         with self.mdib.transaction_manager() as mgr:

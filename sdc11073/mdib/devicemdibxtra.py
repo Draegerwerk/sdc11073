@@ -1,11 +1,13 @@
-import uuid
 import time
+import uuid
 
-from ..msgtypes import RetrievabilityMethod
 from .devicewaveform import DefaultWaveformSource
+from ..pmtypes import RetrievabilityMethod
+
 
 class DeviceMdibMethods:
     waveform_provider_cls = DefaultWaveformSource
+
     def __init__(self, device_mdib):
         self._mdib = device_mdib
         self.waveform_provider = self.waveform_provider_cls(device_mdib)
@@ -34,7 +36,7 @@ class DeviceMdibMethods:
             system_context_container = mdib.descriptions.NODETYPE.get_one(pm.SystemContextDescriptor)
             descr_cls = mdib.data_model.get_descriptor_container_class(pm.PatientContextDescriptor)
             descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_container.Handle)
-            descr_container.SafetyClassification =  mdib.data_model.pm_types.SafetyClassification.INF
+            descr_container.SafetyClassification = mdib.data_model.pm_types.SafetyClassification.INF
             mdib.descriptions.add_object(descr_container)
 
     def set_location(self, sdc_location, validators=None, set_associated=True):
@@ -51,10 +53,10 @@ class DeviceMdibMethods:
             all_location_contexts = mdib.context_states.NODETYPE.get(pm.LocationContextState, [])
             # set all to currently associated Locations to Disassociated
             associated_locations = [l for l in all_location_contexts if
-                                    l.ContextAssociation ==  mdib.data_model.pm_types.ContextAssociation.ASSOCIATED]
+                                    l.ContextAssociation == mdib.data_model.pm_types.ContextAssociation.ASSOCIATED]
             for location in associated_locations:
                 location_context = mgr.get_context_state(location.Handle)
-                location_context.ContextAssociation =  mdib.data_model.pm_types.ContextAssociation.DISASSOCIATED
+                location_context.ContextAssociation = mdib.data_model.pm_types.ContextAssociation.DISASSOCIATED
                 # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
                 location_context.UnbindingMdibVersion = mdib.mdib_version + 1
             descriptor_container = mdib.descriptions.NODETYPE.get_one(pm.LocationContextDescriptor)
@@ -108,11 +110,39 @@ class DeviceMdibMethods:
                             period_ms = int(period_float * 1000.0)
                             mdib.retrievability_periodic[period_ms].append(descr.Handle)
 
+    def set_all_source_mds(self):
+        pm_qnames = self._mdib.data_model.pm_names
+        all_mds_descriptors = self._mdib.descriptions.NODETYPE.get(pm_qnames.MdsDescriptor)
+        for mds_descriptor in all_mds_descriptors:
+            for descr in self._mdib.get_all_descriptors_in_subtree(mds_descriptor):
+                descr.set_source_mds(mds_descriptor.Handle)
+
     def update_all_rt_samples(self):
         if self.waveform_provider is None:
             return
         with self._mdib._rt_sample_transaction() as transaction:
             self.waveform_provider.update_all_realtime_samples(transaction)
+
+    def get_mds_descriptor(self, container):
+        tmp = container
+        if tmp.is_state_container:
+            tmp = self._mdib.descriptions.handle.get_one(tmp.DescriptorHandle)
+        mds_descr = None
+        expected_type = self._mdib.data_model.pm_names.MdsDescriptor
+        while mds_descr is None:
+            if tmp.NODETYPE == expected_type:
+                return tmp
+            parent_handle = tmp.parent_handle
+            tmp = self._mdib.descriptions.handle.get_one(parent_handle, allow_none=True)
+            if tmp is None:
+                if self._mdib._current_transaction:
+                    tmp = self._mdib._current_transaction.get_descriptor_in_transaction(parent_handle)
+            if tmp is None:
+                raise KeyError(f'could not find mds descriptor for handle {container.Handle}')
+
+    def set_source_mds(self, descriptor_container):
+        mds = self.get_mds_descriptor(descriptor_container)
+        descriptor_container.set_source_mds(mds.Handle)
 
 
 class DescriptorFactory:

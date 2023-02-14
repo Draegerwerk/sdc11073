@@ -123,9 +123,6 @@ class ReceivedMessage:
     action: Union[str, None]
     q_name: etree_.QName
     mdib_version_group: MdibVersionGroupReader
-    # action: Optional[str] = None
-    # q_name: Optional[etree_.QName] = None
-    # mdib_version_group: Optional[MdibVersionGroupReader] = None
 
 
 class PayloadData:
@@ -205,8 +202,6 @@ class MessageReader:
         """ Read only payload part of a message"""
         payload = PayloadData(xml_text)
         action = None
-        #q_name = payload.msg_name
-        #data.msg_name = q_name.localname if q_name else None
         mdib_version_group = None
         if payload.msg_node is not None:
             mdib_version_group = MdibVersionGroupReader.from_node(payload.msg_node)
@@ -368,31 +363,23 @@ class MessageReader:
 
 class MessageReaderClient(MessageReader):
 
-    def read_get_mddescription_response(self, received_message_data):
-        msg_node = received_message_data.p_msg.msg_node
-        md_description_node = msg_node[0]
-        descriptors = self._read_md_description_node(md_description_node)
-        return descriptors
+    def read_get_mddescription_response(self, message_data: ReceivedMessage):
+        cls = self._msg_types.GetMdDescriptionResponse
+        report = cls.from_node(message_data.p_msg.msg_node)
+        return report
 
     def read_get_mdstate_response(self, message_data: ReceivedMessage):
-        md_state_node = message_data.p_msg.msg_node[0]
-        return self._read_md_state_node(md_state_node)
+        cls = self._msg_types.GetMdStateResponse
+        report = cls.from_node(message_data.p_msg.msg_node)
+        return report
 
     def read_context_states(self, message_data: ReceivedMessage):
         """ Creates Context State Containers from message .
         :return: a list of state containers
         """
-        states = []
-        context_state_nodes = message_data.p_msg.msg_node[:]
-        for context_state_node in context_state_nodes:
-            # hard rename to dom:State
-            context_state_node.tag = self._pm_names.State
-            try:
-                state_container = self._mk_state_container_from_node(context_state_node)
-                states.append(state_container)
-            except MdibStructureError as ex:
-                self._logger.error('{}read_context_states: cannot create: {}', self._log_prefix, ex)
-        return states
+        cls = self._msg_types.GetContextStatesResponse
+        report = cls.from_node(message_data.p_msg.msg_node)
+        return report
 
     def read_get_localized_text_response(self, message_data: ReceivedMessage) -> list:
         result = []
@@ -412,47 +399,29 @@ class MessageReaderClient(MessageReader):
         return result
 
     def read_waveform_report(self, message_data):
-        states = []
-        report_node = message_data.p_msg.msg_node
-        all_sample_arrays = list(report_node)
-        for sample_array in all_sample_arrays:
-            if sample_array.tag.endswith('State'):  # ignore everything else, e.g. Extension
-                states.append(self._mk_realtime_sample_array_states(sample_array))
-        return states
+        cls = self._msg_types.WaveformStream
+        report = cls.from_node(message_data.p_msg.msg_node)
+        return report
 
     def read_periodic_metric_report(self, message_data):
-        return self._read_metric_report(message_data.p_msg.msg_node)
+        cls = self._msg_types.AbstractMetricReport
+        report = cls.from_node(message_data.p_msg.msg_node)
+        return report
 
     def read_episodic_metric_report(self, message_data):
-        return self._read_metric_report(message_data.p_msg.msg_node)
-
-    def _read_metric_report(self, report_node):
-        """
-        Parses an episodic or periodic metric report
-        :param report_node:  An episodic metric report etree
-        :return: a list of StateContainer objects
-        """
-        states = []
-        for reportpart_node in report_node:
-            states.extend(self._mk_statecontainers_from_reportpart(reportpart_node, self._msg_names.MetricState))
-        return states
+        cls = self._msg_types.AbstractMetricReport
+        report = cls.from_node(message_data.p_msg.msg_node)
+        return report
 
     def read_episodic_alert_report(self, message_data):
-        return self._read_alert_report_node(message_data.p_msg.msg_node)
+        cls = self._msg_types.AbstractAlertReport
+        report = cls.from_node(message_data.p_msg.msg_node)
+        return report
 
     def read_periodic_alert_report(self, message_data):
-        return self._read_alert_report_node(message_data.p_msg.msg_node)
-
-    def _read_alert_report_node(self, report_node):
-        """
-        Parses an episodic alert report
-        :param report_node:  An episodic alert report etree
-        :return: a list of StateContainer objects
-        """
-        states = []
-        for reportpart_node in report_node:
-            states.extend(self._mk_statecontainers_from_reportpart(reportpart_node, self._msg_names.AlertState))
-        return states
+        cls = self._msg_types.AbstractAlertReport
+        report = cls.from_node(message_data.p_msg.msg_node)
+        return report
 
     def read_operational_state_report(self, message_data):
         """
@@ -460,72 +429,43 @@ class MessageReaderClient(MessageReader):
         :param message_data:
         :return: a list of StateContainer objects
         """
-        states = []
-        for report_part_node in message_data.p_msg.msg_node:
-            states.extend(self._mk_statecontainers_from_reportpart(report_part_node, self._msg_names.OperationState))
+        cls = self._msg_types.AbstractOperationalStateReport
+        report = cls.from_node(message_data.p_msg.msg_node)
+        return report
 
-        return states
-
-    def read_episodic_context_report(self, message_data):
+    def read_episodic_context_report(self, message_data) -> list:
         """
         Parses an episodic context report
         :param message_data:
         :return: a list of StateContainer objects
         """
-        states = []
-        for report_part_node in message_data.p_msg.msg_node:  # reportpart_nodes:
-            states.extend(self._mk_statecontainers_from_reportpart(report_part_node, self._msg_names.ContextState))
-        return states
+        cls = self._msg_types.AbstractContextReport
+        report = cls.from_node(message_data.p_msg.msg_node)
+        return report
 
-    def read_periodic_component_report(self, message_data):
-        return self._read_component_report(message_data.p_msg.msg_node)
+    def read_periodic_component_report(self, message_data) -> list:
+        cls = self._msg_types.AbstractComponentReport
+        report = cls.from_node(message_data.p_msg.msg_node)
+        return report
 
-    def read_episodic_component_report(self, message_data):
-        return self._read_component_report(message_data.p_msg.msg_node)
+    def read_episodic_component_report(self, message_data) -> list:
+        cls = self._msg_types.AbstractComponentReport
+        report = cls.from_node(message_data.p_msg.msg_node)
+        return report
 
-    def _read_component_report(self, report_node):
-        """
-        Parses an episodic component report
-        :param report_node:  An episodic component report etree
-        :return: a list of StateContainer objects
-        """
-        states = []
-        for report_part_node in report_node:
-            states.extend(self._mk_statecontainers_from_reportpart(report_part_node, self._msg_names.ComponentState))
-        return states
-
-    def read_description_modification_report(self, message_data: ReceivedMessage) -> DescriptionModifications:
+    def read_description_modification_report(self, message_data: ReceivedMessage):
         """
         Parses a description modification report
-        :param message_data:  MessageData instance
-        :return: a list of DescriptorContainer objects
+        :param message_data:  ReceivedMessage instance
+        :return: a DescriptionModificationReport
         """
-        DescriptionModificationType = self._msg_types.DescriptionModificationType
-        descriptors_list = []
-        report_parts = list(message_data.p_msg.msg_node)  # list of msg:ReportPart nodes
-        descriptors = DescriptionModifications()
-        for report_part in report_parts:
-            descriptors_list.append(descriptors)
-            parent_descriptor = report_part.get('ParentDescriptor')
-            modification_type = report_part.get('ModificationType',
-                                                DescriptionModificationType.UPDATE)  # implied Value is 'Upt'
-            if modification_type == DescriptionModificationType.CREATE:
-                description_modification = descriptors.create
-            elif modification_type == DescriptionModificationType.UPDATE:
-                description_modification = descriptors.update
-            elif modification_type == DescriptionModificationType.DELETE:
-                description_modification = descriptors.delete
-            else:
-                raise ValueError(f'unknown modification type {modification_type} in description modification report')
-            descriptor_nodes = report_part.findall(self._msg_names.Descriptor)
-            for descriptor_node in descriptor_nodes:
-                descr_container = self._mk_descriptor_container_from_node(descriptor_node, parent_descriptor)
-                description_modification.descriptors.append(descr_container)
-            state_nodes = report_part.findall(self._msg_names.State)
-            for state_node in state_nodes:
-                state_container = self._mk_state_container_from_node(state_node)
-                description_modification.states.append(state_container)
-        return descriptors
+        report_node = message_data.p_msg.msg_node
+        cls = self._msg_types.DescriptionModificationReport
+        report = cls.from_node(report_node)
+        for report_part in report.ReportPart:
+            for d in report_part.Descriptor:
+                d.parent_handle = report_part.ParentDescriptor
+        return report
 
     def read_operation_response(self, message_data: ReceivedMessage) -> OperationResult:
         msg_node = message_data.p_msg.msg_node

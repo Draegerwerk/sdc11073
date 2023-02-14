@@ -14,8 +14,8 @@ class GetServiceClient(HostedServiceClient):
         """
         message = self._msg_factory.mk_get_mddescription_message(self.endpoint_reference.address, requested_handles)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
-        descriptors = received_message_data.msg_reader.read_get_mddescription_response(received_message_data)
-        return GetRequestResult(received_message_data, descriptors)
+        report = received_message_data.msg_reader.read_get_mddescription_response(received_message_data)
+        return GetRequestResult(received_message_data, report)
 
     def get_md_state(self, requested_handles=None, request_manipulator=None) -> GetRequestResult:
         """
@@ -23,5 +23,5 @@ class GetServiceClient(HostedServiceClient):
         """
         message = self._msg_factory.mk_get_mdstate_message(self.endpoint_reference.address, requested_handles)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
-        states = received_message_data.msg_reader.read_get_mdstate_response(received_message_data)
-        return GetRequestResult(received_message_data, states)
+        report = received_message_data.msg_reader.read_get_mdstate_response(received_message_data)
+        return GetRequestResult(received_message_data, report)

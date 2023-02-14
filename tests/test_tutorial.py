@@ -363,7 +363,8 @@ class Test_Tutorial(unittest.TestCase):
         my_mdib = ClientMdibContainer(my_client)
         my_mdib.init_mdib()
 
-        my_product_impl = my_generic_device.product_roles
+        sco_handle = 'sco.mds0'
+        my_product_impl = my_generic_device.product_roles_lookup[sco_handle]
         # call activate operation:
         # As a client NEVER! use the handle of the operation directly, always use the code(s) to identify things.
         # Handles are random values without any meaning, they are only unique id's in the mdib.

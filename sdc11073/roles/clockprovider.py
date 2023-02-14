@@ -43,7 +43,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
 
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         if operation_descriptor_container.coding in (self.MDC_OP_SET_TIME_SYNC_REF_SRC.coding, self.OP_SET_NTP.coding):
-            self._logger.info(
+            self._logger.debug(
                 f'instantiating "set ntp server" operation from existing descriptor handle={operation_descriptor_container.Handle}')
             set_ntp_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                              operation_cls_getter,
@@ -51,7 +51,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             self._set_ntp_operations.append(set_ntp_operation)
             return set_ntp_operation
         if operation_descriptor_container.coding in (self.MDC_ACT_SET_TIME_ZONE.coding, self.OP_SET_TZ.coding):
-            self._logger.info(
+            self._logger.debug(
                 f'instantiating "set time zone" operation from existing descriptor handle={operation_descriptor_container.Handle}')
             set_tz_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                             operation_cls_getter,
@@ -125,9 +125,11 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
 class SDCClockProvider(GenericSDCClockProvider):
     """This Implementation adds operations to mdib if they do not exist."""
 
-    def make_missing_operations(self, operation_cls_getter):
+    def make_missing_operations(self, sco):
         pm_names = self._mdib.data_model.pm_names
         ops = []
+        operation_cls_getter = sco.operation_cls_getter
+
         mds_container = self._mdib.descriptions.NODETYPE.get_one(pm_names.MdsDescriptor)
         clock_descriptor = self._mdib.descriptions.NODETYPE.get_one(pm_names.ClockDescriptor,
                                                                     allow_none=True)

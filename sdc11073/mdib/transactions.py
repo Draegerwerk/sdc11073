@@ -202,6 +202,7 @@ class MdibUpdateTransaction(_TransactionBase):
             raise ValueError(f'cannot create Descriptor {descriptor_handle}, it already exists!')
         if adjust_descriptor_version:
             self._device_mdib_container.descriptions.set_version(descriptor_container)
+        self._device_mdib_container.xtra.set_source_mds(descriptor_container)
         self.descriptor_updates[descriptor_handle] = _TrItem(None, descriptor_container)
         self.new_descriptors.append(descriptor_handle)
         if state_container is not None:

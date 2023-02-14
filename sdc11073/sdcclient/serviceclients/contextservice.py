@@ -44,8 +44,8 @@ class ContextServiceClient(HostedServiceClient):
         """
         message = self._msg_factory.mk_get_contextstates_message(self.endpoint_reference.address, handles)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
-        context_state_containers = received_message_data.msg_reader.read_context_states(received_message_data)
-        return GetRequestResult(received_message_data, context_state_containers)
+        report = received_message_data.msg_reader.read_context_states(received_message_data)
+        return GetRequestResult(received_message_data, report)
 
     def get_context_state_by_identification(self, identifications, context_type=None,
                                             request_manipulator=None) -> GetRequestResult:
@@ -57,5 +57,5 @@ class ContextServiceClient(HostedServiceClient):
         message = self._msg_factory.mk_get_contextstates_by_identification_message(
             self.endpoint_reference.address, identifications)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
-        context_state_containers = received_message_data.msg_reader.read_context_states(received_message_data)
-        return GetRequestResult(received_message_data, context_state_containers)
+        report = received_message_data.msg_reader.read_context_states(received_message_data)
+        return GetRequestResult(received_message_data, report)

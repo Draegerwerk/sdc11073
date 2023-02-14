@@ -23,7 +23,7 @@ from ..msgtypes import InvocationState
 from ..pmtypes import SafetyClassification
 
 if TYPE_CHECKING:
-    from .services.setserviceimpl import SetServiceProtocol
+    from .porttypes.setserviceimpl import SetServiceProtocol
     from lxml.etree import QName
 
 
@@ -109,7 +109,7 @@ class OperationDefinition:
         self._descriptor_container = self._mdib.descriptions.handle.get_one(self._handle, allow_none=True)
         if self._descriptor_container is not None:
             # there is already a descriptor
-            self._logger.info('descriptor for operation "{}" is already present, re-using it', self._handle)
+            self._logger.debug('descriptor for operation "{}" is already present, re-using it', self._handle)
         else:
             cls = mdib.data_model.get_descriptor_container_class(self.OP_DESCR_QNAME)
             self._descriptor_container = cls(self._handle, parent_descriptor_container.Handle)
@@ -118,7 +118,7 @@ class OperationDefinition:
 
         self._operation_state_container = self._mdib.states.descriptorHandle.get_one(self._handle, allow_none=True)
         if self._operation_state_container is not None:
-            self._logger.info('operation state for operation "{}" is already present, re-using it', self._handle)
+            self._logger.debug('operation state for operation "{}" is already present, re-using it', self._handle)
         else:
             cls = mdib.data_model.get_state_container_class(self.OP_STATE_QNAME)
             self._operation_state_container = cls(self._descriptor_container)
@@ -246,34 +246,21 @@ class _OperationsWorker(threading.Thread):
 
 
 class AbstractScoOperationsRegistry(ABC):
+
     def __init__(self, set_service: SetServiceProtocol,
                  operation_cls_getter: Callable[[QName], type],
                  mdib,
+                 sco_descriptor_container,
                  handle='_sco',
                  log_prefix=None):
         self._worker = None
         self._set_service: SetServiceProtocol = set_service
         self.operation_cls_getter = operation_cls_getter
         self._mdib = mdib
+        self.sco_descriptor_container = sco_descriptor_container
         self._log_prefix = log_prefix
         self._logger = loghelper.get_logger_adapter('sdc.device.op_reg', log_prefix)
         self._registered_operations = {}  # lookup by handle
-        self._handle = handle
-
-        pm_names = mdib.data_model.pm_names
-        # find the Sco of the Mds, this will be the default sco for new operations
-        mds_descriptor_container = mdib.descriptions.NODETYPE.get_one(pm_names.MdsDescriptor)
-        sco_containers = mdib.descriptions.find(parent_handle=mds_descriptor_container.Handle).find(
-            NODETYPE=pm_names.ScoDescriptor).objects
-        if len(sco_containers) == 1:
-            self._logger.info('found Sco node in mds, using it')
-            self._mds_sco_descriptor_container = sco_containers[0]
-        else:
-            self._logger.info('not found Sco node in mds, creating it')
-            # create sco and add to mdib
-            cls = mdib.data_model.get_descriptor_container_class(pm_names.ScoDescriptor)
-            self._mds_sco_descriptor_container = cls(self._handle, mds_descriptor_container.Handle)
-            mdib.descriptions.add_object(self._mds_sco_descriptor_container)
 
     def check_invocation_timeouts(self):
         for op in self._registered_operations.values():
@@ -334,7 +321,7 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
         self._logger.info('register operation "{}"', operation)
         if operation.handle in self._registered_operations:
             self._logger.info('handle {} is already registered, will re-use it', operation.handle)
-        parent_container = sco_descriptor_container or self._mds_sco_descriptor_container
+        parent_container = sco_descriptor_container or self.sco_descriptor_container
         operation.set_mdib(self._mdib, parent_container)
         self._registered_operations[operation.handle] = operation
 

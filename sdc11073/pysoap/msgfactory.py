@@ -1,5 +1,6 @@
 import uuid
 import weakref
+from collections import defaultdict
 from io import BytesIO
 from typing import Optional
 
@@ -919,94 +920,150 @@ class MessageFactoryDevice(MessageFactory):
         return CreatedMessage(response, self)
 
     def mk_realtime_samples_report_body(self, mdib_version_group, realtime_sample_states) -> etree_.Element:
+        report = self._msg_types.WaveformStream()
+        report.set_mdib_version_group(mdib_version_group)
+        report.State.extend(realtime_sample_states)
         nsh = self._ns_hlp
         ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        body_node = etree_.Element(self._msg_names.WaveformStream, nsmap=ns_map)
-        self._set_mdib_version_group(body_node, mdib_version_group)
-        for state in realtime_sample_states:
-            state_node = state.mk_state_node(self._msg_names.State, nsh, set_xsi_type=False)
-            body_node.append(state_node)
-        return body_node
+        return report.as_etree_node(self._msg_names.WaveformStream, ns_map)
+
+    @staticmethod
+    def _separate_states_by_source_mds(states) -> dict:
+        lookup = defaultdict(list)
+        for state in states:
+            lookup[state.source_mds].append(state)
+        if None in lookup:
+            raise ValueError(f'States {[st.DescriptorHandle for st in lookup[None]]} have no source mds')
+        return lookup
+
+    def _fill_episodic_report_body(self, report, states):
+        lookup = self._separate_states_by_source_mds(states)
+        for source_mds_handle, states in lookup.items():
+            report_part = report.add_report_part()
+            report_part.SourceMds = source_mds_handle
+            report_part.values_list.extend(states)
+
+    def _fill_periodic_report_body(self, report, report_parts):
+        for tmp in report_parts:
+            lookup = self._separate_states_by_source_mds(tmp.states)
+            for source_mds_handle, states in lookup.items():
+                report_part = report.add_report_part()
+                report_part.SourceMds = source_mds_handle
+                report_part.values_list.extend(states)
 
     def mk_episodic_metric_report_body(self, mdib_version_group, states) -> etree_.Element:
-        return self._mk_report_body(self._msg_names.EpisodicMetricReport,
-                                    self._msg_names.MetricState,
-                                    mdib_version_group, states)
+        report = self._msg_types.AbstractMetricReport()
+        report.set_mdib_version_group(mdib_version_group)
+        self._fill_episodic_report_body(report, states)
+        nsh = self._ns_hlp
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        return report.as_etree_node(self._msg_names.EpisodicMetricReport, ns_map)
 
     def mk_periodic_metric_report_body(self, actual_mdib_version, mdib_version_group, report_parts) -> etree_.Element:
-        return self._mk__periodic_report_body(self._msg_names.PeriodicMetricReport,
-                                              self._msg_names.MetricState,
-                                              report_parts, actual_mdib_version, mdib_version_group)
+        report = self._msg_types.AbstractMetricReport()
+        report.set_mdib_version_group(mdib_version_group)
+        report.MdibVersion = actual_mdib_version
+        self._fill_periodic_report_body(report, report_parts)
+        nsh = self._ns_hlp
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        return report.as_etree_node(self._msg_names.PeriodicMetricReport, ns_map)
 
     def mk_episodic_operational_state_report_body(self, mdib_version_group, states) -> etree_.Element:
-        return self._mk_report_body(self._msg_names.EpisodicOperationalStateReport,
-                                    self._msg_names.OperationState,
-                                    mdib_version_group, states)
+        report = self._msg_types.AbstractOperationalStateReport()
+        report.set_mdib_version_group(mdib_version_group)
+        self._fill_episodic_report_body(report, states)
+        nsh = self._ns_hlp
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        return report.as_etree_node(self._msg_names.EpisodicOperationalStateReport, ns_map)
 
     def mk_periodic_operational_state_report_body(self, actual_mdib_version, mdib_version_group,
                                                   report_parts) -> etree_.Element:
-        return self._mk__periodic_report_body(self._msg_names.PeriodicOperationalStateReport,
-                                              self._msg_names.OperationState,
-                                              report_parts, actual_mdib_version, mdib_version_group)
+        report = self._msg_types.AbstractOperationalStateReport()
+        report.set_mdib_version_group(mdib_version_group)
+        report.MdibVersion = actual_mdib_version
+        self._fill_periodic_report_body(report, report_parts)
+        nsh = self._ns_hlp
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        return report.as_etree_node(self._msg_names.PeriodicOperationalStateReport, ns_map)
 
     def mk_episodic_alert_report_body(self, mdib_version_group, states) -> etree_.Element:
-        return self._mk_report_body(self._msg_names.EpisodicAlertReport,
-                                    self._msg_names.AlertState,
-                                    mdib_version_group, states)
+        report = self._msg_types.AbstractAlertReport()
+        report.set_mdib_version_group(mdib_version_group)
+        self._fill_episodic_report_body(report, states)
+        nsh = self._ns_hlp
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        return report.as_etree_node(self._msg_names.EpisodicAlertReport, ns_map)
 
     def mk_periodic_alert_report_body(self, actual_mdib_version, mdib_version_group, report_parts) -> etree_.Element:
-        return self._mk__periodic_report_body(self._msg_names.PeriodicAlertReport,
-                                              self._msg_names.AlertState,
-                                              report_parts, actual_mdib_version, mdib_version_group)
+        report = self._msg_types.AbstractAlertReport()
+        report.set_mdib_version_group(mdib_version_group)
+        report.MdibVersion = actual_mdib_version
+        self._fill_periodic_report_body(report, report_parts)
+        nsh = self._ns_hlp
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        return report.as_etree_node(self._msg_names.PeriodicAlertReport, ns_map)
 
     def mk_episodic_component_state_report_body(self, mdib_version_group, states) -> etree_.Element:
-        return self._mk_report_body(self._msg_names.EpisodicComponentReport,
-                                    self._msg_names.ComponentState,
-                                    mdib_version_group, states)
+        report = self._msg_types.AbstractComponentReport()
+        report.set_mdib_version_group(mdib_version_group)
+        self._fill_episodic_report_body(report, states)
+        nsh = self._ns_hlp
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        return report.as_etree_node(self._msg_names.EpisodicComponentReport, ns_map)
 
     def mk_periodic_component_state_report_body(self, actual_mdib_version, mdib_version_group,
                                                 report_parts) -> etree_.Element:
-        return self._mk__periodic_report_body(self._msg_names.PeriodicComponentReport,
-                                              self._msg_names.ComponentState,
-                                              report_parts, actual_mdib_version, mdib_version_group)
+        report = self._msg_types.AbstractComponentReport()
+        report.set_mdib_version_group(mdib_version_group)
+        report.MdibVersion = actual_mdib_version
+        self._fill_periodic_report_body(report, report_parts)
+        nsh = self._ns_hlp
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        return report.as_etree_node(self._msg_names.PeriodicComponentReport, ns_map)
 
     def mk_episodic_context_report_body(self, mdib_version_group, states) -> etree_.Element:
-        return self._mk_report_body(self._msg_names.EpisodicContextReport,
-                                    self._msg_names.ContextState,
-                                    mdib_version_group, states)
+        report = self._msg_types.AbstractContextReport()
+        report.set_mdib_version_group(mdib_version_group)
+        self._fill_episodic_report_body(report, states)
+        nsh = self._ns_hlp
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        return report.as_etree_node(self._msg_names.EpisodicContextReport, ns_map)
 
     def mk_periodic_context_report_body(self, actual_mdib_version, mdib_version_group, report_parts) -> etree_.Element:
-        return self._mk__periodic_report_body(self._msg_names.PeriodicContextReport,
-                                              self._msg_names.ContextState,
-                                              report_parts, actual_mdib_version, mdib_version_group)
+        report = self._msg_types.AbstractContextReport()
+        report.set_mdib_version_group(mdib_version_group)
+        report.MdibVersion = actual_mdib_version
+        self._fill_periodic_report_body(report, report_parts)
+        nsh = self._ns_hlp
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        return report.as_etree_node(self._msg_names.PeriodicContextReport, ns_map)
 
     def mk_description_modification_report_body(self, mdib_version_group, updated, created, deleted,
                                                 updated_states) -> etree_.Element:
-        nsh = self._ns_hlp
-        DescriptionModificationType = self._msg_types.DescriptionModificationType
-        body_node = etree_.Element(self._msg_names.DescriptionModificationReport,
-                                   nsmap=nsh.partial_map(nsh.MSG, nsh.PM))
-        self._set_mdib_version_group(body_node, mdib_version_group)
-        self._mk_descriptor_updates_report_part(body_node, DescriptionModificationType.UPDATE, updated, updated_states)
-        self._mk_descriptor_updates_report_part(body_node, DescriptionModificationType.CREATE, created, updated_states)
-        self._mk_descriptor_updates_report_part(body_node, DescriptionModificationType.DELETE, deleted, updated_states)
-        return body_node
-
-    def _mk_descriptor_updates_report_part(self, parent_node, modification_type, descriptors, updated_states):
-        """ Helper that creates ReportPart."""
         # This method creates one ReportPart for every descriptor.
         # An optimization is possible by grouping all descriptors with the same parent handle into one ReportPart.
         # This is not implemented, and I think it is not needed.
+
+        report = self._msg_types.DescriptionModificationReport()
+        report.set_mdib_version_group(mdib_version_group)
+        DescriptionModificationType = self._msg_types.DescriptionModificationType
+
+        for descriptors, modification_type in ((updated, DescriptionModificationType.UPDATE),
+                                               (created, DescriptionModificationType.CREATE),
+                                               (deleted, DescriptionModificationType.DELETE)):
+            for descriptor in descriptors:
+                # one report part for every descriptor,
+                report_part = report.add_report_part()
+                report_part.ModificationType = modification_type
+                report_part.ParentDescriptor = descriptor.parent_handle
+                report_part.SourceMds = descriptor.source_mds
+                report_part.Descriptor.append(descriptor)
+                states = [s for s in updated_states if s.DescriptorHandle == descriptor.Handle]
+                report_part.State.extend(states)
+
         nsh = self._ns_hlp
-        for descriptor in descriptors:
-            report_part = etree_.SubElement(parent_node, self._msg_names.ReportPart,
-                                            attrib={'ModificationType': modification_type})
-            if descriptor.parent_handle is not None:  # only Mds can have None
-                report_part.set('ParentDescriptor', descriptor.parent_handle)
-            report_part.append(descriptor.mk_descriptor_node(tag=self._msg_names.Descriptor, nsmapper=nsh))
-            related_state_containers = [s for s in updated_states if s.DescriptorHandle == descriptor.Handle]
-            report_part.extend(
-                [state.mk_state_node(self._msg_names.State, nsh) for state in related_state_containers])
+        ns_map = nsh.partial_map(nsh.MSG, nsh.PM)
+        return report.as_etree_node(self._msg_names.DescriptionModificationReport, ns_map)
 
     @staticmethod
     def _set_mdib_version_group(node, mdib_version_group):
@@ -1015,31 +1072,6 @@ class MessageFactoryDevice(MessageFactory):
         node.set('SequenceId', str(mdib_version_group.sequence_id))
         if mdib_version_group.instance_id is not None:
             node.set('InstanceId', str(mdib_version_group.instance_id))
-
-    def _mk_report_body(self, body_tag, state_tag, mdib_version_group, states) -> etree_.Element:
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        body_node = etree_.Element(body_tag, nsmap=ns_map)
-        self._set_mdib_version_group(body_node, mdib_version_group)
-        report_part_node = etree_.SubElement(body_node, self._msg_names.ReportPart)
-
-        for state in states:
-            report_part_node.append(state.mk_state_node(state_tag, nsh))
-        return body_node
-
-    def _mk__periodic_report_body(self, body_tag, state_tag, report_parts,
-                                  actual_mdib_version, mdib_version_group) -> etree_.Element:
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        body_node = etree_.Element(body_tag,
-                                   nsmap=ns_map)
-        self._set_mdib_version_group(body_node, mdib_version_group)
-        body_node.set('MdibVersion', str(actual_mdib_version))  # overwrite MdibVersion
-        for part in report_parts:
-            report_part_node = etree_.SubElement(body_node, self._msg_names.ReportPart)
-            for state in part.states:
-                report_part_node.append(state.mk_state_node(state_tag, nsh))
-        return body_node
 
     def mk_operation_invoked_report_body(self, mdib_version_group,
                                          operation_handle_ref, transaction_id, invocation_state,

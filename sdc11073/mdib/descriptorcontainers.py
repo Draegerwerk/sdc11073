@@ -10,17 +10,17 @@ from . import containerproperties as cp
 from .containerbase import ContainerBase
 from .. import ext_qnames as ext
 from .. import msg_qnames as msg
-from .. import msgtypes
 from .. import observableproperties as properties
 from .. import pm_qnames as pm
 from .. import pmtypes
 from ..namespaces import NamespaceHelper
 
 
+
 @dataclass(frozen=True)
 class ChildDescriptorMapping:
     """Maps element names to node types. Needed when building a xml tree of descriptors.
-    The name of a child element is often not identical to the type of a descriptor, e.g. a channel uses
+    The name of a child element is often not identical to the type of the descriptor, e.g. a channel uses
     pm.Metric for all classes derived from AbstractMetricDescriptor. """
     child_qname: etree_.QName
     node_types: Tuple[etree_.QName] = None
@@ -111,13 +111,14 @@ class AbstractDescriptorContainer(ContainerBase):
     _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'Extension', 'Type')
     _child_elements_order = (ext.Extension, pm.Type)  # child elements in BICEPS order
     STATE_QNAME = None
-    extension_class_lookup = {msg.Retrievability: msgtypes.Retrievability}
+    extension_class_lookup = {msg.Retrievability: pmtypes.Retrievability}
 
     def __init__(self, handle, parent_handle):
         super().__init__()
         self.parent_handle = parent_handle
         self.Handle = handle
         self.child_containers_by_type = defaultdict(list)
+        self._source_mds = None  # needed on device side if mdib contains > 1 mds
 
     @property
     def coding(self):
@@ -132,13 +133,13 @@ class AbstractDescriptorContainer(ContainerBase):
         return self.Type.CodingSystem if self.Type is not None else None  # pylint:disable=no-member
 
     @property
-    def retrievability(self) -> [msgtypes.Retrievability, None]:
+    def retrievability(self) -> [pmtypes.Retrievability, None]:
         if self.Extension is None:
             return None
         return self.Extension.value.get(msg.Retrievability)
 
     @retrievability.setter
-    def retrievability(self, retrievability_instance: msgtypes.Retrievability):
+    def retrievability(self, retrievability_instance: pmtypes.Retrievability):
         value = self.Extension.value
         value[msg.Retrievability] = retrievability_instance
 
@@ -234,6 +235,13 @@ class AbstractDescriptorContainer(ContainerBase):
                 if child_node.tag == q_name:
                     node.append(child_node)
 
+    def set_source_mds(self, handle: str):
+        self._source_mds = handle
+
+    @property
+    def source_mds(self):
+        return self._source_mds
+
     def __str__(self):
         name = self.NODETYPE.localname or None
         return f'Descriptor "{name}": handle={self.Handle} descriptor version={self.DescriptorVersion} ' \
@@ -245,7 +253,7 @@ class AbstractDescriptorContainer(ContainerBase):
                f'parent={self.parent_handle}'
 
     @classmethod
-    def from_node(cls, node, parent_handle):
+    def from_node(cls, node, parent_handle=None):
         obj = cls(handle=None,  # will be determined in constructor from node value
                   parent_handle=parent_handle)
         obj.update_from_node(node)
@@ -338,9 +346,14 @@ class BatteryDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     STATE_QNAME = pm.BatteryState
     # pylint: disable=invalid-name
     CapacityFullCharge = cp.SubElementProperty(pm.CapacityFullCharge,
-                                               value_class=pmtypes.Measurement)  # optional
-    CapacitySpecified = cp.SubElementProperty(pm.CapacitySpecified, value_class=pmtypes.Measurement)  # optional
-    VoltageSpecified = cp.SubElementProperty(pm.VoltageSpecified, value_class=pmtypes.Measurement)  # optional
+                                               value_class=pmtypes.Measurement,
+                                               is_optional=True)
+    CapacitySpecified = cp.SubElementProperty(pm.CapacitySpecified,
+                                              value_class=pmtypes.Measurement,
+                                              is_optional=True)
+    VoltageSpecified = cp.SubElementProperty(pm.VoltageSpecified,
+                                             value_class=pmtypes.Measurement,
+                                             is_optional=True)
     # pylint: enable=invalid-name
     _props = ('CapacityFullCharge', 'CapacitySpecified', 'VoltageSpecified')
     _child_elements_order = (pm.CapacityFullCharge,
@@ -637,7 +650,7 @@ _classes = inspect.getmembers(sys.modules[__name__],
                               lambda member: inspect.isclass(member) and member.__module__ == __name__)
 _classes_with_NODETYPE = [c[1] for c in _classes if hasattr(c[1], 'NODETYPE') and c[1].NODETYPE is not None]
 # make a dictionary from found classes: (Key is NODETYPE, value is the class itself
-# _state_lookup_by_type = dict([(c.NODETYPE, c) for c in classes_with_NODETYPE])
+
 _name_class_lookup = {c.NODETYPE: c for c in _classes_with_NODETYPE}
 
 _name_class_xtra_lookup = {

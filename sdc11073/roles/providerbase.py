@@ -22,7 +22,7 @@ class ProviderRole:
         Use case: initialization from an existing mdib"""
         return None
 
-    def make_missing_operations(self, operation_cls_getter):  # pylint: disable=unused-argument, no-self-use
+    def make_missing_operations(self, sco):  # pylint: disable=unused-argument, no-self-use
         """
         This method is called after all existing operations from mdib have been registered.
         If a role provider needs to add operations beyond that, it can do it here.

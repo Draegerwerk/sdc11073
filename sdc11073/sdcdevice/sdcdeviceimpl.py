@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING, Optional, Union, Protocol
 from urllib.parse import SplitResult
 
 from .components import default_sdc_device_components
-from ..dispatch import DispatchKey, DispatchKeyRegistry
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 from .subscriptionmgr import SoapClientPool
 from .waveforms import WaveformSender
 from .. import loghelper
 from .. import observableproperties as properties
 from ..addressing import EndpointReferenceType
+from ..dispatch import DispatchKey, DispatchKeyRegistry
 from ..dispatch import PathElementRegistry
 from ..dispatch import RequestData, MessageConverterMiddleware
 from ..dpws import HostServiceType
@@ -159,9 +159,9 @@ class SdcDevice:
         # these are initialized in _setup_components:
         self._subscriptions_managers = {}
         self._soap_client_pool = SoapClientPool(self._mk_soap_client)
-        self._sco_operations_registry = None
+        self._sco_operations_registries = {}  # key is mds handle ?
         self._service_factory = None
-        self.product_roles = None
+        self.product_roles_lookup = {}
         self.hosted_services = None
         self._periodic_reports_handler = PeriodicReportsNullHandler()
         self._setup_components()
@@ -198,16 +198,25 @@ class SdcDevice:
             self._hosted_service_dispatcher.register_instance(dpws_service.path_element, dpws_service)
 
         cls = self._components.sco_operations_registry_class
-        self._sco_operations_registry = cls(self.hosted_services.set_service,
-                                            self._components.operation_cls_getter,
-                                            self._mdib,
-                                            handle='_sco',
-                                            log_prefix=self._log_prefix)
+        pm_names = self._mdib.data_model.pm_names
 
-        self.product_roles = self._components.role_provider_class(self._mdib,
-                                                                  self._sco_operations_registry,
+        sco_descr_list = self._mdib.descriptions.NODETYPE.get(pm_names.ScoDescriptor, [])
+        for sco_descr in sco_descr_list:
+            sco_operations_registry = cls(self.hosted_services.set_service,
+                                          self._components.operation_cls_getter,
+                                          self._mdib,
+                                          sco_descr,
+                                          handle='_sco',
+                                          log_prefix=self._log_prefix)
+            self._sco_operations_registries[sco_descr.Handle] = sco_operations_registry
+
+            product_roles = self._components.role_provider_class(self._mdib,
+                                                                  sco_operations_registry,
                                                                   self._log_prefix)
-        self.product_roles.init_operations()
+            self.product_roles_lookup[sco_descr.Handle] = product_roles
+            product_roles.init_operations()
+        # product roles might have added descriptors, set source mds for all
+        self._mdib.xtra.set_all_source_mds()
 
     @property
     def localization_storage(self):
@@ -261,10 +270,6 @@ class SdcDevice:
         return self._mdib
 
     @property
-    def sco_operations_registry(self):
-        return self._sco_operations_registry
-
-    @property
     def epr_urn(self):
         # End Point Reference, e.g 'urn:uuid:8c26f673-fdbf-4380-b5ad-9e2454a65b6b'
         try:
@@ -280,17 +285,27 @@ class SdcDevice:
         except AttributeError:
             return self._epr
 
-    def register_operation(self, operation):
-        self._sco_operations_registry.register_operation(operation)
-
-    def unregister_operation_by_handle(self, operation_handle):
-        self._sco_operations_registry.register_operation(operation_handle)
-
     def get_operation_by_handle(self, operation_handle):
-        return self._sco_operations_registry.get_operation_by_handle(operation_handle)
+        for sco in self._sco_operations_registries.values():
+            op = sco.get_operation_by_handle(operation_handle)
+            if op is not None:
+                return op
+        return None
 
     def enqueue_operation(self, operation, request, operation_request):
-        return self._sco_operations_registry.enqueue_operation(operation, request, operation_request)
+        for sco in self._sco_operations_registries.values():
+            has_this_operation = sco.get_operation_by_handle(operation.handle) is not None
+            if has_this_operation:
+                return sco.enqueue_operation(operation, request, operation_request)
+
+    def get_toplevel_sco_list(self) -> list:
+        pm_names = self._mdib.data_model.pm_names
+        mds_handles = [d.Handle for d in self._mdib.descriptions.NODETYPE.get(pm_names.MdsDescriptor, [])]
+        ret = []
+        for sco in self._sco_operations_registries.values():
+            if sco.sco_descriptor_container.parent_handle in mds_handles:
+                ret.append(sco)
+        return ret
 
     def start_all(self, start_rtsample_loop=True, periodic_reports_interval=None, shared_http_server=None):
         """
@@ -318,7 +333,9 @@ class SdcDevice:
     def _start_services(self, shared_http_server=None):
         """ start the services"""
         self._logger.info('starting services, addr = {}', self._wsdiscovery.get_active_addresses())
-        self._sco_operations_registry.start_worker()
+        for sco in self._sco_operations_registries.values():
+            sco.start_worker()
+
         if shared_http_server:
             self._http_server = shared_http_server
         else:
@@ -363,16 +380,16 @@ class SdcDevice:
             self._periodic_reports_handler.stop()
         for subscriptions_manager in self._subscriptions_managers.values():
             subscriptions_manager.stop_all(send_subscription_end)
-        self._sco_operations_registry.stop_worker()
+        for sco in self._sco_operations_registries.values():
+            sco.stop_worker()
         try:
             self._wsdiscovery.clear_service(self.epr_urn)
         except KeyError:
             self._logger.info('epr "{}" not known in self._wsdiscovery', self.epr_urn)
-        if self.product_roles is not None:
-            self.product_roles.stop()
+        for role in self.product_roles_lookup.values():
+            role.stop()
         if self._is_internal_http_server and self._http_server is not None:
             self._http_server.stop()
-
 
     def start_rt_sample_loop(self):
         if self._waveform_sender:

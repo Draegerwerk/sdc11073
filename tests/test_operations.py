@@ -467,9 +467,13 @@ class Test_BuiltinOperations(unittest.TestCase):
         my_operation_descriptor.SafetyClassification = pmtypes.SafetyClassification.INF
         my_operation_descriptor.OperationTarget = operation_target_handle
         self.sdc_device.mdib.descriptions.add_object(my_operation_descriptor)
-        op = self.sdc_device.product_roles.metric_provider.make_operation_instance(
-            my_operation_descriptor, self.sdc_device.sco_operations_registry.operation_cls_getter)
-        self.sdc_device.sco_operations_registry.register_operation(op)
+        sco_handle = 'Sco.mds0'
+        sco = self.sdc_device._sco_operations_registries[sco_handle]
+        role_provider = self.sdc_device.product_roles_lookup[sco_handle]
+
+        op = role_provider.metric_provider.make_operation_instance(
+            my_operation_descriptor, sco.operation_cls_getter)
+        sco.register_operation(op)
         self.sdc_device.mdib.xtra.mk_state_containers_for_all_descriptors()
         setService = self.sdc_client.client('Set')
         clientMdib = ClientMdibContainer(self.sdc_client)
@@ -504,9 +508,11 @@ class Test_BuiltinOperations(unittest.TestCase):
         my_operation_descriptor.OperationTarget = operation_target_handle
         my_operation_descriptor.Type = pmtypes.CodedValue('999998')
         self.sdc_device.mdib.descriptions.add_object(my_operation_descriptor)
-        op = self.sdc_device.product_roles.make_operation_instance(
-            my_operation_descriptor, self.sdc_device.sco_operations_registry.operation_cls_getter)
-        self.sdc_device.sco_operations_registry.register_operation(op)
+        sco_handle = 'Sco.mds0'
+        sco = self.sdc_device._sco_operations_registries[sco_handle]
+        role_provider = self.sdc_device.product_roles_lookup[sco_handle]
+        op = role_provider.make_operation_instance(my_operation_descriptor, sco.operation_cls_getter)
+        sco.register_operation(op)
         self.sdc_device.mdib.xtra.mk_state_containers_for_all_descriptors()
         set_service = self.sdc_client.client('Set')
         client_mdib = ClientMdibContainer(self.sdc_client)

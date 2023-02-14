@@ -41,8 +41,8 @@ class TestDescriptorContainers(unittest.TestCase):
         etree_.SubElement(ext_node, 'foo', attrib={'some_attr': 'some_value'})
         etree_.SubElement(ext_node, 'bar', attrib={'another_attr': 'different_value'})
         dc.Extension.value[ns_hlp.msgTag('Whatever')] = ext_node
-        retrievability = msgtypes.Retrievability([msgtypes.RetrievabilityInfo(msgtypes.RetrievabilityMethod.GET),
-                                                  msgtypes.RetrievabilityInfo(msgtypes.RetrievabilityMethod.PERIODIC,
+        retrievability = pmtypes.Retrievability([pmtypes.RetrievabilityInfo(pmtypes.RetrievabilityMethod.GET),
+                                                  pmtypes.RetrievabilityInfo(pmtypes.RetrievabilityMethod.PERIODIC,
                                                                               update_period=42.0),
                                                   ],
                                                  )

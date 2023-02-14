@@ -20,7 +20,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
 
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
         if operation_descriptor_container.coding == MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE:
-            self._logger.info('instantiating "set audio pause" operation from existing descriptor '
+            self._logger.debug('instantiating "set audio pause" operation from existing descriptor '
                               f'handle={operation_descriptor_container.Handle}')
             set_ap_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                             operation_cls_getter,
@@ -28,7 +28,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
             self._set_global_audio_pause_operations.append(set_ap_operation)
             return set_ap_operation
         if operation_descriptor_container.coding == MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE:
-            self._logger.info('instantiating "cancel audio pause" operation from existing descriptor '
+            self._logger.debug('instantiating "cancel audio pause" operation from existing descriptor '
                               f'handle={operation_descriptor_container.Handle}')
             cancel_ap_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                                operation_cls_getter,
@@ -147,12 +147,23 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
 class AudioPauseProvider(GenericAudioPauseProvider):
     """This Implementation adds operations to mdib if they do not exist."""
 
-    def make_missing_operations(self, operation_cls_getter):
+    def make_missing_operations(self, sco):
         pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
         ops = []
-        operation_target_container = self._mdib.descriptions.NODETYPE.get_one(
-            pm_names.MdsDescriptor)  # the operation target is the mds itself
+        operation_cls_getter = sco.operation_cls_getter
+        # find mds for this sco
+        mds_descr = None
+        current_descr = sco.sco_descriptor_container
+        while mds_descr is None:
+            parent_descr = self._mdib.descriptions.handle.get_one(current_descr.parent_handle)
+            if parent_descr is None:
+                raise ValueError(f'could not find mds descriptor for sco {sco.sco_descriptor_container.Handle}')
+            if parent_descr.NODETYPE == pm_names.MdsDescriptor:
+                mds_descr = parent_descr
+            else:
+                current_descr = parent_descr
+        operation_target_container = mds_descr  # the operation target is the mds itself
         activate_op_cls = operation_cls_getter(pm_names.ActivateOperationDescriptor)
         if not self._set_global_audio_pause_operations:
             self._logger.info(

@@ -212,7 +212,7 @@ class ClientMdibMethods:
         context_service = self._sdc_client.client('Context')
         # mdib_version, sequence_id, context_state_containers = context_service.get_context_states()
         response = context_service.get_context_states()
-        context_state_containers = response.result
+        context_state_containers = response.result.ContextState
 
         devices_context_state_handles = [s.Handle for s in context_state_containers]
         with self._mdib.context_states.lock:
@@ -235,44 +235,44 @@ class ClientMdibMethods:
 
     def _on_episodic_metric_report(self, received_message_data):
         model = self._mdib.data_model
-        state_containers = self._msg_reader.read_episodic_metric_report(received_message_data)
-        self._mdib.process_incoming_metric_states(received_message_data.mdib_version_group, state_containers)
+        report = self._msg_reader.read_episodic_metric_report(received_message_data)
+        self._mdib.process_incoming_metric_states_report(received_message_data.mdib_version_group, report)
 
         if not self._mdib.is_initialized:
             return
 
+        # generate warnings if age of states is out of accepted range
         age_logger = AgeLogger(self.metric_time_warner, self.DETERMINATIONTIME_WARN_LIMIT,
                                'EpisodicMetricReport', self._mdib.mdib_version)
-        for state_container in state_containers:
-            desc_h = state_container.DescriptorHandle
-            if state_container.MetricValue is not None:
-                # BICEPS: While Validity is "Ong" or "NA", the enclosing METRIC value SHALL not possess a
-                # determined value.
-                # Also ignore determination time if measurement is invalid or not active.
-                if state_container.ActivationState == model.pm_types.ComponentActivation.ON and \
-                        state_container.MetricValue.MetricQuality.Validity not in [
-                    model.pm_types.MeasurementValidity.INVALID,
-                    model.pm_types.MeasurementValidity.NA,
-                    model.pm_types.MeasurementValidity.MEASUREMENT_ONGOING]:
-                    determination_time = state_container.MetricValue.DeterminationTime
-                    if determination_time is None:
-                        self._logger.warn(
-                            'EpisodicMetricReport: metric {} version {} has no DeterminationTime',
-                            desc_h, state_container.StateVersion)
-                    else:
-                        age_logger.add_determination_time(determination_time)
+        for report_part in report.ReportPart:
+            for state_container in report_part.values_list:
+                desc_h = state_container.DescriptorHandle
+                if state_container.MetricValue is not None:
+                    # BICEPS: While Validity is "Ong" or "NA", the enclosing METRIC value SHALL not possess a
+                    # determined value.
+                    # Also ignore determination time if measurement is invalid or not active.
+                    if state_container.ActivationState == model.pm_types.ComponentActivation.ON and \
+                            state_container.MetricValue.MetricQuality.Validity not in [
+                        model.pm_types.MeasurementValidity.INVALID,
+                        model.pm_types.MeasurementValidity.NA,
+                        model.pm_types.MeasurementValidity.MEASUREMENT_ONGOING]:
+                        determination_time = state_container.MetricValue.DeterminationTime
+                        if determination_time is None:
+                            self._logger.warn(
+                                'EpisodicMetricReport: metric {} version {} has no DeterminationTime',
+                                desc_h, state_container.StateVersion)
+                        else:
+                            age_logger.add_determination_time(determination_time)
 
         age_logger.log_age_warnings(self._logger)
 
     def _on_episodic_alert_report(self, received_message_data):
-        state_containers = self._msg_reader.read_episodic_alert_report(received_message_data)
-        self._logger.debug('_on_episodic_alert_report: received {} alerts', len(state_containers))
-        self._mdib.process_incoming_alert_states(received_message_data.mdib_version_group, state_containers)
+        report = self._msg_reader.read_episodic_alert_report(received_message_data)
+        self._mdib.process_incoming_alert_states_report(received_message_data.mdib_version_group, report)
 
     def _on_operational_state_report(self, received_message_data):
-        state_containers = self._msg_reader.read_operational_state_report(received_message_data)
-        self._logger.debug('_on_operational_state_report: received {} states', len(state_containers))
-        self._mdib.process_incoming_operational_states(received_message_data.mdib_version_group, state_containers)
+        report = self._msg_reader._process_incoming_states_report(received_message_data)
+        self._mdib.process_incoming_operational_states_report(received_message_data.mdib_version_group, report)
 
     def _on_waveform_report_profiled(self, report_node):
         self.prof.enable()
@@ -290,12 +290,11 @@ class ClientMdibMethods:
 
     def _on_waveform_report(self, received_message_data):
         # pylint:disable=too-many-locals
-        state_containers = self._msg_reader.read_waveform_report(received_message_data)
-        self._logger.debug('_on_waveform_report: received {} states', len(state_containers))
+        report = self._msg_reader.read_waveform_report(received_message_data)
         if self._calculate_wf_age_stats:
-            self._process_age_statistics(state_containers)
+            self._process_age_statistics(report.State)
         accepted_states = self._mdib.process_incoming_waveform_states(received_message_data.mdib_version_group,
-                                                                      state_containers)
+                                                                      report.State)
 
         if accepted_states is None or len(accepted_states) == 0 or not self._mdib.is_initialized:
             return
@@ -335,18 +334,16 @@ class ClientMdibMethods:
                     self._last_wf_age_log = now
 
     def _on_episodic_context_report(self, received_message_data):
-        state_containers = self._msg_reader.read_episodic_context_report(received_message_data)
-        self._logger.debug('_on_episodic_context_report: received {} states', len(state_containers))
-        self._mdib.process_incoming_context_states(received_message_data.mdib_version_group, state_containers)
+        report = self._msg_reader.read_episodic_context_report(received_message_data)
+        self._mdib.process_incoming_context_states_report(received_message_data.mdib_version_group, report)
 
     def _on_episodic_component_report(self, received_message_data):
         """The EpisodicComponentReport is sent if at least one property of at least one component state has changed
         and SHOULD contain only the changed component states.
         Components are MDSs, VMDs, Channels. Not metrics and alarms
         """
-        state_containers = self._msg_reader.read_episodic_component_report(received_message_data)
-        self._logger.debug('_on_episodic_component_report: received {} states', len(state_containers))
-        self._mdib.process_incoming_component_states(received_message_data.mdib_version_group, state_containers)
+        report = self._msg_reader.read_episodic_component_report(received_message_data)
+        self._mdib.process_incoming_component_states_report(received_message_data.mdib_version_group, report)
 
     def _on_description_modification_report(self, received_message_data):
         """The EpisodicComponentReport is sent if at least one property of at least one component state has changed
@@ -354,7 +351,7 @@ class ClientMdibMethods:
         Components are MDSs, VMDs, Channels. Not metrics and alarms
         """
         descriptors = self._msg_reader.read_description_modification_report(received_message_data)
-        self._mdib.process_incoming_descriptors(received_message_data.mdib_version_group, descriptors)
+        self._mdib.process_incoming_description_modifications(received_message_data.mdib_version_group, descriptors)
 
     def _process_age_statistics(self, state_containers):
         for st in state_containers:

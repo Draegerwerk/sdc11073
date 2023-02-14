@@ -534,3 +534,7 @@ class MdibContainer:
         descr = self.descriptions.handle.get_one(handle)
         states = self.context_states.descriptorHandle.get(handle)
         return MultiStateEntity(descr, states)
+
+    def has_multiple_mds(self):
+        all_mds_descriptors = self.descriptions.NODETYPE.get(self.data_model.pm_names.MdsDescriptor)
+        return len(all_mds_descriptors) > 1

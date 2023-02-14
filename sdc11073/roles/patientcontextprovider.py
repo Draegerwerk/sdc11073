@@ -29,9 +29,10 @@ class GenericPatientContextProvider(GenericContextProvider):
 class PatientContextProvider(GenericPatientContextProvider):
     """This Implementation adds operations to mdib if they do not exist."""
 
-    def make_missing_operations(self, operation_cls_getter):
+    def make_missing_operations(self, sco):
         pm_names = self._mdib.data_model.pm_names
         ops = []
+        operation_cls_getter = sco.operation_cls_getter
         if self._patient_context_descriptor_container and not self._set_patient_context_operations:
             set_context_state_op_cls = operation_cls_getter(pm_names.SetContextStateOperationDescriptor)
 

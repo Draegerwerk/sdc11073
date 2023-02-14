@@ -692,6 +692,51 @@ class SubElementProperty(_NodeProperty):
             node.append(sub_node)
 
 
+class ContainerProperty(_NodeProperty):
+    """ a list of values that have "mk_node" and cls.from_node methods.
+    Used if maxOccurs="Unbounded" in BICEPS_ParticipantModel"""
+
+    def __init__(self, sub_element_name, value_class, cls_getter, ns_helper, is_optional=False):
+        super().__init__(sub_element_name, ClassCheckConverter(value_class), is_optional=is_optional)
+        self.value_class = value_class
+        self._cls_getter = cls_getter
+        self._ns_helper = ns_helper
+
+    def get_py_value_from_node(self, instance, node):
+        value = self._default_py_value
+        try:
+            sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
+            node_type_str = sub_node.get(QN_TYPE)
+            if node_type_str is not None:
+                node_type = text_to_qname(node_type_str, node.nsmap)
+                value_class = self._cls_getter(node_type)
+            else:
+                value_class = self.value_class
+            value = value_class.from_node(sub_node)
+        except ElementNotFoundException:
+            pass
+        return value
+
+    def update_xml_value(self, instance, node):
+        try:
+            py_value = getattr(instance, self._local_var_name)
+        except AttributeError:
+            py_value = self._default_py_value
+
+        if py_value is None:
+            if not self.is_optional:
+                if MANDATORY_VALUE_CHECKING and not self.is_optional:
+                    raise ValueError(f'mandatory value {self._sub_element_name} missing')
+                etree_.SubElement(node, self._sub_element_name, nsmap=node.nsmap)
+        else:
+            self.remove_sub_element(node)
+            sub_node = py_value.mk_node(self._sub_element_name, self._ns_helper)
+            if py_value.NODETYPE != self.value_class.NODETYPE:
+                # set xsi type
+                sub_node.set(QN_TYPE, docname_from_qname(py_value.NODETYPE, node.nsmap))
+            node.append(sub_node)
+
+
 class _ElementListProperty(_NodeProperty):
     def __get__(self, instance, owner):
         """ returns a python value, uses the locally stored value"""
@@ -750,13 +795,67 @@ class SubElementListProperty(_ElementListProperty):
         if py_value is not None:
             for val in py_value:
                 sub_node = val.as_etree_node(self._sub_element_name, node.nsmap)
-                if val.NODETYPE != self.value_class.NODETYPE:
+                if hasattr(val, 'NODETYPE') and hasattr(self.value_class, 'NODETYPE') \
+                        and val.NODETYPE != self.value_class.NODETYPE:
                     # set xsi type
-                    sub_node.set(QN_TYPE, docname_from_qname(py_value.NODETYPE, node.nsmap))
+                    sub_node.set(QN_TYPE, docname_from_qname(val.NODETYPE, node.nsmap))
                 node.append(sub_node)
 
     def __repr__(self):
         return f'{self.__class__.__name__} datatype {self.value_class.__name__} in subelement {self._sub_element_name}'
+
+
+class ContainerListProperty(_ElementListProperty):
+    """ a list of values that have "mk_node" and cls.from_node methods.
+    Used if maxOccurs="Unbounded" in BICEPS_ParticipantModel"""
+
+    def __init__(self, sub_element_name, value_class, cls_getter, ns_helper, is_optional=True):
+        super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
+        self.value_class = value_class
+        self._cls_getter = cls_getter
+        self._ns_helper = ns_helper
+
+    def get_py_value_from_node(self, instance, node):
+        """ get from node"""
+        objects = []
+        try:
+            nodes = node.findall(self._sub_element_name)
+            for _node in nodes:
+                node_type_str = _node.get(QN_TYPE)
+                if node_type_str is not None:
+                    node_type = text_to_qname(node_type_str, node.nsmap)
+                    value_class = self._cls_getter(node_type)
+                else:
+                    value_class = self.value_class
+                value = value_class.from_node(_node)
+                objects.append(value)
+            return objects
+        except ElementNotFoundException:
+            return objects
+
+    def update_xml_value(self, instance, node):
+        """ value is a list of objects with "mk_node" method"""
+        # remove all existing nodes
+        try:
+            py_value = getattr(instance, self._local_var_name)
+        except AttributeError:  # set to None (it is in the responsibility of the called method to do the right thing)
+            py_value = self._default_py_value
+
+        nodes = node.findall(self._sub_element_name)
+        for _node in nodes:
+            node.remove(_node)
+        # ... and create new ones
+        if py_value is not None:
+            for val in py_value:
+                sub_node = val.mk_node(self._sub_element_name, self._ns_helper)
+                if val.NODETYPE != self.value_class.NODETYPE:
+                    # set xsi type
+                    sub_node.set(QN_TYPE, docname_from_qname(val.NODETYPE, node.nsmap))
+                node.append(sub_node)
+
+    def __repr__(self):
+        return f'{self.__class__.__name__} datatype {self.value_class.__name__} in subelement {self._sub_element_name}'
+
 
 
 class SubElementTextListProperty(_ElementListProperty):
