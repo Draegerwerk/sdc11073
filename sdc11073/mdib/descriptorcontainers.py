@@ -115,7 +115,7 @@ class AbstractDescriptorContainer(ContainerBase):
 
     def __init__(self, handle, parent_handle):
         super().__init__()
-        self.parent_handle = parent_handle
+        self._parent_handle = parent_handle
         self.Handle = handle
         self.child_containers_by_type = defaultdict(list)
         self._source_mds = None  # needed on device side if mdib contains > 1 mds
@@ -131,6 +131,14 @@ class AbstractDescriptorContainer(ContainerBase):
     @property
     def coding_system(self):
         return self.Type.CodingSystem if self.Type is not None else None  # pylint:disable=no-member
+
+    @property
+    def parent_handle(self):
+        return self._parent_handle
+
+    @parent_handle.setter
+    def parent_handle(self, value):
+        self._parent_handle = value
 
     @property
     def retrievability(self) -> [pmtypes.Retrievability, None]:

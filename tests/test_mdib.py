@@ -59,8 +59,9 @@ class TestMdibTransaction(unittest.TestCase):
 
     def test_create_descriptor(self):
         with self.mdib.transaction_manager() as mgr:
+            parent_descriptor = self.mdib.descriptions.handle.get_one("ch0.vmd0")
             descriptor_container = self.mdib.data_model.mk_descriptor_container(
-                pm.NumericMetricDescriptor, handle="testHandle", parent_handle="ch0.vmd0")
+                pm.NumericMetricDescriptor, handle="testHandle", parent_descriptor=parent_descriptor)
             state = self.mdib.data_model.mk_state_container(descriptor_container)
             mgr.add_descriptor(descriptor_container, state_container=state)
         tr = self.mdib.transaction
@@ -70,8 +71,9 @@ class TestMdibTransaction(unittest.TestCase):
 
     def test_create_descriptor_without_state(self):
         with self.mdib.transaction_manager() as mgr:  # now without state
+            parent_descriptor = self.mdib.descriptions.handle.get_one("ch0.vmd0")
             descriptor_container = self.mdib.data_model.mk_descriptor_container(
-                pm.NumericMetricDescriptor, handle="testHandle", parent_handle="ch0.vmd0")
+                pm.NumericMetricDescriptor, handle="testHandle", parent_descriptor=parent_descriptor)
             mgr.add_descriptor(descriptor_container)
         tr = self.mdib.transaction
         self.assertEqual(1, len(tr.descr_created))

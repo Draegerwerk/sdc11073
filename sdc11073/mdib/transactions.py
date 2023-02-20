@@ -181,8 +181,6 @@ class MdibUpdateTransaction(_TransactionBase):
         self.descriptor_state_upd = {}
         self.descriptor_state_del = {}
         self.new_descriptors = []  # handles
-        self.upd_descriptors = []  # handles
-        self.del_descriptors = []  # handles
 
     @tr_method_wrapper
     def add_descriptor(self, descriptor_container, adjust_descriptor_version=True, state_container=None):
@@ -202,7 +200,8 @@ class MdibUpdateTransaction(_TransactionBase):
             raise ValueError(f'cannot create Descriptor {descriptor_handle}, it already exists!')
         if adjust_descriptor_version:
             self._device_mdib_container.descriptions.set_version(descriptor_container)
-        self._device_mdib_container.xtra.set_source_mds(descriptor_container)
+        if descriptor_container.source_mds is None:
+            self._device_mdib_container.xtra.set_source_mds(descriptor_container)
         self.descriptor_updates[descriptor_handle] = _TrItem(None, descriptor_container)
         self.new_descriptors.append(descriptor_handle)
         if state_container is not None:
@@ -217,7 +216,6 @@ class MdibUpdateTransaction(_TransactionBase):
             raise ValueError(f'DescriptorHandle {descriptor_handle} already in updated set!')
         orig_descriptor_container = self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
         self.descriptor_updates[descriptor_handle] = _TrItem(orig_descriptor_container, None)
-        self.del_descriptors.append(descriptor_handle)
 
     @tr_method_wrapper
     def get_descriptor(self, descriptor_handle):
@@ -233,7 +231,6 @@ class MdibUpdateTransaction(_TransactionBase):
         descriptor_container = orig_descriptor_container.mk_copy()
         descriptor_container.increment_descriptor_version()
         self.descriptor_updates[descriptor_handle] = _TrItem(orig_descriptor_container, descriptor_container)
-        self.upd_descriptors.append(descriptor_handle)
         return descriptor_container
 
     def has_state(self, descriptor_handle):

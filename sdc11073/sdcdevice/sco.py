@@ -19,8 +19,6 @@ from typing import TYPE_CHECKING, Callable
 from .. import loghelper
 from .. import observableproperties as properties
 from ..exceptions import ApiUsageError
-from ..msgtypes import InvocationState, InvocationError
-from ..pmtypes import SafetyClassification
 
 if TYPE_CHECKING:
     from .porttypes.setserviceimpl import SetServiceProtocol
@@ -39,7 +37,6 @@ class OperationDefinition:
     OP_QNAME = None
 
     def __init__(self, handle, operation_target_handle,
-                 safety_classification=SafetyClassification.INF,
                  coded_value=None,
                  log_prefix=None):  # pylint:disable=too-many-arguments
         """
@@ -59,7 +56,6 @@ class OperationDefinition:
         # A HANDLE reference this operation is targeted to. In case of a single state this is the HANDLE of the descriptor.
         # In case that multiple states may belong to one descriptor (pm:AbstractMultiState), OperationTarget is the HANDLE
         # of one of the state instances (if the state is modified by the operation).
-        self._safety_classification = safety_classification
         self._coded_value = coded_value
         self.calls = []  # record when operation was called
         self.last_called_time = None
@@ -200,6 +196,9 @@ class _OperationsWorker(threading.Thread):
         return transaction_id
 
     def run(self):
+        data_model = self._mdib.data_model
+        InvocationState = data_model.msg_types.InvocationState
+        InvocationError = data_model.msg_types.InvocationError
         while True:
             try:
                 try:

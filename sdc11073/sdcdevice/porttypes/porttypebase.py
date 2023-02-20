@@ -41,7 +41,7 @@ class DPWSPortTypeBase:
         self._mdib = sdc_device.mdib
         self._sdc_definitions = self._mdib.sdc_definitions
         self._msg_factory = self._sdc_device.msg_factory
-        self._data_model = sdc_device.mdib.data_model
+        self._data_model = sdc_device.mdib.sdc_definitions.data_model
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
         self.hosting_service = None  # the parent
         # calculate offered subscriptions from WSDLOperationBindings

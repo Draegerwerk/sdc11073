@@ -22,9 +22,14 @@ class AbstractDataModel(ABC):
     def get_descriptor_container_class(self, type_qname):
         raise NotImplementedError
 
-    def mk_descriptor_container(self, type_qname, *args, **kwargs):
+    def mk_descriptor_container(self, type_qname, handle, parent_descriptor):
         cls = self.get_descriptor_container_class(type_qname)
-        return cls(*args, **kwargs)
+        if parent_descriptor is not None:
+            ret = cls(handle, parent_descriptor.Handle)
+            ret.set_source_mds(parent_descriptor.source_mds)
+        else:
+            ret = cls(handle, None)
+        return ret
 
     @abstractmethod
     def get_state_container_class(self, type_qname):
