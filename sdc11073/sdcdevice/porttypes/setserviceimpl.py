@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional, List, Protocol, runtime_checkable
 from .porttypebase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding
 from .porttypebase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation, msg_prefix
 from ...dispatch import DispatchKey
+from ...pysoap.msgreader import OperationRequest
 
 if TYPE_CHECKING:
     from ..sco import OperationDefinition, InvocationState
@@ -81,35 +82,48 @@ class SetService(ServiceWithOperations):
     def _on_activate(self, request_data):  # pylint:disable=unused-argument
         """Handler for Active calls.
         It enqueues an operation and generates the expected operation invoked report. """
-        operation_request = self._sdc_device.msg_reader.read_activate_request(request_data.message_data)
-        operation_descriptor = self._mdib.descriptions.handle.get_one(operation_request.operation_handle)
-        # convert arguments to python types; need operation descriptor for this.
-        operation_request = self._sdc_device.msg_reader.convert_activate_arguments(operation_descriptor,
-                                                                                   operation_request)
+        data_model = self._sdc_definitions.data_model
+        msg_node = request_data.message_data.p_msg.msg_node
+        activate = data_model.msg_types.Activate.from_node(msg_node)
+        arg_values = [arg.ArgValue for arg in activate.Argument]
+        # ToDo: convert arguments to specific python types
+        operation_request = OperationRequest(activate.OperationHandleRef, arg_values)
         return self._handle_operation_request(request_data.message_data, 'ActivateResponse',
                                               operation_request)
 
     def _on_set_value(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetValue calls.
         It enqueues an operation and generates the expected operation invoked report. """
+        data_model = self._sdc_definitions.data_model
         self._logger.debug('_on_set_value')
-        operation_request = self._sdc_device.msg_reader.read_set_value_request(request_data.message_data)
+        msg_node = request_data.message_data.p_msg.msg_node
+        set_value = data_model.msg_types.SetValue.from_node(msg_node)
+        operation_request = OperationRequest(set_value.OperationHandleRef,
+                                             set_value.RequestedNumericValue)
         ret = self._handle_operation_request(request_data.message_data, 'SetValueResponse', operation_request)
         return ret
 
     def _on_set_string(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetString calls.
         It enqueues an operation and generates the expected operation invoked report."""
+        data_model = self._sdc_definitions.data_model
         self._logger.debug('_on_set_string')
-        operation_request = self._sdc_device.msg_reader.read_set_string_request(request_data.message_data)
+        msg_node = request_data.message_data.p_msg.msg_node
+        set_string = data_model.msg_types.SetString.from_node(msg_node)
+        operation_request = OperationRequest(set_string.OperationHandleRef,
+                                             set_string.RequestedStringValue)
         return self._handle_operation_request(request_data.message_data, 'SetStringResponse',
                                               operation_request)
 
     def _on_set_metric_state(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetMetricState calls.
         It enqueues an operation and generates the expected operation invoked report."""
+        data_model = self._sdc_definitions.data_model
         self._logger.debug('_on_set_metric_state')
-        operation_request = self._sdc_device.msg_reader.read_set_metric_state_request(request_data.message_data)
+        msg_node = request_data.message_data.p_msg.msg_node
+        set_metric_state = data_model.msg_types.SetMetricState.from_node(msg_node)
+        operation_request = OperationRequest(set_metric_state.OperationHandleRef,
+                                             set_metric_state.ProposedMetricState)
         return self._handle_operation_request(request_data.message_data,
                                               'SetMetricStateResponse',
                                               operation_request)
@@ -117,8 +131,12 @@ class SetService(ServiceWithOperations):
     def _on_set_alert_state(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetMetricState calls.
         It enqueues an operation and generates the expected operation invoked report."""
+        data_model = self._sdc_definitions.data_model
         self._logger.debug('_on_set_alert_state')
-        operation_request = self._sdc_device.msg_reader.read_set_alert_state_request(request_data.message_data)
+        msg_node = request_data.message_data.p_msg.msg_node
+        set_metric_state = data_model.msg_types.SetAlertState.from_node(msg_node)
+        operation_request = OperationRequest(set_metric_state.OperationHandleRef,
+                                             set_metric_state.ProposedAlertState)
         return self._handle_operation_request(request_data.message_data,
                                               'SetAlertStateResponse',
                                               operation_request)
@@ -126,8 +144,12 @@ class SetService(ServiceWithOperations):
     def _on_set_component_state(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetComponentState calls.
         It enqueues an operation and generates the expected operation invoked report."""
+        data_model = self._sdc_definitions.data_model
         self._logger.debug('_on_set_component_state')
-        operation_request = self._sdc_device.msg_reader.read_set_component_state_request(request_data.message_data)
+        msg_node = request_data.message_data.p_msg.msg_node
+        set_component_state = data_model.msg_types.SetComponentState.from_node(msg_node)
+        operation_request = OperationRequest(set_component_state.OperationHandleRef,
+                                             set_component_state.ProposedComponentState)
         return self._handle_operation_request(request_data.message_data,
                                               'SetComponentStateResponse',
                                               operation_request)
@@ -140,11 +162,31 @@ class SetService(ServiceWithOperations):
                          nsmapper: NamespaceHelper,
                          error: Optional[Enum] = None,
                          error_message: Optional[str] = None):
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
         operation_handle_ref = operation.handle
         subscription_mgr = self.hosting_service.subscriptions_manager
         action = self._sdc_definitions.Actions.OperationInvokedReport
-        body_node = self._msg_factory.mk_operation_invoked_report_body(
-            mdib_version_group, operation_handle_ref, transaction_id, invocation_state, error, error_message)
+        report = data_model.msg_types.OperationInvokedReport()
+        report.set_mdib_version_group(mdib_version_group)
+        report_part = report.add_report_part()
+        report_part.InvocationInfo.TransactionId = transaction_id
+        report_part.InvocationInfo.InvocationState = invocation_state
+        if error is not None:
+            report_part.InvocationInfo.InvocationError = error
+        if error_message is not None:
+            report_part.InvocationErrorMessage = data_model.pm_types.LocalizedText(error_message)
+        # implemented is only SDC R0077 for value of invocationSource:
+        # Root =  "http://standards.ieee.org/downloads/11073/11073-20701-2018"
+        # Extension = "AnonymousSdcParticipant".
+        # a known participant (R0078) is currently not supported
+        # ToDo: implement R0078
+        report_part.InvocationSource = data_model.pm_types.InstanceIdentifier(
+            nsh.SDC.namespace, extension_string='AnonymousSdcParticipant')
+        report_part.OperationHandleRef = operation_handle_ref
+        report_part.OperationTarget = None  # not set in current implementation
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        body_node = report.as_etree_node(data_model.msg_names.OperationInvokedReport, ns_map)
         self._logger.info(
             'notify_operation transaction={} operation_handle_ref={}, operationState={}, error={}, errorMessage={}',
             transaction_id, operation_handle_ref, invocation_state, error, error_message)

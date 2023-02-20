@@ -9,11 +9,19 @@ class CTreeServiceClient(HostedServiceClient):
         :param handles: a list of strings
         :return: a list of etree nodes
         """
-        message = self._msg_factory.mk_get_descriptor_message(
-            self.endpoint_reference.address, handles)
-        message_data = self.post_message(message, request_manipulator=request_manipulator)
-        descriptors = message_data.msg_reader.read_get_descriptor_response(message_data)
-        return GetRequestResult(message_data, descriptors)
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
+        request = data_model.msg_types.GetDescriptor()
+        request.HandleRef.extend(handles)
+        payload_element = request.as_etree_node(request.NODETYPE,
+                                                nsh.partial_map(nsh.MSG, nsh.PM))
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
+                                                    request.action,
+                                                    payload_element)
+        received_message_data = self.post_message(message, request_manipulator=request_manipulator)
+        cls = data_model.msg_types.GetDescriptorResponse
+        report = cls.from_node(received_message_data.p_msg.msg_node)
+        return GetRequestResult(received_message_data, report)
 
     def get_containment_tree(self, handles, request_manipulator=None) -> GetRequestResult:
         """
@@ -21,7 +29,16 @@ class CTreeServiceClient(HostedServiceClient):
         :param handles: a list of strings
         :return: a list of etree nodes
         """
-        message = self._msg_factory.mk_get_containmenttree_message(self.endpoint_reference.address, handles)
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
+        request = data_model.msg_types.GetContainmentTree()
+        request.HandleRef.extend(handles)
+        payload_element = request.as_etree_node(request.NODETYPE,
+                                                nsh.partial_map(nsh.MSG, nsh.PM))
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
+                                                    request.action,
+                                                    payload_element)
         received_message_data = self.post_message(message,request_manipulator=request_manipulator)
-        descriptors = received_message_data.msg_reader.read_get_containment_tree_response(received_message_data)
-        return GetRequestResult(received_message_data, descriptors)
+        cls = data_model.msg_types.GetContainmentTreeResponse
+        report = cls.from_node(received_message_data.p_msg.msg_node)
+        return GetRequestResult(received_message_data, report)

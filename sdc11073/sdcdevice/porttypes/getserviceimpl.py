@@ -33,7 +33,11 @@ class GetService(DPWSPortTypeBase):
                                               self._on_get_md_description)
 
     def _on_get_md_state(self, request_data):
-        requested_handles = self._sdc_device.msg_reader.read_getmdstate_request(request_data.message_data)
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
+        msg_node = request_data.message_data.p_msg.msg_node
+        get_md_state = data_model.msg_types.GetMdState.from_node(msg_node)
+        requested_handles = get_md_state.HandleRef
         if len(requested_handles) > 0:
             self._logger.debug('_on_get_md_state from {} req. handles:{}', request_data.peer_name, requested_handles)
         else:
@@ -64,18 +68,28 @@ class GetService(DPWSPortTypeBase):
                 self._logger.debug('_on_get_md_state requested Handles:{} found {} states', requested_handles,
                                    len(state_containers))
 
-            response = self._sdc_device.msg_factory.mk_get_mdstate_response_message(
-                request_data.message_data, self.actions.GetMdStateResponse,
-                self._mdib.mdib_version_group, state_containers)
+        factory = self._sdc_device.msg_factory
+        response = data_model.msg_types.GetMdStateResponse()
+        response.MdState.State.extend(state_containers)
+        response.set_mdib_version_group(self._mdib.mdib_version_group)
+        action = self.actions.GetMdStateResponse
+        reply_address = request_data.message_data.p_msg.address.mk_reply_address(action=action)
+        payload = response.as_etree_node(data_model.msg_names.GetMdStateResponse,
+                                         nsh.partial_map(nsh.MSG, nsh.PM))
+        created_message = factory.mk_reply_soap_message(reply_address, payload)
+
         self._logger.debug('_on_get_md_state returns {}',
-                           lambda: response.serialize_message())
-        return response
+                           lambda: created_message.serialize_message())
+        return created_message
 
     def _on_get_mdib(self, request_data):
         self._logger.debug('_on_get_mdib')
-        response = self._sdc_device.msg_factory.mk_get_mdib_response_message(
-            request_data.message_data, self._mdib, self._sdc_device.contextstates_in_getmdib)
-        self._logger.debug('_on_get_mdib returns {}', lambda: response.serialize_message())
+        factory = self._sdc_device.msg_factory
+        action = self.actions.GetMdibResponse
+        reply_address = request_data.message_data.p_msg.address.mk_reply_address(action=action)
+        payload = factory.mk_get_mdib_response_node(self._mdib, self._sdc_device.contextstates_in_getmdib)
+
+        response = factory.mk_reply_soap_message(reply_address, payload)
         return response
 
     def _on_get_md_description(self, request_data):
@@ -87,10 +101,13 @@ class GetService(DPWSPortTypeBase):
         """
         # currently this implementation only supports a single mds.
         # => if at least one handle matches any descriptor, the one mds is returned, otherwise empty payload
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
 
         self._logger.debug('_on_get_md_description')
-        requested_handles = request_data.message_data.msg_reader.read_getmddescription_request(
-            request_data.message_data)
+        msg_node = request_data.message_data.p_msg.msg_node
+        get_md_state = data_model.msg_types.GetMdDescription.from_node(msg_node)
+        requested_handles = get_md_state.HandleRef
         if len(requested_handles) > 0:
             self._logger.info('_on_get_md_description requested Handles:{}', requested_handles)
         response = self._sdc_device.msg_factory.mk_get_mddescription_response_message(
@@ -99,6 +116,51 @@ class GetService(DPWSPortTypeBase):
         self._logger.debug('_on_get_md_description returns {}',
                            lambda: response.serialize_message())
         return response
+
+    # ToDo: implement method based on msg_types
+    # def _on_get_md_description(self, request_data):
+    #     """
+    #     MdDescription comprises the requested set of MDS descriptors. Which MDS descriptors are included depends on the msg:GetMdDescription/msg:HandleRef list:
+    #     - If the HANDLE reference list is empty, all MDS descriptors SHALL be included in the result list.
+    #     - If a HANDLE reference does match an MDS descriptor, it SHALL be included in the result list.
+    #     - If a HANDLE reference does not match an MDS descriptor (any other descriptor), the MDS descriptor that is in the parent tree of the HANDLE reference SHOULD be included in the result list.
+    #     """
+    #     # currently this implementation only supports a single mds.
+    #     # => if at least one handle matches any descriptor, the one mds is returned, otherwise empty payload
+    #
+    #     self._logger.debug('_on_get_md_description')
+    #     msg_node = request_data.message_data.p_msg.msg_node
+    #     get_md_state = self._sdc_device.msg_reader._msg_types.GetMdDescription.from_node(msg_node)
+    #     requested_handles = get_md_state.HandleRef
+    #     if len(requested_handles) > 0:
+    #         self._logger.info('_on_get_md_description requested Handles:{}', requested_handles)
+    #
+    #     factory = self._sdc_device.msg_factory
+    #     action = self.actions.GetMdibResponse
+    #     reply_address = request_data.message_data.p_msg.address.mk_reply_address(action=action)
+    #     cls = factory._msg_types.GetMdDescriptionResponse
+    #     response = cls()
+    #
+    #     return_all = len(requested_handles) == 0  # if we have handles, we need to check them
+    #     for handle in requested_handles:
+    #         # if at least one requested handle is valid, return all.
+    #         if self._sdc_device.mdib.descriptions.handle.get_one(handle, allow_none=True) is not None:
+    #             return_all = True
+    #             break
+    #     if return_all:
+    #         md_description_node, mdib_version_group = self._sdc_device.mdib.reconstruct_md_description()
+    #         response.set_mdib_version_group(mdib_version_group)
+    #         response.MdDescription.Mds.append(md_description_node[:])
+    #     else:
+    #         response.set_mdib_version_group(self._sdc_device.mdib.mdib_version_group)
+    #     nsh = factory._ns_hlp
+    #     payload = response.as_etree_node(factory._msg_names.GetMdStateResponse,
+    #                                      nsh.partial_map(nsh.MSG, nsh.PM))
+    #
+    #     created_message = factory.mk_reply_soap_message(reply_address, payload)
+    #     self._logger.debug('_on_get_md_description returns {}',
+    #                        lambda: created_message.serialize_message())
+    #     return created_message
 
     def add_wsdl_port_type(self, parent_node):
         """

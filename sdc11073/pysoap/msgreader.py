@@ -4,9 +4,7 @@ import copy
 import traceback
 from collections import namedtuple
 from dataclasses import dataclass, field
-from decimal import Decimal
 from typing import List, Dict, Union, Optional
-from urllib.parse import urlparse, ParseResult
 
 from lxml import etree as etree_
 
@@ -340,148 +338,12 @@ class MessageReader:
         state.node = node
         return state
 
-    def _mk_realtime_sample_array_states(self, node):
-        return self._mk_state_container_from_node(node, self._pm_names.RealTimeSampleArrayMetricState)
-
-    def _mk_statecontainers_from_reportpart(self, reportpart_node, state_qname):
-        containers = []
-        state_nodes = reportpart_node.findall(state_qname)
-        for state_node in state_nodes:
-            desc_h = state_node.get('DescriptorHandle')
-            if desc_h is None:
-                self._logger.error('{}_mk_statecontainers_from_reportpart: missing descriptor handle in {}!',
-                                   self._log_prefix,
-                                   lambda: etree_.tostring(state_node))  # pylint: disable=cell-var-from-loop
-            else:
-                containers.append(self._mk_state_container_from_node(state_node))
-        return containers
-
     def _validate_node(self, node):
         if self._validate:
             validate_node(node, self._xml_schema, self._logger)
 
 
 class MessageReaderClient(MessageReader):
-
-    def read_get_mddescription_response(self, message_data: ReceivedMessage):
-        cls = self._msg_types.GetMdDescriptionResponse
-        report = cls.from_node(message_data.p_msg.msg_node)
-        return report
-
-    def read_get_mdstate_response(self, message_data: ReceivedMessage):
-        cls = self._msg_types.GetMdStateResponse
-        report = cls.from_node(message_data.p_msg.msg_node)
-        return report
-
-    def read_context_states(self, message_data: ReceivedMessage):
-        """ Creates Context State Containers from message .
-        :return: a list of state containers
-        """
-        cls = self._msg_types.GetContextStatesResponse
-        report = cls.from_node(message_data.p_msg.msg_node)
-        return report
-
-    def read_get_localized_text_response(self, message_data: ReceivedMessage) -> list:
-        result = []
-        response_node = message_data.p_msg.msg_node
-        if response_node is not None:
-            for element in response_node:
-                l_text = self._pm_types.LocalizedText.from_node(element)
-                result.append(l_text)
-        return result
-
-    def read_get_supported_languages_response(self, message_data) -> List[str]:
-        result = []
-        response_node = message_data.p_msg.msg_node
-        if response_node is not None:
-            for element in response_node:
-                result.append(str(element.text))
-        return result
-
-    def read_waveform_report(self, message_data):
-        cls = self._msg_types.WaveformStream
-        report = cls.from_node(message_data.p_msg.msg_node)
-        return report
-
-    def read_periodic_metric_report(self, message_data):
-        cls = self._msg_types.AbstractMetricReport
-        report = cls.from_node(message_data.p_msg.msg_node)
-        return report
-
-    def read_episodic_metric_report(self, message_data):
-        cls = self._msg_types.AbstractMetricReport
-        report = cls.from_node(message_data.p_msg.msg_node)
-        return report
-
-    def read_episodic_alert_report(self, message_data):
-        cls = self._msg_types.AbstractAlertReport
-        report = cls.from_node(message_data.p_msg.msg_node)
-        return report
-
-    def read_periodic_alert_report(self, message_data):
-        cls = self._msg_types.AbstractAlertReport
-        report = cls.from_node(message_data.p_msg.msg_node)
-        return report
-
-    def read_operational_state_report(self, message_data):
-        """
-        Parses an operational state report
-        :param message_data:
-        :return: a list of StateContainer objects
-        """
-        cls = self._msg_types.AbstractOperationalStateReport
-        report = cls.from_node(message_data.p_msg.msg_node)
-        return report
-
-    def read_episodic_context_report(self, message_data) -> list:
-        """
-        Parses an episodic context report
-        :param message_data:
-        :return: a list of StateContainer objects
-        """
-        cls = self._msg_types.AbstractContextReport
-        report = cls.from_node(message_data.p_msg.msg_node)
-        return report
-
-    def read_periodic_component_report(self, message_data) -> list:
-        cls = self._msg_types.AbstractComponentReport
-        report = cls.from_node(message_data.p_msg.msg_node)
-        return report
-
-    def read_episodic_component_report(self, message_data) -> list:
-        cls = self._msg_types.AbstractComponentReport
-        report = cls.from_node(message_data.p_msg.msg_node)
-        return report
-
-    def read_description_modification_report(self, message_data: ReceivedMessage):
-        """
-        Parses a description modification report
-        :param message_data:  ReceivedMessage instance
-        :return: a DescriptionModificationReport
-        """
-        report_node = message_data.p_msg.msg_node
-        cls = self._msg_types.DescriptionModificationReport
-        report = cls.from_node(report_node)
-        for report_part in report.ReportPart:
-            for d in report_part.Descriptor:
-                d.parent_handle = report_part.ParentDescriptor
-        return report
-
-    def read_operation_response(self, message_data: ReceivedMessage) -> OperationResult:
-        msg_node = message_data.p_msg.msg_node
-        abstract_set_response = self._msg_types.AbstractSetResponse.from_node(msg_node)
-        return OperationResult(abstract_set_response, message_data.p_msg)
-
-    def _read_invocation_info(self, invocation_info_node: etree_._Element):
-        return self._msg_types.InvocationInfo.from_node(invocation_info_node)
-
-    def read_operation_invoked_report(self, message_data: ReceivedMessage) -> OperationReportResult:
-        msg_node = message_data.p_msg.msg_node
-        report_part_nodes = msg_node.findall(self._msg_names.ReportPart)
-        report_parts = []
-        for node in report_part_nodes:
-            report_parts.append(self._msg_types.OperationInvokedReportPart.from_node(node))
-        return OperationReportResult(report_parts, message_data.p_msg)
 
     def read_subscribe_response(self, message_data: ReceivedMessage) -> SubscribeResult:
         msg_node = message_data.p_msg.msg_node
@@ -690,100 +552,8 @@ class MessageReaderDevice(MessageReader):
                 reference_parameter_nodes.append(header_element)
         return ReferenceParameters(reference_parameter_nodes)
 
-    def read_getmddescription_request(self, message_data: ReceivedMessage) -> List[str]:
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        return message_data.p_msg.body_node.xpath('*/msg:HandleRef/text()', namespaces=ns)
-
-    def read_getmdstate_request(self, message_data: ReceivedMessage) -> List[str]:
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        return message_data.p_msg.body_node.xpath('*/msg:HandleRef/text()', namespaces=ns)
-
     def _operation_handle(self, message_data):
         ns = {'msg': self.ns_hlp.MSG.namespace}
         operation_handle_refs = message_data.p_msg.body_node.xpath('*/msg:OperationHandleRef/text()',
                                                                    namespaces=ns)
         return operation_handle_refs[0]
-
-    def read_activate_request(self, message_data: ReceivedMessage) -> OperationRequest:
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        argument_strings = message_data.p_msg.body_node.xpath('*/msg:Argument/msg:ArgValue/text()',
-                                                              namespaces=ns)
-        return OperationRequest(self._operation_handle(message_data), argument_strings)
-
-    def convert_activate_arguments(self, operation_descriptor, operation_request):
-        # ToDo: check type of each argument an convert string to corresponding python type
-        return operation_request
-
-    def read_set_value_request(self, message_data: ReceivedMessage) -> OperationRequest:
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        value_nodes = message_data.p_msg.body_node.xpath('*/msg:RequestedNumericValue',
-                                                         namespaces=ns)
-        if value_nodes:
-            argument = Decimal(value_nodes[0].text)
-        else:
-            argument = None
-        return OperationRequest(self._operation_handle(message_data), argument)
-
-    def read_set_string_request(self, message_data: ReceivedMessage) -> OperationRequest:
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        string_node = message_data.p_msg.body_node.xpath('*/msg:RequestedStringValue',
-                                                         namespaces=ns)
-        if string_node:
-            argument = str(string_node[0].text)
-        else:
-            argument = None
-        return OperationRequest(self._operation_handle(message_data), argument)
-
-    def read_set_metric_state_request(self, message_data: ReceivedMessage) -> OperationRequest:
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedMetricState',
-                                                                  namespaces=ns)
-        proposed_states = [self._mk_state_container_from_node(m) for m in proposed_state_nodes]
-        return OperationRequest(self._operation_handle(message_data), proposed_states)
-
-    def read_set_alert_state_request(self, message_data: ReceivedMessage) -> OperationRequest:
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedAlertState',
-                                                                  namespaces=ns)
-        if len(proposed_state_nodes) > 1:  # schema allows exactly one ProposedAlertState:
-            raise ValueError(
-                f'only one ProposedAlertState argument allowed, found {len(proposed_state_nodes)}')
-        if len(proposed_state_nodes) == 0:
-            raise ValueError('no ProposedAlertState argument found')
-        proposed_states = [self._mk_state_container_from_node(m) for m in proposed_state_nodes]
-        return OperationRequest(self._operation_handle(message_data), proposed_states)
-
-    def read_set_component_state_request(self, message_data: ReceivedMessage) -> OperationRequest:
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedComponentState',
-                                                                  namespaces=ns)
-        proposed_states = [self._mk_state_container_from_node(m) for m in proposed_state_nodes]
-        return OperationRequest(self._operation_handle(message_data), proposed_states)
-
-    def read_get_context_states_request(self, message_data: ReceivedMessage) -> List[str]:
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        requested_handles = message_data.p_msg.body_node.xpath('*/msg:HandleRef/text()', namespaces=ns)
-        return requested_handles
-
-    def read_set_context_state_request(self, message_data: ReceivedMessage) -> OperationRequest:
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        proposed_state_nodes = message_data.p_msg.body_node.xpath('*/msg:ProposedContextState',
-                                                                  namespaces=ns)
-        proposed_states = [self._mk_state_container_from_node(m) for m in proposed_state_nodes]
-        return OperationRequest(self._operation_handle(message_data), proposed_states)
-
-    def read_get_localized_text_request(self, message_data: ReceivedMessage) -> LocalizedTextsRequest:
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        body_node = message_data.p_msg.body_node
-        requested_handles = body_node.xpath('*/msg:Ref/text()',
-                                            namespaces=ns)  # handle strings 0...n
-        requested_versions = body_node.xpath('*/msg:Version/text()',
-                                             namespaces=ns)  # unsigned long int 0..1
-        requested_langs = body_node.xpath('*/msg:Lang/text()',
-                                          namespaces=ns)  # unsigned long int 0..n
-        text_widths = body_node.xpath('*/msg:TextWidth/text()',
-                                      namespaces=ns)  # strings 0..n
-        number_of_lines = body_node.xpath('*/msg:NumberOfLines/text()',
-                                          namespaces=ns)  # int 0..n
-        return LocalizedTextsRequest(requested_handles, requested_versions, requested_langs, text_widths,
-                                     number_of_lines)

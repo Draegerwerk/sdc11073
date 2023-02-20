@@ -6,7 +6,6 @@ import time
 import unittest
 from decimal import Decimal
 from itertools import product
-from urllib.parse import urlparse, urlunparse, ParseResult
 
 from lxml import etree as etree_
 
@@ -18,13 +17,16 @@ from sdc11073 import pm_qnames as pm
 from sdc11073 import pmtypes
 from sdc11073.dispatch import DispatchKeyRegistry
 from sdc11073.httpserver import compression
-from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase  # DeviceHttpServerThread
+from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ClientMdibContainer
 from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
+from sdc11073.pysoap.soapenvelope import Soap12Envelope
+from sdc11073.pysoap.msgfactory import CreatedMessage
+from sdc11073.addressing import Address
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcclient.components import SdcClientComponents
 from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
@@ -32,6 +34,7 @@ from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.components import SdcDeviceComponents, default_sdc_device_components_async
 from sdc11073.sdcdevice.subscriptionmgr import SubscriptionsManagerReferenceParam
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.namespaces import default_ns_helper
 from tests.mockstuff import SomeDevice, dec_list
 
 ENABLE_COMMLOG = False
@@ -46,8 +49,9 @@ CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
 NOTIFICATION_TIMEOUT = 5  # also jenkins related value
 
-#mdib_70041 = '70041_MDIB_Final.xml'
+# mdib_70041 = '70041_MDIB_Final.xml'
 mdib_70041 = '70041_MDIB_multi.xml'
+
 
 def provide_realtime_data(sdc_device):
     waveform_provider = sdc_device.mdib.xtra.waveform_provider
@@ -220,7 +224,8 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
     # verify that client also got a PeriodicMetricReport
     if test_periodic_reports:
         message_data = coll2.result(timeout=NOTIFICATION_TIMEOUT)
-        report = sdc_client.msg_reader.read_periodic_metric_report(message_data)
+        cls = message_data.msg_reader._msg_types.PeriodicMetricReport
+        report = cls.from_node(message_data.p_msg.msg_node)
         unit_test.assertGreaterEqual(len(report.ReportPart), 1)
 
 
@@ -433,9 +438,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
         """
         cl_get_service = self.sdc_client.client('Get')
         result = cl_get_service.get_md_state(['0x34F05500'])
-        self.assertEqual(len(result.result.MdState.State), 1)
+        self.assertEqual(1, len(result.result.MdState.State))
         result = cl_get_service.get_md_state(['not_existing_handle'])
-        self.assertEqual(len(result.result.MdState.State), 0)
+        self.assertEqual(0, len(result.result.MdState.State))
 
     def test_get_md_description_parameters(self):
         """ verify that getMdDescription correctly handles call parameters
@@ -540,7 +545,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         # verify that client also got a PeriodicAlertReport
         message_data = coll2.result(timeout=NOTIFICATION_TIMEOUT)
-        report = self.sdc_client.msg_reader.read_periodic_alert_report(message_data)
+        cls = message_data.msg_reader._msg_types.PeriodicAlertReport
+        report = cls.from_node(message_data.p_msg.msg_node)
+        #report = self.sdc_client.msg_reader.read_periodic_alert_report(message_data)
         self.assertGreaterEqual(len(report.ReportPart), 1)
 
     def test_set_patient_context_on_device(self):
@@ -610,53 +617,75 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_get_supported_languages(self):
         storage = self.sdc_device.localization_storage
-        storage.add(pmtypes.LocalizedText('bla', lang='de-de', ref='a', version=1, text_width=pmtypes.T_TextWidth.XS),
-                    pmtypes.LocalizedText('foo', lang='en-en', ref='a', version=1, text_width=pmtypes.T_TextWidth.XS)
-                    )
+        storage.add(
+            pmtypes.LocalizedText('bla', lang='de-de', ref='a', version=1, text_width=pmtypes.LocalizedTextWidth.XS),
+            pmtypes.LocalizedText('foo', lang='en-en', ref='a', version=1, text_width=pmtypes.LocalizedTextWidth.XS)
+            )
 
         get_request_response = self.sdc_client.localization_service_client.get_supported_languages()
-        languages = get_request_response.result
+        languages = get_request_response.result.Lang
         self.assertEqual(len(languages), 2)
         self.assertTrue('de-de' in languages)
         self.assertTrue('en-en' in languages)
 
     def test_get_localized_texts(self):
         storage = self.sdc_device.localization_storage
-        storage.add(pmtypes.LocalizedText('bla_a', lang='de-de', ref='a', version=1, text_width=pmtypes.T_TextWidth.XS))
-        storage.add(pmtypes.LocalizedText('foo_a', lang='en-en', ref='a', version=1, text_width=pmtypes.T_TextWidth.XS))
-        storage.add(pmtypes.LocalizedText('bla_b', lang='de-de', ref='b', version=1, text_width=pmtypes.T_TextWidth.XS))
-        storage.add(pmtypes.LocalizedText('foo_b', lang='en-en', ref='b', version=1, text_width=pmtypes.T_TextWidth.XS))
-        storage.add(pmtypes.LocalizedText('bla_aa', lang='de-de', ref='a', version=2, text_width=pmtypes.T_TextWidth.S))
-        storage.add(pmtypes.LocalizedText('foo_aa', lang='en-en', ref='a', version=2, text_width=pmtypes.T_TextWidth.S))
-        storage.add(pmtypes.LocalizedText('bla_bb', lang='de-de', ref='b', version=2, text_width=pmtypes.T_TextWidth.S))
-        storage.add(pmtypes.LocalizedText('foo_bb', lang='en-en', ref='b', version=2, text_width=pmtypes.T_TextWidth.S))
-
-        get_request_response = self.sdc_client.localization_service_client.get_localized_texts()
-        texts = get_request_response.result
-        self.assertEqual(len(texts), 4)
-        for t in texts:
+        storage.add(pmtypes.LocalizedText('bla_a', lang='de-de', ref='a', version=1,
+                                          text_width=pmtypes.LocalizedTextWidth.XS))
+        storage.add(pmtypes.LocalizedText('foo_a', lang='en-en', ref='a', version=1,
+                                          text_width=pmtypes.LocalizedTextWidth.XS))
+        storage.add(pmtypes.LocalizedText('bla_b', lang='de-de', ref='b', version=1,
+                                          text_width=pmtypes.LocalizedTextWidth.XS))
+        storage.add(pmtypes.LocalizedText('foo_b', lang='en-en', ref='b', version=1,
+                                          text_width=pmtypes.LocalizedTextWidth.XS))
+        storage.add(pmtypes.LocalizedText('bla_aa', lang='de-de', ref='a', version=2,
+                                          text_width=pmtypes.LocalizedTextWidth.S))
+        storage.add(pmtypes.LocalizedText('foo_aa', lang='en-en', ref='a', version=2,
+                                          text_width=pmtypes.LocalizedTextWidth.S))
+        storage.add(pmtypes.LocalizedText('bla_bb', lang='de-de', ref='b', version=2,
+                                          text_width=pmtypes.LocalizedTextWidth.S))
+        storage.add(pmtypes.LocalizedText('foo_bb', lang='en-en', ref='b', version=2,
+                                          text_width=pmtypes.LocalizedTextWidth.S))
+        service_client = self.sdc_client.localization_service_client
+        get_request_response = service_client.get_localized_texts()
+        report = get_request_response.result
+        self.assertEqual(len(report.Text), 4)
+        for t in report.Text:
             self.assertEqual(t.TextWidth, 's')
             self.assertTrue(t.Ref in ('a', 'b'))
 
-        get_request_response = self.sdc_client.localization_service_client.get_localized_texts(version=1)
-        texts = get_request_response.result
-        self.assertEqual(len(texts), 4)
-        for t in texts:
+        get_request_response = service_client.get_localized_texts(version=1)
+        report = get_request_response.result
+        self.assertEqual(len(report.Text), 4)
+        for t in report.Text:
             self.assertEqual(t.TextWidth, 'xs')
 
-        get_request_response = self.sdc_client.localization_service_client.get_localized_texts(refs=['a'],
-                                                                                               langs=['de-de'],
-                                                                                               version=1)
-        texts = get_request_response.result
-        self.assertEqual(len(texts), 1)
-        self.assertEqual(texts[0].text, 'bla_a')
+        get_request_response = service_client.get_localized_texts(refs=['a'],
+                                                                  langs=['de-de'],
+                                                                  version=1)
+        report = get_request_response.result
+        self.assertEqual(len(report.Text), 1)
+        self.assertEqual(report.Text[0].text, 'bla_a')
 
-        get_request_response = self.sdc_client.localization_service_client.get_localized_texts(refs=['b'],
-                                                                                               langs=['en-en'],
-                                                                                               version=2)
-        texts = get_request_response.result
-        self.assertEqual(len(texts), 1)
-        self.assertEqual(texts[0].text, 'foo_bb')
+        get_request_response = service_client.get_localized_texts(refs=['b'],
+                                                                  langs=['en-en'],
+                                                                  version=2)
+        report = get_request_response.result
+        self.assertEqual(len(report.Text), 1)
+        self.assertEqual(report.Text[0].text, 'foo_bb')
+
+        get_request_response = service_client.get_localized_texts(refs=['b'],
+                                                                  langs=['en-en'],
+                                                                  text_widths=['xs'])
+        report = get_request_response.result
+        self.assertEqual(len(report.Text), 0)
+
+        get_request_response = service_client.get_localized_texts(refs=['b'],
+                                                                  langs=['en-en'],
+                                                                  text_widths=['xs', pmtypes.LocalizedTextWidth.S])
+        report = get_request_response.result
+        self.assertEqual(len(report.Text), 1)
+        self.assertEqual(report.Text[0].text, 'foo_bb')
 
     def test_realtime_samples(self):
         runtest_realtime_samples(self, self.sdc_device, self.sdc_client)
@@ -932,6 +961,28 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(is_connected, False)
         self.sdc_client.stop_all(unsubscribe=False)  # without unsubscribe, is faster and would make no sense anyway
 
+    # def test_invalid_request(self):
+    #     """MDPWS R0012: If a HOSTED SERVICE receives a MESSAGE that is inconsistent with its WSDL description, the HOSTED
+    #     SERVICE SHOULD generate a SOAP Fault with a Code Value of 'Sender', unless a 'MustUnderstand' or
+    #     'VersionMismatch' Fault is generated
+    #     """
+    #     self.log_watcher.setPaused(True)
+    #     self.sdc_client.get_service_client._validate = False  # want to send an invalid request
+    #     try:
+    #         method = self.sdc_device.mdib.data_model.ns_helper.msgTag('Nonsense')
+    #         action_string = 'Nonsense'
+    #         message = self.sdc_client.get_service_client._msg_factory._mk_get_method_message(
+    #             self.sdc_client.get_service_client.endpoint_reference.address,
+    #             action_string,
+    #             method)
+    #         self.sdc_client.get_service_client.post_message(message)
+    #
+    #     except HTTPReturnCodeError as ex:
+    #         self.assertEqual(ex.status, 400)
+    #         self.assertEqual(ex.soap_fault.code, 's12:Sender')
+    #     else:
+    #         self.fail('HTTPReturnCodeError not raised')
+
     def test_invalid_request(self):
         """MDPWS R0012: If a HOSTED SERVICE receives a MESSAGE that is inconsistent with its WSDL description, the HOSTED
         SERVICE SHOULD generate a SOAP Fault with a Code Value of 'Sender', unless a 'MustUnderstand' or
@@ -942,7 +993,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         try:
             method = self.sdc_device.mdib.data_model.ns_helper.msgTag('Nonsense')
             action_string = 'Nonsense'
-            message = self.sdc_client.get_service_client._msg_factory._mk_get_method_message(
+            message = self._mk_get_method_message(
                 self.sdc_client.get_service_client.endpoint_reference.address,
                 action_string,
                 method)
@@ -953,6 +1004,16 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(ex.soap_fault.code, 's12:Sender')
         else:
             self.fail('HTTPReturnCodeError not raised')
+
+    def _mk_get_method_message(self, addr_to, action: str, method: etree_.QName, params=None) -> CreatedMessage:
+        get_node = etree_.Element(method)
+        soap_envelope = Soap12Envelope(default_ns_helper.partial_map(default_ns_helper.MSG))
+        soap_envelope.set_address(Address(action=action, addr_to=addr_to))
+        if params:
+            for param in params:
+                get_node.append(param)
+        soap_envelope.payload_element = get_node
+        return CreatedMessage(soap_envelope, self.sdc_client.get_service_client._msg_factory)
 
     def test_extension(self):
         def are_equivalent(node1, node2):

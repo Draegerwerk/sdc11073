@@ -104,6 +104,18 @@ class MessageFactory:
         doc.write(tmp, encoding='UTF-8', xml_declaration=True, pretty_print=pretty)
         return tmp.getvalue()
 
+    def mk_soap_message(self, addr_to: str, action, payload):
+        soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.MSG))
+        soap_envelope.set_address(Address(action=action, addr_to=addr_to))
+        soap_envelope.payload_element = payload
+        return CreatedMessage(soap_envelope, self)
+
+    def mk_reply_soap_message(self, addr_to: Address, payload):
+        soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.MSG))
+        soap_envelope.set_address(addr_to)
+        soap_envelope.payload_element = payload
+        return CreatedMessage(soap_envelope, self)
+
     def mk_fault_message(self, message_data, soap_fault, action_string=None) -> CreatedMessage:
         ns_hlp = self._ns_hlp
         if action_string is None:
@@ -203,263 +215,6 @@ class MessageFactoryClient(MessageFactory):
         soap_envelope.payload_element = etree_.Element('{http://schemas.xmlsoap.org/ws/2004/09/mex}GetMetadata')
         return CreatedMessage(soap_envelope, self)
 
-    def mk_get_descriptor_message(self, addr_to, requested_handles) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param requested_handles: a list of strings
-        :return: a SoapEnvelope
-        """
-        method = self._msg_names.GetMdState
-        action = self._sdc_definitions.Actions.GetMdState
-        return self._mk_get_method_message(addr_to, action, method, params=self._handles2params(requested_handles))
-
-    def mk_get_mdib_message(self, addr_to) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :return: a SoapEnvelope
-        """
-        method = self._msg_names.GetMdib
-        action = self._sdc_definitions.Actions.GetMdib
-        return self._mk_get_method_message(addr_to, action, method)
-
-    def mk_get_mddescription_message(self, addr_to, requested_handles=None) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param requested_handles: a list of strings
-        :return: a SoapEnvelope
-        """
-        method = self._msg_names.GetMdDescription
-        action = self._sdc_definitions.Actions.GetMdDescription
-        return self._mk_get_method_message(addr_to, action, method, params=self._handles2params(requested_handles))
-
-    def mk_get_mdstate_message(self, addr_to, requested_handles=None) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param requested_handles: a list of strings
-        :return: a SoapEnvelope
-        """
-        method = self._msg_names.GetMdState
-        action = self._sdc_definitions.Actions.GetMdState
-
-        return self._mk_get_method_message(addr_to, action, method, params=self._handles2params(requested_handles))
-
-    def mk_get_containmenttree_message(self, addr_to, requested_handles) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param requested_handles: a list of strings
-        :return: a SoapEnvelope
-        """
-        method = self._msg_names.GetContainmentTree
-        action = self._sdc_definitions.Actions.GetContainmentTree
-        return self._mk_get_method_message(addr_to, action, method, params=self._handles2params(requested_handles))
-
-    def mk_get_contextstates_message(self, addr_to, requested_handles=None) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param requested_handles: a list of strings
-        :return: a SoapEnvelope
-        """
-        requestparams = []
-        if requested_handles:
-            for handle in requested_handles:
-                requestparams.append(etree_.Element(self._msg_names.HandleRef,
-                                                    attrib={QN_TYPE: f'{self._ns_hlp.MSG.prefix}:HandleRef'},
-                                                    nsmap=self._ns_hlp.partial_map(self._ns_hlp.MSG, self._ns_hlp.PM)))
-                requestparams[-1].text = handle
-        method = self._msg_names.GetContextStates
-        action = self._sdc_definitions.Actions.GetContextStates
-        return self._mk_get_method_message(addr_to, action, method, params=requestparams)
-
-    def mk_get_contextstates_by_identification_message(self, addr_to, identifications) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param identifications: list of identifiers (type: InstanceIdentifier from pmtypes)
-        :return: a SoapEnvelope
-        """
-        requestparams = []
-        if identifications:
-            for identification in identifications:
-                requestparams.append(identification.as_etree_node(
-                    qname=self._msg_names.Identification,
-                    nsmap=self._ns_hlp.partial_map(self._ns_hlp.MSG, self._ns_hlp.PM)))
-        method = self._msg_names.GetContextStatesByIdentification
-        action = self._sdc_definitions.Actions.GetContextStatesByIdentification
-        return self._mk_get_method_message(addr_to, action, method, params=requestparams)
-
-    def mk_set_value_message(self, addr_to, operation_handle,
-                             requested_numeric_value) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param operation_handle: the handle of operation that is called
-        :param requested_numeric_value: a string
-        :return: a SoapEnvelope
-        """
-        requested_value_node = etree_.Element(self._msg_names.RequestedNumericValue,
-                                              attrib={QN_TYPE: f'{self._ns_hlp.XSD.prefix}:decimal'})
-        requested_value_node.text = str(requested_numeric_value)
-        method = self._msg_names.SetValue
-        action = self._sdc_definitions.Actions.SetValue
-        return self._mk_set_method_message(addr_to, action, method,
-                                           operation_handle,
-                                           [requested_value_node],
-                                           additional_namespaces=[self._ns_hlp.XSD])
-
-    def mk_set_string_message(self, addr_to, operation_handle, requested_string) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param operation_handle: the handle of operation that is called
-        :param requested_string: a string
-        :return: a SoapEnvelope
-        """
-        requested_string_node = etree_.Element(self._msg_names.RequestedStringValue,
-                                               attrib={QN_TYPE: f'{self._ns_hlp.XSD.prefix}:string'})
-        requested_string_node.text = requested_string
-        method = self._msg_names.SetString
-        action = self._sdc_definitions.Actions.SetString
-        return self._mk_set_method_message(addr_to, action, method, operation_handle, [requested_string_node],
-                                           additional_namespaces=[self._ns_hlp.XSD])
-
-    def mk_set_alert_message(self, addr_to, operation_handle, proposed_alert_states) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param operation_handle: the handle of operation that is called
-        :param proposed_alert_states: a list of AbstractAlertStateContainer or derived class
-        :return: a SoapEnvelope
-        """
-        _proposed_states = [p.mk_copy() for p in proposed_alert_states]
-        for state in _proposed_states:
-            state.nsmapper = self._ns_hlp
-        _proposed_state_nodes = [p.mk_state_node(self._msg_names.ProposedAlertState, self._ns_hlp) for p in
-                                 _proposed_states]
-        method = self._msg_names.SetAlertState
-        action = self._sdc_definitions.Actions.SetAlertState
-        return self._mk_set_method_message(addr_to, action, method, operation_handle, _proposed_state_nodes)
-
-    def mk_set_metric_state_message(self, addr_to, operation_handle, proposed_metric_states) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param operation_handle: the handle of operation that is called
-        :param proposed_metric_states: a list of AbstractMetricStateContainer or derived class
-        :return: a SoapEnvelope
-        """
-        _proposed_states = [p.mk_copy() for p in proposed_metric_states]
-        for state in _proposed_states:
-            state.nsmapper = self._ns_hlp
-        _proposed_state_nodes = [p.mk_state_node(self._msg_names.ProposedMetricState, self._ns_hlp) for p in
-                                 _proposed_states]
-        method = self._msg_names.SetMetricState
-        action = self._sdc_definitions.Actions.SetMetricState
-        return self._mk_set_method_message(addr_to, action, method, operation_handle,
-                                           _proposed_state_nodes)
-
-    def mk_set_component_state_message(self, addr_to, operation_handle, proposed_component_states) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param operation_handle: the handle of operation that is called
-        :param proposed_component_states: a list of AbstractComponentStateContainers or derived class
-        :return: a SoapEnvelope
-        """
-        _proposed_states = [p.mk_copy() for p in proposed_component_states]
-        for state in _proposed_states:
-            state.nsmapper = self._ns_hlp  # use my namespaces
-        _proposed_state_nodes = [p.mk_state_node(self._msg_names.ProposedComponentState, self._ns_hlp) for p in
-                                 _proposed_states]
-        method = self._msg_names.SetComponentState
-        action = self._sdc_definitions.Actions.SetComponentState
-        return self._mk_set_method_message(addr_to, action, method, operation_handle,
-                                           _proposed_state_nodes)
-
-    def mk_set_context_state_message(self, addr_to, operation_handle, proposed_context_states) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param operation_handle: the handle of operation that is called
-        :param proposed_context_states: a list of AbstractContextStateContainers or derived class
-        :return: a SoapEnvelope
-        """
-        _proposed_states = [p.mk_copy() for p in proposed_context_states]
-        for state in _proposed_states:
-            # BICEPS: if handle == DescriptorHandle, it means insert.
-            if state.Handle is None:
-                state.Handle = state.DescriptorHandle
-            state.nsmapper = self._ns_hlp
-        _proposed_state_nodes = [p.mk_state_node(self._msg_names.ProposedContextState,
-                                                 self._ns_hlp) for p in _proposed_states]
-        method = self._msg_names.SetContextState
-        action = self._sdc_definitions.Actions.SetContextState
-        return self._mk_set_method_message(addr_to, action, method, operation_handle,
-                                           _proposed_state_nodes)
-
-    def mk_activate_message(self, addr_to, operation_handle, arguments=None) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param operation_handle: the handle of operation that is called
-        :param arguments: a list of strings or None
-        :return: a SoapEnvelope
-        """
-        nsh = self._ns_hlp
-        payload_node = etree_.Element(self._msg_names.Activate, attrib=None, nsmap=nsh.ns_map)
-        ref = etree_.SubElement(payload_node, self._msg_names.OperationHandleRef)
-        ref.text = operation_handle
-        if arguments is not None:
-            for argument in arguments:
-                argument_node = etree_.SubElement(payload_node, self._msg_names.Argument)
-                arg_val = etree_.SubElement(argument_node, self._msg_names.ArgValue)
-                arg_val.text = argument
-        action = self._sdc_definitions.Actions.Activate
-        envelope = Soap12Envelope(nsh.partial_map(nsh.MSG))
-        envelope.set_address(Address(action=action, addr_to=addr_to))
-        envelope.payload_element = payload_node
-        return CreatedMessage(envelope, self)
-
-    def mk_get_localized_text_message(self, addr_to, refs=None, version=None, langs=None,
-                                      text_widths=None, number_of_lines=None) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :param refs: a list of strings or None
-        :param version: an unsigned integer or None
-        :param langs: a list of strings or None
-        :param text_widths: a list of strings or None (each string one of xs, s, m, l, xs, xxs)
-        :param number_of_lines: a list of unsigned integers or None
-        :return: a SoapEnvelope
-        """
-        requestparams = []
-        if refs is not None:
-            for ref in refs:
-                node = etree_.Element(self._msg_names.Ref)
-                node.text = ref
-                requestparams.append(node)
-        if version is not None:
-            node = etree_.Element(self._msg_names.Version)
-            node.text = str(version)
-            requestparams.append(node)
-        if langs is not None:
-            for lang in langs:
-                node = etree_.Element(self._msg_names.Lang)
-                node.text = lang
-                requestparams.append(node)
-        if text_widths is not None:
-            for text_width in text_widths:
-                node = etree_.Element(self._msg_names.TextWidth)
-                node.text = text_width
-                requestparams.append(node)
-        if number_of_lines is not None:
-            for nol in number_of_lines:
-                node = etree_.Element(self._msg_names.NumberOfLines)
-                node.text = nol
-                requestparams.append(node)
-        method = self._msg_names.GetLocalizedText
-        action = self._sdc_definitions.Actions.GetLocalizedText
-        return self._mk_get_method_message(addr_to, action, method, params=requestparams)
-
-    def mk_get_supported_languages_message(self, addr_to) -> CreatedMessage:
-        """
-        :param addr_to: to-field value in address
-        :return: a SoapEnvelope
-        """
-        method = self._msg_names.GetSupportedLanguages
-        action = self._sdc_definitions.Actions.GetSupportedLanguages
-        return self._mk_get_method_message(addr_to, action, method)
-
     def mk_subscribe_message(self, addr_to,
                              notifyto_url, notify_to_identifier,
                              endto_url, endto_identifier,
@@ -541,58 +296,6 @@ class MessageFactoryClient(MessageFactory):
         self._add_reference_params_to_header(soap_envelope, dev_reference_param)
         soap_envelope.payload_element = etree_.Element(self._ns_hlp.wseTag('Unsubscribe'))
         return CreatedMessage(soap_envelope, self)
-
-    def _mk_get_method_message(self, addr_to, action: str, method: etree_.QName, params=None) -> CreatedMessage:
-        get_node = etree_.Element(method)
-        soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.MSG))
-        soap_envelope.set_address(Address(action=action, addr_to=addr_to))
-        if params:
-            for param in params:
-                get_node.append(param)
-        soap_envelope.payload_element = get_node
-        return CreatedMessage(soap_envelope, self)
-
-    def _mk_set_method_message(self, addr_to: str, action_string: str, method_qname: etree_.QName,
-                               operation_handle: str,
-                               request_nodes, additional_namespaces=None) -> CreatedMessage:
-        """ helper to create the soap envelope
-        :param addr_to: to-field value in address
-        :param action_string: the action string
-        :param method_qname: name of the called action
-        :param operation_handle: handle name as string
-        :param request_nodes: a list of etree_ nodes that will become sub-element of Method name element
-        """
-        nsh = self._ns_hlp
-        set_node = etree_.Element(method_qname)
-        ref = etree_.SubElement(set_node, self._msg_names.OperationHandleRef,
-                                attrib={QN_TYPE: f'{nsh.PM.prefix}:HandleRef'},
-                                nsmap=nsh.partial_map(nsh.PM))
-        ref.text = operation_handle
-        for node in request_nodes:
-            set_node.append(node)
-        if additional_namespaces:
-            my_ns = nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG, *additional_namespaces)
-        else:
-            my_ns = nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG)
-
-        soap_envelope = Soap12Envelope(my_ns)
-        soap_envelope.set_address(Address(action=action_string, addr_to=addr_to))
-        soap_envelope.payload_element = set_node
-        return CreatedMessage(soap_envelope, self)
-
-    def _handles2params(self, handles):
-        """
-        Internal helper, converts handles to dom elements
-        :param handles: a list of strings
-        :return: a list of etree nodes
-        """
-        params = []
-        if handles is not None:
-            for handle in handles:
-                node = etree_.Element(self._msg_names.HandleRef)
-                node.text = handle
-                params.append(node)
-        return params
 
 
 class MessageFactoryDevice(MessageFactory):
@@ -699,17 +402,6 @@ class MessageFactoryDevice(MessageFactory):
         get_mdib_response_node.append(mdib_node)
         return get_mdib_response_node
 
-    def mk_get_mdib_response_message(self, message_data, mdib, include_context_states) -> CreatedMessage:
-        nsh = self._ns_hlp
-        request = message_data.p_msg
-        response = Soap12Envelope(nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG))
-        reply_address = request.address.mk_reply_address(
-            action=self._get_action_string(mdib.sdc_definitions, 'GetMdibResponse'))
-        response.set_address(reply_address)
-        get_mdib_response_node = self.mk_get_mdib_response_node(mdib, include_context_states)
-        response.payload_element = get_mdib_response_node
-        return CreatedMessage(response, self)
-
     def mk_get_mddescription_response_message(self, message_data, mdib, requested_handles) -> CreatedMessage:
         """For simplification reason this implementation returns either all descriptors or none."""
         nsh = self._ns_hlp
@@ -718,7 +410,8 @@ class MessageFactoryDevice(MessageFactory):
         my_namespaces = nsh.partial_map(nsh.S12, nsh.WSA, nsh.MSG, nsh.PM)
         response_envelope = Soap12Envelope(my_namespaces)
         reply_address = request.address.mk_reply_address(
-            action=self._get_action_string(mdib.sdc_definitions, 'GetMdDescriptionResponse'))
+            #action=self._get_action_string(mdib.sdc_definitions., 'GetMdDescriptionResponse'))
+            action=mdib.sdc_definitions.Actions.GetMdDescriptionResponse)
         response_envelope.set_address(reply_address)
 
         response_node = etree_.Element(self._msg_names.GetMdDescriptionResponse, nsmap=self._ns_hlp.ns_map)
@@ -736,74 +429,6 @@ class MessageFactoryDevice(MessageFactory):
             md_description_node = etree_.Element(self._msg_names.MdDescription)
             self._set_mdib_version_group(response_node, mdib.mdib_version_group)
         response_node.append(md_description_node)
-        response_envelope.payload_element = response_node
-        return CreatedMessage(response_envelope, self)
-
-    def mk_get_mdstate_response_message(self, message_data, action, mdib_version_group,
-                                        state_containers) -> CreatedMessage:
-        nsh = self._ns_hlp
-        request = message_data.p_msg
-        response_envelope = Soap12Envelope(
-            nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG))
-        reply_address = request.address.mk_reply_address(
-            action=action)
-        response_envelope.set_address(reply_address)
-        response_node = etree_.Element(self._msg_names.GetMdStateResponse, nsmap=nsh.ns_map)
-        self._set_mdib_version_group(response_node, mdib_version_group)
-        md_state_node = etree_.Element(self._msg_names.MdState, attrib=None,
-                                       nsmap=nsh.partial_map(nsh.MSG, nsh.PM))
-        for state_container in state_containers:
-            md_state_node.append(state_container.mk_state_node(self._pm_names.State, nsh))
-
-        response_node.append(md_state_node)
-        response_envelope.payload_element = response_node
-        return CreatedMessage(response_envelope, self)
-
-    def mk_get_context_states_response_message(self, message_data, action, mdib_version_group,
-                                               state_containers) -> CreatedMessage:
-        nsh = self._ns_hlp
-        response = Soap12Envelope(
-            nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG))
-        reply_address = message_data.p_msg.address.mk_reply_address(
-            action=action)
-        response.set_address(reply_address)
-        response_node = etree_.Element(self._msg_names.GetContextStatesResponse)
-        self._set_mdib_version_group(response_node, mdib_version_group)
-        tag = self._msg_names.ContextState
-        for container in state_containers:
-            node = container.mk_state_node(tag, nsh)
-            response_node.append(node)
-        response.payload_element = response_node
-        return CreatedMessage(response, self)
-
-    def mk_get_localized_texts_response_message(self, message_data, action, mdib_version_group,
-                                                texts) -> CreatedMessage:
-        nsh = self._ns_hlp
-        response_envelope = Soap12Envelope(
-            nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG))
-        reply_address = message_data.p_msg.address.mk_reply_address(action=action)
-        response_envelope.set_address(reply_address)
-        response_node = etree_.Element(self._msg_names.GetLocalizedTextResponse)
-        self._set_mdib_version_group(response_node, mdib_version_group)
-
-        for text in texts:
-            response_node.append(text.as_etree_node(self._msg_names.Text, nsmap=None))
-        response_envelope.payload_element = response_node
-        return CreatedMessage(response_envelope, self)
-
-    def mk_get_supported_languages_response_message(self, message_data, action, mdib_version_group, languages
-                                                    ) -> CreatedMessage:
-        nsh = self._ns_hlp
-        response_envelope = Soap12Envelope(
-            nsh.partial_map(nsh.S12, nsh.WSA, nsh.PM, nsh.MSG))
-        reply_address = message_data.p_msg.address.mk_reply_address(action=action)
-        response_envelope.set_address(reply_address)
-        response_node = etree_.Element(self._msg_names.GetSupportedLanguagesResponse)
-        self._set_mdib_version_group(response_node, mdib_version_group)
-
-        for lang in languages:
-            node = etree_.SubElement(response_node, self._msg_names.Lang)
-            node.text = lang
         response_envelope.payload_element = response_node
         return CreatedMessage(response_envelope, self)
 
@@ -919,14 +544,6 @@ class MessageFactoryDevice(MessageFactory):
         response.payload_element = reply_body_node
         return CreatedMessage(response, self)
 
-    def mk_realtime_samples_report_body(self, mdib_version_group, realtime_sample_states) -> etree_.Element:
-        report = self._msg_types.WaveformStream()
-        report.set_mdib_version_group(mdib_version_group)
-        report.State.extend(realtime_sample_states)
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        return report.as_etree_node(self._msg_names.WaveformStream, ns_map)
-
     @staticmethod
     def _separate_states_by_source_mds(states) -> dict:
         lookup = defaultdict(list)
@@ -950,93 +567,6 @@ class MessageFactoryDevice(MessageFactory):
                 report_part = report.add_report_part()
                 report_part.SourceMds = source_mds_handle
                 report_part.values_list.extend(states)
-
-    def mk_episodic_metric_report_body(self, mdib_version_group, states) -> etree_.Element:
-        report = self._msg_types.AbstractMetricReport()
-        report.set_mdib_version_group(mdib_version_group)
-        self._fill_episodic_report_body(report, states)
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        return report.as_etree_node(self._msg_names.EpisodicMetricReport, ns_map)
-
-    def mk_periodic_metric_report_body(self, actual_mdib_version, mdib_version_group, report_parts) -> etree_.Element:
-        report = self._msg_types.AbstractMetricReport()
-        report.set_mdib_version_group(mdib_version_group)
-        report.MdibVersion = actual_mdib_version
-        self._fill_periodic_report_body(report, report_parts)
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        return report.as_etree_node(self._msg_names.PeriodicMetricReport, ns_map)
-
-    def mk_episodic_operational_state_report_body(self, mdib_version_group, states) -> etree_.Element:
-        report = self._msg_types.AbstractOperationalStateReport()
-        report.set_mdib_version_group(mdib_version_group)
-        self._fill_episodic_report_body(report, states)
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        return report.as_etree_node(self._msg_names.EpisodicOperationalStateReport, ns_map)
-
-    def mk_periodic_operational_state_report_body(self, actual_mdib_version, mdib_version_group,
-                                                  report_parts) -> etree_.Element:
-        report = self._msg_types.AbstractOperationalStateReport()
-        report.set_mdib_version_group(mdib_version_group)
-        report.MdibVersion = actual_mdib_version
-        self._fill_periodic_report_body(report, report_parts)
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        return report.as_etree_node(self._msg_names.PeriodicOperationalStateReport, ns_map)
-
-    def mk_episodic_alert_report_body(self, mdib_version_group, states) -> etree_.Element:
-        report = self._msg_types.AbstractAlertReport()
-        report.set_mdib_version_group(mdib_version_group)
-        self._fill_episodic_report_body(report, states)
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        return report.as_etree_node(self._msg_names.EpisodicAlertReport, ns_map)
-
-    def mk_periodic_alert_report_body(self, actual_mdib_version, mdib_version_group, report_parts) -> etree_.Element:
-        report = self._msg_types.AbstractAlertReport()
-        report.set_mdib_version_group(mdib_version_group)
-        report.MdibVersion = actual_mdib_version
-        self._fill_periodic_report_body(report, report_parts)
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        return report.as_etree_node(self._msg_names.PeriodicAlertReport, ns_map)
-
-    def mk_episodic_component_state_report_body(self, mdib_version_group, states) -> etree_.Element:
-        report = self._msg_types.AbstractComponentReport()
-        report.set_mdib_version_group(mdib_version_group)
-        self._fill_episodic_report_body(report, states)
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        return report.as_etree_node(self._msg_names.EpisodicComponentReport, ns_map)
-
-    def mk_periodic_component_state_report_body(self, actual_mdib_version, mdib_version_group,
-                                                report_parts) -> etree_.Element:
-        report = self._msg_types.AbstractComponentReport()
-        report.set_mdib_version_group(mdib_version_group)
-        report.MdibVersion = actual_mdib_version
-        self._fill_periodic_report_body(report, report_parts)
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        return report.as_etree_node(self._msg_names.PeriodicComponentReport, ns_map)
-
-    def mk_episodic_context_report_body(self, mdib_version_group, states) -> etree_.Element:
-        report = self._msg_types.AbstractContextReport()
-        report.set_mdib_version_group(mdib_version_group)
-        self._fill_episodic_report_body(report, states)
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        return report.as_etree_node(self._msg_names.EpisodicContextReport, ns_map)
-
-    def mk_periodic_context_report_body(self, actual_mdib_version, mdib_version_group, report_parts) -> etree_.Element:
-        report = self._msg_types.AbstractContextReport()
-        report.set_mdib_version_group(mdib_version_group)
-        report.MdibVersion = actual_mdib_version
-        self._fill_periodic_report_body(report, report_parts)
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        return report.as_etree_node(self._msg_names.PeriodicContextReport, ns_map)
 
     def mk_description_modification_report_body(self, mdib_version_group, updated, created, deleted,
                                                 updated_states) -> etree_.Element:
@@ -1073,38 +603,6 @@ class MessageFactoryDevice(MessageFactory):
         if mdib_version_group.instance_id is not None:
             node.set('InstanceId', str(mdib_version_group.instance_id))
 
-    def mk_operation_invoked_report_body(self, mdib_version_group,
-                                         operation_handle_ref, transaction_id, invocation_state,
-                                         error, error_message) -> etree_.Element:
-        nsh = self._ns_hlp
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG)
-        body_node = etree_.Element(self._msg_names.OperationInvokedReport,
-                                   nsmap=ns_map)
-        self._set_mdib_version_group(body_node, mdib_version_group)
-        report_part_node = etree_.SubElement(body_node,
-                                             self._msg_names.ReportPart,
-                                             attrib={'OperationHandleRef': operation_handle_ref})
-        invocation_info_node = etree_.SubElement(report_part_node, self._msg_names.InvocationInfo)
-        etree_.SubElement(report_part_node, self._msg_names.InvocationSource,
-                          attrib={'Root': nsh.SDC.namespace,
-                                  'Extension': 'AnonymousSdcParticipant'})
-        # implemented only SDC R0077 for value of invocationSourceNode:
-        # Root =  "http://standards.ieee.org/downloads/11073/11073-20701-2018"
-        # Extension = "AnonymousSdcParticipant".
-        # a known participant (R0078) is currently not supported
-        # ToDo: implement R0078
-        transaction_id_node = etree_.SubElement(invocation_info_node, self._msg_names.TransactionId)
-        transaction_id_node.text = str(transaction_id)
-        operation_state_node = etree_.SubElement(invocation_info_node, self._msg_names.InvocationState)
-        operation_state_node.text = str(invocation_state)
-        if error is not None:
-            error_node = etree_.SubElement(invocation_info_node, self._msg_names.InvocationError)
-            error_node.text = str(error)
-        if error_message is not None:
-            error_message_node = etree_.SubElement(invocation_info_node, self._msg_names.InvocationErrorMessage)
-            error_message_node.text = str(error_message)
-        return body_node
-
     def mk_notification_message(self, ws_addr, message_node, reference_params: ReferenceParameters,
                                 doc_nsmap) -> CreatedMessage:
         envelope = Soap12Envelope(doc_nsmap)
@@ -1113,11 +611,6 @@ class MessageFactoryDevice(MessageFactory):
         for node in reference_params.parameters:
             envelope.add_header_element(node)
         return CreatedMessage(envelope, self)
-
-    @staticmethod
-    def _get_action_string(sdc_definitions, method_name):
-        actions_lookup = sdc_definitions.Actions
-        return getattr(actions_lookup, method_name)
 
     def _mk_this_model_sub_node(self, this_model, parent_node):
         nsh = self._ns_hlp

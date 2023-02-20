@@ -235,7 +235,8 @@ class ClientMdibMethods:
 
     def _on_episodic_metric_report(self, received_message_data):
         model = self._mdib.data_model
-        report = self._msg_reader.read_episodic_metric_report(received_message_data)
+        cls = model.msg_types.EpisodicMetricReport
+        report = cls.from_node(received_message_data.p_msg.msg_node)
         self._mdib.process_incoming_metric_states_report(received_message_data.mdib_version_group, report)
 
         if not self._mdib.is_initialized:
@@ -267,7 +268,8 @@ class ClientMdibMethods:
         age_logger.log_age_warnings(self._logger)
 
     def _on_episodic_alert_report(self, received_message_data):
-        report = self._msg_reader.read_episodic_alert_report(received_message_data)
+        cls = self._mdib.data_model.msg_types.EpisodicAlertReport
+        report = cls.from_node(received_message_data.p_msg.msg_node)
         self._mdib.process_incoming_alert_states_report(received_message_data.mdib_version_group, report)
 
     def _on_operational_state_report(self, received_message_data):
@@ -290,7 +292,8 @@ class ClientMdibMethods:
 
     def _on_waveform_report(self, received_message_data):
         # pylint:disable=too-many-locals
-        report = self._msg_reader.read_waveform_report(received_message_data)
+        cls = self._mdib.data_model.msg_types.WaveformStream
+        report = cls.from_node(received_message_data.p_msg.msg_node)
         if self._calculate_wf_age_stats:
             self._process_age_statistics(report.State)
         accepted_states = self._mdib.process_incoming_waveform_states(received_message_data.mdib_version_group,
@@ -334,7 +337,8 @@ class ClientMdibMethods:
                     self._last_wf_age_log = now
 
     def _on_episodic_context_report(self, received_message_data):
-        report = self._msg_reader.read_episodic_context_report(received_message_data)
+        cls = self._mdib.data_model.msg_types.EpisodicContextReport
+        report = cls.from_node(received_message_data.p_msg.msg_node)
         self._mdib.process_incoming_context_states_report(received_message_data.mdib_version_group, report)
 
     def _on_episodic_component_report(self, received_message_data):
@@ -342,7 +346,8 @@ class ClientMdibMethods:
         and SHOULD contain only the changed component states.
         Components are MDSs, VMDs, Channels. Not metrics and alarms
         """
-        report = self._msg_reader.read_episodic_component_report(received_message_data)
+        cls = self._mdib.data_model.msg_types.EpisodicComponentReport
+        report = cls.from_node(received_message_data.p_msg.msg_node)
         self._mdib.process_incoming_component_states_report(received_message_data.mdib_version_group, report)
 
     def _on_description_modification_report(self, received_message_data):
@@ -350,8 +355,9 @@ class ClientMdibMethods:
         and SHOULD contain only the changed component states.
         Components are MDSs, VMDs, Channels. Not metrics and alarms
         """
-        descriptors = self._msg_reader.read_description_modification_report(received_message_data)
-        self._mdib.process_incoming_description_modifications(received_message_data.mdib_version_group, descriptors)
+        cls = self._mdib.data_model.msg_types.DescriptionModificationReport
+        report = cls.from_node(received_message_data.p_msg.msg_node)
+        self._mdib.process_incoming_description_modifications(received_message_data.mdib_version_group, report)
 
     def _process_age_statistics(self, state_containers):
         for st in state_containers:

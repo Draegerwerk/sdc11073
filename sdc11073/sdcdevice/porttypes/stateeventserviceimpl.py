@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING, List
 
 from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, _mk_wsdl_one_way_operation
@@ -59,79 +60,158 @@ class StateEventService(DPWSPortTypeBase):
     def send_episodic_metric_report(self, states: List[AbstractStateContainer],
                                     nsmapper: NamespaceHelper,
                                     mdib_version_group):
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
         subscription_mgr = self.hosting_service.subscriptions_manager
         action = self._sdc_definitions.Actions.EpisodicMetricReport
-        body_node = self._msg_factory.mk_episodic_metric_report_body(mdib_version_group, states)
+        report = data_model.msg_types.EpisodicMetricReport()
+        report.set_mdib_version_group(mdib_version_group)
+        fill_episodic_report_body(report, states)
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        body_node = report.as_etree_node(data_model.msg_names.EpisodicMetricReport, ns_map)
         self._logger.debug('sending episodic metric report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_episodic_metric_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper,
+                                             'send_episodic_metric_report')
 
     def send_periodic_metric_report(self, periodic_states_list: List[PeriodicStates],
                                     nsmapper: NamespaceHelper,
                                     mdib_version_group):
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
         subscription_mgr = self.hosting_service.subscriptions_manager
         action = self._sdc_definitions.Actions.PeriodicMetricReport
-        body_node = self._msg_factory.mk_periodic_metric_report_body(
-            periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
+        report = data_model.msg_types.PeriodicMetricReport()
+        report.set_mdib_version_group(mdib_version_group)
+        fill_periodic_report_body(report, periodic_states_list)
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        body_node = report.as_etree_node(data_model.msg_names.PeriodicMetricReport, ns_map)
         self._logger.debug('sending periodic metric report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_periodic_metric_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper,
+                                             'send_periodic_metric_report')
 
     def send_episodic_alert_report(self, states: List[AbstractStateContainer],
                                    nsmapper: NamespaceHelper,
                                    mdib_version_group):
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
         subscription_mgr = self.hosting_service.subscriptions_manager
         action = self._sdc_definitions.Actions.EpisodicAlertReport
-        body_node = self._msg_factory.mk_episodic_alert_report_body(mdib_version_group, states)
+        report = data_model.msg_types.EpisodicAlertReport()
+        report.set_mdib_version_group(mdib_version_group)
+        fill_episodic_report_body(report, states)
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        body_node = report.as_etree_node(data_model.msg_names.EpisodicAlertReport, ns_map)
         self._logger.debug('sending episodic alert report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_episodic_alert_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper,
+                                             'send_episodic_alert_report')
 
     def send_periodic_alert_report(self, periodic_states_list: List[PeriodicStates],
                                    nsmapper: NamespaceHelper,
                                    mdib_version_group):
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
         subscription_mgr = self.hosting_service.subscriptions_manager
         action = self._sdc_definitions.Actions.PeriodicAlertReport
-        body_node = self._msg_factory.mk_periodic_alert_report_body(
-            periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
+        report = data_model.msg_types.PeriodicAlertReport()
+        report.set_mdib_version_group(mdib_version_group)
+        fill_periodic_report_body(report, periodic_states_list)
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        body_node = report.as_etree_node(data_model.msg_names.PeriodicAlertReport, ns_map)
         self._logger.debug('sending periodic alert report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_periodic_alert_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper,
+                                             'send_periodic_alert_report')
 
     def send_episodic_operational_state_report(self, states: List[AbstractStateContainer],
                                                nsmapper: NamespaceHelper,
                                                mdib_version_group):
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
         subscription_mgr = self.hosting_service.subscriptions_manager
         action = self._sdc_definitions.Actions.EpisodicOperationalStateReport
-        body_node = self._msg_factory.mk_episodic_operational_state_report_body(mdib_version_group, states)
+        report = data_model.msg_types.EpisodicOperationalStateReport()
+        report.set_mdib_version_group(mdib_version_group)
+        fill_episodic_report_body(report, states)
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        body_node = report.as_etree_node(data_model.msg_names.EpisodicOperationalStateReport, ns_map)
         self._logger.debug('sending episodic operational state report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_episodic_operational_state_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper,
+                                             'send_episodic_operational_state_report')
 
     def send_periodic_operational_state_report(self, periodic_states_list: List[PeriodicStates],
                                                nsmapper: NamespaceHelper,
                                                mdib_version_group):
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
         subscription_mgr = self.hosting_service.subscriptions_manager
         action = self._sdc_definitions.Actions.PeriodicOperationalStateReport
-        body_node = self._msg_factory.mk_periodic_operational_state_report_body(
-            periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
+        report = data_model.msg_types.PeriodicOperationalStateReport()
+        report.set_mdib_version_group(mdib_version_group)
+        fill_periodic_report_body(report, periodic_states_list)
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        body_node = report.as_etree_node(data_model.msg_names.PeriodicOperationalStateReport, ns_map)
         self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_periodic_operational_state_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper,
+                                             'send_periodic_operational_state_report')
 
     def send_episodic_component_state_report(self, states: List[AbstractStateContainer],
                                              nsmapper: NamespaceHelper,
                                              mdib_version_group):
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
         subscription_mgr = self.hosting_service.subscriptions_manager
         action = self._sdc_definitions.Actions.EpisodicComponentReport
-        body_node = self._msg_factory.mk_episodic_component_state_report_body(mdib_version_group, states)
+        report = data_model.msg_types.EpisodicComponentReport()
+        report.set_mdib_version_group(mdib_version_group)
+        fill_episodic_report_body(report, states)
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        body_node = report.as_etree_node(data_model.msg_names.EpisodicComponentReport, ns_map)
         self._logger.debug('sending episodic component report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_episodic_component_state_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper,
+                                             'send_episodic_component_state_report')
 
     def send_periodic_component_state_report(self, periodic_states_list: List[PeriodicStates],
                                              nsmapper: NamespaceHelper,
                                              mdib_version_group):
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
         subscription_mgr = self.hosting_service.subscriptions_manager
         action = self._sdc_definitions.Actions.PeriodicComponentReport
-        body_node = self._msg_factory.mk_periodic_component_state_report_body(
-            periodic_states_list[-1].mdib_version, mdib_version_group, periodic_states_list)
+        report = data_model.msg_types.PeriodicComponentReport()
+        report.set_mdib_version_group(mdib_version_group)
+        fill_periodic_report_body(report, periodic_states_list)
+        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
+        body_node = report.as_etree_node(data_model.msg_names.PeriodicComponentReport, ns_map)
         self._logger.debug('sending periodic component report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_periodic_component_state_report')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper,
+                                             'send_periodic_component_state_report')
+
+
+def fill_episodic_report_body(report, states):
+    """Helper that splits states list into separate lists per source mds and adds them to report accordingly. """
+    lookup = _separate_states_by_source_mds(states)
+    for source_mds_handle, states in lookup.items():
+        report_part = report.add_report_part()
+        report_part.SourceMds = source_mds_handle
+        report_part.values_list.extend(states)
+
+
+def fill_periodic_report_body(report, report_parts):
+    for tmp in report_parts:
+        lookup = _separate_states_by_source_mds(tmp.states)
+        for source_mds_handle, states in lookup.items():
+            report_part = report.add_report_part()
+            report_part.SourceMds = source_mds_handle
+            report_part.values_list.extend(states)
+
+
+def _separate_states_by_source_mds(states) -> dict:
+    lookup = defaultdict(list)
+    for state in states:
+        lookup[state.source_mds].append(state)
+    if None in lookup:
+        raise ValueError(f'States {[st.DescriptorHandle for st in lookup[None]]} have no source mds')
+    return lookup

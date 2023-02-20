@@ -40,7 +40,7 @@ class DummyBase:
 
 
 class Dummy(DummyBase):
-    str_prop1 = StringAttributeProperty(attribute_name='str_prop1', default_py_value='bar', implied_py_value='foobar')
+    str_prop1 = StringAttributeProperty(attribute_name='str_prop1', default_py_value='bar')
     str_prop2 = StringAttributeProperty(attribute_name='str_prop2', implied_py_value='foobar')
     str_prop3 = StringAttributeProperty(attribute_name='str_prop3')
     int_prop = IntegerAttributeProperty(attribute_name='int_prop')
@@ -59,7 +59,7 @@ class Dummy(DummyBase):
 
 
 class DummyNodeText(DummyBase):
-    node_text_mand = NodeStringProperty(etree_.QName('pref', 'node_text_mand'), implied_py_value='foo', min_length=1)
+    node_text_mand = NodeStringProperty(etree_.QName('pref', 'node_text_mand'), default_py_value='foo', min_length=1)
     node_text_opt = NodeStringProperty(etree_.QName('pref', 'node_text_opt'), implied_py_value='bar', is_optional=True)
 
     def props(self):
@@ -80,9 +80,12 @@ class DummyNodeEnumText(DummyBase):
 
 
 class DummySubElement(DummyBase):
-    sub_elem_mand = SubElementProperty(etree_.QName('pref', 'sub_elem_mand'), value_class=CodedValue,
-                                       implied_py_value=CodedValue('foo'))
-    sub_elem_opt = SubElementProperty(etree_.QName('pref', 'sub_elem_opt'), value_class=CodedValue, is_optional=True)
+    sub_elem_mand = SubElementProperty(etree_.QName('pref', 'sub_elem_mand'),
+                                       value_class=CodedValue,
+                                       default_py_value=CodedValue('foo'))
+    sub_elem_opt = SubElementProperty(etree_.QName('pref', 'sub_elem_opt'),
+                                      value_class=CodedValue,
+                                      is_optional=True)
 
     def props(self):
         yield self.__class__.sub_elem_mand
@@ -172,8 +175,14 @@ class TestContainerProperties(unittest.TestCase):
         dummy = Dummy()
 
         # verify that default value is initially set
-        self.assertEqual(Dummy.str_prop1.get_actual_value(dummy), 'bar')
         self.assertEqual(dummy.str_prop1, 'bar')
+        self.assertEqual(Dummy.str_prop1.get_actual_value(dummy), 'bar')
+
+        self.assertEqual(dummy.str_prop2, 'foobar')
+        self.assertIsNone(Dummy.str_prop2.get_actual_value(dummy))
+
+        self.assertIsNone(dummy.str_prop3)
+        self.assertIsNone(Dummy.str_prop3.get_actual_value(dummy))
 
         node = dummy.mk_node()
         self.assertEqual(node.attrib['str_prop1'], 'bar')
@@ -187,9 +196,9 @@ class TestContainerProperties(unittest.TestCase):
         dummy.str_prop1 = 'hello'
         self.assertEqual(dummy.str_prop1, 'hello')
         self.assertEqual(Dummy.str_prop1.get_actual_value(dummy), 'hello')
-        # verify that implied value is returned when value is set to None
+
         dummy.str_prop1 = None
-        self.assertEqual(dummy.str_prop1, 'foobar')
+        self.assertEqual(dummy.str_prop1, None)
         self.assertEqual(Dummy.str_prop1.get_actual_value(dummy), None)
 
         node = dummy.mk_node()
@@ -267,8 +276,9 @@ class TestContainerProperties(unittest.TestCase):
         dummy = DummyNodeText()
         self.assertEqual(dummy.node_text_mand, 'foo')
         self.assertEqual(dummy.node_text_opt, 'bar')
-        self.assertEqual(DummyNodeText.node_text_mand.get_actual_value(dummy), None)
+        self.assertEqual(DummyNodeText.node_text_mand.get_actual_value(dummy), 'foo')
         self.assertEqual(DummyNodeText.node_text_opt.get_actual_value(dummy), None)
+        dummy.node_text_mand = None
         self.assertRaises(ValueError, dummy.mk_node)  # implied value does not help here, we need a real value for mand. prop.
         dummy.node_text_mand = 'foo'
         node = dummy.mk_node()
@@ -342,12 +352,15 @@ class TestContainerProperties(unittest.TestCase):
 
     def test_SubElementProperty(self):
         dummy = DummySubElement()
-        self.assertEqual(DummySubElement.sub_elem_mand.get_actual_value(dummy), None)
-        self.assertEqual(DummySubElement.sub_elem_opt.get_actual_value(dummy), None)
         self.assertEqual(dummy.sub_elem_mand, CodedValue('foo'))
-        self.assertEqual(dummy.sub_elem_opt, None)
+        self.assertEqual(DummySubElement.sub_elem_mand.get_actual_value(dummy), CodedValue('foo'))
 
+        self.assertEqual(dummy.sub_elem_opt, None)
+        self.assertEqual(DummySubElement.sub_elem_opt.get_actual_value(dummy), None)
+
+        dummy.sub_elem_mand = None
         self.assertRaises(ValueError, dummy.mk_node) # mand. prop has no value
+
         dummy.sub_elem_mand = CodedValue('hello_again')
         node = dummy.mk_node()
         self.assertEqual(1, len(node))  # the empty optional node is not added, only the mandatory one

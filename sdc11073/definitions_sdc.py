@@ -41,6 +41,8 @@ class _Actions:
     GetContextStatesResponse = _ActionsNamespace + '/ContextService/GetContextStatesResponse'
     GetContextStatesByIdentification = _ActionsNamespace + '/ContextService/GetContextStatesByIdentification'
     GetContextStatesByIdentificationResponse = _ActionsNamespace + '/ContextService/GetContextStatesByIdentificationResponse'
+    GetContextStatesByFilter = _ActionsNamespace + '/ContextService/GetContextStatesByFilter'
+    GetContextStatesByFilterResponse = _ActionsNamespace + '/ContextService/GetContextStatesByFilterResponse'
     SetContextState = _ActionsNamespace + '/ContextService/SetContextState'
     SetContextStateResponse = _ActionsNamespace + '/ContextService/SetContextStateResponse'
     GetSupportedLanguages = _ActionsNamespace + '/LocalizationService/GetSupportedLanguages'

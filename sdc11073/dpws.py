@@ -4,8 +4,9 @@ from typing import List, Dict, Union, Optional
 from lxml.etree import QName
 
 from .addressing import EndpointReferenceType
-
-
+from .pmtypes import PropertyBasedPMType
+from .mdib import containerproperties as cp
+from .namespaces import default_ns_helper
 class DeviceRelationshipTypeURI(str, Enum):
     HOST = "http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/host"
 
@@ -158,3 +159,51 @@ class ThisModelType:
             return True
         except AttributeError:
             return False
+
+
+# class LocalizedStringType(cp.NodeStringProperty):
+#     lang = cp.StringAttributeProperty(default_ns_helper.xmlTag('lang'))
+#     _props = ['lang']
+#
+#     def __init__(self, lang, text):
+#         super().__init__()
+#         self.lang = lang
+#         self.text = text
+#
+#
+# class ThisModelType(PropertyBasedPMType):
+#     Manufacturer = cp.SubElementListProperty(default_ns_helper.dpwsTag('Manufacturer'),
+#                                              value_class=LocalizedStringType)
+#     ManufacturerUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('ManufacturerUrl'))
+#     ModelName = cp.SubElementListProperty(default_ns_helper.dpwsTag('ModelName'),
+#                                              value_class=LocalizedStringType)
+#     ModelNumber = cp.NodeStringProperty(default_ns_helper.dpwsTag('ModelNumber'), is_optional=True)
+#     ModelUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('ModelUrl'), is_optional=True)
+#     PresentationUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('PresentationUrl'), is_optional=True)
+#
+#
+#     def __init__(self,
+#                  manufacturer: Union[str, LocalizedStringTypeDict],
+#                  manufacturer_url: str,
+#                  model_name: Union[str, LocalizedStringTypeDict],
+#                  model_number: str,
+#                  model_url: str,
+#                  presentation_url: str):
+#
+#         if isinstance(manufacturer, str):
+#             self.Manufacturer.append(LocalizedStringType(None, manufacturer))
+#         else:
+#             assert(isinstance(manufacturer, LocalizedStringTypeDict))
+#             for lang, value in manufacturer.items():
+#                 self.Manufacturer.append(LocalizedStringType(lang, value))
+#         self.ManufacturerUrl = manufacturer_url
+#         if isinstance(model_name, str):
+#             self.ModelName.append(LocalizedStringType(None, model_name))
+#         else:
+#             assert(isinstance(model_name, LocalizedStringTypeDict))
+#             for lang, value in model_name.items():
+#                 self.ModelName.append(LocalizedStringType(lang, value))
+#         self.ModelNumber = model_number
+#         self.ModelUrl = model_url
+#         self.PresentationUrl = presentation_url
+#

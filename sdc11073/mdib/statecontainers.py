@@ -92,7 +92,7 @@ class SetValueOperationStateContainer(AbstractOperationStateContainer):
 
 
 class T_AllowedValues(pmtypes.PropertyBasedPMType):  # pylint: disable=invalid-name
-    Value = cp.SubElementTextListProperty(pm.Value)
+    Value = cp.SubElementStringListProperty(pm.Value)
     _props = ['Value']
 
     def __init__(self):

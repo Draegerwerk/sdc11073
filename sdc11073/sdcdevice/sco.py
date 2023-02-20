@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Callable
 from .. import loghelper
 from .. import observableproperties as properties
 from ..exceptions import ApiUsageError
-from ..msgtypes import InvocationState
+from ..msgtypes import InvocationState, InvocationError
 from ..pmtypes import SafetyClassification
 
 if TYPE_CHECKING:
@@ -235,7 +235,7 @@ class _OperationsWorker(threading.Thread):
                         self._set_service.notify_operation(
                             operation, tr_id, InvocationState.FAILED,
                             self._mdib.mdib_version_group, self._mdib.nsmapper,
-                            error='Oth', error_message=repr(ex))
+                            error=InvocationError.OTHER, error_message=repr(ex))
             except Exception:
                 self._logger.error('{}: unexpected error while handling operation: {}',
                                    self.__class__.__name__, traceback.format_exc())

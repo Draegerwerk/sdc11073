@@ -302,19 +302,15 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             else:
                 transaction.unget_state(ss_fallback)
 
-    def _delegate_alert_signal(self, operation_instance, values):
+    def _delegate_alert_signal(self, operation_instance, value):
         """Handler for an operation call from remote.
         Sets ActivationState, Presence and ActualSignalGenerationDelay of the corresponding state in mdib.
         If this is a delegable signal, it also sets the ActivationState of the fallback signal.
 
         :param operation_instance: OperationDefinition instance
-        :param values: List of AlertSignalStateContainer instances (should be exactly one element for this call)
+        :param value: AlertSignalStateContainer instance
         :return:
         """
-        if len(values) != 1:
-            raise ValueError(f'_delegate_alert_signal expects one argument, got {len(values)}')
-        value = values[0]
-
         pm_types = self._mdib.data_model.pm_types
         operation_target_handle = operation_instance.operation_target_handle
         # self._last_set_alert_signal_state[operation_target_handle] = time.time()

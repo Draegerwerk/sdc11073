@@ -1,5 +1,5 @@
 from concurrent.futures import Future
-
+from typing import List
 from .serviceclientbase import HostedServiceClient, GetRequestResult
 from ...exceptions import ApiUsageError
 
@@ -14,12 +14,13 @@ class ContextServiceClient(HostedServiceClient):
                        Otherwise a copy of an existing state with this handle is returned.
         :return: a context state instance
         """
+        data_model = self._sdc_definitions.data_model
         mdib = self._mdib_wref()
         if mdib is None:
             raise ApiUsageError('no mdib information')
         context_descriptor_container = mdib.descriptions.handle.get_one(descriptor_handle)
         if handle is None:
-            cls = mdib.data_model.get_state_container_class(context_descriptor_container.STATE_QNAME)
+            cls = data_model.get_state_container_class(context_descriptor_container.STATE_QNAME)
             obj = cls(descriptor_container=context_descriptor_container)
             obj.Handle = descriptor_handle  # this indicates that this is a new context state
         else:
@@ -27,24 +28,43 @@ class ContextServiceClient(HostedServiceClient):
             obj = _obj.mk_copy()
         return obj
 
-    def set_context_state(self, operation_handle, proposed_context_states, request_manipulator=None) -> Future:
+    def set_context_state(self, operation_handle: str, proposed_context_states, request_manipulator=None) -> Future:
         """
         @return: a concurrent.futures.Future object
         """
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
         tmp = ', '.join([f'{st.__class__.__name__}(DescriptorHandle={st.DescriptorHandle}, handle={st.Handle})'
                          for st in proposed_context_states])
         self._logger.info('set_context_state {}', tmp)
-        message = self._msg_factory.mk_set_context_state_message(self.endpoint_reference.address,
-                                                                 operation_handle, proposed_context_states)
+        request = data_model.msg_types.SetContextState()
+        request.OperationHandleRef = operation_handle
+        request.ProposedContextState.extend(proposed_context_states)
+        payload_element = request.as_etree_node(request.NODETYPE,
+                                                nsh.partial_map(nsh.MSG, nsh.PM))
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
+                                                    request.action,
+                                                    payload_element)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def get_context_states(self, handles=None, request_manipulator=None) -> GetRequestResult:
         """
         :param handles: a list of handles
         """
-        message = self._msg_factory.mk_get_contextstates_message(self.endpoint_reference.address, handles)
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
+        request = data_model.msg_types.GetContextStates()
+        if handles is not None:
+            request.HandleRef.extend(handles)
+        payload_element = request.as_etree_node(request.NODETYPE,
+                                                nsh.partial_map(nsh.MSG, nsh.PM))
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
+                                                    request.action,
+                                                    payload_element)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
-        report = received_message_data.msg_reader.read_context_states(received_message_data)
+        cls = received_message_data.msg_reader._msg_types.GetContextStatesResponse
+        report = cls.from_node(received_message_data.p_msg.msg_node)
+
         return GetRequestResult(received_message_data, report)
 
     def get_context_state_by_identification(self, identifications, context_type=None,
@@ -54,8 +74,39 @@ class ContextServiceClient(HostedServiceClient):
         :param context_type: Type to query
         :return:
         """
-        message = self._msg_factory.mk_get_contextstates_by_identification_message(
-            self.endpoint_reference.address, identifications)
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
+        request = data_model.msg_types.GetContextStatesByIdentification()
+        if identifications is not None:
+            request.Identification.extend(identifications)
+        request.ContextType = context_type
+        payload_element = request.as_etree_node(request.NODETYPE,
+                                                nsh.partial_map(nsh.MSG, nsh.PM))
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
+                                                    request.action,
+                                                    payload_element)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
-        report = received_message_data.msg_reader.read_context_states(received_message_data)
+        cls = received_message_data.msg_reader._msg_types.GetContextStatesByIdentificationResponse
+        report = cls.from_node(received_message_data.p_msg.msg_node)
+        return GetRequestResult(received_message_data, report)
+
+
+    def get_context_state_by_filter(self, filters: List[str],
+                                    request_manipulator=None) -> GetRequestResult:
+        """
+        :param filters: list strings
+        :return: GetRequestResult
+        """
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
+        request = data_model.msg_types.GetContextStatesByFilter()
+        request.Filter.extend(filters)
+        payload_element = request.as_etree_node(request.NODETYPE,
+                                                nsh.partial_map(nsh.MSG, nsh.PM))
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
+                                                    request.action,
+                                                    payload_element)
+        received_message_data = self.post_message(message, request_manipulator=request_manipulator)
+        cls = data_model.msg_types.GetContextStatesByFilterResponse
+        report = cls.from_node(received_message_data.p_msg.msg_node)
         return GetRequestResult(received_message_data, report)

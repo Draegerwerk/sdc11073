@@ -1,8 +1,19 @@
 from decimal import Decimal
-
+from typing import Protocol
 from sdc11073 import isoduration
 
 STRICT_VALUE_CHECK = True
+
+
+class DataConverterProtocol(Protocol):
+    def to_py(self, xml_value):
+        ...
+
+    def to_xml(self, py_value):
+        ...
+
+    def check_valid(self, py_value):
+        ...
 
 
 class NullConverter:

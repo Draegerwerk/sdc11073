@@ -479,7 +479,7 @@ class SetStringOperationDescriptorContainer(AbstractOperationDescriptorContainer
 
 
 class AbstractSetStateOperationDescriptor(AbstractOperationDescriptorContainer):
-    ModifiableData = cp.SubElementTextListProperty(pm.ModifiableData)
+    ModifiableData = cp.SubElementStringListProperty(pm.ModifiableData)
     _props = ('ModifiableData',)
     _child_elements_order = (pm.ModifiableData,)
 

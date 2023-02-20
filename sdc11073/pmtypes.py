@@ -124,7 +124,7 @@ class AlertSignalPrimaryLocation(StringEnum):
     REMOTE = 'Rem'
 
 
-class T_TextWidth(StringEnum):  # pylint: disable=invalid-name
+class LocalizedTextWidth(StringEnum):  # pylint: disable=invalid-name
     XS = 'xs'
     S = 's'
     M = 'm'
@@ -215,6 +215,10 @@ class T_CalibrationType(StringEnum):  # only used in CalibrationInfo
 
 class PropertyBasedPMType:
     """ Base class that assumes all data is defined as containerproperties and _props lists all property names."""
+
+    def __init__(self):
+        for _, prop in self.sorted_container_properties():
+            prop.init_instance_data(self)
 
     def as_etree_node(self, qname, nsmap):
         node = etree_.Element(qname, nsmap=nsmap)
@@ -312,7 +316,7 @@ class LocalizedText(PropertyBasedPMType):
     Ref = cp.LocalizedTextRefAttributeProperty('Ref')
     Lang = cp.StringAttributeProperty('Lang')
     Version = cp.ReferencedVersionAttributeProperty('Version')
-    TextWidth = cp.EnumAttributeProperty('TextWidth', enum_cls=T_TextWidth)
+    TextWidth = cp.EnumAttributeProperty('TextWidth', enum_cls=LocalizedTextWidth)
     # pylint: enable=invalid-name
     _props = ['text', 'Ref', 'Lang', 'Version', 'TextWidth']
     ''' Represents a LocalizedText type in the Participant Model. '''
@@ -342,7 +346,7 @@ class LocalizedText(PropertyBasedPMType):
         if version is not None:
             version = int(version)
         text_width = node.get('TextWidth')
-        enum_text_width = T_TextWidth(text_width) if text_width is not None else None
+        enum_text_width = LocalizedTextWidth(text_width) if text_width is not None else None
         return cls(text, lang, ref, version, enum_text_width)
 
 
@@ -998,7 +1002,7 @@ class BaseDemographics(PropertyBasedPMType):
     # pylint: disable=invalid-name
     NODETYPE = pm.BaseDemographics
     Givenname = cp.NodeStringProperty(pm.Givenname, is_optional=True)
-    Middlename = cp.SubElementTextListProperty(pm.Middlename)
+    Middlename = cp.SubElementStringListProperty(pm.Middlename)
     Familyname = cp.NodeStringProperty(pm.Familyname, is_optional=True)
     Birthname = cp.NodeStringProperty(pm.Birthname, is_optional=True)
     Title = cp.NodeStringProperty(pm.Title, is_optional=True)
@@ -1384,7 +1388,7 @@ class MetaData(PropertyBasedPMType):
     ExpirationDate = cp.NodeStringProperty(pm.ExpirationDate, is_optional=True)
     ModelName = cp.SubElementListProperty(pm.ModelName, value_class=LocalizedText)
     ModelNumber = cp.NodeStringProperty(pm.ModelNumber, is_optional=True)
-    SerialNumber = cp.SubElementTextListProperty(pm.SerialNumber)
+    SerialNumber = cp.SubElementStringListProperty(pm.SerialNumber)
     # pylint: enable=invalid-name
     _props = ['Udi', 'LotNumber', 'Manufacturer', 'ManufactureDate', 'ExpirationDate',
               'ModelName', 'ModelNumber', 'SerialNumber']
@@ -1432,6 +1436,16 @@ class ApprovedJurisdictions(PropertyBasedPMType):
     ApprovedJurisdiction = cp.SubElementListProperty(pm.ApprovedJurisdiction,
                                                      value_class=InstanceIdentifier)
     _props = ['ApprovedJurisdiction']
+
+
+class ContainmentTreeEntry(PropertyBasedPMType):
+    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue, is_optional=True)
+    _props = ['type']
+
+
+class ContainmentTree(PropertyBasedPMType):
+    Entry = cp.SubElementListProperty(pm.Entry, value_class=ContainmentTreeEntry)
+    _props = ['Entry']
 
 
 # Technically, Retrievalibity belongs to msg_types, because it is defined in BICEPS message model.

@@ -20,9 +20,8 @@ def _calc_number_of_lines(text):
     return len(text.split('\n'))
 
 
-def _text_width_filter(localized_texts, width):
-    i_width = _tw2i(width)
-    candidates = [v for v in localized_texts if _tw2i(v.TextWidth) <= i_width]
+def _text_width_filter(localized_texts, width: int):
+    candidates = [v for v in localized_texts if _tw2i(v.TextWidth) <= width]
     if candidates:
         candidates.sort(key=lambda obj: _tw2i(obj.TextWidth) or -1)
     return candidates
@@ -52,13 +51,16 @@ class LocalizationStorage():
         :param requested_handles: list of handles
         :param requested_version: an integer or None
         :param requested_langs: list of language strings
-        :param text_widths: a list of integers, 0...n
+        :param text_widths: a list of chars (s, xs, ...)
         :param number_of_lines: a list of integers, 0...n
         :return: a list of LocalizedText instances
         """
         # make integers for text_widths and number_of_lines
         if text_widths is None:
             text_widths = []
+
+        i_text_widths = [_tw2i(w) for w in text_widths]
+
         if number_of_lines is None:
             number_of_lines = []
         if requested_handles is None:
@@ -116,7 +118,7 @@ class LocalizationStorage():
         #   MESSAGE. Matching in this case means that the number of lines in the text is less or equal to the
         #   NumberOfLines ELEMENTs.
 
-        if len(text_widths) > 0 or len(number_of_lines) > 0:
+        if len(i_text_widths) > 0 or len(number_of_lines) > 0:
             if len(number_of_lines) > 0:
                 # calculate number of lines for every localized text and add is as member to the object
                 for text in texts:
@@ -128,11 +130,11 @@ class LocalizationStorage():
                 tmp_dict[(text.Ref, text.Lang)].append(text)
             tmp = []
 
-            if len(text_widths) > 0 and len(number_of_lines) > 0:
+            if len(i_text_widths) > 0 and len(number_of_lines) > 0:
                 # now find for each combination of (width, lines) list the best match
                 for value_list in tmp_dict.values():
                     # candidates = []
-                    for text_width in text_widths:
+                    for text_width in i_text_widths:
                         candidates1 = _text_width_filter(value_list,
                                                          text_width)  # returns sorted list of smaller elements
                         for lines_cnt in i_nls:
@@ -140,10 +142,10 @@ class LocalizationStorage():
                             if len(candidates2) > 0:
                                 candidates2.sort(key=lambda obj: obj.TextWidth * obj.n_o_l)  # sort by area size
                                 tmp.append(candidates2[-1])  # use largest one
-            elif len(text_widths) > 0:
+            elif len(i_text_widths) > 0:
                 # filter only text widths
                 for value_list in tmp_dict.values():
-                    for text_width in text_widths:
+                    for text_width in i_text_widths:
                         candidates = _text_width_filter(value_list,
                                                         text_width)  # returns sorted list of smaller elements
                         if candidates:
@@ -214,34 +216,40 @@ class LocalizationService(DPWSPortTypeBase):
             self._on_get_supported_languages)
 
     def _on_get_localized_text(self, request_data):
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
         self._logger.debug('_on_get_localized_text')
-        localized_texts_request = self._sdc_device.msg_reader.read_get_localized_text_request(request_data.message_data)
-        # make integers for text_widths and number_of_lines
-        i_tws = [_tw2i(w) for w in localized_texts_request.text_widths]
-        i_nls = [int(l) for l in localized_texts_request.number_of_lines]
-
-        if len(localized_texts_request.requested_versions) > 0:
-            # If the referenced text is not available in the specific version, then
-            # msg:GetLocalizedTextResponse/msg:Text is empty
-            requested_version = int(localized_texts_request.requested_versions[0])
-        else:
-            requested_version = None
-
-        texts = self.localization_storage.filter_localized_texts(localized_texts_request.requested_handles,
-                                                                 requested_version,
-                                                                 localized_texts_request.requested_langs,
-                                                                 i_tws, i_nls)
-        response_envelope = self._sdc_device.msg_factory.mk_get_localized_texts_response_message(
-            request_data.message_data, self.actions.GetLocalizedTextResponse,
-            self._mdib.mdib_version_group, texts)
+        cls = data_model.msg_types.GetLocalizedText
+        get_localized_text = cls.from_node(request_data.message_data.p_msg.msg_node)
+        texts = self.localization_storage.filter_localized_texts(get_localized_text.Ref,
+                                                                 get_localized_text.Version,
+                                                                 get_localized_text.Lang,
+                                                                 get_localized_text.TextWidth,
+                                                                 get_localized_text.NumberOfLines)
+        action = self.actions.GetLocalizedTextResponse
+        reply_address = request_data.message_data.p_msg.address.mk_reply_address(action=action)
+        response = data_model.msg_types.GetLocalizedTextResponse()
+        response.Text.extend(texts)
+        response.set_mdib_version_group(self._mdib.mdib_version_group)
+        payload = response.as_etree_node(data_model.msg_names.GetLocalizedTextResponse,
+                                         nsh.partial_map(nsh.MSG, nsh.PM))
+        response_envelope= self._sdc_device.msg_factory.mk_reply_soap_message(reply_address, payload)
         return response_envelope
 
     def _on_get_supported_languages(self, request_data):
+        data_model = self._sdc_definitions.data_model
+        nsh = data_model.ns_helper
         self._logger.debug('_on_get_supported_languages')
         languages = self.localization_storage.get_supported_languages()
-        response_envelope = self._sdc_device.msg_factory.mk_get_supported_languages_response_message(
-            request_data.message_data, self.actions.GetSupportedLanguagesResponse,
-            self._mdib.mdib_version_group, languages)
+
+        action = self.actions.GetSupportedLanguagesResponse
+        reply_address = request_data.message_data.p_msg.address.mk_reply_address(action=action)
+        response = data_model.msg_types.GetSupportedLanguagesResponse()
+        response.Lang.extend(languages)
+        response.set_mdib_version_group(self._mdib.mdib_version_group)
+        payload = response.as_etree_node(data_model.msg_names.GetSupportedLanguagesResponse,
+                                         nsh.partial_map(nsh.MSG, nsh.PM))
+        response_envelope = self._sdc_device.msg_factory.mk_reply_soap_message(reply_address, payload)
         return response_envelope
 
     def add_wsdl_port_type(self, parent_node):
