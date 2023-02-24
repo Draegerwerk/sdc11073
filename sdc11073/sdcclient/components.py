@@ -14,13 +14,12 @@ from .serviceclients.setservice import SetServiceClient
 from .serviceclients.stateeventservice import StateEventClient
 from .serviceclients.waveformservice import WaveformClient
 from .subscription import ClientSubscriptionManager
-from ..pysoap.msgfactory import MessageFactoryClient
+from ..pysoap.msgfactory import MessageFactory
 from ..pysoap.msgreader import MessageReaderClient
 from ..pysoap.soapclient import SoapClient
 
 # pylint: disable=cyclic-import
 if TYPE_CHECKING:
-    from ..pysoap.msgfactory import MessageFactory
     from ..pysoap.msgreader import MessageReader
 
 
@@ -56,7 +55,7 @@ class SdcClientComponents:
 
 default_sdc_client_components = SdcClientComponents(
     soap_client_class=SoapClient,
-    msg_factory_class=MessageFactoryClient,
+    msg_factory_class=MessageFactory,
     msg_reader_class=MessageReaderClient,
     action_dispatcher_class = DispatchKeyRegistryDeferred, # defaults to deferred handling
     subscription_manager_class=ClientSubscriptionManager,

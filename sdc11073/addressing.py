@@ -1,45 +1,16 @@
-from typing import Optional
 import uuid
-import copy
-
-class ReferenceParameters:
-    def __init__(self, reference_parameters):
-        """
-
-        :param reference_parameters: a list of etree nodes or None
-        """
-        self._reference_parameter_nodes = reference_parameters if reference_parameters is not None else []
-
-    @property
-    def parameters(self):
-        return [copy.copy(node) for node in self._reference_parameter_nodes]
-
-    @property
-    def has_parameters(self):
-        return len(self._reference_parameter_nodes) > 0
-
-    def __repr__(self):
-        return f'addressing.{self.__class__.__name__}({self._reference_parameter_nodes})'
+from .namespaces import default_ns_helper
+from .pmtypes import PropertyBasedPMType, ElementWithText
+from .mdib import containerproperties as cp
 
 
-class EndpointReferenceType:
-    """ Acc. to "http://www.w3.org/2005/08/addressing"
-
-    """
-    __slots__ = ('address', 'reference_parameters')
-
-    def __init__(self, address: str, reference_parameters: Optional[ReferenceParameters]=None):
-        """
-
-        :param address: wsa:AttributedURIType
-        :param reference_parameters:  ReferenceParameters instance
-        (MetaData element is not implemented)
-        """
-        self.address: str = address  # type="wsa:AttributedURI", which is an xs:anyURI element
-        self.reference_parameters : ReferenceParameters = reference_parameters or ReferenceParameters(None)
-
-    def __str__(self):
-        return f'{self.__class__.__name__}: address={self.address}'
+class EndpointReferenceType(PropertyBasedPMType):
+    Address = cp.NodeStringProperty(default_ns_helper.wsaTag('Address'))
+    ReferenceProperties = cp.AnyEtreeNodeListProperty(default_ns_helper.wsaTag('ReferenceProperties'), is_optional=True)
+    ReferenceParameters = cp.AnyEtreeNodeListProperty(default_ns_helper.wsaTag('ReferenceParameters'), is_optional=True)
+    PortType = cp.NodeTextQNameProperty(default_ns_helper.wsaTag('PortType'), is_optional=True)
+    # ServiceName
+    _props = ['Address', 'ReferenceProperties', 'ReferenceParameters', 'PortType']
 
 
 class Address:
@@ -50,7 +21,7 @@ class Address:
                  'relates_to', 'reference_parameters', 'relationship_type')
 
     def __init__(self, action, message_id=None, addr_to=None, relates_to=None, addr_from=None, reply_to=None,
-                 fault_to=None, reference_parameters: Optional[ReferenceParameters]=None,
+                 fault_to=None, reference_parameters=None,
                  relationship_type=None):  # pylint: disable=too-many-arguments
         """
 
@@ -75,7 +46,7 @@ class Address:
         if reference_parameters is not None:
             self.reference_parameters = reference_parameters
         else:
-            self.reference_parameters = ReferenceParameters(None)
+            self.reference_parameters = []
 
         self.relationship_type = relationship_type
 

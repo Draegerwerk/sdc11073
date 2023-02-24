@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 from enum import Enum
-from typing import List, Dict, Union, Optional
+from typing import List, Union, Optional, TYPE_CHECKING
 
 from lxml.etree import QName
 
-from .addressing import EndpointReferenceType
-from .pmtypes import PropertyBasedPMType
-from .mdib import containerproperties as cp
-from .namespaces import default_ns_helper
+if TYPE_CHECKING:
+    from .addressing import EndpointReferenceType
+
+
 class DeviceRelationshipTypeURI(str, Enum):
     HOST = "http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/host"
 
@@ -33,7 +35,7 @@ class LocalizedStringTypeDict(dict):
     """This class represents LocalizedStringType elements. It is a dictionary of lang:string entries.
      If lang is None, the_string is the default string."""
 
-    def add_localized_string(self, the_string:str, lang: Optional[str]=None ) -> None:
+    def add_localized_string(self, the_string: str, lang: Optional[str] = None) -> None:
         """
         Method for better readability of code
         :param the_string:
@@ -47,10 +49,10 @@ class HostServiceType:
     __slots__ = ('endpoint_reference', 'types')
 
     def __init__(self,
-                 endpoint_reference: EndpointReferenceType,
+                 endpoint_reference: list,
                  types_list: List[QName]):
         """
-        :param endpoint_references: EndpointReferenceType
+        :param endpoint_references: list of etree_ nodes
         :param types_list: a list of etree.QName instances
         """
         self.endpoint_reference = endpoint_reference
@@ -67,9 +69,9 @@ class HostedServiceType:
                  endpoint_references_list: List[EndpointReferenceType],
                  types_list: List[QName],
                  service_id: str):
-        self.endpoint_references = endpoint_references_list
-        self.types = types_list
-        self.service_id = service_id
+        self.endpoint_references: List[EndpointReferenceType] = endpoint_references_list
+        self.types: List[QName] = types_list
+        self.service_id: str = service_id
 
     def __str__(self):
         return f'HostedServiceType: endpointReference={self.endpoint_references}, types="{self.types}" ' \
@@ -91,9 +93,9 @@ class ThisDeviceType:
         :param serial_number: any string
         """
         if isinstance(friendly_name, str):
-            self.friendly_name = LocalizedStringTypeDict({None:friendly_name})  # localized texts, default name
+            self.friendly_name = LocalizedStringTypeDict({None: friendly_name})  # localized texts, default name
         else:
-            assert(isinstance(friendly_name, LocalizedStringTypeDict))
+            assert (isinstance(friendly_name, LocalizedStringTypeDict))
             self.friendly_name = friendly_name
         self.firmware_version = firmware_version
         self.serial_number = serial_number
@@ -135,13 +137,13 @@ class ThisModelType:
         if isinstance(manufacturer, str):
             self.manufacturer = LocalizedStringTypeDict({None: manufacturer})
         else:
-            assert(isinstance(manufacturer, LocalizedStringTypeDict))
+            assert (isinstance(manufacturer, LocalizedStringTypeDict))
             self.manufacturer = manufacturer
         self.manufacturer_url = manufacturer_url
         if isinstance(model_name, str):
             self.model_name = LocalizedStringTypeDict({None: model_name})
         else:
-            assert(isinstance(model_name, LocalizedStringTypeDict))
+            assert (isinstance(model_name, LocalizedStringTypeDict))
             self.model_name = model_name
         self.model_number = model_number
         self.model_url = model_url
@@ -159,7 +161,6 @@ class ThisModelType:
             return True
         except AttributeError:
             return False
-
 
 # class LocalizedStringType(cp.NodeStringProperty):
 #     lang = cp.StringAttributeProperty(default_ns_helper.xmlTag('lang'))

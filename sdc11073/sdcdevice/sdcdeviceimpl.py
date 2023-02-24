@@ -145,9 +145,10 @@ class SdcDevice:
         self._host_dispatcher.register_post_handler(
             DispatchKey(f'{nsh.WSD.namespace}/Probe', nsh.wsdTag('Probe')),
             self._on_probe_request)
-
+        epr_type = EndpointReferenceType()
+        epr_type.Address = self.epr_urn
         self.dpws_host = HostServiceType(
-            endpoint_reference=EndpointReferenceType(self.epr_urn),
+            endpoint_reference=epr_type,
             types_list=self._mdib.sdc_definitions.MedicalDeviceTypesFilter)
 
         self._hosted_service_dispatcher = _PathElementDispatcher()

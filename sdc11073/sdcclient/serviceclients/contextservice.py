@@ -33,18 +33,13 @@ class ContextServiceClient(HostedServiceClient):
         @return: a concurrent.futures.Future object
         """
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         tmp = ', '.join([f'{st.__class__.__name__}(DescriptorHandle={st.DescriptorHandle}, handle={st.Handle})'
                          for st in proposed_context_states])
         self._logger.info('set_context_state {}', tmp)
         request = data_model.msg_types.SetContextState()
         request.OperationHandleRef = operation_handle
         request.ProposedContextState.extend(proposed_context_states)
-        payload_element = request.as_etree_node(request.NODETYPE,
-                                                nsh.partial_map(nsh.MSG, nsh.PM))
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
-                                                    request.action,
-                                                    payload_element)
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def get_context_states(self, handles=None, request_manipulator=None) -> GetRequestResult:
@@ -52,15 +47,10 @@ class ContextServiceClient(HostedServiceClient):
         :param handles: a list of handles
         """
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         request = data_model.msg_types.GetContextStates()
         if handles is not None:
             request.HandleRef.extend(handles)
-        payload_element = request.as_etree_node(request.NODETYPE,
-                                                nsh.partial_map(nsh.MSG, nsh.PM))
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
-                                                    request.action,
-                                                    payload_element)
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
         cls = received_message_data.msg_reader._msg_types.GetContextStatesResponse
         report = cls.from_node(received_message_data.p_msg.msg_node)
@@ -75,18 +65,13 @@ class ContextServiceClient(HostedServiceClient):
         :return:
         """
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         request = data_model.msg_types.GetContextStatesByIdentification()
         if identifications is not None:
             request.Identification.extend(identifications)
         request.ContextType = context_type
-        payload_element = request.as_etree_node(request.NODETYPE,
-                                                nsh.partial_map(nsh.MSG, nsh.PM))
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
-                                                    request.action,
-                                                    payload_element)
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
-        cls = received_message_data.msg_reader._msg_types.GetContextStatesByIdentificationResponse
+        cls = data_model.msg_types.GetContextStatesByIdentificationResponse
         report = cls.from_node(received_message_data.p_msg.msg_node)
         return GetRequestResult(received_message_data, report)
 
@@ -98,14 +83,9 @@ class ContextServiceClient(HostedServiceClient):
         :return: GetRequestResult
         """
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         request = data_model.msg_types.GetContextStatesByFilter()
         request.Filter.extend(filters)
-        payload_element = request.as_etree_node(request.NODETYPE,
-                                                nsh.partial_map(nsh.MSG, nsh.PM))
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
-                                                    request.action,
-                                                    payload_element)
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
         cls = data_model.msg_types.GetContextStatesByFilterResponse
         report = cls.from_node(received_message_data.p_msg.msg_node)

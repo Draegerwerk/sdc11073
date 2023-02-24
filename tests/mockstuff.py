@@ -13,10 +13,9 @@ from sdc11073.addressing import Address
 from sdc11073.dpws import ThisModelType, ThisDeviceType
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.namespaces import default_ns_helper as ns_hlp
-from sdc11073.pysoap.msgreader import SubscribeRequest, ReferenceParameters
 from sdc11073.sdcdevice import SdcDevice
 from sdc11073.sdcdevice.subscriptionmgr import DevSubscription
-
+from sdc11073.eventing_types import Subscribe
 if TYPE_CHECKING:
     import uuid
 
@@ -72,10 +71,12 @@ class TestDevSubscription(DevSubscription):
         identNode.text = self.notifyRef
         base_urls = [urllib.parse.SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
         accepted_encodings = ['foo']  # not needed here
-        subscribe_request = SubscribeRequest(accepted_encodings, filter_, self.notify_to,
-                                             ReferenceParameters([notify_ref_node]), None, None, self.mode,
-                                             self.expires)
-        super().__init__(subscribe_request, base_urls, 42, msg_factory=msg_factory)
+        subscribe_request = Subscribe()
+        subscribe_request.set_filter(' '.join(filter_))
+        subscribe_request.Delivery.NotifyTo.Address = self.notify_to
+        subscribe_request.Delivery.NotifyTo.ReferenceParameters = [notify_ref_node]
+        subscribe_request.Delivery.NotifyTo.Mode = self.mode
+        super().__init__(subscribe_request, accepted_encodings, base_urls, 42, msg_factory=msg_factory, log_prefix='test')
         self.reports = []
 
     def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):

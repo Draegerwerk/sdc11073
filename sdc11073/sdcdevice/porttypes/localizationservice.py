@@ -217,7 +217,6 @@ class LocalizationService(DPWSPortTypeBase):
 
     def _on_get_localized_text(self, request_data):
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         self._logger.debug('_on_get_localized_text')
         cls = data_model.msg_types.GetLocalizedText
         get_localized_text = cls.from_node(request_data.message_data.p_msg.msg_node)
@@ -226,30 +225,20 @@ class LocalizationService(DPWSPortTypeBase):
                                                                  get_localized_text.Lang,
                                                                  get_localized_text.TextWidth,
                                                                  get_localized_text.NumberOfLines)
-        action = self.actions.GetLocalizedTextResponse
-        reply_address = request_data.message_data.p_msg.address.mk_reply_address(action=action)
         response = data_model.msg_types.GetLocalizedTextResponse()
         response.Text.extend(texts)
         response.set_mdib_version_group(self._mdib.mdib_version_group)
-        payload = response.as_etree_node(data_model.msg_names.GetLocalizedTextResponse,
-                                         nsh.partial_map(nsh.MSG, nsh.PM))
-        response_envelope= self._sdc_device.msg_factory.mk_reply_soap_message(reply_address, payload)
+        response_envelope = self._sdc_device.msg_factory.mk_reply_soap_message(request_data, response)
         return response_envelope
 
     def _on_get_supported_languages(self, request_data):
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         self._logger.debug('_on_get_supported_languages')
         languages = self.localization_storage.get_supported_languages()
-
-        action = self.actions.GetSupportedLanguagesResponse
-        reply_address = request_data.message_data.p_msg.address.mk_reply_address(action=action)
         response = data_model.msg_types.GetSupportedLanguagesResponse()
         response.Lang.extend(languages)
         response.set_mdib_version_group(self._mdib.mdib_version_group)
-        payload = response.as_etree_node(data_model.msg_names.GetSupportedLanguagesResponse,
-                                         nsh.partial_map(nsh.MSG, nsh.PM))
-        response_envelope = self._sdc_device.msg_factory.mk_reply_soap_message(reply_address, payload)
+        response_envelope = self._sdc_device.msg_factory.mk_reply_soap_message(request_data, response)
         return response_envelope
 
     def add_wsdl_port_type(self, parent_node):

@@ -6,26 +6,29 @@ import time
 import traceback
 import uuid
 from collections import deque
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 from urllib.parse import urlparse
 
 from lxml import etree as etree_
+
+from ..httpserver.compression import CompressionHandler
 
 from .. import isoduration
 from .. import loghelper
 from .. import multikey
 from .. import observableproperties
-from ..addressing import ReferenceParameters, Address
+from ..addressing import Address
 from ..etc import apply_map, short_filter_string
 from ..pysoap.soapclient import HTTPReturnCodeError
 from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
 from ..pysoap.soapclientpool import SoapClientPool
+from .. import eventing_types as evt_types
 
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
     from ..pysoap.msgfactory import MessageFactoryDevice, CreatedMessage
     from ..dispatch import RequestData
-    from ..pysoap.msgreader import SubscribeRequest
+    from urllib.parse import SplitResult
 
 MAX_ROUNDTRIP_VALUES = 20
 
@@ -49,13 +52,13 @@ class _RoundTripData:
         return f'min={self.min:.4f} max={self.max:.4f} avg={self.avg:.4f} absmax={self.abs_max:.4f}'
 
 
-def _mk_dispatch_identifier(reference_parameters: ReferenceParameters, path_suffix: str):
+def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
     # this is always our own reference parameter. We know that is has max. one element,
     # and the text is the identifier of the subscription
     if path_suffix == '':
         path_suffix = None
-    if reference_parameters.has_parameters:
-        return reference_parameters.parameters[0].text, path_suffix
+    if len(reference_parameters) > 0:
+        return reference_parameters[0].text, path_suffix
     return None, path_suffix
 
 
@@ -63,7 +66,12 @@ class SubscriptionBase:
     MAX_NOTIFY_ERRORS = 1
     IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
 
-    def __init__(self, subscribe_request, base_urls, max_subscription_duration, msg_factory):
+    def __init__(self, subscribe_request: evt_types.Subscribe,
+                 accepted_encodings: List[str],
+                 base_urls: List[SplitResult],
+                 max_subscription_duration: int,
+                 msg_factory: MessageFactoryDevice,
+                 log_prefix: str):
         """
 
         :param subscribe_request:
@@ -71,31 +79,36 @@ class SubscriptionBase:
         :param max_subscription_duration:
         :param msg_factory:
         """
-        self.mode = subscribe_request.mode
+        self._logger = loghelper.get_logger_adapter('sdc.device.subscrMgr', log_prefix)
         self.base_urls = base_urls
         self._msg_factory = msg_factory
-        self.notify_to_address = subscribe_request.notify_to_address
-        self.notify_to_url = urlparse(subscribe_request.notify_to_address)
 
-        self.notify_ref_params = subscribe_request.notify_ref_params
+        self.mode = subscribe_request.Delivery.Mode
+        self.notify_to_address = subscribe_request.Delivery.NotifyTo.Address
+        self.notify_to_url = urlparse(self.notify_to_address)
+        self.notify_ref_params = subscribe_request.Delivery.NotifyTo.ReferenceParameters
+        self.end_to_ref_params = []
+        if subscribe_request.EndTo is not None:
+            self.end_to_address = subscribe_request.EndTo.Address
+            self.end_to_ref_params = subscribe_request.EndTo.ReferenceParameters
+            if self.end_to_address is not None:
+                self._end_to_url = urlparse(self.end_to_address)
+            else:
+                self._end_to_url = None
 
-        self.end_to_address = subscribe_request.end_to_address
-        if self.end_to_address is not None:
-            self._end_to_url = urlparse(self.end_to_address)
-        else:
-            self._end_to_url = None
-        self.end_to_ref_params = subscribe_request.end_to_ref_params
+
         self.identifier_uuid = uuid.uuid4()
-        self.reference_parameters = ReferenceParameters(None)  # default: no reference parameters
+        self.reference_parameters = []  # default: no reference parameters
         self.path_suffix = None  # used for path based dispatching
 
         self._max_subscription_duration = max_subscription_duration
         self._started = None
         self._expire_seconds = None
-        self.renew(subscribe_request.expires)  # sets self._started and self._expire_seconds
-        self.filters = subscribe_request.subscription_filters
-
-        self._accepted_encodings = subscribe_request.accepted_encodings
+        self.renew(subscribe_request.Expires)  # sets self._started and self._expire_seconds
+        self.filters = None
+        if subscribe_request.Filter is not None:
+            self.filters = subscribe_request.Filter.text.split()
+        self._accepted_encodings = accepted_encodings
         self._soap_client = None
 
         self.notify_errors = 0
@@ -109,7 +122,7 @@ class SubscriptionBase:
         """Create a ReferenceParameters instance with a reference parameter"""
         reference_parameter = etree_.Element(self.IDENT_TAG)
         reference_parameter.text = self.identifier_uuid.hex
-        self.reference_parameters = ReferenceParameters([reference_parameter])
+        self.reference_parameters.append(reference_parameter)
 
     def set_soap_client(self, soap_client):
         self._soap_client = soap_client
@@ -164,7 +177,14 @@ class SubscriptionBase:
             return
         if self._soap_client is None:
             return
-        message = self._msg_factory.mk_notification_end_message(self, my_addr, code, reason)
+        subscription_end = evt_types.SubscriptionEnd()
+        subscription_end.SubscriptionManager.Address = my_addr
+        subscription_end.SubscriptionManager.ReferenceParameters = self.reference_parameters
+        subscription_end.Status = code
+        subscription_end.add_reason(reason, 'en-US')
+        message = self._msg_factory.mk_soap_message(self.end_to_address or self.notify_to_address,
+                                                    subscription_end)
+        #message = self._msg_factory.mk_notification_end_message(self, my_addr, code, reason)
         try:
             url = self._end_to_url or self.notify_to_url
             self._soap_client.post_message_to(url.path, message,
@@ -202,6 +222,7 @@ class SubscriptionBase:
 
     def short_filter_names(self):
         return tuple([f.split('/')[-1] for f in self.filters])
+
 
 class DevSubscription(SubscriptionBase):
 
@@ -267,22 +288,37 @@ class SubscriptionsManagerBase:
     def set_base_urls(self, base_urls):
         self.base_urls = base_urls
 
-    def _mk_subscription_instance(self, subscribe_request):
-        return DevSubscription(subscribe_request, self.base_urls, self._max_subscription_duration,
-                                msg_factory=self._msg_factory)
+    def _mk_subscription_instance(self, request_data: RequestData):
+        subscribe_request = evt_types.Subscribe.from_node(request_data.message_data.p_msg.msg_node)
+        accepted_encodings = CompressionHandler.parse_header(request_data.http_header.get('Accept-Encoding'))
+        return DevSubscription(subscribe_request, accepted_encodings, self.base_urls, self._max_subscription_duration,
+                                msg_factory=self._msg_factory, log_prefix=self._logger.log_prefix)
 
-    def on_subscribe_request(self, request_data: RequestData,
-                             subscribe_request: SubscribeRequest) -> CreatedMessage:
-
-        subscription = self._mk_subscription_instance(subscribe_request)
+    def on_subscribe_request(self, request_data: RequestData) -> CreatedMessage:
+        subscription = self._mk_subscription_instance(request_data)
         # assign a soap client
+        accepted_encodings = CompressionHandler.parse_header(request_data.http_header.get('Accept-Encoding'))
+
         key = subscription.notify_to_url.netloc
-        soap_client = self._soap_client_pool.get_soap_client(key, subscribe_request.accepted_encodings, self)
+        soap_client = self._soap_client_pool.get_soap_client(key, accepted_encodings, self)
         subscription.set_soap_client(soap_client)
         with self._subscriptions.lock:
             self._subscriptions.add_object(subscription)
         self._logger.info('new {}', subscription)
-        response = self._msg_factory.mk_subscribe_response_message(request_data, subscription, self.base_urls)
+        response = self._mk_subscribe_response_message(request_data, subscription, self.base_urls)
+        return response
+
+
+    def _mk_subscribe_response_message(self, request_data, subscription, base_urls) -> CreatedMessage:
+        subscribe_response = evt_types.SubscribeResponse()
+
+        path = '/'.join(request_data.consumed_path_elements)
+        path_suffix = '' if subscription.path_suffix is None else f'/{subscription.path_suffix}'
+        subscription_address = f'{base_urls[0].scheme}://{base_urls[0].netloc}/{path}{path_suffix}'
+        subscribe_response.SubscriptionManager.Address = subscription_address
+        subscribe_response.SubscriptionManager.ReferenceParameters = subscription.reference_parameters
+        subscribe_response.Expires = subscription.remaining_seconds
+        response = self._msg_factory.mk_reply_soap_message(request_data, subscribe_response)
         return response
 
     def on_unsubscribe_request(self, request_data: RequestData) -> CreatedMessage:
@@ -309,6 +345,8 @@ class SubscriptionsManagerBase:
         return response
 
     def on_get_status_request(self, request_data: RequestData) -> CreatedMessage:
+        data_model = self.sdc_definitions.data_model
+
         self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.p_msg.raw_data)
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
@@ -318,23 +356,33 @@ class SubscriptionsManagerBase:
                               )
             response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
         else:
-            response = self._msg_factory.mk_getstatus_response_message(request_data, subscription.remaining_seconds)
+            get_status_response = evt_types.GetStatusResponse()
+            get_status_response.Expires = subscription.remaining_seconds
+            nsh = data_model.ns_helper
+            ns_map = nsh.partial_map(nsh.WSE, nsh.WSA)
+            response = self._msg_factory.mk_reply_soap_message(request_data,
+                                                                get_status_response,
+                                                                ns_map)
         return response
 
     def on_renew_request(self, request_data: RequestData) -> CreatedMessage:
-        reader = request_data.message_data.msg_reader
-        expires = reader.read_renew_request(request_data.message_data)
+        data_model = self.sdc_definitions.data_model
+        renew = evt_types.Renew.from_node(request_data.message_data.p_msg.msg_node)
+        expires = renew.Expires
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
             fault = SoapFault(code=FaultCodeEnum.RECEIVER,
                               reason='unknown Subscription identifier',
-                              sub_code=self.sdc_definitions.data_model.ns_helper.wseTag('UnableToRenew')
+                              sub_code=data_model.ns_helper.wseTag('UnableToRenew')
                               )
             response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
-
         else:
             subscription.renew(expires)
-            response = self._msg_factory.mk_renew_response_message(request_data, subscription.remaining_seconds)
+            renew_response = evt_types.RenewResponse()
+            renew_response.Expires = subscription.remaining_seconds
+            nsh = data_model.ns_helper
+            ns_map = nsh.partial_map(nsh.WSE, nsh.WSA)
+            response = self._msg_factory.mk_reply_soap_message(request_data, renew_response, ns_map)
         return response
 
     def stop_all(self, send_subscription_end: bool):
@@ -349,7 +397,7 @@ class SubscriptionsManagerBase:
 
     def _get_subscription_for_request(self, request_data):
         reader = request_data.message_data.msg_reader
-        reference_parameters = reader.read_header_reference_parameters(request_data.message_data)
+        reference_parameters = self.read_header_reference_parameters(request_data)
         path_suffix = '/'.join(request_data.path_elements)  # not consumed path elements
         dispatch_identifier = _mk_dispatch_identifier(reference_parameters, path_suffix)
         with self._subscriptions.lock:
@@ -358,6 +406,15 @@ class SubscriptionsManagerBase:
             self._logger.warning('{}: unknown Subscription identifier "{}" from {}',
                                  request_data.message_data.q_name, dispatch_identifier, request_data.peer_name)
         return subscription
+
+    @staticmethod
+    def read_header_reference_parameters(request_data) -> List[etree_._Element]:
+        reference_parameter_nodes = []
+        for header_element in request_data.message_data.p_msg.header_node:
+            is_reference_parameter = header_element.attrib.get('IsReferenceParameter', 'false')
+            if is_reference_parameter.lower() == 'true':
+                reference_parameter_nodes.append(header_element)
+        return reference_parameter_nodes
 
     def send_to_subscribers(self, body_node, action, mdib_version_group, nsmapper, what):
         subscribers = self._get_subscriptions_for_action(action)
@@ -448,8 +505,8 @@ class SubscriptionsManagerBase:
 class SubscriptionsManagerPath(SubscriptionsManagerBase):
     """This implementation uses path dispatching to identify subscriptions."""
 
-    def _mk_subscription_instance(self, subscribe_request):
-        subscription = super()._mk_subscription_instance(subscribe_request)
+    def _mk_subscription_instance(self, request_data: RequestData):
+        subscription = super()._mk_subscription_instance(request_data)
         subscription.path_suffix = subscription.identifier_uuid.hex
         return subscription
 
@@ -457,8 +514,8 @@ class SubscriptionsManagerPath(SubscriptionsManagerBase):
 class SubscriptionsManagerReferenceParam(SubscriptionsManagerBase):
     """This implementation uses reference parameters to identify subscriptions."""
 
-    def _mk_subscription_instance(self, subscribe_request):
-        subscription = super()._mk_subscription_instance(subscribe_request)
+    def _mk_subscription_instance(self, request_data: RequestData):
+        subscription = super()._mk_subscription_instance(request_data)
         # add  a reference parameter
         subscription.set_reference_parameter()
         return subscription

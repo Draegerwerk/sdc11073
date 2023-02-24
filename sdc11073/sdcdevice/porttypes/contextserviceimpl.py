@@ -91,14 +91,10 @@ class ContextService(ServiceWithOperations):
                             context_state_containers_lookup[state.Handle] = state
                 context_state_containers = context_state_containers_lookup.values()
 
-        action = self.actions.GetContextStatesResponse
-        reply_address = request_data.message_data.p_msg.address.mk_reply_address(action=action)
         response = data_model.msg_types.GetContextStatesResponse()
         response.ContextState.extend(context_state_containers)
         response.set_mdib_version_group(self._mdib.mdib_version_group)
-        payload = response.as_etree_node(data_model.msg_names.GetContextStatesResponse,
-                                         nsh.partial_map(nsh.MSG, nsh.PM))
-        response_envelope = self._sdc_device.msg_factory.mk_reply_soap_message(reply_address, payload)
+        response_envelope = self._sdc_device.msg_factory.mk_reply_soap_message(request_data, response)
         return response_envelope
 
     def add_wsdl_port_type(self, parent_node):
@@ -114,15 +110,14 @@ class ContextService(ServiceWithOperations):
         data_model = self._sdc_definitions.data_model
         nsh = data_model.ns_helper
         subscription_mgr = self.hosting_service.subscriptions_manager
-        action = self._sdc_definitions.Actions.EpisodicContextReport
-        report = data_model.msg_types.AbstractContextReport()
+        report = data_model.msg_types.EpisodicContextReport()
         report.set_mdib_version_group(mdib_version_group)
         fill_episodic_report_body(report, states)
         ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        body_node = report.as_etree_node(data_model.msg_names.EpisodicContextReport, ns_map)
+        body_node = report.as_etree_node(report.NODETYPE, ns_map)
 
         self._logger.debug('sending episodic context report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper,
+        subscription_mgr.send_to_subscribers(body_node, report.action, mdib_version_group, nsmapper,
                                              'send_episodic_context_report')
 
     def send_periodic_context_report(self, periodic_states_list: List[PeriodicStates],
@@ -131,15 +126,14 @@ class ContextService(ServiceWithOperations):
         data_model = self._sdc_definitions.data_model
         nsh = data_model.ns_helper
         subscription_mgr = self.hosting_service.subscriptions_manager
-        action = self._sdc_definitions.Actions.PeriodicContextReport
-        report = data_model.msg_types.AbstractContextReport()
+        report = data_model.msg_types.PeriodicContextReport()
         report.set_mdib_version_group(mdib_version_group)
         actual_mdib_version = periodic_states_list[-1].mdib_version
         report.MdibVersion = actual_mdib_version
         fill_periodic_report_body(report, periodic_states_list)
         ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        body_node = report.as_etree_node(data_model.msg_names.PeriodicContextReport, ns_map)
+        body_node = report.as_etree_node(report.NODETYPE, ns_map)
         self._logger.debug('sending periodic context report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper,
+        subscription_mgr.send_to_subscribers(body_node, report.action, mdib_version_group, nsmapper,
                                              'send_periodic_context_report')

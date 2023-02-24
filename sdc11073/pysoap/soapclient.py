@@ -4,7 +4,9 @@
 Using lxml based SoapEnvelope."""
 from __future__ import annotations
 
-import http.client as httplib
+from http.client import HTTPConnection, HTTPSConnection
+from http.client import HTTPException, HTTPResponse
+from http.client import CannotSendRequest, BadStatusLine, NotConnected, UnknownTransferEncoding
 import socket
 import sys
 import time
@@ -27,19 +29,19 @@ if TYPE_CHECKING:
     from ..loghelper import LoggerAdapter
 
 
-class HTTPConnectionNoDelay(httplib.HTTPConnection):
+class HTTPConnectionNoDelay(HTTPConnection):
     def connect(self):
-        httplib.HTTPConnection.connect(self)
+        HTTPConnection.connect(self)
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
 
 
-class HTTPSConnectionNoDelay(httplib.HTTPSConnection):
+class HTTPSConnectionNoDelay(HTTPSConnection):
     def connect(self):
-        httplib.HTTPSConnection.connect(self)
+        HTTPSConnection.connect(self)
         self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
 
 
-class HTTPReturnCodeError(httplib.HTTPException):
+class HTTPReturnCodeError(HTTPException):
     """ This class is used to map http return codes to Python exceptions."""
 
     def __init__(self, status, reason, soap_fault):
@@ -180,7 +182,7 @@ class SoapClient:
             raise HTTPReturnCodeError(http_response.status, http_response.reason, soap_fault)
         return message_data
 
-    def _send_soap_request(self, path, xml, msg) -> (httplib.HTTPResponse, str):
+    def _send_soap_request(self, path, xml, msg) -> (HTTPResponse, str):
         """Send SOAP request using HTTP"""
         if not isinstance(xml, bytes):
             xml = xml.encode('utf-8')
@@ -216,7 +218,7 @@ class SoapClient:
             try:
                 self._http_connection.request('POST', path, body=xml, headers=headers)
                 return True, do_reopen  # success = True
-            except httplib.CannotSendRequest as ex:
+            except CannotSendRequest as ex:
                 # for whatever reason the response of the previous call was not read. read it and try again
                 self._log.warn(
                     "{}: could not send request, got error '{}'. Will read response and retry", msg, ex)
@@ -234,10 +236,10 @@ class SoapClient:
                                self._netloc, path, ex, traceback.format_exc())
             return False, do_reopen  # success = False
 
-        def get_response() -> httplib.HTTPResponse:
+        def get_response() -> HTTPResponse:
             try:
                 return self._http_connection.getresponse()
-            except httplib.BadStatusLine as ex:
+            except BadStatusLine as ex:
                 self._log.warn("{}: invalid http response, error= {!r} ", msg, ex)
                 raise
             except OSError as ex:
@@ -246,11 +248,11 @@ class SoapClient:
                 else:
                     self._log.warn("{}: could not receive response, OSError={} ({!r})\n{}", msg, ex.errno,
                                    ex, traceback.format_exc())
-                raise httplib.NotConnected()
+                raise NotConnected()
             except Exception as ex:
                 self._log.warn("{}: POST to netloc='{}' path='{}': could not receive response, error={!r}\n{}",
                                msg, self._netloc, path, ex, traceback.format_exc())
-                raise httplib.NotConnected()
+                raise NotConnected()
 
         def reopen_http_connection():
             self._log.info("{}: will close and reopen the connection and then try again", msg)
@@ -259,12 +261,12 @@ class SoapClient:
                 self._http_connection.connect()
                 return
             except ConnectionRefusedError as ex:
-                self._log.error("{}: could not reopen the connection, error={}", msg, ex)
+                self._log.warning("{}: could not reopen the connection, error={}", msg, ex)
             except Exception as ex:
-                self._log.error("{}: could not reopen the connection, error={!r}\n{}\ncall-stack ={}",
+                self._log.warning("{}: could not reopen the connection, error={!r}\n{}\ncall-stack ={}",
                                 msg, ex, traceback.format_exc(), ''.join(traceback.format_stack()))
             self._http_connection.close()
-            raise httplib.NotConnected()
+            raise NotConnected()
 
         with self._lock:
             _retry_send = 2  # ugly construct that allows to retry sending the request once
@@ -275,17 +277,17 @@ class SoapClient:
                     if _do_reopen:
                         reopen_http_connection()
                     else:
-                        raise httplib.NotConnected()
+                        raise NotConnected()
                 else:
                     try:
                         response = get_response()
                         _retry_send = -1  # -1 == SUCCESS
-                    except httplib.NotConnected:
+                    except NotConnected:
                         self._log.info("{}: will reopen after get_response error", msg)
                         reopen_http_connection()
 
             if _retry_send != -1:
-                raise httplib.NotConnected()
+                raise NotConnected()
 
             content = HTTPReader.read_response_body(response)
 
@@ -327,7 +329,7 @@ class SoapClient:
                     content = CompressionHandler.decompress_payload(enc, _content)
                 else:
                     self._log.warn("{}: unsupported compression ", headers['content-encoding'])
-                    raise httplib.UnknownTransferEncoding
+                    raise UnknownTransferEncoding
             else:
                 content = _content
         return content

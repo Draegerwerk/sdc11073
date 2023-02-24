@@ -294,19 +294,14 @@ class PropertyBasedPMType:
         return _get_pmtypes_class(xsi_type)
 
 
-class ElementWithTextOnly(PropertyBasedPMType):
+class ElementWithText(PropertyBasedPMType):
     NODETYPE = None
     text = cp.NodeStringProperty()  # this is the text of the node. Here attribute is lower case!
     _props = ['text']
     '''An Element that has no attributes, only a text.'''
 
-    def __init__(self, text):
+    def __init__(self, text=None):
         self.text = text
-
-    @classmethod
-    def from_node(cls, node):
-        text = node.text
-        return cls(text)
 
 
 class LocalizedText(PropertyBasedPMType):

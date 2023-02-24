@@ -13,7 +13,7 @@ from .. import loghelper
 from ..definitions_base import ProtocolsRegistry
 from ..definitions_sdc import SDC_v1_Definitions
 from ..observableproperties import ObservableProperty
-from ..pysoap.msgreader import MessageReaderDevice
+from ..pysoap.msgreader import MessageReader
 
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
@@ -122,7 +122,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
     def from_mdib_file(cls,
                        path: str,
                        protocol_definition: Optional[Type[BaseDefinitions]] = None,
-                       xml_reader_class: Optional[Type[MessageReaderDevice]] = MessageReaderDevice,
+                       xml_reader_class: Optional[Type[MessageReader]] = MessageReader,
                        log_prefix: Optional[str] = None):
         """
         An alternative constructor for the class
@@ -143,7 +143,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
     def from_string(cls,
                     xml_text: bytes,
                     protocol_definition: Optional[Type[BaseDefinitions]] = None,
-                    xml_reader_class: Optional[Type[MessageReaderDevice]] = MessageReaderDevice,
+                    xml_reader_class: Optional[Type[MessageReader]] = MessageReader,
                     log_prefix: Optional[str] = None):
         """
         An alternative constructor for the class

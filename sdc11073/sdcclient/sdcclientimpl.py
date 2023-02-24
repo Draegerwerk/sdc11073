@@ -26,7 +26,7 @@ from ..exceptions import ApiUsageError
 from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..namespaces import EventingActions
-
+from .. import mex_types
 if TYPE_CHECKING:
     from ..metadata import MetaData
 
@@ -43,12 +43,13 @@ class HostDescription:
 
 
 class HostedServiceDescription:
-    def __init__(self, service_id, endpoint_address, msg_reader, msg_factory,
+    def __init__(self, service_id, endpoint_address, msg_reader, msg_factory, data_model,
                  log_prefix=''):
         self._endpoint_address = endpoint_address
         self.service_id = service_id
         self._msg_reader = msg_reader
         self._msg_factory = msg_factory
+        self._data_model = data_model
         self.log_prefix = log_prefix
         self.meta_data = None
         self.wsdl_string = None
@@ -58,7 +59,9 @@ class HostedServiceDescription:
         self.services = {}
 
     def read_metadata(self, soap_client):
-        created_message = self._msg_factory.mk_get_metadata_message(self._endpoint_address)
+        payload = mex_types.GetMetadata()
+        created_message = self._msg_factory.mk_soap_message(self._endpoint_address,
+                                                            payload)
         message_data = soap_client.post_message_to(self._url.path,
                                                    created_message,
                                                    msg=f'<{self.service_id}> read_metadata')
@@ -415,6 +418,7 @@ class SdcClient:
         subscription_manager_class = self._components.subscription_manager_class
         self._subscription_mgr = subscription_manager_class(self.msg_reader,
                                                             self._msg_factory,
+                                                            self.sdc_definitions.data_model,
                                                             self.get_soap_client,
                                                             self.base_url,
                                                             log_prefix=self.log_prefix,
@@ -502,7 +506,10 @@ class SdcClient:
             self.binary_peer_certificate = sock.getpeercert(binary_form=True)  # in case the application needs it...
 
             self._logger.info('Peer Certificate: {}', self.peer_certificate)
-        message = self._msg_factory.mk_transfer_get_message(self._device_location)
+        nsh = self.sdc_definitions.data_model.ns_helper
+        message = self._msg_factory.mk_soap_message_etree_payload(self._device_location,
+                                                                  f'{nsh.WXF.namespace}/Get',
+                                                                  payload_element=None)
         received_message_data = wsc.post_message_to(_url.path, message, msg='getMetadata')
         return self.msg_reader.read_get_metadata_response(received_message_data)
 
@@ -538,7 +545,7 @@ class SdcClient:
 
     def _mk_hosted_services(self, host_description):
         for hosted in host_description.relationship.hosted.values():
-            endpoint_reference = hosted.endpoint_references[0].address
+            endpoint_reference = hosted.endpoint_references[0].Address
             soap_client = self.get_soap_client(endpoint_reference)
             #hosted.soap_client = soap_client
             if hosted.types is not None:
@@ -547,7 +554,7 @@ class SdcClient:
                 ns_types = []
             h_descr = HostedServiceDescription(
                 hosted.service_id, endpoint_reference,
-                self.msg_reader, self._msg_factory, self.log_prefix)
+                self.msg_reader, self._msg_factory, self.sdc_definitions.data_model, self.log_prefix)
             self.hosted_services[hosted.service_id] = h_descr
             h_descr.read_metadata(soap_client)
             for _, port_type in ns_types:

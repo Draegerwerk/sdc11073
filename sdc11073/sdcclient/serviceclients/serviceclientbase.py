@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 import urllib
 import weakref
 from concurrent.futures import Future
-from typing import Any, List
+from typing import Any, List, TYPE_CHECKING
 
 from ... import loghelper
+from ...dispatch import DispatchKey
 from ...exceptions import ApiUsageError
 from ...pysoap.msgreader import ReceivedMessage
-from ...dispatch import DispatchKey
+
+if TYPE_CHECKING:
+    from ...addressing import EndpointReferenceType
 
 
 class GetRequestResult:
@@ -58,8 +63,8 @@ class HostedServiceClient:
         self._sdc_definitions = sdc_client.sdc_definitions
         self._msg_factory = sdc_client._msg_factory
         self.log_prefix = sdc_client.log_prefix
-        self.endpoint_reference = dpws_hosted.endpoint_references[0]
-        self._url = urllib.parse.urlparse(self.endpoint_reference.address)
+        self.endpoint_reference: EndpointReferenceType = dpws_hosted.endpoint_references[0]
+        self._url = urllib.parse.urlparse(self.endpoint_reference.Address)
         self._porttype = port_type
         self._logger = loghelper.get_logger_adapter(f'sdc.client.{port_type}', self.log_prefix)
         self._operations_manager = None
@@ -100,4 +105,3 @@ class HostedServiceClient:
 
         return self.soap_client.post_message_to(self._url.path, created_message, msg=msg,
                                                 request_manipulator=request_manipulator)
-

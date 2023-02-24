@@ -4,15 +4,14 @@ import copy
 import traceback
 from collections import namedtuple
 from dataclasses import dataclass, field
-from typing import List, Dict, Union, Optional
+from typing import Union
 
 from lxml import etree as etree_
 
 from sdc11073.namespaces import QN_TYPE, text_to_qname
 from .soapenvelope import SoapFault, FaultCodeEnum, ReceivedSoapMessage
-from .. import isoduration
-from ..addressing import EndpointReferenceType, Address, ReferenceParameters
-from ..httpserver.compression import CompressionHandler
+from ..addressing import Address
+from ..addressing import EndpointReferenceType
 from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
 from ..dpws import LocalizedStringTypeDict
 from ..dpws import ThisDeviceType, ThisModelType, HostServiceType, HostedServiceType, Relationship
@@ -65,35 +64,8 @@ class MdibStructureError(Exception):
 
 
 OperationRequest = namedtuple('OperationRequest', 'operation_handle argument')
-OperationResult = namedtuple('OperationResult', 'result soapEnvelope')
-
-OperationReportResult = namedtuple('OperationReportResult', 'operation_report_parts soapEnvelope')
 
 SubscriptionEndResult = namedtuple('SubscriptionEndResult', 'status_list reason_list reference_parameter_list')
-LocalizedTextsRequest = namedtuple('LocalizedTextsRequest',
-                                   'requested_handles requested_versions requested_langs text_widths number_of_lines')
-
-
-@dataclass(frozen=True)
-class SubscribeRequest:
-    accepted_encodings: List[str]
-    subscription_filters: List[str]
-    notify_to_address: str
-    notify_ref_params: ReferenceParameters
-    end_to_address: Union[str, None]
-    end_to_ref_params: Union[ReferenceParameters, None]
-    mode: str
-    expires: float
-    any_nodes:Optional[List[etree_.Element]] = None
-    any_attributes:Optional[Dict[str,str]] = None
-
-
-@dataclass(frozen=True)
-class SubscribeResult:
-    subscription_manager_address: str
-    reference_param: ReferenceParameters
-    expire_seconds: float
-
 
 @dataclass
 class MdibVersionGroupReader:
@@ -260,7 +232,11 @@ class MessageReader:
         address_node = root_node.find(ns_hlp.wsaTag('Address'))
         address = address_node.text
         reference_parameters_node = root_node.find(ns_hlp.wsaTag('ReferenceParameters'))
-        return EndpointReferenceType(address, reference_parameters_node)
+        ret = EndpointReferenceType()
+        ret.Address = address
+        if reference_parameters_node  is not None:
+            return ret.ReferenceParameters.extend(reference_parameters_node[:])
+        return ret
 
     def _mk_address_from_header(self, root_node):
         ns_hlp = self.ns_hlp
@@ -287,8 +263,7 @@ class MessageReader:
         if reference_parameters_node is None:
             reference_parameters = None
         else:
-            reference_parameters = ReferenceParameters(reference_parameters_node[:])
-
+            reference_parameters = reference_parameters_node[:]
         return Address(message_id=message_id,
                        addr_to=addr_to,
                        action=action,
@@ -344,37 +319,6 @@ class MessageReader:
 
 
 class MessageReaderClient(MessageReader):
-
-    def read_subscribe_response(self, message_data: ReceivedMessage) -> SubscribeResult:
-        msg_node = message_data.p_msg.msg_node
-        ns = {'wse': self.ns_hlp.WSE.namespace, 'wsa': self.ns_hlp.WSA.namespace}
-        address = msg_node.xpath('wse:SubscriptionManager/wsa:Address/text()', namespaces=ns)
-        reference_params = msg_node.xpath('wse:SubscriptionManager/wsa:ReferenceParameters',
-                                          namespaces=ns)
-        reference_param = None if len(reference_params) == 0 else reference_params[0]
-        expires = msg_node.xpath('wse:Expires/text()', namespaces=ns)
-
-        subscription_manager_address = address[0]
-        expire_seconds = isoduration.parse_duration(expires[0])
-        return SubscribeResult(subscription_manager_address, ReferenceParameters(reference_param), expire_seconds)
-
-    def read_renew_response(self, message_data: ReceivedMessage) -> [float, None]:
-        ns = {'wse': self.ns_hlp.WSE.namespace, 'wsa': self.ns_hlp.WSA.namespace}
-        expires = message_data.p_msg.body_node.xpath('wse:RenewResponse/wse:Expires/text()',
-                                                     namespaces=ns)
-        if len(expires) == 0:
-            return None
-        expire_seconds = isoduration.parse_duration(expires[0])
-        return expire_seconds
-
-    def read_get_status_response(self, message_data: ReceivedMessage) -> [float, None]:
-        ns = {'wse': self.ns_hlp.WSE.namespace, 'wsa': self.ns_hlp.WSA.namespace}
-        expires = message_data.p_msg.body_node.xpath('wse:GetStatusResponse/wse:Expires/text()',
-                                                     namespaces=ns)
-        if len(expires) == 0:
-            return None
-        expire_seconds = isoduration.parse_duration(expires[0])
-        return expire_seconds
 
     def read_subscription_end_message(self, message_data: ReceivedMessage) -> SubscriptionEndResult:
         ns = {'wse': self.ns_hlp.WSE.namespace, 'wsa': self.ns_hlp.WSA.namespace}
@@ -474,86 +418,3 @@ class MessageReaderClient(MessageReader):
             types = types.split()
         service_id = _get_text(root_node, self.ns_hlp.dpwsTag('ServiceId'), )
         return HostedServiceType(endpoint_references, types, service_id)
-
-
-class MessageReaderDevice(MessageReader):
-    """Contains methods that are only used by device"""
-
-    def read_subscribe_request(self, request_data) -> SubscribeRequest:
-        envelope = request_data.message_data.p_msg
-        accepted_encodings = CompressionHandler.parse_header(request_data.http_header.get('Accept-Encoding'))
-        ns = {'wse': self.ns_hlp.WSE.namespace, 'wsa': self.ns_hlp.WSA.namespace}
-
-        subscribe_node = envelope.body_node.find(self.ns_hlp.wseTag('Subscribe'))
-        subscribe_node_children = subscribe_node[:]
-        index = 0
-        # read optional EndTo element
-        end_to_ref = None
-        end_to_address = None
-        if subscribe_node_children[index].tag == self.ns_hlp.wseTag('EndTo'):
-            end_to_node = subscribe_node_children[index]
-            end_to_address = end_to_node.find(self.ns_hlp.wsaTag('Address')).text
-            end_to_ref_node = end_to_node.find(self.ns_hlp.wsaTag('ReferenceParameters'))
-            if end_to_ref_node is not None:
-                end_to_ref = ReferenceParameters(end_to_ref_node[:])
-            else:
-                end_to_ref = ReferenceParameters(None)
-            index +=1
-
-        # read Delivery element
-        delivery_node = subscribe_node_children[index]
-        if delivery_node.tag != self.ns_hlp.wseTag('Delivery'):
-            raise Exception
-        notify_to_node = delivery_node.find(self.ns_hlp.wseTag('NotifyTo'))
-        notify_to_address = notify_to_node.xpath('wsa:Address/text()', namespaces=ns)[0]
-        notify_ref_node = notify_to_node.find(self.ns_hlp.wsaTag('ReferenceParameters'))
-        if notify_ref_node is not None:
-            notify_ref = ReferenceParameters(notify_ref_node[:])
-        else:
-            notify_ref = ReferenceParameters(None)
-        mode = delivery_node.get('Mode')  # mandatory attribute
-        index += 1
-
-        # read optional Expires element
-        expires = None
-        if subscribe_node_children[index].tag == self.ns_hlp.wseTag('Expires'):
-            expires_node = subscribe_node_children[index]
-            expires = isoduration.parse_duration(str(expires_node.text))
-            index += 1
-
-        # read optional Filter element
-        subscription_filters = None
-        if subscribe_node_children[index].tag == self.ns_hlp.wseTag('Filter'):
-            subscription_filter_node = subscribe_node_children[index]
-            dialect = subscription_filter_node.get('Dialect')
-            if dialect == f'{self.ns_hlp.DPWS.namespace}/Action':
-                subscription_filters = subscription_filter_node.text.split()
-            index += 1
-
-        # remaining "any" nodes
-        any_nodes = subscribe_node_children[index:]
-        any_attributes = subscribe_node.attrib
-        return SubscribeRequest(accepted_encodings, subscription_filters, str(notify_to_address), notify_ref,
-                                str(end_to_address), end_to_ref, mode, expires, any_nodes, any_attributes)
-
-    def read_renew_request(self, message_data):
-        ns = {'wse': self.ns_hlp.WSE.namespace}
-        expires = message_data.p_msg.body_node.xpath('wse:Renew/wse:Expires/text()', namespaces=ns)
-        if len(expires) == 0:
-            return None
-        return isoduration.parse_duration(str(expires[0]))
-
-    @staticmethod
-    def read_header_reference_parameters(message_data: ReceivedMessage) -> ReferenceParameters:
-        reference_parameter_nodes = []
-        for header_element in message_data.p_msg.header_node:
-            is_reference_parameter = header_element.attrib.get('IsReferenceParameter', 'false')
-            if is_reference_parameter.lower() == 'true':
-                reference_parameter_nodes.append(header_element)
-        return ReferenceParameters(reference_parameter_nodes)
-
-    def _operation_handle(self, message_data):
-        ns = {'msg': self.ns_hlp.MSG.namespace}
-        operation_handle_refs = message_data.p_msg.body_node.xpath('*/msg:OperationHandleRef/text()',
-                                                                   namespaces=ns)
-        return operation_handle_refs[0]

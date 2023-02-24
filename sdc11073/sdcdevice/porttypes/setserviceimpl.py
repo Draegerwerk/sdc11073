@@ -166,7 +166,6 @@ class SetService(ServiceWithOperations):
         nsh = data_model.ns_helper
         operation_handle_ref = operation.handle
         subscription_mgr = self.hosting_service.subscriptions_manager
-        action = self._sdc_definitions.Actions.OperationInvokedReport
         report = data_model.msg_types.OperationInvokedReport()
         report.set_mdib_version_group(mdib_version_group)
         report_part = report.add_report_part()
@@ -186,11 +185,11 @@ class SetService(ServiceWithOperations):
         report_part.OperationHandleRef = operation_handle_ref
         report_part.OperationTarget = None  # not set in current implementation
         ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        body_node = report.as_etree_node(data_model.msg_names.OperationInvokedReport, ns_map)
+        body_node = report.as_etree_node(report.NODETYPE, ns_map)
         self._logger.info(
             'notify_operation transaction={} operation_handle_ref={}, operationState={}, error={}, errorMessage={}',
             transaction_id, operation_handle_ref, invocation_state, error, error_message)
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'notify_operation')
+        subscription_mgr.send_to_subscribers(body_node, report.action, mdib_version_group, nsmapper, 'notify_operation')
 
     def handled_actions(self) -> List[str]:
         return [self._sdc_device.sdc_definitions.Actions.OperationInvokedReport]

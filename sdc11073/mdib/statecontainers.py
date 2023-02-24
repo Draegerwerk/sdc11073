@@ -267,7 +267,7 @@ class ChannelStateContainer(AbstractDeviceComponentStateContainer):
 class ClockStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = pm.ClockState
     ActiveSyncProtocol = cp.SubElementProperty(pm.ActiveSyncProtocol, value_class=pmtypes.CodedValue, is_optional=True)
-    ReferenceSource = cp.SubElementListProperty(pm.ReferenceSource, value_class=pmtypes.ElementWithTextOnly)
+    ReferenceSource = cp.SubElementListProperty(pm.ReferenceSource, value_class=pmtypes.ElementWithText)
     DateAndTime = cp.CurrentTimestampAttributeProperty('DateAndTime')
     RemoteSync = cp.BooleanAttributeProperty('RemoteSync', default_py_value=True, is_optional=False)
     Accuracy = cp.DecimalAttributeProperty('Accuracy')

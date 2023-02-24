@@ -6,12 +6,13 @@ from decimal import Decimal
 from sdc11073 import pm_qnames as pm
 from sdc11073 import pmtypes, msgtypes
 from sdc11073.dpws import ThisDeviceType, ThisModelType
-from sdc11073.loghelper import basic_logging_setup
+from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.sdcdevice import waveforms, SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+
 from tests import mockstuff
 
 mdib_folder = os.path.dirname(__file__)
@@ -31,6 +32,8 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
     def setUp(self):
         basic_logging_setup()
+        self.logger = get_logger_adapter('sdc.test')
+
         self.mdib = DeviceMdibContainer.from_mdib_file(os.path.join(mdib_folder, '70041_MDIB_Final.xml'))
 
         this_model = ThisModelType(manufacturer='ABCDEFG GmbH',
@@ -47,8 +50,10 @@ class TestDeviceSubscriptions(unittest.TestCase):
         self.wsd.start()
         self.sdc_device = SdcDevice(self.wsd, this_model, this_device, self.mdib)
         self.sdc_device.start_all(periodic_reports_interval=1.0)
+        self.logger.info('############### setUp done {} ##############'.format(self._testMethodName))
 
     def tearDown(self):
+        self.logger.info('############### tearDown {}... ##############\n'.format(self._testMethodName))
         self.wsd.stop()
         self.sdc_device.stop_all()
 

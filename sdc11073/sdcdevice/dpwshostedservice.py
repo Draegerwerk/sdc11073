@@ -50,13 +50,7 @@ class _EventService(DispatchKeyRegistry):
         return self._subscriptions_manager
 
     def _on_subscribe(self, request_data):
-        subscribe_request = self._msg_reader.read_subscribe_request(request_data)
-        for subscription_filter in subscribe_request.subscription_filters:
-            if subscription_filter not in self._offered_subscriptions:
-                raise Exception(f'{self.__class__.__name__}::{request_data.path}: "{subscription_filter}" '
-                                f'is not in offered subscriptions: {self._offered_subscriptions}')
-
-        returned_envelope = self._subscriptions_manager.on_subscribe_request(request_data, subscribe_request)
+        returned_envelope = self._subscriptions_manager.on_subscribe_request(request_data)
         return returned_envelope
 
     def _on_unsubscribe(self, request_data):
@@ -103,8 +97,9 @@ class DPWSHostedService(_EventService):
     def mk_dpws_hosted_instance(self) -> HostedServiceType:
         endpoint_references_list = []
         for addr in self._sdc_device.base_urls:
-            endpoint_references_list.append(
-                EndpointReferenceType(f'{addr.geturl()}/{self.path_element}'))
+            epr_type = EndpointReferenceType()
+            epr_type.Address = f'{addr.geturl()}/{self.path_element}'
+            endpoint_references_list.append(epr_type)
         port_type_ns = self._mdib.sdc_definitions.PortTypeNamespace
         dpws_hosted = HostedServiceType(
             endpoint_references_list=endpoint_references_list,

@@ -1,23 +1,26 @@
+from __future__ import annotations
+
+import copy
 import uuid
 import weakref
 from collections import defaultdict
 from io import BytesIO
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from lxml import etree as etree_
 
 from .msgreader import validate_node
 from .soapenvelope import Soap12Envelope
-from .. import isoduration
-from ..addressing import ReferenceParameters, EndpointReferenceType, Address
-from ..dpws import DeviceEventingFilterDialectURI
+from ..addressing import Address
 from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
 from ..exceptions import ApiUsageError
 from ..namespaces import EventingActions
-from ..namespaces import QN_TYPE
 from ..namespaces import WSA_ANONYMOUS
 from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator
+
+if TYPE_CHECKING:
+    from ..msgtypes import MessageType
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
 
@@ -104,16 +107,53 @@ class MessageFactory:
         doc.write(tmp, encoding='UTF-8', xml_declaration=True, pretty_print=pretty)
         return tmp.getvalue()
 
-    def mk_soap_message(self, addr_to: str, action, payload):
-        soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.MSG))
-        soap_envelope.set_address(Address(action=action, addr_to=addr_to))
-        soap_envelope.payload_element = payload
+    def mk_soap_message(self, addr_to: str,
+                        payload: MessageType,
+                        ns_map: Optional[dict] = None,
+                        reference_param: Optional[list] = None):
+        my_ns_map = self._ns_hlp.partial_map(self._ns_hlp.S12, self._ns_hlp.MSG, self._ns_hlp.PM)
+
+        if ns_map is not None:
+            my_ns_map.update(ns_map)
+        soap_envelope = Soap12Envelope(my_ns_map)
+        soap_envelope.set_address(Address(action=payload.action, addr_to=addr_to))
+        soap_envelope.payload_element = payload.as_etree_node(payload.NODETYPE, my_ns_map)
+        if reference_param is not None:
+            self._add_reference_params_to_header(soap_envelope, reference_param)
         return CreatedMessage(soap_envelope, self)
 
-    def mk_reply_soap_message(self, addr_to: Address, payload):
+    def mk_soap_message_etree_payload(self, addr_to: str,
+                                      action: str,
+                                      payload_element: Optional[etree_.Element] = None,
+                                      ns_map: Optional[dict] = None,
+                                      reference_param: Optional[list] = None):
+        my_ns_map = self._ns_hlp.partial_map(self._ns_hlp.S12, self._ns_hlp.MSG, self._ns_hlp.PM)
+
+        if ns_map is not None:
+            my_ns_map.update(ns_map)
+        soap_envelope = Soap12Envelope(my_ns_map)
+        soap_envelope.set_address(Address(action=action, addr_to=addr_to))
+        soap_envelope.payload_element = payload_element
+        if reference_param is not None:
+            self._add_reference_params_to_header(soap_envelope, reference_param)
+        return CreatedMessage(soap_envelope, self)
+
+    def mk_reply_soap_message_etree_payload(self, addr_to: Address, payload: etree_.Element):
         soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.MSG))
         soap_envelope.set_address(addr_to)
         soap_envelope.payload_element = payload
+        return CreatedMessage(soap_envelope, self)
+
+    def mk_reply_soap_message(self, request,
+                              response_payload: MessageType,
+                              ns_map=None):
+        my_ns_map = self._ns_hlp.partial_map(self._ns_hlp.S12, self._ns_hlp.MSG, self._ns_hlp.PM)
+        if ns_map is not None:
+            my_ns_map.update(ns_map)
+        soap_envelope = Soap12Envelope(my_ns_map)
+        reply_address = request.message_data.p_msg.address.mk_reply_address(action=response_payload.action)
+        soap_envelope.set_address(reply_address)
+        soap_envelope.payload_element = response_payload.as_etree_node(response_payload.NODETYPE, my_ns_map)
         return CreatedMessage(soap_envelope, self)
 
     def mk_fault_message(self, message_data, soap_fault, action_string=None) -> CreatedMessage:
@@ -143,12 +183,13 @@ class MessageFactory:
         soap_envelope.payload_element = fault_node
         return CreatedMessage(soap_envelope, self)
 
-    def _mk_endpoint_reference_sub_node(self, endpoint_reference, parent_node):
+    def mk_endpoint_reference_sub_node(self, endpoint_reference, parent_node):
         node = etree_.SubElement(parent_node, self._ns_hlp.wsaTag('Address'))
-        node.text = endpoint_reference.address
-        if endpoint_reference.reference_parameters.has_parameters:
+        node.text = endpoint_reference.Address
+        if endpoint_reference.ReferenceParameters is not None and len(endpoint_reference.ReferenceParameters) > 0:
             reference_parameters_node = etree_.SubElement(parent_node, self._ns_hlp.wsaTag('ReferenceParameters'))
-            reference_parameters_node.extend(endpoint_reference.reference_parameters.parameters)
+            for parameter in endpoint_reference.ReferenceParameters:
+                reference_parameters_node.extend(copy.deepcopy(parameter))
         # ToDo: what about this metadata thing???
         # if self.metadata_node is not None:
         #    root_node.append(self.metadata_node)
@@ -181,121 +222,21 @@ class MessageFactory:
             node.text = address.relates_to
             if address.relationship_type is not None:
                 node.set('RelationshipType', address.relationship_type)
-        for parameter in address.reference_parameters.parameters:
-            header_node.append(parameter)
+        for parameter in address.reference_parameters:
+            header_node.append(copy.deepcopy(parameter))
 
     @staticmethod
-    def _add_reference_params_to_header(soap_envelope, reference_parameters):
+    def _add_reference_params_to_header(soap_envelope, reference_parameters: list):
         """ add references for requests to device (renew, getstatus, unsubscribe)"""
-        if reference_parameters.has_parameters:
-            for element in reference_parameters.parameters:
-                # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
-                element.set('IsReferenceParameter', 'true')
-                soap_envelope.add_header_element(element)
+        for element in reference_parameters:
+            tmp = copy.deepcopy(element)
+            # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
+            tmp.set('IsReferenceParameter', 'true')
+            soap_envelope.add_header_element(tmp)
 
     def _validate_node(self, node):
         if self._validate:
             validate_node(node, self._xml_schema, self._logger)
-
-
-class MessageFactoryClient(MessageFactory):
-    """This class creates all messages that a client needs to create"""
-
-    def mk_transfer_get_message(self, addr_to) -> CreatedMessage:
-        envelope = Soap12Envelope(self._ns_hlp.ns_map)
-        envelope.set_address(Address(action=f'{self._ns_hlp.WXF.namespace}/Get',
-                                     addr_to=addr_to))
-        return CreatedMessage(envelope, self)
-
-    def mk_get_metadata_message(self, addr_to) -> CreatedMessage:
-        soap_envelope = Soap12Envelope(self._ns_hlp.ns_map)
-        soap_envelope.set_address(
-            Address(action='http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Request',
-                    addr_to=addr_to))
-        soap_envelope.payload_element = etree_.Element('{http://schemas.xmlsoap.org/ws/2004/09/mex}GetMetadata')
-        return CreatedMessage(soap_envelope, self)
-
-    def mk_subscribe_message(self, addr_to,
-                             notifyto_url, notify_to_identifier,
-                             endto_url, endto_identifier,
-                             expire_minutes,
-                             subscribe_filter,
-                             any_elements: Optional[list] = None,
-                             any_attributes: Optional[dict] = None) -> CreatedMessage:
-        soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.WSE))
-        soap_envelope.set_address(Address(action=EventingActions.Subscribe, addr_to=addr_to))
-        if notify_to_identifier is None:
-            notify_to = EndpointReferenceType(notifyto_url, reference_parameters=None)
-        else:
-            notify_to = EndpointReferenceType(notifyto_url,
-                                              reference_parameters=ReferenceParameters([notify_to_identifier]))
-
-        subscribe_node = etree_.Element(self._ns_hlp.wseTag('Subscribe'),
-                                        nsmap=self._ns_hlp.partial_map(self._ns_hlp.WSE, self._ns_hlp.WSA))
-
-        # EndTo is an optional element
-        if endto_url is not None:
-            if endto_identifier is None:
-                end_to = EndpointReferenceType(endto_url, reference_parameters=None)
-            else:
-                end_to = EndpointReferenceType(endto_url, reference_parameters=ReferenceParameters([endto_identifier]))
-            end_to_node = etree_.SubElement(subscribe_node, self._ns_hlp.wseTag('EndTo'))
-            self._mk_endpoint_reference_sub_node(end_to, end_to_node)
-
-        # Delivery is mandatory
-        delivery = etree_.SubElement(subscribe_node, self._ns_hlp.wseTag('Delivery'))
-        delivery.set('Mode', f'{self._ns_hlp.WSE.namespace}/DeliveryModes/Push')
-        notify_to_node = etree_.SubElement(delivery, self._ns_hlp.wseTag('NotifyTo'))
-        self._mk_endpoint_reference_sub_node(notify_to, notify_to_node)
-
-        # Expires is optional
-        if expire_minutes is not None:
-            exp = etree_.SubElement(subscribe_node, self._ns_hlp.wseTag('Expires'))
-            exp.text = isoduration.duration_string(expire_minutes * 60)
-
-        # Filter is optional
-        if subscribe_filter is not None:
-            fil = etree_.SubElement(subscribe_node, self._ns_hlp.wseTag('Filter'))
-            fil.set('Dialect', DeviceEventingFilterDialectURI.ACTION)
-            fil.text = subscribe_filter
-
-        # any_elements is optional
-        if any_elements is not None:
-            subscribe_node.extend(any_elements)
-
-        # any_attributes is optional
-        if any_attributes is not None:
-            for name, value in any_attributes.items():
-                subscribe_node[name] = value
-        soap_envelope.payload_element = subscribe_node
-        return CreatedMessage(soap_envelope, self)
-
-    def mk_renew_message(self, addr_to: str, dev_reference_param: ReferenceParameters,
-                         expire_minutes: int) -> CreatedMessage:
-        nsh = self._ns_hlp
-        soap_envelope = Soap12Envelope(nsh.partial_map(nsh.WSE))
-        soap_envelope.set_address(Address(action=EventingActions.Renew, addr_to=addr_to))
-        self._add_reference_params_to_header(soap_envelope, dev_reference_param)
-        renew_node = etree_.Element(nsh.wseTag('Renew'), nsmap=nsh.partial_map(nsh.WSE))
-        expires_node = etree_.SubElement(renew_node, nsh.wseTag('Expires'), nsmap=nsh.partial_map(nsh.WSE))
-        expires_node.text = isoduration.duration_string(expire_minutes * 60)
-        soap_envelope.payload_element = renew_node
-        return CreatedMessage(soap_envelope, self)
-
-    def mk_get_status_message(self, addr_to: str, dev_reference_param: ReferenceParameters) -> CreatedMessage:
-        soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.WSE))
-        soap_envelope.set_address(
-            Address(action=EventingActions.GetStatus, addr_to=addr_to))
-        self._add_reference_params_to_header(soap_envelope, dev_reference_param)
-        soap_envelope.payload_element = etree_.Element(self._ns_hlp.wseTag('GetStatus'))
-        return CreatedMessage(soap_envelope, self)
-
-    def mk_unsubscribe_message(self, addr_to: str, dev_reference_param: ReferenceParameters) -> CreatedMessage:
-        soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.WSE))
-        soap_envelope.set_address(Address(action=EventingActions.Unsubscribe, addr_to=addr_to))
-        self._add_reference_params_to_header(soap_envelope, dev_reference_param)
-        soap_envelope.payload_element = etree_.Element(self._ns_hlp.wseTag('Unsubscribe'))
-        return CreatedMessage(soap_envelope, self)
 
 
 class MessageFactoryDevice(MessageFactory):
@@ -390,18 +331,6 @@ class MessageFactoryDevice(MessageFactory):
         response.payload_element = probe_match_node
         return CreatedMessage(response, self)
 
-    def mk_get_mdib_response_node(self, mdib, include_context_states) -> etree_.Element:
-        nsh = self._ns_hlp
-        if include_context_states:
-            mdib_node, mdib_version_group = mdib.reconstruct_mdib_with_context_states()
-        else:
-            mdib_node, mdib_version_group = mdib.reconstruct_mdib()
-        get_mdib_response_node = etree_.Element(self._msg_names.GetMdibResponse,
-                                                nsmap=nsh.partial_map(nsh.MSG, nsh.PM, nsh.XSI))
-        self._set_mdib_version_group(get_mdib_response_node, mdib_version_group)
-        get_mdib_response_node.append(mdib_node)
-        return get_mdib_response_node
-
     def mk_get_mddescription_response_message(self, message_data, mdib, requested_handles) -> CreatedMessage:
         """For simplification reason this implementation returns either all descriptors or none."""
         nsh = self._ns_hlp
@@ -410,7 +339,6 @@ class MessageFactoryDevice(MessageFactory):
         my_namespaces = nsh.partial_map(nsh.S12, nsh.WSA, nsh.MSG, nsh.PM)
         response_envelope = Soap12Envelope(my_namespaces)
         reply_address = request.address.mk_reply_address(
-            #action=self._get_action_string(mdib.sdc_definitions., 'GetMdDescriptionResponse'))
             action=mdib.sdc_definitions.Actions.GetMdDescriptionResponse)
         response_envelope.set_address(reply_address)
 
@@ -432,27 +360,6 @@ class MessageFactoryDevice(MessageFactory):
         response_envelope.payload_element = response_node
         return CreatedMessage(response_envelope, self)
 
-    def mk_subscribe_response_message(self, request_data, subscription, base_urls) -> CreatedMessage:
-        nsh = self._ns_hlp
-        response = Soap12Envelope(
-            nsh.partial_map(nsh.PM, nsh.S12, nsh.WSA, nsh.WSE))
-        reply_address = request_data.message_data.p_msg.address.mk_reply_address(EventingActions.SubscribeResponse)
-        response.set_address(reply_address)
-        subscribe_response_node = etree_.Element(nsh.wseTag('SubscribeResponse'))
-        subscription_manager_node = etree_.SubElement(subscribe_response_node, nsh.wseTag('SubscriptionManager'))
-        path = '/'.join(request_data.consumed_path_elements)
-        path_suffix = '' if subscription.path_suffix is None else f'/{subscription.path_suffix}'
-        subscription_address = f'{base_urls[0].scheme}://{base_urls[0].netloc}/{path}{path_suffix}'
-        epr = EndpointReferenceType(address=subscription_address,
-                                    reference_parameters=subscription.reference_parameters)
-        self._mk_endpoint_reference_sub_node(epr, subscription_manager_node)
-        expires_node = etree_.SubElement(subscribe_response_node, nsh.wseTag('Expires'))
-        expires_node.text = subscription.expire_string  # simply confirm request
-        response.payload_element = subscribe_response_node
-        ret = CreatedMessage(response, self)
-        self._logger.debug('on_subscribe_request returns {}', lambda: self.serialize_message(ret).decode('utf-8'))
-        return ret
-
     def mk_unsubscribe_response_message(self, request_data) -> CreatedMessage:
         nsh = self._ns_hlp
         response = Soap12Envelope(
@@ -461,59 +368,6 @@ class MessageFactoryDevice(MessageFactory):
         response.set_address(reply_address)
         # response has empty body
         return CreatedMessage(response, self)
-
-    def mk_renew_response_message(self, request_data, remaining_seconds) -> CreatedMessage:
-        nsh = self._ns_hlp
-        response = Soap12Envelope(nsh.partial_map(nsh.S12, nsh.WSA, nsh.WSE))
-        reply_address = request_data.message_data.p_msg.address.mk_reply_address(EventingActions.RenewResponse)
-        response.set_address(reply_address)
-        renew_response_node = etree_.Element(nsh.wseTag('RenewResponse'))
-        expires_node = etree_.SubElement(renew_response_node, nsh.wseTag('Expires'))
-        expires_node.text = isoduration.duration_string(remaining_seconds)
-        response.payload_element = renew_response_node
-        return CreatedMessage(response, self)
-
-    def mk_getstatus_response_message(self, request_data, remaining_seconds) -> CreatedMessage:
-        nsh = self._ns_hlp
-        response = Soap12Envelope(nsh.partial_map(nsh.S12, nsh.WSA, nsh.WSE))
-        reply_address = request_data.message_data.p_msg.address.mk_reply_address(EventingActions.GetStatusResponse)
-        response.set_address(reply_address)
-        renew_response_node = etree_.Element(nsh.wseTag('GetStatusResponse'))
-        expires_node = etree_.SubElement(renew_response_node, nsh.wseTag('Expires'))
-        expires_node.text = isoduration.duration_string(remaining_seconds)
-        response.payload_element = renew_response_node
-        return CreatedMessage(response, self)
-
-    def mk_notification_end_message(self, subscription, my_addr, code, reason) -> CreatedMessage:
-        nsh = self._ns_hlp
-        soap_envelope = Soap12Envelope(nsh.partial_map(nsh.S12, nsh.WSA, nsh.WSE))
-        subscription_end_node = etree_.Element(nsh.wseTag('SubscriptionEnd'),
-                                               nsmap=nsh.partial_map(nsh.WSE, nsh.WSA, nsh.XML))
-        subscription_manager_node = etree_.SubElement(subscription_end_node, nsh.wseTag('SubscriptionManager'))
-        epr = EndpointReferenceType(address=my_addr, reference_parameters=subscription.reference_parameters)
-        self._mk_endpoint_reference_sub_node(epr, subscription_manager_node)
-        # remark: optionally one could add own address and identifier here ...
-        status_node = etree_.SubElement(subscription_end_node, nsh.wseTag('Status'))
-        status_node.text = f'wse:{code}'
-        reason_node = etree_.SubElement(subscription_end_node, nsh.wseTag('Reason'),
-                                        attrib={nsh.xmlTag('lang'): 'en-US'})
-        reason_node.text = reason
-        soap_envelope.payload_element = subscription_end_node
-
-        to_addr = subscription.end_to_address or subscription.notify_to_address
-        addr = Address(addr_to=to_addr,
-                       action=EventingActions.SubscriptionEnd,
-                       addr_from=None,
-                       reply_to=None,
-                       fault_to=None,
-                       reference_parameters=None)
-        soap_envelope.set_address(addr)
-        ref_params = subscription.end_to_ref_params or subscription.notify_ref_params
-        for ref_param_node in ref_params.parameters:
-            # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
-            ref_param_node.set(nsh.wsaTag('IsReferenceParameter'), 'true')
-            soap_envelope.add_header_element(ref_param_node)
-        return CreatedMessage(soap_envelope, self)
 
     def mk_operation_response_message(self, message_data, action, response_name, mdib_version_group,
                                       transaction_id, invocation_state, invocation_error, error_text
@@ -553,21 +407,6 @@ class MessageFactoryDevice(MessageFactory):
             raise ValueError(f'States {[st.DescriptorHandle for st in lookup[None]]} have no source mds')
         return lookup
 
-    def _fill_episodic_report_body(self, report, states):
-        lookup = self._separate_states_by_source_mds(states)
-        for source_mds_handle, states in lookup.items():
-            report_part = report.add_report_part()
-            report_part.SourceMds = source_mds_handle
-            report_part.values_list.extend(states)
-
-    def _fill_periodic_report_body(self, report, report_parts):
-        for tmp in report_parts:
-            lookup = self._separate_states_by_source_mds(tmp.states)
-            for source_mds_handle, states in lookup.items():
-                report_part = report.add_report_part()
-                report_part.SourceMds = source_mds_handle
-                report_part.values_list.extend(states)
-
     def mk_description_modification_report_body(self, mdib_version_group, updated, created, deleted,
                                                 updated_states) -> etree_.Element:
         # This method creates one ReportPart for every descriptor.
@@ -603,12 +442,12 @@ class MessageFactoryDevice(MessageFactory):
         if mdib_version_group.instance_id is not None:
             node.set('InstanceId', str(mdib_version_group.instance_id))
 
-    def mk_notification_message(self, ws_addr, message_node, reference_params: ReferenceParameters,
+    def mk_notification_message(self, ws_addr, message_node, reference_params: list,
                                 doc_nsmap) -> CreatedMessage:
         envelope = Soap12Envelope(doc_nsmap)
         envelope.payload_element = message_node
         envelope.set_address(ws_addr)
-        for node in reference_params.parameters:
+        for node in reference_params:
             envelope.add_header_element(node)
         return CreatedMessage(envelope, self)
 
@@ -675,7 +514,7 @@ class MessageFactoryDevice(MessageFactory):
 
         host_node = etree_.SubElement(parent_node, nsh.dpwsTag('Host'))
         ep_ref_node = etree_.SubElement(host_node, nsh.wsaTag('EndpointReference'))
-        self._mk_endpoint_reference_sub_node(host_service_type.endpoint_reference, ep_ref_node)
+        self.mk_endpoint_reference_sub_node(host_service_type.endpoint_reference, ep_ref_node)
         if types_texts:
             types_node = etree_.SubElement(host_node, nsh.dpwsTag('Types'),
                                            nsmap=_ns)  # add also namespace ns_hlp that were locally generated
@@ -686,7 +525,7 @@ class MessageFactoryDevice(MessageFactory):
         hosted_node = etree_.SubElement(parent_node, nsh.dpwsTag('Hosted'))
         ep_ref_node = etree_.SubElement(hosted_node, nsh.wsaTag('EndpointReference'))
         for ep_ref in hosted_service_type.endpoint_references:
-            self._mk_endpoint_reference_sub_node(ep_ref, ep_ref_node)
+            self.mk_endpoint_reference_sub_node(ep_ref, ep_ref_node)
         if hosted_service_type.types:
             types_text = ' '.join([nsh.doc_name_from_qname(t) for t in hosted_service_type.types])
             types_node = etree_.SubElement(hosted_node, nsh.dpwsTag('Types'))

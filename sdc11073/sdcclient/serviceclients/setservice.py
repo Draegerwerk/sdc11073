@@ -13,18 +13,12 @@ class SetServiceClient(HostedServiceClient):
         @return a Future object
         """
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         self._logger.info('set_numeric_value operation_handle={} requested_numeric_value={}',
                           operation_handle, requested_numeric_value)
         request = data_model.msg_types.SetValue()
         request.OperationHandleRef = operation_handle
         request.RequestedNumericValue = requested_numeric_value
-        payload_element = request.as_etree_node(request.NODETYPE,
-                                                nsh.partial_map(nsh.MSG, nsh.PM))
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
-                                                    request.action,
-                                                    payload_element)
-
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def set_string(self, operation_handle, requested_string, request_manipulator=None) -> Future:
@@ -34,17 +28,12 @@ class SetServiceClient(HostedServiceClient):
         @return a Future object
         """
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         self._logger.info('set_string operation_handle={} requested_string={}',
                           operation_handle, requested_string)
         request = data_model.msg_types.SetString()
         request.OperationHandleRef = operation_handle
         request.RequestedStringValue = requested_string
-        payload_element = request.as_etree_node(request.NODETYPE,
-                                                nsh.partial_map(nsh.MSG, nsh.PM))
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
-                                                    request.action,
-                                                    payload_element)
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def set_alert_state(self, operation_handle, proposed_alert_state, request_manipulator=None) -> Future:
@@ -54,17 +43,12 @@ class SetServiceClient(HostedServiceClient):
         :param proposed_alert_state: domainmodel.AbstractAlertState instance or a list of them
         """
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         self._logger.info('set_alert_state operation_handle={} requestedAlertState={}',
                           operation_handle, proposed_alert_state)
         request = data_model.msg_types.SetAlertState()
         request.OperationHandleRef = operation_handle
         request.ProposedAlertState = proposed_alert_state
-        payload_element = request.as_etree_node(request.NODETYPE,
-                                                nsh.partial_map(nsh.MSG, nsh.PM))
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
-                                                    request.action,
-                                                    payload_element)
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def set_metric_state(self, operation_handle, proposed_metric_states, request_manipulator=None) -> Future:
@@ -73,17 +57,12 @@ class SetServiceClient(HostedServiceClient):
         :param proposed_metric_states: a list of domainmodel.AbstractMetricState instance or derived class
         """
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         self._logger.info('set_metric_state operation_handle={} requestedMetricState={}',
                           operation_handle, proposed_metric_states)
         request = data_model.msg_types.SetMetricState()
         request.OperationHandleRef = operation_handle
         request.ProposedMetricState.extend(proposed_metric_states)
-        payload_element = request.as_etree_node(request.NODETYPE,
-                                                nsh.partial_map(nsh.MSG, nsh.PM))
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
-                                                    request.action,
-                                                    payload_element)
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def activate(self, operation_handle, arguments=None, request_manipulator=None) -> Future:
@@ -95,18 +74,13 @@ class SetServiceClient(HostedServiceClient):
         :return: a concurrent.futures.Future object
         """
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         self._logger.info('activate handle={} arguments={}', operation_handle, arguments)
         request = data_model.msg_types.Activate()
         request.OperationHandleRef = operation_handle
         if arguments is not None:
             for arg_value in arguments:
                 request.add_argument(arg_value)
-        payload_element = request.as_etree_node(request.NODETYPE,
-                                                nsh.partial_map(nsh.MSG, nsh.PM))
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
-                                                    request.action,
-                                                    payload_element)
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def set_component_state(self, operation_handle, proposed_component_states, request_manipulator=None) -> Future:
@@ -117,17 +91,12 @@ class SetServiceClient(HostedServiceClient):
         :return: a concurrent.futures.Future
         """
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         tmp = ', '.join([f'{st.__class__.__name__} (DescriptorHandle={st.DescriptorHandle})'
                          for st in proposed_component_states])
         self._logger.info('set_component_state {}', tmp)
         request = data_model.msg_types.SetComponentState()
         request.OperationHandleRef = operation_handle
         request.ProposedComponentState.extend(proposed_component_states)
-        payload_element = request.as_etree_node(request.NODETYPE,
-                                                nsh.partial_map(nsh.MSG, nsh.PM))
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.address,
-                                                    request.action,
-                                                    payload_element)
+        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
         self._logger.debug('set_component_state sends {}', lambda: message.serialize_message(pretty=True))
         return self._call_operation(message, request_manipulator=request_manipulator)

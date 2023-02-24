@@ -13,7 +13,7 @@ from lxml import etree as etree_
 from .. import isoduration
 from ..dataconverters import DataConverterProtocol
 from ..dataconverters import TimestampConverter, DecimalConverter, IntegerConverter, BooleanConverter, \
-    DurationConverter, ClassCheckConverter, ListConverter, EnumConverter, StringConverter
+    DurationConverter, ClassCheckConverter, ListConverter, EnumConverter, StringConverter, NullConverter
 from ..exceptions import ApiUsageError
 from ..namespaces import QN_TYPE, docname_from_qname, text_to_qname
 
@@ -679,6 +679,43 @@ class ExtensionNodeProperty(_ElementBase):
                 sub_node.append(copy.copy(_node))
 
 
+class AnyEtreeNodeProperty(_ElementBase):
+    """ Represents an Element that contains xml tree of any kind."""
+
+    def __init__(self, sub_element_name, is_optional=False):
+        super().__init__(sub_element_name, NullConverter, default_py_value=None,
+                         is_optional=is_optional)
+
+    def get_py_value_from_node(self, instance, node):
+        try:
+            sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
+        except ElementNotFoundException:
+            return None
+        return sub_node[:]  # all children
+
+    def update_xml_value(self, instance, node):
+        try:
+            py_value = getattr(instance, self._local_var_name)
+        except AttributeError:  # set to None (it is in the responsibility of the called method to do the right thing)
+            py_value = None
+
+        if py_value is None:
+            if self.is_optional:
+                sub_node = node.find(self._sub_element_name)
+                if sub_node is not None:
+                    node.remove(sub_node)
+            else:
+                if MANDATORY_VALUE_CHECKING and not self.is_optional:
+                    raise ValueError(f'mandatory value {self._sub_element_name} missing')
+                sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
+        else:
+            sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
+            if isinstance(py_value, etree_._Element):
+                sub_node.append(py_value)
+            else:
+                sub_node.extend(py_value)
+
+
 class SubElementProperty(_ElementBase):
     """ uses a value that has an "as_etree_node" method"""
 
@@ -963,6 +1000,45 @@ class SubElementWithSubElementListProperty(SubElementProperty):
             super().__set__(instance, py_value)
         else:
             raise ApiUsageError(f'do not set {self._sub_element_name} directly, use child member!')
+
+
+class AnyEtreeNodeListProperty(_ElementListProperty):
+    """ Node < sub_element_name> has etree Element children."""
+    def __init__(self, sub_element_name, is_optional=True):
+        value_class = etree_._Element
+        super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
+
+    def get_py_value_from_node(self, instance, node):
+        """ get from node"""
+        objects = []
+        try:
+            sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
+            if sub_node is None:
+                return []
+            return sub_node[:]
+        except ElementNotFoundException:
+            return objects
+
+    def update_xml_value(self, instance, node):
+        """ value is a list of etree nodes"""
+        # remove all existing nodes
+        try:
+            py_value = getattr(instance, self._local_var_name)
+        except AttributeError:
+            py_value = None
+
+        if py_value is None or len(py_value) == 0:
+            if self.is_optional:
+                self.remove_sub_element(node)
+            return
+
+        sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
+        sub_node.extend(py_value)
+
+    def __str__(self):
+        return f'{self.__class__.__name__} in subelement {self._sub_element_name}'
+
+
 
 
 class DateOfBirthProperty(_ElementBase):

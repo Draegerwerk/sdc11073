@@ -34,7 +34,6 @@ class GetService(DPWSPortTypeBase):
 
     def _on_get_md_state(self, request_data):
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         msg_node = request_data.message_data.p_msg.msg_node
         get_md_state = data_model.msg_types.GetMdState.from_node(msg_node)
         requested_handles = get_md_state.HandleRef
@@ -72,24 +71,21 @@ class GetService(DPWSPortTypeBase):
         response = data_model.msg_types.GetMdStateResponse()
         response.MdState.State.extend(state_containers)
         response.set_mdib_version_group(self._mdib.mdib_version_group)
-        action = self.actions.GetMdStateResponse
-        reply_address = request_data.message_data.p_msg.address.mk_reply_address(action=action)
-        payload = response.as_etree_node(data_model.msg_names.GetMdStateResponse,
-                                         nsh.partial_map(nsh.MSG, nsh.PM))
-        created_message = factory.mk_reply_soap_message(reply_address, payload)
-
+        created_message = factory.mk_reply_soap_message(request_data, response)
         self._logger.debug('_on_get_md_state returns {}',
                            lambda: created_message.serialize_message())
         return created_message
 
     def _on_get_mdib(self, request_data):
         self._logger.debug('_on_get_mdib')
-        factory = self._sdc_device.msg_factory
-        action = self.actions.GetMdibResponse
-        reply_address = request_data.message_data.p_msg.address.mk_reply_address(action=action)
-        payload = factory.mk_get_mdib_response_node(self._mdib, self._sdc_device.contextstates_in_getmdib)
-
-        response = factory.mk_reply_soap_message(reply_address, payload)
+        if self._sdc_device.contextstates_in_getmdib:
+            mdib_node, mdib_version_group = self._mdib.reconstruct_mdib_with_context_states()
+        else:
+            mdib_node, mdib_version_group = self._mdib.reconstruct_mdib()
+        response = self._data_model.msg_types.GetMdibResponse()
+        response.set_mdib_version_group(mdib_version_group)
+        response.Mdib = mdib_node
+        response = self._sdc_device.msg_factory.mk_reply_soap_message(request_data, response)
         return response
 
     def _on_get_md_description(self, request_data):

@@ -3,6 +3,7 @@ import datetime
 import logging
 import sys
 import time
+import traceback
 import unittest
 from decimal import Decimal
 from itertools import product
@@ -267,11 +268,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def tearDown(self):
         sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
         self.log_watcher.setPaused(True)
-        if self.sdc_client:
-            self.sdc_client.stop_all()
-        if self.sdc_device:
-            self.sdc_device.stop_all()
-        self.wsd.stop()
+        try:
+            if self.sdc_device:
+                self.sdc_device.stop_all()
+            if self.sdc_client:
+                self.sdc_client.stop_all()
+            self.wsd.stop()
+        except:
+            sys.stderr.write(traceback.format_exc())
         try:
             self.log_watcher.check()
         except loghelper.LogWatchException as ex:
@@ -289,13 +293,15 @@ class Test_Client_SomeDevice(unittest.TestCase):
             remaining_seconds = s.get_status()
             self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
             # verify that device returns fault message on wrong subscription identifier
-            if s.dev_reference_param.has_parameters:
+            #if s.dev_reference_param.has_parameters:
+            if s.subscribe_response.SubscriptionManager.ReferenceParameters:
                 # ToDo: manipulate reference parameter
                 pass
             else:
-                tmp = s._subscription_manager_address
+                tmp = s.subscribe_response.SubscriptionManager.Address
                 try:
                     # manipulate path
+                    self.logger.info('renew with invalid path')
                     s._subscription_manager_path = s._subscription_manager_path[:-1] + 'xxx'
                     # renew
                     self.log_watcher.setPaused(True)  # ignore logged error
@@ -305,19 +311,21 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     self.assertEqual(remaining_seconds, 0)
                     s.is_subscribed = True
                     # get_status
+                    self.logger.info('get_status with invalid path')
                     self.log_watcher.setPaused(True)  # ignore logged error
                     remaining_seconds = s.get_status()
                     self.log_watcher.setPaused(False)
                     self.assertFalse(s.is_subscribed)  # it did not work
                     self.assertEqual(remaining_seconds, 0)
                     # unsubscribe
+                    self.logger.info('unsubscribe with invalid path')
                     self.log_watcher.setPaused(True)  # ignore logged error
                     s.unsubscribe()
                     self.log_watcher.setPaused(False)
                     self.assertFalse(s.is_subscribed)  # it did not work
 
                 finally:
-                    s._subscription_manager_address = tmp
+                    s._subscription_manager_path = tmp
                     s.is_subscribed = True
 
     def test_client_stop(self):
@@ -994,7 +1002,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             method = self.sdc_device.mdib.data_model.ns_helper.msgTag('Nonsense')
             action_string = 'Nonsense'
             message = self._mk_get_method_message(
-                self.sdc_client.get_service_client.endpoint_reference.address,
+                self.sdc_client.get_service_client.endpoint_reference.Address,
                 action_string,
                 method)
             self.sdc_client.get_service_client.post_message(message)

@@ -82,7 +82,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                     state = mgr.get_state(clock_descriptors[0].handle)
             if state.NODETYPE != pm_names.ClockState:
                 raise ValueError(f'_set_ntp_string: expected ClockState, got {state.NODETYPE.localname}')
-            state.ReferenceSource = [pm_types.ElementWithTextOnly(value)]
+            state.ReferenceSource = [pm_types.ElementWithText(value)]
 
     def _set_tz_string(self, operation_instance, value):
         """This is the handler for the set time zone operation.

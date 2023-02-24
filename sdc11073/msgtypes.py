@@ -5,6 +5,7 @@ from abc import abstractmethod
 from . import ext_qnames as ext
 from . import msg_qnames as msg
 from . import pm_qnames as pm
+
 from .dataconverters import UnsignedIntConverter, StringConverter, DecimalConverter
 from .definitions_sdc import SDC_v1_Definitions
 from .mdib import containerproperties as cp
@@ -51,6 +52,11 @@ class InvocationError(StringEnum):
     OTHER = 'Oth'  # Another type of error has occurred. More information on the error MAY be available.
 
 
+class MessageType(PropertyBasedPMType):
+    # all derived classes must set these values
+    NODETYPE = None
+    action = None
+
 
 ### Reports ###
 class AbstractReportPart(PropertyBasedPMType):
@@ -58,7 +64,7 @@ class AbstractReportPart(PropertyBasedPMType):
     _props = ['SourceMds']
 
 
-class AbstractReport(PropertyBasedPMType):
+class AbstractReport(MessageType):
     MdibVersion = cp.IntegerAttributeProperty('MdibVersion', implied_py_value=0)
     SequenceId = cp.StringAttributeProperty('SequenceId')
     InstanceId = cp.IntegerAttributeProperty('InstanceId')
@@ -100,11 +106,14 @@ class AbstractMetricReport(AbstractReport):
 
 
 class EpisodicMetricReport(AbstractMetricReport):
-    pass
+    NODETYPE = msg.EpisodicMetricReport
+    action = SDC_v1_Definitions.Actions.EpisodicMetricReport
 
 
 class PeriodicMetricReport(AbstractMetricReport):
-    pass
+    NODETYPE = msg.PeriodicMetricReport
+    action = SDC_v1_Definitions.Actions.PeriodicMetricReport
+
 
 ##### Context Report ###
 class ContextReportPart(ReportPartValuesList):
@@ -129,11 +138,13 @@ class AbstractContextReport(AbstractReport):
 
 
 class EpisodicContextReport(AbstractContextReport):
-    pass
+    NODETYPE = msg.EpisodicContextReport
+    action = SDC_v1_Definitions.Actions.EpisodicContextReport
 
 
 class PeriodicContextReport(AbstractContextReport):
-    pass
+    NODETYPE = msg.PeriodicContextReport
+    action = SDC_v1_Definitions.Actions.PeriodicContextReport
 
 
 ##### Operational State Report ###
@@ -159,11 +170,13 @@ class AbstractOperationalStateReport(AbstractReport):
 
 
 class EpisodicOperationalStateReport(AbstractOperationalStateReport):
-    pass
+    NODETYPE = msg.EpisodicOperationalStateReport
+    action = SDC_v1_Definitions.Actions.EpisodicOperationalStateReport
 
 
 class PeriodicOperationalStateReport(AbstractOperationalStateReport):
-    pass
+    NODETYPE = msg.PeriodicOperationalStateReport
+    action = SDC_v1_Definitions.Actions.PeriodicOperationalStateReport
 
 
 ##### Alert Report ###
@@ -189,11 +202,13 @@ class AbstractAlertReport(AbstractReport):
 
 
 class EpisodicAlertReport(AbstractAlertReport):
-    pass
+    NODETYPE = msg.EpisodicAlertReport
+    action = SDC_v1_Definitions.Actions.EpisodicAlertReport
 
 
 class PeriodicAlertReport(AbstractAlertReport):
-    pass
+    NODETYPE = msg.PeriodicAlertReport
+    action = SDC_v1_Definitions.Actions.PeriodicAlertReport
 
 
 ##### Component Report ###
@@ -219,11 +234,13 @@ class AbstractComponentReport(AbstractReport):
 
 
 class EpisodicComponentReport(AbstractComponentReport):
-    pass
+    NODETYPE = msg.EpisodicComponentReport
+    action = SDC_v1_Definitions.Actions.EpisodicComponentReport
 
 
 class PeriodicComponentReport(AbstractComponentReport):
-    pass
+    NODETYPE = msg.PeriodicComponentReport
+    action = SDC_v1_Definitions.Actions.PeriodicComponentReport
 
 
 ##### Operation Invoked Report ###
@@ -244,7 +261,6 @@ class InvocationInfo(PropertyBasedPMType):
         return f'{self.__class__.__name__}(TransactionId={self.TransactionId}, InvocationState={self.InvocationState})'
 
 
-
 class OperationInvokedReportPart(AbstractReportPart):
     InvocationInfo = cp.SubElementProperty(msg.InvocationInfo,
                                            value_class=InvocationInfo,
@@ -256,6 +272,8 @@ class OperationInvokedReportPart(AbstractReportPart):
 
 
 class OperationInvokedReport(AbstractReport):
+    NODETYPE = msg.OperationInvokedReport
+    action = SDC_v1_Definitions.Actions.OperationInvokedReport
     ReportPart = cp.SubElementListProperty(msg.ReportPart, value_class=OperationInvokedReportPart)
     _props = ['ReportPart']
 
@@ -276,6 +294,8 @@ class AbstractSetResponse(PropertyBasedPMType):
 ### WaveformStream ###
 # no report parts in this report!
 class WaveformStream(AbstractReport):
+    NODETYPE = msg.WaveformStream
+    action = SDC_v1_Definitions.Actions.Waveform
     State = cp.ContainerListProperty(msg.State,
                                      value_class=RealTimeSampleArrayMetricStateContainer,
                                      cls_getter=get_state_container_class,
@@ -301,6 +321,8 @@ class DescriptionModificationReportPart(AbstractReportPart):
 
 
 class DescriptionModificationReport(AbstractReport):
+    NODETYPE = msg.DescriptionModificationReport
+    action = SDC_v1_Definitions.Actions.DescriptionModificationReport
     ReportPart = cp.SubElementListProperty(msg.ReportPart, value_class=DescriptionModificationReportPart)
     _props = ['ReportPart']
 
@@ -316,16 +338,18 @@ class DescriptionModificationReport(AbstractReport):
             for d in report_part.Descriptor:
                 d.parent_handle = report_part.ParentDescriptor
         return instance
-class AbstractGet(PropertyBasedPMType):
+
+
+class AbstractGet(MessageType):
     pass
 
 
-class AbstractSet(PropertyBasedPMType):
+class AbstractSet(MessageType):
     OperationHandleRef = cp.NodeTextProperty(msg.OperationHandleRef, StringConverter)
     _props = ['OperationHandleRef']
 
 
-class AbstractGetResponse(PropertyBasedPMType):
+class AbstractGetResponse(MessageType):
     MdibVersion = cp.IntegerAttributeProperty('MdibVersion', implied_py_value=0)
     SequenceId = cp.StringAttributeProperty('SequenceId')
     InstanceId = cp.IntegerAttributeProperty('InstanceId')
@@ -402,6 +426,13 @@ class GetMdib(AbstractGet):
     action = SDC_v1_Definitions.Actions.GetMdib
 
 
+class GetMdibResponse(AbstractGetResponse):
+    NODETYPE = msg.GetMdibResponse
+    action = SDC_v1_Definitions.Actions.GetMdibResponse
+    Mdib = cp.AnyEtreeNodeProperty(None)
+    _props = ['Mdib']
+
+
 class GetMdState(AbstractGet):
     NODETYPE = msg.GetMdState
     action = SDC_v1_Definitions.Actions.GetMdState
@@ -453,7 +484,6 @@ class GetContextStates(AbstractGet):
     action = SDC_v1_Definitions.Actions.GetContextStates
     HandleRef = cp.SubElementHandleRefListProperty(msg.HandleRef)
     _props = ['HandleRef']
-
 
 
 class GetContextStatesResponse(AbstractGetResponse):
@@ -510,11 +540,13 @@ class GetSupportedLanguages(AbstractGet):
 
 
 class GetSupportedLanguagesResponse(AbstractGetResponse):
+    NODETYPE = msg.GetSupportedLanguagesResponse
+    action = SDC_v1_Definitions.Actions.GetSupportedLanguagesResponse
     Lang = cp.SubElementStringListProperty(msg.Lang)
     _props = ['Lang']
 
 
-class GetLocalizedText(PropertyBasedPMType):
+class GetLocalizedText(AbstractGet):
     NODETYPE = msg.GetLocalizedText
     action = SDC_v1_Definitions.Actions.GetLocalizedText
     Ref = cp.SubElementHandleRefListProperty(msg.Ref)
@@ -575,6 +607,7 @@ class SetMetricState(AbstractSet):
                                                    ns_helper=default_ns_helper)
     _props = ['ProposedMetricState']
 
+
 class Argument(PropertyBasedPMType):
     ArgValue = cp.NodeTextProperty(msg.ArgValue, value_converter=StringConverter)
     _props = ['ArgValue']
@@ -600,3 +633,4 @@ class SetComponentState(AbstractSet):
                                                       cls_getter=get_state_container_class,
                                                       ns_helper=default_ns_helper)
     _props = ['ProposedComponentState']
+
