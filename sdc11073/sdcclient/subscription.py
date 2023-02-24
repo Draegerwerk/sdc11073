@@ -168,8 +168,7 @@ class ClSubscription:
             self._logger.error('Exception in renew: {}', ex)
             self.is_subscribed = False
         else:
-            renew_response = evt_types.RenewResponse.from_node(
-                message_data.p_msg.msg_node)
+            renew_response = evt_types.RenewResponse.from_node(message_data.p_msg.msg_node)
             expire_seconds = renew_response.Expires
             if expire_seconds is not None:
                 self.expire_at = time.time() + expire_seconds
@@ -231,8 +230,7 @@ class ClSubscription:
             self._logger.error('Exception in get_status: {}', ex)
             self.is_subscribed = False
         else:
-            get_status_response = evt_types.GetStatusResponse.from_node(
-                message_data.p_msg.msg_node)
+            get_status_response = evt_types.GetStatusResponse.from_node(message_data.p_msg.msg_node)
             expire_seconds = get_status_response.Expires
             # expire_seconds = message_data.msg_reader.read_get_status_response(message_data)
             if expire_seconds is None:
@@ -384,29 +382,27 @@ class ClientSubscriptionManager(threading.Thread):
         return None
 
     def on_subscription_end(self, request_data) -> [ClSubscription, None]:
-        subscription_end_result = self._msg_reader.read_subscription_end_message(request_data.message_data)
-        self._logger.info('on_subscription_end: received Subscription End {}', subscription_end_result)
-        if subscription_end_result.status_list:
-            info = f' status={subscription_end_result.status_list[0]} '
+        subscription_end = evt_types.SubscriptionEnd.from_node(request_data.message_data.p_msg.msg_node)
+        if subscription_end.Status:
+            info = f' status={subscription_end.Status} '
         else:
             info = ''
-        if subscription_end_result.reason_list:
-            if len(subscription_end_result.reason_list) == 1:
-                info += f' reason = {subscription_end_result.reason_list[0]}'
+        if len(subscription_end.Reason) > 0:
+            if len(subscription_end.Reason) == 1:
+                info += f' reason = {subscription_end.Reason[0]}'
             else:
-                info += f' reasons = {subscription_end_result.reason_list}'
+                info += f' reasons = {subscription_end.Reason}'
         subscription = self._find_subscription(request_data,
-                                               subscription_end_result.reference_parameter_list,
+                                               subscription_end.SubscriptionManager.ReferenceParameters,
                                                'on_subscription_end')
         if subscription is not None:
             self._logger.info('on_subscription_end: received Subscription End for {} {}',
                               subscription.short_filter_string,
                               info)
             subscription.is_subscribed = False
-            if len(subscription_end_result.status_list) > 0:
-                subscription.end_status = subscription_end_result.status_list[0]
-            if len(subscription_end_result.reason_list) > 0:
-                subscription.end_reason = subscription_end_result.reason_list[0]
+            subscription.end_status = subscription_end.Status
+            if len(subscription_end.Reason) > 0:
+                subscription.end_reason = subscription_end.Reason[0]
             return subscription
         return None
 

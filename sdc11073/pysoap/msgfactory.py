@@ -3,9 +3,8 @@ from __future__ import annotations
 import copy
 import uuid
 import weakref
-from collections import defaultdict
 from io import BytesIO
-from typing import Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from lxml import etree as etree_
 
@@ -14,7 +13,6 @@ from .soapenvelope import Soap12Envelope
 from ..addressing import Address
 from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
 from ..exceptions import ApiUsageError
-from ..namespaces import EventingActions
 from ..namespaces import WSA_ANONYMOUS
 from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator
@@ -360,15 +358,6 @@ class MessageFactoryDevice(MessageFactory):
         response_envelope.payload_element = response_node
         return CreatedMessage(response_envelope, self)
 
-    def mk_unsubscribe_response_message(self, request_data) -> CreatedMessage:
-        nsh = self._ns_hlp
-        response = Soap12Envelope(
-            nsh.partial_map(nsh.PM, nsh.S12, nsh.WSA, nsh.WSE))
-        reply_address = request_data.message_data.p_msg.address.mk_reply_address(EventingActions.UnsubscribeResponse)
-        response.set_address(reply_address)
-        # response has empty body
-        return CreatedMessage(response, self)
-
     def mk_operation_response_message(self, message_data, action, response_name, mdib_version_group,
                                       transaction_id, invocation_state, invocation_error, error_text
                                       ) -> CreatedMessage:
@@ -397,15 +386,6 @@ class MessageFactoryDevice(MessageFactory):
             invocation_error_msg_node.text = error_text
         response.payload_element = reply_body_node
         return CreatedMessage(response, self)
-
-    @staticmethod
-    def _separate_states_by_source_mds(states) -> dict:
-        lookup = defaultdict(list)
-        for state in states:
-            lookup[state.source_mds].append(state)
-        if None in lookup:
-            raise ValueError(f'States {[st.DescriptorHandle for st in lookup[None]]} have no source mds')
-        return lookup
 
     def mk_description_modification_report_body(self, mdib_version_group, updated, created, deleted,
                                                 updated_states) -> etree_.Element:
@@ -442,7 +422,7 @@ class MessageFactoryDevice(MessageFactory):
         if mdib_version_group.instance_id is not None:
             node.set('InstanceId', str(mdib_version_group.instance_id))
 
-    def mk_notification_message(self, ws_addr, message_node, reference_params: list,
+    def mk_notification_message(self, ws_addr, message_node, reference_params: List[etree_._Element],
                                 doc_nsmap) -> CreatedMessage:
         envelope = Soap12Envelope(doc_nsmap)
         envelope.payload_element = message_node

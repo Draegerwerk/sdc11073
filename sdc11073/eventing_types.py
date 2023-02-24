@@ -64,6 +64,14 @@ class Unsubscribe(MessageType):
     action = EventingActions.Unsubscribe
 
 
+class UnsubscribeResponse(MessageType):
+    NODETYPE = default_ns_helper.wseTag('UnsubscribeResponse')
+    action = EventingActions.UnsubscribeResponse
+
+    def as_etree_node(self, *args, **kwargs):
+        # Unsubscribe has empty body
+        return None
+
 class LanguageSpecificStringType(ElementWithText):
     lang = cp.StringAttributeProperty(attribute_name=default_ns_helper.xmlTag('lang'))
     _props = ['lang']

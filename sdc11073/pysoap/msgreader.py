@@ -25,19 +25,6 @@ from ..schema_resolver import mk_schema_validator
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
 
 
-@dataclass
-class DescriptionModification:
-    descriptors: list = field(default_factory=list)
-    states: list = field(default_factory=list)
-
-
-@dataclass
-class DescriptionModifications:
-    create: DescriptionModification = field(default_factory=DescriptionModification)
-    update: DescriptionModification = field(default_factory=DescriptionModification)
-    delete: DescriptionModification = field(default_factory=DescriptionModification)
-
-
 def validate_node(node, xml_schema, logger):
     try:
         xml_schema.assertValid(node)
@@ -319,14 +306,6 @@ class MessageReader:
 
 
 class MessageReaderClient(MessageReader):
-
-    def read_subscription_end_message(self, message_data: ReceivedMessage) -> SubscriptionEndResult:
-        ns = {'wse': self.ns_hlp.WSE.namespace, 'wsa': self.ns_hlp.WSA.namespace}
-        body_node = message_data.p_msg.body_node
-        status_list = body_node.xpath('wse:SubscriptionEnd/wse:Status/text()', namespaces=ns)
-        reason_list = body_node.xpath('wse:SubscriptionEnd/wse:Reason/text()', namespaces=ns)
-        reference_parameters = message_data.p_msg.address.reference_parameters
-        return SubscriptionEndResult(status_list, reason_list, reference_parameters)
 
     @staticmethod
     def read_wsdl(wsdl_string: str) -> etree_.ElementTree:

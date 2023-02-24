@@ -341,7 +341,8 @@ class SubscriptionsManagerBase:
             subscriptions_with_same_soap_client = self._subscriptions.netloc.get(key, [])
             if len(subscriptions_with_same_soap_client) == 0:
                 self._soap_client_pool.forget(key, self)
-            response = self._msg_factory.mk_unsubscribe_response_message(request_data)
+            unsubscribe_response = evt_types.UnsubscribeResponse()
+            response = self._msg_factory.mk_reply_soap_message(request_data, unsubscribe_response)
         return response
 
     def on_get_status_request(self, request_data: RequestData) -> CreatedMessage:
