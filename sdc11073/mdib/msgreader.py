@@ -156,7 +156,7 @@ class MessageReader(object):
 
     def _mkStateContainersFromReportPart(self, reportPartNode):
         containers = []
-        for childNode in reportPartNode:
+        for childNode in reportPartNode.xpath('./*[not(self::msg:SourceMds)]', namespaces=namespaces.nsmap):
             desc_h = childNode.get('DescriptorHandle')
             if desc_h is None:
                 self._logger.error('{}_onEpisodicComponentReport: missing descriptor handle in {}!',
