@@ -15,15 +15,15 @@ from ..addressing import EndpointReferenceType
 from ..dispatch import DispatchKey, DispatchKeyRegistry
 from ..dispatch import PathElementRegistry
 from ..dispatch import RequestData, MessageConverterMiddleware
-from ..dpws import HostServiceType
+from ..dpws import HostServiceType, ThisDeviceType, ThisModelType
 from ..exceptions import ApiUsageError
 from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..location import SdcLocation
+from .. import mex_types
 
 if TYPE_CHECKING:
     from ..pysoap.msgfactory import CreatedMessage
-    from ..dpws import ThisDeviceType, ThisModelType
     from ..mdib.devicemdib import DeviceMdibContainer
     from .components import SdcDeviceComponents
     from ssl import SSLContext
@@ -147,9 +147,9 @@ class SdcDevice:
             self._on_probe_request)
         epr_type = EndpointReferenceType()
         epr_type.Address = self.epr_urn
-        self.dpws_host = HostServiceType(
-            endpoint_reference=epr_type,
-            types_list=self._mdib.sdc_definitions.MedicalDeviceTypesFilter)
+        self.dpws_host = HostServiceType()
+        self.dpws_host.EndpointReference =  epr_type
+        self.dpws_host.Types = self._mdib.sdc_definitions.MedicalDeviceTypesFilter
 
         self._hosted_service_dispatcher = _PathElementDispatcher()
         self._hosted_service_dispatcher.register_instance(None, self._host_dispatcher)
@@ -227,13 +227,41 @@ class SdcDevice:
 
     def _on_get_metadata(self, request_data):  # pylint: disable=unused-argument
         self._logger.info('_on_get_metadata from {}', request_data.peer_name)
-        _nsm = self._mdib.nsmapper
+        metadata = mex_types.Metadata()
+        section = mex_types.ThisModelMetadataSection()
+        section.MetadataReference = self.model
+        metadata.MetadataSection.append(section)
 
-        message = self.msg_factory.mk_get_metadata_response_message(
-            request_data.message_data, self.device, self.model, self.dpws_host,
-            self.hosted_services.dpws_hosted_services)
-        self._logger.debug('returned meta data = {}', message.serialize_message())
-        return message
+        section = mex_types.ThisDeviceMetadataSection()
+        section.MetadataReference = self.device
+        metadata.MetadataSection.append(section)
+
+        section = mex_types.RelationshipMetadataSection()
+        section.MetadataReference.Host = self.dpws_host
+
+        # add all hosted services:
+        for service in self.hosted_services.dpws_hosted_services.values():
+            hosted = service.mk_dpws_hosted_instance()
+            section.MetadataReference.Hosted.append(hosted)
+        metadata.MetadataSection.append(section)
+
+        # find namespaces that are used in Types of Host and Hosted
+        _nsm = self._mdib.nsmapper
+        needed_namespaces = [_nsm.DPWS, _nsm.WSX]
+        q_names = []
+        q_names.extend(self.dpws_host.Types)
+        for h in section.MetadataReference.Hosted:
+            q_names.extend(h.Types)
+        for q_name in q_names:
+            for e in _nsm.prefix_enum:
+                if e.namespace == q_name.namespace and e not in needed_namespaces:
+                    needed_namespaces.append(e)
+
+        ns_map = _nsm.partial_map(*needed_namespaces)
+        response = self.msg_factory.mk_reply_soap_message(request_data, metadata, ns_map)
+        # from lxml.etree import tostring
+        # print (tostring((response.p_msg.payload_element),pretty_print=True).decode('utf-8'))
+        return response
 
     def _on_probe_request(self, request):
         response = self.msg_factory.mk_probe_matches_response_message(request.message_data, self.get_xaddrs())

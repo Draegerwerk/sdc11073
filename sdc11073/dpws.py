@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Union, Optional, TYPE_CHECKING
+from typing import Union, Optional
 
-from lxml.etree import QName
-
-if TYPE_CHECKING:
-    from .addressing import EndpointReferenceType
+from .addressing import EndpointReferenceType
+from .mdib import containerproperties as cp
+from .namespaces import default_ns_helper
+from .pmtypes import PropertyBasedPMType, ElementWithText
 
 
 class DeviceRelationshipTypeURI(str, Enum):
@@ -45,43 +45,44 @@ class LocalizedStringTypeDict(dict):
         self[lang] = the_string
 
 
-class HostServiceType:
-    __slots__ = ('endpoint_reference', 'types')
-
-    def __init__(self,
-                 endpoint_reference: list,
-                 types_list: List[QName]):
-        """
-        :param endpoint_references: list of etree_ nodes
-        :param types_list: a list of etree.QName instances
-        """
-        self.endpoint_reference = endpoint_reference
-        self.types = types_list
-
-    def __str__(self):
-        return f'HostServiceType: endpointReference={self.endpoint_reference}, types="{self.types}"'
+class HostServiceType(PropertyBasedPMType):
+    EndpointReference = cp.SubElementProperty(default_ns_helper.wsaTag('EndpointReference'),
+                                              value_class=EndpointReferenceType)
+    Types = cp.NodeTextQNameListProperty(default_ns_helper.dpwsTag('Types'))
+    _props = ['EndpointReference', 'Types']
 
 
-class HostedServiceType:
-    __slots__ = ('endpoint_references', 'types', 'service_id')
-
-    def __init__(self,
-                 endpoint_references_list: List[EndpointReferenceType],
-                 types_list: List[QName],
-                 service_id: str):
-        self.endpoint_references: List[EndpointReferenceType] = endpoint_references_list
-        self.types: List[QName] = types_list
-        self.service_id: str = service_id
-
-    def __str__(self):
-        return f'HostedServiceType: endpointReference={self.endpoint_references}, types="{self.types}" ' \
-               f'service_id="{self.service_id}"'
+class HostedServiceType(PropertyBasedPMType):
+    EndpointReference = cp.SubElementListProperty(default_ns_helper.wsaTag('EndpointReference'),
+                                                  value_class=EndpointReferenceType)
+    Types = cp.NodeTextQNameListProperty(default_ns_helper.dpwsTag('Types'))
+    ServiceId = cp.AnyUriTextElement(default_ns_helper.dpwsTag('ServiceId'))
+    _props = ['EndpointReference', 'Types', 'ServiceId']
 
 
-class ThisDeviceType:
-    __slots__ = ('friendly_name', 'firmware_version', 'serial_number')
+class LocalizedStringType(ElementWithText):
+    lang = cp.StringAttributeProperty(default_ns_helper.xmlTag('lang'))
+    _props = ['lang']
 
-    def __init__(self, friendly_name: Union[str, LocalizedStringTypeDict],
+    @classmethod
+    def init(cls, lang, text):
+        instance = cls()
+        instance.lang = lang
+        instance.text = text
+        return instance
+
+
+class ThisDeviceType(PropertyBasedPMType):
+    """
+    This class represents "ThisDeviceType" in dpws schema.
+    """
+    FriendlyName = cp.SubElementListProperty(default_ns_helper.dpwsTag('FriendlyName'),
+                                             value_class=LocalizedStringType)
+    FirmwareVersion = cp.NodeStringProperty(default_ns_helper.dpwsTag('FirmwareVersion'), is_optional=True)
+    SerialNumber = cp.NodeStringProperty(default_ns_helper.dpwsTag('SerialNumber'), is_optional=True)
+    _props = ['FriendlyName', 'FirmwareVersion']
+
+    def __init__(self, friendly_name: Union[str, LocalizedStringTypeDict, None] = None,
                  firmware_version: Optional[str] = None,
                  serial_number: Optional[str] = None):
         """
@@ -92,119 +93,47 @@ class ThisDeviceType:
         :param firmware_version: any string
         :param serial_number: any string
         """
+        super().__init__()
         if isinstance(friendly_name, str):
-            self.friendly_name = LocalizedStringTypeDict({None: friendly_name})  # localized texts, default name
-        else:
-            assert (isinstance(friendly_name, LocalizedStringTypeDict))
-            self.friendly_name = friendly_name
-        self.firmware_version = firmware_version
-        self.serial_number = serial_number
-
-    def __str__(self):
-        return f'ThisDeviceType: friendly_name={self.friendly_name}, ' \
-               f'firmware_version="{self.firmware_version}", ' \
-               f'serial_number="{self.serial_number}"'
-
-    def __eq__(self, other):
-        try:
-            for slot in self.__slots__:
-                if getattr(self, slot) != getattr(other, slot):
-                    return False
-            return True
-        except AttributeError:
-            return False
+            self.FriendlyName.append(LocalizedStringType.init('', friendly_name))
+        elif isinstance(friendly_name, LocalizedStringTypeDict):
+            for lang, text in friendly_name.items():
+                self.FriendlyName.append(LocalizedStringType.init(lang, text))
+        self.FirmwareVersion = firmware_version
+        self.SerialNumber = serial_number
 
 
-class ThisModelType:
-    __slots__ = ('manufacturer', 'manufacturer_url', 'model_name', 'model_number', 'model_url', 'presentation_url')
+class ThisModelType(PropertyBasedPMType):
+    Manufacturer = cp.SubElementListProperty(default_ns_helper.dpwsTag('Manufacturer'),
+                                             value_class=LocalizedStringType)
+    ManufacturerUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('ManufacturerUrl'))
+    ModelName = cp.SubElementListProperty(default_ns_helper.dpwsTag('ModelName'),
+                                          value_class=LocalizedStringType)
+    ModelNumber = cp.NodeStringProperty(default_ns_helper.dpwsTag('ModelNumber'), is_optional=True)
+    ModelUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('ModelUrl'), is_optional=True)
+    PresentationUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('PresentationUrl'), is_optional=True)
+    _props = ['Manufacturer', 'ManufacturerUrl', 'ModelName', 'ModelNumber', 'ModelUrl', 'PresentationUrl']
 
     def __init__(self,
-                 manufacturer: Union[str, LocalizedStringTypeDict],
-                 manufacturer_url: str,
-                 model_name: Union[str, LocalizedStringTypeDict],
-                 model_number: str,
-                 model_url: str,
-                 presentation_url: str):
-        """
-        This class represents "ThisModelType" in dpws schema.
-        :param manufacturer:
-        :param manufacturer_url:
-        :param model_name:
-        :param model_number:
-        :param model_url:
-        :param presentation_url:
-        """
+                 manufacturer: Union[str, LocalizedStringTypeDict, None] = None,
+                 manufacturer_url: Optional[str] = None,
+                 model_name: Union[str, LocalizedStringTypeDict, None] = None,
+                 model_number: Optional[str] = None,
+                 model_url: Optional[str] = None,
+                 presentation_url: Optional[str] = None):
+        super().__init__()
         if isinstance(manufacturer, str):
-            self.manufacturer = LocalizedStringTypeDict({None: manufacturer})
-        else:
-            assert (isinstance(manufacturer, LocalizedStringTypeDict))
-            self.manufacturer = manufacturer
-        self.manufacturer_url = manufacturer_url
+            self.Manufacturer.append(LocalizedStringType.init(None, manufacturer))
+        elif isinstance(manufacturer, LocalizedStringTypeDict):
+            for lang, value in manufacturer.items():
+                self.Manufacturer.append(LocalizedStringType.init(lang, value))
+        self.ManufacturerUrl = manufacturer_url
         if isinstance(model_name, str):
-            self.model_name = LocalizedStringTypeDict({None: model_name})
-        else:
-            assert (isinstance(model_name, LocalizedStringTypeDict))
-            self.model_name = model_name
-        self.model_number = model_number
-        self.model_url = model_url
-        self.presentation_url = presentation_url
+            self.ModelName.append(LocalizedStringType.init(None, model_name))
+        elif isinstance(model_name, LocalizedStringTypeDict):
+            for lang, value in model_name.items():
+                self.ModelName.append(LocalizedStringType.init(lang, value))
+        self.ModelNumber = model_number
+        self.ModelUrl = model_url
+        self.PresentationUrl = presentation_url
 
-    def __str__(self):
-        return f'ThisModelType: manufacturer={self.manufacturer}, model_name="{self.model_name}", ' \
-               f'model_number="{self.model_number}"'
-
-    def __eq__(self, other):
-        try:
-            for slot in self.__slots__:
-                if getattr(self, slot) != getattr(other, slot):
-                    return False
-            return True
-        except AttributeError:
-            return False
-
-# class LocalizedStringType(cp.NodeStringProperty):
-#     lang = cp.StringAttributeProperty(default_ns_helper.xmlTag('lang'))
-#     _props = ['lang']
-#
-#     def __init__(self, lang, text):
-#         super().__init__()
-#         self.lang = lang
-#         self.text = text
-#
-#
-# class ThisModelType(PropertyBasedPMType):
-#     Manufacturer = cp.SubElementListProperty(default_ns_helper.dpwsTag('Manufacturer'),
-#                                              value_class=LocalizedStringType)
-#     ManufacturerUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('ManufacturerUrl'))
-#     ModelName = cp.SubElementListProperty(default_ns_helper.dpwsTag('ModelName'),
-#                                              value_class=LocalizedStringType)
-#     ModelNumber = cp.NodeStringProperty(default_ns_helper.dpwsTag('ModelNumber'), is_optional=True)
-#     ModelUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('ModelUrl'), is_optional=True)
-#     PresentationUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('PresentationUrl'), is_optional=True)
-#
-#
-#     def __init__(self,
-#                  manufacturer: Union[str, LocalizedStringTypeDict],
-#                  manufacturer_url: str,
-#                  model_name: Union[str, LocalizedStringTypeDict],
-#                  model_number: str,
-#                  model_url: str,
-#                  presentation_url: str):
-#
-#         if isinstance(manufacturer, str):
-#             self.Manufacturer.append(LocalizedStringType(None, manufacturer))
-#         else:
-#             assert(isinstance(manufacturer, LocalizedStringTypeDict))
-#             for lang, value in manufacturer.items():
-#                 self.Manufacturer.append(LocalizedStringType(lang, value))
-#         self.ManufacturerUrl = manufacturer_url
-#         if isinstance(model_name, str):
-#             self.ModelName.append(LocalizedStringType(None, model_name))
-#         else:
-#             assert(isinstance(model_name, LocalizedStringTypeDict))
-#             for lang, value in model_name.items():
-#                 self.ModelName.append(LocalizedStringType(lang, value))
-#         self.ModelNumber = model_number
-#         self.ModelUrl = model_url
-#         self.PresentationUrl = presentation_url
-#

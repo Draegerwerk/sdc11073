@@ -9,7 +9,7 @@ from ..addressing import EndpointReferenceType
 from ..dpws import HostedServiceType
 from ..namespaces import EventingActions
 from ..namespaces import default_ns_helper as ns_hlp
-
+from .. import mex_types
 _wsdl_ns = ns_hlp.WSDL.namespace
 
 WSP_NS = ns_hlp.WSP.namespace
@@ -101,10 +101,10 @@ class DPWSHostedService(_EventService):
             epr_type.Address = f'{addr.geturl()}/{self.path_element}'
             endpoint_references_list.append(epr_type)
         port_type_ns = self._mdib.sdc_definitions.PortTypeNamespace
-        dpws_hosted = HostedServiceType(
-            endpoint_references_list=endpoint_references_list,
-            types_list=[etree_.QName(port_type_ns, p) for p in self._my_port_types],
-            service_id=self._my_port_types[0])
+        dpws_hosted = HostedServiceType()
+        dpws_hosted.EndpointReference.extend(endpoint_references_list)
+        dpws_hosted.Types=[etree_.QName(port_type_ns, p) for p in self._my_port_types]
+        dpws_hosted.ServiceId=self._my_port_types[0]
         return dpws_hosted
 
     def _on_get_wsdl(self) -> str:
@@ -176,10 +176,31 @@ class DPWSHostedService(_EventService):
         my_base_url = my_base_urls[0] if len(my_base_urls) > 0 else all_base_urls[0]
         tmp = '/'.join(consumed_path_elements)
         location_text = f'{my_base_url.scheme}://{my_base_url.netloc}/{tmp}/?wsdl'
-        response = msg_factory.mk_hosted_get_metadata_response_message(request_data.message_data,
-                                                                       self._sdc_device.dpws_host,
-                                                                       self.mk_dpws_hosted_instance(),
-                                                                       location_text)
+
+        metadata = mex_types.Metadata()
+        section = mex_types.RelationshipMetadataSection()
+        section.MetadataReference.Host = self._sdc_device.dpws_host
+        hosted = self.mk_dpws_hosted_instance()
+        section.MetadataReference.Hosted.append(hosted)
+        metadata.MetadataSection.append(section)
+
+        section = mex_types.LocationMetadataSection()
+        section.Location = location_text
+        metadata.MetadataSection.append(section)
+
+        # find namespaces that are used in Types of Host and Hosted
+        _nsm = self._mdib.nsmapper
+        needed_namespaces = [_nsm.DPWS, _nsm.WSX]
+        q_names = self._sdc_device.dpws_host.Types[:]
+        q_names.extend(hosted.Types)
+        for q_name in q_names:
+            for e in _nsm.prefix_enum:
+                if e.namespace == q_name.namespace and e not in needed_namespaces:
+                    needed_namespaces.append(e)
+        ns_map = _nsm.partial_map(*needed_namespaces)
+        response = msg_factory.mk_reply_soap_message(request_data, metadata, ns_map)
+        from lxml.etree import tostring
+        print (tostring((response.p_msg.payload_element),pretty_print=True).decode('utf-8'))
         return response
 
     def __repr__(self):

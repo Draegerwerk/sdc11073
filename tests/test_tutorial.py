@@ -3,9 +3,9 @@ import unittest
 import uuid
 from decimal import Decimal
 
+from sdc11073 import msgtypes
 from sdc11073 import pm_qnames as pm
 from sdc11073 import pmtypes
-from sdc11073 import msgtypes
 from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.dpws import ThisDeviceType, ThisModelType

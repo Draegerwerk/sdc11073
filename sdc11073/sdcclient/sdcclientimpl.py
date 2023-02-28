@@ -7,7 +7,7 @@ import ssl
 import traceback
 import uuid
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, List, Union, Set
+from typing import Optional, List, Union, Set
 from urllib.parse import urlparse, urlsplit
 
 from lxml import etree as etree_
@@ -27,8 +27,6 @@ from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..namespaces import EventingActions
 from .. import mex_types
-if TYPE_CHECKING:
-    from ..metadata import MetaData
 
 
 class HostDescription:
@@ -65,7 +63,7 @@ class HostedServiceDescription:
         message_data = soap_client.post_message_to(self._url.path,
                                                    created_message,
                                                    msg=f'<{self.service_id}> read_metadata')
-        self.meta_data = self._msg_reader.read_get_metadata_response(message_data)
+        self.meta_data = mex_types.Metadata.from_node(message_data.p_msg.body_node)
         if self.meta_data.wsdl_location is not None:
             self._read_wsdl(soap_client, self.meta_data.wsdl_location)
 
@@ -210,7 +208,7 @@ class SdcClient:
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
         self._my_ipaddress = self._find_best_own_ip_address()
         self._logger.info('SdcClient for {} uses own IP Address {}', self._device_location, self._my_ipaddress)
-        self.host_description: Optional[MetaData] = None
+        self.host_description: Optional[mex_types.MetaData] = None
         self.hosted_services = {}  # lookup by service id
         self._validate = validate
         try:
@@ -444,12 +442,11 @@ class SdcClient:
 
         # start all subscriptions
         # group subscriptions per hosted service
-        for _, dpws_hosted in self.host_description.relationship.hosted.items():
+        for dpws_hosted in self.host_description.relationship.Hosted:
             available_actions = []
-            if dpws_hosted.types is not None:
-                for port_type_qname in dpws_hosted.types:
-                    port_type = port_type_qname.split(':')[-1]
-                    client = self.client(port_type)
+            if dpws_hosted.Types is not None:
+                for port_type_qname in dpws_hosted.Types:
+                    client = self.client(port_type_qname.localname)
                     if client is not None:
                         available_actions.extend(client.get_subscribable_actions())
             if len(available_actions) > 0:
@@ -494,7 +491,7 @@ class SdcClient:
         self._compression_methods.extend(compression_methods)
 
 
-    def _get_metadata(self) -> MetaData:
+    def _get_metadata(self) -> mex_types.Metadata:
         _url = urlparse(self._device_location)
         wsc = self.get_soap_client(self._device_location)
 
@@ -511,7 +508,8 @@ class SdcClient:
                                                                   f'{nsh.WXF.namespace}/Get',
                                                                   payload_element=None)
         received_message_data = wsc.post_message_to(_url.path, message, msg='getMetadata')
-        return self.msg_reader.read_get_metadata_response(received_message_data)
+        meta_data = mex_types.Metadata.from_node(received_message_data.p_msg.body_node)
+        return meta_data
 
     def get_soap_client(self, address):
         _url = urlparse(address)
@@ -544,26 +542,23 @@ class SdcClient:
                    chunked_requests=chunked_requests)
 
     def _mk_hosted_services(self, host_description):
-        for hosted in host_description.relationship.hosted.values():
-            endpoint_reference = hosted.endpoint_references[0].Address
-            soap_client = self.get_soap_client(endpoint_reference)
-            #hosted.soap_client = soap_client
-            if hosted.types is not None:
-                ns_types = [t.split(':') for t in hosted.types]
-            else:
-                ns_types = []
+        for hosted in host_description.relationship.Hosted:
+            address = hosted.EndpointReference[0].Address
+            soap_client = self.get_soap_client(address)
             h_descr = HostedServiceDescription(
-                hosted.service_id, endpoint_reference,
+                hosted.ServiceId, address,
                 self.msg_reader, self._msg_factory, self.sdc_definitions.data_model, self.log_prefix)
-            self.hosted_services[hosted.service_id] = h_descr
+            self.hosted_services[hosted.ServiceId] = h_descr
             h_descr.read_metadata(soap_client)
-            for _, port_type in ns_types:
-                hosted_service_client = self._mk_hosted_service_client(port_type, soap_client, hosted)
+            for port_type in hosted.Types:
+                hosted_service_client = self._mk_hosted_service_client(port_type.localname,
+                                                                       soap_client,
+                                                                       hosted)
                 if hosted_service_client is not None:
-                    self._service_clients[port_type] = hosted_service_client
-                    h_descr.services[port_type] = hosted_service_client
+                    self._service_clients[port_type.localname] = hosted_service_client
+                    h_descr.services[port_type.localname] = hosted_service_client
                 else:
-                    self._logger.warning('Unknown port type {}', port_type)
+                    self._logger.warning('Unknown port type {}', port_type.localname)
 
     def _mk_hosted_service_client(self, port_type, soap_client, hosted):
         cls = self._components.service_handlers.get(port_type)

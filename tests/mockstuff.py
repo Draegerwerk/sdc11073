@@ -1,21 +1,24 @@
 from __future__ import annotations
+
 import logging
 import os.path
 import threading
 import urllib
 from decimal import Decimal
 from typing import TYPE_CHECKING, Union
+
 from lxml import etree as etree_
 
 from sdc11073 import pm_qnames as pm
 from sdc11073 import pmtypes
 from sdc11073.addressing import Address
 from sdc11073.dpws import ThisModelType, ThisDeviceType
+from sdc11073.eventing_types import Subscribe
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.sdcdevice import SdcDevice
 from sdc11073.sdcdevice.subscriptionmgr import DevSubscription
-from sdc11073.eventing_types import Subscribe
+
 if TYPE_CHECKING:
     import uuid
 
@@ -76,7 +79,8 @@ class TestDevSubscription(DevSubscription):
         subscribe_request.Delivery.NotifyTo.Address = self.notify_to
         subscribe_request.Delivery.NotifyTo.ReferenceParameters = [notify_ref_node]
         subscribe_request.Delivery.NotifyTo.Mode = self.mode
-        super().__init__(subscribe_request, accepted_encodings, base_urls, 42, msg_factory=msg_factory, log_prefix='test')
+        super().__init__(subscribe_request, accepted_encodings, base_urls, 42, msg_factory=msg_factory,
+                         log_prefix='test')
         self.reports = []
 
     def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
@@ -130,7 +134,7 @@ class SomeDevice(SdcDevice):
         for mdsDescriptor in mdsDescriptors:
             if mdsDescriptor.MetaData is not None:
                 mdsDescriptor.MetaData.Manufacturer.append(pmtypes.LocalizedText(u'Dräger'))
-                mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(model.model_name[None]))
+                mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(model.ModelName[0].text))
                 mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')
                 mdsDescriptor.MetaData.ModelNumber = '0.99'
         super().__init__(wsdiscovery, model, device, device_mdib_container, epr, validate,

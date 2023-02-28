@@ -12,7 +12,6 @@ from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.sdcdevice import waveforms, SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
-
 from tests import mockstuff
 
 mdib_folder = os.path.dirname(__file__)

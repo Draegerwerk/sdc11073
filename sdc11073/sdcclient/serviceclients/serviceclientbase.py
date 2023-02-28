@@ -63,7 +63,7 @@ class HostedServiceClient:
         self._sdc_definitions = sdc_client.sdc_definitions
         self._msg_factory = sdc_client._msg_factory
         self.log_prefix = sdc_client.log_prefix
-        self.endpoint_reference: EndpointReferenceType = dpws_hosted.endpoint_references[0]
+        self.endpoint_reference: EndpointReferenceType = dpws_hosted.EndpointReference[0]
         self._url = urllib.parse.urlparse(self.endpoint_reference.Address)
         self._porttype = port_type
         self._logger = loghelper.get_logger_adapter(f'sdc.client.{port_type}', self.log_prefix)

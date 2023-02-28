@@ -488,6 +488,7 @@ class DecimalListAttributeProperty(_AttributeListBase):
         super().__init__(attribute_name, ListConverter(DecimalConverter))
 
 
+
 class NodeTextProperty(_ElementBase):
     """ The handled data is the text of an element.
     Python representation is a string."""
@@ -540,6 +541,11 @@ class NodeStringProperty(NodeTextProperty):
         super().__init__(sub_element_name, StringConverter, default_py_value, implied_py_value, is_optional, min_length)
 
 
+class AnyUriTextElement(NodeStringProperty):
+    # for now the same as NodeStringProperty ,but later it could be handy to add uri type checking
+    pass
+
+
 class NodeEnumTextProperty(NodeTextProperty):
     """Python representation is an Enum."""
 
@@ -557,7 +563,8 @@ class NodeIntProperty(NodeTextProperty):
 
 
 class NodeTextQNameProperty(_ElementBase):
-    """ The handled data is a qualified name as in the text of an element"""
+    """ The handled data is a single qualified name in the text of an element
+    in the form prefix:localname"""
 
     def __init__(self, sub_element_name, default_py_value=None, is_optional=False):
         super().__init__(sub_element_name, ClassCheckConverter(etree_.QName), default_py_value,
@@ -598,6 +605,8 @@ class NodeTextQNameProperty(_ElementBase):
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
             value = docname_from_qname(py_value, sub_node.nsmap)
             sub_node.text = value
+
+
 
 
 class LocalizedTextContentProperty(NodeStringProperty):
@@ -719,9 +728,10 @@ class AnyEtreeNodeProperty(_ElementBase):
 class SubElementProperty(_ElementBase):
     """ uses a value that has an "as_etree_node" method"""
 
-    def __init__(self, sub_element_name, value_class, default_py_value=None, implied_py_value=None, is_optional=False):
+    def __init__(self, sub_element_name, value_class, default_py_value=None,
+                 implied_py_value=None, is_optional=False, local_var_prefix=''):
         super().__init__(sub_element_name, ClassCheckConverter(value_class), default_py_value, implied_py_value,
-                         is_optional)
+                         is_optional, local_var_prefix)
         self.value_class = value_class
 
     def get_py_value_from_node(self, instance, node):
@@ -746,7 +756,6 @@ class SubElementProperty(_ElementBase):
                     raise ValueError(f'mandatory value {self._sub_element_name} missing')
                 etree_.SubElement(node, self._sub_element_name, nsmap=node.nsmap)
         else:
-            self.remove_sub_element(node)
             sub_node = py_value.as_etree_node(self._sub_element_name, node.nsmap)
             if hasattr(py_value, 'NODETYPE') and hasattr(self.value_class, 'NODETYPE') \
                     and py_value.NODETYPE != self.value_class.NODETYPE:
@@ -850,12 +859,9 @@ class SubElementListProperty(_ElementListProperty):
         except AttributeError:  # set to None (it is in the responsibility of the called method to do the right thing)
             py_value = self._default_py_value
 
-        nodes = node.findall(self._sub_element_name)
-        for _node in nodes:
-            node.remove(_node)
-        # ... and create new ones
         if py_value is not None:
             for val in py_value:
+                name = self._sub_element_name or val.NODETYPE
                 sub_node = val.as_etree_node(self._sub_element_name, node.nsmap)
                 if hasattr(val, 'NODETYPE') and hasattr(self.value_class, 'NODETYPE') \
                         and val.NODETYPE != self.value_class.NODETYPE:
@@ -920,7 +926,7 @@ class ContainerListProperty(_ElementListProperty):
 
 
 class SubElementTextListProperty(_ElementListProperty):
-    """ represents a list of strings."""
+    """ represents a list of strings. on xml side every string is a text of a sub element"""
 
     def __init__(self, sub_element_name, value_class, is_optional=True):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
@@ -1038,6 +1044,53 @@ class AnyEtreeNodeListProperty(_ElementListProperty):
     def __str__(self):
         return f'{self.__class__.__name__} in subelement {self._sub_element_name}'
 
+
+class NodeTextQNameListProperty(_ElementListProperty):
+    """ The handled data is a list of qualified names. The xml text is the joined list of qnames in the
+    form prefix:localname"""
+
+    def __init__(self, sub_element_name, is_optional=False):
+        super().__init__(sub_element_name, ListConverter(ClassCheckConverter(etree_.QName)),
+                         is_optional=is_optional)
+
+    def get_py_value_from_node(self, instance, node):
+        try:
+            sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
+            if sub_node.text is not None:
+                result = []
+                for q_name_string in sub_node.text.split():
+                    result.append(text_to_qname(q_name_string, sub_node.nsmap))
+                return result
+        except ElementNotFoundException:
+            pass
+        return self._default_py_value
+
+    def update_xml_value(self, instance, node):
+        try:
+            py_value = getattr(instance, self._local_var_name)
+        except AttributeError:  # set to None (it is in the responsibility of the called method to do the right thing)
+            py_value = None
+
+        if py_value is None:
+            if not self._sub_element_name:
+                # update text of this element
+                node.text = ''
+            else:
+                if self.is_optional:
+                    sub_node = node.find(self._sub_element_name)
+                    if sub_node is not None:
+                        node.remove(sub_node)
+                else:
+                    if MANDATORY_VALUE_CHECKING and not self.is_optional:
+                        raise ValueError(f'mandatory value {self._sub_element_name} missing')
+                    sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
+                    sub_node.text = None
+        else:
+            sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
+            tmp = []
+            for q_name in py_value:
+                tmp.append(docname_from_qname(q_name, sub_node.nsmap))
+            sub_node.text = ' '.join(tmp)
 
 
 

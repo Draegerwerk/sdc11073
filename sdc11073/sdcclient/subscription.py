@@ -54,7 +54,7 @@ class ClSubscription:
         self._logger = loghelper.get_logger_adapter('sdc.client.subscr', log_prefix)
         self.event_counter = 0  # for display purpose, we count notifications
         # ToDo: check if there is more than one address. In that case a clever selection is needed
-        self._hosted_service_address: str = self._dpws_hosted.endpoint_references[0].Address
+        self._hosted_service_address: str = self._dpws_hosted.EndpointReference[0].Address
         self._hosted_service_path = urlparse(self._hosted_service_address).path
         # self._subscription_manager_address: Optional[str] = None  # manager address for this subscription, not known yet
         self._subscription_manager_path: Optional[str] = None

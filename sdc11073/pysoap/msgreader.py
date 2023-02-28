@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import traceback
 from collections import namedtuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Union
 
 from lxml import etree as etree_
@@ -12,11 +12,7 @@ from sdc11073.namespaces import QN_TYPE, text_to_qname
 from .soapenvelope import SoapFault, FaultCodeEnum, ReceivedSoapMessage
 from ..addressing import Address
 from ..addressing import EndpointReferenceType
-from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
-from ..dpws import LocalizedStringTypeDict
-from ..dpws import ThisDeviceType, ThisModelType, HostServiceType, HostedServiceType, Relationship
 from ..exceptions import HTTPRequestHandlingError
-from ..metadata import MetaData
 from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator
 
@@ -312,38 +308,6 @@ class MessageReaderClient(MessageReader):
         """ make am ElementTree instance"""
         return etree_.fromstring(wsdl_string, parser=etree_.ETCompatXMLParser(resolve_entities=False))
 
-    def read_get_metadata_response(self, message_data: ReceivedMessage) -> MetaData:
-        meta_data = MetaData()
-        body_node = message_data.p_msg.body_node
-        metadata_node = body_node.find(self.ns_hlp.wsxTag('Metadata'))
-        if metadata_node is not None:
-            section_nodes = metadata_node.findall(self.ns_hlp.wsxTag('MetadataSection'))
-            for metadata_section_node in section_nodes:
-                dialect = metadata_section_node.attrib['Dialect']
-                if dialect[-1] == '/':
-                    dialect = dialect[:-1]
-                if dialect == "http://schemas.xmlsoap.org/wsdl":
-                    location_node = metadata_section_node.find(self.ns_hlp.wsxTag('Location'))
-                    if location_node is not None:
-                        meta_data.wsdl_location = location_node.text
-                elif dialect == DeviceMetadataDialectURI.THIS_MODEL:
-                    this_model_node = metadata_section_node.find(self.ns_hlp.dpwsTag('ThisModel'))
-                    meta_data.this_model = self._mk_this_model(this_model_node)
-                elif dialect == DeviceMetadataDialectURI.THIS_DEVICE:
-                    this_device_node = metadata_section_node.find(self.ns_hlp.dpwsTag('ThisDevice'))
-                    meta_data.this_device = self._mk_this_device(this_device_node)
-                elif dialect == DeviceMetadataDialectURI.RELATIONSHIP:
-                    relationship_node = metadata_section_node.find(self.ns_hlp.dpwsTag('Relationship'))
-                    if relationship_node.get('Type') == DeviceRelationshipTypeURI.HOST:
-                        meta_data.relationship = Relationship()
-                        host_node = relationship_node.find(self.ns_hlp.dpwsTag('Host'))
-                        meta_data.relationship.host = self._mk_host(host_node)
-                        hosted_nodes = relationship_node.findall(self.ns_hlp.dpwsTag('Hosted'))
-                        for hosted_node in hosted_nodes:
-                            hosted = self._mk_hosted(hosted_node)
-                            meta_data.relationship.hosted[hosted.service_id] = hosted
-        return meta_data
-
     def read_fault_message(self, message_data: ReceivedMessage) -> SoapFault:
         body_node = message_data.p_msg.body_node
         ns = {'s12': self.ns_hlp.S12.namespace}
@@ -355,45 +319,3 @@ class MessageReaderClient(MessageReader):
         detail = ', '.join(body_node.xpath('s12:Fault/s12:Detail/text()', namespaces=ns))
 
         return SoapFault(code, reason, sub_code, detail)
-
-    def _mk_this_device(self, root_node) -> ThisDeviceType:
-        friendly_name = LocalizedStringTypeDict()
-        fname_nodes = root_node.findall(self.ns_hlp.dpwsTag('FriendlyName'))
-        for f_name in fname_nodes:
-            friendly_name.add_localized_string(f_name.text, f_name.get(_LANGUAGE_ATTR))
-        firmware_version = _get_text(root_node, self.ns_hlp.dpwsTag('FirmwareVersion'))
-        serial_number = _get_text(root_node, self.ns_hlp.dpwsTag('SerialNumber'))
-        return ThisDeviceType(friendly_name, firmware_version, serial_number)
-
-    def _mk_this_model(self, root_node) -> ThisModelType:
-        manufacturer = LocalizedStringTypeDict()
-        manufact_nodes = root_node.findall(self.ns_hlp.dpwsTag('Manufacturer'))
-        for manufact_node in manufact_nodes:
-            manufacturer.add_localized_string(manufact_node.text, manufact_node.get(_LANGUAGE_ATTR))
-        manufacturer_url = _get_text(root_node, self.ns_hlp.dpwsTag('ManufacturerUrl'))
-        model_name = LocalizedStringTypeDict()
-        model_name_nodes = root_node.findall(self.ns_hlp.dpwsTag('ModelName'))
-        for model_name_node in model_name_nodes:
-            model_name.add_localized_string(model_name_node.text, model_name_node.get(_LANGUAGE_ATTR))
-        model_number = _get_text(root_node, self.ns_hlp.dpwsTag('ModelNumber'))
-        model_url = _get_text(root_node, self.ns_hlp.dpwsTag('ModelUrl'))
-        presentation_url = _get_text(root_node, self.ns_hlp.dpwsTag('PresentationUrl'))
-        return ThisModelType(manufacturer, manufacturer_url, model_name, model_number, model_url, presentation_url)
-
-    def _mk_host(self, root_node) -> HostServiceType:
-        endpoint_reference = root_node.find(self.ns_hlp.wsaTag('EndpointReference'))
-        types = _get_text(root_node, self.ns_hlp.dpwsTag('Types'))
-        if types:
-            types = types.split()
-        return HostServiceType(endpoint_reference, types)
-
-    def _mk_hosted(self, root_node) -> HostedServiceType:
-        endpoint_references = []
-        epr_nodes = root_node.findall(self.ns_hlp.wsaTag('EndpointReference'))
-        for epr_node in epr_nodes:
-            endpoint_references.append(self._mk_endpoint_reference(epr_node))
-        types = _get_text(root_node, self.ns_hlp.dpwsTag('Types'))
-        if types:
-            types = types.split()
-        service_id = _get_text(root_node, self.ns_hlp.dpwsTag('ServiceId'), )
-        return HostedServiceType(endpoint_references, types, service_id)
