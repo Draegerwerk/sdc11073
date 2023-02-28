@@ -12,10 +12,8 @@ from lxml import etree as etree_
 
 from sdc11073 import commlog
 from sdc11073 import loghelper
-from sdc11073 import msg_qnames as msg
 from sdc11073 import observableproperties
-from sdc11073 import pm_qnames as pm
-from sdc11073 import pmtypes
+from sdc11073.xml_types import pmtypes, msg_qnames as msg, pm_qnames as pm
 from sdc11073.dispatch import DispatchKeyRegistry
 from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
@@ -27,7 +25,7 @@ from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope
 from sdc11073.pysoap.msgfactory import CreatedMessage
-from sdc11073.addressing import Address
+from sdc11073.xml_types.addressing import Address
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcclient.components import SdcClientComponents
 from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams

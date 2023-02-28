@@ -11,16 +11,16 @@ from .subscriptionmgr import SoapClientPool
 from .waveforms import WaveformSender
 from .. import loghelper
 from .. import observableproperties as properties
-from ..addressing import EndpointReferenceType
+from sdc11073.xml_types.addressing import EndpointReferenceType
 from ..dispatch import DispatchKey, DispatchKeyRegistry
 from ..dispatch import PathElementRegistry
 from ..dispatch import RequestData, MessageConverterMiddleware
-from ..dpws import HostServiceType, ThisDeviceType, ThisModelType
+from sdc11073.xml_types.dpws import HostServiceType, ThisDeviceType, ThisModelType
 from ..exceptions import ApiUsageError
 from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..location import SdcLocation
-from .. import mex_types
+from ..xml_types import mex_types
 
 if TYPE_CHECKING:
     from ..pysoap.msgfactory import CreatedMessage

@@ -5,20 +5,20 @@ from abc import abstractmethod
 from . import ext_qnames as ext
 from . import msg_qnames as msg
 from . import pm_qnames as pm
-
+from . import xml_structure as cp
 from .dataconverters import UnsignedIntConverter, StringConverter, DecimalConverter
-from .definitions_sdc import SDC_v1_Definitions
-from .mdib import containerproperties as cp
-from .mdib.descriptorcontainers import AbstractDescriptorContainer, MdsDescriptorContainer, VmdDescriptorContainer
-from .mdib.descriptorcontainers import ChannelDescriptorContainer, AbstractMetricDescriptorContainer
-from .mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
-from .mdib.statecontainers import AbstractAlertStateContainer, AbstractDeviceComponentStateContainer
-from .mdib.statecontainers import AbstractMetricStateContainer
-from .mdib.statecontainers import AbstractStateContainer, AbstractContextStateContainer, AbstractOperationStateContainer
-from .mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
-from .mdib.statecontainers import get_container_class as get_state_container_class
-from .namespaces import default_ns_helper
 from .pmtypes import PropertyBasedPMType, LocalizedText, InstanceIdentifier, LocalizedTextWidth, ContainmentTree
+from ..definitions_sdc import SDC_v1_Definitions
+from ..mdib.descriptorcontainers import AbstractDescriptorContainer, MdsDescriptorContainer, VmdDescriptorContainer
+from ..mdib.descriptorcontainers import ChannelDescriptorContainer, AbstractMetricDescriptorContainer
+from ..mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
+from ..mdib.statecontainers import AbstractAlertStateContainer, AbstractDeviceComponentStateContainer
+from ..mdib.statecontainers import AbstractMetricStateContainer
+from ..mdib.statecontainers import AbstractOperationStateContainer
+from ..mdib.statecontainers import AbstractStateContainer, AbstractContextStateContainer
+from ..mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
+from ..mdib.statecontainers import get_container_class as get_state_container_class
+from ..namespaces import default_ns_helper
 
 
 # pylint: disable=invalid-name
@@ -633,4 +633,3 @@ class SetComponentState(AbstractSet):
                                                       cls_getter=get_state_container_class,
                                                       ns_helper=default_ns_helper)
     _props = ['ProposedComponentState']
-

@@ -2,7 +2,8 @@ import logging
 import time
 import unittest
 
-from sdc11073 import pmtypes, wsdiscovery
+from sdc11073 import wsdiscovery
+from sdc11073.xml_types import pmtypes
 from sdc11073.location import SdcLocation
 from tests.mockstuff import SomeDevice
 

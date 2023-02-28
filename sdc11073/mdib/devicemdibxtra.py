@@ -2,7 +2,7 @@ import time
 import uuid
 
 from .devicewaveform import DefaultWaveformSource
-from ..pmtypes import RetrievabilityMethod
+from sdc11073.xml_types.pmtypes import RetrievabilityMethod
 
 
 class DeviceMdibMethods:

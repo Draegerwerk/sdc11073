@@ -1,11 +1,11 @@
+from . import xml_structure as cp
+from .addressing import EndpointReferenceType
 from .dataconverters import DurationConverter
 from .dpws import DeviceEventingFilterDialectURI
-from .mdib import containerproperties as cp
 from .mex_types import MessageType
-from .namespaces import EventingActions
-from .namespaces import default_ns_helper
 from .pmtypes import PropertyBasedPMType, ElementWithText
-from .addressing import EndpointReferenceType
+from ..namespaces import EventingActions
+from ..namespaces import default_ns_helper
 
 
 ### classes that correspond to types in eventing standard
@@ -71,6 +71,7 @@ class UnsubscribeResponse(MessageType):
     def as_etree_node(self, *args, **kwargs):
         # Unsubscribe has empty body
         return None
+
 
 class LanguageSpecificStringType(ElementWithText):
     lang = cp.StringAttributeProperty(attribute_name=default_ns_helper.xmlTag('lang'))

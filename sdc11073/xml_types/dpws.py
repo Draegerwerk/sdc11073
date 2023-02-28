@@ -4,8 +4,8 @@ from enum import Enum
 from typing import Union, Optional
 
 from .addressing import EndpointReferenceType
-from .mdib import containerproperties as cp
-from .namespaces import default_ns_helper
+from . import xml_structure as cp
+from ..namespaces import default_ns_helper
 from .pmtypes import PropertyBasedPMType, ElementWithText
 
 

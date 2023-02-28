@@ -13,9 +13,9 @@ from lxml import etree as etree_
 
 from .subscriptionmgr import SubscriptionsManagerBase, SubscriptionBase
 from .. import observableproperties
-from ..addressing import Address
+from sdc11073.xml_types.addressing import Address
 from ..pysoap.soapclient import HTTPReturnCodeError
-from .. import eventing_types as evt_types
+from ..xml_types import eventing_types as evt_types
 
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions

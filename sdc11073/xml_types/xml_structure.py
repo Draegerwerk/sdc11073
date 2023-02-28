@@ -10,10 +10,11 @@ from datetime import datetime, date
 
 from lxml import etree as etree_
 
-from .. import isoduration
-from ..dataconverters import DataConverterProtocol
-from ..dataconverters import TimestampConverter, DecimalConverter, IntegerConverter, BooleanConverter, \
-    DurationConverter, ClassCheckConverter, ListConverter, EnumConverter, StringConverter, NullConverter
+from . import isoduration
+from .dataconverters import DataConverterProtocol
+from .dataconverters import DurationConverter, ClassCheckConverter, ListConverter, EnumConverter
+from .dataconverters import StringConverter, NullConverter
+from .dataconverters import TimestampConverter, DecimalConverter, IntegerConverter, BooleanConverter
 from ..exceptions import ApiUsageError
 from ..namespaces import QN_TYPE, docname_from_qname, text_to_qname
 
@@ -488,7 +489,6 @@ class DecimalListAttributeProperty(_AttributeListBase):
         super().__init__(attribute_name, ListConverter(DecimalConverter))
 
 
-
 class NodeTextProperty(_ElementBase):
     """ The handled data is the text of an element.
     Python representation is a string."""
@@ -554,12 +554,14 @@ class NodeEnumTextProperty(NodeTextProperty):
                          is_optional, min_length=1)
         self.enum_cls = enum_cls
 
+
 class NodeIntProperty(NodeTextProperty):
     """Python representation is a string."""
 
     def __init__(self, sub_element_name=None, default_py_value=None, implied_py_value=None, is_optional=False,
                  min_length=0):
-        super().__init__(sub_element_name, IntegerConverter, default_py_value, implied_py_value, is_optional, min_length)
+        super().__init__(sub_element_name, IntegerConverter, default_py_value, implied_py_value, is_optional,
+                         min_length)
 
 
 class NodeTextQNameProperty(_ElementBase):
@@ -605,8 +607,6 @@ class NodeTextQNameProperty(_ElementBase):
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
             value = docname_from_qname(py_value, sub_node.nsmap)
             sub_node.text = value
-
-
 
 
 class LocalizedTextContentProperty(NodeStringProperty):
@@ -969,15 +969,16 @@ class SubElementTextListProperty(_ElementListProperty):
         return f'{self.__class__.__name__} in subelement {self._sub_element_name}'
 
 
-
 class SubElementStringListProperty(SubElementTextListProperty):
     """ represents a list of strings."""
 
     def __init__(self, sub_element_name, is_optional=True):
         super().__init__(sub_element_name, str, is_optional=is_optional)
 
+
 class SubElementHandleRefListProperty(SubElementStringListProperty):
     """ List of Handles"""
+
 
 class SubElementWithSubElementListProperty(SubElementProperty):
     """This Represents an Element that is optional and only present if its value class is not empty.
@@ -1010,6 +1011,7 @@ class SubElementWithSubElementListProperty(SubElementProperty):
 
 class AnyEtreeNodeListProperty(_ElementListProperty):
     """ Node < sub_element_name> has etree Element children."""
+
     def __init__(self, sub_element_name, is_optional=True):
         value_class = etree_._Element
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
@@ -1091,7 +1093,6 @@ class NodeTextQNameListProperty(_ElementListProperty):
             for q_name in py_value:
                 tmp.append(docname_from_qname(q_name, sub_node.nsmap))
             sub_node.text = ' '.join(tmp)
-
 
 
 class DateOfBirthProperty(_ElementBase):

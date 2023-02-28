@@ -3,7 +3,7 @@ from collections import namedtuple
 from lxml import etree as etree_
 
 from ... import loghelper
-from ...msgtypes import InvocationState, InvocationError
+from sdc11073.xml_types.msgtypes import InvocationState, InvocationError
 from ...namespaces import default_ns_helper as ns_hlp
 
 msg_prefix = ns_hlp.MSG.prefix

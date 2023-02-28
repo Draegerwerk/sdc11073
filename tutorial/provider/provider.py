@@ -1,6 +1,6 @@
 import uuid
 import time
-from sdc11073 import pmtypes
+from sdc11073.xml_types import pmtypes
 from sdc11073.namespaces import domTag
 from sdc11073.sdcdevice import SdcDevice
 from sdc11073.mdib import DeviceMdibContainer

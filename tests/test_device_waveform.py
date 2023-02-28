@@ -2,8 +2,8 @@ import time
 import unittest
 
 import sdc11073
-from sdc11073 import pmtypes
-from sdc11073.dpws import ThisModelType, ThisDeviceType
+from sdc11073.xml_types import pmtypes
+from sdc11073.xml_types.dpws import ThisModelType, ThisDeviceType
 from sdc11073.mdib import descriptorcontainers as dc
 from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.sdcdevice import waveforms

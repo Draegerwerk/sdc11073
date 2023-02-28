@@ -10,13 +10,13 @@ from lxml import etree as etree_
 from .. import multikey
 from .. import observableproperties as properties
 from ..etc import apply_map
-from ..pmtypes import have_matching_codes
+from sdc11073.xml_types.pmtypes import have_matching_codes
 
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
     from .descriptorcontainers import AbstractMetricDescriptorContainer, AbstractDescriptorContainer
     from .statecontainers import AbstractStateContainer
-    from ..pmtypes import CodedValue, Coding
+    from sdc11073.xml_types.pmtypes import CodedValue, Coding
 
 
 @dataclass

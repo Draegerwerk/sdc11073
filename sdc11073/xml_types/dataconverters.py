@@ -1,6 +1,6 @@
 from decimal import Decimal
 from typing import Protocol
-from sdc11073 import isoduration
+from . import isoduration
 
 STRICT_VALUE_CHECK = True
 

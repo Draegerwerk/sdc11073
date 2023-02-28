@@ -3,9 +3,8 @@ import time
 import unittest
 from decimal import Decimal
 
-from sdc11073 import pm_qnames as pm
-from sdc11073 import pmtypes, msgtypes
-from sdc11073.dpws import ThisDeviceType, ThisModelType
+from sdc11073.xml_types import pmtypes, msgtypes, pm_qnames as pm
+from sdc11073.xml_types.dpws import ThisDeviceType, ThisModelType
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.mdib.mdibbase import MdibVersionGroup

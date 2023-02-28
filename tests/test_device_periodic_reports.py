@@ -3,9 +3,10 @@ import time
 import unittest
 from itertools import cycle
 
-from sdc11073 import pmtypes, wsdiscovery
+from sdc11073 import wsdiscovery
+from sdc11073.xml_types import pmtypes
 from sdc11073.location import SdcLocation
-from sdc11073.pmtypes import RetrievabilityMethod, RetrievabilityInfo, Retrievability
+from sdc11073.xml_types.pmtypes import RetrievabilityMethod, RetrievabilityInfo, Retrievability
 from sdc11073.observableproperties import ValuesCollector
 from sdc11073.sdcclient import SdcClient
 from tests.mockstuff import SomeDevice

@@ -3,11 +3,8 @@ import sys
 import time
 import uuid
 
-from . import containerproperties as cp
 from .containerbase import ContainerBase
-from .. import pmtypes
-from .. import pm_qnames as pm
-from .. import ext_qnames as ext
+from ..xml_types import pmtypes, xml_structure as cp, pm_qnames as pm, ext_qnames as ext
 
 
 class AbstractStateContainer(ContainerBase):

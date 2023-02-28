@@ -40,19 +40,19 @@ if __name__ == '__main__':
         xml_string = pm.read()
     doc_root = etree_.fromstring(xml_string, parser=parser)
     names = generate_qnames(doc_root)
-    with open('../sdc11073/pm_qnames.py', 'w') as fd:
+    with open('../sdc11073/xml_types/pm_qnames.py', 'w') as fd:
         write_names_file(names, 'default_ns_helper', 'domTag', fd)
 
     with open('../sdc11073/xsd/BICEPS_MessageModel.xsd', 'rb') as pm:
         xml_string = pm.read()
     doc_root = etree_.fromstring(xml_string, parser=parser)
     names = generate_qnames(doc_root)
-    with open('../sdc11073/msg_qnames.py', 'w') as fd:
+    with open('../sdc11073/xml_types/msg_qnames.py', 'w') as fd:
         write_names_file(names, 'default_ns_helper', 'msgTag', fd)
 
     with open('../sdc11073/xsd/Extensionpoint.xsd', 'rb') as pm:
         xml_string = pm.read()
     doc_root = etree_.fromstring(xml_string, parser=parser)
     names = generate_qnames(doc_root)
-    with open('../sdc11073/ext_qnames.py', 'w') as fd:
+    with open('../sdc11073/xml_types/ext_qnames.py', 'w') as fd:
         write_names_file(names, 'default_ns_helper', 'extTag', fd)

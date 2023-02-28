@@ -1,5 +1,5 @@
 import uuid
-from sdc11073 import pmtypes
+from sdc11073.xml_types import pmtypes
 from sdc11073.namespaces import domTag
 from sdc11073.wsdiscovery import WSDiscoverySingleAdapter
 from sdc11073.definitions_sdc import SDC_v1_Definitions

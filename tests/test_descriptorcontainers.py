@@ -2,10 +2,8 @@ import unittest
 
 from lxml import etree as etree_
 
-from sdc11073 import msgtypes
 from sdc11073.namespaces import default_ns_helper as ns_hlp
-from sdc11073 import pmtypes
-from sdc11073 import msg_qnames as msg
+from sdc11073.xml_types import pmtypes, msg_qnames as msg
 from sdc11073.mdib import descriptorcontainers
 from tests.mockstuff import dec_list
 test_tag = ns_hlp.domTag('MyDescriptor')
@@ -42,10 +40,10 @@ class TestDescriptorContainers(unittest.TestCase):
         etree_.SubElement(ext_node, 'bar', attrib={'another_attr': 'different_value'})
         dc.Extension.value[ns_hlp.msgTag('Whatever')] = ext_node
         retrievability = pmtypes.Retrievability([pmtypes.RetrievabilityInfo(pmtypes.RetrievabilityMethod.GET),
-                                                  pmtypes.RetrievabilityInfo(pmtypes.RetrievabilityMethod.PERIODIC,
-                                                                              update_period=42.0),
-                                                  ],
-                                                 )
+                                                 pmtypes.RetrievabilityInfo(pmtypes.RetrievabilityMethod.PERIODIC,
+                                                                            update_period=42.0),
+                                                 ],
+                                                )
         dc.retrievability = retrievability
         dc2.update_from_other_container(dc)
         self.assertEqual(dc2.DescriptorVersion, 42)

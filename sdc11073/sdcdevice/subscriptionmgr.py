@@ -13,16 +13,15 @@ from lxml import etree as etree_
 
 from ..httpserver.compression import CompressionHandler
 
-from .. import isoduration
 from .. import loghelper
 from .. import multikey
 from .. import observableproperties
-from ..addressing import Address
+from sdc11073.xml_types.addressing import Address
 from ..etc import apply_map, short_filter_string
 from ..pysoap.soapclient import HTTPReturnCodeError
 from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
 from ..pysoap.soapclientpool import SoapClientPool
-from .. import eventing_types as evt_types
+from ..xml_types import eventing_types as evt_types, isoduration
 
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions

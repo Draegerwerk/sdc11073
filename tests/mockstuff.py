@@ -9,11 +9,10 @@ from typing import TYPE_CHECKING, Union
 
 from lxml import etree as etree_
 
-from sdc11073 import pm_qnames as pm
-from sdc11073 import pmtypes
-from sdc11073.addressing import Address
-from sdc11073.dpws import ThisModelType, ThisDeviceType
-from sdc11073.eventing_types import Subscribe
+from sdc11073.xml_types import pmtypes, pm_qnames as pm
+from sdc11073.xml_types.addressing import Address
+from sdc11073.xml_types.dpws import ThisModelType, ThisDeviceType
+from sdc11073.xml_types.eventing_types import Subscribe
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.sdcdevice import SdcDevice

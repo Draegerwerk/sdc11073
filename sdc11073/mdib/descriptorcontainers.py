@@ -6,15 +6,14 @@ from typing import Optional, List, Tuple
 
 from lxml import etree as etree_
 
-from . import containerproperties as cp
 from .containerbase import ContainerBase
-from .. import ext_qnames as ext
-from .. import msg_qnames as msg
 from .. import observableproperties as properties
-from .. import pm_qnames as pm
-from .. import pmtypes
 from ..namespaces import NamespaceHelper
-
+from ..xml_types import ext_qnames as ext
+from ..xml_types import msg_qnames as msg
+from ..xml_types import pm_qnames as pm
+from ..xml_types import pmtypes
+from ..xml_types import xml_structure as cp
 
 
 @dataclass(frozen=True)
@@ -47,7 +46,8 @@ def sorted_child_data(obj, member_name):
             continue
 
 
-def make_descriptor_node(descriptor_container, tag: etree_.QName, ns_helper: NamespaceHelper, set_xsi_type: bool=True, connect_child_descriptors: bool =False):
+def make_descriptor_node(descriptor_container, tag: etree_.QName, ns_helper: NamespaceHelper, set_xsi_type: bool = True,
+                         connect_child_descriptors: bool = False):
     """
     Creates a lxml etree node from instance data.
     :param descriptor_container: a descriptor container instance
@@ -59,7 +59,7 @@ def make_descriptor_node(descriptor_container, tag: etree_.QName, ns_helper: Nam
     """
     if set_xsi_type:
         ns_map = ns_helper.partial_map(ns_helper.PM,
-                                       ns_helper.XSI,)
+                                       ns_helper.XSI, )
 
     else:
         ns_map = ns_helper.partial_map(ns_helper.PM)

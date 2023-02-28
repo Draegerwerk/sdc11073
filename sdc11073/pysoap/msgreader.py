@@ -10,8 +10,8 @@ from lxml import etree as etree_
 
 from sdc11073.namespaces import QN_TYPE, text_to_qname
 from .soapenvelope import SoapFault, FaultCodeEnum, ReceivedSoapMessage
-from ..addressing import Address
-from ..addressing import EndpointReferenceType
+from sdc11073.xml_types.addressing import Address
+from sdc11073.xml_types.addressing import EndpointReferenceType
 from ..exceptions import HTTPRequestHandlingError
 from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator

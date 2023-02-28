@@ -10,11 +10,11 @@ from typing import Optional, Union
 
 from lxml import etree as etree_
 
-from . import pm_qnames as pm
-from . import msg_qnames as msg
 from . import ext_qnames as ext
-from .mdib import containerproperties as cp
-from .namespaces import QN_TYPE, text_to_qname
+from . import msg_qnames as msg
+from . import pm_qnames as pm
+from . import xml_structure as cp
+from ..namespaces import QN_TYPE, text_to_qname
 
 
 class StringEnum(str, enum.Enum):
@@ -247,8 +247,8 @@ class PropertyBasedPMType:
         classes = inspect.getmro(self.__class__)
         for cls in reversed(classes):
             try:
-                names = cls._props  # pylint: disable=protected-access
-            except AttributeError:
+                names = cls.__dict__['_props']  # this checks only current class, not parent
+            except (AttributeError, KeyError):
                 continue
             for name in names:
                 obj = getattr(cls, name)
@@ -301,6 +301,7 @@ class ElementWithText(PropertyBasedPMType):
     '''An Element that has no attributes, only a text.'''
 
     def __init__(self, text=None):
+        super().__init__()
         self.text = text
 
 
@@ -324,6 +325,7 @@ class LocalizedText(PropertyBasedPMType):
         :param version: an int or None
         :param text_width: xs, s, m, l, xl, xxl or None
         """
+        super().__init__()
         self.text = text
         # pylint: disable=invalid-name
         self.Lang = lang
@@ -393,10 +395,11 @@ class T_Translation(PropertyBasedPMType):
                  coding_system_version: Optional[str] = None):
         """
         :param code: a string
-        :param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
-        :param codingSystemVersion: optional string, min. length = 1
+        :param coding_system: anyURI or None, defaults to ISO/IEC 11073-10101 if None
+        :param coding_system_version: optional string, min. length = 1
         """
         # pylint: disable=invalid-name
+        super().__init__()
         if code is not None and not isinstance(code, str):
             raise TypeError('code must be a string!')
         self.Code = code
@@ -417,7 +420,7 @@ class T_Translation(PropertyBasedPMType):
 
     @classmethod
     def from_node(cls, node):
-        obj = cls(None)
+        obj = cls('')
         obj.update_from_node(node)
         return obj
 
@@ -441,13 +444,14 @@ class CodedValue(PropertyBasedPMType):
                  concept_descriptions=None, symbolic_code_name=None):
         """
         :param code: a string
-        :param codingSystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
-        :param codingSystemVersion: a string, min. length = 1
-        :param codingSystemNames: a list of LocalizedText objects or None
-        :param conceptDescriptions: a list of LocalizedText objects or None
-        :param symbolicCodeName: a string, min. length = 1 or None
+        :param coding_system: anyURI or None, defaults to ISO/IEC 11073-10101 if None
+        :param coding_system_version: a string, min. length = 1
+        :param coding_system_names: a list of LocalizedText objects or None
+        :param concept_descriptions: a list of LocalizedText objects or None
+        :param symbolic_code_name: a string, min. length = 1 or None
         """
         # pylint: disable=invalid-name
+        super().__init__()
         if code is not None and not isinstance(code, str):
             raise TypeError('code must be a string!')
         self.Code = code
@@ -518,6 +522,7 @@ class Annotation(PropertyBasedPMType):
     This is intended as an immutable object. After it has been created, no modification shall be done. '''
 
     def __init__(self, coded_value):
+        super().__init__()
         self.Type = coded_value  # pylint: disable=invalid-name
         self.coding = coded_value.coding
 
@@ -544,6 +549,7 @@ class OperationGroup(PropertyBasedPMType):
         :param operating_mode:  xsd:string string
         :param operations: a xsd:string
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.Type = coded_value
         self.OperatingMode = operating_mode
@@ -580,6 +586,7 @@ class InstanceIdentifier(PropertyBasedPMType):
         :param identifier_names: a list of LocalizedText instances or None
         :param extension_string: a xsd:string
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.Root = root
         self.Type = type_coded_value
@@ -623,6 +630,7 @@ class Range(PropertyBasedPMType):
         :param relative_accuracy: Maximum relative error in relation to the correct value within the given range. A value as float or integer, can be None
         :param absolute_accuracy: Maximum absolute error in relation to the correct value within the given range. A value as float or integer, can be None
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.Lower = lower
         self.Upper = upper
@@ -650,6 +658,7 @@ class Measurement(PropertyBasedPMType):
         :param value: a value as string, float or integer
         :param unit: a CodedValue instance
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.MeasuredValue = value
         self.MeasurementUnit = unit
@@ -686,6 +695,7 @@ class AllowedValue(PropertyBasedPMType):
         :param value_string: a string
         :param type_coding: an optional CodedValue instance
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.Value = value_string
         self.Type = type_coding
@@ -711,9 +721,6 @@ class T_MetricQuality(PropertyBasedPMType):
     # pylint: enable=invalid-name
     _props = ('Validity', 'Mode', 'Qi')
 
-    def __init__(self):
-        pass
-
 
 class AbstractMetricValue(PropertyBasedPMType):
     """ This is the base class for metric values inside metric states"""
@@ -729,6 +736,7 @@ class AbstractMetricValue(PropertyBasedPMType):
     _props = ('ext_Extension', 'StartTime', 'StopTime', 'DeterminationTime', 'MetricQuality', 'Annotation')
 
     def __init__(self, node=None):
+        super().__init__()
         # attributes of root node
         self.node = node
         self.MetricQuality = T_MetricQuality()  # pylint: disable=invalid-name
@@ -786,6 +794,7 @@ class ApplyAnnotation(PropertyBasedPMType):
     _props = ['AnnotationIndex', 'SampleIndex']
 
     def __init__(self, annotation_index=None, sample_index=None):
+        super().__init__()
         # pylint: disable=invalid-name
         self.AnnotationIndex = annotation_index
         self.SampleIndex = sample_index
@@ -830,6 +839,7 @@ class RemedyInfo(PropertyBasedPMType):
         """
         :param descriptions : a list of LocalizedText objects or None
         """
+        super().__init__()
         if descriptions:
             self.Description = descriptions  # pylint: disable=invalid-name
 
@@ -851,6 +861,7 @@ class CauseInfo(PropertyBasedPMType):
         :param remedy_info: a RemedyInfo instance or None
         :param descriptions : a list of LocalizedText objects or None
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.RemedyInfo = remedy_info
         self.Description = descriptions or []
@@ -884,6 +895,7 @@ class ActivateOperationDescriptorArgument(PropertyBasedPMType):
         :param arg_name: a CodedValue instance
         :param arg : etree_.QName instance
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.ArgName = arg_name
         self.Arg = arg
@@ -918,6 +930,7 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
         :param labels: a  list of LocalizedText
         :param number : an integer
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.Label = labels or []
         self.Number = number
@@ -949,6 +962,7 @@ class SystemSignalActivation(PropertyBasedPMType):
         :param manifestation: a pmtypes.AlertSignalManifestation value
         :param state : a pmtypes.AlertActivation value
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.Manifestation = manifestation
         self.State = state
@@ -980,6 +994,7 @@ class ProductionSpecification(PropertyBasedPMType):
         :param production_spec: a string
         :param component_id : a pmtypes.InstanceIdentifier value
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.SpecType = spec_type
         self.ProductionSpec = production_spec
@@ -1029,6 +1044,7 @@ class PersonReference(PropertyBasedPMType):
         :param identifications: a list of InstanceIdentifier objects
         :param name: a BaseDemographics object
         """
+        super().__init__()
         # pylint: disable=invalid-name
         if identifications:
             self.Identification = identifications
@@ -1063,6 +1079,7 @@ class LocationDetail(PropertyBasedPMType):
     _props = ('ext_Extension', 'PoC', 'Room', 'Bed', 'Facility', 'Building', 'Floor')
 
     def __init__(self, poc=None, room=None, bed=None, facility=None, building=None, floor=None):
+        super().__init__()
         # pylint: disable=invalid-name
         self.PoC = poc
         self.Room = room
@@ -1081,11 +1098,12 @@ class LocationReference(PropertyBasedPMType):
     # pylint: enable=invalid-name
     _props = ['Identification', 'LocationDetail']
 
-    def __init__(self, identifications=None, locationdetail=None):
+    def __init__(self, identifications=None, location_detail=None):
+        super().__init__()
         # pylint: disable=invalid-name
         if identifications:
             self.Identification = identifications
-        self.LocationDetail = locationdetail
+        self.LocationDetail = location_detail
         # pylint: enable=invalid-name
 
 
@@ -1099,6 +1117,7 @@ class ReferenceRange(PropertyBasedPMType):
     _props = ['Range', 'Meaning']
 
     def __init__(self, ref_range, meaning=None):
+        super().__init__()
         # pylint: disable=invalid-name
         self.Range = ref_range
         if meaning is not None:
@@ -1116,6 +1135,7 @@ class RelatedMeasurement(PropertyBasedPMType):
     _props = ['Value', 'ReferenceRange']
 
     def __init__(self, value, reference_range=None):
+        super().__init__()
         # pylint: disable=invalid-name
         self.Value = value
         if reference_range is not None:
@@ -1138,6 +1158,7 @@ class ClinicalInfo(PropertyBasedPMType):
         :param descriptions: a list of LocalizedText objects
         :param related_measurements: a list of Measurement objects
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.Type = type_code
         if descriptions:
@@ -1165,6 +1186,7 @@ class ImagingProcedure(PropertyBasedPMType):
 
     def __init__(self, accession_identifier, requested_procedure_id, study_instance_uid, scheduled_procedure_step_id,
                  modality=None, protocol_code=None):
+        super().__init__()
         # pylint: disable=invalid-name
         self.AccessionIdentifier = accession_identifier
         self.RequestedProcedureId = requested_procedure_id
@@ -1200,6 +1222,7 @@ class OrderDetail(PropertyBasedPMType):
         :param service: a list of CodedValue objects
         :param imaging_procedure: a list of ImagingProcedure objects
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.Start = start
         self.End = end
@@ -1273,6 +1296,7 @@ class WorkflowDetail(PropertyBasedPMType):
 
     def __init__(self, patient=None, assigned_location=None, visit_number=None, danger_code=None,
                  relevant_clinical_info=None, requested_order_detail=None, performed_order_detail=None):
+        super().__init__()
         # pylint: disable=invalid-name
         self.Patient = patient
         self.AssignedLocation = assigned_location
@@ -1297,9 +1321,6 @@ class AbstractMetricDescriptorRelation(PropertyBasedPMType):
     Entries = cp.EntryRefListAttributeProperty('Entries')
     # pylint: enable=invalid-name
     _props = ['Code', 'Identification', 'Kind', 'Entries']
-
-    def __init__(self):
-        pass
 
 
 Relation = AbstractMetricDescriptorRelation
@@ -1360,6 +1381,7 @@ class T_Udi(PropertyBasedPMType):
         :param issuer: an InstanceIdentifier
         :param jurisdiction: an InstanceIdentifier (optional)
         """
+        super().__init__()
         # pylint: disable=invalid-name
         self.DeviceIdentifier = device_identifier
         self.HumanReadableForm = human_readable_form
@@ -1372,6 +1394,7 @@ class T_Udi(PropertyBasedPMType):
         obj = cls(None, None, None)
         obj.update_from_node(node)
         return obj
+
 
 class MetaData(PropertyBasedPMType):
     # pylint: disable=invalid-name
@@ -1387,9 +1410,6 @@ class MetaData(PropertyBasedPMType):
     # pylint: enable=invalid-name
     _props = ['Udi', 'LotNumber', 'Manufacturer', 'ManufactureDate', 'ExpirationDate',
               'ModelName', 'ModelNumber', 'SerialNumber']
-
-    def __init__(self):
-        pass
 
 
 class T_CalibrationResult(PropertyBasedPMType):
@@ -1460,6 +1480,7 @@ class RetrievabilityInfo(PropertyBasedPMType):
     _props = ['Method', 'UpdatePeriod']
 
     def __init__(self, method: RetrievabilityMethod, update_period: [float, None] = None):
+        super().__init__()
         self.Method = method
         self.UpdatePeriod = update_period
 
@@ -1478,6 +1499,7 @@ class Retrievability(PropertyBasedPMType):
     _props = ['By']
 
     def __init__(self, retrievability_info_list=None):
+        super().__init__()
         self.By = retrievability_info_list or []
 
     @classmethod
@@ -1485,6 +1507,7 @@ class Retrievability(PropertyBasedPMType):
         obj = cls(None)
         obj.update_from_node(node)
         return obj
+
 
 ###################################################################################
 # following : classes that serve only as name spaces

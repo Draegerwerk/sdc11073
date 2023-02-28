@@ -26,7 +26,7 @@ from ..exceptions import ApiUsageError
 from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..namespaces import EventingActions
-from .. import mex_types
+from ..xml_types import mex_types
 
 
 class HostDescription:

@@ -9,15 +9,14 @@ from concurrent import futures
 from decimal import Decimal
 
 from sdc11073 import observableproperties
-from sdc11073 import pmtypes, msgtypes
+from sdc11073.xml_types import pmtypes, msgtypes, pm_qnames as pm
 from sdc11073.definitions_sdc import SDC_v1_Definitions
-from sdc11073.dpws import ThisDeviceType, ThisModelType
+from sdc11073.xml_types.dpws import ThisDeviceType, ThisModelType
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import DeviceMdibContainer, ClientMdibContainer
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist, Scope
-from sdc11073 import pm_qnames as pm
 
 here = os.path.dirname(__file__)
 default_mdib_path = os.path.join(here, 'reference_mdib.xml')

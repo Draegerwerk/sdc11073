@@ -5,11 +5,12 @@ from io import BytesIO
 from lxml import etree as etree_
 
 from ..dispatch import DispatchKeyRegistry, DispatchKey
-from ..addressing import EndpointReferenceType
-from ..dpws import HostedServiceType
+from sdc11073.xml_types.addressing import EndpointReferenceType
+from sdc11073.xml_types.dpws import HostedServiceType
 from ..namespaces import EventingActions
 from ..namespaces import default_ns_helper as ns_hlp
-from .. import mex_types
+from ..xml_types import mex_types
+
 _wsdl_ns = ns_hlp.WSDL.namespace
 
 WSP_NS = ns_hlp.WSP.namespace
@@ -199,8 +200,8 @@ class DPWSHostedService(_EventService):
                     needed_namespaces.append(e)
         ns_map = _nsm.partial_map(*needed_namespaces)
         response = msg_factory.mk_reply_soap_message(request_data, metadata, ns_map)
-        from lxml.etree import tostring
-        print (tostring((response.p_msg.payload_element),pretty_print=True).decode('utf-8'))
+        # from lxml.etree import tostring
+        # print (tostring((response.p_msg.payload_element),pretty_print=True).decode('utf-8'))
         return response
 
     def __repr__(self):

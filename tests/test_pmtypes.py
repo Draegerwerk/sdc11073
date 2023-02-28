@@ -1,6 +1,6 @@
 import unittest
 
-from sdc11073 import pmtypes
+from sdc11073.xml_types import pmtypes
 
 
 class TestPmTypes(unittest.TestCase):

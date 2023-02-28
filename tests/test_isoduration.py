@@ -1,6 +1,6 @@
 import unittest
-from sdc11073.isoduration import parse_duration, duration_string
-from sdc11073.isoduration import parse_date_time, date_time_string, GYearMonth, GYear, UTC
+from sdc11073.xml_types.isoduration import parse_duration, duration_string
+from sdc11073.xml_types.isoduration import parse_date_time, date_time_string, GYearMonth, GYear, UTC
 from datetime import date, datetime
 
 class TestIsoDate(unittest.TestCase):

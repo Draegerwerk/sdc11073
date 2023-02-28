@@ -1,10 +1,10 @@
 import os
 import unittest
 
-from sdc11073 import pm_qnames as pm
+from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.mdib import DeviceMdibContainer
-from sdc11073.pmtypes import Coding
+from sdc11073.xml_types.pmtypes import Coding
 
 mdib_folder = os.path.dirname(__file__)
 

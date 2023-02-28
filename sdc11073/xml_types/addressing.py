@@ -1,14 +1,14 @@
 import uuid
-from .namespaces import default_ns_helper
-from .pmtypes import PropertyBasedPMType, ElementWithText
-from .mdib import containerproperties as cp
+from sdc11073.namespaces import default_ns_helper
+from .pmtypes import PropertyBasedPMType
+from . import xml_structure as struct
 
 
 class EndpointReferenceType(PropertyBasedPMType):
-    Address = cp.NodeStringProperty(default_ns_helper.wsaTag('Address'))
-    ReferenceProperties = cp.AnyEtreeNodeListProperty(default_ns_helper.wsaTag('ReferenceProperties'), is_optional=True)
-    ReferenceParameters = cp.AnyEtreeNodeListProperty(default_ns_helper.wsaTag('ReferenceParameters'), is_optional=True)
-    PortType = cp.NodeTextQNameProperty(default_ns_helper.wsaTag('PortType'), is_optional=True)
+    Address = struct.NodeStringProperty(default_ns_helper.wsaTag('Address'))
+    ReferenceProperties = struct.AnyEtreeNodeListProperty(default_ns_helper.wsaTag('ReferenceProperties'), is_optional=True)
+    ReferenceParameters = struct.AnyEtreeNodeListProperty(default_ns_helper.wsaTag('ReferenceParameters'), is_optional=True)
+    PortType = struct.NodeTextQNameProperty(default_ns_helper.wsaTag('PortType'), is_optional=True)
     # ServiceName
     _props = ['Address', 'ReferenceProperties', 'ReferenceParameters', 'PortType']
 

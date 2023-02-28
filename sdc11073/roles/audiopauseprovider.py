@@ -1,6 +1,6 @@
 from . import providerbase
 from .nomenclature import NomenclatureCodes as nc
-from ..pmtypes import Coding
+from sdc11073.xml_types.pmtypes import Coding
 
 # coded values for SDC audio pause
 MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE = Coding(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)

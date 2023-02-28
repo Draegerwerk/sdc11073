@@ -3,13 +3,13 @@ import unittest
 
 from lxml import etree as etree_
 
-from sdc11073 import pm_qnames as pm
-from sdc11073.addressing import Address
+from sdc11073.xml_types import pm_qnames as pm
+from sdc11073.xml_types.addressing import Address
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
-from sdc11073.pmtypes import AlertConditionPriority
+from sdc11073.xml_types.pmtypes import AlertConditionPriority
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapenvelope import Soap12Envelope
 from sdc11073.dispatch.request import RequestData

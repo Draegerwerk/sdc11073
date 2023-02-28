@@ -10,15 +10,14 @@ from lxml import etree as etree_
 
 from .msgreader import validate_node
 from .soapenvelope import Soap12Envelope
-from ..addressing import Address
-from ..dpws import DeviceMetadataDialectURI, DeviceRelationshipTypeURI
+from sdc11073.xml_types.addressing import Address
 from ..exceptions import ApiUsageError
 from ..namespaces import WSA_ANONYMOUS
 from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator
 
 if TYPE_CHECKING:
-    from ..msgtypes import MessageType
+    from sdc11073.xml_types.msgtypes import MessageType
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
 

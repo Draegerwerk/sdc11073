@@ -2,8 +2,7 @@ import inspect
 import sys
 
 from .sco import OperationDefinition
-from .. import msg_qnames as msg
-from .. import pm_qnames as pm
+from ..xml_types import msg_qnames as msg, pm_qnames as pm
 
 
 class SetStringOperation(OperationDefinition):

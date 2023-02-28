@@ -1,6 +1,7 @@
 import unittest
 from decimal import Decimal
-from sdc11073 import dataconverters
+from sdc11073.xml_types import dataconverters
+
 
 class TestDataConverters(unittest.TestCase):
 

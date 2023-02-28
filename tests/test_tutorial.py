@@ -3,16 +3,14 @@ import unittest
 import uuid
 from decimal import Decimal
 
-from sdc11073 import msgtypes
-from sdc11073 import pm_qnames as pm
-from sdc11073 import pmtypes
+from sdc11073.xml_types import pmtypes, msgtypes, pm_qnames as pm
 from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SDC_v1_Definitions
-from sdc11073.dpws import ThisDeviceType, ThisModelType
+from sdc11073.xml_types.dpws import ThisDeviceType, ThisModelType
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.mdib.clientmdib import ClientMdibContainer
-from sdc11073.pmtypes import CodedValue
+from sdc11073.xml_types.pmtypes import CodedValue
 from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.sdcclient import SdcClient

@@ -4,13 +4,12 @@ import unittest
 from decimal import Decimal
 from math import isclose
 
-import sdc11073.mdib.containerproperties as cp
+import sdc11073.xml_types.xml_structure as cp
 import sdc11073.mdib.descriptorcontainers as dc
 import sdc11073.mdib.statecontainers as sc
 import sdc11073.namespaces as namespaces
 from sdc11073.namespaces import default_ns_helper as ns_hlp
-from sdc11073 import pm_qnames as pm
-from sdc11073 import pmtypes
+from sdc11073.xml_types import pmtypes, pm_qnames as pm
 from sdc11073.location import SdcLocation
 from tests.mockstuff import dec_list
 

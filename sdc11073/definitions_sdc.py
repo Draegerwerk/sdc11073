@@ -1,6 +1,6 @@
 import os
 
-from . import pmtypes, pm_qnames, msgtypes, msg_qnames
+from .xml_types import pmtypes, msgtypes, msg_qnames, pm_qnames
 from .definitions_base import BaseDefinitions, AbstractDataModel
 from .mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
 from .mdib.statecontainers import get_container_class as get_state_container_class

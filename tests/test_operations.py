@@ -8,9 +8,7 @@ from decimal import Decimal
 from sdc11073 import commlog
 from sdc11073 import loghelper
 from sdc11073 import observableproperties
-from sdc11073 import pm_qnames as pm
-from sdc11073 import pmtypes
-from sdc11073 import msgtypes
+from sdc11073.xml_types import pmtypes, msgtypes, pm_qnames as pm
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ClientMdibContainer

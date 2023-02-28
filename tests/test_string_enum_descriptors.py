@@ -5,7 +5,7 @@ import unittest
 
 from sdc11073 import commlog
 from sdc11073 import loghelper
-from sdc11073 import pmtypes
+from sdc11073.xml_types import pmtypes
 from sdc11073.location import SdcLocation
 from sdc11073.mdib.clientmdib import ClientMdibContainer
 from sdc11073.sdcclient import SdcClient

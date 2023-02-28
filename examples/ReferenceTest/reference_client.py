@@ -10,7 +10,7 @@ from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.sdcclient import SdcClient
 from sdc11073.mdib.clientmdib import ClientMdibContainer
 from sdc11073.mdib.clientmdibxtra import ClientMdibMethods
-from sdc11073 import msgtypes
+from sdc11073.xml_types import msgtypes
 from sdc11073 import commlog
 
 ClientMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0

@@ -5,16 +5,16 @@ from enum import Enum
 
 from lxml import etree as etree_
 
-from sdc11073.isoduration import UTC
-from sdc11073.mdib.containerproperties import DateOfBirthProperty as DoB
-from sdc11073.mdib.containerproperties import NodeStringProperty, SubElementProperty, NodeEnumTextProperty
-from sdc11073.mdib.containerproperties import SubElementWithSubElementListProperty
-from sdc11073.mdib.containerproperties import HandleRefListAttributeProperty
-from sdc11073.mdib.containerproperties import StringAttributeProperty, IntegerAttributeProperty, EnumAttributeProperty
-from sdc11073.mdib.containerproperties import DecimalListAttributeProperty
+from sdc11073.xml_types.isoduration import UTC
+from sdc11073.xml_types.xml_structure import DateOfBirthProperty as DoB
+from sdc11073.xml_types.xml_structure import NodeStringProperty, SubElementProperty, NodeEnumTextProperty
+from sdc11073.xml_types.xml_structure import SubElementWithSubElementListProperty
+from sdc11073.xml_types.xml_structure import HandleRefListAttributeProperty
+from sdc11073.xml_types.xml_structure import StringAttributeProperty, IntegerAttributeProperty, EnumAttributeProperty
+from sdc11073.xml_types.xml_structure import DecimalListAttributeProperty
 from sdc11073.mdib.statecontainers import T_AllowedValues
-from sdc11073.pmtypes import CodedValue
-from sdc11073 import pm_qnames as pm
+from sdc11073.xml_types.pmtypes import CodedValue
+from sdc11073.xml_types import pm_qnames as pm
 
 
 # pylint: disable=protected-access

@@ -1,9 +1,9 @@
+from . import xml_structure as cp
 from .dpws import HostServiceType, HostedServiceType
 from .dpws import ThisDeviceType, ThisModelType, DeviceMetadataDialectURI, DeviceRelationshipTypeURI
-from .mdib import containerproperties as cp
 from .msgtypes import MessageType
-from .namespaces import default_ns_helper
 from .pmtypes import PropertyBasedPMType
+from ..namespaces import default_ns_helper
 
 ########## Meta Data Exchange #########
 wsx_tag = default_ns_helper.wsxTag  # shortcut
