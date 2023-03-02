@@ -9,14 +9,14 @@ from typing import TYPE_CHECKING, Union
 
 from lxml import etree as etree_
 
-from sdc11073.xml_types import pmtypes, pm_qnames as pm
-from sdc11073.xml_types.addressing import Address
-from sdc11073.xml_types.dpws import ThisModelType, ThisDeviceType
-from sdc11073.xml_types.eventing_types import Subscribe
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.sdcdevice import SdcDevice
 from sdc11073.sdcdevice.subscriptionmgr import DevSubscription
+from sdc11073.xml_types import pm_types, pm_qnames as pm
+from sdc11073.xml_types.addressing import HeaderInformationBlock
+from sdc11073.xml_types.dpws_types import ThisModelType, ThisDeviceType
+from sdc11073.xml_types.eventing_types import Subscribe
 
 if TYPE_CHECKING:
     import uuid
@@ -83,23 +83,17 @@ class TestDevSubscription(DevSubscription):
         self.reports = []
 
     def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
-        addr = Address(addr_to=self.notify_to_address,
-                       action=action,
-                       addr_from=None,
-                       reply_to=None,
-                       fault_to=None,
-                       reference_parameters=None)
-        message = msg_factory.mk_notification_message(addr, body_node, self.notify_ref_params, doc_nsmap)
+        info_block = HeaderInformationBlock(action=action,
+                                            addr_to=self.notify_to_address,
+                                            reference_parameters=self.notify_ref_params)
+        message = msg_factory.mk_notification_message(info_block, body_node, doc_nsmap)
         self.reports.append(message)
 
     async def async_send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
-        addr = Address(addr_to=self.notify_to_address,
-                       action=action,
-                       addr_from=None,
-                       reply_to=None,
-                       fault_to=None,
-                       reference_parameters=None)
-        message = msg_factory.mk_notification_message(addr, body_node, self.notify_ref_params, doc_nsmap)
+        info_block = HeaderInformationBlock(action=action,
+                                            addr_to=self.notify_to_address,
+                                            reference_parameters=self.notify_ref_params)
+        message = msg_factory.mk_notification_message(info_block, body_node, doc_nsmap)
         self.reports.append(message)
 
     async def async_send_notification_end_message(self, code='SourceShuttingDown',
@@ -132,8 +126,8 @@ class SomeDevice(SdcDevice):
         mdsDescriptors = device_mdib_container.descriptions.NODETYPE.get(pm.MdsDescriptor)
         for mdsDescriptor in mdsDescriptors:
             if mdsDescriptor.MetaData is not None:
-                mdsDescriptor.MetaData.Manufacturer.append(pmtypes.LocalizedText(u'Dräger'))
-                mdsDescriptor.MetaData.ModelName.append(pmtypes.LocalizedText(model.ModelName[0].text))
+                mdsDescriptor.MetaData.Manufacturer.append(pm_types.LocalizedText(u'Dräger'))
+                mdsDescriptor.MetaData.ModelName.append(pm_types.LocalizedText(model.ModelName[0].text))
                 mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')
                 mdsDescriptor.MetaData.ModelNumber = '0.99'
         super().__init__(wsdiscovery, model, device, device_mdib_container, epr, validate,

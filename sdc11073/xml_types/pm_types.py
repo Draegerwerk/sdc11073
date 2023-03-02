@@ -9,18 +9,12 @@ from math import isclose
 from typing import Optional, Union
 
 from lxml import etree as etree_
-
+from .basetypes import StringEnum, XMLTypeBase
 from . import ext_qnames as ext
 from . import msg_qnames as msg
 from . import pm_qnames as pm
 from . import xml_structure as cp
 from ..namespaces import QN_TYPE, text_to_qname
-
-
-class StringEnum(str, enum.Enum):
-
-    def __str__(self):
-        return str(self.value)
 
 
 class SafetyClassification(StringEnum):
@@ -213,76 +207,7 @@ class T_CalibrationType(StringEnum):  # only used in CalibrationInfo
     UNSPEC = 'Unspec'
 
 
-class PropertyBasedPMType:
-    """ Base class that assumes all data is defined as containerproperties and _props lists all property names."""
-
-    def __init__(self):
-        for _, prop in self.sorted_container_properties():
-            prop.init_instance_data(self)
-
-    def as_etree_node(self, qname, nsmap):
-        node = etree_.Element(qname, nsmap=nsmap)
-        self.update_node(node)
-        return node
-
-    def update_node(self, node):
-        for prop_name, prop in self.sorted_container_properties():
-            try:
-                prop.update_xml_value(self, node)
-            except Exception as ex:
-                # re-raise with some information about the data
-                raise ValueError(
-                    f'In {self.__class__.__name__}.{prop_name}, {str(prop)} could not update: {traceback.format_exc()}') from ex
-
-    def update_from_node(self, node):
-        for dummy, prop in self.sorted_container_properties():
-            prop.update_from_node(self, node)
-
-    def sorted_container_properties(self):
-        """
-        @return: a list of (name, object) tuples of all GenericProperties ( and subclasses)
-        list is created based on _props lists of classes
-        """
-        ret = []
-        classes = inspect.getmro(self.__class__)
-        for cls in reversed(classes):
-            try:
-                names = cls.__dict__['_props']  # this checks only current class, not parent
-            except (AttributeError, KeyError):
-                continue
-            for name in names:
-                obj = getattr(cls, name)
-                if obj is not None:
-                    ret.append((name, obj))
-        return ret
-
-    def __eq__(self, other):
-        """ compares all properties"""
-        try:
-            for name, dummy in self.sorted_container_properties():
-                my_value = getattr(self, name)
-                other_value = getattr(other, name)
-                if my_value == other_value:
-                    continue
-                if (isinstance(my_value, float) or isinstance(other_value, float)) and isclose(my_value, other_value):
-                    continue  # float compare (almost equal)
-                return False
-            return True
-        except (TypeError, AttributeError):
-            return False
-
-    def __ne__(self, other):
-        return not self == other
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}({self.sorted_container_properties()})'
-
-    @classmethod
-    def from_node(cls, node):
-        """ default from_node Constructor that provides no arguments for class __init__"""
-        obj = cls()
-        obj.update_from_node(node)
-        return obj
+class PropertyBasedPMType(XMLTypeBase):
 
     @classmethod
     def value_class_from_node(cls, node):
@@ -293,16 +218,6 @@ class PropertyBasedPMType:
         xsi_type = text_to_qname(xsi_type_str, node.nsmap)
         return _get_pmtypes_class(xsi_type)
 
-
-class ElementWithText(PropertyBasedPMType):
-    NODETYPE = None
-    text = cp.NodeStringProperty()  # this is the text of the node. Here attribute is lower case!
-    _props = ['text']
-    '''An Element that has no attributes, only a text.'''
-
-    def __init__(self, text=None):
-        super().__init__()
-        self.text = text
 
 
 class LocalizedText(PropertyBasedPMType):
@@ -1329,8 +1244,8 @@ Relation = AbstractMetricDescriptorRelation
 class PatientDemographicsCoreData(BaseDemographics):
     # pylint: disable=invalid-name
     NODETYPE = pm.PatientDemographicsCoreData
-    Sex = cp.NodeEnumTextProperty(T_Sex, pm.Sex, is_optional=True)
-    PatientType = cp.NodeEnumTextProperty(PatientType, pm.PatientType, is_optional=True)
+    Sex = cp.NodeEnumTextProperty(pm.Sex, T_Sex, is_optional=True)
+    PatientType = cp.NodeEnumTextProperty(pm.PatientType, PatientType, is_optional=True)
     DateOfBirth = cp.DateOfBirthProperty(pm.DateOfBirth, is_optional=True)
     Height = cp.SubElementProperty(pm.Height, value_class=Measurement, is_optional=True)
     Weight = cp.SubElementProperty(pm.Weight, value_class=Measurement, is_optional=True)

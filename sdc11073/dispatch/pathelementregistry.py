@@ -1,5 +1,5 @@
 from typing import Union, Any
-from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
+from ..pysoap.soapenvelope import Fault, faultcodeEnum
 from ..exceptions import ApiUsageError
 from ..exceptions import InvalidPathError
 
@@ -17,6 +17,9 @@ class PathElementRegistry:
     def get_instance(self, path_element: Union[str, None]) -> Any:
         instance = self._instances.get(path_element)
         if instance is None:
-            soap_fault = SoapFault(code=FaultCodeEnum.SENDER, reason=f'invalid path {path_element}')
-            raise InvalidPathError(reason=f'{path_element} not found', soap_fault=soap_fault)
+            fault = Fault()
+            fault.Code.Value = faultcodeEnum.SENDER
+            fault.add_reason_text(f'invalid path {path_element}')
+
+            raise InvalidPathError(reason=f'{path_element} not found', soap_fault=fault)
         return instance

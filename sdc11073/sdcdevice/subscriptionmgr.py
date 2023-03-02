@@ -16,10 +16,10 @@ from ..httpserver.compression import CompressionHandler
 from .. import loghelper
 from .. import multikey
 from .. import observableproperties
-from sdc11073.xml_types.addressing import Address
+from sdc11073.xml_types.addressing import HeaderInformationBlock
 from ..etc import apply_map, short_filter_string
 from ..pysoap.soapclient import HTTPReturnCodeError
-from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
+from ..pysoap.soapenvelope import Fault, faultcodeEnum
 from ..pysoap.soapclientpool import SoapClientPool
 from ..xml_types import eventing_types as evt_types, isoduration
 
@@ -183,7 +183,6 @@ class SubscriptionBase:
         subscription_end.add_reason(reason, 'en-US')
         message = self._msg_factory.mk_soap_message(self.end_to_address or self.notify_to_address,
                                                     subscription_end)
-        #message = self._msg_factory.mk_notification_end_message(self, my_addr, code, reason)
         try:
             url = self._end_to_url or self.notify_to_url
             self._soap_client.post_message_to(url.path, message,
@@ -228,13 +227,11 @@ class DevSubscription(SubscriptionBase):
     def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
         if not self.is_valid:
             return
-        addr = Address(addr_to=self.notify_to_address,
+        addr = HeaderInformationBlock(addr_to=self.notify_to_address,
                        action=action,
                        addr_from=None,
-                       reply_to=None,
-                       fault_to=None,
-                       reference_parameters=None)
-        message = msg_factory.mk_notification_message(addr, body_node, self.notify_ref_params, doc_nsmap)
+                       reference_parameters=self.notify_ref_params)
+        message = msg_factory.mk_notification_message(addr, body_node, doc_nsmap)
         try:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
 
@@ -322,12 +319,14 @@ class SubscriptionsManagerBase:
 
     def on_unsubscribe_request(self, request_data: RequestData) -> CreatedMessage:
         subscription = self._get_subscription_for_request(request_data)
+        nsh = self.sdc_definitions.data_model.ns_helper
         if subscription is None:
-            fault = SoapFault(code=FaultCodeEnum.RECEIVER,
-                              reason='unknown Subscription identifier',
-                              sub_code=self.sdc_definitions.data_model.ns_helper.wseTag('InvalidMessage')
-                              )
-            response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
+            fault = Fault()
+            fault.Code.Value = faultcodeEnum.RECEIVER
+            fault.set_sub_code(nsh.wseTag('InvalidMessage'))
+            fault.add_reason_text('unknown Subscription identifier')
+            ns_map = nsh.partial_map(nsh.WSE)
+            response = self._msg_factory.mk_reply_soap_message(request_data, fault, ns_map=ns_map)
         else:
             subscription.close()
             with self._subscriptions.lock:
@@ -346,15 +345,17 @@ class SubscriptionsManagerBase:
 
     def on_get_status_request(self, request_data: RequestData) -> CreatedMessage:
         data_model = self.sdc_definitions.data_model
+        nsh = data_model.ns_helper
 
         self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.p_msg.raw_data)
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            fault = SoapFault(code=FaultCodeEnum.RECEIVER,
-                              reason='unknown Subscription identifier',
-                              sub_code=self.sdc_definitions.data_model.ns_helper.wseTag('InvalidMessage')
-                              )
-            response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
+            fault = Fault()
+            fault.Code.Value = faultcodeEnum.RECEIVER
+            fault.set_sub_code(nsh.wseTag('InvalidMessage'))
+            fault.add_reason_text('unknown Subscription identifier')
+            ns_map = nsh.partial_map(nsh.WSE)
+            response = self._msg_factory.mk_reply_soap_message(request_data, fault, ns_map=ns_map)
         else:
             get_status_response = evt_types.GetStatusResponse()
             get_status_response.Expires = subscription.remaining_seconds
@@ -367,15 +368,17 @@ class SubscriptionsManagerBase:
 
     def on_renew_request(self, request_data: RequestData) -> CreatedMessage:
         data_model = self.sdc_definitions.data_model
+        nsh = data_model.ns_helper
         renew = evt_types.Renew.from_node(request_data.message_data.p_msg.msg_node)
         expires = renew.Expires
         subscription = self._get_subscription_for_request(request_data)
         if subscription is None:
-            fault = SoapFault(code=FaultCodeEnum.RECEIVER,
-                              reason='unknown Subscription identifier',
-                              sub_code=data_model.ns_helper.wseTag('UnableToRenew')
-                              )
-            response = self._msg_factory.mk_fault_message(request_data.message_data, fault)
+            fault = Fault()
+            fault.Code.Value = faultcodeEnum.RECEIVER
+            fault.set_sub_code(nsh.wseTag('InvalidMessage'))
+            fault.add_reason_text('unknown Subscription identifier')
+            ns_map = nsh.partial_map(nsh.WSE)
+            response = self._msg_factory.mk_reply_soap_message(request_data, fault, ns_map=ns_map)
         else:
             subscription.renew(expires)
             renew_response = evt_types.RenewResponse()
@@ -396,7 +399,6 @@ class SubscriptionsManagerBase:
             self._subscriptions.clear()
 
     def _get_subscription_for_request(self, request_data):
-        reader = request_data.message_data.msg_reader
         reference_parameters = self.read_header_reference_parameters(request_data)
         path_suffix = '/'.join(request_data.path_elements)  # not consumed path elements
         dispatch_identifier = _mk_dispatch_identifier(reference_parameters, path_suffix)

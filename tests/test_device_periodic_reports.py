@@ -4,9 +4,9 @@ import unittest
 from itertools import cycle
 
 from sdc11073 import wsdiscovery
-from sdc11073.xml_types import pmtypes
+from sdc11073.xml_types import pm_types
 from sdc11073.location import SdcLocation
-from sdc11073.xml_types.pmtypes import RetrievabilityMethod, RetrievabilityInfo, Retrievability
+from sdc11073.xml_types.pm_types import RetrievabilityMethod, RetrievabilityInfo, Retrievability
 from sdc11073.observableproperties import ValuesCollector
 from sdc11073.sdcclient import SdcClient
 from tests.mockstuff import SomeDevice
@@ -40,7 +40,7 @@ class Test_Device_PeriodicReports(unittest.TestCase):
         mdib.xtra.update_retrievability_lists()
 
         self.sdc_device.start_all()
-        loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+        loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, loc_validators)
 
         time.sleep(0.1)  # allow full init of device

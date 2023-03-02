@@ -4,7 +4,10 @@ import time
 import uuid
 
 from .containerbase import ContainerBase
-from ..xml_types import pmtypes, xml_structure as cp, pm_qnames as pm, ext_qnames as ext
+from ..xml_types import pm_types
+from ..xml_types import xml_structure as cp
+from ..xml_types import pm_qnames as pm
+from ..xml_types import ext_qnames as ext
 
 
 class AbstractStateContainer(ContainerBase):
@@ -77,18 +80,18 @@ class AbstractStateContainer(ContainerBase):
 class AbstractOperationStateContainer(AbstractStateContainer):
     NODETYPE = pm.AbstractOperationState
     is_operational_state = True
-    OperatingMode = cp.EnumAttributeProperty('OperatingMode', default_py_value=pmtypes.OperatingMode.ENABLED,
-                                             enum_cls=pmtypes.OperatingMode)
+    OperatingMode = cp.EnumAttributeProperty('OperatingMode', default_py_value=pm_types.OperatingMode.ENABLED,
+                                             enum_cls=pm_types.OperatingMode)
     _props = ('OperatingMode',)
 
 
 class SetValueOperationStateContainer(AbstractOperationStateContainer):
     NODETYPE = pm.SetValueOperationState
-    AllowedRange = cp.SubElementListProperty(pm.AllowedRange, value_class=pmtypes.Range)
+    AllowedRange = cp.SubElementListProperty(pm.AllowedRange, value_class=pm_types.Range)
     _props = ('AllowedRange',)
 
 
-class T_AllowedValues(pmtypes.PropertyBasedPMType):  # pylint: disable=invalid-name
+class T_AllowedValues(pm_types.PropertyBasedPMType):  # pylint: disable=invalid-name
     Value = cp.SubElementStringListProperty(pm.Value)
     _props = ['Value']
 
@@ -153,11 +156,11 @@ class AbstractMetricStateContainerBase(AbstractStateContainer):
 
 
 class AbstractMetricStateContainer(AbstractMetricStateContainerBase):
-    BodySite = cp.SubElementListProperty(pm.BodySite, value_class=pmtypes.CodedValue)
+    BodySite = cp.SubElementListProperty(pm.BodySite, value_class=pm_types.CodedValue)
     PhysicalConnector = cp.SubElementProperty(pm.PhysicalConnector,
-                                              value_class=pmtypes.PhysicalConnectorInfo, is_optional=True)
-    ActivationState = cp.EnumAttributeProperty('ActivationState', implied_py_value=pmtypes.ComponentActivation.ON,
-                                               enum_cls=pmtypes.ComponentActivation)
+                                              value_class=pm_types.PhysicalConnectorInfo, is_optional=True)
+    ActivationState = cp.EnumAttributeProperty('ActivationState', implied_py_value=pm_types.ComponentActivation.ON,
+                                               enum_cls=pm_types.ComponentActivation)
     ActiveDeterminationPeriod = cp.DurationAttributeProperty('ActiveDeterminationPeriod')  # xsd:duration
     LifeTimePeriod = cp.DurationAttributeProperty('LifeTimePeriod')  # xsd:duration, optional
     _props = ('BodySite', 'PhysicalConnector', 'ActivationState', 'ActiveDeterminationPeriod', 'LifeTimePeriod')
@@ -165,28 +168,28 @@ class AbstractMetricStateContainer(AbstractMetricStateContainerBase):
 
 class NumericMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = pm.NumericMetricState
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.NumericMetricValue, is_optional=True)
-    PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pmtypes.Range)
+    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.NumericMetricValue, is_optional=True)
+    PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pm_types.Range)
     ActiveAveragingPeriod = cp.DurationAttributeProperty('ActiveAveragingPeriod')  # xsd:duration
     _props = ('_metric_value', 'PhysiologicalRange', 'ActiveAveragingPeriod')
 
 
 class StringMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = pm.StringMetricState
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.StringMetricValue, is_optional=True)
+    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.StringMetricValue, is_optional=True)
     _props = ('_metric_value',)
 
 
 class EnumStringMetricStateContainer(StringMetricStateContainer):
     NODETYPE = pm.EnumStringMetricState
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.StringMetricValue, is_optional=True)
+    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.StringMetricValue, is_optional=True)
 
 
 class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = pm.RealTimeSampleArrayMetricState
     is_realtime_sample_array_metric_state = True
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.SampleArrayValue, is_optional=True)
-    PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pmtypes.Range)
+    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.SampleArrayValue, is_optional=True)
+    PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pm_types.Range)
     _props = ('_metric_value', 'PhysiologicalRange')
     MetricValue = _metric_value
 
@@ -200,24 +203,24 @@ class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
 
 class DistributionSampleArrayMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = pm.DistributionSampleArrayMetricState
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pmtypes.SampleArrayValue, is_optional=True)
-    PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pmtypes.Range)
+    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.SampleArrayValue, is_optional=True)
+    PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pm_types.Range)
     _props = ('_metric_value', 'PhysiologicalRange')
 
 
 class AbstractDeviceComponentStateContainer(AbstractStateContainer):
     is_component_state = True
     CalibrationInfo = cp.SubElementProperty(pm.CalibrationInfo,
-                                            value_class=pmtypes.CalibrationInfo,
+                                            value_class=pm_types.CalibrationInfo,
                                             is_optional=True)
     NextCalibration = cp.SubElementProperty(pm.NextCalibration,
-                                            value_class=pmtypes.CalibrationInfo,
+                                            value_class=pm_types.CalibrationInfo,
                                             is_optional=True)
     PhysicalConnector = cp.SubElementProperty(pm.PhysicalConnector,
-                                              value_class=pmtypes.PhysicalConnectorInfo,
+                                              value_class=pm_types.PhysicalConnectorInfo,
                                               is_optional=True)
 
-    ActivationState = cp.EnumAttributeProperty('ActivationState', enum_cls=pmtypes.ComponentActivation)
+    ActivationState = cp.EnumAttributeProperty('ActivationState', enum_cls=pm_types.ComponentActivation)
     OperatingHours = cp.UnsignedIntAttributeProperty('OperatingHours')  # optional
     OperatingCycles = cp.UnsignedIntAttributeProperty('OperatingCycles')  # optional
     _props = (
@@ -232,18 +235,18 @@ class AbstractComplexDeviceComponentStateContainer(AbstractDeviceComponentStateC
 class MdsStateContainer(AbstractComplexDeviceComponentStateContainer):
     NODETYPE = pm.MdsState
     OperatingJurisdiction = cp.SubElementProperty(pm.OperatingJurisdiction,
-                                                  value_class=pmtypes.OperatingJurisdiction,
+                                                  value_class=pm_types.OperatingJurisdiction,
                                                   is_optional=True)
     OperatingMode = cp.EnumAttributeProperty('OperatingMode',
-                                             default_py_value=pmtypes.MdsOperatingMode.NORMAL,
-                                             enum_cls=pmtypes.MdsOperatingMode)
+                                             default_py_value=pm_types.MdsOperatingMode.NORMAL,
+                                             enum_cls=pm_types.MdsOperatingMode)
     Lang = cp.StringAttributeProperty('Lang', default_py_value='en')
     _props = ('OperatingJurisdiction', 'OperatingMode', 'Lang')
 
 
 class ScoStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = pm.ScoState
-    OperationGroup = cp.SubElementListProperty(pm.OperationGroup, value_class=pmtypes.OperationGroup)
+    OperationGroup = cp.SubElementListProperty(pm.OperationGroup, value_class=pm_types.OperationGroup)
     InvocationRequested = cp.OperationRefListAttributeProperty('InvocationRequested')
     InvocationRequired = cp.OperationRefListAttributeProperty('InvocationRequired')
     _props = ('OperationGroup', 'InvocationRequested', 'InvocationRequired')
@@ -252,7 +255,7 @@ class ScoStateContainer(AbstractDeviceComponentStateContainer):
 class VmdStateContainer(AbstractComplexDeviceComponentStateContainer):
     NODETYPE = pm.VmdState
     OperatingJurisdiction = cp.SubElementProperty(pm.OperatingJurisdiction,
-                                                  value_class=pmtypes.OperatingJurisdiction,
+                                                  value_class=pm_types.OperatingJurisdiction,
                                                   is_optional=True)
     _props = ('OperatingJurisdiction',)
 
@@ -261,10 +264,11 @@ class ChannelStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = pm.ChannelState
 
 
+
 class ClockStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = pm.ClockState
-    ActiveSyncProtocol = cp.SubElementProperty(pm.ActiveSyncProtocol, value_class=pmtypes.CodedValue, is_optional=True)
-    ReferenceSource = cp.SubElementListProperty(pm.ReferenceSource, value_class=pmtypes.ElementWithText)
+    ActiveSyncProtocol = cp.SubElementProperty(pm.ActiveSyncProtocol, value_class=pm_types.CodedValue, is_optional=True)
+    ReferenceSource = cp.SubElementStringListProperty(pm.ReferenceSource)
     DateAndTime = cp.CurrentTimestampAttributeProperty('DateAndTime')
     RemoteSync = cp.BooleanAttributeProperty('RemoteSync', default_py_value=True, is_optional=False)
     Accuracy = cp.DecimalAttributeProperty('Accuracy')
@@ -280,7 +284,7 @@ class SystemContextStateContainer(AbstractDeviceComponentStateContainer):
 
 
 class BatteryStateContainer(AbstractDeviceComponentStateContainer):
-    class ChargeStatusEnum(pmtypes.StringEnum):
+    class ChargeStatusEnum(pm_types.StringEnum):
         FULL = 'Ful'
         CHARGING = 'ChB'
         DISCHARGING = 'DisChB'
@@ -288,13 +292,13 @@ class BatteryStateContainer(AbstractDeviceComponentStateContainer):
 
     NODETYPE = pm.BatteryState
     CapacityRemaining = cp.SubElementProperty(pm.CapacityRemaining,
-                                              value_class=pmtypes.Measurement,
+                                              value_class=pm_types.Measurement,
                                               is_optional=True)
-    Voltage = cp.SubElementProperty(pm.Voltage, value_class=pmtypes.Measurement, is_optional=True)
-    Current = cp.SubElementProperty(pm.Current, value_class=pmtypes.Measurement, is_optional=True)
-    Temperature = cp.SubElementProperty(pm.Temperature, value_class=pmtypes.Measurement, is_optional=True)
+    Voltage = cp.SubElementProperty(pm.Voltage, value_class=pm_types.Measurement, is_optional=True)
+    Current = cp.SubElementProperty(pm.Current, value_class=pm_types.Measurement, is_optional=True)
+    Temperature = cp.SubElementProperty(pm.Temperature, value_class=pm_types.Measurement, is_optional=True)
     RemainingBatteryTime = cp.SubElementProperty(pm.RemainingBatteryTime,
-                                                 value_class=pmtypes.Measurement,
+                                                 value_class=pm_types.Measurement,
                                                  is_optional=True)
     ChargeStatus = cp.EnumAttributeProperty('ChargeStatus', enum_cls=ChargeStatusEnum)
     ChargeCycles = cp.UnsignedIntAttributeProperty('ChargeCycles')  # Number of charge/discharge cycles.
@@ -306,8 +310,8 @@ class BatteryStateContainer(AbstractDeviceComponentStateContainer):
 class AbstractAlertStateContainer(AbstractStateContainer):
     is_alert_state = True
     ActivationState = cp.EnumAttributeProperty('ActivationState',
-                                               default_py_value=pmtypes.AlertActivation.ON,
-                                               enum_cls=pmtypes.AlertActivation,
+                                               default_py_value=pm_types.AlertActivation.ON,
+                                               enum_cls=pm_types.AlertActivation,
                                                is_optional=False)
     _props = ('ActivationState',)
 
@@ -315,7 +319,7 @@ class AbstractAlertStateContainer(AbstractStateContainer):
 class AlertSystemStateContainer(AbstractAlertStateContainer):
     NODETYPE = pm.AlertSystemState
     SystemSignalActivation = cp.SubElementListProperty(pm.SystemSignalActivation,
-                                                       value_class=pmtypes.SystemSignalActivation)
+                                                       value_class=pm_types.SystemSignalActivation)
     LastSelfCheck = cp.TimestampAttributeProperty('LastSelfCheck')
     SelfCheckCount = cp.IntegerAttributeProperty('SelfCheckCount')
     PresentPhysiologicalAlarmConditions = cp.AlertConditionRefListAttributeProperty(
@@ -334,10 +338,10 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
     is_alert_signal = True
     NODETYPE = pm.AlertSignalState
     ActualSignalGenerationDelay = cp.DurationAttributeProperty('ActualSignalGenerationDelay')
-    Presence = cp.EnumAttributeProperty('Presence', implied_py_value=pmtypes.AlertSignalPresence.OFF,
-                                        enum_cls=pmtypes.AlertSignalPresence)
-    Location = cp.EnumAttributeProperty('Location', implied_py_value=pmtypes.AlertSignalPrimaryLocation.LOCAL,
-                                        enum_cls=pmtypes.AlertSignalPrimaryLocation)
+    Presence = cp.EnumAttributeProperty('Presence', implied_py_value=pm_types.AlertSignalPresence.OFF,
+                                        enum_cls=pm_types.AlertSignalPresence)
+    Location = cp.EnumAttributeProperty('Location', implied_py_value=pm_types.AlertSignalPrimaryLocation.LOCAL,
+                                        enum_cls=pm_types.AlertSignalPrimaryLocation)
     Slot = cp.UnsignedIntAttributeProperty('Slot')
     _props = ('ActualSignalGenerationDelay', 'Presence', 'Location', 'Slot')
 
@@ -355,7 +359,7 @@ class AlertConditionStateContainer(AbstractAlertStateContainer):
     is_alert_condition = True
     NODETYPE = pm.AlertConditionState
     ActualConditionGenerationDelay = cp.DurationAttributeProperty('ActualConditionGenerationDelay')
-    ActualPriority = cp.EnumAttributeProperty('ActualPriority', enum_cls=pmtypes.AlertConditionPriority)
+    ActualPriority = cp.EnumAttributeProperty('ActualPriority', enum_cls=pm_types.AlertConditionPriority)
     Rank = cp.IntegerAttributeProperty('Rank')
     DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime')
     Presence = cp.BooleanAttributeProperty('Presence', implied_py_value=False)
@@ -369,19 +373,19 @@ class AlertConditionStateContainer(AbstractAlertStateContainer):
 
 class LimitAlertConditionStateContainer(AlertConditionStateContainer):
     NODETYPE = pm.LimitAlertConditionState
-    Limits = cp.SubElementProperty(pm.Limits, value_class=pmtypes.Range, default_py_value=pmtypes.Range())
+    Limits = cp.SubElementProperty(pm.Limits, value_class=pm_types.Range, default_py_value=pm_types.Range())
     MonitoredAlertLimits = cp.EnumAttributeProperty('MonitoredAlertLimits',
-                                                    default_py_value=pmtypes.AlertConditionMonitoredLimits.NONE,
-                                                    enum_cls=pmtypes.AlertConditionMonitoredLimits,
+                                                    default_py_value=pm_types.AlertConditionMonitoredLimits.NONE,
+                                                    enum_cls=pm_types.AlertConditionMonitoredLimits,
                                                     is_optional=False)
     AutoLimitActivationState = cp.EnumAttributeProperty('AutoLimitActivationState',
-                                                        enum_cls=pmtypes.AlertActivation)
+                                                        enum_cls=pm_types.AlertActivation)
     _props = ('Limits', 'MonitoredAlertLimits', 'AutoLimitActivationState')
 
 
 class AbstractMultiStateContainer(AbstractStateContainer):
     is_multi_state = True
-    Category = cp.SubElementProperty(pm.Category, value_class=pmtypes.CodedValue, is_optional=True)
+    Category = cp.SubElementProperty(pm.Category, value_class=pm_types.CodedValue, is_optional=True)
     Handle = cp.HandleAttributeProperty('Handle', is_optional=False)
     _props = ('Category', 'Handle',)
 
@@ -408,11 +412,11 @@ class AbstractMultiStateContainer(AbstractStateContainer):
 
 class AbstractContextStateContainer(AbstractMultiStateContainer):
     is_context_state = True
-    Validator = cp.SubElementListProperty(pm.Validator, value_class=pmtypes.InstanceIdentifier)
-    Identification = cp.SubElementListProperty(pm.Identification, value_class=pmtypes.InstanceIdentifier)
+    Validator = cp.SubElementListProperty(pm.Validator, value_class=pm_types.InstanceIdentifier)
+    Identification = cp.SubElementListProperty(pm.Identification, value_class=pm_types.InstanceIdentifier)
     ContextAssociation = cp.EnumAttributeProperty('ContextAssociation',
-                                                  enum_cls=pmtypes.ContextAssociation,
-                                                  implied_py_value=pmtypes.ContextAssociation.NO_ASSOCIATION)
+                                                  enum_cls=pm_types.ContextAssociation,
+                                                  implied_py_value=pm_types.ContextAssociation.NO_ASSOCIATION)
     BindingMdibVersion = cp.ReferencedVersionAttributeProperty('BindingMdibVersion')
     UnbindingMdibVersion = cp.ReferencedVersionAttributeProperty('UnbindingMdibVersion')
     BindingStartTime = cp.TimestampAttributeProperty('BindingStartTime')
@@ -424,8 +428,8 @@ class AbstractContextStateContainer(AbstractMultiStateContainer):
 class LocationContextStateContainer(AbstractContextStateContainer):
     NODETYPE = pm.LocationContextState
     LocationDetail = cp.SubElementProperty(pm.LocationDetail,
-                                           value_class=pmtypes.LocationDetail,
-                                           default_py_value=pmtypes.LocationDetail(),
+                                           value_class=pm_types.LocationDetail,
+                                           default_py_value=pm_types.LocationDetail(),
                                            is_optional=True)
     _props = ('LocationDetail',)
 
@@ -437,13 +441,13 @@ class LocationContextStateContainer(AbstractContextStateContainer):
         self.LocationDetail.Facility = sdc_location.fac
         self.LocationDetail.Building = sdc_location.bld
         self.LocationDetail.Floor = sdc_location.flr
-        self.ContextAssociation = pmtypes.ContextAssociation.ASSOCIATED
+        self.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
 
         extension_string = self._mk_extension_string(sdc_location)
         if not extension_string:
             # schema does not allow extension string of zero length
             extension_string = None
-        self.Identification = [pmtypes.InstanceIdentifier(root=sdc_location.root, extension_string=extension_string)]
+        self.Identification = [pm_types.InstanceIdentifier(root=sdc_location.root, extension_string=extension_string)]
         # pylint: enable=invalid-name
 
     @staticmethod
@@ -461,22 +465,22 @@ class LocationContextStateContainer(AbstractContextStateContainer):
 class PatientContextStateContainer(AbstractContextStateContainer):
     NODETYPE = pm.PatientContextState
     CoreData = cp.SubElementProperty(pm.CoreData,
-                                     value_class=pmtypes.PatientDemographicsCoreData,
-                                     default_py_value=pmtypes.PatientDemographicsCoreData(),
+                                     value_class=pm_types.PatientDemographicsCoreData,
+                                     default_py_value=pm_types.PatientDemographicsCoreData(),
                                      is_optional=True)
     _props = ('CoreData',)
 
 
 class WorkflowContextStateContainer(AbstractContextStateContainer):
     NODETYPE = pm.WorkflowContextState
-    WorkflowDetail = cp.SubElementProperty(pm.WorkflowDetail, value_class=pmtypes.WorkflowDetail)
+    WorkflowDetail = cp.SubElementProperty(pm.WorkflowDetail, value_class=pm_types.WorkflowDetail)
     _props = ('WorkflowDetail',)
 
 
 class OperatorContextStateContainer(AbstractContextStateContainer):
     NODETYPE = pm.OperatorContextState
     OperatorDetails = cp.SubElementProperty(pm.OperatorDetails,
-                                            value_class=pmtypes.BaseDemographics,
+                                            value_class=pm_types.BaseDemographics,
                                             is_optional=True)
     _props = ('OperatorDetails',)
 

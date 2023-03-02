@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Container properties represent values in xml nodes.
-These values can be node attributes, node texts or a complete Elements with optional sub nodes.
-The properties completely hide the XML nature of data. To serve this purpose, they can convert between XML data types and Python data types.
+""" Classes in this module are used to declare the place where a xml value is located inside a document.
+They also provide a mapping between XML data types (which are always stings in specific formats) and
+python types. By doing so these classes completely hide the XML nature of data.
+The basic offered types are Element, list of elements, attribute, and list of attributes.
+They are the buildings blocks that are needed do declare XML data types.
+Container properties represent values in xml nodes.
 """
 import copy
 import time
@@ -26,7 +29,7 @@ class ElementNotFoundException(Exception):
     pass
 
 
-class _XmlStructureBase:
+class _XmlStructureBaseProperty:
     """ This defines a python property that converts between Python Data Types and XML data types.
     It has knowledge about two things:
     - how to covert data from xml to python type and vice versa
@@ -148,7 +151,7 @@ class _XmlStructureBase:
         setattr(instance, self._local_var_name, value)
 
 
-class _AttributeBase(_XmlStructureBase):
+class _AttributeBase(_XmlStructureBaseProperty):
     """ Base class that represents an XML Attribute.
     XML Representation is a string, Python representation is determined by value_converter."""
 
@@ -201,7 +204,7 @@ class _AttributeBase(_XmlStructureBase):
         return f'{self.__class__.__name__} attribute {self._attribute_name}'
 
 
-class _ElementBase(_XmlStructureBase):
+class _ElementBase(_XmlStructureBaseProperty):
     """ Base class that represents an XML Element."""
 
     def __init__(self, sub_element_name, value_converter, default_py_value=None, implied_py_value=None,
@@ -217,8 +220,10 @@ class _ElementBase(_XmlStructureBase):
         """
         super().__init__(value_converter, default_py_value, implied_py_value, is_optional)
         self._sub_element_name = sub_element_name
-        local_var_name = f'_none{local_var_prefix}' if self._sub_element_name is None \
-            else f'_{local_var_prefix}{self._sub_element_name.localname.lower()}'
+        if self._sub_element_name is None:
+            local_var_name = f'_none{local_var_prefix}'
+        else:
+            local_var_name = f'_{local_var_prefix}{self._sub_element_name.localname.lower()}'
         self._local_var_name = local_var_name
 
     @staticmethod
@@ -549,7 +554,7 @@ class AnyUriTextElement(NodeStringProperty):
 class NodeEnumTextProperty(NodeTextProperty):
     """Python representation is an Enum."""
 
-    def __init__(self, enum_cls, sub_element_name, default_py_value=None, implied_py_value=None, is_optional=False):
+    def __init__(self, sub_element_name, enum_cls, default_py_value=None, implied_py_value=None, is_optional=False):
         super().__init__(sub_element_name, EnumConverter(enum_cls), default_py_value, implied_py_value,
                          is_optional, min_length=1)
         self.enum_cls = enum_cls
@@ -861,7 +866,7 @@ class SubElementListProperty(_ElementListProperty):
 
         if py_value is not None:
             for val in py_value:
-                name = self._sub_element_name or val.NODETYPE
+                #name = self._sub_element_name or val.NODETYPE
                 sub_node = val.as_etree_node(self._sub_element_name, node.nsmap)
                 if hasattr(val, 'NODETYPE') and hasattr(self.value_class, 'NODETYPE') \
                         and val.NODETYPE != self.value_class.NODETYPE:
@@ -970,7 +975,7 @@ class SubElementTextListProperty(_ElementListProperty):
 
 
 class SubElementStringListProperty(SubElementTextListProperty):
-    """ represents a list of strings."""
+    """ represents a list of strings. on xml side every string is a text of a sub element"""
 
     def __init__(self, sub_element_name, is_optional=True):
         super().__init__(sub_element_name, str, is_optional=is_optional)

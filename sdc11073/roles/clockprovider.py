@@ -1,5 +1,6 @@
 from . import providerbase
 from .nomenclature import NomenclatureCodes as nc
+from ..xml_types import basetypes as tb
 
 
 class GenericSDCClockProvider(providerbase.ProviderRole):
@@ -78,11 +79,10 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                 clock_descriptors = self._mdib.descriptions.NODETYPE.get(pm_names.ClockDescriptor, [])
                 clock_descriptors = [c for c in clock_descriptors if c.parent_handle == mds_handle]
                 if len(clock_descriptors) == 1:
-                    # state = mgr.getComponentState(clock_descriptors[0].handle)
                     state = mgr.get_state(clock_descriptors[0].handle)
             if state.NODETYPE != pm_names.ClockState:
                 raise ValueError(f'_set_ntp_string: expected ClockState, got {state.NODETYPE.localname}')
-            state.ReferenceSource = [pm_types.ElementWithText(value)]
+            state.ReferenceSource = [value]
 
     def _set_tz_string(self, operation_instance, value):
         """This is the handler for the set time zone operation.

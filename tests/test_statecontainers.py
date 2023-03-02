@@ -9,7 +9,7 @@ import sdc11073.mdib.descriptorcontainers as dc
 import sdc11073.mdib.statecontainers as sc
 import sdc11073.namespaces as namespaces
 from sdc11073.namespaces import default_ns_helper as ns_hlp
-from sdc11073.xml_types import pmtypes, pm_qnames as pm
+from sdc11073.xml_types import pm_types, pm_qnames as pm
 from sdc11073.location import SdcLocation
 from tests.mockstuff import dec_list
 
@@ -62,17 +62,17 @@ class TestStateContainers(unittest.TestCase):
         self._verifyAbstractStateContainerDataEqual(state, state2)
 
         # test update_from_other_container
-        state.OperatingMode = pmtypes.OperatingMode.NA
-        self.assertEqual(state.OperatingMode, pmtypes.OperatingMode.NA)
+        state.OperatingMode = pm_types.OperatingMode.NA
+        self.assertEqual(state.OperatingMode, pm_types.OperatingMode.NA)
         state2.update_from_other_container(state)
-        self.assertEqual(state2.OperatingMode, pmtypes.OperatingMode.NA)
+        self.assertEqual(state2.OperatingMode, pm_types.OperatingMode.NA)
 
     def test_AbstractMetricStateContainer(self):
         descr = dc.NumericMetricDescriptorContainer(handle='123', parent_handle='456')
         state = sc.NumericMetricStateContainer(descriptor_container=descr)
 
         self.assertEqual(state.ActivationState, 'On')
-        for value in list(pmtypes.ComponentActivation):
+        for value in list(pm_types.ComponentActivation):
             state.ActivationState = value
             self.assertEqual(state.ActivationState, value)
             node = state.mk_state_node(_my_tag, self.ns_mapper)
@@ -85,8 +85,8 @@ class TestStateContainers(unittest.TestCase):
             node = state.mk_state_node(_my_tag, self.ns_mapper)
             self.assertEqual(node.get('ActiveDeterminationPeriod'),
                              cp.DurationConverter.to_xml(value))
-        state.BodySite = [pmtypes.CodedValue('ABC')]
-        state.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('ABC')], 1)
+        state.BodySite = [pm_types.CodedValue('ABC')]
+        state.PhysicalConnector = pm_types.PhysicalConnectorInfo([pm_types.LocalizedText('ABC')], 1)
 
         # test creation from other container
         state2 = sc.NumericMetricStateContainer(descriptor_container=descr)
@@ -98,10 +98,10 @@ class TestStateContainers(unittest.TestCase):
         self._verifyAbstractStateContainerDataEqual(state, state2)
 
         # test update from other container
-        state.ActivationState = pmtypes.ComponentActivation.NOT_READY
+        state.ActivationState = pm_types.ComponentActivation.NOT_READY
         state.ActiveDeterminationPeriod += 1
-        state.BodySite = [pmtypes.CodedValue('DEF')]
-        state.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('DEF')], 2)
+        state.BodySite = [pm_types.CodedValue('DEF')]
+        state.PhysicalConnector = pm_types.PhysicalConnectorInfo([pm_types.LocalizedText('DEF')], 2)
         state.increment_state_version()
         state2.update_from_other_container(state)
         self.assertEqual(state.ActivationState, state2.ActivationState)
@@ -114,15 +114,15 @@ class TestStateContainers(unittest.TestCase):
         descr = dc.NumericMetricDescriptorContainer(handle='123', parent_handle='456')
         state = sc.NumericMetricStateContainer(descriptor_container=descr)
         state.mk_metric_value()
-        self.assertTrue(isinstance(state.MetricValue, pmtypes.NumericMetricValue))
+        self.assertTrue(isinstance(state.MetricValue, pm_types.NumericMetricValue))
         state.MetricValue.Value = Decimal(42.21)
         state.MetricValue.StartTime = 1234567.21
         state.MetricValue.StopTime = state.MetricValue.StartTime + 10
         state.MetricValue.DeterminationTime = state.MetricValue.StartTime + 20
-        state.MetricValue.MetricQuality.Validity = pmtypes.MeasurementValidity.VALID
+        state.MetricValue.MetricQuality.Validity = pm_types.MeasurementValidity.VALID
         state.ActiveAveragingPeriod = 42
-        state.PhysiologicalRange = [pmtypes.Range(*dec_list(1, 2, 3, 4, 5)),
-                                    pmtypes.Range(*dec_list(10, 20, 30, 40, 50))]
+        state.PhysiologicalRange = [pm_types.Range(*dec_list(1, 2, 3, 4, 5)),
+                                    pm_types.Range(*dec_list(10, 20, 30, 40, 50))]
 
         state2 = sc.NumericMetricStateContainer(descriptor_container=descr)
         state2.update_from_other_container(state)
@@ -153,13 +153,13 @@ class TestStateContainers(unittest.TestCase):
         descr = dc.StringMetricDescriptorContainer(handle='123', parent_handle='456')
         state = sc.StringMetricStateContainer(descriptor_container=descr)
         state.mk_metric_value()
-        self.assertTrue(isinstance(state.MetricValue, pmtypes.StringMetricValue))
+        self.assertTrue(isinstance(state.MetricValue, pm_types.StringMetricValue))
 
     def test_EnumStringMetricStateContainer(self):
         descr = dc.EnumStringMetricDescriptorContainer(handle='123', parent_handle='456')
         state = sc.EnumStringMetricStateContainer(descriptor_container=descr)
         state.mk_metric_value()
-        self.assertTrue(isinstance(state.MetricValue, pmtypes.StringMetricValue))
+        self.assertTrue(isinstance(state.MetricValue, pm_types.StringMetricValue))
 
     def test_RealTimeSampleArrayMetricStateContainer(self):
         descr = dc.RealTimeSampleArrayMetricDescriptorContainer(handle='123', parent_handle='456')
@@ -175,13 +175,13 @@ class TestStateContainers(unittest.TestCase):
 
         state = sc.RealTimeSampleArrayMetricStateContainer(descriptor_container=descr)
         state.mk_metric_value()
-        self.assertTrue(isinstance(state.MetricValue, pmtypes.SampleArrayValue))
+        self.assertTrue(isinstance(state.MetricValue, pm_types.SampleArrayValue))
 
         state.MetricValue.Samples = dec_list(1, 2, 3, 4, 5.5)
         state.MetricValue.DeterminationTime = 1234567
         state.MetricValue.Annotations = []
         state.MetricValue.ApplyAnnotations = []
-        state.ActivationState = pmtypes.ComponentActivation.FAILURE
+        state.ActivationState = pm_types.ComponentActivation.FAILURE
 
         # test creation from other container
         state2 = sc.RealTimeSampleArrayMetricStateContainer(descriptor_container=descr)
@@ -190,8 +190,8 @@ class TestStateContainers(unittest.TestCase):
 
         state.MetricValue.Samples = dec_list(5.5, 6.6)
         state.MetricValue.DeterminationTime = 2345678
-        state.MetricValue.Annotations = [pmtypes.Annotation(pmtypes.CodedValue('a', 'b'))]
-        state.MetricValue.ApplyAnnotations = [pmtypes.ApplyAnnotation(1, 2)]
+        state.MetricValue.Annotations = [pm_types.Annotation(pm_types.CodedValue('a', 'b'))]
+        state.MetricValue.ApplyAnnotations = [pm_types.ApplyAnnotation(1, 2)]
 
         state.increment_state_version()
         state2.update_from_other_container(state)
@@ -212,18 +212,18 @@ class TestStateContainers(unittest.TestCase):
         self.assertEqual(state.OperatingCycles, None)
         self.assertEqual(state.PhysicalConnector, None)
 
-        state.ActivationState = pmtypes.ComponentActivation.ON
+        state.ActivationState = pm_types.ComponentActivation.ON
         state.OperatingHours = 4
-        state.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('ABC')], 1)
+        state.PhysicalConnector = pm_types.PhysicalConnectorInfo([pm_types.LocalizedText('ABC')], 1)
 
         state2 = sc.AbstractDeviceComponentStateContainer(descriptor_container=self.descr)
         state2.update_from_other_container(state)
         verifyEqual(state, state2)
 
-        state.ActivationState = pmtypes.ComponentActivation.OFF
+        state.ActivationState = pm_types.ComponentActivation.OFF
         state.OperatingHours += 1
         state.OperatingHours += 1
-        state.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('DEF')], 2)
+        state.PhysicalConnector = pm_types.PhysicalConnectorInfo([pm_types.LocalizedText('DEF')], 2)
         state2.update_from_other_container(state)
         verifyEqual(state, state2)
 
@@ -260,10 +260,10 @@ class TestStateContainers(unittest.TestCase):
 
         # test creation from other container
         state.SystemSignalActivation = [
-            pmtypes.SystemSignalActivation(manifestation=pmtypes.AlertSignalManifestation.AUD,
-                                           state=pmtypes.AlertActivation.ON),
-            pmtypes.SystemSignalActivation(manifestation=pmtypes.AlertSignalManifestation.VIS,
-                                           state=pmtypes.AlertActivation.ON)
+            pm_types.SystemSignalActivation(manifestation=pm_types.AlertSignalManifestation.AUD,
+                                           state=pm_types.AlertActivation.ON),
+            pm_types.SystemSignalActivation(manifestation=pm_types.AlertSignalManifestation.VIS,
+                                           state=pm_types.AlertActivation.ON)
         ]
         state.LastSelfCheck = 1234567
         state.SelfCheckCount = 3
@@ -299,7 +299,7 @@ class TestStateContainers(unittest.TestCase):
         verifyEqual(state, state2)
 
         # test update from other container
-        state.ActualPriority = pmtypes.AlertConditionPriority.LOW
+        state.ActualPriority = pm_types.AlertConditionPriority.LOW
         state.Rank = 3
         state.DeterminationTime = 1234567
         state.Presence = True
@@ -315,14 +315,14 @@ class TestStateContainers(unittest.TestCase):
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
         state = sc.LimitAlertConditionStateContainer(descriptor_container=self.descr)
-        self.assertEqual(state.MonitoredAlertLimits, pmtypes.AlertConditionMonitoredLimits.NONE)
+        self.assertEqual(state.MonitoredAlertLimits, pm_types.AlertConditionMonitoredLimits.NONE)
         self.assertEqual(state.AutoLimitActivationState, None)
 
         state2 = sc.LimitAlertConditionStateContainer(descriptor_container=self.descr)
         verifyEqual(state, state2)
 
         # test update from other container
-        state.Limits = pmtypes.Range(*dec_list(5, 9, '0.1', '0.01', '0.001'))
+        state.Limits = pm_types.Range(*dec_list(5, 9, '0.1', '0.01', '0.001'))
         state.Rank = 3
         state.DeterminationTime = 1234567
         state.Presence = True
@@ -390,21 +390,21 @@ class TestStateContainers(unittest.TestCase):
         self.assertEqual(state.Validator, [])
         self.assertEqual(state.Identification, [])
 
-        idents = [pmtypes.InstanceIdentifier(root='abc',
-                                             type_coded_value=pmtypes.CodedValue('abc', 'def'),
-                                             identifier_names=[pmtypes.LocalizedText('ABC')],
+        idents = [pm_types.InstanceIdentifier(root='abc',
+                                             type_coded_value=pm_types.CodedValue('abc', 'def'),
+                                             identifier_names=[pm_types.LocalizedText('ABC')],
                                              extension_string='123')]
         state.Identification = idents
         self.assertEqual(state.Identification, idents)
 
-        validators = [pmtypes.InstanceIdentifier(root='ABC',
-                                                 type_coded_value=pmtypes.CodedValue('123', '456'),
-                                                 identifier_names=[pmtypes.LocalizedText('DEF')],
+        validators = [pm_types.InstanceIdentifier(root='ABC',
+                                                 type_coded_value=pm_types.CodedValue('123', '456'),
+                                                 identifier_names=[pm_types.LocalizedText('DEF')],
                                                  extension_string='321')]
         state.Validator = validators
         self.assertEqual(state.Validator, validators)
 
-        for value in list(pmtypes.ContextAssociation):
+        for value in list(pm_types.ContextAssociation):
             state.ContextAssociation = value
             node = state.mk_state_node(_my_tag, self.ns_mapper)
             self.assertEqual(node.get('ContextAssociation'), value)
@@ -518,20 +518,20 @@ class TestStateContainers(unittest.TestCase):
         state.CoreData.Givenname = 'Karl'
         state.CoreData.Middlename = ['M.']
         state.CoreData.Familyname = 'Klammer'
-        state.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
-        state.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
-        state.CoreData.Race = pmtypes.CodedValue('123', 'def')
+        state.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
+        state.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
+        state.CoreData.Race = pm_types.CodedValue('123', 'def')
 
         state.CoreData.DateOfBirth = datetime.date(2001, 3, 12)
 
         state.Identification.append(
-            pmtypes.InstanceIdentifier('abc', pmtypes.CodedValue('123'), [pmtypes.LocalizedText('Peter', 'en'),
-                                                                          pmtypes.LocalizedText('Paul'),
-                                                                          pmtypes.LocalizedText('Mary')]))
+            pm_types.InstanceIdentifier('abc', pm_types.CodedValue('123'), [pm_types.LocalizedText('Peter', 'en'),
+                                                                          pm_types.LocalizedText('Paul'),
+                                                                          pm_types.LocalizedText('Mary')]))
         state.Identification.append(
-            pmtypes.InstanceIdentifier('def', pmtypes.CodedValue('456'), [pmtypes.LocalizedText('John'),
-                                                                          pmtypes.LocalizedText('Jim'),
-                                                                          pmtypes.LocalizedText('Jane')]))
+            pm_types.InstanceIdentifier('def', pm_types.CodedValue('456'), [pm_types.LocalizedText('John'),
+                                                                          pm_types.LocalizedText('Jim'),
+                                                                          pm_types.LocalizedText('Jane')]))
 
         node = state.mk_state_node(_my_tag, self.ns_mapper)
         state2 = sc.PatientContextStateContainer(descriptor_container=self.descr)
@@ -543,38 +543,38 @@ class TestStateContainers(unittest.TestCase):
         state.increment_state_version()
         # state.CoreData.Height._value = 42
         # state.CoreData.Weight._value = 420
-        state.CoreData.Height = pmtypes.Measurement(Decimal('42'), unit=pmtypes.CodedValue('44444'))
-        state.CoreData.Weight = pmtypes.Measurement(Decimal('420'), unit=pmtypes.CodedValue('44444'))
+        state.CoreData.Height = pm_types.Measurement(Decimal('42'), unit=pm_types.CodedValue('44444'))
+        state.CoreData.Weight = pm_types.Measurement(Decimal('420'), unit=pm_types.CodedValue('44444'))
 
         state2.update_from_other_container(state)
         verifyEqual(state, state2)
 
     def test_PatientContextStateContainerNeo(self):
-        """Test if a pmtypes class derived from the value_class of a property is handled correctly.
+        """Test if a pm_types class derived from the value_class of a property is handled correctly.
          In this test:
           - state.Core becomes a NeonatalPatientDemographicsCoreData instead of PatientDemographicsCoreData.
           - state.Core.Mother becomes a PersonParticipation instead of PersonReference"""
         state = sc.PatientContextStateContainer(descriptor_container=self.descr)
-        state.CoreData = pmtypes.NeonatalPatientDemographicsCoreData(given_name='Otto',
+        state.CoreData = pm_types.NeonatalPatientDemographicsCoreData(given_name='Otto',
                                                                      family_name='Smith')
-        state.CoreData.BirthLength = pmtypes.Measurement(Decimal('57.6'), pmtypes.CodedValue('abc', 'def'))
-        state.CoreData.Mother = pmtypes.PersonParticipation(identifications=[pmtypes.InstanceIdentifier('root')],
-                                                            name=pmtypes.BaseDemographics(given_name='Charly'))
+        state.CoreData.BirthLength = pm_types.Measurement(Decimal('57.6'), pm_types.CodedValue('abc', 'def'))
+        state.CoreData.Mother = pm_types.PersonParticipation(identifications=[pm_types.InstanceIdentifier('root')],
+                                                            name=pm_types.BaseDemographics(given_name='Charly'))
         state2 = sc.PatientContextStateContainer(descriptor_container=self.descr)
         state2.update_from_other_container(state)
-        self.assertTrue(isinstance(state2.CoreData, pmtypes.NeonatalPatientDemographicsCoreData))
+        self.assertTrue(isinstance(state2.CoreData, pm_types.NeonatalPatientDemographicsCoreData))
         # also check update via xml node
         node = state.mk_state_node(_my_tag, self.ns_mapper)
         state3 = sc.PatientContextStateContainer(descriptor_container=self.descr)
         state3.update_from_node(node)
-        self.assertEqual(state3.CoreData.__class__, pmtypes.NeonatalPatientDemographicsCoreData)
-        self.assertEqual(state3.CoreData.Mother.__class__, pmtypes.PersonParticipation)
+        self.assertEqual(state3.CoreData.__class__, pm_types.NeonatalPatientDemographicsCoreData)
+        self.assertEqual(state3.CoreData.Mother.__class__, pm_types.PersonParticipation)
 
     def test_SetValueOperationStateContainer(self):
         state = sc.SetValueOperationStateContainer(descriptor_container=self.descr)
 
         self.assertEqual(state.AllowedRange, [])
-        state.AllowedRange.append(pmtypes.Range(*dec_list(1, 2, 3, 4, 5)))
+        state.AllowedRange.append(pm_types.Range(*dec_list(1, 2, 3, 4, 5)))
         state2 = sc.SetValueOperationStateContainer(descriptor_container=self.descr)
         state2.update_from_other_container(state)
         self.assertEqual(state.AllowedRange, state2.AllowedRange)
@@ -583,7 +583,7 @@ class TestStateContainers(unittest.TestCase):
         state2.update_from_other_container(state)
         self.assertEqual(state.AllowedRange, state2.AllowedRange)
 
-        state.AllowedRange.append(pmtypes.Range(*dec_list(3, 4, 5, 6, 7)))
+        state.AllowedRange.append(pm_types.Range(*dec_list(3, 4, 5, 6, 7)))
         state2.update_from_other_container(state)
         self.assertEqual(len(state2.AllowedRange), 2)
         self.assertEqual(state.AllowedRange, state2.AllowedRange)

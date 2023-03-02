@@ -9,9 +9,9 @@ from concurrent import futures
 from decimal import Decimal
 
 from sdc11073 import observableproperties
-from sdc11073.xml_types import pmtypes, msgtypes, pm_qnames as pm
+from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.definitions_sdc import SDC_v1_Definitions
-from sdc11073.xml_types.dpws import ThisDeviceType, ThisModelType
+from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import DeviceMdibContainer, ClientMdibContainer
 from sdc11073.sdcclient import SdcClient
@@ -115,9 +115,9 @@ def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
                           my_mdib,
                           my_uuid)
     for desc in sdcDevice.mdib.descriptions.objects:
-        desc.SafetyClassification = pmtypes.SafetyClassification.MED_A
+        desc.SafetyClassification = pm_types.SafetyClassification.MED_A
     sdcDevice.start_all(start_rtsample_loop=False)
-    validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+    validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
     sdcDevice.set_location(location, validators)
 
     patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor).Handle
@@ -128,7 +128,7 @@ def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
         patientContainer.CoreData.Familyname = "Familiy"
         patientContainer.CoreData.Birthname = "Birthname"
         patientContainer.CoreData.Title = "Title"
-        patientContainer.ContextAssociation = pmtypes.ContextAssociation.ASSOCIATED
+        patientContainer.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
         identifiers = []
         patientContainer.Identification = identifiers
 
@@ -315,7 +315,7 @@ class Test_Reference(unittest.TestCase):
                 try:
                     res = fut.result(timeout=10)
                     print(res)
-                    if res.InvocationInfo.InvocationState != msgtypes.InvocationState.FINISHED:
+                    if res.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
                         print('set string operation {} did not finish with "Fin":{}'.format(s.Handle, res))
                         errors.append('### Test 9 ### failed')
                     else:
@@ -342,11 +342,11 @@ class Test_Reference(unittest.TestCase):
                 if s.Handle != setval_handle:
                     continue
                 print('setNumericValue Op ={}'.format(s))
-                fut = client.set_service_client.set_numeric_value(s.Handle, 42)
+                fut = client.set_service_client.set_numeric_value(s.Handle, Decimal(42))
                 try:
                     res = fut.result(timeout=10)
                     print(res)
-                    if res.InvocationInfo.InvocationState != msgtypes.InvocationState.FINISHED:
+                    if res.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
                         print('set value operation {} did not finish with "Fin":{}'.format(s.Handle, res))
                     else:
                         print('set value operation {} ok:{}'.format(s.Handle, res))

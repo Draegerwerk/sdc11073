@@ -6,8 +6,8 @@ from urllib.parse import urlparse
 
 from .request import RequestData
 from .. import commlog
-from ..exceptions import HTTPRequestHandlingError
-from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
+from ..exceptions import HTTPRequestHandlingError, ValidationError
+from ..pysoap.soapenvelope import Fault, faultcodeEnum
 
 if TYPE_CHECKING:
     from .dispatchkey import RequestHandlerProtocol
@@ -28,17 +28,44 @@ class MessageConverterMiddleware:
         http_status = 200
         http_reason = 'Ok'
         response_xml_string = 'not set yet'
+        commlog.get_communication_logger().log_soap_request_in(request_bytes, 'POST')
+
+        # try to read the request
+        fault = None
+        message_data = None
         try:
-            commlog.get_communication_logger().log_soap_request_in(request_bytes, 'POST')
             message_data = self._msg_reader.read_received_message(request_bytes)
+        except HTTPRequestHandlingError as ex:
+            self._logger.warning('could not read message: {}', str(ex))
+            fault = ex.soap_fault
+            http_status = ex.status
+            http_reason = ex.reason
+        except Exception as ex:
+            http_status = 500
+            http_reason = 'exception'
+            self._logger.warning(traceback.format_exc())
+            fault = Fault()
+            fault.Code.Value = faultcodeEnum.SENDER
+            fault.add_reason_text(str(ex))
+
+        if fault is not None:
+            nsh = self._msg_factory._ns_hlp
+            ns_map = nsh.partial_map(nsh.WSE)
+            response = self._msg_factory.mk_soap_message(addr_to=None, payload=fault, ns_map=ns_map)
+            response_xml_string = response.serialize_message()
+            commlog.get_communication_logger().log_soap_response_out(response_xml_string, 'POST')
+            return http_status, http_reason, response_xml_string
+
+        # handle the request
+        try:
             request_data = RequestData(headers, path, peer_name, request_bytes, message_data)
             request_data.consume_current_path_element()  # uuid is already used
-            # response = self._dispatcher.dispatch_post(request_data)
             response = self._dispatcher.on_post(request_data)
             response_xml_string = response.serialize_message()
         except HTTPRequestHandlingError as ex:
             message_data = self._msg_reader.read_received_message(request_bytes, validate=False)
-            response = self._msg_factory.mk_fault_message(message_data, ex.soap_fault)
+            request_data = RequestData(headers, path, peer_name, request_bytes, message_data)
+            response = self._msg_factory.mk_reply_soap_message(request_data, ex.soap_fault)
             response_xml_string = response.serialize_message()
             http_status = ex.status
             http_reason = ex.reason
@@ -46,8 +73,11 @@ class MessageConverterMiddleware:
             # make an error 500 response with the soap fault as content
             self._logger.error(traceback.format_exc())
             message_data = self._msg_reader.read_received_message(request_bytes, validate=False)
-            fault = SoapFault(code=FaultCodeEnum.SENDER, reason=str(ex))
-            response = self._msg_factory.mk_fault_message(message_data, fault)
+            request_data = RequestData(headers, path, peer_name, request_bytes, message_data)
+            fault = Fault()
+            fault.Code.Value = faultcodeEnum.SENDER
+            fault.add_reason_text(str(ex))
+            response = self._msg_factory.mk_reply_soap_message(request_data, fault)
             response_xml_string = response.serialize_message()
             http_status = 500
             http_reason = 'exception'

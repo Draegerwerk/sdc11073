@@ -6,8 +6,9 @@ from . import ext_qnames as ext
 from . import msg_qnames as msg
 from . import pm_qnames as pm
 from . import xml_structure as cp
+from .basetypes import MessageType
 from .dataconverters import UnsignedIntConverter, StringConverter, DecimalConverter
-from .pmtypes import PropertyBasedPMType, LocalizedText, InstanceIdentifier, LocalizedTextWidth, ContainmentTree
+from .pm_types import PropertyBasedPMType, LocalizedText, InstanceIdentifier, LocalizedTextWidth, ContainmentTree
 from ..definitions_sdc import SDC_v1_Definitions
 from ..mdib.descriptorcontainers import AbstractDescriptorContainer, MdsDescriptorContainer, VmdDescriptorContainer
 from ..mdib.descriptorcontainers import ChannelDescriptorContainer, AbstractMetricDescriptorContainer
@@ -50,12 +51,6 @@ class InvocationError(StringEnum):
     UNKNOWN_OPERATION = 'Unkn'  # Unknown Operation. The HANDLE to the operation object is not known.
     INVALID_VALUE = 'Inv'  # Invalid Value. The HANDLE to the operation object does not match the invocation request message
     OTHER = 'Oth'  # Another type of error has occurred. More information on the error MAY be available.
-
-
-class MessageType(PropertyBasedPMType):
-    # all derived classes must set these values
-    NODETYPE = None
-    action = None
 
 
 ### Reports ###
@@ -246,8 +241,8 @@ class PeriodicComponentReport(AbstractComponentReport):
 ##### Operation Invoked Report ###
 class InvocationInfo(PropertyBasedPMType):
     TransactionId = cp.NodeTextProperty(msg.TransactionId, UnsignedIntConverter, min_length=1)
-    InvocationState = cp.NodeEnumTextProperty(InvocationState, msg.InvocationState)
-    InvocationError = cp.NodeEnumTextProperty(InvocationError, msg.InvocationError, is_optional=True)
+    InvocationState = cp.NodeEnumTextProperty(msg.InvocationState, InvocationState)
+    InvocationError = cp.NodeEnumTextProperty(msg.InvocationError, InvocationError, is_optional=True)
     InvocationErrorMessage = cp.SubElementListProperty(msg.InvocationErrorMessage, value_class=LocalizedText)
     _props = ['TransactionId', 'InvocationState', 'InvocationError', 'InvocationErrorMessage']
 

@@ -19,6 +19,7 @@ from .. import observableproperties
 from ..httpserver.compression import CompressionHandler
 from ..httpserver.httpreader import HTTPReader, mk_chunks
 from ..namespaces import default_ns_helper as ns_hlp
+from ..pysoap.soapenvelope import Fault
 
 if TYPE_CHECKING:
     from ssl import SSLContext
@@ -62,7 +63,7 @@ class HTTPReturnCodeError(HTTPException):
 class SoapClient:
     """SOAP Client wraps an http connection. It can send / receive SoapEnvelopes."""
     _usedSoapClients = 0
-    SOCKET_TIMEOUT = 5 if sys.gettrace() is None else 1000  # higher timeout for debugging
+    SOCKET_TIMEOUT = 5 if sys.gettrace() is None else 5#1000  # higher timeout for debugging
 
     roundtrip_time = observableproperties.ObservableProperty()
 
@@ -296,7 +297,7 @@ class SoapClient:
                     "{}: POST to netloc='{}' path='{}': could not send request, HTTP response={}\ncontent='{}'", msg,
                     self._netloc, path, response.status, content.decode('utf-8'))
                 tmp = self._msg_reader.read_received_message(content)
-                soap_fault = self._msg_reader.read_fault_message(tmp)
+                soap_fault = Fault.from_node(tmp.p_msg.msg_node)
                 raise HTTPReturnCodeError(response.status, response.reason, soap_fault)
 
             response_headers = {k.lower(): v for k, v in response.getheaders()}

@@ -3,7 +3,7 @@ import time
 from tests.mockstuff import SomeDevice
 from lxml import etree
 from sdc11073.sdcclient import SdcClient
-from sdc11073.xml_types import pmtypes
+from sdc11073.xml_types.pm_types import InstanceIdentifier
 from sdc11073.httpserver import compression
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.location import SdcLocation
@@ -32,7 +32,7 @@ class Test_Compression(unittest.TestCase):
         # Create a new device
         self.location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
-        self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+        self._loc_validators = [InstanceIdentifier('Validator', extension_string='System')]
 
     def tearDown(self):
         # close

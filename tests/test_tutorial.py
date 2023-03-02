@@ -3,14 +3,14 @@ import unittest
 import uuid
 from decimal import Decimal
 
-from sdc11073.xml_types import pmtypes, msgtypes, pm_qnames as pm
+from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SDC_v1_Definitions
-from sdc11073.xml_types.dpws import ThisDeviceType, ThisModelType
+from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.mdib.clientmdib import ClientMdibContainer
-from sdc11073.xml_types.pmtypes import CodedValue
+from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.sdcclient import SdcClient
@@ -47,9 +47,9 @@ def createGenericDevice(wsdiscovery_instance, location, mdib_path, specific_comp
                            epr=my_epr,
                            specific_components=specific_components)
     for desc in sdc_device.mdib.descriptions.objects:
-        desc.SafetyClassification = pmtypes.SafetyClassification.MED_A
+        desc.SafetyClassification = pm_types.SafetyClassification.MED_A
     sdc_device.start_all(start_rtsample_loop=False)
-    validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+    validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
     sdc_device.set_location(location, validators)
     return sdc_device
 
@@ -324,7 +324,7 @@ class Test_Tutorial(unittest.TestCase):
         future = context_service.set_context_state(operation_handle=my_operation.Handle,
                                                    proposed_context_states=[proposed_patient])
         result = future.result(timeout=5)
-        self.assertEqual(result.InvocationInfo.InvocationState, msgtypes.InvocationState.FINISHED)
+        self.assertEqual(result.InvocationInfo.InvocationState, msg_types.InvocationState.FINISHED)
 
     def test_operation_handler(self):
         """ This example shows how to implement own handlers for operations, and it shows multiple ways how a client can

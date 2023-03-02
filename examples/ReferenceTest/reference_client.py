@@ -10,7 +10,7 @@ from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.sdcclient import SdcClient
 from sdc11073.mdib.clientmdib import ClientMdibContainer
 from sdc11073.mdib.clientmdibxtra import ClientMdibMethods
-from sdc11073.xml_types import msgtypes
+from sdc11073.xml_types.msg_types import InvocationState
 from sdc11073 import commlog
 
 ClientMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0
@@ -164,7 +164,7 @@ def run_ref_test():
                 try:
                     res = fut.result(timeout=10)
                     print(res)
-                    if res.InvocationInfo.InvocationState != msgtypes.InvocationState.FINISHED:
+                    if res.InvocationInfo.InvocationState != InvocationState.FINISHED:
                         print('set string operation {} did not finish with "Fin":{}'.format(s.Handle, res))
                         results.append('### Test 9(SetString) ### failed')
                     else:
@@ -194,7 +194,7 @@ def run_ref_test():
                 try:
                     res = fut.result(timeout=10)
                     print(res)
-                    if res.InvocationInfo.InvocationState != msgtypes.InvocationState.FINISHED:
+                    if res.InvocationInfo.InvocationState != InvocationState.FINISHED:
                         print('set value operation {} did not finish with "Fin":{}'.format(s.Handle, res))
                     else:
                         print('set value operation {} ok:{}'.format(s.Handle, res))
@@ -222,7 +222,7 @@ def run_ref_test():
                 try:
                     res = fut.result(timeout=10)
                     print(res)
-                    if res.InvocationInfo.InvocationState != msgtypes.InvocationState.FINISHED:
+                    if res.InvocationInfo.InvocationState != InvocationState.FINISHED:
                         print('activate operation {} did not finish with "Fin":{}'.format(s.Handle, res))
                         results.append('### Test 9(Activate) ### failed')
                     else:

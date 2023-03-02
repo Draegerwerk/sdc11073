@@ -12,7 +12,7 @@ from ..namespaces import NamespaceHelper
 from ..xml_types import ext_qnames as ext
 from ..xml_types import msg_qnames as msg
 from ..xml_types import pm_qnames as pm
-from ..xml_types import pmtypes
+from ..xml_types import pm_types
 from ..xml_types import xml_structure as cp
 
 
@@ -104,14 +104,14 @@ class AbstractDescriptorContainer(ContainerBase):
     DescriptorVersion = cp.VersionCounterAttributeProperty('DescriptorVersion',
                                                            default_py_value=0)
     SafetyClassification = cp.EnumAttributeProperty('SafetyClassification',
-                                                    implied_py_value=pmtypes.SafetyClassification.INF,
-                                                    enum_cls=pmtypes.SafetyClassification)
-    Type = cp.SubElementProperty(pm.Type, value_class=pmtypes.CodedValue, is_optional=True)
+                                                    implied_py_value=pm_types.SafetyClassification.INF,
+                                                    enum_cls=pm_types.SafetyClassification)
+    Type = cp.SubElementProperty(pm.Type, value_class=pm_types.CodedValue, is_optional=True)
     # pylint: enable=invalid-name
     _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'Extension', 'Type')
     _child_elements_order = (ext.Extension, pm.Type)  # child elements in BICEPS order
     STATE_QNAME = None
-    extension_class_lookup = {msg.Retrievability: pmtypes.Retrievability}
+    extension_class_lookup = {msg.Retrievability: pm_types.Retrievability}
 
     def __init__(self, handle, parent_handle):
         super().__init__()
@@ -141,13 +141,13 @@ class AbstractDescriptorContainer(ContainerBase):
         self._parent_handle = value
 
     @property
-    def retrievability(self) -> [pmtypes.Retrievability, None]:
+    def retrievability(self) -> [pm_types.Retrievability, None]:
         if self.Extension is None:
             return None
         return self.Extension.value.get(msg.Retrievability)
 
     @retrievability.setter
-    def retrievability(self, retrievability_instance: pmtypes.Retrievability):
+    def retrievability(self, retrievability_instance: pm_types.Retrievability):
         value = self.Extension.value
         value[msg.Retrievability] = retrievability_instance
 
@@ -272,7 +272,7 @@ class AbstractDeviceComponentDescriptorContainer(AbstractDescriptorContainer):
     is_component_descriptor = True
     is_leaf = False
     ProductionSpecification = cp.SubElementListProperty(pm.ProductionSpecification,
-                                                        value_class=pmtypes.ProductionSpecification)
+                                                        value_class=pm_types.ProductionSpecification)
     _props = ('ProductionSpecification',)
     _child_elements_order = (pm.ProductionSpecification,)
 
@@ -288,9 +288,9 @@ class MdsDescriptorContainer(AbstractComplexDeviceComponentDescriptorContainer):
     NODETYPE = pm.MdsDescriptor
     STATE_QNAME = pm.MdsState
     # pylint: disable=invalid-name
-    MetaData = cp.SubElementProperty(pm.MetaData, value_class=pmtypes.MetaData, is_optional=True)
+    MetaData = cp.SubElementProperty(pm.MetaData, value_class=pm_types.MetaData, is_optional=True)
     ApprovedJurisdictions = cp.SubElementProperty(pm.ApprovedJurisdictions,
-                                                  value_class=pmtypes.ApprovedJurisdictions,
+                                                  value_class=pm_types.ApprovedJurisdictions,
                                                   is_optional=True)
     # pylint: enable=invalid-name
     _props = ('MetaData', 'ApprovedJurisdictions')
@@ -313,7 +313,7 @@ class VmdDescriptorContainer(AbstractComplexDeviceComponentDescriptorContainer):
     STATE_QNAME = pm.VmdState
 
     ApprovedJurisdictions = cp.SubElementProperty(pm.ApprovedJurisdictions,
-                                                  value_class=pmtypes.ApprovedJurisdictions,
+                                                  value_class=pm_types.ApprovedJurisdictions,
                                                   is_optional=True)
     _props = ('ApprovedJurisdictions',)
     _child_elements_order = (pm.ApprovedJurisdictions,
@@ -342,7 +342,7 @@ class ClockDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     NODETYPE = pm.ClockDescriptor
     STATE_QNAME = pm.ClockState
     # pylint: disable=invalid-name
-    TimeProtocol = cp.SubElementListProperty(pm.TimeProtocol, value_class=pmtypes.CodedValue)
+    TimeProtocol = cp.SubElementListProperty(pm.TimeProtocol, value_class=pm_types.CodedValue)
     Resolution = cp.DurationAttributeProperty('Resolution')  # optional,  xsd:duration
     # pylint: enable=invalid-name
     _props = ('TimeProtocol', 'Resolution')
@@ -354,13 +354,13 @@ class BatteryDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     STATE_QNAME = pm.BatteryState
     # pylint: disable=invalid-name
     CapacityFullCharge = cp.SubElementProperty(pm.CapacityFullCharge,
-                                               value_class=pmtypes.Measurement,
+                                               value_class=pm_types.Measurement,
                                                is_optional=True)
     CapacitySpecified = cp.SubElementProperty(pm.CapacitySpecified,
-                                              value_class=pmtypes.Measurement,
+                                              value_class=pm_types.Measurement,
                                               is_optional=True)
     VoltageSpecified = cp.SubElementProperty(pm.VoltageSpecified,
-                                             value_class=pmtypes.Measurement,
+                                             value_class=pm_types.Measurement,
                                              is_optional=True)
     # pylint: enable=invalid-name
     _props = ('CapacityFullCharge', 'CapacitySpecified', 'VoltageSpecified')
@@ -388,20 +388,20 @@ class ScoDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
 
 class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
     is_metric_descriptor = True
-    Unit = cp.SubElementProperty(pm.Unit, value_class=pmtypes.CodedValue)
-    BodySite = cp.SubElementListProperty(pm.BodySite, value_class=pmtypes.CodedValue)
-    Relation = cp.SubElementListProperty(pm.Relation, value_class=pmtypes.Relation)  # o...n
+    Unit = cp.SubElementProperty(pm.Unit, value_class=pm_types.CodedValue)
+    BodySite = cp.SubElementListProperty(pm.BodySite, value_class=pm_types.CodedValue)
+    Relation = cp.SubElementListProperty(pm.Relation, value_class=pm_types.Relation)  # o...n
     MetricCategory = cp.EnumAttributeProperty('MetricCategory',
-                                              enum_cls=pmtypes.MetricCategory,
-                                              default_py_value=pmtypes.MetricCategory.UNSPECIFIED)  # required
-    DerivationMethod = cp.EnumAttributeProperty('DerivationMethod', enum_cls=pmtypes.DerivationMethod)  # optional
+                                              enum_cls=pm_types.MetricCategory,
+                                              default_py_value=pm_types.MetricCategory.UNSPECIFIED)  # required
+    DerivationMethod = cp.EnumAttributeProperty('DerivationMethod', enum_cls=pm_types.DerivationMethod)  # optional
     #  There is an implied value defined, but it is complicated, therefore here not implemented:
     # - If pm:AbstractDescriptor/@MetricCategory is "Set" or "Preset", then the default value of DerivationMethod is "Man"
     # - If pm:AbstractDescriptor/@MetricCategory is "Clc", "Msrmt", "Rcmm", then the default value of DerivationMethod is "Auto"
     # - If pm:AbstractDescriptor/@MetricCategory is "Unspec", then no default value is being implied</xsd:documentation>
     MetricAvailability = cp.EnumAttributeProperty('MetricAvailability',
-                                                  enum_cls=pmtypes.MetricAvailability,
-                                                  default_py_value=pmtypes.MetricAvailability.CONTINUOUS)  # required
+                                                  enum_cls=pm_types.MetricAvailability,
+                                                  default_py_value=pm_types.MetricAvailability.CONTINUOUS)  # required
     MaxMeasurementTime = cp.DurationAttributeProperty('MaxMeasurementTime')  # optional,  xsd:duration
     MaxDelayTime = cp.DurationAttributeProperty('MaxDelayTime')  # optional,  xsd:duration
     DeterminationPeriod = cp.DurationAttributeProperty('DeterminationPeriod')  # optional,  xsd:duration
@@ -419,7 +419,7 @@ class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
 class NumericMetricDescriptorContainer(AbstractMetricDescriptorContainer):
     NODETYPE = pm.NumericMetricDescriptor
     STATE_QNAME = pm.NumericMetricState
-    TechnicalRange = cp.SubElementListProperty(pm.TechnicalRange, value_class=pmtypes.Range)
+    TechnicalRange = cp.SubElementListProperty(pm.TechnicalRange, value_class=pm_types.Range)
     Resolution = cp.DecimalAttributeProperty('Resolution', is_optional=False)
     AveragingPeriod = cp.DurationAttributeProperty('AveragingPeriod')  # optional
     _props = ('TechnicalRange', 'Resolution', 'AveragingPeriod')
@@ -434,7 +434,7 @@ class StringMetricDescriptorContainer(AbstractMetricDescriptorContainer):
 class EnumStringMetricDescriptorContainer(StringMetricDescriptorContainer):
     NODETYPE = pm.EnumStringMetricDescriptor
     STATE_QNAME = pm.EnumStringMetricState
-    AllowedValue = cp.SubElementListProperty(pm.AllowedValue, value_class=pmtypes.AllowedValue)
+    AllowedValue = cp.SubElementListProperty(pm.AllowedValue, value_class=pm_types.AllowedValue)
     _props = ('AllowedValue',)
     _child_elements_order = (pm.AllowedValue,)
 
@@ -443,7 +443,7 @@ class RealTimeSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorConta
     is_realtime_sample_array_metric_descriptor = True
     NODETYPE = pm.RealTimeSampleArrayMetricDescriptor
     STATE_QNAME = pm.RealTimeSampleArrayMetricState
-    TechnicalRange = cp.SubElementListProperty(pm.TechnicalRange, value_class=pmtypes.Range)
+    TechnicalRange = cp.SubElementListProperty(pm.TechnicalRange, value_class=pm_types.Range)
     Resolution = cp.DecimalAttributeProperty('Resolution', is_optional=False)
     SamplePeriod = cp.DurationAttributeProperty('SamplePeriod', is_optional=False)
     _props = ('TechnicalRange', 'Resolution', 'SamplePeriod')
@@ -453,9 +453,9 @@ class RealTimeSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorConta
 class DistributionSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorContainer):
     NODETYPE = pm.DistributionSampleArrayMetricDescriptor
     STATE_QNAME = pm.DistributionSampleArrayMetricState
-    TechnicalRange = cp.SubElementListProperty(pm.TechnicalRange, value_class=pmtypes.Range)
-    DomainUnit = cp.SubElementProperty(pm.DomainUnit, value_class=pmtypes.CodedValue)
-    DistributionRange = cp.SubElementProperty(pm.DistributionRange, value_class=pmtypes.Range)
+    TechnicalRange = cp.SubElementListProperty(pm.TechnicalRange, value_class=pm_types.Range)
+    DomainUnit = cp.SubElementProperty(pm.DomainUnit, value_class=pm_types.CodedValue)
+    DistributionRange = cp.SubElementProperty(pm.DistributionRange, value_class=pm_types.Range)
     Resolution = cp.DecimalAttributeProperty('Resolution', is_optional=False)
     _props = ('TechnicalRange', 'DomainUnit', 'DistributionRange', 'Resolution')
     _child_elements_order = (pm.TechnicalRange,
@@ -469,8 +469,8 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
     MaxTimeToFinish = cp.DurationAttributeProperty('MaxTimeToFinish')  # optional  xsd:duration
     InvocationEffectiveTimeout = cp.DurationAttributeProperty('InvocationEffectiveTimeout')  # optional  xsd:duration
     Retriggerable = cp.BooleanAttributeProperty('Retriggerable', implied_py_value=True)  # optional
-    AccessLevel = cp.EnumAttributeProperty('AccessLevel', implied_py_value=pmtypes.T_AccessLevel.USER,
-                                           enum_cls=pmtypes.T_AccessLevel)
+    AccessLevel = cp.EnumAttributeProperty('AccessLevel', implied_py_value=pm_types.T_AccessLevel.USER,
+                                           enum_cls=pm_types.T_AccessLevel)
     _props = ('OperationTarget', 'MaxTimeToFinish', 'InvocationEffectiveTimeout', 'Retriggerable', 'AccessLevel')
 
 
@@ -515,7 +515,7 @@ class SetAlertStateOperationDescriptorContainer(AbstractSetStateOperationDescrip
 class ActivateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
     NODETYPE = pm.ActivateOperationDescriptor
     STATE_QNAME = pm.ActivateOperationState
-    Argument = cp.SubElementListProperty(pm.Argument, value_class=pmtypes.ActivateOperationDescriptorArgument)
+    Argument = cp.SubElementListProperty(pm.Argument, value_class=pm_types.ActivateOperationDescriptorArgument)
     _props = ('Argument',)
     _child_elements_order = (pm.Argument,)
 
@@ -557,15 +557,15 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
     NODETYPE = pm.AlertConditionDescriptor
     STATE_QNAME = pm.AlertConditionState
     Source = cp.SubElementHandleRefListProperty(pm.Source)  # a list of 0...n pm:HandleRef elements
-    CauseInfo = cp.SubElementListProperty(pm.CauseInfo, value_class=pmtypes.CauseInfo)
-    Kind = cp.EnumAttributeProperty('Kind', default_py_value=pmtypes.AlertConditionKind.OTHER,
-                                    enum_cls=pmtypes.AlertConditionKind, is_optional=False)
-    Priority = cp.EnumAttributeProperty('Priority', default_py_value=pmtypes.AlertConditionPriority.NONE,
-                                        enum_cls=pmtypes.AlertConditionPriority, is_optional=False)
+    CauseInfo = cp.SubElementListProperty(pm.CauseInfo, value_class=pm_types.CauseInfo)
+    Kind = cp.EnumAttributeProperty('Kind', default_py_value=pm_types.AlertConditionKind.OTHER,
+                                    enum_cls=pm_types.AlertConditionKind, is_optional=False)
+    Priority = cp.EnumAttributeProperty('Priority', default_py_value=pm_types.AlertConditionPriority.NONE,
+                                        enum_cls=pm_types.AlertConditionPriority, is_optional=False)
     DefaultConditionGenerationDelay = cp.DurationAttributeProperty('DefaultConditionGenerationDelay',
                                                                    implied_py_value=0)
-    CanEscalate = cp.EnumAttributeProperty('CanEscalate', enum_cls=pmtypes.CanEscalateAlertConditionPriority)
-    CanDeescalate = cp.EnumAttributeProperty('CanDeescalate', enum_cls=pmtypes.CanDeEscalateAlertConditionPriority)
+    CanEscalate = cp.EnumAttributeProperty('CanEscalate', enum_cls=pm_types.CanEscalateAlertConditionPriority)
+    CanDeescalate = cp.EnumAttributeProperty('CanDeescalate', enum_cls=pm_types.CanDeEscalateAlertConditionPriority)
     _props = ('Source', 'CauseInfo', 'Kind', 'Priority', 'DefaultConditionGenerationDelay',
               'CanEscalate', 'CanDeescalate')
     _child_elements_order = (pm.Source,
@@ -575,7 +575,7 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
 class LimitAlertConditionDescriptorContainer(AlertConditionDescriptorContainer):
     NODETYPE = pm.LimitAlertConditionDescriptor
     STATE_QNAME = pm.LimitAlertConditionState
-    MaxLimits = cp.SubElementProperty(pm.MaxLimits, value_class=pmtypes.Range, default_py_value=pmtypes.Range())
+    MaxLimits = cp.SubElementProperty(pm.MaxLimits, value_class=pm_types.Range, default_py_value=pm_types.Range())
     AutoLimitSupported = cp.BooleanAttributeProperty('AutoLimitSupported', implied_py_value=False)
     _props = ('MaxLimits', 'AutoLimitSupported',)
     _child_elements_order = (pm.MaxLimits,)
@@ -586,7 +586,7 @@ class AlertSignalDescriptorContainer(AbstractAlertDescriptorContainer):
     NODETYPE = pm.AlertSignalDescriptor
     STATE_QNAME = pm.AlertSignalState
     ConditionSignaled = cp.HandleRefAttributeProperty('ConditionSignaled')
-    Manifestation = cp.EnumAttributeProperty('Manifestation', enum_cls=pmtypes.AlertSignalManifestation,
+    Manifestation = cp.EnumAttributeProperty('Manifestation', enum_cls=pm_types.AlertSignalManifestation,
                                              is_optional=False)
     Latching = cp.BooleanAttributeProperty('Latching', default_py_value=False, is_optional=False)
     DefaultSignalGenerationDelay = cp.DurationAttributeProperty('DefaultSignalGenerationDelay', implied_py_value=0)

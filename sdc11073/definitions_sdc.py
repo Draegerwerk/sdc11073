@@ -1,6 +1,6 @@
 import os
 
-from .xml_types import pmtypes, msgtypes, msg_qnames, pm_qnames
+from .xml_types import pm_types, msg_types, msg_qnames, pm_qnames
 from .definitions_base import BaseDefinitions, AbstractDataModel
 from .mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
 from .mdib.statecontainers import get_container_class as get_state_container_class
@@ -112,7 +112,7 @@ class V1Model(AbstractDataModel):
 
     @property
     def pm_types(self):
-        return pmtypes
+        return pm_types
 
     @property
     def pm_names(self):
@@ -120,7 +120,7 @@ class V1Model(AbstractDataModel):
 
     @property
     def msg_types(self):
-        return msgtypes
+        return msg_types
 
     @property
     def msg_names(self):

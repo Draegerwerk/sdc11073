@@ -1,9 +1,8 @@
 from . import xml_structure as cp
 from .addressing import EndpointReferenceType
 from .dataconverters import DurationConverter
-from .dpws import DeviceEventingFilterDialectURI
-from .mex_types import MessageType
-from .pmtypes import PropertyBasedPMType, ElementWithText
+from .dpws_types import DeviceEventingFilterDialectURI
+from .basetypes import XMLTypeBase, ElementWithText, MessageType
 from ..namespaces import EventingActions
 from ..namespaces import default_ns_helper
 
@@ -11,7 +10,7 @@ from ..namespaces import default_ns_helper
 ### classes that correspond to types in eventing standard
 
 
-class DeliveryType(PropertyBasedPMType):
+class DeliveryType(XMLTypeBase):
     Mode = cp.AnyURIAttributeProperty("Mode")
     # in ws-eventing NotifyTo is not a mandatory element, but in sdc it is always used.
     NotifyTo = cp.SubElementProperty(default_ns_helper.wseTag('NotifyTo'),

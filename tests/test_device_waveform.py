@@ -2,8 +2,8 @@ import time
 import unittest
 
 import sdc11073
-from sdc11073.xml_types import pmtypes
-from sdc11073.xml_types.dpws import ThisModelType, ThisDeviceType
+from sdc11073.xml_types import pm_types
+from sdc11073.xml_types.dpws_types import ThisModelType, ThisDeviceType
 from sdc11073.mdib import descriptorcontainers as dc
 from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.sdcdevice import waveforms
@@ -24,9 +24,9 @@ class TestDeviceWaveform(unittest.TestCase):
         for h in HANDLES:
             desc = dc.RealTimeSampleArrayMetricDescriptorContainer(handle=h, parent_handle='42')
             desc.SamplePeriod = 0.1
-            desc.unit = pmtypes.CodedValue('abc')
-            desc.MetricAvailability = pmtypes.MetricAvailability.CONTINUOUS
-            desc.MetricCategory = pmtypes.MetricCategory.MEASUREMENT
+            desc.unit = pm_types.CodedValue('abc')
+            desc.MetricAvailability = pm_types.MetricAvailability.CONTINUOUS
+            desc.MetricCategory = pm_types.MetricCategory.MEASUREMENT
             self.mdib.descriptions.add_object(desc)
         self.mdib.xtra.mk_state_containers_for_all_descriptors()
 
@@ -52,7 +52,7 @@ class TestDeviceWaveform(unittest.TestCase):
         # first read shall always be empty
         for h in HANDLES:
             rt_sample_array = waveform_generators[h].get_next_sample_array()
-            self.assertEqual(rt_sample_array.activation_state, pmtypes.ComponentActivation.ON)
+            self.assertEqual(rt_sample_array.activation_state, pm_types.ComponentActivation.ON)
             self.assertEqual(len(rt_sample_array.samples), 0)
         # collect some samples
         now = time.time()
@@ -64,20 +64,20 @@ class TestDeviceWaveform(unittest.TestCase):
             # sleep is not very precise, therefore verify that number of sample is in a certain range
             self.assertTrue(expected_count - 5 <= len(rt_sample_array.samples) <= expected_count + 5)  #
             self.assertTrue(abs(now - rt_sample_array.determination_time) <= 0.02)
-            self.assertEqual(rt_sample_array.activation_state, pmtypes.ComponentActivation.ON)
+            self.assertEqual(rt_sample_array.activation_state, pm_types.ComponentActivation.ON)
         h = HANDLES[0]
         # test with all activation states
-        for act_state in pmtypes.ComponentActivation:
+        for act_state in pm_types.ComponentActivation:
             waveform_provider.set_activation_state(h, act_state)
             rt_sample_array = waveform_generators[h].get_next_sample_array()
             self.assertEqual(rt_sample_array.activation_state, act_state)
             self.assertEqual(len(rt_sample_array.samples), 0)
 
-        waveform_provider.set_activation_state(h, pmtypes.ComponentActivation.ON)
+        waveform_provider.set_activation_state(h, pm_types.ComponentActivation.ON)
         now = time.time()
         time.sleep(0.1)
         rt_sample_array = waveform_generators[h].get_next_sample_array()
-        self.assertEqual(rt_sample_array.activation_state, pmtypes.ComponentActivation.ON)
+        self.assertEqual(rt_sample_array.activation_state, pm_types.ComponentActivation.ON)
         self.assertTrue(len(rt_sample_array.samples) > 0)
         self.assertTrue(abs(now - rt_sample_array.determination_time) <= 0.02)
 
@@ -103,7 +103,7 @@ class TestDeviceWaveform(unittest.TestCase):
         waveform_provider.register_waveform_generator(HANDLES[1], st)
         waveform_provider.register_waveform_generator(HANDLES[2], si)
 
-        annotator = Annotator(annotation=pmtypes.Annotation(pmtypes.CodedValue('a', 'b')),
+        annotator = Annotator(annotation=pm_types.Annotation(pm_types.CodedValue('a', 'b')),
                               trigger_handle=HANDLES[2],
                               annotated_handles=[HANDLES[0], HANDLES[1], HANDLES[2]])
         waveform_provider.register_annotation_generator(annotator)

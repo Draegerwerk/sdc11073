@@ -45,3 +45,10 @@ class InvalidPathError(HTTPRequestHandlingError):
         :param soap_fault: soapenvelope.SoapFault instance
         """
         super().__init__(404, reason, soap_fault)
+
+class ValidationError(HTTPRequestHandlingError):
+    def __init__(self, reason, soap_fault):
+        """
+        :param soap_fault: soapenvelope.SoapFault instance
+        """
+        super().__init__(400, reason, soap_fault)

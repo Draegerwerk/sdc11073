@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING
 import aiohttp.client_exceptions
 from lxml import etree as etree_
 
+from sdc11073.xml_types.addressing import HeaderInformationBlock
 from .subscriptionmgr import SubscriptionsManagerBase, SubscriptionBase
 from .. import observableproperties
-from sdc11073.xml_types.addressing import Address
 from ..pysoap.soapclient import HTTPReturnCodeError
 from ..xml_types import eventing_types as evt_types
 
@@ -60,13 +60,11 @@ class DevSubscriptionAsync(SubscriptionBase):
     async def async_send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
         if not self.is_valid:
             return
-        addr = Address(addr_to=self.notify_to_address,
-                       action=action,
-                       addr_from=None,
-                       reply_to=None,
-                       fault_to=None,
-                       reference_parameters=None)
-        message = msg_factory.mk_notification_message(addr, body_node, self.notify_ref_params, doc_nsmap)
+        addr = HeaderInformationBlock(addr_to=self.notify_to_address,
+                                      action=action,
+                                      addr_from=None,
+                                      reference_parameters=self.notify_ref_params)
+        message = msg_factory.mk_notification_message(addr, body_node, doc_nsmap)
         try:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
 

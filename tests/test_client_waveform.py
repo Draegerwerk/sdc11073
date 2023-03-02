@@ -10,7 +10,7 @@ from sdc11073 import namespaces
 from sdc11073.mdib import ClientMdibContainer
 from sdc11073.mdib.descriptorcontainers import RealTimeSampleArrayMetricDescriptorContainer
 from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
-from sdc11073.xml_types.pmtypes import Coding
+from sdc11073.xml_types.pm_types import Coding
 from sdc11073.sdcclient import SdcClient
 
 DEV_ADDRESS = 'http://169.254.0.200:10000'

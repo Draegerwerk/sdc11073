@@ -1,7 +1,7 @@
 import unittest
 from itertools import product
 
-from sdc11073.xml_types.pmtypes import LocalizedText, LocalizedTextWidth
+from sdc11073.xml_types.pm_types import LocalizedText, LocalizedTextWidth
 from sdc11073.sdcdevice.porttypes import localizationservice
 
 

@@ -3,8 +3,10 @@ from typing import Optional, List
 
 from lxml import etree as etree_
 
-from ..namespaces import default_ns_helper as ns_hlp
 from ..exceptions import ApiUsageError
+from ..namespaces import default_ns_helper as ns_hlp
+from ..xml_types import xml_structure as struct
+from ..xml_types.basetypes import XMLTypeBase, StringEnum, MessageType, ElementWithText
 
 CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
 
@@ -18,7 +20,6 @@ class SoapResponseException(Exception):
 
 class ExtendedDocumentInvalid(etree_.DocumentInvalid):
     pass
-
 
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
@@ -41,7 +42,7 @@ def _assert_valid_exception_wrapper(schema, content):
 
 class Soap12Envelope:
     """This represents an outgoing soap envelope"""
-    __slots__ = ('_header_nodes', '_payload_element', '_nsmap', 'address')
+    __slots__ = ('_header_nodes', '_payload_element', '_nsmap', 'header_info_block')
 
     def __init__(self, ns_map: Optional[dict] = None):
         self._header_nodes = []
@@ -52,13 +53,13 @@ class Soap12Envelope:
             self._nsmap = ns_map
         for prefix in (ns_hlp.S12, ns_hlp.WSA):  # these are always needed
             self._nsmap[prefix.prefix] = prefix.namespace
-        self.address = None
+        self.header_info_block = None
 
     def add_header_element(self, element: etree_.Element):
         self._header_nodes.append(element)
 
-    def set_address(self, ws_address):
-        self.address = ws_address
+    def set_header_info_block(self, header_info_block):
+        self.header_info_block = header_info_block
 
     @property
     def payload_element(self):
@@ -81,14 +82,14 @@ class Soap12Envelope:
 
 class ReceivedSoapMessage:
     """Represents a received soap envelope"""
-    __slots__ = ('msg_node', 'msg_name', 'raw_data', 'address', '_doc_root', 'header_node', 'body_node')
+    __slots__ = ('msg_node', 'msg_name', 'raw_data', 'header_info_block', '_doc_root', 'header_node', 'body_node')
 
     def __init__(self, xml_string, doc_root):
         self.raw_data = xml_string
         self._doc_root = doc_root
         self.header_node = self._doc_root.find(ns_hlp.s12Tag('Header'))
         self.body_node = self._doc_root.find(ns_hlp.s12Tag('Body'))
-        self.address = None
+        self.header_info_block = None
         try:
             self.msg_node = self.body_node[0]
             self.msg_name = etree_.QName(self.msg_node.tag)
@@ -97,25 +98,54 @@ class ReceivedSoapMessage:
             self.msg_name = None
 
 
-class FaultCodeEnum:
-    """
-        Soap Fault codes, see https://www.w3.org/TR/soap12-part1/#faultcodes
-    """
-    VERSION_MM = 'VersionMismatch'
-    MUSTUNSERSTAND = 'MustUnderstand'
-    DATAENC = 'DataEncodingUnknown'
-    SENDER = 'Sender'
-    RECEIVER = 'Receiver'
+# the following classes are named exactly like the types in soap schema, which looks weird sometimes.
+class faultcodeEnum(StringEnum):
+    DATAENC = f'{ns_hlp.S12.prefix}:DataEncodingUnknown'
+    MUSTUNSERSTAND = f'{ns_hlp.S12.prefix}:MustUnderstand'
+    RECEIVER = f'{ns_hlp.S12.prefix}:Receiver'
+    SENDER = f'{ns_hlp.S12.prefix}:Sender'
+    VERSION_MM = f'{ns_hlp.S12.prefix}:VersionMismatch'
 
-#class FaultCode:
 
-class SoapFault:
-    def __init__(self, code: str, reason: str, sub_code: Optional[etree_.QName] = None, details: Optional[str] = None):
-        self.code = code
-        self.reason = reason
-        self.sub_code = sub_code
-        self.details = details
+class reasontext(ElementWithText):
+    lang = struct.StringAttributeProperty(ns_hlp.xmlTag('lang'), default_py_value='en-US')
+    _props = ['lang']
 
-    def __repr__(self):
-        return (f'{self.__class__.__name__}(code="{self.code}", sub_code="{self.sub_code}", '
-                f'reason="{self.reason}", detail="{self.details}")')
+
+class faultreason(XMLTypeBase):
+    Text = struct.SubElementListProperty(ns_hlp.s12Tag('Text'), value_class=reasontext)
+    _props = ['Text']
+
+
+class subcode(XMLTypeBase):
+    Value = struct.NodeTextQNameProperty(ns_hlp.s12Tag('Value'))
+    # optional Subcode Element intentionally omitted, it is of type subcode => recursion, bad idea!
+    _props = ['Value']
+
+
+class faultcode(XMLTypeBase):
+    Value = struct.NodeEnumTextProperty(ns_hlp.s12Tag('Value'), faultcodeEnum)
+    Subcode = struct.SubElementProperty(ns_hlp.s12Tag('Subcode'), value_class=subcode, is_optional=True)
+    _props = ['Value', 'Subcode']
+
+
+class Fault(MessageType):
+    NODETYPE = ns_hlp.s12Tag('Fault')
+    action = f'{ns_hlp.WSA.namespace}/fault'
+    Code = struct.SubElementProperty(ns_hlp.s12Tag('Code'), value_class=faultcode, default_py_value=faultcode())
+    Reason = struct.SubElementProperty(ns_hlp.s12Tag('Reason'), value_class=faultreason, default_py_value=faultreason())
+    Node = struct.AnyUriTextElement(ns_hlp.s12Tag('Node'), is_optional=True)
+    Role = struct.AnyUriTextElement(ns_hlp.s12Tag('Role'), is_optional=True)
+    # Schema says Detail is an "any" type. Here it is modelled as a string that becomes the text of the Detail node
+    Detail = struct.NodeStringProperty(ns_hlp.s12Tag('Detail'), is_optional=True)
+    _props = ['Code', 'Reason', 'Node', 'Role', 'Detail']
+
+    def add_reason_text(self, text: str, lang: str = 'en-US'):
+        txt = reasontext()
+        txt.lang = lang
+        txt.text = text
+        self.Reason.Text.append(txt)
+
+    def set_sub_code(self, sub_code: etree_.QName):
+        self.Code.Subcode = subcode()
+        self.Code.Subcode.Value = sub_code

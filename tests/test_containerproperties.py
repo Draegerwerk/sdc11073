@@ -13,7 +13,7 @@ from sdc11073.xml_types.xml_structure import HandleRefListAttributeProperty
 from sdc11073.xml_types.xml_structure import StringAttributeProperty, IntegerAttributeProperty, EnumAttributeProperty
 from sdc11073.xml_types.xml_structure import DecimalListAttributeProperty
 from sdc11073.mdib.statecontainers import T_AllowedValues
-from sdc11073.xml_types.pmtypes import CodedValue
+from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.xml_types import pm_qnames as pm
 
 
@@ -69,9 +69,9 @@ class DummyNodeText(DummyBase):
 
 class DummyNodeEnumText(DummyBase):
     #node_text_mand = NodeEnumTextProperty(MyEnum, etree_.QName('pref', 'node_text_mand'), implied_py_value=MyEnum.a)
-    node_text_mand = NodeEnumTextProperty(MyEnum, etree_.QName('pref', 'node_text_mand'), default_py_value=MyEnum.a)
-    node_text_opt = NodeEnumTextProperty(MyEnum, etree_.QName('pref', 'node_text_opt'), is_optional=True)
-    node_text_mand_no_default = NodeEnumTextProperty(MyEnum, etree_.QName('pref', 'node_text_mand_no_default'))
+    node_text_mand = NodeEnumTextProperty(etree_.QName('pref', 'node_text_mand'), MyEnum, default_py_value=MyEnum.a)
+    node_text_opt = NodeEnumTextProperty(etree_.QName('pref', 'node_text_opt'), MyEnum, is_optional=True)
+    node_text_mand_no_default = NodeEnumTextProperty(etree_.QName('pref', 'node_text_mand_no_default'), MyEnum)
 
     def props(self):
         yield self.__class__.node_text_mand

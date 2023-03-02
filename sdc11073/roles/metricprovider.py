@@ -1,5 +1,5 @@
 from .providerbase import ProviderRole
-from sdc11073.xml_types.pmtypes import ComponentActivation
+from sdc11073.xml_types.pm_types import ComponentActivation
 
 
 class GenericMetricProvider(ProviderRole):

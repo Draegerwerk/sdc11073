@@ -3,8 +3,8 @@ import time
 import unittest
 from decimal import Decimal
 
-from sdc11073.xml_types import pmtypes, msgtypes, pm_qnames as pm
-from sdc11073.xml_types.dpws import ThisDeviceType, ThisModelType
+from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
+from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.mdib.mdibbase import MdibVersionGroup
@@ -108,7 +108,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             if st.MetricValue is None:
                 st.mk_metric_value()
             st.MetricValue.Value = first_value
-            st.MetricValue.MetricQuality.Validity = pmtypes.MeasurementValidity.VALID
+            st.MetricValue.MetricQuality.Validity = pm_types.MeasurementValidity.VALID
         self.assertEqual(len(test_subscription.reports), 1)
         response = test_subscription.reports[0]
         self._verify_proper_namespaces(response)
@@ -130,7 +130,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
         descriptor_handle = patient_context_descriptor.Handle
         with self.sdc_device.mdib.transaction_manager() as mgr:
             st = mgr.mk_context_state(descriptor_handle)
-            st.CoreData.PatientType = pmtypes.PatientType.ADULT
+            st.CoreData.PatientType = pm_types.PatientType.ADULT
         self.assertEqual(len(test_subscription.reports), 1)
         response = test_subscription.reports[0]
         self._verify_proper_namespaces(response)
@@ -150,11 +150,11 @@ class TestDeviceSubscriptions(unittest.TestCase):
         port_type_impl = self.sdc_device.hosted_services.set_service
         port_type_impl.notify_operation(dummy_operation,
                                         123,
-                                        msgtypes.InvocationState.FINISHED,
+                                        msg_types.InvocationState.FINISHED,
                                         mdib_version_group=MdibVersionGroup(1234,
                                                                             'urn:uuid:abc',
                                                                             None),
                                         nsmapper=self.sdc_device.mdib.nsmapper,
-                                        error=msgtypes.InvocationError.UNSPECIFIED,
+                                        error=msg_types.InvocationError.UNSPECIFIED,
                                         error_message='')
         self.assertEqual(len(test_subscription.reports), 1)

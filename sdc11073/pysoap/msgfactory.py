@@ -10,14 +10,14 @@ from lxml import etree as etree_
 
 from .msgreader import validate_node
 from .soapenvelope import Soap12Envelope
-from sdc11073.xml_types.addressing import Address
+from sdc11073.xml_types.addressing import HeaderInformationBlock
 from ..exceptions import ApiUsageError
 from ..namespaces import WSA_ANONYMOUS
 from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator
 
 if TYPE_CHECKING:
-    from sdc11073.xml_types.msgtypes import MessageType
+    from sdc11073.xml_types.msg_types import MessageType
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
 
@@ -87,8 +87,9 @@ class MessageFactory:
         root = etree_.Element(self._ns_hlp.s12Tag('Envelope'), nsmap=p_msg.nsmap)
 
         header_node = etree_.SubElement(root, self._ns_hlp.s12Tag('Header'))
-        if p_msg.address:
-            self._mk_header_address(p_msg.address, header_node)
+        if p_msg.header_info_block:
+            info_node = p_msg.header_info_block.as_etree_node('tmp', {})
+            header_node.extend(info_node[:])
         header_node.extend(p_msg.header_nodes)
         body_node = etree_.SubElement(root, self._ns_hlp.s12Tag('Body'), nsmap=p_msg.nsmap)
         if p_msg.payload_element is not None:
@@ -113,10 +114,9 @@ class MessageFactory:
         if ns_map is not None:
             my_ns_map.update(ns_map)
         soap_envelope = Soap12Envelope(my_ns_map)
-        soap_envelope.set_address(Address(action=payload.action, addr_to=addr_to))
+        inf = HeaderInformationBlock(action=payload.action, addr_to=addr_to, reference_parameters=reference_param)
+        soap_envelope.set_header_info_block(inf)
         soap_envelope.payload_element = payload.as_etree_node(payload.NODETYPE, my_ns_map)
-        if reference_param is not None:
-            self._add_reference_params_to_header(soap_envelope, reference_param)
         return CreatedMessage(soap_envelope, self)
 
     def mk_soap_message_etree_payload(self, addr_to: str,
@@ -129,15 +129,14 @@ class MessageFactory:
         if ns_map is not None:
             my_ns_map.update(ns_map)
         soap_envelope = Soap12Envelope(my_ns_map)
-        soap_envelope.set_address(Address(action=action, addr_to=addr_to))
+        inf = HeaderInformationBlock(action=action, addr_to=addr_to, reference_parameters=reference_param)
+        soap_envelope.set_header_info_block(inf)
         soap_envelope.payload_element = payload_element
-        if reference_param is not None:
-            self._add_reference_params_to_header(soap_envelope, reference_param)
         return CreatedMessage(soap_envelope, self)
 
-    def mk_reply_soap_message_etree_payload(self, addr_to: Address, payload: etree_.Element):
+    def mk_reply_soap_message_etree_payload(self, addr_to: HeaderInformationBlock, payload: etree_.Element):
         soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.MSG))
-        soap_envelope.set_address(addr_to)
+        soap_envelope.set_header_info_block(addr_to)
         soap_envelope.payload_element = payload
         return CreatedMessage(soap_envelope, self)
 
@@ -148,77 +147,11 @@ class MessageFactory:
         if ns_map is not None:
             my_ns_map.update(ns_map)
         soap_envelope = Soap12Envelope(my_ns_map)
-        reply_address = request.message_data.p_msg.address.mk_reply_address(action=response_payload.action)
-        soap_envelope.set_address(reply_address)
+        reply_address = request.message_data.p_msg.header_info_block.mk_reply_header_block(
+            action=response_payload.action)
+        soap_envelope.set_header_info_block(reply_address)
         soap_envelope.payload_element = response_payload.as_etree_node(response_payload.NODETYPE, my_ns_map)
         return CreatedMessage(soap_envelope, self)
-
-    def mk_fault_message(self, message_data, soap_fault, action_string=None) -> CreatedMessage:
-        ns_hlp = self._ns_hlp
-        if action_string is None:
-            action_string = f'{ns_hlp.WSA.namespace}/fault'
-        soap_envelope = Soap12Envelope(ns_hlp.partial_map(ns_hlp.S12, ns_hlp.WSA, ns_hlp.WSE))
-        reply_address = message_data.p_msg.address.mk_reply_address(action_string)
-        soap_envelope.set_address(reply_address)
-        fault_node = etree_.Element(ns_hlp.s12Tag('Fault'))
-        code_node = etree_.SubElement(fault_node, ns_hlp.s12Tag('Code'))
-        value_node = etree_.SubElement(code_node, ns_hlp.s12Tag('Value'))
-        value_node.text = f's12:{soap_fault.code}'
-        if soap_fault.sub_code is not None:
-            subcode_node = etree_.SubElement(code_node, ns_hlp.s12Tag('Subcode'))
-            sub_value_node = etree_.SubElement(subcode_node, ns_hlp.s12Tag('Value'))
-            sub_value_node.text = ns_hlp.doc_name_from_qname(soap_fault.sub_code)
-        reason_node = etree_.SubElement(fault_node, ns_hlp.s12Tag('Reason'))
-        reason_text_node = etree_.SubElement(reason_node, ns_hlp.s12Tag('Text'))
-        reason_text_node.set(ns_hlp.xmlTag('lang'), 'en-US')
-        reason_text_node.text = soap_fault.reason
-        if soap_fault.details is not None:
-            detail_node = etree_.SubElement(fault_node, ns_hlp.s12Tag('Detail'))
-            detail_node.set(ns_hlp.xmlTag('lang'), 'en-US')
-            det_data_node = etree_.SubElement(detail_node, 'data')
-            det_data_node.text = soap_fault.details
-        soap_envelope.payload_element = fault_node
-        return CreatedMessage(soap_envelope, self)
-
-    def _mk_header_address(self, address, header_node):
-        # To (OPTIONAL), defaults to anonymous
-        node = etree_.SubElement(header_node, self._ns_hlp.wsaTag('To'),
-                                 attrib={self._ns_hlp.s12Tag('mustUnderstand'): 'true'})
-        node.text = address.addr_to or WSA_ANONYMOUS
-        # From
-        if address.addr_from:
-            address.addr_from.as_etree_subnode(header_node)
-        # ReplyTo (OPTIONAL), defaults to anonymous
-        if address.reply_to:
-            address.reply_to.as_etree_subnode(header_node)
-        # FaultTo (OPTIONAL)
-        if address.fault_to:
-            address.fault_to.as_etree_subnode(header_node)
-        # Action (REQUIRED)
-        node = etree_.SubElement(header_node, self._ns_hlp.wsaTag('Action'),
-                                 attrib={self._ns_hlp.s12Tag('mustUnderstand'): 'true'})
-        node.text = address.action
-        # MessageID (OPTIONAL)
-        if address.message_id:
-            node = etree_.SubElement(header_node, self._ns_hlp.wsaTag('MessageID'))
-            node.text = address.message_id
-        # RelatesTo (OPTIONAL)
-        if address.relates_to:
-            node = etree_.SubElement(header_node, self._ns_hlp.wsaTag('RelatesTo'))
-            node.text = address.relates_to
-            if address.relationship_type is not None:
-                node.set('RelationshipType', address.relationship_type)
-        for parameter in address.reference_parameters:
-            header_node.append(copy.deepcopy(parameter))
-
-    @staticmethod
-    def _add_reference_params_to_header(soap_envelope, reference_parameters: list):
-        """ add references for requests to device (renew, getstatus, unsubscribe)"""
-        for element in reference_parameters:
-            tmp = copy.deepcopy(element)
-            # mandatory attribute acc. to ws_addressing SOAP Binding (https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/)
-            tmp.set('IsReferenceParameter', 'true')
-            soap_envelope.add_header_element(tmp)
 
     def _validate_node(self, node):
         if self._validate:
@@ -231,10 +164,9 @@ class MessageFactoryDevice(MessageFactory):
     def mk_probe_matches_response_message(self, message_data, addresses) -> CreatedMessage:
         nsh = self._ns_hlp
         response = Soap12Envelope()
-        reply_address = message_data.p_msg.address.mk_reply_address('{ns_hlp.WSD.namespace}/ProbeMatches')
-        reply_address.addr_to = WSA_ANONYMOUS
-        reply_address.message_id = uuid.uuid4().urn
-        response.set_address(reply_address)
+        reply_info_block = message_data.p_msg.header_info_block.mk_reply_header_block(
+            action='{ns_hlp.WSD.namespace}/ProbeMatches', addr_to=WSA_ANONYMOUS)
+        response.set_header_info_block(reply_info_block)
         probe_match_node = etree_.Element(nsh.wsdTag('Probematch'),
                                           nsmap=nsh.partial_map(nsh.WSD, nsh.DPWS, nsh.MDPWS))
         types = etree_.SubElement(probe_match_node, nsh.wsdTag('Types'))
@@ -253,9 +185,9 @@ class MessageFactoryDevice(MessageFactory):
         return_all = len(requested_handles) == 0  # if we have handles, we need to check them
         my_namespaces = nsh.partial_map(nsh.S12, nsh.WSA, nsh.MSG, nsh.PM)
         response_envelope = Soap12Envelope(my_namespaces)
-        reply_address = request.address.mk_reply_address(
+        reply_block = request.header_info_block.mk_reply_header_block(
             action=mdib.sdc_definitions.Actions.GetMdDescriptionResponse)
-        response_envelope.set_address(reply_address)
+        response_envelope.set_header_info_block(reply_block)
 
         response_node = etree_.Element(self._msg_names.GetMdDescriptionResponse, nsmap=self._ns_hlp.ns_map)
 
@@ -281,8 +213,8 @@ class MessageFactoryDevice(MessageFactory):
         nsh = self._ns_hlp
         request = message_data.p_msg
         response = Soap12Envelope(nsh.partial_map(nsh.S12, nsh.MSG, nsh.WSA))
-        reply_address = request.address.mk_reply_address(action=action)
-        response.set_address(reply_address)
+        reply_block = request.header_info_block.mk_reply_header_block(action=action)
+        response.set_header_info_block(reply_block)
         ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
         reply_body_node = etree_.Element(nsh.msgTag(response_name), nsmap=ns_map)
         self._set_mdib_version_group(reply_body_node, mdib_version_group)
@@ -339,11 +271,10 @@ class MessageFactoryDevice(MessageFactory):
         if mdib_version_group.instance_id is not None:
             node.set('InstanceId', str(mdib_version_group.instance_id))
 
-    def mk_notification_message(self, ws_addr, message_node, reference_params: List[etree_._Element],
+    def mk_notification_message(self, header_info: HeaderInformationBlock,
+                                message_node: etree_._Element,
                                 doc_nsmap) -> CreatedMessage:
         envelope = Soap12Envelope(doc_nsmap)
         envelope.payload_element = message_node
-        envelope.set_address(ws_addr)
-        for node in reference_params:
-            envelope.add_header_element(node)
+        envelope.set_header_info_block(header_info)
         return CreatedMessage(envelope, self)

@@ -13,7 +13,7 @@ from lxml import etree as etree_
 from sdc11073 import commlog
 from sdc11073 import loghelper
 from sdc11073 import observableproperties
-from sdc11073.xml_types import pmtypes, msg_qnames as msg, pm_qnames as pm
+from sdc11073.xml_types import pm_types, msg_qnames as msg, pm_qnames as pm
 from sdc11073.dispatch import DispatchKeyRegistry
 from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
@@ -25,7 +25,7 @@ from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope
 from sdc11073.pysoap.msgfactory import CreatedMessage
-from sdc11073.xml_types.addressing import Address
+from sdc11073.xml_types.addressing import HeaderInformationBlock
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcclient.components import SdcClientComponents
 from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
@@ -67,7 +67,7 @@ def provide_realtime_data(sdc_device):
                                                   co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
     # make SinusGenerator (0x34F05501) the annotator source
-    annotator = Annotator(annotation=pmtypes.Annotation(pmtypes.CodedValue('a', 'b')),
+    annotator = Annotator(annotation=pm_types.Annotation(pm_types.CodedValue('a', 'b')),
                           trigger_handle='0x34F05501',
                           annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506'])
     waveform_provider.register_annotation_generator(annotator)
@@ -105,7 +105,7 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
     for d_handle in d_handles:
         # check content of state container
         container = client_mdib.states.descriptorHandle.get_one(d_handle)
-        unit_test.assertEqual(container.ActivationState, pmtypes.ComponentActivation.ON)
+        unit_test.assertEqual(container.ActivationState, pm_types.ComponentActivation.ON)
         unit_test.assertIsNotNone(container.MetricValue)
         unit_test.assertAlmostEqual(container.MetricValue.DeterminationTime, time.time(), delta=0.5)
         unit_test.assertGreater(len(container.MetricValue.Samples), 1)
@@ -123,7 +123,7 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
         for w_a in with_annotation:
             unit_test.assertEqual(len(w_a.annotations), 1)
             unit_test.assertEqual(w_a.annotations[0].Type,
-                                  pmtypes.CodedValue('a', 'b'))  # like in provide_realtime_data
+                                  pm_types.CodedValue('a', 'b'))  # like in provide_realtime_data
         # the cycle time of the annotator source is 1.2 seconds. The difference of the observation times must be almost 1.2
         unit_test.assertAlmostEqual(with_annotation[1].determination_time - with_annotation[0].determination_time,
                                     1.2,
@@ -132,10 +132,10 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
     # now disable one waveform
     d_handle = d_handles[0]
     waveform_provider = sdc_device.mdib.xtra.waveform_provider
-    waveform_provider.set_activation_state(d_handle, pmtypes.ComponentActivation.OFF)
+    waveform_provider.set_activation_state(d_handle, pm_types.ComponentActivation.OFF)
     time.sleep(0.5)
     container = client_mdib.states.descriptorHandle.get_one(d_handle)
-    unit_test.assertEqual(container.ActivationState, pmtypes.ComponentActivation.OFF)
+    unit_test.assertEqual(container.ActivationState, pm_types.ComponentActivation.OFF)
     unit_test.assertTrue(container.MetricValue is None)
 
     rt_buffer = client_mdib.rt_buffers.get(d_handle)
@@ -181,7 +181,7 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
     # create a state instance
     descriptor_handle = '0x34F00100'
     first_value = Decimal(12)
-    my_physical_connector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('ABC')], 1)
+    my_physical_connector = pm_types.PhysicalConnectorInfo([pm_types.LocalizedText('ABC')], 1)
     now = time.time()
     logger.info('updating state {} value to {}', descriptor_handle, first_value)
     with sdc_device.mdib.transaction_manager(set_determination_time=False) as mgr:
@@ -189,10 +189,10 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
         if st.MetricValue is None:
             st.mk_metric_value()
         st.MetricValue.Value = first_value
-        st.MetricValue.MetricQuality.Validity = pmtypes.MeasurementValidity.VALID
+        st.MetricValue.MetricQuality.Validity = pm_types.MeasurementValidity.VALID
         st.MetricValue.DeterminationTime = now
-        st.PhysiologicalRange = [pmtypes.Range(*dec_list(1, 2, 3, 4, 5)),
-                                 pmtypes.Range(*dec_list(10, 20, 30, 40, 50))]
+        st.PhysiologicalRange = [pm_types.Range(*dec_list(1, 2, 3, 4, 5)),
+                                 pm_types.Range(*dec_list(10, 20, 30, 40, 50))]
         st.PhysicalConnector = my_physical_connector
 
     # verify that client automatically got the state (via EpisodicMetricReport )
@@ -200,7 +200,7 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
     cl_state1 = cl_mdib.states.descriptorHandle.get_one(descriptor_handle)
     unit_test.assertEqual(cl_state1.MetricValue.Value, first_value)
     unit_test.assertAlmostEqual(cl_state1.MetricValue.DeterminationTime, now, delta=0.01)
-    unit_test.assertEqual(cl_state1.MetricValue.MetricQuality.Validity, pmtypes.MeasurementValidity.VALID)
+    unit_test.assertEqual(cl_state1.MetricValue.MetricQuality.Validity, pm_types.MeasurementValidity.VALID)
     unit_test.assertEqual(cl_state1.StateVersion, 1)  # this is the first state update after init
     unit_test.assertEqual(cl_state1.PhysicalConnector, my_physical_connector)
 
@@ -240,7 +240,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041)
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
-        self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, self._loc_validators)
         provide_realtime_data(self.sdc_device)
 
@@ -511,8 +511,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         alert_condition_state = self.sdc_device.mdib.states.NODETYPE[pm.AlertConditionState][0]
         descriptor_handle = alert_condition_state.DescriptorHandle
 
-        for _activation_state, _actual_priority, _presence in product(list(pmtypes.AlertActivation),
-                                                                      list(pmtypes.AlertConditionPriority),
+        for _activation_state, _actual_priority, _presence in product(list(pm_types.AlertActivation),
+                                                                      list(pm_types.AlertConditionPriority),
                                                                       (True,
                                                                        False)):  # test every possible combination
             # wait for the next EpisodicAlertReport
@@ -532,9 +532,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
         alert_condition_state = self.sdc_device.mdib.states.NODETYPE[pm.AlertSignalState][0]
         descriptor_handle = alert_condition_state.DescriptorHandle
 
-        for _activation_state, _presence, _location, _slot in product(list(pmtypes.AlertActivation),
-                                                                      list(pmtypes.AlertSignalPresence),
-                                                                      list(pmtypes.AlertSignalPrimaryLocation),
+        for _activation_state, _presence, _location, _slot in product(list(pm_types.AlertActivation),
+                                                                      list(pm_types.AlertSignalPresence),
+                                                                      list(pm_types.AlertSignalPrimaryLocation),
                                                                       (0, 1, 2)):
             # wait for the next EpisodicAlertReport
             coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_alert_report')
@@ -573,11 +573,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
             st.CoreData.Birthname = 'Mustermann'
             st.CoreData.Familyname = 'Musterfrau'
             st.CoreData.Title = 'Rex'
-            st.CoreData.Sex = pmtypes.T_Sex.MALE
-            st.CoreData.PatientType = pmtypes.PatientType.ADULT
-            st.CoreData.Height = pmtypes.Measurement(Decimal('88.2'), pmtypes.CodedValue('abc', 'def'))
-            st.CoreData.Weight = pmtypes.Measurement(Decimal('68.2'), pmtypes.CodedValue('abc'))
-            st.CoreData.Race = pmtypes.CodedValue('123', 'def')
+            st.CoreData.Sex = pm_types.T_Sex.MALE
+            st.CoreData.PatientType = pm_types.PatientType.ADULT
+            st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
+            st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
+            st.CoreData.Race = pm_types.CodedValue('123', 'def')
             st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         patient_context_state_container = clientMdib.context_states.NODETYPE.get_one(
@@ -624,8 +624,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def test_get_supported_languages(self):
         storage = self.sdc_device.localization_storage
         storage.add(
-            pmtypes.LocalizedText('bla', lang='de-de', ref='a', version=1, text_width=pmtypes.LocalizedTextWidth.XS),
-            pmtypes.LocalizedText('foo', lang='en-en', ref='a', version=1, text_width=pmtypes.LocalizedTextWidth.XS)
+            pm_types.LocalizedText('bla', lang='de-de', ref='a', version=1, text_width=pm_types.LocalizedTextWidth.XS),
+            pm_types.LocalizedText('foo', lang='en-en', ref='a', version=1, text_width=pm_types.LocalizedTextWidth.XS)
             )
 
         get_request_response = self.sdc_client.localization_service_client.get_supported_languages()
@@ -636,22 +636,22 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_get_localized_texts(self):
         storage = self.sdc_device.localization_storage
-        storage.add(pmtypes.LocalizedText('bla_a', lang='de-de', ref='a', version=1,
-                                          text_width=pmtypes.LocalizedTextWidth.XS))
-        storage.add(pmtypes.LocalizedText('foo_a', lang='en-en', ref='a', version=1,
-                                          text_width=pmtypes.LocalizedTextWidth.XS))
-        storage.add(pmtypes.LocalizedText('bla_b', lang='de-de', ref='b', version=1,
-                                          text_width=pmtypes.LocalizedTextWidth.XS))
-        storage.add(pmtypes.LocalizedText('foo_b', lang='en-en', ref='b', version=1,
-                                          text_width=pmtypes.LocalizedTextWidth.XS))
-        storage.add(pmtypes.LocalizedText('bla_aa', lang='de-de', ref='a', version=2,
-                                          text_width=pmtypes.LocalizedTextWidth.S))
-        storage.add(pmtypes.LocalizedText('foo_aa', lang='en-en', ref='a', version=2,
-                                          text_width=pmtypes.LocalizedTextWidth.S))
-        storage.add(pmtypes.LocalizedText('bla_bb', lang='de-de', ref='b', version=2,
-                                          text_width=pmtypes.LocalizedTextWidth.S))
-        storage.add(pmtypes.LocalizedText('foo_bb', lang='en-en', ref='b', version=2,
-                                          text_width=pmtypes.LocalizedTextWidth.S))
+        storage.add(pm_types.LocalizedText('bla_a', lang='de-de', ref='a', version=1,
+                                          text_width=pm_types.LocalizedTextWidth.XS))
+        storage.add(pm_types.LocalizedText('foo_a', lang='en-en', ref='a', version=1,
+                                          text_width=pm_types.LocalizedTextWidth.XS))
+        storage.add(pm_types.LocalizedText('bla_b', lang='de-de', ref='b', version=1,
+                                          text_width=pm_types.LocalizedTextWidth.XS))
+        storage.add(pm_types.LocalizedText('foo_b', lang='en-en', ref='b', version=1,
+                                          text_width=pm_types.LocalizedTextWidth.XS))
+        storage.add(pm_types.LocalizedText('bla_aa', lang='de-de', ref='a', version=2,
+                                          text_width=pm_types.LocalizedTextWidth.S))
+        storage.add(pm_types.LocalizedText('foo_aa', lang='en-en', ref='a', version=2,
+                                          text_width=pm_types.LocalizedTextWidth.S))
+        storage.add(pm_types.LocalizedText('bla_bb', lang='de-de', ref='b', version=2,
+                                          text_width=pm_types.LocalizedTextWidth.S))
+        storage.add(pm_types.LocalizedText('foo_bb', lang='en-en', ref='b', version=2,
+                                          text_width=pm_types.LocalizedTextWidth.S))
         service_client = self.sdc_client.localization_service_client
         get_request_response = service_client.get_localized_texts()
         report = get_request_response.result
@@ -688,7 +688,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         get_request_response = service_client.get_localized_texts(refs=['b'],
                                                                   langs=['en-en'],
-                                                                  text_widths=['xs', pmtypes.LocalizedTextWidth.S])
+                                                                  text_widths=['xs', pm_types.LocalizedTextWidth.S])
         report = get_request_response.result
         self.assertEqual(len(report.Text), 1)
         self.assertEqual(report.Text[0].text, 'foo_bb')
@@ -707,7 +707,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             if st.MetricValue is None:
                 st.mk_metric_value()
             st.MetricValue.Value = first_value
-            st.MetricValue.MetricQuality.Validity = pmtypes.MeasurementValidity.VALID
+            st.MetricValue.MetricQuality.Validity = pm_types.MeasurementValidity.VALID
 
         client_mdib = ClientMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
@@ -754,8 +754,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             new_descriptor_container = cls(handle=new_handle,
                                            parent_handle=descriptor_container.parent_handle,
                                            )
-            new_descriptor_container.Type = pmtypes.CodedValue('12345')
-            new_descriptor_container.Unit = pmtypes.CodedValue('hector')
+            new_descriptor_container.Type = pm_types.CodedValue('12345')
+            new_descriptor_container.Unit = pm_types.CodedValue('hector')
             new_descriptor_container.Resolution = Decimal('0.42')
             mgr.add_descriptor(new_descriptor_container)
         # long timeout, sometimes high load on jenkins makes these tests fail
@@ -786,16 +786,16 @@ class Test_Client_SomeDevice(unittest.TestCase):
             limit_alert_descriptor = mgr.get_descriptor(limit_alert_descriptor_handle)
 
             # update descriptors
-            alert_descriptor.SafetyClassification = pmtypes.SafetyClassification.MED_C
-            limit_alert_descriptor.SafetyClassification = pmtypes.SafetyClassification.MED_B
+            alert_descriptor.SafetyClassification = pm_types.SafetyClassification.MED_C
+            limit_alert_descriptor.SafetyClassification = pm_types.SafetyClassification.MED_B
             limit_alert_descriptor.AutoLimitSupported = True
         coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for update in client
         # verify that descriptor updates are transported to client
         client_alert_descriptor = client_mdib.descriptions.handle.get_one(alert_descriptor_handle)
-        self.assertEqual(client_alert_descriptor.SafetyClassification, pmtypes.SafetyClassification.MED_C)
+        self.assertEqual(client_alert_descriptor.SafetyClassification, pm_types.SafetyClassification.MED_C)
 
         client_limit_alert_descriptor = client_mdib.descriptions.handle.get_one(limit_alert_descriptor_handle)
-        self.assertEqual(client_limit_alert_descriptor.SafetyClassification, pmtypes.SafetyClassification.MED_B)
+        self.assertEqual(client_limit_alert_descriptor.SafetyClassification, pm_types.SafetyClassification.MED_B)
         self.assertEqual(client_limit_alert_descriptor.AutoLimitSupported, True)
 
         # set alert state presence to true
@@ -807,14 +807,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
             limit_alert_state = mgr.get_state(limit_alert_descriptor_handle)
 
             alert_state.Presence = True
-            alert_state.ActualPriority = pmtypes.AlertConditionPriority.HIGH
-            limit_alert_state.ActualPriority = pmtypes.AlertConditionPriority.MEDIUM
-            limit_alert_state.Limits = pmtypes.Range(upper=Decimal('3'))
+            alert_state.ActualPriority = pm_types.AlertConditionPriority.HIGH
+            limit_alert_state.ActualPriority = pm_types.AlertConditionPriority.MEDIUM
+            limit_alert_state.Limits = pm_types.Range(upper=Decimal('3'))
 
         coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for update in client
         # verify that state updates are transported to client
         client_alert_state = client_mdib.states.descriptorHandle.get_one(alert_descriptor_handle)
-        self.assertEqual(client_alert_state.ActualPriority, pmtypes.AlertConditionPriority.HIGH)
+        self.assertEqual(client_alert_state.ActualPriority, pm_types.AlertConditionPriority.HIGH)
         self.assertEqual(client_alert_state.Presence, True)
 
         # verify that alert system state is also updated
@@ -824,11 +824,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertGreater(alert_system_state.SelfCheckCount, 0)
 
         client_limit_alert_state = client_mdib.states.descriptorHandle.get_one(limit_alert_descriptor_handle)
-        self.assertEqual(client_limit_alert_state.ActualPriority, pmtypes.AlertConditionPriority.MEDIUM)
-        self.assertEqual(client_limit_alert_state.Limits, pmtypes.Range(upper=Decimal(3)))
+        self.assertEqual(client_limit_alert_state.ActualPriority, pm_types.AlertConditionPriority.MEDIUM)
+        self.assertEqual(client_limit_alert_state.Limits, pm_types.Range(upper=Decimal(3)))
         self.assertEqual(client_limit_alert_state.Presence, False)
         self.assertEqual(client_limit_alert_state.MonitoredAlertLimits,
-                         pmtypes.AlertConditionMonitoredLimits.NONE)  # default
+                         pm_types.AlertConditionMonitoredLimits.NONE)  # default
 
     def test_metadata_modification(self):
         with self.sdc_device.mdib.transaction_manager() as mgr:
@@ -839,8 +839,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 if mds_descriptor.MetaData is None:
                     cls = self.sdc_device.mdib.data_model.pm_types.MetaData
                     mds_descriptor.MetaData = cls()
-                mds_descriptor.MetaData.Manufacturer.append(pmtypes.LocalizedText(u'My Company'))
-                mds_descriptor.MetaData.ModelName.append(pmtypes.LocalizedText(u'pySDC'))
+                mds_descriptor.MetaData.Manufacturer.append(pm_types.LocalizedText(u'My Company'))
+                mds_descriptor.MetaData.ModelName.append(pm_types.LocalizedText(u'pySDC'))
                 mds_descriptor.MetaData.SerialNumber.append('pmDCBA-4321')
                 mds_descriptor.MetaData.ModelNumber = '1.09'
 
@@ -901,10 +901,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
             if st.MetricValue is None:
                 st.mk_metric_value()
             st.MetricValue.Value = first_value
-            st.MetricValue.MetricQuality.Validity = pmtypes.MeasurementValidity.VALID
+            st.MetricValue.MetricQuality.Validity = pm_types.MeasurementValidity.VALID
             st.MetricValue.DeterminationTime = time.time()
-            st.PhysiologicalRange = [pmtypes.Range(*dec_list(1, 2, 3, 4, 5)),
-                                     pmtypes.Range(*dec_list(10, 20, 30, 40, 50))]
+            st.PhysiologicalRange = [pm_types.Range(*dec_list(1, 2, 3, 4, 5)),
+                                     pm_types.Range(*dec_list(10, 20, 30, 40, 50))]
         data = coll.result(timeout=NOTIFICATION_TIMEOUT)
         self.assertTrue(descriptor_handle in data.keys())
         self.assertEqual(st.MetricValue.Value, data[descriptor_handle].MetricValue.Value)  # compare some data
@@ -1007,14 +1007,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         except HTTPReturnCodeError as ex:
             self.assertEqual(ex.status, 400)
-            self.assertEqual(ex.soap_fault.code, 's12:Sender')
+            self.assertEqual(ex.soap_fault.Code.Value, 's12:Sender')
         else:
             self.fail('HTTPReturnCodeError not raised')
 
     def _mk_get_method_message(self, addr_to, action: str, method: etree_.QName, params=None) -> CreatedMessage:
         get_node = etree_.Element(method)
         soap_envelope = Soap12Envelope(default_ns_helper.partial_map(default_ns_helper.MSG))
-        soap_envelope.set_address(Address(action=action, addr_to=addr_to))
+        soap_envelope.set_header_info_block(HeaderInformationBlock(action=action, addr_to=addr_to))
         if params:
             for param in params:
                 get_node.append(param)
@@ -1056,7 +1056,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
-        self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
 
         # common http server for all devices and clients
         self.httpserver = HttpServerThreadBase(
@@ -1152,7 +1152,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
 
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all()
-        self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, self._loc_validators)
         provide_realtime_data(self.sdc_device)
 
@@ -1208,7 +1208,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
                                                     chunked_messages=True)
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all()
-        self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, self._loc_validators)
 
         time.sleep(0.5)  # allow full init of devices
@@ -1295,7 +1295,7 @@ class Test_Client_SomeDevice_async(unittest.TestCase):
                                                     default_components=default_sdc_device_components_async,
                                                     chunked_messages=True)
         self.sdc_device.start_all(periodic_reports_interval=1.0)
-        self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, self._loc_validators)
 
         time.sleep(0.5)  # allow full init of devices

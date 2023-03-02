@@ -5,7 +5,7 @@ import unittest
 
 from sdc11073 import commlog
 from sdc11073 import loghelper
-from sdc11073.xml_types import pmtypes, msgtypes
+from sdc11073.xml_types import pm_types, msg_types
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib.clientmdib import ClientMdibContainer
@@ -41,7 +41,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         my_uuid = None  # let device create one
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_two_mds.xml', log_prefix='<device> ')
         self.sdc_device.start_all()
-        self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.mdib.xtra.ensure_location_context_descriptor()
         self.sdc_device.set_location(location, self._loc_validators)
         # self.provideRealtimeData(self.sdc_device)
@@ -90,31 +90,31 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         # set an alarm condition and start local signal
         with self.sdc_device.mdib.transaction_manager() as mgr:
             alert_condition_state = mgr.get_state('ac0.mds0')
-            alert_condition_state.ActivationState = pmtypes.AlertActivation.ON
+            alert_condition_state.ActivationState = pm_types.AlertActivation.ON
             alert_condition_state.Presence = True
             local_alert_signal_state = mgr.get_state('as0.mds0')
-            local_alert_signal_state.ActivationState = pmtypes.AlertActivation.ON
-            local_alert_signal_state.Presence = pmtypes.AlertSignalPresence.ON
+            local_alert_signal_state.ActivationState = pm_types.AlertActivation.ON
+            local_alert_signal_state.Presence = pm_types.AlertSignalPresence.ON
         # verify that remote signal is still off
         remote_alert_signal_state = self.sdc_device.mdib.states.descriptorHandle.get_one('as0.mds0_rem')
-        self.assertEqual(pmtypes.AlertSignalPresence.OFF, remote_alert_signal_state.Presence)
-        self.assertEqual(pmtypes.AlertActivation.OFF, remote_alert_signal_state.ActivationState)
+        self.assertEqual(pm_types.AlertSignalPresence.OFF, remote_alert_signal_state.Presence)
+        self.assertEqual(pm_types.AlertActivation.OFF, remote_alert_signal_state.ActivationState)
 
         # call activate method for delegate all alarms
         proposed_alert_state = cl_mdib.xtra.mk_proposed_state('as0.mds0_rem')
-        proposed_alert_state.ActivationState = pmtypes.AlertActivation.ON
-        proposed_alert_state.Presence = pmtypes.AlertSignalPresence.ON
+        proposed_alert_state.ActivationState = pm_types.AlertActivation.ON
+        proposed_alert_state.Presence = pm_types.AlertSignalPresence.ON
         future = self.sdc_client.set_service_client.set_alert_state('as0.mds0_rem_dele', proposed_alert_state)
 
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
-        self.assertEqual(state, msgtypes.InvocationState.FINISHED)
+        self.assertEqual(state, msg_types.InvocationState.FINISHED)
 
         # verify that now remote signal in on and local signal is off
         local_alert_signal_state = cl_mdib.states.descriptorHandle.get_one('as0.mds0')
         remote_alert_signal_state = cl_mdib.states.descriptorHandle.get_one('as0.mds0_rem')
-        self.assertEqual(pmtypes.AlertActivation.PAUSED, local_alert_signal_state.ActivationState)
-        self.assertEqual(pmtypes.AlertActivation.ON, remote_alert_signal_state.ActivationState)
+        self.assertEqual(pm_types.AlertActivation.PAUSED, local_alert_signal_state.ActivationState)
+        self.assertEqual(pm_types.AlertActivation.ON, remote_alert_signal_state.ActivationState)
         time.sleep(5)
-        self.assertEqual(pmtypes.AlertActivation.ON, local_alert_signal_state.ActivationState)
-        self.assertEqual(pmtypes.AlertActivation.OFF, remote_alert_signal_state.ActivationState)
+        self.assertEqual(pm_types.AlertActivation.ON, local_alert_signal_state.ActivationState)
+        self.assertEqual(pm_types.AlertActivation.OFF, remote_alert_signal_state.ActivationState)

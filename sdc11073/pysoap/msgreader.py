@@ -8,11 +8,11 @@ from typing import Union
 
 from lxml import etree as etree_
 
-from sdc11073.namespaces import QN_TYPE, text_to_qname
-from .soapenvelope import SoapFault, FaultCodeEnum, ReceivedSoapMessage
-from sdc11073.xml_types.addressing import Address
+from sdc11073.namespaces import QN_TYPE, text_to_qname, default_ns_helper
+from .soapenvelope import Fault, faultcodeEnum, ReceivedSoapMessage
+from sdc11073.xml_types.addressing import HeaderInformationBlock
 from sdc11073.xml_types.addressing import EndpointReferenceType
-from ..exceptions import HTTPRequestHandlingError
+from ..exceptions import ValidationError
 from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator
 
@@ -27,10 +27,12 @@ def validate_node(node, xml_schema, logger):
     except etree_.DocumentInvalid as ex:
         logger.error(traceback.format_exc())
         logger.error(etree_.tostring(node, pretty_print=True).decode('utf-8'))
-        soap_fault = SoapFault(code=FaultCodeEnum.SENDER, reason=f'{ex}')
-        raise HTTPRequestHandlingError(status=400,
-                                       reason='document invalid',
-                                       soap_fault=soap_fault) from ex
+        fault = Fault()
+        fault.Code.Value = faultcodeEnum.SENDER
+        fault.set_sub_code(default_ns_helper.wseTag('InvalidMessage'))
+        fault.add_reason_text(f'validation error: {ex}')
+
+        raise ValidationError(reason='document invalid', soap_fault=fault) from ex
 
 
 def _get_text(node, q_name):
@@ -141,14 +143,16 @@ class MessageReader:
         message = ReceivedSoapMessage(xml_text, doc_root)
         if message.msg_node is not None and validate:
             self._validate_node(message.msg_node)
-        message.address = self._mk_address_from_header(message.header_node)
+        message.header_info_block = HeaderInformationBlock.from_node(message.header_node)
+
         mdib_version_group = None
         if message.msg_node is not None:
             try:
                 mdib_version_group = MdibVersionGroupReader.from_node(message.msg_node)
             except ValueError:
                 mdib_version_group = None
-        data = ReceivedMessage(self, message, message.address.action, message.msg_name, mdib_version_group)
+        data = ReceivedMessage(self, message, message.header_info_block.Action.text,
+                               message.msg_name, mdib_version_group)
         return data
 
     def read_payload_data(self, xml_text: bytes) -> ReceivedMessage:
@@ -221,42 +225,6 @@ class MessageReader:
             return ret.ReferenceParameters.extend(reference_parameters_node[:])
         return ret
 
-    def _mk_address_from_header(self, root_node):
-        ns_hlp = self.ns_hlp
-        message_id = _get_text(root_node, ns_hlp.wsaTag('MessageID'))
-        addr_to = _get_text(root_node, ns_hlp.wsaTag('To'))
-        action = _get_text(root_node, ns_hlp.wsaTag('Action'))
-        relates_to = _get_text(root_node, ns_hlp.wsaTag('RelatesTo'))
-
-        relationship_type = None
-        relates_to_node = root_node.find(ns_hlp.wsaTag('RelatesTo'))
-        if relates_to_node is not None:
-            relates_to = relates_to_node.text
-            relationshiptype_text = relates_to_node.attrib.get('RelationshipType')
-            if relationshiptype_text:
-                # split into namespace, localname
-                namespace, localname = relationshiptype_text.rsplit('/', 1)
-                relationship_type = etree_.QName(namespace, localname)
-
-        addr_from = self._mk_endpoint_reference(root_node.find(ns_hlp.wsaTag('From')))
-        reply_to = self._mk_endpoint_reference(root_node.find(ns_hlp.wsaTag('ReplyTo')))
-        fault_to = self._mk_endpoint_reference(root_node.find(ns_hlp.wsaTag('FaultTo')))
-
-        reference_parameters_node = root_node.find(ns_hlp.wsaTag('ReferenceParameters'))
-        if reference_parameters_node is None:
-            reference_parameters = None
-        else:
-            reference_parameters = reference_parameters_node[:]
-        return Address(message_id=message_id,
-                       addr_to=addr_to,
-                       action=action,
-                       relates_to=relates_to,
-                       addr_from=addr_from,
-                       reply_to=reply_to,
-                       fault_to=fault_to,
-                       reference_parameters=reference_parameters,
-                       relationship_type=relationship_type)
-
     def _mk_descriptor_container_from_node(self, node, parent_handle):
         """
         :param node: a descriptor node
@@ -307,15 +275,3 @@ class MessageReaderClient(MessageReader):
     def read_wsdl(wsdl_string: str) -> etree_.ElementTree:
         """ make am ElementTree instance"""
         return etree_.fromstring(wsdl_string, parser=etree_.ETCompatXMLParser(resolve_entities=False))
-
-    def read_fault_message(self, message_data: ReceivedMessage) -> SoapFault:
-        body_node = message_data.p_msg.body_node
-        ns = {'s12': self.ns_hlp.S12.namespace}
-        code = ', '.join(body_node.xpath('s12:Fault/s12:Code/s12:Value/text()', namespaces=ns))
-        sub_code = ', '.join(body_node.xpath('s12:Fault/s12:Code/s12:Subcode/s12:Value/text()',
-                                             namespaces=ns))
-        reason = ', '.join(body_node.xpath('s12:Fault/s12:Reason/s12:Text/text()',
-                                           namespaces=ns))
-        detail = ', '.join(body_node.xpath('s12:Fault/s12:Detail/text()', namespaces=ns))
-
-        return SoapFault(code, reason, sub_code, detail)

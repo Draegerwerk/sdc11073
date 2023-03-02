@@ -15,7 +15,7 @@ from sdc11073.xml_types.addressing import EndpointReferenceType
 from ..dispatch import DispatchKey, DispatchKeyRegistry
 from ..dispatch import PathElementRegistry
 from ..dispatch import RequestData, MessageConverterMiddleware
-from sdc11073.xml_types.dpws import HostServiceType, ThisDeviceType, ThisModelType
+from sdc11073.xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisModelType
 from ..exceptions import ApiUsageError
 from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase

@@ -231,7 +231,7 @@ WSA_NONE = PrefixesEnum.WSA.namespace + '/none'
 def docname_from_qname(qname: etree_.QName, ns_map: dict) -> str:
     """ returns prefix:name string, or only name (if default namespace is used) """
     prefixmap = dict((v, k) for k, v in ns_map.items())
-    prefix = prefixmap[qname.namespace]
+    prefix = prefixmap.get(qname.namespace)
     if prefix is None:
         return qname.localname
     return f'{prefix}:{qname.localname}'

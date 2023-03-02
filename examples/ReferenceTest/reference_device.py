@@ -8,7 +8,7 @@ from decimal import Decimal
 
 import sdc11073
 from sdc11073.certloader import mk_ssl_context_from_folder
-from sdc11073.xml_types.dpws import ThisDeviceType, ThisModelType
+from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.loghelper import LoggerAdapter
 from sdc11073.sdcdevice.components import SdcDeviceComponents
 from sdc11073.sdcdevice.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync

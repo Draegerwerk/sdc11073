@@ -6,7 +6,7 @@ from typing import Union, Optional
 from .addressing import EndpointReferenceType
 from . import xml_structure as cp
 from ..namespaces import default_ns_helper
-from .pmtypes import PropertyBasedPMType, ElementWithText
+from .basetypes import XMLTypeBase, ElementWithText
 
 
 class DeviceRelationshipTypeURI(str, Enum):
@@ -45,14 +45,14 @@ class LocalizedStringTypeDict(dict):
         self[lang] = the_string
 
 
-class HostServiceType(PropertyBasedPMType):
+class HostServiceType(XMLTypeBase):
     EndpointReference = cp.SubElementProperty(default_ns_helper.wsaTag('EndpointReference'),
                                               value_class=EndpointReferenceType)
     Types = cp.NodeTextQNameListProperty(default_ns_helper.dpwsTag('Types'))
     _props = ['EndpointReference', 'Types']
 
 
-class HostedServiceType(PropertyBasedPMType):
+class HostedServiceType(XMLTypeBase):
     EndpointReference = cp.SubElementListProperty(default_ns_helper.wsaTag('EndpointReference'),
                                                   value_class=EndpointReferenceType)
     Types = cp.NodeTextQNameListProperty(default_ns_helper.dpwsTag('Types'))
@@ -72,7 +72,7 @@ class LocalizedStringType(ElementWithText):
         return instance
 
 
-class ThisDeviceType(PropertyBasedPMType):
+class ThisDeviceType(XMLTypeBase):
     """
     This class represents "ThisDeviceType" in dpws schema.
     """
@@ -103,7 +103,7 @@ class ThisDeviceType(PropertyBasedPMType):
         self.SerialNumber = serial_number
 
 
-class ThisModelType(PropertyBasedPMType):
+class ThisModelType(XMLTypeBase):
     Manufacturer = cp.SubElementListProperty(default_ns_helper.dpwsTag('Manufacturer'),
                                              value_class=LocalizedStringType)
     ManufacturerUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('ManufacturerUrl'))

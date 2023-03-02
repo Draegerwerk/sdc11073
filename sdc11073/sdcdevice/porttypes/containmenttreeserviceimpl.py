@@ -2,7 +2,7 @@ from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperatio
 from .porttypebase import msg_prefix
 from ...dispatch import DispatchKey
 from ...exceptions import FunctionNotImplementedError
-from ...pysoap.soapenvelope import SoapFault, FaultCodeEnum
+from ...pysoap.soapenvelope import Fault, faultcodeEnum
 
 
 class ContainmentTreeService(DPWSPortTypeBase):
@@ -29,12 +29,17 @@ class ContainmentTreeService(DPWSPortTypeBase):
 
     def _on_get_containment_tree(self, request_data):  # pylint: disable=no-self-use
         # ToDo: implement, currently method only raises a soap fault
-        fault = SoapFault(code=FaultCodeEnum.RECEIVER, reason='not implemented')
+        fault = Fault()
+        fault.Code.Value = faultcodeEnum.RECEIVER
+        fault.add_reason_text('not implemented')
+
         raise FunctionNotImplementedError(fault)
 
     def _on_get_descriptor(self, request_data):  # pylint: disable=no-self-use
         # ToDo: implement, currently method only raises a soap fault
-        fault = SoapFault(code=FaultCodeEnum.RECEIVER, reason='not implemented')
+        fault = Fault()
+        fault.Code.Value = faultcodeEnum.RECEIVER
+        fault.add_reason_text('not implemented')
         raise FunctionNotImplementedError(fault)
 
     def add_wsdl_port_type(self, parent_node):

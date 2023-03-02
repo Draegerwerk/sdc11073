@@ -5,7 +5,7 @@ import unittest
 
 from sdc11073 import commlog
 from sdc11073 import loghelper
-from sdc11073.xml_types import pmtypes
+from sdc11073.xml_types import pm_types
 from sdc11073.location import SdcLocation
 from sdc11073.mdib.clientmdib import ClientMdibContainer
 from sdc11073.sdcclient import SdcClient
@@ -40,7 +40,7 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_two_mds.xml')
 
         self.sdc_device.start_all()
-        self._loc_validators = [pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(location, self._loc_validators)
 
         time.sleep(0.5)  # allow full init of devices

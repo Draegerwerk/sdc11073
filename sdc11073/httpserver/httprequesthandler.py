@@ -25,7 +25,7 @@ class DispatchingRequestHandler(BaseHTTPRequestHandler):
         """
         return HTTPReader.read_request_body(self)
 
-    def _compress_if_supported(self, response_bytes):
+    def _compress_if_supported(self, response_bytes: bytes):
         """Compress response if header of request indicates that other side
         accepts one of our supported compression encodings"""
         accepted_enc = CompressionHandler.parse_header(self.headers.get('accept-encoding'))
@@ -55,10 +55,9 @@ class DispatchingRequestHandler(BaseHTTPRequestHandler):
             response_xml_string = http_reason.encode('utf-8')
             self.send_response(500, http_reason)  # server error
             self.send_header("Content-type", "text/plain; charset=utf-8")
-            self.send_header("Content-length", response_xml_string)
+            self.send_header("Content-length", len(response_xml_string))
             self.end_headers()
             self.wfile.write(response_xml_string)
-
             return
         try:
             component = self.server.dispatcher.get_instance(self.get_first_path_element())

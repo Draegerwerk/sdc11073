@@ -1,8 +1,8 @@
 from . import xml_structure as cp
-from .dpws import HostServiceType, HostedServiceType
-from .dpws import ThisDeviceType, ThisModelType, DeviceMetadataDialectURI, DeviceRelationshipTypeURI
-from .msgtypes import MessageType
-from .pmtypes import PropertyBasedPMType
+from .dpws_types import HostServiceType, HostedServiceType
+from .dpws_types import ThisDeviceType, ThisModelType, DeviceMetadataDialectURI, DeviceRelationshipTypeURI
+from .msg_types import MessageType
+from .pm_types import PropertyBasedPMType
 from ..namespaces import default_ns_helper
 
 ########## Meta Data Exchange #########

@@ -4,12 +4,12 @@ import unittest
 from lxml import etree as etree_
 
 from sdc11073.xml_types import pm_qnames as pm
-from sdc11073.xml_types.addressing import Address
+from sdc11073.xml_types.addressing import HeaderInformationBlock
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
-from sdc11073.xml_types.pmtypes import AlertConditionPriority
+from sdc11073.xml_types.pm_types import AlertConditionPriority
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapenvelope import Soap12Envelope
 from sdc11073.dispatch.request import RequestData
@@ -47,7 +47,7 @@ class TestDeviceServices(unittest.TestCase):
         action = '{}/{}/{}'.format(name_space, port_type, method)
         body_node = etree_.Element(nsm.msgTag(method))
         soap_envelope = Soap12Envelope(nsm.partial_map(nsm.S12, nsm.WSA, nsm.MSG))
-        soap_envelope.set_address(Address(action=action, addr_to=path))
+        soap_envelope.set_header_info_block(HeaderInformationBlock(action=action, addr_to=path))
         soap_envelope.payload_element = body_node
 
         return CreatedMessage(soap_envelope, sdc_device.msg_factory)

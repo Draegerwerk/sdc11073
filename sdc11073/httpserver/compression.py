@@ -112,6 +112,8 @@ class GzipCompressionHandler(AbstractDataCompressor):
 
     @staticmethod
     def compress_payload(payload:bytes):
+        if not isinstance(payload, bytes):
+            raise TypeError(f'a bytes-like object is required, not "{payload.__class__.__name__}", payload={payload}')
         gzip_compress = zlib.compressobj(zlib.Z_DEFAULT_COMPRESSION, zlib.DEFLATED, 16 + zlib.MAX_WBITS)
         data = gzip_compress.compress(payload) + gzip_compress.flush()
         return data

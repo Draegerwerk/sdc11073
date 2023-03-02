@@ -6,7 +6,7 @@ from sdc11073.dispatch import RequestData
 from sdc11073.dispatch import DispatchKeyRegistry
 from ..exceptions import InvalidActionError
 from ..pysoap.msgfactory import CreatedMessage
-from ..pysoap.soapenvelope import SoapFault, FaultCodeEnum
+from ..pysoap.soapenvelope import Fault, faultcodeEnum
 
 
 class _DispatchError(Exception):
@@ -39,7 +39,10 @@ class DispatchKeyRegistryDeferred(DispatchKeyRegistry):
         action = request_data.message_data.action
         func = self.get_post_handler(request_data)
         if func is None:
-            fault = SoapFault(code=FaultCodeEnum.SENDER, reason=f'invalid action {action}')
+            fault = Fault()
+            fault.Code.Value = faultcodeEnum.SENDER
+            fault.add_reason_text(f'invalid action {action}')
+
             raise InvalidActionError(fault)
         self._queue.put((func, request_data, action))
         return EmptyResponse()
