@@ -16,6 +16,7 @@ from ..namespaces import EventingActions
 from ..namespaces import default_ns_helper as ns_hlp
 from ..pysoap.soapclient import HTTPReturnCodeError, HTTPException
 from ..pysoap.soapenvelope import SoapResponseException
+from ..xml_types.addressing import HeaderInformationBlock
 from ..xml_types import eventing_types as evt_types
 
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
@@ -43,7 +44,6 @@ class ClSubscription:
         self.end_reason = None  # if device sent a SubscriptionEnd message, this contains the reason from the message
         self.expire_at = None
         self.expire_minutes = None
-        #self.dev_reference_param = None
 
         self.notification_url = notification_url
         self.notify_to_identifier = None
@@ -56,8 +56,8 @@ class ClSubscription:
         # ToDo: check if there is more than one address. In that case a clever selection is needed
         self._hosted_service_address: str = self._dpws_hosted.EndpointReference[0].Address
         self._hosted_service_path = urlparse(self._hosted_service_address).path
-        # self._subscription_manager_address: Optional[str] = None  # manager address for this subscription, not known yet
         self._subscription_manager_path: Optional[str] = None
+        self.subscribe_response: Optional[evt_types.SubscribeResponse] = None
 
     def subscribe(self, expire_minutes: int = 60,
                   any_elements: Optional[list] = None,
@@ -101,10 +101,9 @@ class ClSubscription:
             for name, value in any_attributes.items():
                 body_node.set(name, value)
 
-        message = self._msg_factory.mk_soap_message_etree_payload(self._hosted_service_address,
-                                                                  EventingActions.Subscribe,
-                                                                  body_node)
-
+        inf = HeaderInformationBlock(action=EventingActions.Subscribe,
+                                     addr_to=self._hosted_service_address)
+        message = self._msg_factory.mk_soap_message_etree_payload(inf, body_node)
         msg = f'subscribe {self._filter}'
         try:
             soap_client = self._get_soap_client_func(self._hosted_service_address)
@@ -123,36 +122,32 @@ class ClSubscription:
                                    message_data.p_msg.raw_data)
                 self.is_subscribed = False
                 raise SoapResponseException(message_data.p_msg) from ex
-            #self._handle_subscribe_response(response_data)
 
         except HTTPReturnCodeError:
             self._logger.error(f'could not subscribe: {HTTPReturnCodeError}')
 
     def _mk_renew_message(self, expire_minutes):
-        nsh = self._data_model.ns_helper
         renew = evt_types.Renew()
         renew.Expires = expire_minutes * 60
-        nsmap = nsh.partial_map(nsh.WSE, nsh.MSG, nsh.PM)
         dev_reference_param = self.subscribe_response.SubscriptionManager.ReferenceParameters
         subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
-        return self._msg_factory.mk_soap_message(subscription_manager_address,
-                                                 renew,
-                                                 ns_map=nsmap,
-                                                 reference_param=dev_reference_param)
+        inf = HeaderInformationBlock(action=renew.action,
+                                     addr_to=subscription_manager_address,
+                                     reference_parameters=dev_reference_param)
+        return self._msg_factory.mk_soap_message(inf, payload=renew)
 
     def renew(self, expire_minutes: int = 60) -> float:
         if not self.is_subscribed:
             return 0
-        nsh = self._data_model.ns_helper
         renew = evt_types.Renew()
         renew.Expires = expire_minutes * 60
-        nsmap = nsh.partial_map(nsh.WSE, nsh.MSG, nsh.PM)
         dev_reference_param = self.subscribe_response.SubscriptionManager.ReferenceParameters
         subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
-        message = self._msg_factory.mk_soap_message(subscription_manager_address,
-                                                    renew,
-                                                    ns_map=nsmap,
-                                                    reference_param=dev_reference_param)
+        inf = HeaderInformationBlock(action=renew.action,
+                                     addr_to=subscription_manager_address,
+                                     reference_parameters=dev_reference_param)
+        message = self._msg_factory.mk_soap_message(inf, payload=renew)
+
         try:
             soap_client = self._get_soap_client_func(subscription_manager_address)
             message_data = soap_client.post_message_to(
@@ -181,15 +176,13 @@ class ClSubscription:
     def unsubscribe(self):
         if not self.is_subscribed:
             return
-        nsh = self._data_model.ns_helper
-        renew = evt_types.Unsubscribe()
-        nsmap = nsh.partial_map(nsh.WSE, nsh.MSG, nsh.PM)
+        request = evt_types.Unsubscribe()
         dev_reference_param = self.subscribe_response.SubscriptionManager.ReferenceParameters
         subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
-        message = self._msg_factory.mk_soap_message(subscription_manager_address,
-                                                    renew,
-                                                    ns_map=nsmap,
-                                                    reference_param=dev_reference_param)
+        inf = HeaderInformationBlock(action=request.action,
+                                     addr_to=subscription_manager_address,
+                                     reference_parameters=dev_reference_param)
+        message = self._msg_factory.mk_soap_message(inf, payload=request)
         soap_client = self._get_soap_client_func(subscription_manager_address)
         received_message_data = soap_client.post_message_to(self._subscription_manager_path,
                                                             message, msg='unsubscribe')
@@ -205,16 +198,13 @@ class ClSubscription:
         """ Sends a GetStatus Request to the device.
         @return: the remaining time of the subscription or None, if the request was not successful
         """
-        nsh = self._data_model.ns_helper
-        renew = evt_types.GetStatus()
-        nsmap = nsh.partial_map(nsh.WSE, nsh.MSG, nsh.PM)
+        request = evt_types.GetStatus()
         dev_reference_param = self.subscribe_response.SubscriptionManager.ReferenceParameters
         subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
-        message = self._msg_factory.mk_soap_message(subscription_manager_address,
-                                                    renew,
-                                                    ns_map=nsmap,
-                                                    reference_param=dev_reference_param)
-
+        inf = HeaderInformationBlock(action=request.action,
+                                     addr_to=subscription_manager_address,
+                                     reference_parameters=dev_reference_param)
+        message = self._msg_factory.mk_soap_message(inf, payload=request)
         try:
             soap_client = self._get_soap_client_func(subscription_manager_address)
             message_data = soap_client.post_message_to(

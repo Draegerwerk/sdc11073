@@ -256,9 +256,7 @@ class SdcDevice:
             for e in _nsm.prefix_enum:
                 if e.namespace == q_name.namespace and e not in needed_namespaces:
                     needed_namespaces.append(e)
-
-        ns_map = _nsm.partial_map(*needed_namespaces)
-        response = self.msg_factory.mk_reply_soap_message(request_data, metadata, ns_map)
+        response = self.msg_factory.mk_reply_soap_message(request_data, metadata, needed_namespaces)
         # from lxml.etree import tostring
         # print (tostring((response.p_msg.payload_element),pretty_print=True).decode('utf-8'))
         return response
@@ -448,13 +446,13 @@ class SdcDevice:
             deleted = transaction_processor.descr_deleted
             states = transaction_processor.all_states()
             port_type_impl.send_descriptor_updates(
-                updated, created, deleted, states, ns_mapper, mdib_version_group)
+                updated, created, deleted, states, mdib_version_group)
 
         states = transaction_processor.metric_updates
         if len(states) > 0:
             port_type_impl = self.hosted_services.state_event_service
             port_type_impl.send_episodic_metric_report(
-                states, ns_mapper, mdib_version_group)
+                states, mdib_version_group)
             self._periodic_reports_handler.store_metric_states(mdib_version_group.mdib_version,
                                                                transaction_processor.metric_updates)
 
@@ -462,38 +460,38 @@ class SdcDevice:
         if len(states) > 0:
             port_type_impl = self.hosted_services.state_event_service
             port_type_impl.send_episodic_alert_report(
-                states, ns_mapper, mdib_version_group)
+                states, mdib_version_group)
             self._periodic_reports_handler.store_alert_states(mdib_version_group.mdib_version, states)
 
         states = transaction_processor.comp_updates
         if len(states) > 0:
             port_type_impl = self.hosted_services.state_event_service
             port_type_impl.send_episodic_component_state_report(
-                states, ns_mapper, mdib_version_group)
+                states, mdib_version_group)
             self._periodic_reports_handler.store_component_states(mdib_version_group.mdib_version, states)
 
         states = transaction_processor.ctxt_updates
         if len(states) > 0:
             port_type_impl = self.hosted_services.context_service
             port_type_impl.send_episodic_context_report(
-                states, ns_mapper, mdib_version_group)
+                states, mdib_version_group)
             self._periodic_reports_handler.store_context_states(mdib_version_group.mdib_version, states)
 
         states = transaction_processor.op_updates
         if len(states) > 0:
             port_type_impl = self.hosted_services.state_event_service
-            port_type_impl.send_episodic_operational_state_report(states, ns_mapper, mdib_version_group)
+            port_type_impl.send_episodic_operational_state_report(states, mdib_version_group)
             self._periodic_reports_handler.store_operational_states(mdib_version_group.mdib_version, states)
 
         states = transaction_processor.rt_updates
         if len(states) > 0:
             port_type_impl = self.hosted_services.waveform_service
-            port_type_impl.send_realtime_samples_report(states, ns_mapper, mdib_version_group)
+            port_type_impl.send_realtime_samples_report(states, mdib_version_group)
 
     def _send_rt_notifications(self, rt_states):
         if len(rt_states) > 0:
             port_type_impl = self.hosted_services.waveform_service
-            port_type_impl.send_realtime_samples_report(rt_states, self._mdib.nsmapper, self._mdib.mdib_version_group)
+            port_type_impl.send_realtime_samples_report(rt_states, self._mdib.mdib_version_group)
 
     def set_used_compression(self, *compression_methods):
         del self._compression_methods[:]

@@ -64,6 +64,7 @@ class AbstractReport(MessageType):
     SequenceId = cp.StringAttributeProperty('SequenceId')
     InstanceId = cp.IntegerAttributeProperty('InstanceId')
     _props = ['MdibVersion', 'SequenceId', 'InstanceId']
+    additional_namespaces = [default_ns_helper.XSI]
 
     def set_mdib_version_group(self, mdib_version_group):
         self.MdibVersion = mdib_version_group.mdib_version
@@ -255,6 +256,9 @@ class InvocationInfo(PropertyBasedPMType):
                    f'InvocationErrorMessage={text}'
         return f'{self.__class__.__name__}(TransactionId={self.TransactionId}, InvocationState={self.InvocationState})'
 
+    def add_error_message(self, text: str, lang=None, ref=None, version=None, text_width=None ):
+        self.InvocationErrorMessage.append(LocalizedText(text, lang, ref, version, text_width))
+
 
 class OperationInvokedReportPart(AbstractReportPart):
     InvocationInfo = cp.SubElementProperty(msg.InvocationInfo,
@@ -277,13 +281,49 @@ class OperationInvokedReport(AbstractReport):
         return self.ReportPart[-1]
 
 
-class AbstractSetResponse(PropertyBasedPMType):
+class AbstractSetResponse(MessageType):
     Extension = cp.ExtensionNodeProperty(ext.Extension)
-    InvocationInfo = cp.SubElementProperty(msg.InvocationInfo, value_class=InvocationInfo)
+    InvocationInfo = cp.SubElementProperty(msg.InvocationInfo,
+                                           value_class=InvocationInfo,
+                                           default_py_value = InvocationInfo())
     MdibVersion = cp.VersionCounterAttributeProperty('MdibVersion', implied_py_value=0)
     SequenceId = cp.AnyURIAttributeProperty('SequenceId', is_optional=False)
     InstanceId = cp.UnsignedIntAttributeProperty('InstanceId')
     _props = ['Extension', 'InvocationInfo', 'MdibVersion', 'SequenceId', 'InstanceId']
+
+class SetContextStateResponse(AbstractSetResponse):
+    NODETYPE = msg.SetContextStateResponse
+    action = SDC_v1_Definitions.Actions.SetContextStateResponse
+
+
+class SetValueResponse(AbstractSetResponse):
+    NODETYPE = msg.SetValueResponse
+    action = SDC_v1_Definitions.Actions.SetValueResponse
+
+
+class SetStringResponse(AbstractSetResponse):
+    NODETYPE = msg.SetStringResponse
+    action = SDC_v1_Definitions.Actions.SetStringResponse
+
+
+class ActivateResponse(AbstractSetResponse):
+    NODETYPE = msg.ActivateResponse
+    action = SDC_v1_Definitions.Actions.ActivateResponse
+
+
+class SetAlertStateResponse(AbstractSetResponse):
+    NODETYPE = msg.SetAlertStateResponse
+    action = SDC_v1_Definitions.Actions.SetAlertStateResponse
+
+
+class SetComponentStateResponse(AbstractSetResponse):
+    NODETYPE = msg.SetComponentStateResponse
+    action = SDC_v1_Definitions.Actions.SetComponentStateResponse
+
+
+class SetMetricStateResponse(AbstractSetResponse):
+    NODETYPE = msg.SetMetricStateResponse
+    action = SDC_v1_Definitions.Actions.SetMetricStateResponse
 
 
 ### WaveformStream ###
@@ -568,6 +608,10 @@ class SetContextState(AbstractSet):
                                                     ns_helper=default_ns_helper)
     _props = ['ProposedContextState']
 
+    @property
+    def argument(self):
+        return self.ProposedContextState
+
 
 class SetValue(AbstractSet):
     NODETYPE = msg.SetValue
@@ -575,12 +619,20 @@ class SetValue(AbstractSet):
     RequestedNumericValue = cp.NodeTextProperty(msg.RequestedNumericValue, value_converter=DecimalConverter)
     _props = ['RequestedNumericValue']
 
+    @property
+    def argument(self):
+        return self.RequestedNumericValue
+
 
 class SetString(AbstractSet):
     NODETYPE = msg.SetString
     action = SDC_v1_Definitions.Actions.SetString
     RequestedStringValue = cp.NodeTextProperty(msg.RequestedStringValue, value_converter=StringConverter)
     _props = ['RequestedStringValue']
+
+    @property
+    def argument(self):
+        return self.RequestedStringValue
 
 
 class SetAlertState(AbstractSet):
@@ -592,6 +644,10 @@ class SetAlertState(AbstractSet):
                                               ns_helper=default_ns_helper)
     _props = ['ProposedAlertState']
 
+    @property
+    def argument(self):
+        return self.ProposedAlertState
+
 
 class SetMetricState(AbstractSet):
     NODETYPE = msg.SetMetricState
@@ -601,6 +657,10 @@ class SetMetricState(AbstractSet):
                                                    cls_getter=get_state_container_class,
                                                    ns_helper=default_ns_helper)
     _props = ['ProposedMetricState']
+
+    @property
+    def argument(self):
+        return self.ProposedMetricState
 
 
 class Argument(PropertyBasedPMType):
@@ -619,6 +679,10 @@ class Activate(AbstractSet):
         arg.ArgValue = str(arg_value)
         self.Argument.append(arg)
 
+    @property
+    def argument(self):
+        return self.Argument
+
 
 class SetComponentState(AbstractSet):
     NODETYPE = msg.SetComponentState
@@ -628,3 +692,7 @@ class SetComponentState(AbstractSet):
                                                       cls_getter=get_state_container_class,
                                                       ns_helper=default_ns_helper)
     _props = ['ProposedComponentState']
+
+    @property
+    def argument(self):
+        return self.ProposedComponentState

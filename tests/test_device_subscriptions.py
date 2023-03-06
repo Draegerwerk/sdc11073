@@ -154,7 +154,6 @@ class TestDeviceSubscriptions(unittest.TestCase):
                                         mdib_version_group=MdibVersionGroup(1234,
                                                                             'urn:uuid:abc',
                                                                             None),
-                                        nsmapper=self.sdc_device.mdib.nsmapper,
                                         error=msg_types.InvocationError.UNSPECIFIED,
                                         error_message='')
         self.assertEqual(len(test_subscription.reports), 1)

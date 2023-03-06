@@ -82,18 +82,18 @@ class TestDevSubscription(DevSubscription):
                          log_prefix='test')
         self.reports = []
 
-    def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
+    def send_notification_report(self, body_node, action):
         info_block = HeaderInformationBlock(action=action,
                                             addr_to=self.notify_to_address,
                                             reference_parameters=self.notify_ref_params)
-        message = msg_factory.mk_notification_message(info_block, body_node, doc_nsmap)
+        message = self._mk_notification_message(info_block, body_node)
         self.reports.append(message)
 
-    async def async_send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
+    async def async_send_notification_report(self, body_node, action):
         info_block = HeaderInformationBlock(action=action,
                                             addr_to=self.notify_to_address,
                                             reference_parameters=self.notify_ref_params)
-        message = msg_factory.mk_notification_message(info_block, body_node, doc_nsmap)
+        message = self._mk_notification_message(info_block, body_node)
         self.reports.append(message)
 
     async def async_send_notification_end_message(self, code='SourceShuttingDown',

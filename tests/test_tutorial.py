@@ -374,11 +374,9 @@ class Test_Tutorial(unittest.TestCase):
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_1.operation1_called, 1)
-        # There is an inconsistency in the current implementation of activate:
-        # in general activate allows multiple arguments, but the current implementation only allows a single
-        # one. Therefore we provide a single string, but expect a list with the single string.
-        # This inconsistency will be fixed in a later version of sdc11073
-        self.assertEqual(my_product_impl.my_provider_1.operation1_args, ['foo'])
+        args = my_product_impl.my_provider_1.operation1_args
+        self.assertEqual(1, len(args))
+        self.assertEqual(args[0].ArgValue, 'foo')
 
         # call set_string operation
         op = my_mdib.descriptions.coding.get_one(MY_CODE_2.coding)

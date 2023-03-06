@@ -1,7 +1,7 @@
 from concurrent.futures import Future
 
 from .serviceclientbase import HostedServiceClient
-
+from ...xml_types.addressing import HeaderInformationBlock
 
 class SetServiceClient(HostedServiceClient):
     subscribeable_actions = ('OperationInvokedReport',)
@@ -18,7 +18,8 @@ class SetServiceClient(HostedServiceClient):
         request = data_model.msg_types.SetValue()
         request.OperationHandleRef = operation_handle
         request.RequestedNumericValue = requested_numeric_value
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
+        inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
+        message = self._msg_factory.mk_soap_message(inf, payload=request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def set_string(self, operation_handle, requested_string, request_manipulator=None) -> Future:
@@ -33,7 +34,8 @@ class SetServiceClient(HostedServiceClient):
         request = data_model.msg_types.SetString()
         request.OperationHandleRef = operation_handle
         request.RequestedStringValue = requested_string
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
+        inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
+        message = self._msg_factory.mk_soap_message(inf, payload=request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def set_alert_state(self, operation_handle, proposed_alert_state, request_manipulator=None) -> Future:
@@ -48,7 +50,8 @@ class SetServiceClient(HostedServiceClient):
         request = data_model.msg_types.SetAlertState()
         request.OperationHandleRef = operation_handle
         request.ProposedAlertState = proposed_alert_state
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
+        inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
+        message = self._msg_factory.mk_soap_message(inf, payload=request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def set_metric_state(self, operation_handle, proposed_metric_states, request_manipulator=None) -> Future:
@@ -62,7 +65,8 @@ class SetServiceClient(HostedServiceClient):
         request = data_model.msg_types.SetMetricState()
         request.OperationHandleRef = operation_handle
         request.ProposedMetricState.extend(proposed_metric_states)
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
+        inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
+        message = self._msg_factory.mk_soap_message(inf, payload=request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def activate(self, operation_handle, arguments=None, request_manipulator=None) -> Future:
@@ -80,7 +84,8 @@ class SetServiceClient(HostedServiceClient):
         if arguments is not None:
             for arg_value in arguments:
                 request.add_argument(arg_value)
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
+        inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
+        message = self._msg_factory.mk_soap_message(inf, payload=request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def set_component_state(self, operation_handle, proposed_component_states, request_manipulator=None) -> Future:
@@ -97,6 +102,7 @@ class SetServiceClient(HostedServiceClient):
         request = data_model.msg_types.SetComponentState()
         request.OperationHandleRef = operation_handle
         request.ProposedComponentState.extend(proposed_component_states)
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
+        inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
+        message = self._msg_factory.mk_soap_message(inf, payload=request)
         self._logger.debug('set_component_state sends {}', lambda: message.serialize_message(pretty=True))
         return self._call_operation(message, request_manipulator=request_manipulator)

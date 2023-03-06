@@ -198,10 +198,7 @@ class DPWSHostedService(_EventService):
             for e in _nsm.prefix_enum:
                 if e.namespace == q_name.namespace and e not in needed_namespaces:
                     needed_namespaces.append(e)
-        ns_map = _nsm.partial_map(*needed_namespaces)
-        response = msg_factory.mk_reply_soap_message(request_data, metadata, ns_map)
-        # from lxml.etree import tostring
-        # print (tostring((response.p_msg.payload_element),pretty_print=True).decode('utf-8'))
+        response = msg_factory.mk_reply_soap_message(request_data, metadata, needed_namespaces)
         return response
 
     def __repr__(self):

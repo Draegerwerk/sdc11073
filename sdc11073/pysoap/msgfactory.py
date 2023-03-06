@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import copy
-import uuid
 import weakref
 from io import BytesIO
-from typing import List, Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from lxml import etree as etree_
 
@@ -105,47 +103,38 @@ class MessageFactory:
         doc.write(tmp, encoding='UTF-8', xml_declaration=True, pretty_print=pretty)
         return tmp.getvalue()
 
-    def mk_soap_message(self, addr_to: str,
+    def mk_soap_message(self,
+                        header_info: HeaderInformationBlock,
                         payload: MessageType,
-                        ns_map: Optional[dict] = None,
-                        reference_param: Optional[list] = None):
-        my_ns_map = self._ns_hlp.partial_map(self._ns_hlp.S12, self._ns_hlp.MSG, self._ns_hlp.PM)
-
-        if ns_map is not None:
-            my_ns_map.update(ns_map)
+                        ns_map: Optional[list] = None):
+        ns_set = {self._ns_hlp.S12, self._ns_hlp.WSA, self._ns_hlp.MSG, self._ns_hlp.PM}  # default
+        ns_set.update(payload.additional_namespaces)
+        if ns_map:
+            ns_set.update(ns_map)
+        my_ns_map = self._ns_hlp.partial_map(*ns_set)
         soap_envelope = Soap12Envelope(my_ns_map)
-        inf = HeaderInformationBlock(action=payload.action, addr_to=addr_to, reference_parameters=reference_param)
-        soap_envelope.set_header_info_block(inf)
+        soap_envelope.set_header_info_block(header_info)
         soap_envelope.payload_element = payload.as_etree_node(payload.NODETYPE, my_ns_map)
         return CreatedMessage(soap_envelope, self)
 
-    def mk_soap_message_etree_payload(self, addr_to: str,
-                                      action: str,
-                                      payload_element: Optional[etree_.Element] = None,
-                                      ns_map: Optional[dict] = None,
-                                      reference_param: Optional[list] = None):
-        my_ns_map = self._ns_hlp.partial_map(self._ns_hlp.S12, self._ns_hlp.MSG, self._ns_hlp.PM)
-
-        if ns_map is not None:
-            my_ns_map.update(ns_map)
+    def mk_soap_message_etree_payload(self,
+                                      header_info: HeaderInformationBlock,
+                                      payload_element: Optional[etree_.Element] = None):
+        my_ns_map = self._ns_hlp.partial_map(self._ns_hlp.S12, self._ns_hlp.WSE, self._ns_hlp.WSA)
         soap_envelope = Soap12Envelope(my_ns_map)
-        inf = HeaderInformationBlock(action=action, addr_to=addr_to, reference_parameters=reference_param)
-        soap_envelope.set_header_info_block(inf)
+        soap_envelope.set_header_info_block(header_info)
         soap_envelope.payload_element = payload_element
         return CreatedMessage(soap_envelope, self)
 
-    def mk_reply_soap_message_etree_payload(self, addr_to: HeaderInformationBlock, payload: etree_.Element):
-        soap_envelope = Soap12Envelope(self._ns_hlp.partial_map(self._ns_hlp.MSG))
-        soap_envelope.set_header_info_block(addr_to)
-        soap_envelope.payload_element = payload
-        return CreatedMessage(soap_envelope, self)
-
-    def mk_reply_soap_message(self, request,
+    def mk_reply_soap_message(self,
+                              request,
                               response_payload: MessageType,
-                              ns_map=None):
-        my_ns_map = self._ns_hlp.partial_map(self._ns_hlp.S12, self._ns_hlp.MSG, self._ns_hlp.PM)
-        if ns_map is not None:
-            my_ns_map.update(ns_map)
+                              ns_map: Optional[list] = None):
+        ns_set = {self._ns_hlp.S12, self._ns_hlp.WSA, self._ns_hlp.MSG, self._ns_hlp.PM}  # default
+        ns_set.update(response_payload.additional_namespaces)
+        if ns_map:
+            ns_set.update(ns_map)
+        my_ns_map = self._ns_hlp.partial_map(*ns_set)
         soap_envelope = Soap12Envelope(my_ns_map)
         reply_address = request.message_data.p_msg.header_info_block.mk_reply_header_block(
             action=response_payload.action)
@@ -207,35 +196,6 @@ class MessageFactoryDevice(MessageFactory):
         response_envelope.payload_element = response_node
         return CreatedMessage(response_envelope, self)
 
-    def mk_operation_response_message(self, message_data, action, response_name, mdib_version_group,
-                                      transaction_id, invocation_state, invocation_error, error_text
-                                      ) -> CreatedMessage:
-        nsh = self._ns_hlp
-        request = message_data.p_msg
-        response = Soap12Envelope(nsh.partial_map(nsh.S12, nsh.MSG, nsh.WSA))
-        reply_block = request.header_info_block.mk_reply_header_block(action=action)
-        response.set_header_info_block(reply_block)
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        reply_body_node = etree_.Element(nsh.msgTag(response_name), nsmap=ns_map)
-        self._set_mdib_version_group(reply_body_node, mdib_version_group)
-        invocation_info_node = etree_.SubElement(reply_body_node, self._msg_names.InvocationInfo)
-
-        transaction_id_node = etree_.SubElement(invocation_info_node, self._msg_names.TransactionId)
-        invocation_state_node = etree_.SubElement(invocation_info_node, self._msg_names.InvocationState)
-
-        invocation_state_node.text = invocation_state
-        transaction_id_node.text = str(transaction_id)
-
-        if invocation_error is not None:
-            invocation_error_node = etree_.SubElement(invocation_info_node, self._msg_names.InvocationError)
-            invocation_error_node.text = invocation_error
-        if error_text is not None:
-            invocation_error_msg_node = etree_.SubElement(invocation_info_node,
-                                                          self._msg_names.InvocationErrorMessage)
-            invocation_error_msg_node.text = error_text
-        response.payload_element = reply_body_node
-        return CreatedMessage(response, self)
-
     def mk_description_modification_report_body(self, mdib_version_group, updated, created, deleted,
                                                 updated_states) -> etree_.Element:
         # This method creates one ReportPart for every descriptor.
@@ -270,11 +230,3 @@ class MessageFactoryDevice(MessageFactory):
         node.set('SequenceId', str(mdib_version_group.sequence_id))
         if mdib_version_group.instance_id is not None:
             node.set('InstanceId', str(mdib_version_group.instance_id))
-
-    def mk_notification_message(self, header_info: HeaderInformationBlock,
-                                message_node: etree_._Element,
-                                doc_nsmap) -> CreatedMessage:
-        envelope = Soap12Envelope(doc_nsmap)
-        envelope.payload_element = message_node
-        envelope.set_header_info_block(header_info)
-        return CreatedMessage(envelope, self)

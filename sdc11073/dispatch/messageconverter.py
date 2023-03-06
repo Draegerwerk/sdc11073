@@ -8,6 +8,7 @@ from .request import RequestData
 from .. import commlog
 from ..exceptions import HTTPRequestHandlingError, ValidationError
 from ..pysoap.soapenvelope import Fault, faultcodeEnum
+from ..xml_types.addressing import HeaderInformationBlock
 
 if TYPE_CHECKING:
     from .dispatchkey import RequestHandlerProtocol
@@ -50,8 +51,8 @@ class MessageConverterMiddleware:
 
         if fault is not None:
             nsh = self._msg_factory._ns_hlp
-            ns_map = nsh.partial_map(nsh.WSE)
-            response = self._msg_factory.mk_soap_message(addr_to=None, payload=fault, ns_map=ns_map)
+            inf = HeaderInformationBlock(action=fault.action, addr_to=None)
+            response = self._msg_factory.mk_soap_message(inf, payload=fault, ns_map=[nsh.WSE])
             response_xml_string = response.serialize_message()
             commlog.get_communication_logger().log_soap_response_out(response_xml_string, 'POST')
             return http_status, http_reason, response_xml_string

@@ -6,7 +6,7 @@ import time
 import traceback
 import uuid
 from collections import deque
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Union
 from urllib.parse import urlparse
 
 from lxml import etree as etree_
@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
     from ..pysoap.msgfactory import MessageFactoryDevice, CreatedMessage
     from ..dispatch import RequestData
+    from ..xml_types.basetypes import MessageType
     from urllib.parse import SplitResult
 
 MAX_ROUNDTRIP_VALUES = 20
@@ -181,8 +182,10 @@ class SubscriptionBase:
         subscription_end.SubscriptionManager.ReferenceParameters = self.reference_parameters
         subscription_end.Status = code
         subscription_end.add_reason(reason, 'en-US')
-        message = self._msg_factory.mk_soap_message(self.end_to_address or self.notify_to_address,
-                                                    subscription_end)
+        inf = HeaderInformationBlock(action=subscription_end.action,
+                                     addr_to=self.end_to_address or self.notify_to_address)
+        message =  self._msg_factory.mk_soap_message(inf, payload=subscription_end)
+
         try:
             url = self._end_to_url or self.notify_to_url
             self._soap_client.post_message_to(url.path, message,
@@ -221,17 +224,21 @@ class SubscriptionBase:
     def short_filter_names(self):
         return tuple([f.split('/')[-1] for f in self.filters])
 
+    def _mk_notification_message(self, header_info: HeaderInformationBlock,
+                                body_node: etree_._Element) -> CreatedMessage:
+        return self._msg_factory.mk_soap_message_etree_payload(header_info, body_node)
+
 
 class DevSubscription(SubscriptionBase):
 
-    def send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
+    def send_notification_report(self, body_node: etree_._Element, action: str):
         if not self.is_valid:
             return
-        addr = HeaderInformationBlock(addr_to=self.notify_to_address,
+        inf = HeaderInformationBlock(addr_to=self.notify_to_address,
                        action=action,
                        addr_from=None,
                        reference_parameters=self.notify_ref_params)
-        message = msg_factory.mk_notification_message(addr, body_node, doc_nsmap)
+        message = self._mk_notification_message(inf, body_node)
         try:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
 
@@ -325,8 +332,7 @@ class SubscriptionsManagerBase:
             fault.Code.Value = faultcodeEnum.RECEIVER
             fault.set_sub_code(nsh.wseTag('InvalidMessage'))
             fault.add_reason_text('unknown Subscription identifier')
-            ns_map = nsh.partial_map(nsh.WSE)
-            response = self._msg_factory.mk_reply_soap_message(request_data, fault, ns_map=ns_map)
+            response = self._msg_factory.mk_reply_soap_message(request_data, fault, ns_map=[nsh.WSE])
         else:
             subscription.close()
             with self._subscriptions.lock:
@@ -354,16 +360,12 @@ class SubscriptionsManagerBase:
             fault.Code.Value = faultcodeEnum.RECEIVER
             fault.set_sub_code(nsh.wseTag('InvalidMessage'))
             fault.add_reason_text('unknown Subscription identifier')
-            ns_map = nsh.partial_map(nsh.WSE)
-            response = self._msg_factory.mk_reply_soap_message(request_data, fault, ns_map=ns_map)
+            response = self._msg_factory.mk_reply_soap_message(request_data, fault)
         else:
             get_status_response = evt_types.GetStatusResponse()
             get_status_response.Expires = subscription.remaining_seconds
-            nsh = data_model.ns_helper
-            ns_map = nsh.partial_map(nsh.WSE, nsh.WSA)
             response = self._msg_factory.mk_reply_soap_message(request_data,
-                                                                get_status_response,
-                                                                ns_map)
+                                                               get_status_response)
         return response
 
     def on_renew_request(self, request_data: RequestData) -> CreatedMessage:
@@ -377,15 +379,13 @@ class SubscriptionsManagerBase:
             fault.Code.Value = faultcodeEnum.RECEIVER
             fault.set_sub_code(nsh.wseTag('InvalidMessage'))
             fault.add_reason_text('unknown Subscription identifier')
-            ns_map = nsh.partial_map(nsh.WSE)
-            response = self._msg_factory.mk_reply_soap_message(request_data, fault, ns_map=ns_map)
+            response = self._msg_factory.mk_reply_soap_message(request_data, fault)
         else:
             subscription.renew(expires)
             renew_response = evt_types.RenewResponse()
             renew_response.Expires = subscription.remaining_seconds
             nsh = data_model.ns_helper
-            ns_map = nsh.partial_map(nsh.WSE, nsh.WSA)
-            response = self._msg_factory.mk_reply_soap_message(request_data, renew_response, ns_map)
+            response = self._msg_factory.mk_reply_soap_message(request_data, renew_response)
         return response
 
     def stop_all(self, send_subscription_end: bool):
@@ -398,8 +398,8 @@ class SubscriptionsManagerBase:
                           self._subscriptions.objects)
             self._subscriptions.clear()
 
-    def _get_subscription_for_request(self, request_data):
-        reference_parameters = self.read_header_reference_parameters(request_data)
+    def _get_subscription_for_request(self, request_data: RequestData):
+        reference_parameters = request_data.message_data.p_msg.header_info_block.reference_parameters
         path_suffix = '/'.join(request_data.path_elements)  # not consumed path elements
         dispatch_identifier = _mk_dispatch_identifier(reference_parameters, path_suffix)
         with self._subscriptions.lock:
@@ -409,32 +409,34 @@ class SubscriptionsManagerBase:
                                  request_data.message_data.q_name, dispatch_identifier, request_data.peer_name)
         return subscription
 
-    @staticmethod
-    def read_header_reference_parameters(request_data) -> List[etree_._Element]:
-        reference_parameter_nodes = []
-        for header_element in request_data.message_data.p_msg.header_node:
-            is_reference_parameter = header_element.attrib.get('IsReferenceParameter', 'false')
-            if is_reference_parameter.lower() == 'true':
-                reference_parameter_nodes.append(header_element)
-        return reference_parameter_nodes
-
-    def send_to_subscribers(self, body_node, action, mdib_version_group, nsmapper, what):
+    def send_to_subscribers(self, payload: Union[MessageType, etree_._Element],
+                            action: str,
+                            mdib_version_group,
+                            what: str):
         subscribers = self._get_subscriptions_for_action(action)
+        nsh = self.sdc_definitions.data_model.ns_helper
+        # convert to element tree only once for all subscribers
+        if isinstance(payload, etree_._Element):
+            body_node = payload
+        else:
+            namespaces = [nsh.PM, nsh.MSG]
+            namespaces.extend(payload.additional_namespaces)
+            my_ns_map = nsh.partial_map(*namespaces)
+            body_node = payload.as_etree_node(payload.NODETYPE, my_ns_map)
+
         self.sent_to_subscribers = (action, mdib_version_group, body_node)  # update observable
         for subscriber in subscribers:
             if what:
                 self._logger.debug('{}: sending report to {}', what, subscriber.notify_to_address)
             try:
-                self._send_notification_report(
-                    subscriber, body_node, action,
-                    nsmapper.partial_map(nsmapper.PM, nsmapper.S12, nsmapper.WSA, nsmapper.WSE))
+                self._send_notification_report(subscriber, body_node, action)
             except:
-                pass
+                raise
         self._do_housekeeping()
 
-    def _send_notification_report(self, subscription, body_node, action, doc_nsmap):
+    def _send_notification_report(self, subscription, body_node: etree_._Element, action: str):
         try:
-            subscription.send_notification_report(self._msg_factory, body_node, action, doc_nsmap)
+             subscription.send_notification_report(body_node, action)
         except ConnectionRefusedError as ex:
             self._logger.error('could not send notification report: {!r}:  subscr = {}', ex, subscription)
         except HTTPReturnCodeError as ex:

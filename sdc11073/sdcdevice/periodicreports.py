@@ -124,7 +124,7 @@ class PeriodicReportsHandler:
                         del reports_list[:]
                 if tmp:
                     self._logger.debug('send periodic %s report', msg)
-                    send_func(tmp, self._mdib.nsmapper, self._mdib.mdib_version_group)
+                    send_func(tmp, self._mdib.mdib_version_group)
 
     def _periodic_reports_send_loop(self):
         """This implementation of periodic reports send loop considers retrievability settings in the mdib.
@@ -186,21 +186,21 @@ class PeriodicReportsHandler:
             if metric_states:
                 periodic_states = PeriodicStates(mdib_version, metric_states)
                 srv.send_periodic_metric_report(
-                    [periodic_states], self._mdib.nsmapper, self._mdib.mdib_version_group)
+                    [periodic_states], self._mdib.mdib_version_group)
             if component_states:
                 periodic_states = PeriodicStates(mdib_version, component_states)
                 srv.send_periodic_component_state_report(
-                    [periodic_states], self._mdib.nsmapper, self._mdib.mdib_version_group)
+                    [periodic_states], self._mdib.mdib_version_group)
             if alert_states:
                 periodic_states = PeriodicStates(mdib_version, alert_states)
                 srv.send_periodic_alert_report(
-                    [periodic_states], self._mdib.nsmapper, self._mdib.mdib_version_group)
+                    [periodic_states], self._mdib.mdib_version_group)
             if operational_states:
                 periodic_states = PeriodicStates(mdib_version, operational_states)
                 srv.send_periodic_operational_state_report(
-                    [periodic_states], self._mdib.nsmapper, self._mdib.mdib_version_group)
+                    [periodic_states], self._mdib.mdib_version_group)
             if context_states:
                 ctx_srv = self._hosted_services.context_service
                 periodic_states = PeriodicStates(mdib_version, context_states)
                 ctx_srv.send_periodic_context_report(
-                    [periodic_states], self._mdib.nsmapper, self._mdib.mdib_version_group)
+                    [periodic_states], self._mdib.mdib_version_group)

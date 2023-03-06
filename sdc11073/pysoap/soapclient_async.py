@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 class SoapClientAsync:
     """SOAP Client wraps an http connection. It can send / receive SoapEnvelopes."""
     _usedSoapClients = 0
-    SOCKET_TIMEOUT = 5 if sys.gettrace() is None else 5  # 1000  # higher timeout for debugging
+    SOCKET_TIMEOUT = 5 if sys.gettrace() is None else 1000  # higher timeout for debugging
 
     roundtrip_time = observableproperties.ObservableProperty()
 

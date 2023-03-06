@@ -6,7 +6,7 @@ import socket
 import traceback
 from collections import defaultdict
 from threading import Thread
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 import aiohttp.client_exceptions
 from lxml import etree as etree_
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from ..pysoap.msgfactory import MessageFactoryDevice
     from .subscriptionmgr import SoapClientPool
     from ..dispatch import RequestData
+    from ..xml_types.basetypes import MessageType
 
 MAX_ROUNDTRIP_VALUES = 20
 
@@ -57,14 +58,14 @@ def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
 
 class DevSubscriptionAsync(SubscriptionBase):
 
-    async def async_send_notification_report(self, msg_factory, body_node, action, doc_nsmap):
+    async def async_send_notification_report(self, payload: MessageType, action):
         if not self.is_valid:
             return
         addr = HeaderInformationBlock(addr_to=self.notify_to_address,
                                       action=action,
                                       addr_from=None,
                                       reference_parameters=self.notify_ref_params)
-        message = msg_factory.mk_notification_message(addr, body_node, doc_nsmap)
+        message = self._mk_notification_message(addr, payload)
         try:
             roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
 
@@ -104,8 +105,9 @@ class DevSubscriptionAsync(SubscriptionBase):
         subscription_end.SubscriptionManager.ReferenceParameters = self.reference_parameters
         subscription_end.Status = code
         subscription_end.add_reason(reason, 'en-US')
-        message = self._msg_factory.mk_soap_message(self.end_to_address or self.notify_to_address,
-                                                    subscription_end)
+        inf = HeaderInformationBlock(action=subscription_end.action,
+                                     addr_to=self.end_to_address or self.notify_to_address)
+        message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
         try:
             url = self._end_to_url or self.notify_to_url
             result = await self._soap_client.async_post_message_to(url.path, message,
@@ -168,14 +170,24 @@ class SubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
     async def _coro_send_to_subscribers(self, tasks):
         return await asyncio.gather(*tasks, return_exceptions=True)
 
-    def send_to_subscribers(self, body_node, action, mdib_version_group, nsmapper, what):
+    def send_to_subscribers(self, payload: Union[MessageType, etree_._Element],
+                            action: str,
+                            mdib_version_group,
+                            what):
         subscribers = self._get_subscriptions_for_action(action)
+        if isinstance(payload, etree_._Element):
+            body_node = payload
+        else:
+            nsh = self.sdc_definitions.data_model.ns_helper
+            namespaces = [nsh.PM, nsh.MSG]
+            namespaces.extend(payload.additional_namespaces)
+            my_ns_map = nsh.partial_map(*namespaces)
+            body_node = payload.as_etree_node(payload.NODETYPE, my_ns_map)
+
         self.sent_to_subscribers = (action, mdib_version_group, body_node)  # update observable
         tasks = []
         for subscriber in subscribers:
-            tasks.append(self._async_send_notification_report(
-                subscriber, body_node, action,
-                nsmapper.partial_map(nsmapper.PM, nsmapper.S12, nsmapper.WSA, nsmapper.WSE)))
+            tasks.append(self._async_send_notification_report(subscriber, body_node, action))
 
         if what:
             self._logger.debug('{}: sending report to {}', what, [s.notify_to_address for s in subscribers])
@@ -184,10 +196,12 @@ class SubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             if isinstance(element, Exception):
                 self._logger.warning(f'{what}: _send_to_subscribers {subscribers[counter]} returned {element}')
 
-    async def _async_send_notification_report(self, subscription, body_node, action, doc_nsmap):
+    async def _async_send_notification_report(self, subscription,
+                                              body_node: etree_._Element,
+                                              action: str):
         try:
             self._logger.debug(f'send notification report {action} to {subscription}')
-            await subscription.async_send_notification_report(self._msg_factory, body_node, action, doc_nsmap)
+            await subscription.async_send_notification_report(body_node, action)
             self._logger.debug(f' done: send notification report {action} to {subscription}')
         except aiohttp.client_exceptions.ClientConnectorError as ex:
             # this is an error related to the connection => log error and continue

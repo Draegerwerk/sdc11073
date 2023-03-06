@@ -5,21 +5,20 @@ from typing import TYPE_CHECKING, Optional, List, Protocol, runtime_checkable
 from .porttypebase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding
 from .porttypebase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation, msg_prefix
 from ...dispatch import DispatchKey
-from ...pysoap.msgreader import OperationRequest
 
 if TYPE_CHECKING:
-    from ..sco import OperationDefinition, InvocationState
+    from ..sco import OperationDefinition
     from enum import Enum
     from ...namespaces import NamespaceHelper
 
 
 @runtime_checkable
 class SetServiceProtocol(Protocol):
-    def notify_operation(self, operation: OperationDefinition,
+    def notify_operation(self,
+                         operation: OperationDefinition,
                          transaction_id: int,
-                         invocation_state: InvocationState,
+                         invocation_state,
                          mdib_version_group,
-                         nsmapper: NamespaceHelper,
                          error: Optional[Enum] = None,
                          error_message: Optional[str] = None):
         ...
@@ -85,11 +84,9 @@ class SetService(ServiceWithOperations):
         data_model = self._sdc_definitions.data_model
         msg_node = request_data.message_data.p_msg.msg_node
         activate = data_model.msg_types.Activate.from_node(msg_node)
-        arg_values = [arg.ArgValue for arg in activate.Argument]
         # ToDo: convert arguments to specific python types
-        operation_request = OperationRequest(activate.OperationHandleRef, arg_values)
-        return self._handle_operation_request(request_data.message_data, 'ActivateResponse',
-                                              operation_request)
+        response = data_model.msg_types.ActivateResponse()
+        return self._handle_operation_request(request_data, activate, response)
 
     def _on_set_value(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetValue calls.
@@ -98,10 +95,8 @@ class SetService(ServiceWithOperations):
         self._logger.debug('_on_set_value')
         msg_node = request_data.message_data.p_msg.msg_node
         set_value = data_model.msg_types.SetValue.from_node(msg_node)
-        operation_request = OperationRequest(set_value.OperationHandleRef,
-                                             set_value.RequestedNumericValue)
-        ret = self._handle_operation_request(request_data.message_data, 'SetValueResponse', operation_request)
-        return ret
+        response = data_model.msg_types.SetValueResponse()
+        return self._handle_operation_request(request_data, set_value, response)
 
     def _on_set_string(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetString calls.
@@ -110,10 +105,8 @@ class SetService(ServiceWithOperations):
         self._logger.debug('_on_set_string')
         msg_node = request_data.message_data.p_msg.msg_node
         set_string = data_model.msg_types.SetString.from_node(msg_node)
-        operation_request = OperationRequest(set_string.OperationHandleRef,
-                                             set_string.RequestedStringValue)
-        return self._handle_operation_request(request_data.message_data, 'SetStringResponse',
-                                              operation_request)
+        response = data_model.msg_types.SetStringResponse()
+        return self._handle_operation_request(request_data, set_string, response)
 
     def _on_set_metric_state(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetMetricState calls.
@@ -122,11 +115,8 @@ class SetService(ServiceWithOperations):
         self._logger.debug('_on_set_metric_state')
         msg_node = request_data.message_data.p_msg.msg_node
         set_metric_state = data_model.msg_types.SetMetricState.from_node(msg_node)
-        operation_request = OperationRequest(set_metric_state.OperationHandleRef,
-                                             set_metric_state.ProposedMetricState)
-        return self._handle_operation_request(request_data.message_data,
-                                              'SetMetricStateResponse',
-                                              operation_request)
+        response = data_model.msg_types.ActivateResponse()
+        return self._handle_operation_request(request_data, set_metric_state, response)
 
     def _on_set_alert_state(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetMetricState calls.
@@ -134,12 +124,9 @@ class SetService(ServiceWithOperations):
         data_model = self._sdc_definitions.data_model
         self._logger.debug('_on_set_alert_state')
         msg_node = request_data.message_data.p_msg.msg_node
-        set_metric_state = data_model.msg_types.SetAlertState.from_node(msg_node)
-        operation_request = OperationRequest(set_metric_state.OperationHandleRef,
-                                             set_metric_state.ProposedAlertState)
-        return self._handle_operation_request(request_data.message_data,
-                                              'SetAlertStateResponse',
-                                              operation_request)
+        set_alert_state = data_model.msg_types.SetAlertState.from_node(msg_node)
+        response = data_model.msg_types.ActivateResponse()
+        return self._handle_operation_request(request_data, set_alert_state, response)
 
     def _on_set_component_state(self, request_data):  # pylint:disable=unused-argument
         """Handler for SetComponentState calls.
@@ -148,18 +135,14 @@ class SetService(ServiceWithOperations):
         self._logger.debug('_on_set_component_state')
         msg_node = request_data.message_data.p_msg.msg_node
         set_component_state = data_model.msg_types.SetComponentState.from_node(msg_node)
-        operation_request = OperationRequest(set_component_state.OperationHandleRef,
-                                             set_component_state.ProposedComponentState)
-        return self._handle_operation_request(request_data.message_data,
-                                              'SetComponentStateResponse',
-                                              operation_request)
+        response = data_model.msg_types.ActivateResponse()
+        return self._handle_operation_request(request_data, set_component_state, response)
 
     def notify_operation(self,
                          operation: OperationDefinition,
                          transaction_id: int,
-                         invocation_state: InvocationState,
+                         invocation_state,
                          mdib_version_group,
-                         nsmapper: NamespaceHelper,
                          error: Optional[Enum] = None,
                          error_message: Optional[str] = None):
         data_model = self._sdc_definitions.data_model
@@ -189,7 +172,7 @@ class SetService(ServiceWithOperations):
         self._logger.info(
             'notify_operation transaction={} operation_handle_ref={}, operationState={}, error={}, errorMessage={}',
             transaction_id, operation_handle_ref, invocation_state, error, error_message)
-        subscription_mgr.send_to_subscribers(body_node, report.action, mdib_version_group, nsmapper, 'notify_operation')
+        subscription_mgr.send_to_subscribers(body_node, report.action, mdib_version_group, 'notify_operation')
 
     def handled_actions(self) -> List[str]:
         return [self._sdc_device.sdc_definitions.Actions.OperationInvokedReport]

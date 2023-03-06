@@ -27,11 +27,10 @@ class DescriptionEventService(DPWSPortTypeBase):
                                 created: List[AbstractDescriptorContainer],
                                 deleted: List[AbstractDescriptorContainer],
                                 updated_states: List[AbstractStateContainer],
-                                nsmapper: NamespaceHelper,
                                 mdib_version_group):
         subscription_mgr = self.hosting_service.subscriptions_manager
         action = self._sdc_definitions.Actions.DescriptionModificationReport
         body_node = self._msg_factory.mk_description_modification_report_body(
             mdib_version_group, updated, created, deleted, updated_states)
         self._logger.debug('sending DescriptionModificationReport upd={} crt={} del={}', updated, created, deleted)
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, nsmapper, 'send_descriptor_updates')
+        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, 'send_descriptor_updates')

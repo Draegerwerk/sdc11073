@@ -27,6 +27,7 @@ from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..namespaces import EventingActions
 from ..xml_types import mex_types
+from ..xml_types.addressing import HeaderInformationBlock
 
 
 class HostDescription:
@@ -58,8 +59,8 @@ class HostedServiceDescription:
 
     def read_metadata(self, soap_client):
         payload = mex_types.GetMetadata()
-        created_message = self._msg_factory.mk_soap_message(self._endpoint_address,
-                                                            payload)
+        inf = HeaderInformationBlock(action=payload.action, addr_to=self._endpoint_address)
+        created_message = self._msg_factory.mk_soap_message(inf, payload=payload)
         message_data = soap_client.post_message_to(self._url.path,
                                                    created_message,
                                                    msg=f'<{self.service_id}> read_metadata')
@@ -504,9 +505,10 @@ class SdcClient:
 
             self._logger.info('Peer Certificate: {}', self.peer_certificate)
         nsh = self.sdc_definitions.data_model.ns_helper
-        message = self._msg_factory.mk_soap_message_etree_payload(self._device_location,
-                                                                  f'{nsh.WXF.namespace}/Get',
-                                                                  payload_element=None)
+        inf = HeaderInformationBlock(action=f'{nsh.WXF.namespace}/Get',
+                                     addr_to=self._device_location)
+        message = self._msg_factory.mk_soap_message_etree_payload(inf, payload_element=None)
+
         received_message_data = wsc.post_message_to(_url.path, message, msg='getMetadata')
         meta_data = mex_types.Metadata.from_node(received_message_data.p_msg.body_node)
         return meta_data

@@ -215,25 +215,21 @@ class _OperationsWorker(threading.Thread):
                                       operation.__class__.__name__, operation.handle, operation_request.argument)
                     # duplicate the WAIT response to the operation request as notification. Standard requires this.
                     self._set_service.notify_operation(
-                        operation, tr_id, InvocationState.WAIT,
-                        self._mdib.mdib_version_group, self._mdib.nsmapper)
+                        operation, tr_id, InvocationState.WAIT, self._mdib.mdib_version_group)
                     time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
                     self._set_service.notify_operation(
-                        operation, tr_id, InvocationState.START,
-                        self._mdib.mdib_version_group, self._mdib.nsmapper)
+                        operation, tr_id, InvocationState.START, self._mdib.mdib_version_group)
                     try:
                         operation.execute_operation(request, operation_request)
                         self._logger.info('{}: successfully finished operation "{}"', operation.__class__.__name__,
                                           operation.handle)
                         self._set_service.notify_operation(
-                            operation, tr_id, InvocationState.FINISHED,
-                            self._mdib.mdib_version_group, self._mdib.nsmapper)
+                            operation, tr_id, InvocationState.FINISHED, self._mdib.mdib_version_group)
                     except Exception as ex:
                         self._logger.error('{}: error executing operation "{}": {}', operation.__class__.__name__,
                                            operation.handle, traceback.format_exc())
                         self._set_service.notify_operation(
-                            operation, tr_id, InvocationState.FAILED,
-                            self._mdib.mdib_version_group, self._mdib.nsmapper,
+                            operation, tr_id, InvocationState.FAILED, self._mdib.mdib_version_group,
                             error=InvocationError.OTHER, error_message=repr(ex))
             except Exception:
                 self._logger.error('{}: unexpected error while handling operation: {}',

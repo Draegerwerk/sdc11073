@@ -24,7 +24,6 @@ class WaveformService(DPWSPortTypeBase):
         return [self._sdc_device.mdib.sdc_definitions.Actions.Waveform]
 
     def send_realtime_samples_report(self, realtime_sample_states: List[AbstractStateContainer],
-                                     nsmapper: NamespaceHelper,
                                      mdib_version_group):
         data_model = self._sdc_definitions.data_model
         nsh = data_model.ns_helper
@@ -32,7 +31,5 @@ class WaveformService(DPWSPortTypeBase):
         report = data_model.msg_types.WaveformStream()
         report.set_mdib_version_group(mdib_version_group)
         report.State.extend(realtime_sample_states)
-        ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
-        body_node =  report.as_etree_node(report.NODETYPE, ns_map)
         self._logger.debug('sending real time samples report {}', realtime_sample_states)
-        subscription_mgr.send_to_subscribers(body_node, report.action, mdib_version_group, nsmapper, None)
+        subscription_mgr.send_to_subscribers(report, report.action, mdib_version_group, None)

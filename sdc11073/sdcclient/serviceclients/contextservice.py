@@ -2,6 +2,8 @@ from concurrent.futures import Future
 from typing import List
 from .serviceclientbase import HostedServiceClient, GetRequestResult
 from ...exceptions import ApiUsageError
+from ...xml_types.addressing import HeaderInformationBlock
+
 
 class ContextServiceClient(HostedServiceClient):
     subscribeable_actions = ('EpisodicContextReport', 'PeriodicContextReport')
@@ -39,7 +41,8 @@ class ContextServiceClient(HostedServiceClient):
         request = data_model.msg_types.SetContextState()
         request.OperationHandleRef = operation_handle
         request.ProposedContextState.extend(proposed_context_states)
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
+        inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
+        message = self._msg_factory.mk_soap_message(inf, payload=request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def get_context_states(self, handles=None, request_manipulator=None) -> GetRequestResult:
@@ -50,11 +53,11 @@ class ContextServiceClient(HostedServiceClient):
         request = data_model.msg_types.GetContextStates()
         if handles is not None:
             request.HandleRef.extend(handles)
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
+        inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
+        message = self._msg_factory.mk_soap_message(inf, payload=request)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
         cls = received_message_data.msg_reader._msg_types.GetContextStatesResponse
         report = cls.from_node(received_message_data.p_msg.msg_node)
-
         return GetRequestResult(received_message_data, report)
 
     def get_context_state_by_identification(self, identifications, context_type=None,
@@ -69,7 +72,8 @@ class ContextServiceClient(HostedServiceClient):
         if identifications is not None:
             request.Identification.extend(identifications)
         request.ContextType = context_type
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
+        inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
+        message = self._msg_factory.mk_soap_message(inf, payload=request)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
         cls = data_model.msg_types.GetContextStatesByIdentificationResponse
         report = cls.from_node(received_message_data.p_msg.msg_node)
@@ -85,7 +89,8 @@ class ContextServiceClient(HostedServiceClient):
         data_model = self._sdc_definitions.data_model
         request = data_model.msg_types.GetContextStatesByFilter()
         request.Filter.extend(filters)
-        message = self._msg_factory.mk_soap_message(self.endpoint_reference.Address, request)
+        inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
+        message = self._msg_factory.mk_soap_message(inf, payload=request)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
         cls = data_model.msg_types.GetContextStatesByFilterResponse
         report = cls.from_node(received_message_data.p_msg.msg_node)

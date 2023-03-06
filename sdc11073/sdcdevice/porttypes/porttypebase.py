@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 from collections import namedtuple
+from typing import TYPE_CHECKING
 
 from lxml import etree as etree_
 
 from ... import loghelper
-from sdc11073.xml_types.msg_types import InvocationState, InvocationError
 from ...namespaces import default_ns_helper as ns_hlp
+
+if TYPE_CHECKING:
+    from ...pysoap.msgfactory import CreatedMessage
 
 msg_prefix = ns_hlp.MSG.prefix
 
@@ -143,34 +148,34 @@ class DPWSPortTypeBase:
 
 
 class ServiceWithOperations(DPWSPortTypeBase):
-    def _handle_operation_request(self, message_data, response_name, operation_request):
-        """
-        It enqueues an operation and generate the expected operation invoked report.
-        :param message_data:
-        :param response_name:
-        :param operation_request:
-        :return:
-        """
-        action = getattr(self.actions, response_name)
-        invocation_error = None
-        error_text = None
-        operation = self._sdc_device.get_operation_by_handle(operation_request.operation_handle)
-        if operation is None:
-            error_text = f'no handler registered for "{operation_request.operation_handle}"'
-            self._logger.warn('handle operation request: {}', error_text)
-            transaction_id = 0
-            invocation_state = InvocationState.FAILED
-            invocation_error = InvocationError.INVALID_VALUE
-        else:
-            transaction_id = self._sdc_device.enqueue_operation(operation, message_data.p_msg, operation_request)
-            self._logger.info('operation request "{}" enqueued, transaction id = {}',
-                              operation_request.operation_handle, transaction_id)
-            invocation_state = InvocationState.WAIT
 
-        response = self._sdc_device.msg_factory.mk_operation_response_message(
-            message_data, action, response_name, self._mdib.mdib_version_group,
-            transaction_id, invocation_state, invocation_error, error_text)
-        return response
+    def _handle_operation_request(self, request_data, request, set_response) -> CreatedMessage:
+        """
+
+        :param request_data:
+        :param request: AbstractSet
+        :param set_response: AbstractSetResponse
+        :return: CreatedMessage
+        """
+        data_model = self._sdc_definitions.data_model
+        operation = self._sdc_device.get_operation_by_handle(request.OperationHandleRef)
+        if operation is None:
+            error_text = f'no handler registered for "{request.OperationHandleRef}"'
+            self._logger.warn('handle operation request: {}', error_text)
+            set_response.InvocationInfo.TransactionId = 0
+            set_response.InvocationInfo.InvocationState = data_model.msg_types.InvocationState.FAILED
+            set_response.InvocationInfo.InvocationError = data_model.msg_types.InvocationError.INVALID_VALUE
+        else:
+            set_response.InvocationInfo.TransactionId = self._sdc_device.enqueue_operation(
+                operation, request_data.message_data.p_msg, request)
+            self._logger.info('operation request "{}" enqueued, transaction id = {}',
+                              request.OperationHandleRef, set_response.InvocationInfo.TransactionId)
+            set_response.InvocationInfo.InvocationState = data_model.msg_types.InvocationState.WAIT
+
+        set_response.MdibVersion = self._mdib.mdib_version
+        set_response.SequenceId = self._mdib.sequence_id
+        set_response.InstanceId = self._mdib.instance_id
+        return self._sdc_device.msg_factory.mk_reply_soap_message(request_data, set_response)
 
 
 def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_message_name, fault):

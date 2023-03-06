@@ -118,3 +118,4 @@ class MessageType(XMLTypeBase):
     in the soap header."""
     NODETYPE = None
     action = None
+    additional_namespaces = [] # derived class list namespaces other than PM and MSG
