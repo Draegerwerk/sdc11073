@@ -121,6 +121,10 @@ class HeaderInformationBlock(XMLTypeBase):
             return None
         return self.Action.text
 
+    def set_to(self, to):
+        self.To = MustUnderStandTextElement(to)
+
+
     def mk_reply_header_block(self, action: Optional[str] = None,
                               message_id: Optional[str] = None,
                               addr_to: Optional[str] = None) -> HeaderInformationBlock:

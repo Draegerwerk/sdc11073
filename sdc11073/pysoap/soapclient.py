@@ -24,7 +24,7 @@ from ..pysoap.soapenvelope import Fault
 if TYPE_CHECKING:
     from ssl import SSLContext
     from ..pysoap.msgfactory import CreatedMessage
-    from ..pysoap.msgreader import MessageReaderClient
+    from ..pysoap.msgreader import MessageReader
     from ..definitions_base import BaseDefinitions
     from ..sdcclient.manipulator import RequestManipulator
     from ..loghelper import LoggerAdapter
@@ -72,7 +72,7 @@ class SoapClient:
                  logger: LoggerAdapter,
                  ssl_context: [SSLContext, None],
                  sdc_definitions: BaseDefinitions,
-                 msg_reader: MessageReaderClient,
+                 msg_reader: MessageReader,
                  supported_encodings: Optional[List[str]] = None,
                  request_encodings: Optional[List[str]] = None,
                  chunked_requests: Optional[bool] = False):

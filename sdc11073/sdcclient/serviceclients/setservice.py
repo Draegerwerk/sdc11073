@@ -1,7 +1,7 @@
 from concurrent.futures import Future
 
 from .serviceclientbase import HostedServiceClient
-from ...xml_types.addressing import HeaderInformationBlock
+from ...xml_types.addressing_types import HeaderInformationBlock
 
 class SetServiceClient(HostedServiceClient):
     subscribeable_actions = ('OperationInvokedReport',)

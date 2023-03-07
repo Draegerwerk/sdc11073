@@ -27,7 +27,8 @@ from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..namespaces import EventingActions
 from ..xml_types import mex_types
-from ..xml_types.addressing import HeaderInformationBlock
+from ..xml_types.addressing_types import HeaderInformationBlock
+from ..xml_types.wsd_types import ProbeType, ProbeMatchesType
 
 
 class HostDescription:
@@ -257,7 +258,7 @@ class SdcClient:
             self.client('Set').register_mdib(mdib)
         if self.client('Context') is not None:
             self.client('Context').register_mdib(mdib)
-        self._msg_factory.register_mdib(mdib)
+        # self._msg_factory.register_mdib(mdib)
 
     @property
     def mdib(self):
@@ -512,6 +513,19 @@ class SdcClient:
         received_message_data = wsc.post_message_to(_url.path, message, msg='getMetadata')
         meta_data = mex_types.Metadata.from_node(received_message_data.p_msg.body_node)
         return meta_data
+
+    def send_probe(self):
+        _url = urlparse(self._device_location)
+        wsc = self.get_soap_client(self._device_location)
+        probe = ProbeType()
+        inf = HeaderInformationBlock(action=probe.action,
+                                     addr_to=self._device_location)
+
+        message = self._msg_factory.mk_soap_message(inf, payload=probe)
+        received_message_data = wsc.post_message_to(_url.path, message, msg='Probe')
+        probe_matches = ProbeMatchesType.from_node(received_message_data.p_msg.msg_node)
+        return probe_matches
+
 
     def get_soap_client(self, address):
         _url = urlparse(address)

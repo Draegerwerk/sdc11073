@@ -5,7 +5,7 @@ from io import BytesIO
 from lxml import etree as etree_
 
 from ..dispatch import DispatchKeyRegistry, DispatchKey
-from sdc11073.xml_types.addressing import EndpointReferenceType
+from sdc11073.xml_types.addressing_types import EndpointReferenceType
 from sdc11073.xml_types.dpws_types import HostedServiceType
 from ..namespaces import EventingActions
 from ..namespaces import default_ns_helper as ns_hlp

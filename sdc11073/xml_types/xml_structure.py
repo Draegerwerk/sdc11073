@@ -1052,6 +1052,48 @@ class AnyEtreeNodeListProperty(_ElementListProperty):
         return f'{self.__class__.__name__} in subelement {self._sub_element_name}'
 
 
+class NodeTextListProperty(_ElementListProperty):
+    """ The handled data is a list of words (string without whitespace). The xml text is the joined list of words.
+    """
+
+    def __init__(self, sub_element_name, value_class, is_optional=False):
+        super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)),
+                         is_optional=is_optional)
+
+    def get_py_value_from_node(self, instance, node):
+        try:
+            sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
+            if sub_node.text is not None:
+                return sub_node.text.split()
+        except ElementNotFoundException:
+            pass
+        return self._default_py_value
+
+    def update_xml_value(self, instance, node):
+        try:
+            py_value = getattr(instance, self._local_var_name)
+        except AttributeError:  # set to None (it is in the responsibility of the called method to do the right thing)
+            py_value = None
+
+        if py_value is None:
+            if not self._sub_element_name:
+                # update text of this element
+                node.text = ''
+            else:
+                if self.is_optional:
+                    sub_node = node.find(self._sub_element_name)
+                    if sub_node is not None:
+                        node.remove(sub_node)
+                else:
+                    if MANDATORY_VALUE_CHECKING and not self.is_optional:
+                        raise ValueError(f'mandatory value {self._sub_element_name} missing')
+                    sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
+                    sub_node.text = None
+        else:
+            sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
+            sub_node.text = ' '.join(py_value)
+
+
 class NodeTextQNameListProperty(_ElementListProperty):
     """ The handled data is a list of qualified names. The xml text is the joined list of qnames in the
     form prefix:localname"""

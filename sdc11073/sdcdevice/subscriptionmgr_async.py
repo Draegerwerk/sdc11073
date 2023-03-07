@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Union
 import aiohttp.client_exceptions
 from lxml import etree as etree_
 
-from sdc11073.xml_types.addressing import HeaderInformationBlock
+from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from .subscriptionmgr import SubscriptionsManagerBase, SubscriptionBase
 from .. import observableproperties
 from ..pysoap.soapclient import HTTPReturnCodeError
@@ -19,7 +19,7 @@ from ..xml_types import eventing_types as evt_types
 
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
-    from ..pysoap.msgfactory import MessageFactoryDevice
+    from ..pysoap.msgfactory import MessageFactory
     from .subscriptionmgr import SoapClientPool
     from ..dispatch import RequestData
     from ..xml_types.basetypes import MessageType
@@ -147,7 +147,7 @@ class SubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
 
     def __init__(self,
                  sdc_definitions: BaseDefinitions,
-                 msg_factory: MessageFactoryDevice,
+                 msg_factory: MessageFactory,
                  soap_client_pool: SoapClientPool,
                  max_subscription_duration: [float, None] = None,
                  log_prefix: str = None,

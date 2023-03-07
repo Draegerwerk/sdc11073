@@ -11,7 +11,7 @@ from .subscriptionmgr import SoapClientPool
 from .waveforms import WaveformSender
 from .. import loghelper
 from .. import observableproperties as properties
-from sdc11073.xml_types.addressing import EndpointReferenceType
+from sdc11073.xml_types.addressing_types import EndpointReferenceType
 from ..dispatch import DispatchKey, DispatchKeyRegistry
 from ..dispatch import PathElementRegistry
 from ..dispatch import RequestData, MessageConverterMiddleware
@@ -21,6 +21,8 @@ from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..location import SdcLocation
 from ..xml_types import mex_types
+from ..xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
+from ..namespaces import WSA_ANONYMOUS
 
 if TYPE_CHECKING:
     from ..pysoap.msgfactory import CreatedMessage
@@ -257,12 +259,20 @@ class SdcDevice:
                 if e.namespace == q_name.namespace and e not in needed_namespaces:
                     needed_namespaces.append(e)
         response = self.msg_factory.mk_reply_soap_message(request_data, metadata, needed_namespaces)
-        # from lxml.etree import tostring
-        # print (tostring((response.p_msg.payload_element),pretty_print=True).decode('utf-8'))
         return response
 
     def _on_probe_request(self, request):
-        response = self.msg_factory.mk_probe_matches_response_message(request.message_data, self.get_xaddrs())
+        _nsm = self._mdib.nsmapper
+        probe_matches = ProbeMatchesType()
+        probe_match = ProbeMatchType()
+        probe_match.Types.append(_nsm.dpwsTag('Device'))
+        probe_match.Types.append(_nsm.mdpwsTag('MedicalDevice'))
+        probe_match.XAddrs.extend(self.get_xaddrs())
+        probe_matches.ProbeMatch.append(probe_match)
+        needed_namespaces = [_nsm.DPWS, _nsm.MDPWS]
+        response = self.msg_factory.mk_reply_soap_message(request, probe_matches, needed_namespaces)
+        response.p_msg.header_info_block.set_to(WSA_ANONYMOUS)
+        #response = self.msg_factory.mk_probe_matches_response_message(request.message_data, self.get_xaddrs())
         return response
 
     def set_location(self, location: SdcLocation,

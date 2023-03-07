@@ -431,6 +431,34 @@ class MdDescription(PropertyBasedPMType):
     _props = ['Mds']
 
 
+class MdState(PropertyBasedPMType):
+    State = cp.ContainerListProperty(pm.State,
+                                     value_class=AbstractStateContainer,
+                                     cls_getter=get_state_container_class,
+                                     ns_helper=default_ns_helper
+                                     )
+    _props = ['State']
+
+
+# class Mdib(PropertyBasedPMType):
+#     Extension = cp.ExtensionNodeProperty(ext.Extension)
+#     MdDescription = cp.SubElementProperty(pm.MdDescription, value_class=MdDescription)
+#     MdState = cp.SubElementProperty(pm.MdState, value_class=MdState)
+#     _props = ['Extension', 'MdDescription', 'MdState']
+#
+
+class GetMdib(AbstractGet):
+    NODETYPE = msg.GetMdib
+    action = SDC_v1_Definitions.Actions.GetMdib
+
+
+class GetMdibResponse(AbstractGetResponse):
+    NODETYPE = msg.GetMdibResponse
+    action = SDC_v1_Definitions.Actions.GetMdibResponse
+    Mdib = cp.AnyEtreeNodeProperty(None)
+    _props = ['Mdib']
+
+
 class GetMdDescription(AbstractGet):
     NODETYPE = msg.GetMdDescription
     action = SDC_v1_Definitions.Actions.GetMdDescription
@@ -445,28 +473,6 @@ class GetMdDescriptionResponse(AbstractGetResponse):
                                           value_class=MdDescription,
                                           default_py_value=MdDescription())
     _props = ['MdDescription']
-
-
-class MdState(PropertyBasedPMType):
-    State = cp.ContainerListProperty(pm.State,
-                                     value_class=AbstractStateContainer,
-                                     cls_getter=get_state_container_class,
-                                     ns_helper=default_ns_helper
-                                     )
-    _props = ['State']
-
-
-class GetMdib(AbstractGet):
-    NODETYPE = msg.GetMdib
-    action = SDC_v1_Definitions.Actions.GetMdib
-
-
-class GetMdibResponse(AbstractGetResponse):
-    NODETYPE = msg.GetMdibResponse
-    action = SDC_v1_Definitions.Actions.GetMdibResponse
-    Mdib = cp.AnyEtreeNodeProperty(None)
-    _props = ['Mdib']
-
 
 class GetMdState(AbstractGet):
     NODETYPE = msg.GetMdState

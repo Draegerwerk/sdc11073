@@ -1,5 +1,5 @@
 from . import xml_structure as cp
-from .addressing import EndpointReferenceType
+from .addressing_types import EndpointReferenceType
 from .dataconverters import DurationConverter
 from .dpws_types import DeviceEventingFilterDialectURI
 from .basetypes import XMLTypeBase, ElementWithText, MessageType

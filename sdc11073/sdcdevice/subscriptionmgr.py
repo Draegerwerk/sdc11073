@@ -16,7 +16,7 @@ from ..httpserver.compression import CompressionHandler
 from .. import loghelper
 from .. import multikey
 from .. import observableproperties
-from sdc11073.xml_types.addressing import HeaderInformationBlock
+from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from ..etc import apply_map, short_filter_string
 from ..pysoap.soapclient import HTTPReturnCodeError
 from ..pysoap.soapenvelope import Fault, faultcodeEnum
@@ -25,7 +25,7 @@ from ..xml_types import eventing_types as evt_types, isoduration
 
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
-    from ..pysoap.msgfactory import MessageFactoryDevice, CreatedMessage
+    from ..pysoap.msgfactory import MessageFactory, CreatedMessage
     from ..dispatch import RequestData
     from ..xml_types.basetypes import MessageType
     from urllib.parse import SplitResult
@@ -70,7 +70,7 @@ class SubscriptionBase:
                  accepted_encodings: List[str],
                  base_urls: List[SplitResult],
                  max_subscription_duration: int,
-                 msg_factory: MessageFactoryDevice,
+                 msg_factory: MessageFactory,
                  log_prefix: str):
         """
 
@@ -269,7 +269,7 @@ class SubscriptionsManagerBase:
 
     def __init__(self,
                  sdc_definitions: BaseDefinitions,
-                 msg_factory: MessageFactoryDevice,
+                 msg_factory: MessageFactory,
                  soap_client_pool: SoapClientPool,
                  max_subscription_duration: [float, None] = None,
                  log_prefix: str = None,

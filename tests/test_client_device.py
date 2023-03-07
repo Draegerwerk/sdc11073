@@ -25,7 +25,7 @@ from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope
 from sdc11073.pysoap.msgfactory import CreatedMessage
-from sdc11073.xml_types.addressing import HeaderInformationBlock
+from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcclient.components import SdcClientComponents
 from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
@@ -90,6 +90,14 @@ def runtest_basic_connect(unit_test, sdc_client):
     context_service = sdc_client.client('Context')
     get_result = context_service.get_context_states()
     unit_test.assertGreater(len(get_result.result.ContextState), 0)
+
+def runtest_directed_probe(unit_test, sdc_client, sdc_device):
+    probe_matches = sdc_client.send_probe()
+    unit_test.assertEqual(1, len(probe_matches.ProbeMatch))
+    probe_match = probe_matches.ProbeMatch[0]
+    unit_test.assertEqual(1, len(probe_match.XAddrs))
+    unit_test.assertEqual(probe_match.XAddrs[0], sdc_device.get_xaddrs()[0])
+    print (probe_matches)
 
 
 def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
@@ -283,6 +291,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_basic_connect(self):
         runtest_basic_connect(self, self.sdc_client)
+        runtest_directed_probe(self, self.sdc_client, self.sdc_device)
+
 
     def test_renew_get_status(self):
         for s in self.sdc_client._subscription_mgr.subscriptions.values():

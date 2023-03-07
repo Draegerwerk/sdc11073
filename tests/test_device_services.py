@@ -4,7 +4,7 @@ import unittest
 from lxml import etree as etree_
 
 from sdc11073.xml_types import pm_qnames as pm
-from sdc11073.xml_types.addressing import HeaderInformationBlock
+from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup

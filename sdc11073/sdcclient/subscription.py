@@ -16,7 +16,7 @@ from ..namespaces import EventingActions
 from ..namespaces import default_ns_helper as ns_hlp
 from ..pysoap.soapclient import HTTPReturnCodeError, HTTPException
 from ..pysoap.soapenvelope import SoapResponseException
-from ..xml_types.addressing import HeaderInformationBlock
+from ..xml_types.addressing_types import HeaderInformationBlock
 from ..xml_types import eventing_types as evt_types
 
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds

@@ -139,6 +139,7 @@ class Fault(MessageType):
     # Schema says Detail is an "any" type. Here it is modelled as a string that becomes the text of the Detail node
     Detail = struct.NodeStringProperty(ns_hlp.s12Tag('Detail'), is_optional=True)
     _props = ['Code', 'Reason', 'Node', 'Role', 'Detail']
+    additional_namespaces = [ns_hlp.XML, ns_hlp.WSE]
 
     def add_reason_text(self, text: str, lang: str = 'en-US'):
         txt = reasontext()

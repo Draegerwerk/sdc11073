@@ -10,8 +10,8 @@ from lxml import etree as etree_
 
 from sdc11073.namespaces import QN_TYPE, text_to_qname, default_ns_helper
 from .soapenvelope import Fault, faultcodeEnum, ReceivedSoapMessage
-from sdc11073.xml_types.addressing import HeaderInformationBlock
-from sdc11073.xml_types.addressing import EndpointReferenceType
+from sdc11073.xml_types.addressing_types import HeaderInformationBlock
+from sdc11073.xml_types.addressing_types import EndpointReferenceType
 from ..exceptions import ValidationError
 from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator
@@ -212,19 +212,6 @@ class MessageReader:
                 self._logger.error('{}_read_md_state_node: cannot create: {}', self._log_prefix, ex)
         return state_containers
 
-    def _mk_endpoint_reference(self, root_node):
-        if root_node is None:
-            return None
-        ns_hlp = self.ns_hlp
-        address_node = root_node.find(ns_hlp.wsaTag('Address'))
-        address = address_node.text
-        reference_parameters_node = root_node.find(ns_hlp.wsaTag('ReferenceParameters'))
-        ret = EndpointReferenceType()
-        ret.Address = address
-        if reference_parameters_node  is not None:
-            return ret.ReferenceParameters.extend(reference_parameters_node[:])
-        return ret
-
     def _mk_descriptor_container_from_node(self, node, parent_handle):
         """
         :param node: a descriptor node
@@ -267,9 +254,6 @@ class MessageReader:
     def _validate_node(self, node):
         if self._validate:
             validate_node(node, self._xml_schema, self._logger)
-
-
-class MessageReaderClient(MessageReader):
 
     @staticmethod
     def read_wsdl(wsdl_string: str) -> etree_.ElementTree:

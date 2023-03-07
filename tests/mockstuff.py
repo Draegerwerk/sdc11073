@@ -14,7 +14,7 @@ from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.sdcdevice import SdcDevice
 from sdc11073.sdcdevice.subscriptionmgr import DevSubscription
 from sdc11073.xml_types import pm_types, pm_qnames as pm
-from sdc11073.xml_types.addressing import HeaderInformationBlock
+from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.dpws_types import ThisModelType, ThisDeviceType
 from sdc11073.xml_types.eventing_types import Subscribe
 

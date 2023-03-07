@@ -5,7 +5,7 @@ from math import isclose
 
 from lxml import etree as etree_
 
-from .xml_structure import NodeStringProperty
+from .xml_structure import NodeStringProperty, NodeTextListProperty
 
 class StringEnum(str, enum.Enum):
 
@@ -104,6 +104,18 @@ class ElementWithText(XMLTypeBase):
     """
     NODETYPE = None
     text = NodeStringProperty()  # this is the text of the node. Here attribute is lower case!
+    _props = ['text']
+
+    def __init__(self, text=None):
+        super().__init__()
+        self.text = text
+
+class ElementWithTextList(XMLTypeBase):
+    """An Element with text, which is alist of words(string without whitespace).
+    """
+    # this is the text list of the node. Here attribute is lower case!
+    text = NodeTextListProperty(sub_element_name=None,
+                                value_class=str)
     _props = ['text']
 
     def __init__(self, text=None):

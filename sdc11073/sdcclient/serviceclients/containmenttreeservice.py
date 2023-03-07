@@ -1,5 +1,5 @@
 from .serviceclientbase import HostedServiceClient, GetRequestResult
-from ...xml_types.addressing import HeaderInformationBlock
+from ...xml_types.addressing_types import HeaderInformationBlock
 
 class CTreeServiceClient(HostedServiceClient):
 

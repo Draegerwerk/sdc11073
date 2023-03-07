@@ -11,7 +11,7 @@ from ...exceptions import ApiUsageError
 from ...pysoap.msgreader import ReceivedMessage
 
 if TYPE_CHECKING:
-    from sdc11073.xml_types.addressing import EndpointReferenceType
+    from sdc11073.xml_types.addressing_types import EndpointReferenceType
 
 
 class GetRequestResult:
