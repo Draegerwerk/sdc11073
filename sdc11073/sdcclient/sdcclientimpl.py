@@ -384,6 +384,10 @@ class SdcClient:
     def localization_service_client(self):
         return self.client('LocalizationService')
 
+    @property
+    def subscription_mgr(self):
+        return self._subscription_mgr
+
     def start_all(self, not_subscribed_actions=None,
                   subscriptions_check_interval=None,
                   subscribe_periodic_reports=False,

@@ -15,7 +15,9 @@ class ScopesType(ElementWithTextList):
     _props = ['MatchBy']
 
 
-class HelloType(XMLTypeBase):
+class HelloType(MessageType):
+    NODETYPE = wsd_tag('Hello')
+    action = f'{default_ns_helper.WSD.namespace}/Hello'
     EndpointReference = struct.SubElementProperty(wsa_tag('EndpointReference'),
                                                   value_class=EndpointReferenceType,
                                                   default_py_value=EndpointReferenceType())
@@ -106,3 +108,11 @@ class ResolveMatchesType(XMLTypeBase):
                                                value_class=ResolveMatchType,
                                              is_optional=True)
     _props = ['ResolveMatch']
+
+
+class AppSequenceType(XMLTypeBase):
+    # used in soap header
+    InstanceId = struct.IntegerAttributeProperty('InstanceId', is_optional=False)
+    SequenceId = struct.AnyURIAttributeProperty('SequenceId')
+    MessageNumber = struct.IntegerAttributeProperty('MessageNumber', is_optional=False)
+    _props = ['InstanceId', 'SequenceId', 'MessageNumber']

@@ -118,9 +118,8 @@ class ElementWithTextList(XMLTypeBase):
                                 value_class=str)
     _props = ['text']
 
-    def __init__(self, text=None):
+    def __init__(self):
         super().__init__()
-        self.text = text
 
 
 class MessageType(XMLTypeBase):

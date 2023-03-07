@@ -798,14 +798,6 @@ class _NetworkingThread:
         self._repeated_enqueue_msg(msg, initial_delay, MULTICAST_UDP_REPEAT, MULTICAST_UDP_MIN_DELAY,
                                    MULTICAST_UDP_MAX_DELAY, MULTICAST_UDP_UPPER_DELAY)
 
-    # def _repeated_enqueue_msg(self, msg, initial_delay_ms, repeat, min_delay_ms, max_delay_ms, upper_delay_ms):
-    #     next_send = time.time() + initial_delay_ms / 1000.0
-    #     delta_t = random.randrange(min_delay_ms, max_delay_ms) / 1000.0  # millisec -> seconds
-    #     self._send_queue.put(self._EnqueuedMessage(next_send, msg))
-    #     for _ in range(repeat):
-    #         next_send += delta_t
-    #         self._send_queue.put(self._EnqueuedMessage(next_send, msg))
-    #         delta_t = min(delta_t * 2, upper_delay_ms)
     def _repeated_enqueue_msg(self, msg, initial_delay_ms, repeat, min_delay_ms, max_delay_ms, upper_delay_ms):
         if not self._quit_send_event.is_set():
             next_send = time.time() + initial_delay_ms/1000.0
