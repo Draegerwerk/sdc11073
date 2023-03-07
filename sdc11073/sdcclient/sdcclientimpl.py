@@ -54,7 +54,7 @@ class HostedServiceDescription:
         self.meta_data = None
         self.wsdl_string = None
         self.wsdl_node = None
-        self._logger = loghelper.get_logger_adapter(f'sdc.client.{service_id}', log_prefix)
+        self._logger = loghelper.get_logger_adapter('sdc.client.hosted', log_prefix)
         self._url = urlparse(endpoint_address)
         self.services = {}
 
@@ -73,7 +73,7 @@ class HostedServiceDescription:
         parsed = urlparse(wsdl_url)
         actual_path = parsed.path + f'?{parsed.query}' if parsed.query else parsed.path
         self.wsdl_string = soap_client.get_url(actual_path, msg=f'{self.log_prefix}:getwsdl').decode('utf-8')
-        commlog.get_communication_logger().log_wsdl(self.wsdl_string, self.service_id)
+        commlog.get_communication_logger().log_wsdl(self.wsdl_string)
         try:
             self.wsdl_node = self._msg_reader.read_wsdl(self.wsdl_string)
         except etree_.XMLSyntaxError as ex:

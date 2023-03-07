@@ -101,9 +101,9 @@ class CommLogger:
         if self._log_in:
             self._write_log(T_HTTP, D_IN, xml, 'subscr')
 
-    def log_wsdl(self, wsdl, service_name):
+    def log_wsdl(self, wsdl):
         if self._log_in:
-            self._write_log(T_WSDL, D_IN, wsdl, info=service_name)
+            self._write_log(T_WSDL, D_IN, wsdl, None)
 
 
 class _LogManager:
