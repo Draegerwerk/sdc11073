@@ -20,7 +20,7 @@ class EmptyResponse(CreatedMessage):
     def __init__(self):
         super().__init__(None, None)
 
-    def serialize_message(self, pretty=False, request_manipulator=None, validate=True) -> bytes:
+    def serialize(self, pretty=False, request_manipulator=None, validate=True) -> bytes:
         return b''
 
 

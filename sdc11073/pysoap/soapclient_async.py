@@ -109,7 +109,7 @@ class SoapClientAsync:
             tmp = request_manipulator.manipulate_soapenvelope(created_message.p_msg)
             if tmp:
                 created_message.p_msg = tmp
-        xml_request = created_message.serialize_message(request_manipulator=request_manipulator)
+        xml_request = created_message.serialize(request_manipulator=request_manipulator)
 
         # MDPWS:R0007 A text SOAP envelope shall be serialized using utf-8 character encoding
         assert b'utf-8' in xml_request[:100].lower()

@@ -11,8 +11,17 @@ class QNameListType(struct.NodeTextQNameListProperty):
     pass
 
 class ScopesType(ElementWithTextList):
+    # text is a URI list
     MatchBy = struct.AnyURIAttributeProperty('MatchBy')
     _props = ['MatchBy']
+
+    def __init__(self, value=None, match_by=None):
+        super().__init__()
+        if isinstance(value, str):
+            self.text = [value]
+        else:
+            self.text = value
+        self.MatchBy = match_by
 
 
 class HelloType(MessageType):
@@ -32,7 +41,9 @@ class HelloType(MessageType):
     _props = ['EndpointReference', 'Types', 'Scopes', 'XAddrs', 'MetadataVersion']
 
 
-class ByeType(XMLTypeBase):
+class ByeType(MessageType):
+    NODETYPE = wsd_tag('Bye')
+    action = f'{default_ns_helper.WSD.namespace}/Bye'
     EndpointReference = struct.SubElementProperty(wsa_tag('EndpointReference'),
                                                   value_class=EndpointReferenceType,
                                                   default_py_value=EndpointReferenceType())
@@ -81,7 +92,9 @@ class ProbeMatchesType(MessageType):
     additional_namespaces = [default_ns_helper.WSD, default_ns_helper.WSA]
 
 
-class ResolveType(XMLTypeBase):
+class ResolveType(MessageType):
+    NODETYPE = wsd_tag('Resolve')
+    action = f'{default_ns_helper.WSD.namespace}/Resolve'
     EndpointReference = struct.SubElementProperty(wsa_tag('EndpointReference'),
                                                   value_class=EndpointReferenceType,
                                                   default_py_value=EndpointReferenceType())
@@ -103,7 +116,9 @@ class ResolveMatchType(XMLTypeBase):
     _props = ['EndpointReference', 'Types', 'Scopes', 'XAddrs', 'MetadataVersion']
 
 
-class ResolveMatchesType(XMLTypeBase):
+class ResolveMatchesType(MessageType):
+    NODETYPE = wsd_tag('ResolveMatches')
+    action = f'{default_ns_helper.WSD.namespace}/ResolveMatches'
     ResolveMatch = struct.SubElementProperty(wsd_tag('ResolveMatch'),
                                                value_class=ResolveMatchType,
                                              is_optional=True)
@@ -111,6 +126,7 @@ class ResolveMatchesType(XMLTypeBase):
 
 
 class AppSequenceType(XMLTypeBase):
+    NODETYPE = wsd_tag('AppSequence')
     # used in soap header
     InstanceId = struct.IntegerAttributeProperty('InstanceId', is_optional=False)
     SequenceId = struct.AnyURIAttributeProperty('SequenceId')

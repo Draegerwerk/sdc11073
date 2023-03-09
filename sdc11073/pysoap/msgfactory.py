@@ -22,7 +22,7 @@ class CreatedMessage:
         self.p_msg = message
         self.msg_factory = msg_factory
 
-    def serialize_message(self, pretty=False, request_manipulator=None, validate=True):
+    def serialize(self, pretty=False, request_manipulator=None, validate=True):
         return self.msg_factory.serialize_message(self, pretty, request_manipulator, validate)
 
 
@@ -32,7 +32,7 @@ class CreatedMessage:
 class MessageFactory:
     """This class creates soap messages. It is used in two phases:
      1) call one of the mk_xxx methods. All return a CreatedMessage instance that contains the data provided in the call
-     2) call the serialize_message method of the CreatedMessage instance to get the xml representation
+     2) call the serialize method of the CreatedMessage instance to get the xml representation
      """
 
     def __init__(self, sdc_definitions, logger, validate=True):

@@ -147,7 +147,7 @@ class SoapClient:
                 created_message.p_msg = tmp
                 # in this case do not validate , because the manipulator might intentionally have created invalid xml.
                 validate = False
-        xml_request = created_message.serialize_message(request_manipulator=request_manipulator,
+        xml_request = created_message.serialize(request_manipulator=request_manipulator,
                                                         validate=validate)
 
         if hasattr(request_manipulator, 'manipulate_string'):

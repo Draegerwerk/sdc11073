@@ -1,5 +1,6 @@
 from decimal import Decimal
 from typing import Protocol
+
 from . import isoduration
 
 STRICT_VALUE_CHECK = True
@@ -15,6 +16,9 @@ class DataConverterProtocol(Protocol):
     def check_valid(self, py_value):
         ...
 
+    def elem_to_py(self, xml_value):
+        ...
+
 
 class NullConverter:
     @staticmethod
@@ -28,6 +32,10 @@ class NullConverter:
     @staticmethod
     def check_valid(py_value):
         pass
+
+    @staticmethod
+    def elem_to_py(xml_value):
+        return xml_value
 
 
 class ClassCheckConverter(NullConverter):

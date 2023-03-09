@@ -73,7 +73,7 @@ class GetService(DPWSPortTypeBase):
         response.set_mdib_version_group(self._mdib.mdib_version_group)
         created_message = factory.mk_reply_soap_message(request_data, response)
         self._logger.debug('_on_get_md_state returns {}',
-                           lambda: created_message.serialize_message())
+                           lambda: created_message.serialize())
         return created_message
 
     def _on_get_mdib(self, request_data):
@@ -109,7 +109,7 @@ class GetService(DPWSPortTypeBase):
         response = self.mk_get_mddescription_response_message(
             request_data, self._sdc_device.mdib, requested_handles)
         self._logger.debug('_on_get_md_description returns {}',
-                           lambda: response.serialize_message())
+                           lambda: response.serialize())
         return response
 
     def mk_get_mddescription_response_message(self, request_data, mdib, requested_handles):

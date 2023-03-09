@@ -108,7 +108,6 @@ class HeaderInformationBlock(XMLTypeBase):
             self.RelatesTo.text = relates_to
             if relationship_type is not None:
                 self.RelatesTo.RelationshipType = relationship_type
-        self.RelatesTo = relates_to
         self.From = addr_from
         if reference_parameters is not None:
             self.reference_parameters = reference_parameters

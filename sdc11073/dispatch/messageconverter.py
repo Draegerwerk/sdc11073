@@ -52,7 +52,7 @@ class MessageConverterMiddleware:
         if fault is not None:
             inf = HeaderInformationBlock(action=fault.action, addr_to=None)
             response = self._msg_factory.mk_soap_message(inf, payload=fault)
-            response_xml_string = response.serialize_message()
+            response_xml_string = response.serialize()
             commlog.get_communication_logger().log_soap_response_out(response_xml_string, 'POST')
             return http_status, http_reason, response_xml_string
 
@@ -61,12 +61,12 @@ class MessageConverterMiddleware:
             request_data = RequestData(headers, path, peer_name, request_bytes, message_data)
             request_data.consume_current_path_element()  # uuid is already used
             response = self._dispatcher.on_post(request_data)
-            response_xml_string = response.serialize_message()
+            response_xml_string = response.serialize()
         except HTTPRequestHandlingError as ex:
             message_data = self._msg_reader.read_received_message(request_bytes, validate=False)
             request_data = RequestData(headers, path, peer_name, request_bytes, message_data)
             response = self._msg_factory.mk_reply_soap_message(request_data, ex.soap_fault)
-            response_xml_string = response.serialize_message()
+            response_xml_string = response.serialize()
             http_status = ex.status
             http_reason = ex.reason
         except Exception as ex:
@@ -78,7 +78,7 @@ class MessageConverterMiddleware:
             fault.Code.Value = faultcodeEnum.SENDER
             fault.add_reason_text(str(ex))
             response = self._msg_factory.mk_reply_soap_message(request_data, fault)
-            response_xml_string = response.serialize_message()
+            response_xml_string = response.serialize()
             http_status = 500
             http_reason = 'exception'
         finally:

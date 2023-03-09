@@ -1138,7 +1138,9 @@ class NodeTextQNameListProperty(_ElementListProperty):
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
             tmp = []
             for q_name in py_value:
-                tmp.append(docname_from_qname(q_name, sub_node.nsmap))
+                # by setting each qname as text, namespace prefixes are generated automatically
+                sub_node.text = q_name
+                tmp.append(sub_node.text)
             sub_node.text = ' '.join(tmp)
 
 

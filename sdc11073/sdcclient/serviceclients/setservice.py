@@ -104,5 +104,5 @@ class SetServiceClient(HostedServiceClient):
         request.ProposedComponentState.extend(proposed_component_states)
         inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
         message = self._msg_factory.mk_soap_message(inf, payload=request)
-        self._logger.debug('set_component_state sends {}', lambda: message.serialize_message(pretty=True))
+        self._logger.debug('set_component_state sends {}', lambda: message.serialize(pretty=True))
         return self._call_operation(message, request_manipulator=request_manipulator)

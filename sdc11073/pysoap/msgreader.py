@@ -25,8 +25,8 @@ def validate_node(node, xml_schema, logger):
     try:
         xml_schema.assertValid(node)
     except etree_.DocumentInvalid as ex:
-        logger.error(traceback.format_exc())
-        logger.error(etree_.tostring(node, pretty_print=True).decode('utf-8'))
+        logger.warning(traceback.format_exc())
+        logger.warning(etree_.tostring(node, pretty_print=True).decode('utf-8'))
         fault = Fault()
         fault.Code.Value = faultcodeEnum.SENDER
         fault.set_sub_code(default_ns_helper.wseTag('InvalidMessage'))
@@ -135,7 +135,7 @@ class MessageReader:
         try:
             doc_root = etree_.fromstring(xml_text, parser=parser)
         except etree_.XMLSyntaxError as ex:
-            self._logger.error('Error reading response ex={} xml={}', ex, xml_text.decode('utf-8'))
+            self._logger.warning('Error reading response ex=%r xml=%s', ex, xml_text.decode('utf-8'))
             raise
         if validate:
             self._validate_node(doc_root)
