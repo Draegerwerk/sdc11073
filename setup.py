@@ -99,11 +99,11 @@ setup(
     # have to be included in MANIFEST.in as well.
     package_data={
         'sdc11073': ['tutorial/readme.rst',
+                     'tutorial/*.txt',
                      'tutorial/consumer/*.py',
                      'tutorial/provider/*.xml',
                      'tutorial/provider/*.py',
-                     'xsd/*.xsd',
-                     'ca/*.*'],
+                     'xsd/*.xsd'],
     },
 
     # Although 'package_data' is the preferred approach, in some case you may
