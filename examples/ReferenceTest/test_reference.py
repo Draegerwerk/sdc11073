@@ -16,7 +16,7 @@ from sdc11073.location import SdcLocation
 from sdc11073.mdib import DeviceMdibContainer, ClientMdibContainer
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist, Scope
+from sdc11073.wsdiscovery import WSDiscoveryWhitelist, Scopes
 
 here = os.path.dirname(__file__)
 default_mdib_path = os.path.join(here, 'reference_mdib.xml')
@@ -194,7 +194,7 @@ class Test_Reference(unittest.TestCase):
 
         print('looking for device with scope {}'.format(self.my_location.scope_string))
         services = my_client_wsDiscovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
-                                                         scopes=[Scope(self.my_location.scope_string)])
+                                                         scopes=Scopes(self.my_location.scope_string))
         print('found {} services {}'.format(len(services), ', '.join([s.epr for s in services])))
         for s in services:
             print(s.epr)
