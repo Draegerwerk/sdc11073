@@ -12,7 +12,7 @@ from codecs import open
 import os
 import subprocess
 
-version = '2.0.0'
+version = '2.0.0a1'
 
 # create a version.py file that is
 # a) used for __version__ info
@@ -55,7 +55,7 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 5 - Production/Stable',
+        'Development Status :: 3 - Alpha',
 
         # Indicate who your project is intended for
         'Intended Audience :: Developers',
@@ -65,9 +65,8 @@ setup(
         'License :: OSI Approved :: MIT License',
 
         # Specify the Python versions you support here. In particular, ensure
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
 
     # What does your project relate to?
@@ -104,8 +103,7 @@ setup(
                      'tutorial/provider/*.xml',
                      'tutorial/provider/*.py',
                      'xsd/*.xsd',
-                     'ca/*.*',
-                     'codings/*.csv'],
+                     'ca/*.*'],
     },
 
     # Although 'package_data' is the preferred approach, in some case you may
