@@ -1,7 +1,7 @@
 import logging
 import socket
-import time
 import sys
+import time
 import unittest
 from urllib.parse import urlparse, urlsplit
 
@@ -59,15 +59,18 @@ def setUpModule():
 
 class TestDiscovery(unittest.TestCase):
     SEARCH_TIMEOUT = 2
+    MY_MULTICAST_PORT = 37020  # change port, otherwise windows steals unicast messages
 
     def setUp(self):
         test_log.debug('setUp {}'.format(self._testMethodName))
 
         # give them different logger names so that output can be distinguished
         self.wsd_client = wsdiscovery.WSDiscoveryWhitelist(accepted_adapter_addresses=['127.0.0.1'],
-                                                               logger=loghelper.get_logger_adapter('wsd_client'))
+                                                           logger=loghelper.get_logger_adapter('wsd_client'),
+                                                           multicast_port=self.MY_MULTICAST_PORT)
         self.wsd_service = wsdiscovery.WSDiscoveryWhitelist(accepted_adapter_addresses=['127.0.0.1'],
-                                                                logger=loghelper.get_logger_adapter('wsd_service'))
+                                                            logger=loghelper.get_logger_adapter('wsd_service'),
+                                                            multicast_port=self.MY_MULTICAST_PORT)
         self.log_watcher_client = loghelper.LogWatcher(logging.getLogger('wsd_client'), level=logging.ERROR)
         self.log_watcher_service = loghelper.LogWatcher(logging.getLogger('wsd_service'), level=logging.ERROR)
 
@@ -379,6 +382,7 @@ class TestDiscovery(unittest.TestCase):
 
         address = '127.0.0.1'
         unicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
         def send_and_assert_running(data):
             unicast_sock.sendto(data.encode('utf-8'), (address, wsdiscovery.MULTICAST_PORT))
             time.sleep(0.1)

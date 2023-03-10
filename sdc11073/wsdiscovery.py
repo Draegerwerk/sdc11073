@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import platform
 import queue
 import random
 import re
@@ -240,14 +241,13 @@ class _AddressMonitorThread(threading.Thread):
         """
         self._quit_event.set()
 
-
 @dataclass(frozen=True)
-class _SocketPair:
+class _Sockets:
     multi_in: socket.socket
     multi_out_uni_in: socket.socket
+    uni_in: Union[socket.socket, None]
 
-
-class _NetworkingThread:
+class _NetworkingThreadBase:
     """ Has one thread for sending and one for receiving"""
 
     @dataclass(order=True)
@@ -256,7 +256,10 @@ class _NetworkingThread:
         msg: Any = field(compare=False)
         repeat: int
 
-    def __init__(self, observer, logger):
+    def __init__(self, observer, logger, multicast_port):
+        self._observer = observer
+        self._logger = logger
+        self.multicast_port = multicast_port
         self._recv_thread = None
         self._qread_thread = None
         self._send_thread = None
@@ -265,9 +268,6 @@ class _NetworkingThread:
         self._send_queue = queue.PriorityQueue(10000)
         self._read_queue = queue.Queue(10000)
         self._known_message_ids = deque(maxlen=50)
-        self._observer = observer
-        self._logger = logger
-
         self._select_in = []
         self._full_selector = selectors.DefaultSelector()
         self._sockets_by_address = {}
@@ -297,35 +297,14 @@ class _NetworkingThread:
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, _addr)
         return sock
 
-    def _create_multicast_in_socket(self, ip_address):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((ip_address, MULTICAST_PORT))
-        sock.setblocking(False)
-        self._logger.info('UDP socket listens on %s:%d', ip_address, MULTICAST_PORT)
-        return sock
-
-    def add_source_addr(self, addr):
-        """None means 'system default'"""
-        multicast_in_sock = self._create_multicast_in_socket(addr)
-        try:
-            multicast_in_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, self._make_mreq(addr))
-        except socket.error:  # if 1 interface has more than 1 address, exception is raised for the second
-            print(traceback.format_exc())
-            pass
-        multicast_out_sock = self._create_multicast_out_socket(addr)
-        with self._sockets_by_address_lock:
-            self._register(multicast_out_sock)
-            self._register(multicast_in_sock)
-            self._sockets_by_address[addr] = _SocketPair(multicast_in_sock, multicast_out_sock)
-
     def remove_source_addr(self, addr):
-        sock_pair = self._sockets_by_address.get(addr)
-        if sock_pair:
+        sockets = self._sockets_by_address.get(addr)
+        if sockets:
             with self._sockets_by_address_lock:
-                for sock in (sock_pair.multi_in, sock_pair.multi_out_uni_in):
-                    self._unregister(sock)
-                    sock.close()
+                for sock in (sockets.multi_in, sockets.uni_in, sockets.multi_out_uni_in):
+                    if sock is not None:
+                        self._unregister(sock)
+                        sock.close()
                 del self._sockets_by_address[addr]
 
     def add_unicast_message(self, env, addr, port, initial_delay=0):
@@ -495,6 +474,72 @@ class _NetworkingThread:
             return list(self._sockets_by_address.keys())
 
 
+class _NetworkingThreadWindows(_NetworkingThreadBase):
+    def _create_multicast_in_socket(self, addr, port):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((addr, port))
+        sock.setblocking(False)
+        try:
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, self._make_mreq(addr))
+        except socket.error as ex:  # if 1 interface has more than 1 address, exception is raised for the second
+            print(traceback.format_exc())
+            self._logger.error('could not join MULTICAST group on %s:%d error = %r', addr, port, ex)
+            return None
+
+        self._logger.info('UDP socket listens on %s:%d', addr, port)
+        return sock
+
+    def add_source_addr(self, addr):
+        """None means 'system default'"""
+        multicast_in_sock = self._create_multicast_in_socket(addr, self.multicast_port)
+        if multicast_in_sock is None:
+            return
+        multicast_out_sock = self._create_multicast_out_socket(addr)
+        with self._sockets_by_address_lock:
+            self._register(multicast_out_sock)
+            self._register(multicast_in_sock)
+            self._sockets_by_address[addr] = _Sockets(multicast_in_sock, multicast_out_sock, None)
+
+
+class _NetworkingThreadPosix(_NetworkingThreadBase):
+    def _create_multicast_in_socket(self, addr, port):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((MULTICAST_IPV4_ADDRESS, port))
+        sock.setblocking(False)
+        try:
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, self._make_mreq(addr))
+        except socket.error as ex:  # if 1 interface has more than 1 address, exception is raised for the second
+            print(traceback.format_exc())
+            self._logger.error('could not join MULTICAST group on %s:%d error = %r', addr, port, ex)
+            return None
+        self._logger.info('UDP socket listens on %s:%d', addr, port)
+        return sock
+
+    def _create_unicast_in_socket(self, addr, port):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((addr, port))
+        sock.setblocking(False)
+        return sock
+
+    def add_source_addr(self, addr):
+        """None means 'system default'"""
+        multicast_in_sock = self._create_multicast_in_socket(addr, self.multicast_port)
+        if multicast_in_sock is None:
+            return
+
+        # unicast_in_sock is needed for handling of unicast messages on multicast port
+        unicast_in_sock = self._create_unicast_in_socket(addr, self.multicast_port)
+        multicast_out_sock = self._create_multicast_out_socket(addr)
+        with self._sockets_by_address_lock:
+            self._register(multicast_out_sock)
+            self._register(unicast_in_sock)
+            self._register(multicast_in_sock)
+            self._sockets_by_address[addr] = _Sockets(multicast_in_sock, multicast_out_sock, unicast_in_sock)
+
+
 def _is_type_in_list(ttype, types):
     for entry in types:
         if match_type(ttype, entry):
@@ -505,6 +550,8 @@ def _is_type_in_list(ttype, types):
 def _is_scope_in_list(uri: str, match_by: str, srv_sc: wsd_types.ScopesType):
     # returns True if every entry in scope.text is also found in srv_sc.text
     # all entries are URIs
+    if srv_sc is None:
+        return False
     for entry in srv_sc.text:
         if match_scope(uri, entry, match_by):
             return True
@@ -545,7 +592,7 @@ class WSDiscoveryBase:
     PROBEMATCH_SCOPES = True
     PROBEMATCH_XADDRS = True
 
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, multicast_port=None):
         """
         :param logger: use this logger. if None a logger 'sdc.discover' is created.
         """
@@ -567,6 +614,7 @@ class WSDiscoveryBase:
         self._on_probe_callback = None
 
         self._logger = logger or logging.getLogger('sdc.discover')
+        self.multicast_port = multicast_port or MULTICAST_PORT
         random.seed(int(time.time() * 1000000))
 
     def start(self):
@@ -883,15 +931,14 @@ class WSDiscoveryBase:
             # add values to ProbeResponse acc. to flags
             epr = service.epr if self.PROBEMATCH_EPR else ''
             types = service.types if self.PROBEMATCH_TYPES else []
-            scopes = service.scopes if self.PROBEMATCH_SCOPES else []
+            scopes = service.scopes if self.PROBEMATCH_SCOPES else None
             xaddrs = service.get_x_addrs() if self.PROBEMATCH_XADDRS else []
 
             probe_match = wsd_types.ProbeMatchType()
             probe_match.EndpointReference.Address = epr
             probe_match.MetadataVersion = service.metadata_version
             probe_match.Types = types
-            if scopes:
-                payload.Scopes = scopes
+            probe_match.Scopes = scopes
             probe_match.XAddrs.extend(xaddrs)
             payload.ProbeMatch.append(probe_match)
             inf = HeaderInformationBlock(action=payload.action,
@@ -921,7 +968,7 @@ class WSDiscoveryBase:
             self._networking_thread.add_unicast_message(created_message, self.__disco_proxy_address[0],
                                                         self.__disco_proxy_address[1])
         else:
-            self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, MULTICAST_PORT)
+            self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)
 
     def _send_resolve(self, epr):
         self._logger.debug('sending resolve on %s', epr)
@@ -936,9 +983,7 @@ class WSDiscoveryBase:
                                                         self.__disco_proxy_address[0],
                                                         self.__disco_proxy_address[1])
         else:
-            self._networking_thread.add_multicast_message(created_message,
-                                                          MULTICAST_IPV4_ADDRESS,
-                                                          MULTICAST_PORT)
+            self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)
 
     def _send_hello(self, service):
         self._logger.info('sending hello on %s', service)
@@ -958,7 +1003,7 @@ class WSDiscoveryBase:
         created_message = message_factory.mk_soap_message(inf, payload)
         created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.wsdTag('AppSequence'),
                                                                             ns_map=nsh.partial_map(nsh.WSD)))
-        self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, MULTICAST_PORT,
+        self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port,
                                                       random.randint(0, APP_MAX_DELAY))
 
     def _send_bye(self, service):
@@ -976,7 +1021,7 @@ class WSDiscoveryBase:
         created_message = message_factory.mk_soap_message(inf, bye)
         created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.wsdTag('AppSequence'),
                                                                             ns_map=nsh.partial_map(nsh.WSD)))
-        self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, MULTICAST_PORT)
+        self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)
 
     def _is_accepted_address(self, address):  # pylint: disable=unused-argument, no-self-use
         """ accept any interface. Overwritten in derived classes."""
@@ -1002,8 +1047,10 @@ class WSDiscoveryBase:
     def _start_threads(self):
         if self._networking_thread is not None:
             return
-
-        self._networking_thread = _NetworkingThread(self, self._logger)
+        if platform.system() != 'Windows':
+            self._networking_thread = _NetworkingThreadPosix(self, self._logger, self.multicast_port)
+        else:
+            self._networking_thread = _NetworkingThreadWindows(self, self._logger, self.multicast_port)
         self._networking_thread.start()
 
         self._addrs_monitor_thread = _AddressMonitorThread(self)
@@ -1026,12 +1073,12 @@ class WSDiscoveryBase:
 class WSDiscoveryBlacklist(WSDiscoveryBase):
     """ Binds to all IP addresses except the black listed ones. """
 
-    def __init__(self, ignored_adaptor_addresses=None, logger=None):
+    def __init__(self, ignored_adaptor_addresses=None, logger=None, multicast_port=None):
         """
         :param ignored_adaptor_addresses: an optional list of (own) ip addresses that shall not be used for discovery.
                                           IP addresses are handled as regular expressions.
         """
-        super().__init__(logger)
+        super().__init__(logger, multicast_port)
         tmp = [] if ignored_adaptor_addresses is None else ignored_adaptor_addresses
         self._ignored_adaptor_addresses = [re.compile(x) for x in tmp]
 
@@ -1049,11 +1096,11 @@ WSDiscovery = WSDiscoveryBlacklist  # deprecated name, for backward compatibilit
 class WSDiscoveryWhitelist(WSDiscoveryBase):
     """ Binds to all IP listed IP addresses. """
 
-    def __init__(self, accepted_adapter_addresses, logger=None):
+    def __init__(self, accepted_adapter_addresses, logger=None, multicast_port=None):
         """
         :param accepted_adapter_addresses: an optional list of (own) ip addresses that shall not be used for discovery.
         """
-        super().__init__(logger)
+        super().__init__(logger, multicast_port)
         tmp = [] if accepted_adapter_addresses is None else accepted_adapter_addresses
         self.accepted_adapter_addresses = [re.compile(x) for x in tmp]
 
@@ -1069,7 +1116,7 @@ class WSDiscoverySingleAdapter(WSDiscoveryBase):
     """ Bind to a single adapter, identified by name.
     """
 
-    def __init__(self, adapter_name, logger=None, force_adapter_name=False):
+    def __init__(self, adapter_name, logger=None, force_adapter_name=False, multicast_port=None):
         """
         :param adapter_name: a string,  e.g. 'local area connection'.
                             parameter is only relevant if host has more than one adapter or forceName is True
@@ -1078,7 +1125,7 @@ class WSDiscoverySingleAdapter(WSDiscoveryBase):
         :param force_adapter_name: if True, only this named adapter will be used.
                                  If False, and only one Adapter exists, the one existing adapter is used. (localhost is ignored in this case).
         """
-        super().__init__(logger)
+        super().__init__(logger, multicast_port)
         self._my_ip_address = get_ip_for_adapter(adapter_name)
 
         if self._my_ip_address is None:
