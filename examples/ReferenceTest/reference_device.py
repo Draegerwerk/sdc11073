@@ -6,7 +6,11 @@ from time import sleep
 from uuid import UUID
 from decimal import Decimal
 
-import sdc11073
+from sdc11073 import wsdiscovery
+from sdc11073.location import SdcLocation
+from sdc11073.sdcdevice import SdcDevice
+from sdc11073.xml_types import pm_types
+from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.certloader import mk_ssl_context_from_folder
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.loghelper import LoggerAdapter
@@ -20,7 +24,6 @@ here = os.path.dirname(__file__)
 default_mdib_path = os.path.join(here, 'reference_mdib.xml')
 mdib_path = os.getenv('ref_mdib') or default_mdib_path
 xtra_log_config = os.getenv('ref_xtra_log_cnf')  # or None
-ca_folder = os.getenv('ref_ca')  # or None
 
 My_UUID_str = '12345678-6f55-11ea-9697-123456789abc'
 
@@ -62,12 +65,12 @@ if __name__ == '__main__':
     logger = logging.getLogger('sdc')
     logger = LoggerAdapter(logger)
     logger.info('{}', 'start')
-    wsd = sdc11073.wsdiscovery.WSDiscoveryWhitelist([adapter_ip])
+    wsd = wsdiscovery.WSDiscoveryWhitelist([adapter_ip])
     wsd.start()
-    my_mdib = sdc11073.mdib.DeviceMdibContainer.from_mdib_file(mdib_path)
+    my_mdib = DeviceMdibContainer.from_mdib_file(mdib_path)
     my_uuid = UUID(My_UUID_str)
     print("UUID for this device is {}".format(my_uuid))
-    loc = sdc11073.location.SdcLocation(ref_fac, ref_poc, ref_bed)
+    loc = SdcLocation(ref_fac, ref_poc, ref_bed)
     print("location for this device is {}".format(loc))
     dpwsModel = ThisModelType(manufacturer='sdc11073',
                           manufacturer_url='www.sdc11073.com',
@@ -94,12 +97,12 @@ if __name__ == '__main__':
                                                   soap_client_class=SoapClientAsync)
     else:
         specific_components = None # SdcDeviceComponents(services_factory=mk_all_services_except_localization)
-    sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.SdcDevice(wsd, dpwsModel, dpwsDevice, my_mdib, my_uuid,
+    sdcDevice = SdcDevice(wsd, dpwsModel, dpwsDevice, my_mdib, my_uuid,
                                                            ssl_context=ssl_context,
                                                            specific_components=specific_components)
     sdcDevice.start_all()
 
-    validators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extension_string='System')]
+    validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
     sdcDevice.set_location(loc, validators)
     pm = my_mdib.data_model.pm_names
     pm_types = my_mdib.data_model.pm_types
