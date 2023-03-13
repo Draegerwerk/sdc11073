@@ -104,6 +104,12 @@ class Message:
     msg_type: _MessageType
 
 
+def _mk_wsd_soap_message(header_info, payload):
+    # use discovery specific namespaces
+    return message_factory.mk_soap_message(header_info, payload,
+                                           ns_list=[nsh.S12, nsh.WSA, nsh.WSD], use_defaults=False)
+
+
 class Service:
     def __init__(self, types: Optional[List[QName]], scopes: Optional[wsd_types.ScopesType], x_addrs, epr, instance_id,
                  metadata_version=1):
@@ -416,7 +422,8 @@ class _NetworkingThreadBase:
         msg = q_msg.msg
         data = msg.env.serialize()
         if msg.msg_type == _MessageType.UNICAST:
-            self._logger.debug('send unicast msg (%d) action=%s: to=%s:%r id=%s',
+            self._logger.debug('send unicast %d bytes (%d) action=%s: to=%s:%r id=%s',
+                               len(data),
                                q_msg.repeat,
                                msg.env.p_msg.header_info_block.Action.text,
                                msg.addr, msg.port,
@@ -427,7 +434,8 @@ class _NetworkingThreadBase:
             get_communication_logger().log_multicast_msg_out(data)
             with self._sockets_by_address_lock:
                 for sock_pair in self._sockets_by_address.values():
-                    self._logger.debug('send multicast msg (%d) action=%s: to=%s:%r id=%s',
+                    self._logger.debug('send multicast %d bytes, msg (%d) action=%s: to=%s:%r id=%s',
+                                       len(data),
                                        q_msg.repeat,
                                        msg.env.p_msg.header_info_block.Action.text,
                                        msg.addr, msg.port,
@@ -916,7 +924,7 @@ class WSDiscoveryBase:
         app_sequence.InstanceId = int(service.instance_id)
         app_sequence.MessageNumber = service.message_number
 
-        created_message = message_factory.mk_soap_message(inf, payload)
+        created_message = _mk_wsd_soap_message(inf, payload)
         created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.wsdTag('AppSequence'),
                                                                             ns_map=nsh.partial_map(nsh.WSD)))
         self._networking_thread.add_unicast_message(created_message, addr[0], addr[1], random.randint(0, APP_MAX_DELAY))
@@ -948,7 +956,7 @@ class WSDiscoveryBase:
             app_sequence.InstanceId = int(service.instance_id)
             app_sequence.MessageNumber = msg_number
 
-            created_message = message_factory.mk_soap_message(inf, payload)
+            created_message = _mk_wsd_soap_message(inf, payload)
             created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.wsdTag('AppSequence'),
                                                                                 ns_map=nsh.partial_map(nsh.WSD)))
             self._networking_thread.add_unicast_message(created_message, addr[0], addr[1],
@@ -962,7 +970,7 @@ class WSDiscoveryBase:
             payload.Scopes = scopes
 
         inf = HeaderInformationBlock(action=payload.action, addr_to=ADDRESS_ALL)
-        created_message = message_factory.mk_soap_message(inf, payload)
+        created_message = _mk_wsd_soap_message(inf, payload)
 
         if self._disco_proxy_active:
             self._networking_thread.add_unicast_message(created_message, self.__disco_proxy_address[0],
@@ -976,7 +984,7 @@ class WSDiscoveryBase:
         payload.EndpointReference.Address = epr
 
         inf = HeaderInformationBlock(action=payload.action, addr_to=ADDRESS_ALL)
-        created_message = message_factory.mk_soap_message(inf, payload)
+        created_message = _mk_wsd_soap_message(inf, payload)
 
         if self._disco_proxy_active:
             self._networking_thread.add_unicast_message(created_message,
@@ -1000,7 +1008,7 @@ class WSDiscoveryBase:
 
         inf = HeaderInformationBlock(action=payload.action, addr_to=ADDRESS_ALL)
 
-        created_message = message_factory.mk_soap_message(inf, payload)
+        created_message = _mk_wsd_soap_message(inf, payload)
         created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.wsdTag('AppSequence'),
                                                                             ns_map=nsh.partial_map(nsh.WSD)))
         self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port,
@@ -1018,7 +1026,7 @@ class WSDiscoveryBase:
         app_sequence.InstanceId = int(service.instance_id)
         app_sequence.MessageNumber = service.message_number
 
-        created_message = message_factory.mk_soap_message(inf, bye)
+        created_message = _mk_wsd_soap_message(inf, bye)
         created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.wsdTag('AppSequence'),
                                                                             ns_map=nsh.partial_map(nsh.WSD)))
         self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)

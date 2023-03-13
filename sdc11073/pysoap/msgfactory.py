@@ -79,12 +79,16 @@ class MessageFactory:
     def mk_soap_message(self,
                         header_info: HeaderInformationBlock,
                         payload: MessageType,
-                        ns_map: Optional[list] = None):
+                        ns_list: Optional[list] = None,
+                        use_defaults =True):
         nsh = self._sdc_definitions.data_model.ns_helper
-        ns_set = {nsh.S12, nsh.WSA, nsh.MSG, nsh.PM}  # default
+        if use_defaults:
+            ns_set = {nsh.S12, nsh.WSA, nsh.MSG, nsh.PM}  # default
+        else:
+            ns_set = set()
         ns_set.update(payload.additional_namespaces)
-        if ns_map:
-            ns_set.update(ns_map)
+        if ns_list:
+            ns_set.update(ns_list)
         my_ns_map = nsh.partial_map(*ns_set)
         soap_envelope = Soap12Envelope(my_ns_map)
         soap_envelope.set_header_info_block(header_info)
