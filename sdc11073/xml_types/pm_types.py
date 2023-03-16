@@ -222,7 +222,7 @@ class PropertyBasedPMType(XMLTypeBase):
 
 class LocalizedText(PropertyBasedPMType):
     NODETYPE = pm.LocalizedText
-    text = cp.LocalizedTextContentProperty()  # this is the text of the node. Here attribute is lower case!
+    text = cp.NodeStringProperty()  # this is the text of the node. Here attribute is lower case!
     # pylint: disable=invalid-name
     Ref = cp.LocalizedTextRefAttributeProperty('Ref')
     Lang = cp.StringAttributeProperty('Lang')
@@ -679,7 +679,7 @@ class AbstractMetricValue(PropertyBasedPMType):
 class NumericMetricValue(AbstractMetricValue):
     # pylint: disable=invalid-name
     NODETYPE = pm.NumericMetricValue
-    Value = cp.DecimalAttributeProperty('Value')  # an integer or float
+    Value = cp.DecimalAttributeProperty('Value')
     # pylint: enable=invalid-name
     _props = ('Value',)
 
@@ -691,7 +691,7 @@ class NumericMetricValue(AbstractMetricValue):
 class StringMetricValue(AbstractMetricValue):
     # pylint: disable=invalid-name
     NODETYPE = pm.StringMetricValue
-    Value = cp.StringAttributeProperty('Value')  # a string
+    Value = cp.StringAttributeProperty('Value')
     # pylint: enable=invalid-name
     _props = ('Value',)
 

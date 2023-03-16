@@ -115,7 +115,7 @@ class SetService(ServiceWithOperations):
         self._logger.debug('_on_set_metric_state')
         msg_node = request_data.message_data.p_msg.msg_node
         set_metric_state = data_model.msg_types.SetMetricState.from_node(msg_node)
-        response = data_model.msg_types.ActivateResponse()
+        response = data_model.msg_types.SetMetricStateResponse()
         return self._handle_operation_request(request_data, set_metric_state, response)
 
     def _on_set_alert_state(self, request_data):  # pylint:disable=unused-argument
@@ -125,7 +125,7 @@ class SetService(ServiceWithOperations):
         self._logger.debug('_on_set_alert_state')
         msg_node = request_data.message_data.p_msg.msg_node
         set_alert_state = data_model.msg_types.SetAlertState.from_node(msg_node)
-        response = data_model.msg_types.ActivateResponse()
+        response = data_model.msg_types.SetAlertStateResponse()
         return self._handle_operation_request(request_data, set_alert_state, response)
 
     def _on_set_component_state(self, request_data):  # pylint:disable=unused-argument
@@ -135,7 +135,7 @@ class SetService(ServiceWithOperations):
         self._logger.debug('_on_set_component_state')
         msg_node = request_data.message_data.p_msg.msg_node
         set_component_state = data_model.msg_types.SetComponentState.from_node(msg_node)
-        response = data_model.msg_types.ActivateResponse()
+        response = data_model.msg_types.SetComponentStateResponse()
         return self._handle_operation_request(request_data, set_component_state, response)
 
     def notify_operation(self,

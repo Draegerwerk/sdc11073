@@ -1,16 +1,17 @@
-# -*- coding: utf-8 -*-
 """ Classes in this module are used to declare the place where a xml value is located inside a document.
 They also provide a mapping between XML data types (which are always stings in specific formats) and
 python types. By doing so these classes completely hide the XML nature of data.
 The basic offered types are Element, list of elements, attribute, and list of attributes.
-They are the buildings blocks that are needed do declare XML data types.
+They are the buildings blocks that are needed to declare XML data types.
 Container properties represent values in xml nodes.
 """
+
+from __future__ import annotations
 import copy
 import time
 from collections import OrderedDict
 from datetime import datetime, date
-
+from typing import TYPE_CHECKING, Union
 from lxml import etree as etree_
 
 from . import isoduration
@@ -21,12 +22,25 @@ from .dataconverters import TimestampConverter, DecimalConverter, IntegerConvert
 from ..exceptions import ApiUsageError
 from ..namespaces import QN_TYPE, docname_from_qname, text_to_qname
 
-TYPE_CHECKING = True
+if TYPE_CHECKING:
+    from lxml.etree import _Element as Element_
+    from lxml.etree import QName
+
+STRICT_TYPES = True  # if True, only the expected types are excepted.
 MANDATORY_VALUE_CHECKING = True  # checks if mandatory values are present when xml is generated
 
 
 class ElementNotFoundException(Exception):
     pass
+
+class _NumberStack:
+    # uses as a part of _local_var_name in _XmlStructureBaseProperty.
+    # This makes duplicate names impossible
+    _value = 0
+    @classmethod
+    def unique_number(cls) -> str:
+        cls._value += 1
+        return str(cls._value)
 
 
 class _XmlStructureBaseProperty:
@@ -41,9 +55,11 @@ class _XmlStructureBaseProperty:
     update_xml_value: convert the Python data type to XML type and write it to XML node.
      """
 
-    def __init__(self, value_converter: DataConverterProtocol, default_py_value=None, implied_py_value=None,
-                 is_optional=False):
+    def __init__(self, local_var_name: str, value_converter: DataConverterProtocol,
+                 default_py_value=None, implied_py_value=None, is_optional=False):
         """
+
+        :param local_var_name: a member with this same is added to instance
         :param value_converter: one of dataconverter classes
         :param default_py_value: initial value when initialized
                                  (should be set for mandatory elements, otherwise created xml might violate schema)
@@ -60,7 +76,7 @@ class _XmlStructureBaseProperty:
         if not hasattr(value_converter, 'check_valid'):
             raise TypeError
         self._converter = value_converter
-        if TYPE_CHECKING:
+        if STRICT_TYPES:
             if default_py_value is not None:
                 self._converter.check_valid(default_py_value)
             if implied_py_value is not None:
@@ -72,7 +88,7 @@ class _XmlStructureBaseProperty:
         if implied_py_value is not None:
             self._implied_py_value = implied_py_value
         self._is_optional = is_optional
-        self._local_var_name = None
+        self._local_var_name = local_var_name
         self._is_default_value_set = False
 
     @property
@@ -102,7 +118,7 @@ class _XmlStructureBaseProperty:
 
     def __set__(self, instance, py_value):
         """value is the representation on the program side, e.g a float. """
-        if TYPE_CHECKING:
+        if STRICT_TYPES:
             self._converter.check_valid(py_value)
         setattr(instance, self._local_var_name, py_value)
 
@@ -116,7 +132,7 @@ class _XmlStructureBaseProperty:
         if self._default_py_value is not None:
             setattr(instance, self._local_var_name, copy.deepcopy(self._default_py_value))
 
-    def update_xml_value(self, instance, node):
+    def update_xml_value(self, instance, node: Element_):
         """
         Updates node with current data from instance.
         This method is used internally and should not be called by application.
@@ -127,7 +143,7 @@ class _XmlStructureBaseProperty:
         # to be defined in derived classes
         raise NotImplementedError
 
-    def get_py_value_from_node(self, instance, node):
+    def get_py_value_from_node(self, instance, node: Element_):
         """
         Reads data from node.
         This method is used internally and should not be called by application.
@@ -138,7 +154,7 @@ class _XmlStructureBaseProperty:
         # to be defined in derived classes
         raise NotImplementedError
 
-    def update_from_node(self, instance, node):
+    def update_from_node(self, instance, node: Element_):
         """
         Updates instance data with data from node.
         This method is used internally and should not be called by application.
@@ -155,7 +171,7 @@ class _AttributeBase(_XmlStructureBaseProperty):
     """ Base class that represents an XML Attribute.
     XML Representation is a string, Python representation is determined by value_converter."""
 
-    def __init__(self, attribute_name, value_converter=None,
+    def __init__(self, attribute_name: str, value_converter=None,
                  default_py_value=None, implied_py_value=None, is_optional=True):
         """
         Represents an attribute in xml.
@@ -165,12 +181,12 @@ class _AttributeBase(_XmlStructureBaseProperty):
         :param implied_py_value: see base class doc.
         :param is_optional: see base class doc.
         """
-        super().__init__(value_converter, default_py_value, implied_py_value, is_optional)
-        self._attribute_name = attribute_name
         if isinstance(attribute_name, etree_.QName):
-            self._local_var_name = '_a_' + attribute_name.localname
+            local_var_name = f'_a_{attribute_name.localname}_{_NumberStack.unique_number()}'
         else:
-            self._local_var_name = '_a_' + attribute_name.lower()
+            local_var_name = f'_a_{attribute_name.lower()}_{_NumberStack.unique_number()}'
+        super().__init__(local_var_name, value_converter, default_py_value, implied_py_value, is_optional)
+        self._attribute_name = attribute_name
 
     def get_py_value_from_node(self, instance, node):
         value = self._default_py_value
@@ -182,7 +198,7 @@ class _AttributeBase(_XmlStructureBaseProperty):
             pass
         return value
 
-    def update_xml_value(self, instance, node):
+    def update_xml_value(self, instance, node: Element_):
         try:
             py_value = getattr(instance, self._local_var_name)
         except AttributeError:
@@ -207,9 +223,8 @@ class _AttributeBase(_XmlStructureBaseProperty):
 class _ElementBase(_XmlStructureBaseProperty):
     """ Base class that represents an XML Element."""
 
-    def __init__(self, sub_element_name, value_converter, default_py_value=None, implied_py_value=None,
-                 is_optional=False,
-                 local_var_prefix=''):
+    def __init__(self, sub_element_name: Union[QName, None], value_converter, default_py_value=None, implied_py_value=None,
+                 is_optional=False):
         """
         Represents a (sub) element in xml.
         :param sub_element_name: a QName or None
@@ -218,16 +233,15 @@ class _ElementBase(_XmlStructureBaseProperty):
         :param implied_py_value: see base class doc.
         :param is_optional: see base class doc.
         """
-        super().__init__(value_converter, default_py_value, implied_py_value, is_optional)
-        self._sub_element_name = sub_element_name
-        if self._sub_element_name is None:
-            local_var_name = f'_none{local_var_prefix}'
+        if sub_element_name is None:
+            local_var_name = f'_e_{_NumberStack.unique_number()}'
         else:
-            local_var_name = f'_{local_var_prefix}{self._sub_element_name.localname.lower()}'
-        self._local_var_name = local_var_name
+            local_var_name = f'_e_{sub_element_name.localname.lower()}_{_NumberStack.unique_number()}'
+        super().__init__(local_var_name, value_converter, default_py_value, implied_py_value, is_optional)
+        self._sub_element_name = sub_element_name
 
     @staticmethod
-    def _get_element_by_child_name(node, sub_element_name, create_missing_nodes):
+    def _get_element_by_child_name(node, sub_element_name, create_missing_nodes: bool):
         if sub_element_name is None:
             return node
         sub_node = node.find(sub_element_name)
@@ -249,7 +263,7 @@ class _ElementBase(_XmlStructureBaseProperty):
 class StringAttributeProperty(_AttributeBase):
     """Python representation is a string."""
 
-    def __init__(self, attribute_name, default_py_value=None, implied_py_value=None, is_optional=True):
+    def __init__(self, attribute_name: str, default_py_value=None, implied_py_value=None, is_optional=True):
         super().__init__(attribute_name, StringConverter, default_py_value, implied_py_value, is_optional)
 
 
@@ -288,7 +302,7 @@ class TimeZoneAttributeProperty(StringAttributeProperty):
 class EnumAttributeProperty(_AttributeBase):
     """ Python representation is an Enum."""
 
-    def __init__(self, attribute_name, enum_cls,
+    def __init__(self, attribute_name: str, enum_cls,
                  default_py_value=None, implied_py_value=None, is_optional=True):
         super().__init__(attribute_name, EnumConverter(enum_cls), default_py_value, implied_py_value, is_optional)
 
@@ -297,7 +311,7 @@ class TimestampAttributeProperty(_AttributeBase):
     """ XML notation is integer in milliseconds.
     Python is a float in seconds."""
 
-    def __init__(self, attribute_name, default_py_value=None, implied_py_value=None, is_optional=True):
+    def __init__(self, attribute_name: str, default_py_value=None, implied_py_value=None, is_optional=True):
         super().__init__(attribute_name, value_converter=TimestampConverter,
                          default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
@@ -551,6 +565,10 @@ class AnyUriTextElement(NodeStringProperty):
     pass
 
 
+class LocalizedTextContentProperty(NodeStringProperty):
+    pass
+
+
 class NodeEnumTextProperty(NodeTextProperty):
     """Python representation is an Enum."""
 
@@ -614,11 +632,6 @@ class NodeTextQNameProperty(_ElementBase):
             sub_node.text = value
 
 
-class LocalizedTextContentProperty(NodeStringProperty):
-    def __init__(self, sub_element_name=None, default_py_value=None, is_optional=False):
-        super().__init__(sub_element_name, default_py_value, is_optional=is_optional)
-
-
 class _ExtensionLocalValue:
     def __init__(self, value):
         self.value = value or OrderedDict()
@@ -634,8 +647,7 @@ class ExtensionNodeProperty(_ElementBase):
 
     def __init__(self, sub_element_name, default_py_value=None):
         super().__init__(sub_element_name, ClassCheckConverter(_ExtensionLocalValue), default_py_value,
-                         is_optional=True,
-                         local_var_prefix='ext')
+                         is_optional=True)
 
     def __get__(self, instance, owner):
         """ returns a python value, uses the locally stored value"""
@@ -734,9 +746,9 @@ class SubElementProperty(_ElementBase):
     """ uses a value that has an "as_etree_node" method"""
 
     def __init__(self, sub_element_name, value_class, default_py_value=None,
-                 implied_py_value=None, is_optional=False, local_var_prefix=''):
+                 implied_py_value=None, is_optional=False):
         super().__init__(sub_element_name, ClassCheckConverter(value_class), default_py_value, implied_py_value,
-                         is_optional, local_var_prefix)
+                         is_optional)
         self.value_class = value_class
 
     def get_py_value_from_node(self, instance, node):
@@ -1053,7 +1065,7 @@ class AnyEtreeNodeListProperty(_ElementListProperty):
 
 
 class NodeTextListProperty(_ElementListProperty):
-    """ The handled data is a list of words (string without whitespace). The xml text is the joined list of words.
+    """The handled data is a list of words (string without whitespace). The xml text is the joined list of words.
     """
 
     def __init__(self, sub_element_name, value_class, is_optional=False):

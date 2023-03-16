@@ -130,32 +130,8 @@ class SetAlertStateOperationStateContainer(AbstractOperationStateContainer):
     NODETYPE = pm.SetAlertStateOperationState
 
 
-class AbstractMetricStateContainerBase(AbstractStateContainer):
-    """
-    This class is not in the xml schema hierarchy, it only helps to centrally implement functionality
-    """
+class AbstractMetricStateContainer(AbstractStateContainer):
     is_metric_state = True
-
-    @property
-    def MetricValue(self):  # pylint: disable=invalid-name
-        return self._metric_value
-
-    @MetricValue.setter
-    def MetricValue(self, metric_value_object):  # pylint: disable=invalid-name
-        if metric_value_object is not None:
-            assert isinstance(metric_value_object,
-                              self.__class__._metric_value.value_class)  # pylint: disable=protected-access, no-member
-        self._metric_value = metric_value_object
-
-    def mk_metric_value(self):
-        if self._metric_value is None:
-            cls = self.__class__._metric_value.value_class  # pylint: disable=protected-access, no-member
-            self._metric_value = cls()
-            return self._metric_value
-        raise ValueError(f'State (descriptor handle="{self.DescriptorHandle}") already has a metric value')
-
-
-class AbstractMetricStateContainer(AbstractMetricStateContainerBase):
     BodySite = cp.SubElementListProperty(pm.BodySite, value_class=pm_types.CodedValue)
     PhysicalConnector = cp.SubElementProperty(pm.PhysicalConnector,
                                               value_class=pm_types.PhysicalConnectorInfo, is_optional=True)
@@ -168,35 +144,51 @@ class AbstractMetricStateContainer(AbstractMetricStateContainerBase):
 
 class NumericMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = pm.NumericMetricState
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.NumericMetricValue, is_optional=True)
+    MetricValue = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.NumericMetricValue, is_optional=True)
     PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pm_types.Range)
     ActiveAveragingPeriod = cp.DurationAttributeProperty('ActiveAveragingPeriod')  # xsd:duration
-    _props = ('_metric_value', 'PhysiologicalRange', 'ActiveAveragingPeriod')
+    _props = ('MetricValue', 'PhysiologicalRange', 'ActiveAveragingPeriod')
+
+    def mk_metric_value(self):
+        if self.MetricValue is None:
+            self.MetricValue = pm_types.NumericMetricValue()
+            return self.MetricValue
+        raise ValueError(f'State (descriptor handle="{self.DescriptorHandle}") already has a metric value')
 
 
 class StringMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = pm.StringMetricState
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.StringMetricValue, is_optional=True)
-    _props = ('_metric_value',)
+    MetricValue = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.StringMetricValue, is_optional=True)
+    _props = ('MetricValue',)
+
+    def mk_metric_value(self):
+        if self.MetricValue is None:
+            self.MetricValue = pm_types.StringMetricValue()
+            return self.MetricValue
+        raise ValueError(f'State (descriptor handle="{self.DescriptorHandle}") already has a metric value')
 
 
 class EnumStringMetricStateContainer(StringMetricStateContainer):
     NODETYPE = pm.EnumStringMetricState
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.StringMetricValue, is_optional=True)
 
 
 class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
     NODETYPE = pm.RealTimeSampleArrayMetricState
     is_realtime_sample_array_metric_state = True
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.SampleArrayValue, is_optional=True)
+    MetricValue = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.SampleArrayValue, is_optional=True)
     PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pm_types.Range)
-    _props = ('_metric_value', 'PhysiologicalRange')
-    MetricValue = _metric_value
+    _props = ('MetricValue', 'PhysiologicalRange')
+
+    def mk_metric_value(self):
+        if self.MetricValue is None:
+            self.MetricValue = pm_types.SampleArrayValue()
+            return self.MetricValue
+        raise ValueError(f'State (descriptor handle="{self.DescriptorHandle}") already has a metric value')
 
     def __repr__(self):
         samples_count = 0
-        if self._metric_value is not None and self._metric_value.Samples is not None:
-            samples_count = len(self._metric_value.Samples)
+        if self.MetricValue is not None and self.MetricValue.Samples is not None:
+            samples_count = len(self.MetricValue.Samples)
         return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" ' \
                f'Activation="{self.ActivationState}" Samples={samples_count}'
 

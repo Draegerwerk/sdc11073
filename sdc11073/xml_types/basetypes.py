@@ -1,11 +1,16 @@
+from __future__ import annotations
 import inspect
 import enum
 import traceback
 from math import isclose
-
+from typing import TYPE_CHECKING, List
 from lxml import etree as etree_
 
 from .xml_structure import NodeStringProperty, NodeTextListProperty
+
+if TYPE_CHECKING:
+    from lxml.etree import _Element as Element_, QName
+
 
 class StringEnum(str, enum.Enum):
 
@@ -28,12 +33,12 @@ class XMLTypeBase:
         for _, prop in self.sorted_container_properties():
             prop.init_instance_data(self)
 
-    def as_etree_node(self, q_name, ns_map):
+    def as_etree_node(self, q_name: QName, ns_map: dict):
         node = etree_.Element(q_name, nsmap=ns_map)
         self.update_node(node)
         return node
 
-    def update_node(self, node):
+    def update_node(self, node: Element_):
         for prop_name, prop in self.sorted_container_properties():
             try:
                 prop.update_xml_value(self, node)
@@ -42,7 +47,7 @@ class XMLTypeBase:
                 raise ValueError(
                     f'In {self.__class__.__name__}.{prop_name}, {str(prop)} could not update: {traceback.format_exc()}') from ex
 
-    def update_from_node(self, node):
+    def update_from_node(self, node: Element_):
         for dummy, prop in self.sorted_container_properties():
             prop.update_from_node(self, node)
 
@@ -103,7 +108,7 @@ class ElementWithText(XMLTypeBase):
     - It can be extended with Attributes
     """
     NODETYPE = None
-    text = NodeStringProperty()  # this is the text of the node. Here attribute is lower case!
+    text: str = NodeStringProperty()  # this is the text of the node. Here attribute is lower case!
     _props = ['text']
 
     def __init__(self, text=None):
@@ -114,12 +119,9 @@ class ElementWithTextList(XMLTypeBase):
     """An Element with text, which is alist of words(string without whitespace).
     """
     # this is the text list of the node. Here attribute is lower case!
-    text = NodeTextListProperty(sub_element_name=None,
+    text: List[str] = NodeTextListProperty(sub_element_name=None,
                                 value_class=str)
     _props = ['text']
-
-    def __init__(self):
-        super().__init__()
 
 
 class MessageType(XMLTypeBase):
