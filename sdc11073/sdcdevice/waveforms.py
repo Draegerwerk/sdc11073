@@ -39,7 +39,7 @@ class WaveformGeneratorBase:
         self._generator = itertools.cycle(self._values)
 
     def next_samples(self, count):
-        return [next(self._generator) for i in range(count)]
+        return [next(self._generator) for _ in range(count)]
 
 
 class TriangleGenerator(WaveformGeneratorBase):

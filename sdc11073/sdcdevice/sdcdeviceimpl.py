@@ -7,7 +7,7 @@ from urllib.parse import SplitResult
 
 from .components import default_sdc_device_components
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
-from .subscriptionmgr import SoapClientPool
+from ..pysoap.soapclientpool import SoapClientPool
 from .waveforms import WaveformSender
 from .. import loghelper
 from .. import observableproperties as properties
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from ..mdib.devicemdib import DeviceMdibContainer
     from .components import SdcDeviceComponents
     from ssl import SSLContext
+    from ..xml_types.wsd_types import ScopesType
 
 
 class _PathElementDispatcher(PathElementRegistry):
@@ -51,7 +52,7 @@ class _PathElementDispatcher(PathElementRegistry):
 class WsDiscoveryProtocol(Protocol):
     """This is the interface that SdcDevice expects"""
 
-    def publish_service(self, epr: str, types: list, scopes: list, x_addrs: list):
+    def publish_service(self, epr: str, types: list, scopes: ScopesType, x_addrs: list):
         ...
 
     def get_active_addresses(self) -> list:
@@ -85,7 +86,7 @@ class SdcDevice:
         :param epr: something that serves as a unique identifier of this device for discovery.
                     If epr is a string, it must be usable as a path element in an url (no spaces, ...)
         :param validate: bool
-        :param ssl_context: if not None, this context is used and https url is used. Otherwise http
+        :param ssl_context: if not None, this context is used and https url is used, otherwise http
         :param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
         :param log_prefix: a string
         :param specific_components: a SdcDeviceComponents instance
@@ -161,7 +162,7 @@ class SdcDevice:
 
         # these are initialized in _setup_components:
         self._subscriptions_managers = {}
-        self._soap_client_pool = SoapClientPool(self._mk_soap_client)
+        self._soap_client_pool = SoapClientPool(self._mk_soap_client, log_prefix)
         self._sco_operations_registries = {}  # key is mds handle ?
         self._service_factory = None
         self.product_roles_lookup = {}
@@ -209,7 +210,6 @@ class SdcDevice:
                                           self._components.operation_cls_getter,
                                           self._mdib,
                                           sco_descr,
-                                          handle='_sco',
                                           log_prefix=self._log_prefix)
             self._sco_operations_registries[sco_descr.Handle] = sco_operations_registry
 
@@ -278,11 +278,11 @@ class SdcDevice:
     def set_location(self, location: SdcLocation,
                      validators=None,
                      publish_now: bool = True):
-        '''
+        """
         :param location: an SdcLocation instance
         :param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
         :param publish_now: if True, the device is published via its wsdiscovery reference.
-        '''
+        """
         if location == self._location:
             return
         self._location = location
@@ -450,7 +450,6 @@ class SdcDevice:
 
     def _send_episodic_reports(self, transaction_processor):
         mdib_version_group = self._mdib.mdib_version_group
-        ns_mapper = self._mdib.nsmapper
         if transaction_processor.has_descriptor_updates:
             port_type_impl = self.hosted_services.description_event_service
             updated = transaction_processor.descr_updated

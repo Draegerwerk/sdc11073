@@ -35,7 +35,6 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         """
         :param sdc_definitions: defaults to sdc11073.definitions_sdc.SDC_v1_Definitions
         :param log_prefix: a string
-        :param waveform_source: an instance of an object that implements devicewaveform.AbstractWaveformSource
         :param extras_cls: class for extra functionality
         :param transaction_cls: runs the transaction
         """
@@ -96,7 +95,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                     if callable(self.pre_commit_handler):
                         self.pre_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
                     if self._current_transaction.error:
-                        self._logger.info('_rtsampleTransaction: transaction without updates!')
+                        self._logger.info('_rt_sample_transaction: transaction without updates!')
                     else:
                         self._process_internal_rt_transaction()
                         if callable(self.post_commit_handler):

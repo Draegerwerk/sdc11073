@@ -11,7 +11,7 @@ import copy
 import time
 from collections import OrderedDict
 from datetime import datetime, date
-from typing import TYPE_CHECKING, Union
+from typing import Union
 from lxml import etree as etree_
 
 from . import isoduration
@@ -22,9 +22,6 @@ from .dataconverters import TimestampConverter, DecimalConverter, IntegerConvert
 from ..exceptions import ApiUsageError
 from ..namespaces import QN_TYPE, docname_from_qname, text_to_qname
 
-if TYPE_CHECKING:
-    from lxml.etree import _Element as Element_
-    from lxml.etree import QName
 
 STRICT_TYPES = True  # if True, only the expected types are excepted.
 MANDATORY_VALUE_CHECKING = True  # checks if mandatory values are present when xml is generated
@@ -60,7 +57,7 @@ class _XmlStructureBaseProperty:
         """
 
         :param local_var_name: a member with this same is added to instance
-        :param value_converter: one of dataconverter classes
+        :param value_converter: DataConverterProtocol
         :param default_py_value: initial value when initialized
                                  (should be set for mandatory elements, otherwise created xml might violate schema)
                                  and if the xml element does not exist.
@@ -132,7 +129,7 @@ class _XmlStructureBaseProperty:
         if self._default_py_value is not None:
             setattr(instance, self._local_var_name, copy.deepcopy(self._default_py_value))
 
-    def update_xml_value(self, instance, node: Element_):
+    def update_xml_value(self, instance, node: etree_.Element):
         """
         Updates node with current data from instance.
         This method is used internally and should not be called by application.
@@ -143,7 +140,7 @@ class _XmlStructureBaseProperty:
         # to be defined in derived classes
         raise NotImplementedError
 
-    def get_py_value_from_node(self, instance, node: Element_):
+    def get_py_value_from_node(self, instance, node: etree_.Element):
         """
         Reads data from node.
         This method is used internally and should not be called by application.
@@ -154,7 +151,7 @@ class _XmlStructureBaseProperty:
         # to be defined in derived classes
         raise NotImplementedError
 
-    def update_from_node(self, instance, node: Element_):
+    def update_from_node(self, instance, node: etree_.Element):
         """
         Updates instance data with data from node.
         This method is used internally and should not be called by application.
@@ -198,7 +195,7 @@ class _AttributeBase(_XmlStructureBaseProperty):
             pass
         return value
 
-    def update_xml_value(self, instance, node: Element_):
+    def update_xml_value(self, instance, node: etree_.Element):
         try:
             py_value = getattr(instance, self._local_var_name)
         except AttributeError:
@@ -223,7 +220,7 @@ class _AttributeBase(_XmlStructureBaseProperty):
 class _ElementBase(_XmlStructureBaseProperty):
     """ Base class that represents an XML Element."""
 
-    def __init__(self, sub_element_name: Union[QName, None], value_converter, default_py_value=None, implied_py_value=None,
+    def __init__(self, sub_element_name: Union[etree_.QName, None], value_converter, default_py_value=None, implied_py_value=None,
                  is_optional=False):
         """
         Represents a (sub) element in xml.
@@ -698,12 +695,11 @@ class ExtensionNodeProperty(_ElementBase):
             for tag, val in extension_local_value.value.items():
                 if val is None:
                     continue
-                if isinstance(val, etree_._Element):  # pylint: disable=protected-access
-                    _node = val
-                else:
+                if hasattr(val, 'as_etree_node'):
                     _node = val.as_etree_node(tag, node.nsmap)
+                else:
+                    _node = val
                 sub_node.append(copy.copy(_node))
-
 
 class AnyEtreeNodeProperty(_ElementBase):
     """ Represents an Element that contains xml tree of any kind."""

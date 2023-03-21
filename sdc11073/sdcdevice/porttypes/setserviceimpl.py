@@ -9,7 +9,6 @@ from ...dispatch import DispatchKey
 if TYPE_CHECKING:
     from ..sco import OperationDefinition
     from enum import Enum
-    from ...namespaces import NamespaceHelper
 
 
 @runtime_checkable

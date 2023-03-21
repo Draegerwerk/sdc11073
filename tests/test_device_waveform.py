@@ -7,6 +7,7 @@ from sdc11073.xml_types.dpws_types import ThisModelType, ThisDeviceType
 from sdc11073.mdib import descriptorcontainers as dc
 from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.sdcdevice import waveforms
+from sdc11073.pysoap.soapclientpool import SoapClientPool
 from tests import mockstuff
 
 # data that is used in report
@@ -17,12 +18,13 @@ class TestDeviceWaveform(unittest.TestCase):
 
     def setUp(self):
         self.mdib = sdc11073.mdib.DeviceMdibContainer()
+        self._soap_client_pool = SoapClientPool(soap_client_factory=None, log_prefix="")
 
         # this structure is not realistic, but sufficient for what we need here.
-        desc = dc.MdsDescriptorContainer(handle='42', parent_handle=None)
+        desc = dc.MdsDescriptorContainer(handle='some_new_handle', parent_handle=None)
         self.mdib.descriptions.add_object(desc)
         for h in HANDLES:
-            desc = dc.RealTimeSampleArrayMetricDescriptorContainer(handle=h, parent_handle='42')
+            desc = dc.RealTimeSampleArrayMetricDescriptorContainer(handle=h, parent_handle='some_new_handle')
             desc.SamplePeriod = 0.1
             desc.unit = pm_types.CodedValue('abc')
             desc.MetricAvailability = pm_types.MetricAvailability.CONTINUOUS
@@ -112,6 +114,7 @@ class TestDeviceWaveform(unittest.TestCase):
         self.sdc_device = sdc11073.sdcdevice.SdcDevice(wsd, this_model, this_device, self.mdib)
         self.sdc_device.start_all()
         test_subscription = mockstuff.TestDevSubscription([self.sdc_device.mdib.sdc_definitions.Actions.Waveform],
+                                                          self._soap_client_pool,
                                                           self.sdc_device.msg_factory)
         mgr = self.sdc_device.hosted_services.state_event_service.hosting_service.subscriptions_manager
         mgr._subscriptions.add_object(test_subscription)

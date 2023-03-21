@@ -70,7 +70,7 @@ class SetServiceClient(HostedServiceClient):
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def activate(self, operation_handle, arguments=None, request_manipulator=None) -> Future:
-        """ an activate call does not return the result of the operation directly. Instead you get an transaction id,
+        """ an activate call does not return the result of the operation directly. Instead you get a transaction id,
         and will receive the status of this transaction as notification ("OperationInvokedReport").
         This method returns a "future" object. The future object has a result as soon as a final transaction state is received.
         :param operation_handle: a string

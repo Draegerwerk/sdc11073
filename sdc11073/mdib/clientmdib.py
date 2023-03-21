@@ -43,7 +43,7 @@ class ClientRtBuffer:
         :param sample_period: float value, in seconds.
                               When an incoming real time sample array is split into single RtSampleContainers, this is used to calculate the individual time stamps.
                               Value can be zero if correct value is not known. In this case all Containers will have the observation time of the sample array.
-        :param max_samples: integer, max. length of self.rtdata
+        :param max_samples: integer, max. length of self.rt_data
         """
         self.rt_data = deque(maxlen=max_samples)
         self.sample_period = sample_period
@@ -52,7 +52,7 @@ class ClientRtBuffer:
         self._lock = Lock()
         self.last_sc = None  # last state container that was handled
 
-    def mk_rtsample_containers(self, realtime_sample_array_container) -> List[RtSampleContainer]:
+    def mk_rt_sample_containers(self, realtime_sample_array_container) -> List[RtSampleContainer]:
         """
 
         :param realtime_sample_array_container: a RealTimeSampleArrayMetricStateContainer instance
@@ -68,7 +68,7 @@ class ClientRtBuffer:
         determination_time = metric_value.DeterminationTime
         annotations = metric_value.Annotations
         apply_annotations = metric_value.ApplyAnnotations
-        rtsample_containers = []
+        rt_sample_containers = []
         if metric_value.Samples is not None:
             for i, sample in enumerate(metric_value.Samples):
                 applied_annotations = []
@@ -80,11 +80,11 @@ class ClientRtBuffer:
                             annotation = annotations[ann_index]  # index is zero-based
                             applied_annotations.append(annotation)
                 rt_sample_time = determination_time + i * self.sample_period
-                rtsample_containers.append(RtSampleContainer(sample,
+                rt_sample_containers.append(RtSampleContainer(sample,
                                                              rt_sample_time,
                                                              metric_value.MetricQuality.Validity,
                                                              applied_annotations))
-        return rtsample_containers
+        return rt_sample_containers
 
     def add_rt_sample_containers(self, rt_sample_containers: List[RtSampleContainer]) -> None:
         """
@@ -228,8 +228,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     def _buffer_data(self, mdib_version_group, data, func):
         """
         Write notification to a temporary buffer, as long as mdib is not initialized.
-        :param mdib_version:
-        :param sequence_id:
+        :param mdib_version_group:
         :param data:
         :param func: the callable that shall be called later for delayed handling of report
         :return: True if buffered, False if report shall be processed immediately
@@ -483,7 +482,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             sample_period = descriptor_container.SamplePeriod or 0
                         rt_buffer = ClientRtBuffer(sample_period=sample_period, max_samples=self._max_realtime_samples)
                         self.rt_buffers[d_handle] = rt_buffer
-                    rt_sample_containers = rt_buffer.mk_rtsample_containers(state_container)
+                    rt_sample_containers = rt_buffer.mk_rt_sample_containers(state_container)
                     rt_buffer.add_rt_sample_containers(rt_sample_containers)
         finally:
             if states_by_handle is not None:

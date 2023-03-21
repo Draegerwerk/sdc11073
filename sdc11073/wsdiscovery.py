@@ -1143,7 +1143,6 @@ class WSDiscoverySingleAdapter(WSDiscoveryBase):
                 raise RuntimeError(f'No adapter "{adapter_name}" found. Having {all_adapter_names}')
 
             # see if there is only one physical adapter. if yes, use it
-            # adapters_not_localhost = [a for a in all_adapters if not a.ip.startswith('127.')]
             adapters_not_localhost = [a for a in all_adapters if not a.ip.startswith('127.')]
             if len(adapters_not_localhost) == 1:
                 self._my_ip_address = (adapters_not_localhost[0].ip,)  # a tuple

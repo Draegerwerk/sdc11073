@@ -43,7 +43,7 @@ class ContainerBase:
         self.update_node(node, ns_helper, set_xsi_type)
         return node
 
-    def update_node(self, node: etree_._Element, ns_helper: NamespaceHelper, set_xsi_type: bool = False):
+    def update_node(self, node: etree_.Element, ns_helper: NamespaceHelper, set_xsi_type: bool = False):
         """
         update node with own data
         :param node: node to be updated

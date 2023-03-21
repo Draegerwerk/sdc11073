@@ -13,9 +13,9 @@ def _short_action_string(action: str):
 
 
 def short_filter_string(actions):
-    '''
+    """
     Helper function to make shorter action strings for logging
     :param actions: list of strings
     :return: a comma separated string of shortened names
-    '''
+    """
     return ', '.join([_short_action_string(a) for a in actions])

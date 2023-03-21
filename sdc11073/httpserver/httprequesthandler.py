@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import traceback
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
@@ -55,7 +54,7 @@ class DispatchingRequestHandler(BaseHTTPRequestHandler):
             response_xml_string = http_reason.encode('utf-8')
             self.send_response(500, http_reason)  # server error
             self.send_header("Content-type", "text/plain; charset=utf-8")
-            self.send_header("Content-length", len(response_xml_string))
+            self.send_header("Content-length", str(len(response_xml_string)))
             self.end_headers()
             self.wfile.write(response_xml_string)
             return
@@ -67,7 +66,7 @@ class DispatchingRequestHandler(BaseHTTPRequestHandler):
             response_xml_string = b''
             self.send_response(ex.status, http_reason)
             self.send_header("Content-type", "text/plain; charset=utf-8")
-            self.send_header("Content-length", len(response_xml_string))
+            self.send_header("Content-length", str(len(response_xml_string)))
             self.end_headers()
             self.wfile.write(response_xml_string)
             return
@@ -82,7 +81,7 @@ class DispatchingRequestHandler(BaseHTTPRequestHandler):
             response_xml_string = b''
             self.send_response(500, http_reason)  # server error
             self.send_header("Content-type", "text/plain; charset=utf-8")
-            self.send_header("Content-length", len(response_xml_string))
+            self.send_header("Content-length", str(len(response_xml_string)))
             self.end_headers()
             self.wfile.write(response_xml_string)
             return
@@ -100,7 +99,6 @@ class DispatchingRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(response_xml_string)
 
     def do_GET(self):  # pylint: disable=invalid-name
-        parsed_path = urlparse(self.path)
         if self.server.dispatcher is None:
             # close this connection
             self.close_connection = True  # pylint: disable=attribute-defined-outside-init

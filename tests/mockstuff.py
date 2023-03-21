@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os.path
 import threading
-import urllib
+from urllib.parse import SplitResult
 from decimal import Decimal
 from typing import TYPE_CHECKING, Union
 
@@ -20,6 +20,7 @@ from sdc11073.xml_types.eventing_types import Subscribe
 
 if TYPE_CHECKING:
     import uuid
+    from sdc11073.pysoap.soapclientpool import SoapClientPool
 
 portsLock = threading.Lock()
 _ports = 10000
@@ -67,19 +68,23 @@ class TestDevSubscription(DevSubscription):
     expires = 60
     notifyRef = 'a ref string'
 
-    def __init__(self, filter_, msg_factory):
+    def __init__(self, filter_,
+                 soap_client_pool: SoapClientPool,
+                 msg_factory):
         notify_ref_node = etree_.Element(ns_hlp.wseTag('References'))
         identNode = etree_.SubElement(notify_ref_node, ns_hlp.wseTag('Identifier'))
         identNode.text = self.notifyRef
-        base_urls = [urllib.parse.SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
+        base_urls = [SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
         accepted_encodings = ['foo']  # not needed here
         subscribe_request = Subscribe()
         subscribe_request.set_filter(' '.join(filter_))
         subscribe_request.Delivery.NotifyTo.Address = self.notify_to
         subscribe_request.Delivery.NotifyTo.ReferenceParameters = [notify_ref_node]
         subscribe_request.Delivery.NotifyTo.Mode = self.mode
-        super().__init__(subscribe_request, accepted_encodings, base_urls, 42, msg_factory=msg_factory,
-                         log_prefix='test')
+        max_subscription_duration = 42
+        subscr_mgr = None
+        super().__init__(subscr_mgr, subscribe_request, accepted_encodings, base_urls, max_subscription_duration, soap_client_pool,
+                         msg_factory=msg_factory, log_prefix='test')
         self.reports = []
 
     def send_notification_report(self, body_node, action):

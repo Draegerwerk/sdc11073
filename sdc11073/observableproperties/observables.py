@@ -11,9 +11,9 @@ Example:
 >>>         do_something()
 >>>
 >>> class Observer:
->>>     def onProp1Changed(value):
+>>>     def onProp1Changed(self, value):
 >>>         print 'prop1=', value
->>>     def onProp21Changed(value):
+>>>     def onProp21Changed(self, value):
 >>>         print 'prop2=', value
 >>>
 >>> actor = MyBaseClass()
@@ -31,7 +31,7 @@ from contextlib import contextmanager
 
 
 class WeakRef:
-    """ This Weaf Ref implementation allows to hold references to bound methods.
+    """ This Weak Ref implementation allows to hold references to bound methods.
     => see http://stackoverflow.com/questions/599430/why-doesnt-the-weakref-work-on-this-bound-method"""
 
     def __init__(self, item):
@@ -75,7 +75,7 @@ class _ObservableValue:
             return
         self.value = value
         obsolete_refs = []
-        # now call all listeners. Keep track of obsolete weak refeences
+        # now call all listeners. Keep track of obsolete weak references
         for ref in self._observers[:]:  # make a copy of list, content might change during iteration
             try:
                 func = ref.get_ref()
@@ -183,7 +183,7 @@ def bind(obj, **kwargs):
     ObservableProperty silently removes the callable if it no longer exists.
     This method does not work with lambda expressions!
     :param obj: an object with ObservableProperty member(s)
-    :param **kwargs: name of parameter must match the name of an ObservableProperty, value must be a callable."""
+    :param kwargs: name of parameter must match the name of an ObservableProperty, value must be a callable."""
     for name, func in kwargs.items():
         prop = _find_property(obj, name)
         prop.bind(obj, func)
@@ -200,7 +200,7 @@ def strongbind(obj, **kwargs):
 def unbind(obj, **kwargs):
     """ unbind callables that were bound before.
     :param obj: an object with ObservableProperty member(s)
-    :param **kwargs: name of parameter must match the name of an ObservableProperty, value must be a callable.
+    :param kwargs: name of parameter must match the name of an ObservableProperty, value must be a callable.
                     Unbinding an unknown callable is allowed, in this cases nothing changes. """
     for name, func in kwargs.items():
         prop = _find_property(obj, name)
@@ -210,7 +210,7 @@ def unbind(obj, **kwargs):
 def unbind_all(obj, *propertyNames):
     """ unbind all callables that were bound before.
     :param obj: an object with ObservableProperty member(s)
-    :param *propertyNames: list of strings , each string names an ObservableProperty.
+    :param propertyNames: list of strings, each string names an ObservableProperty.
     """
     for name in propertyNames:
         prop = _find_property(obj, name)

@@ -1,4 +1,4 @@
-import urllib
+from urllib.parse import quote, unquote, urlencode, parse_qsl, urlunparse, urlsplit, ParseResult
 from collections import OrderedDict
 
 
@@ -51,14 +51,13 @@ class SdcLocation:
             identifiers.append(value)
             if value:
                 query_dict[url_name] = value
-        identifiers = [urllib.parse.quote(ident) for ident in identifiers]
-        slash = urllib.parse.quote('/', safe='')
+        identifiers = [quote(ident) for ident in identifiers]
+        slash = quote('/', safe='')
         loc = slash.join(identifiers)  # this is a bit ugly, but urllib.quote does not touch slashes;
-        query = urllib.parse.urlencode(query_dict)
-        path = f'/{urllib.parse.quote(self.root)}/{loc}'
-        scope_string = urllib.parse.urlunparse(
-            urllib.parse.ParseResult(scheme=self.scheme, netloc=None, path=path, params=None, query=query,
-                                     fragment=None))
+        query = urlencode(query_dict)
+        path = f'/{quote(self.root)}/{loc}'
+        scope_string = urlunparse(
+            ParseResult(scheme=self.scheme, netloc=None, path=path, params=None, query=query, fragment=None))
         return scope_string
 
     def matching_services(self, services):
@@ -107,14 +106,15 @@ class SdcLocation:
         :param scope_string: an url
         :return: a SdcLocation object
         """
-        src = urllib.parse.urlsplit(scope_string)
+        src = urlsplit(scope_string)
 
         if src.scheme.lower() != cls.scheme:
             raise UrlSchemeError(f'scheme "{src.scheme}" not excepted, must be "{cls.scheme}"')
         dummy, root, _ = src.path.split('/')
-        root = urllib.parse.unquote(root)
-        query_dict = dict(urllib.parse.parse_qsl(src.query))
-        # make a new argumentsDict with well known keys. This allows to ignore unknown keys that might be present in querydict
+        root = unquote(root)
+        query_dict = dict(parse_qsl(src.query))
+        # make a new argumentsDict with well known keys. This allows to ignore unknown keys that might be present in
+        # query_dict
         arguments_dict = {}
         for url_name, attr_name in cls._url_member_mapping:
             arguments_dict[attr_name] = query_dict.get(url_name)

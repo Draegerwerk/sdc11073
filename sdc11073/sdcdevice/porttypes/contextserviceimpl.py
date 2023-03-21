@@ -10,7 +10,6 @@ from ...dispatch import DispatchKey
 if TYPE_CHECKING:
     from ...mdib.statecontainers import AbstractStateContainer
     from ..periodicreports import PeriodicStates
-    from ...namespaces import NamespaceHelper
 
 
 class ContextService(ServiceWithOperations):

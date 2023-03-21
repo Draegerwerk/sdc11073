@@ -10,6 +10,7 @@ from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.sdcdevice import waveforms, SdcDevice
+from sdc11073.sdcdevice.components import default_sdc_device_components_sync
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from tests import mockstuff
 
@@ -31,7 +32,6 @@ class TestDeviceSubscriptions(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
         self.logger = get_logger_adapter('sdc.test')
-
         self.mdib = DeviceMdibContainer.from_mdib_file(os.path.join(mdib_folder, '70041_MDIB_Final.xml'))
 
         this_model = ThisModelType(manufacturer='ABCDEFG GmbH',
@@ -46,7 +46,8 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
-        self.sdc_device = SdcDevice(self.wsd, this_model, this_device, self.mdib)
+        self.sdc_device = SdcDevice(self.wsd, this_model, this_device, self.mdib,
+                                    default_components=default_sdc_device_components_sync)
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self.logger.info('############### setUp done {} ##############'.format(self._testMethodName))
 
@@ -68,6 +69,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
     def test_waveformSubscription(self):
         test_subscription = mockstuff.TestDevSubscription([self.sdc_device.mdib.sdc_definitions.Actions.Waveform],
+                                                          self.sdc_device._soap_client_pool,
                                                           self.sdc_device.msg_factory)
         mgr = self.sdc_device.hosted_services.state_event_service.hosting_service.subscriptions_manager
         mgr._subscriptions.add_object(test_subscription)
@@ -97,6 +99,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
         # directly inject a subscription event, this test is not about starting subscriptions
         test_subscription = mockstuff.TestDevSubscription(
             [self.sdc_device.mdib.sdc_definitions.Actions.EpisodicMetricReport],
+            self.sdc_device._soap_client_pool,
             self.sdc_device.msg_factory)
         mgr = self.sdc_device.hosted_services.state_event_service.hosting_service.subscriptions_manager
         mgr._subscriptions.add_object(test_subscription)
@@ -123,6 +126,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
         # directly inject a subscription event, this test is not about starting subscriptions
         test_subscription = mockstuff.TestDevSubscription(
             [self.sdc_device.mdib.sdc_definitions.Actions.EpisodicContextReport],
+            self.sdc_device._soap_client_pool,
             self.sdc_device.msg_factory)
         mgr = self.sdc_device.hosted_services.context_service.hosting_service.subscriptions_manager
         mgr._subscriptions.add_object(test_subscription)
@@ -138,6 +142,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
     def test_notifyOperation(self):
         test_subscription = mockstuff.TestDevSubscription(
             [self.sdc_device.mdib.sdc_definitions.Actions.OperationInvokedReport],
+            self.sdc_device._soap_client_pool,
             self.sdc_device.msg_factory)
         mgr = self.sdc_device.hosted_services.set_service.hosting_service.subscriptions_manager
         mgr._subscriptions.add_object(test_subscription)

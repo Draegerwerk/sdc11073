@@ -6,7 +6,7 @@ schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
 class ProtocolsRegistry(type):
     """
-    base class that has the only purpose to register classes that use this as meta class
+    base class that has the only purpose to register classes that use this as metaclass
     """
     protocols = []
 

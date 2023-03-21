@@ -210,7 +210,7 @@ class SdcClient:
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
         self._my_ipaddress = self._find_best_own_ip_address()
         self._logger.info('SdcClient for {} uses own IP Address {}', self._device_location, self._my_ipaddress)
-        self.host_description: Optional[mex_types.MetaData] = None
+        self.host_description: Optional[mex_types.Metadata] = None
         self.hosted_services = {}  # lookup by service id
         self._validate = validate
         try:
@@ -403,7 +403,7 @@ class SdcClient:
             self._logger.debug('reading meta data from {}', self._device_location)
             self.host_description = self._get_metadata()
 
-        # now query also meta data of hosted services
+        # now query also metadata of hosted services
         self._mk_hosted_services(self.host_description)
         self._logger.debug('Services: {}', self._service_clients.keys())
 

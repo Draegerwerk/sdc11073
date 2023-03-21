@@ -11,7 +11,7 @@ from .. import observableproperties as properties
 from ..namespaces import NamespaceHelper
 from ..xml_types import ext_qnames as ext
 from ..xml_types import msg_qnames as msg
-from ..xml_types import pm_qnames as pm
+from ..xml_types import pm_qnames
 from ..xml_types import pm_types
 from ..xml_types import xml_structure as cp
 
@@ -22,7 +22,7 @@ class ChildDescriptorMapping:
     The name of a child element is often not identical to the type of the descriptor, e.g. a channel uses
     pm.Metric for all classes derived from AbstractMetricDescriptor. """
     child_qname: etree_.QName
-    node_types: Tuple[etree_.QName] = None
+    node_types: Tuple[etree_.QName, ...] = None
 
     def __repr__(self):
         if self.node_types is None:
@@ -54,7 +54,7 @@ def make_descriptor_node(descriptor_container, tag: etree_.QName, ns_helper: Nam
     :param ns_helper:  namespaces.NamespaceHelper instance
     :param set_xsi_type: if true, the NODETYPE will be used to set the xsi:type attribute of the node
     :param tag: tag of node
-    :param connect_child_descriptors: if True, the whole sub-tree is included
+    :param connect_child_descriptors: if True, the whole subtree is included
     :return: an etree node
     """
     if set_xsi_type:
@@ -106,10 +106,10 @@ class AbstractDescriptorContainer(ContainerBase):
     SafetyClassification = cp.EnumAttributeProperty('SafetyClassification',
                                                     implied_py_value=pm_types.SafetyClassification.INF,
                                                     enum_cls=pm_types.SafetyClassification)
-    Type = cp.SubElementProperty(pm.Type, value_class=pm_types.CodedValue, is_optional=True)
+    Type = cp.SubElementProperty(pm_qnames.Type, value_class=pm_types.CodedValue, is_optional=True)
     # pylint: enable=invalid-name
     _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'Extension', 'Type')
-    _child_elements_order = (ext.Extension, pm.Type)  # child elements in BICEPS order
+    _child_elements_order = (ext.Extension, pm_qnames.Type)  # child elements in BICEPS order
     STATE_QNAME = None
     extension_class_lookup = {msg.Retrievability: pm_types.Retrievability}
 
@@ -271,126 +271,126 @@ class AbstractDescriptorContainer(ContainerBase):
 class AbstractDeviceComponentDescriptorContainer(AbstractDescriptorContainer):
     is_component_descriptor = True
     is_leaf = False
-    ProductionSpecification = cp.SubElementListProperty(pm.ProductionSpecification,
+    ProductionSpecification = cp.SubElementListProperty(pm_qnames.ProductionSpecification,
                                                         value_class=pm_types.ProductionSpecification)
     _props = ('ProductionSpecification',)
-    _child_elements_order = (pm.ProductionSpecification,)
+    _child_elements_order = (pm_qnames.ProductionSpecification,)
 
 
 class AbstractComplexDeviceComponentDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
-    _child_elements_order = (pm.AlertSystem, pm.Sco)
+    _child_elements_order = (pm_qnames.AlertSystem, pm_qnames.Sco)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(pm.AlertSystem, (pm.AlertSystemDescriptor,)),
-        ChildDescriptorMapping(pm.Sco, (pm.ScoDescriptor,)))
+        ChildDescriptorMapping(pm_qnames.AlertSystem, (pm_qnames.AlertSystemDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.Sco, (pm_qnames.ScoDescriptor,)))
 
 
 class MdsDescriptorContainer(AbstractComplexDeviceComponentDescriptorContainer):
-    NODETYPE = pm.MdsDescriptor
-    STATE_QNAME = pm.MdsState
+    NODETYPE = pm_qnames.MdsDescriptor
+    STATE_QNAME = pm_qnames.MdsState
     # pylint: disable=invalid-name
-    MetaData = cp.SubElementProperty(pm.MetaData, value_class=pm_types.MetaData, is_optional=True)
-    ApprovedJurisdictions = cp.SubElementProperty(pm.ApprovedJurisdictions,
+    MetaData = cp.SubElementProperty(pm_qnames.MetaData, value_class=pm_types.MetaData, is_optional=True)
+    ApprovedJurisdictions = cp.SubElementProperty(pm_qnames.ApprovedJurisdictions,
                                                   value_class=pm_types.ApprovedJurisdictions,
                                                   is_optional=True)
     # pylint: enable=invalid-name
     _props = ('MetaData', 'ApprovedJurisdictions')
-    _child_elements_order = (pm.MetaData,
-                             pm.SystemContext,
-                             pm.Clock,
-                             pm.Battery,
-                             pm.ApprovedJurisdictions,
-                             pm.Vmd)
+    _child_elements_order = (pm_qnames.MetaData,
+                             pm_qnames.SystemContext,
+                             pm_qnames.Clock,
+                             pm_qnames.Battery,
+                             pm_qnames.ApprovedJurisdictions,
+                             pm_qnames.Vmd)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(pm.SystemContext, (pm.SystemContextDescriptor,)),
-        ChildDescriptorMapping(pm.Clock, (pm.ClockDescriptor,)),
-        ChildDescriptorMapping(pm.Battery, (pm.BatteryDescriptor,)),
-        ChildDescriptorMapping(pm.Vmd, (pm.VmdDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.SystemContext, (pm_qnames.SystemContextDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.Clock, (pm_qnames.ClockDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.Battery, (pm_qnames.BatteryDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.Vmd, (pm_qnames.VmdDescriptor,)),
     )
 
 
 class VmdDescriptorContainer(AbstractComplexDeviceComponentDescriptorContainer):
-    NODETYPE = pm.VmdDescriptor
-    STATE_QNAME = pm.VmdState
+    NODETYPE = pm_qnames.VmdDescriptor
+    STATE_QNAME = pm_qnames.VmdState
 
-    ApprovedJurisdictions = cp.SubElementProperty(pm.ApprovedJurisdictions,
+    ApprovedJurisdictions = cp.SubElementProperty(pm_qnames.ApprovedJurisdictions,
                                                   value_class=pm_types.ApprovedJurisdictions,
                                                   is_optional=True)
     _props = ('ApprovedJurisdictions',)
-    _child_elements_order = (pm.ApprovedJurisdictions,
-                             pm.Channel,)
+    _child_elements_order = (pm_qnames.ApprovedJurisdictions,
+                             pm_qnames.Channel,)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(pm.Channel, (pm.ChannelDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.Channel, (pm_qnames.ChannelDescriptor,)),
     )
 
 
 class ChannelDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
-    NODETYPE = pm.ChannelDescriptor
-    STATE_QNAME = pm.ChannelState
-    _child_elements_order = (pm.Metric,)
+    NODETYPE = pm_qnames.ChannelDescriptor
+    STATE_QNAME = pm_qnames.ChannelState
+    _child_elements_order = (pm_qnames.Metric,)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(pm.Metric, (pm.NumericMetricDescriptor,
-                                           pm.StringMetricDescriptor,
-                                           pm.EnumStringMetricDescriptor,
-                                           pm.RealTimeSampleArrayMetricDescriptor,
-                                           pm.DistributionSampleArrayMetricDescriptor,
-                                           )
+        ChildDescriptorMapping(pm_qnames.Metric, (pm_qnames.NumericMetricDescriptor,
+                                                  pm_qnames.StringMetricDescriptor,
+                                                  pm_qnames.EnumStringMetricDescriptor,
+                                                  pm_qnames.RealTimeSampleArrayMetricDescriptor,
+                                                  pm_qnames.DistributionSampleArrayMetricDescriptor,
+                                                  )
                                ),
     )
 
 
 class ClockDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
-    NODETYPE = pm.ClockDescriptor
-    STATE_QNAME = pm.ClockState
+    NODETYPE = pm_qnames.ClockDescriptor
+    STATE_QNAME = pm_qnames.ClockState
     # pylint: disable=invalid-name
-    TimeProtocol = cp.SubElementListProperty(pm.TimeProtocol, value_class=pm_types.CodedValue)
+    TimeProtocol = cp.SubElementListProperty(pm_qnames.TimeProtocol, value_class=pm_types.CodedValue)
     Resolution = cp.DurationAttributeProperty('Resolution')  # optional,  xsd:duration
     # pylint: enable=invalid-name
     _props = ('TimeProtocol', 'Resolution')
-    _child_elements_order = (pm.TimeProtocol,)
+    _child_elements_order = (pm_qnames.TimeProtocol,)
 
 
 class BatteryDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
-    NODETYPE = pm.BatteryDescriptor
-    STATE_QNAME = pm.BatteryState
+    NODETYPE = pm_qnames.BatteryDescriptor
+    STATE_QNAME = pm_qnames.BatteryState
     # pylint: disable=invalid-name
-    CapacityFullCharge = cp.SubElementProperty(pm.CapacityFullCharge,
+    CapacityFullCharge = cp.SubElementProperty(pm_qnames.CapacityFullCharge,
                                                value_class=pm_types.Measurement,
                                                is_optional=True)
-    CapacitySpecified = cp.SubElementProperty(pm.CapacitySpecified,
+    CapacitySpecified = cp.SubElementProperty(pm_qnames.CapacitySpecified,
                                               value_class=pm_types.Measurement,
                                               is_optional=True)
-    VoltageSpecified = cp.SubElementProperty(pm.VoltageSpecified,
+    VoltageSpecified = cp.SubElementProperty(pm_qnames.VoltageSpecified,
                                              value_class=pm_types.Measurement,
                                              is_optional=True)
     # pylint: enable=invalid-name
     _props = ('CapacityFullCharge', 'CapacitySpecified', 'VoltageSpecified')
-    _child_elements_order = (pm.CapacityFullCharge,
-                             pm.CapacitySpecified,
-                             pm.VoltageSpecified)
+    _child_elements_order = (pm_qnames.CapacityFullCharge,
+                             pm_qnames.CapacitySpecified,
+                             pm_qnames.VoltageSpecified)
 
 
 class ScoDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
-    NODETYPE = pm.ScoDescriptor
-    STATE_QNAME = pm.ScoState
-    _child_elements_order = (pm.Operation,)
+    NODETYPE = pm_qnames.ScoDescriptor
+    STATE_QNAME = pm_qnames.ScoState
+    _child_elements_order = (pm_qnames.Operation,)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(pm.Operation, (pm.SetValueOperationDescriptor,
-                                              pm.SetStringOperationDescriptor,
-                                              pm.SetContextStateOperationDescriptor,
-                                              pm.SetMetricStateOperationDescriptor,
-                                              pm.SetComponentStateOperationDescriptor,
-                                              pm.SetAlertStateOperationDescriptor,
-                                              pm.ActivateOperationDescriptor
-                                              )
+        ChildDescriptorMapping(pm_qnames.Operation, (pm_qnames.SetValueOperationDescriptor,
+                                                     pm_qnames.SetStringOperationDescriptor,
+                                                     pm_qnames.SetContextStateOperationDescriptor,
+                                                     pm_qnames.SetMetricStateOperationDescriptor,
+                                                     pm_qnames.SetComponentStateOperationDescriptor,
+                                                     pm_qnames.SetAlertStateOperationDescriptor,
+                                                     pm_qnames.ActivateOperationDescriptor
+                                                     )
                                ),
     )
 
 
 class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
     is_metric_descriptor = True
-    Unit = cp.SubElementProperty(pm.Unit, value_class=pm_types.CodedValue)
-    BodySite = cp.SubElementListProperty(pm.BodySite, value_class=pm_types.CodedValue)
-    Relation = cp.SubElementListProperty(pm.Relation, value_class=pm_types.Relation)  # o...n
+    Unit = cp.SubElementProperty(pm_qnames.Unit, value_class=pm_types.CodedValue)
+    BodySite = cp.SubElementListProperty(pm_qnames.BodySite, value_class=pm_types.CodedValue)
+    Relation = cp.SubElementListProperty(pm_qnames.Relation, value_class=pm_types.Relation)  # o...n
     MetricCategory = cp.EnumAttributeProperty('MetricCategory',
                                               enum_cls=pm_types.MetricCategory,
                                               default_py_value=pm_types.MetricCategory.UNSPECIFIED)  # required
@@ -411,56 +411,56 @@ class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
         'Unit', 'BodySite', 'Relation', 'MetricCategory', 'DerivationMethod', 'MetricAvailability',
         'MaxMeasurementTime',
         'MaxDelayTime', 'DeterminationPeriod', 'LifeTimePeriod', 'ActivationDuration')
-    _child_elements_order = (pm.Unit,
-                             pm.BodySite,
-                             pm.Relation)
+    _child_elements_order = (pm_qnames.Unit,
+                             pm_qnames.BodySite,
+                             pm_qnames.Relation)
 
 
 class NumericMetricDescriptorContainer(AbstractMetricDescriptorContainer):
-    NODETYPE = pm.NumericMetricDescriptor
-    STATE_QNAME = pm.NumericMetricState
-    TechnicalRange = cp.SubElementListProperty(pm.TechnicalRange, value_class=pm_types.Range)
+    NODETYPE = pm_qnames.NumericMetricDescriptor
+    STATE_QNAME = pm_qnames.NumericMetricState
+    TechnicalRange = cp.SubElementListProperty(pm_qnames.TechnicalRange, value_class=pm_types.Range)
     Resolution = cp.DecimalAttributeProperty('Resolution', is_optional=False)
     AveragingPeriod = cp.DurationAttributeProperty('AveragingPeriod')  # optional
     _props = ('TechnicalRange', 'Resolution', 'AveragingPeriod')
-    _child_elements_order = (pm.TechnicalRange,)
+    _child_elements_order = (pm_qnames.TechnicalRange,)
 
 
 class StringMetricDescriptorContainer(AbstractMetricDescriptorContainer):
-    NODETYPE = pm.StringMetricDescriptor
-    STATE_QNAME = pm.StringMetricState
+    NODETYPE = pm_qnames.StringMetricDescriptor
+    STATE_QNAME = pm_qnames.StringMetricState
 
 
 class EnumStringMetricDescriptorContainer(StringMetricDescriptorContainer):
-    NODETYPE = pm.EnumStringMetricDescriptor
-    STATE_QNAME = pm.EnumStringMetricState
-    AllowedValue = cp.SubElementListProperty(pm.AllowedValue, value_class=pm_types.AllowedValue)
+    NODETYPE = pm_qnames.EnumStringMetricDescriptor
+    STATE_QNAME = pm_qnames.EnumStringMetricState
+    AllowedValue = cp.SubElementListProperty(pm_qnames.AllowedValue, value_class=pm_types.AllowedValue)
     _props = ('AllowedValue',)
-    _child_elements_order = (pm.AllowedValue,)
+    _child_elements_order = (pm_qnames.AllowedValue,)
 
 
 class RealTimeSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorContainer):
     is_realtime_sample_array_metric_descriptor = True
-    NODETYPE = pm.RealTimeSampleArrayMetricDescriptor
-    STATE_QNAME = pm.RealTimeSampleArrayMetricState
-    TechnicalRange = cp.SubElementListProperty(pm.TechnicalRange, value_class=pm_types.Range)
+    NODETYPE = pm_qnames.RealTimeSampleArrayMetricDescriptor
+    STATE_QNAME = pm_qnames.RealTimeSampleArrayMetricState
+    TechnicalRange = cp.SubElementListProperty(pm_qnames.TechnicalRange, value_class=pm_types.Range)
     Resolution = cp.DecimalAttributeProperty('Resolution', is_optional=False)
     SamplePeriod = cp.DurationAttributeProperty('SamplePeriod', is_optional=False)
     _props = ('TechnicalRange', 'Resolution', 'SamplePeriod')
-    _child_elements_order = (pm.TechnicalRange,)
+    _child_elements_order = (pm_qnames.TechnicalRange,)
 
 
 class DistributionSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorContainer):
-    NODETYPE = pm.DistributionSampleArrayMetricDescriptor
-    STATE_QNAME = pm.DistributionSampleArrayMetricState
-    TechnicalRange = cp.SubElementListProperty(pm.TechnicalRange, value_class=pm_types.Range)
-    DomainUnit = cp.SubElementProperty(pm.DomainUnit, value_class=pm_types.CodedValue)
-    DistributionRange = cp.SubElementProperty(pm.DistributionRange, value_class=pm_types.Range)
+    NODETYPE = pm_qnames.DistributionSampleArrayMetricDescriptor
+    STATE_QNAME = pm_qnames.DistributionSampleArrayMetricState
+    TechnicalRange = cp.SubElementListProperty(pm_qnames.TechnicalRange, value_class=pm_types.Range)
+    DomainUnit = cp.SubElementProperty(pm_qnames.DomainUnit, value_class=pm_types.CodedValue)
+    DistributionRange = cp.SubElementProperty(pm_qnames.DistributionRange, value_class=pm_types.Range)
     Resolution = cp.DecimalAttributeProperty('Resolution', is_optional=False)
     _props = ('TechnicalRange', 'DomainUnit', 'DistributionRange', 'Resolution')
-    _child_elements_order = (pm.TechnicalRange,
-                             pm.DomainUnit,
-                             pm.DistributionRange)
+    _child_elements_order = (pm_qnames.TechnicalRange,
+                             pm_qnames.DomainUnit,
+                             pm_qnames.DistributionRange)
 
 
 class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
@@ -475,49 +475,49 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
 
 
 class SetValueOperationDescriptorContainer(AbstractOperationDescriptorContainer):
-    NODETYPE = pm.SetValueOperationDescriptor
-    STATE_QNAME = pm.SetValueOperationState
+    NODETYPE = pm_qnames.SetValueOperationDescriptor
+    STATE_QNAME = pm_qnames.SetValueOperationState
 
 
 class SetStringOperationDescriptorContainer(AbstractOperationDescriptorContainer):
-    NODETYPE = pm.SetStringOperationDescriptor
-    STATE_QNAME = pm.SetStringOperationState
+    NODETYPE = pm_qnames.SetStringOperationDescriptor
+    STATE_QNAME = pm_qnames.SetStringOperationState
     MaxLength = cp.IntegerAttributeProperty('MaxLength')
     _props = ('MaxLength',)
 
 
 class AbstractSetStateOperationDescriptor(AbstractOperationDescriptorContainer):
-    ModifiableData = cp.SubElementStringListProperty(pm.ModifiableData)
+    ModifiableData = cp.SubElementStringListProperty(pm_qnames.ModifiableData)
     _props = ('ModifiableData',)
-    _child_elements_order = (pm.ModifiableData,)
+    _child_elements_order = (pm_qnames.ModifiableData,)
 
 
 class SetContextStateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
-    NODETYPE = pm.SetContextStateOperationDescriptor
-    STATE_QNAME = pm.SetContextStateOperationState
+    NODETYPE = pm_qnames.SetContextStateOperationDescriptor
+    STATE_QNAME = pm_qnames.SetContextStateOperationState
 
 
 class SetMetricStateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
-    NODETYPE = pm.SetMetricStateOperationDescriptor
-    STATE_QNAME = pm.SetMetricStateOperationState
+    NODETYPE = pm_qnames.SetMetricStateOperationDescriptor
+    STATE_QNAME = pm_qnames.SetMetricStateOperationState
 
 
 class SetComponentStateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
-    NODETYPE = pm.SetComponentStateOperationDescriptor
-    STATE_QNAME = pm.SetComponentStateOperationState
+    NODETYPE = pm_qnames.SetComponentStateOperationDescriptor
+    STATE_QNAME = pm_qnames.SetComponentStateOperationState
 
 
 class SetAlertStateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
-    NODETYPE = pm.SetAlertStateOperationDescriptor
-    STATE_QNAME = pm.SetAlertStateOperationState
+    NODETYPE = pm_qnames.SetAlertStateOperationDescriptor
+    STATE_QNAME = pm_qnames.SetAlertStateOperationState
 
 
 class ActivateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
-    NODETYPE = pm.ActivateOperationDescriptor
-    STATE_QNAME = pm.ActivateOperationState
-    Argument = cp.SubElementListProperty(pm.Argument, value_class=pm_types.ActivateOperationDescriptorArgument)
+    NODETYPE = pm_qnames.ActivateOperationDescriptor
+    STATE_QNAME = pm_qnames.ActivateOperationState
+    Argument = cp.SubElementListProperty(pm_qnames.Argument, value_class=pm_types.ActivateOperationDescriptorArgument)
     _props = ('Argument',)
-    _child_elements_order = (pm.Argument,)
+    _child_elements_order = (pm_qnames.Argument,)
 
 
 class AbstractAlertDescriptorContainer(AbstractDescriptorContainer):
@@ -533,20 +533,20 @@ class AlertSystemDescriptorContainer(AbstractAlertDescriptorContainer):
     ALERT CONDITIONs are represented by a list of pm:AlertConditionDescriptor ELEMENTs and
     ALERT SIGNALs are represented by a list of pm:AlertSignalDescriptor ELEMENTs.
     """
-    NODETYPE = pm.AlertSystemDescriptor
-    STATE_QNAME = pm.AlertSystemState
+    NODETYPE = pm_qnames.AlertSystemDescriptor
+    STATE_QNAME = pm_qnames.AlertSystemState
     MaxPhysiologicalParallelAlarms = cp.UnsignedIntAttributeProperty('MaxPhysiologicalParallelAlarms')
     MaxTechnicalParallelAlarms = cp.UnsignedIntAttributeProperty('MaxTechnicalParallelAlarms')
     SelfCheckPeriod = cp.DurationAttributeProperty('SelfCheckPeriod')
     _props = ('MaxPhysiologicalParallelAlarms', 'MaxTechnicalParallelAlarms', 'SelfCheckPeriod')
-    _child_elements_order = (pm.AlertCondition,
-                             pm.AlertSignal)
+    _child_elements_order = (pm_qnames.AlertCondition,
+                             pm_qnames.AlertSignal)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(pm.AlertCondition, (pm.AlertConditionDescriptor,
-                                                   pm.LimitAlertConditionDescriptor
-                                                   )
+        ChildDescriptorMapping(pm_qnames.AlertCondition, (pm_qnames.AlertConditionDescriptor,
+                                                          pm_qnames.LimitAlertConditionDescriptor
+                                                          )
                                ),
-        ChildDescriptorMapping(pm.AlertSignal, (pm.AlertSignalDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.AlertSignal, (pm_qnames.AlertSignalDescriptor,)),
     )
 
 
@@ -554,10 +554,10 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
     """An ALERT CONDITION contains the information about a potentially or actually HAZARDOUS SITUATION.
       Examples: a physiological alarm limit has been exceeded or a sensor has been unplugged."""
     is_alert_condition_descriptor = True
-    NODETYPE = pm.AlertConditionDescriptor
-    STATE_QNAME = pm.AlertConditionState
-    Source = cp.SubElementHandleRefListProperty(pm.Source)  # a list of 0...n pm:HandleRef elements
-    CauseInfo = cp.SubElementListProperty(pm.CauseInfo, value_class=pm_types.CauseInfo)
+    NODETYPE = pm_qnames.AlertConditionDescriptor
+    STATE_QNAME = pm_qnames.AlertConditionState
+    Source = cp.SubElementHandleRefListProperty(pm_qnames.Source)  # a list of 0...n pm:HandleRef elements
+    CauseInfo = cp.SubElementListProperty(pm_qnames.CauseInfo, value_class=pm_types.CauseInfo)
     Kind = cp.EnumAttributeProperty('Kind', default_py_value=pm_types.AlertConditionKind.OTHER,
                                     enum_cls=pm_types.AlertConditionKind, is_optional=False)
     Priority = cp.EnumAttributeProperty('Priority', default_py_value=pm_types.AlertConditionPriority.NONE,
@@ -568,23 +568,24 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
     CanDeescalate = cp.EnumAttributeProperty('CanDeescalate', enum_cls=pm_types.CanDeEscalateAlertConditionPriority)
     _props = ('Source', 'CauseInfo', 'Kind', 'Priority', 'DefaultConditionGenerationDelay',
               'CanEscalate', 'CanDeescalate')
-    _child_elements_order = (pm.Source,
-                             pm.CauseInfo)
+    _child_elements_order = (pm_qnames.Source,
+                             pm_qnames.CauseInfo)
 
 
 class LimitAlertConditionDescriptorContainer(AlertConditionDescriptorContainer):
-    NODETYPE = pm.LimitAlertConditionDescriptor
-    STATE_QNAME = pm.LimitAlertConditionState
-    MaxLimits = cp.SubElementProperty(pm.MaxLimits, value_class=pm_types.Range, default_py_value=pm_types.Range())
+    NODETYPE = pm_qnames.LimitAlertConditionDescriptor
+    STATE_QNAME = pm_qnames.LimitAlertConditionState
+    MaxLimits = cp.SubElementProperty(pm_qnames.MaxLimits, value_class=pm_types.Range,
+                                      default_py_value=pm_types.Range())
     AutoLimitSupported = cp.BooleanAttributeProperty('AutoLimitSupported', implied_py_value=False)
     _props = ('MaxLimits', 'AutoLimitSupported',)
-    _child_elements_order = (pm.MaxLimits,)
+    _child_elements_order = (pm_qnames.MaxLimits,)
 
 
 class AlertSignalDescriptorContainer(AbstractAlertDescriptorContainer):
     is_alert_signal_descriptor = True
-    NODETYPE = pm.AlertSignalDescriptor
-    STATE_QNAME = pm.AlertSignalState
+    NODETYPE = pm_qnames.AlertSignalDescriptor
+    STATE_QNAME = pm_qnames.AlertSignalState
     ConditionSignaled = cp.HandleRefAttributeProperty('ConditionSignaled')
     Manifestation = cp.EnumAttributeProperty('Manifestation', enum_cls=pm_types.AlertSignalManifestation,
                                              is_optional=False)
@@ -602,21 +603,21 @@ class AlertSignalDescriptorContainer(AbstractAlertDescriptorContainer):
 
 class SystemContextDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     is_system_context_descriptor = True
-    NODETYPE = pm.SystemContextDescriptor
-    STATE_QNAME = pm.SystemContextState
-    _child_elements_order = (pm.PatientContext,
-                             pm.LocationContext,
-                             pm.EnsembleContext,
-                             pm.OperatorContext,
-                             pm.WorkflowContext,
-                             pm.MeansContext)
+    NODETYPE = pm_qnames.SystemContextDescriptor
+    STATE_QNAME = pm_qnames.SystemContextState
+    _child_elements_order = (pm_qnames.PatientContext,
+                             pm_qnames.LocationContext,
+                             pm_qnames.EnsembleContext,
+                             pm_qnames.OperatorContext,
+                             pm_qnames.WorkflowContext,
+                             pm_qnames.MeansContext)
     _child_descriptor_name_mappings = (
-        ChildDescriptorMapping(pm.PatientContext, (pm.PatientContextDescriptor,)),
-        ChildDescriptorMapping(pm.LocationContext, (pm.LocationContextDescriptor,)),
-        ChildDescriptorMapping(pm.EnsembleContext, (pm.EnsembleContextDescriptor,)),
-        ChildDescriptorMapping(pm.OperatorContext, (pm.OperatorContextDescriptor,)),
-        ChildDescriptorMapping(pm.WorkflowContext, (pm.WorkflowContextDescriptor,)),
-        ChildDescriptorMapping(pm.MeansContext, (pm.MeansContextDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.PatientContext, (pm_qnames.PatientContextDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.LocationContext, (pm_qnames.LocationContextDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.EnsembleContext, (pm_qnames.EnsembleContextDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.OperatorContext, (pm_qnames.OperatorContextDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.WorkflowContext, (pm_qnames.WorkflowContextDescriptor,)),
+        ChildDescriptorMapping(pm_qnames.MeansContext, (pm_qnames.MeansContextDescriptor,)),
     )
 
 
@@ -625,33 +626,33 @@ class AbstractContextDescriptorContainer(AbstractDescriptorContainer):
 
 
 class PatientContextDescriptorContainer(AbstractContextDescriptorContainer):
-    NODETYPE = pm.PatientContextDescriptor
-    STATE_QNAME = pm.PatientContextState
+    NODETYPE = pm_qnames.PatientContextDescriptor
+    STATE_QNAME = pm_qnames.PatientContextState
 
 
 class LocationContextDescriptorContainer(AbstractContextDescriptorContainer):
-    NODETYPE = pm.LocationContextDescriptor
-    STATE_QNAME = pm.LocationContextState
+    NODETYPE = pm_qnames.LocationContextDescriptor
+    STATE_QNAME = pm_qnames.LocationContextState
 
 
 class WorkflowContextDescriptorContainer(AbstractContextDescriptorContainer):
-    NODETYPE = pm.WorkflowContextDescriptor
-    STATE_QNAME = pm.WorkflowContextState
+    NODETYPE = pm_qnames.WorkflowContextDescriptor
+    STATE_QNAME = pm_qnames.WorkflowContextState
 
 
 class OperatorContextDescriptorContainer(AbstractContextDescriptorContainer):
-    NODETYPE = pm.OperatorContextDescriptor
-    STATE_QNAME = pm.OperatorContextState
+    NODETYPE = pm_qnames.OperatorContextDescriptor
+    STATE_QNAME = pm_qnames.OperatorContextState
 
 
 class MeansContextDescriptorContainer(AbstractContextDescriptorContainer):
-    NODETYPE = pm.MeansContextDescriptor
-    STATE_QNAME = pm.MeansContextState
+    NODETYPE = pm_qnames.MeansContextDescriptor
+    STATE_QNAME = pm_qnames.MeansContextState
 
 
 class EnsembleContextDescriptorContainer(AbstractContextDescriptorContainer):
-    NODETYPE = pm.EnsembleContextDescriptor
-    STATE_QNAME = pm.EnsembleContextState
+    NODETYPE = pm_qnames.EnsembleContextDescriptor
+    STATE_QNAME = pm_qnames.EnsembleContextState
 
 
 _classes = inspect.getmembers(sys.modules[__name__],
@@ -662,22 +663,22 @@ _classes_with_NODETYPE = [c[1] for c in _classes if hasattr(c[1], 'NODETYPE') an
 _name_class_lookup = {c.NODETYPE: c for c in _classes_with_NODETYPE}
 
 _name_class_xtra_lookup = {
-    pm.Battery: BatteryDescriptorContainer,
-    pm.Mds: MdsDescriptorContainer,
-    pm.Vmd: VmdDescriptorContainer,
-    pm.Sco: ScoDescriptorContainer,
-    pm.Channel: ChannelDescriptorContainer,
-    pm.Clock: ClockDescriptorContainer,
-    pm.SystemContext: SystemContextDescriptorContainer,
-    pm.PatientContext: PatientContextDescriptorContainer,
-    pm.LocationContext: LocationContextDescriptorContainer,
-    pm.WorkflowContext: WorkflowContextDescriptorContainer,
-    pm.OperatorContext: OperatorContextDescriptorContainer,
-    pm.MeansContext: MeansContextDescriptorContainer,
-    pm.EnsembleContext: EnsembleContextDescriptorContainer,
-    pm.AlertSystem: AlertSystemDescriptorContainer,
-    pm.AlertCondition: AlertConditionDescriptorContainer,
-    pm.AlertSignal: AlertSignalDescriptorContainer,
+    pm_qnames.Battery: BatteryDescriptorContainer,
+    pm_qnames.Mds: MdsDescriptorContainer,
+    pm_qnames.Vmd: VmdDescriptorContainer,
+    pm_qnames.Sco: ScoDescriptorContainer,
+    pm_qnames.Channel: ChannelDescriptorContainer,
+    pm_qnames.Clock: ClockDescriptorContainer,
+    pm_qnames.SystemContext: SystemContextDescriptorContainer,
+    pm_qnames.PatientContext: PatientContextDescriptorContainer,
+    pm_qnames.LocationContext: LocationContextDescriptorContainer,
+    pm_qnames.WorkflowContext: WorkflowContextDescriptorContainer,
+    pm_qnames.OperatorContext: OperatorContextDescriptorContainer,
+    pm_qnames.MeansContext: MeansContextDescriptorContainer,
+    pm_qnames.EnsembleContext: EnsembleContextDescriptorContainer,
+    pm_qnames.AlertSystem: AlertSystemDescriptorContainer,
+    pm_qnames.AlertCondition: AlertConditionDescriptorContainer,
+    pm_qnames.AlertSignal: AlertSignalDescriptorContainer,
 }
 _name_class_lookup.update(_name_class_xtra_lookup)
 

@@ -7,7 +7,6 @@ from .porttypebase import msg_prefix
 
 if TYPE_CHECKING:
     from ...mdib.statecontainers import AbstractStateContainer
-    from ...namespaces import NamespaceHelper
 
 
 class WaveformService(DPWSPortTypeBase):
@@ -26,7 +25,6 @@ class WaveformService(DPWSPortTypeBase):
     def send_realtime_samples_report(self, realtime_sample_states: List[AbstractStateContainer],
                                      mdib_version_group):
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
         subscription_mgr = self.hosting_service.subscriptions_manager
         report = data_model.msg_types.WaveformStream()
         report.set_mdib_version_group(mdib_version_group)

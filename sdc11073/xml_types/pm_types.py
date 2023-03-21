@@ -1,11 +1,8 @@
 """ Implementation of data types used in Participant Model"""
-import enum
 import inspect
 import sys
-import traceback
 from dataclasses import dataclass
 from decimal import Decimal
-from math import isclose
 from typing import Optional, Union
 
 from lxml import etree as etree_
@@ -211,7 +208,7 @@ class PropertyBasedPMType(XMLTypeBase):
 
     @classmethod
     def value_class_from_node(cls, node):
-        """ If node has an xsi:Type attribute, return the class that reflects that type"""
+        """ If node has a xsi:Type attribute, return the class that reflects that type"""
         xsi_type_str = node.get(QN_TYPE)
         if xsi_type_str is None:
             return cls

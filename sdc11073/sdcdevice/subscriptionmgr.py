@@ -11,23 +11,22 @@ from urllib.parse import urlparse
 
 from lxml import etree as etree_
 
-from ..httpserver.compression import CompressionHandler
-
+from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from .. import loghelper
 from .. import multikey
 from .. import observableproperties
-from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from ..etc import apply_map, short_filter_string
+from ..httpserver.compression import CompressionHandler
 from ..pysoap.soapclient import HTTPReturnCodeError
 from ..pysoap.soapenvelope import Fault, faultcodeEnum
-from ..pysoap.soapclientpool import SoapClientPool
 from ..xml_types import eventing_types as evt_types, isoduration
+from ..xml_types.basetypes import MessageType
 
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
     from ..pysoap.msgfactory import MessageFactory, CreatedMessage
     from ..dispatch import RequestData
-    from ..xml_types.basetypes import MessageType
+    from ..pysoap.soapclientpool import SoapClientPool
     from urllib.parse import SplitResult
 
 MAX_ROUNDTRIP_VALUES = 20
@@ -66,27 +65,32 @@ class SubscriptionBase:
     MAX_NOTIFY_ERRORS = 1
     IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
 
-    def __init__(self, subscribe_request: evt_types.Subscribe,
+    def __init__(self, mgr,
+                 subscribe_request: evt_types.Subscribe,
                  accepted_encodings: List[str],
                  base_urls: List[SplitResult],
                  max_subscription_duration: int,
+                 soap_client_pool: SoapClientPool,
                  msg_factory: MessageFactory,
                  log_prefix: str):
         """
-
+        :param mgr: the parent subscription manager
         :param subscribe_request:
         :param base_urls:
         :param max_subscription_duration:
+        :param soap_client_pool: where to get the soap client for sending data
         :param msg_factory:
         """
+        self._mgr = mgr
         self._logger = loghelper.get_logger_adapter('sdc.device.subscrMgr', log_prefix)
         self.base_urls = base_urls
         self._msg_factory = msg_factory
-
+        self._soap_client_pool = soap_client_pool
         self.mode = subscribe_request.Delivery.Mode
         self.notify_to_address = subscribe_request.Delivery.NotifyTo.Address
         self.notify_to_url = urlparse(self.notify_to_address)
         self.notify_ref_params = subscribe_request.Delivery.NotifyTo.ReferenceParameters
+        self.end_to_address = None
         self.end_to_ref_params = []
         if subscribe_request.EndTo is not None:
             self.end_to_address = subscribe_request.EndTo.Address
@@ -95,7 +99,6 @@ class SubscriptionBase:
                 self._end_to_url = urlparse(self.end_to_address)
             else:
                 self._end_to_url = None
-
 
         self.identifier_uuid = uuid.uuid4()
         self.reference_parameters = []  # default: no reference parameters
@@ -117,15 +120,13 @@ class SubscriptionBase:
         self.last_roundtrip_times = deque(
             maxlen=MAX_ROUNDTRIP_VALUES)  # a list of last n roundtrip times for notifications
         self.max_roundtrip_time = 0
+        self._soap_client_pool.register_netloc_user(self.notify_to_url.netloc, self)
 
     def set_reference_parameter(self):
         """Create a ReferenceParameters instance with a reference parameter"""
         reference_parameter = etree_.Element(self.IDENT_TAG)
         reference_parameter.text = self.identifier_uuid.hex
         self.reference_parameters.append(reference_parameter)
-
-    def set_soap_client(self, soap_client):
-        self._soap_client = soap_client
 
     def renew(self, expires):
         self._started = time.monotonic()
@@ -134,9 +135,15 @@ class SubscriptionBase:
         else:
             self._expire_seconds = self._max_subscription_duration
 
-    @property
-    def soap_client(self):
+    def _get_soap_client(self):
+        if self._soap_client is None:
+            self._soap_client = self._soap_client_pool.get_soap_client(self.notify_to_url.netloc,
+                                                                       self._accepted_encodings, self)
         return self._soap_client
+
+    def _release_soap_client(self):
+        if self._soap_client is not None:
+            self._soap_client_pool.forget(self.notify_to_url.netloc, self)
 
     @property
     def remaining_seconds(self):
@@ -175,8 +182,6 @@ class SubscriptionBase:
 
         if not self.is_valid:
             return
-        if self._soap_client is None:
-            return
         subscription_end = evt_types.SubscriptionEnd()
         subscription_end.SubscriptionManager.Address = my_addr
         subscription_end.SubscriptionManager.ReferenceParameters = self.reference_parameters
@@ -184,12 +189,13 @@ class SubscriptionBase:
         subscription_end.add_reason(reason, 'en-US')
         inf = HeaderInformationBlock(action=subscription_end.action,
                                      addr_to=self.end_to_address or self.notify_to_address)
-        message =  self._msg_factory.mk_soap_message(inf, payload=subscription_end)
+        message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
 
         try:
             url = self._end_to_url or self.notify_to_url
-            self._soap_client.post_message_to(url.path, message,
-                                              msg='send_notification_end_message')
+            soap_client = self._get_soap_client()
+            soap_client.post_message_to(url.path, message,
+                                        msg='send_notification_end_message')
             self.notify_errors = 0
             self._is_connection_error = False
             self._is_closed = True
@@ -199,9 +205,17 @@ class SubscriptionBase:
 
     def close(self):
         self._is_closed = True
+        self._release_soap_client()
 
     def is_closed(self):
         return self._is_closed
+
+    def on_unreachable(self):
+        """This method is called when another subscription detected a connection problem.
+        It delegates the message to subscription manager"""
+        self._is_connection_error = True
+        self._is_closed = True
+        self._mgr.on_unreachable_netloc(self)
 
     def __repr__(self):
         try:
@@ -225,25 +239,26 @@ class SubscriptionBase:
         return tuple([f.split('/')[-1] for f in self.filters])
 
     def _mk_notification_message(self, header_info: HeaderInformationBlock,
-                                body_node: etree_._Element) -> CreatedMessage:
+                                 body_node: etree_.Element) -> CreatedMessage:
         return self._msg_factory.mk_soap_message_etree_payload(header_info, body_node)
 
 
 class DevSubscription(SubscriptionBase):
 
-    def send_notification_report(self, body_node: etree_._Element, action: str):
+    def send_notification_report(self, body_node: etree_.Element, action: str):
         if not self.is_valid:
             return
         inf = HeaderInformationBlock(addr_to=self.notify_to_address,
-                       action=action,
-                       addr_from=None,
-                       reference_parameters=self.notify_ref_params)
+                                     action=action,
+                                     addr_from=None,
+                                     reference_parameters=self.notify_ref_params)
         message = self._mk_notification_message(inf, body_node)
         try:
-            roundtrip_timer = observableproperties.SingleValueCollector(self._soap_client, 'roundtrip_time')
+            soap_client = self._get_soap_client()
+            roundtrip_timer = observableproperties.SingleValueCollector(soap_client, 'roundtrip_time')
 
-            self._soap_client.post_message_to(self.notify_to_url.path, message,
-                                              msg=f'send_notification_report {action}')
+            soap_client.post_message_to(self.notify_to_url.path, message,
+                                        msg=f'send_notification_report {action}')
             try:
                 roundtrip_time = roundtrip_timer.result(0)
                 self.last_roundtrip_times.append(roundtrip_time)
@@ -294,23 +309,17 @@ class SubscriptionsManagerBase:
     def _mk_subscription_instance(self, request_data: RequestData):
         subscribe_request = evt_types.Subscribe.from_node(request_data.message_data.p_msg.msg_node)
         accepted_encodings = CompressionHandler.parse_header(request_data.http_header.get('Accept-Encoding'))
-        return DevSubscription(subscribe_request, accepted_encodings, self.base_urls, self._max_subscription_duration,
-                                msg_factory=self._msg_factory, log_prefix=self._logger.log_prefix)
+        return DevSubscription(self, subscribe_request, accepted_encodings, self.base_urls, self._max_subscription_duration,
+                               self._soap_client_pool, msg_factory=self._msg_factory,
+                               log_prefix=self._logger.log_prefix)
 
     def on_subscribe_request(self, request_data: RequestData) -> CreatedMessage:
         subscription = self._mk_subscription_instance(request_data)
-        # assign a soap client
-        accepted_encodings = CompressionHandler.parse_header(request_data.http_header.get('Accept-Encoding'))
-
-        key = subscription.notify_to_url.netloc
-        soap_client = self._soap_client_pool.get_soap_client(key, accepted_encodings, self)
-        subscription.set_soap_client(soap_client)
         with self._subscriptions.lock:
             self._subscriptions.add_object(subscription)
         self._logger.info('new {}', subscription)
         response = self._mk_subscribe_response_message(request_data, subscription, self.base_urls)
         return response
-
 
     def _mk_subscribe_response_message(self, request_data, subscription, base_urls) -> CreatedMessage:
         subscribe_response = evt_types.SubscribeResponse()
@@ -340,11 +349,6 @@ class SubscriptionsManagerBase:
             self._logger.info('unsubscribe: object found and removed (Xaddr = {}, filter = {})',
                               subscription.notify_to_address,
                               subscription.filters)
-            # now check if we can close the soap client
-            key = subscription.notify_to_url.netloc
-            subscriptions_with_same_soap_client = self._subscriptions.netloc.get(key, [])
-            if len(subscriptions_with_same_soap_client) == 0:
-                self._soap_client_pool.forget(key, self)
             unsubscribe_response = evt_types.UnsubscribeResponse()
             response = self._msg_factory.mk_reply_soap_message(request_data, unsubscribe_response)
         return response
@@ -384,7 +388,6 @@ class SubscriptionsManagerBase:
             subscription.renew(expires)
             renew_response = evt_types.RenewResponse()
             renew_response.Expires = subscription.remaining_seconds
-            nsh = data_model.ns_helper
             response = self._msg_factory.mk_reply_soap_message(request_data, renew_response)
         return response
 
@@ -409,20 +412,20 @@ class SubscriptionsManagerBase:
                                  request_data.message_data.q_name, dispatch_identifier, request_data.peer_name)
         return subscription
 
-    def send_to_subscribers(self, payload: Union[MessageType, etree_._Element],
+    def send_to_subscribers(self, payload: Union[MessageType, etree_.Element],
                             action: str,
                             mdib_version_group,
                             what: str):
         subscribers = self._get_subscriptions_for_action(action)
         nsh = self.sdc_definitions.data_model.ns_helper
         # convert to element tree only once for all subscribers
-        if isinstance(payload, etree_._Element):
-            body_node = payload
-        else:
+        if isinstance(payload, MessageType):
             namespaces = [nsh.PM, nsh.MSG]
             namespaces.extend(payload.additional_namespaces)
             my_ns_map = nsh.partial_map(*namespaces)
             body_node = payload.as_etree_node(payload.NODETYPE, my_ns_map)
+        else:
+            body_node = payload
 
         self.sent_to_subscribers = (action, mdib_version_group, body_node)  # update observable
         for subscriber in subscribers:
@@ -434,11 +437,12 @@ class SubscriptionsManagerBase:
                 raise
         self._do_housekeeping()
 
-    def _send_notification_report(self, subscription, body_node: etree_._Element, action: str):
+    def _send_notification_report(self, subscription, body_node: etree_.Element, action: str):
         try:
-             subscription.send_notification_report(body_node, action)
+            subscription.send_notification_report(body_node, action)
         except ConnectionRefusedError as ex:
             self._logger.error('could not send notification report: {!r}:  subscr = {}', ex, subscription)
+            self._soap_client_pool.report_unreachable(subscription.notify_to_url.netloc)
         except HTTPReturnCodeError as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report: HTTP status= {}, reason={}, {}', ex.status,
@@ -446,9 +450,11 @@ class SubscriptionsManagerBase:
         except http.client.NotConnected as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report: {!r}:  subscr = {}', ex, subscription)
+            self._soap_client_pool.report_unreachable(subscription.notify_to_url.netloc)
         except socket.timeout as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
+            self._soap_client_pool.report_unreachable(subscription.notify_to_url.netloc)
         except etree_.DocumentInvalid as ex:
             # this is an error related to the document, it cannot be sent to any subscriber => re-raise
             self._logger.error('Invalid Document: {!r}\n{}', ex, etree_.tostring(body_node))
@@ -456,54 +462,35 @@ class SubscriptionsManagerBase:
         except Exception as ex:
             # this should never happen! => re-raise
             self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
+            self._logger.error('could not send notification report error= {}: {}', traceback.format_exc(), subscription)
             raise
 
     def _get_subscriptions_for_action(self, action):
         with self._subscriptions.lock:
             return [s for s in self._subscriptions.objects if s.matches(action)]
 
-    def on_unreachable(self, netloc):
-        """This is info from another subscription manager.
-        Remove all subscriptions with same location."""
+    def on_unreachable_netloc(self, subscription):
         with self._subscriptions.lock:
-            for subscription in list(self._subscriptions.objects):
-                if subscription.notify_to_url.netloc == netloc:
-                    subscription.close()
-                    self._subscriptions.remove_object(subscription)
+                self._subscriptions.remove_object(subscription)
+
 
     def _do_housekeeping(self):
         """ remove expired or invalid subscriptions"""
         with self._subscriptions.lock:
             invalid_subscriptions = [s for s in self._subscriptions.objects if not s.is_valid]
-        unreachable_netlocs = []
+        unreachable_netlocs = set()
         for invalid_subscription in invalid_subscriptions:
             if invalid_subscription.has_connection_error:
                 # the network location is unreachable, we can remove all subscriptions that use this location
-                unreachable_netlocs.append(invalid_subscription.soap_client.netloc)
-                try:
-                    invalid_subscription.close()
-                    invalid_subscription.soap_client.close()
-                except OSError:
-                    self._logger.error('error in soap client.close(): {}', traceback.format_exc())
+                unreachable_netlocs.add(invalid_subscription.notify_to_url.netloc)
 
-            self._logger.info('deleting {}, errors={}', invalid_subscription,
-                              invalid_subscription.notify_errors)
-
-            with self._subscriptions.lock:
-                self._subscriptions.remove_object(invalid_subscription)
-
-        # now find all subscriptions that have the same address
+        # now find all subscriptions that use the unreachable addresses
         with self._subscriptions.lock:
-            also_unreachables = [s for s in self._subscriptions.objects if
-                                 s.soap_client is not None and s.soap_client.netloc in unreachable_netlocs]
-            for unreachable in also_unreachables:
-                self._logger.info('deleting also subscription {}, same endpoint', unreachable)
+            unreachable_subscriptions = [s for s in self._subscriptions.objects if
+                                         s.notify_to_url.netloc in unreachable_netlocs]
+            for unreachable in unreachable_subscriptions:
+                self._logger.info('deleting unreachable subscription {}', unreachable)
                 self._subscriptions.remove_object(unreachable)
-
-        # tell connection pool that net locations are unreachable:
-        for netloc in unreachable_netlocs:
-            self._soap_client_pool.forget(netloc, self)
-            self._soap_client_pool.report_unreachable(netloc)
 
 
 class SubscriptionsManagerPath(SubscriptionsManagerBase):

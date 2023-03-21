@@ -25,10 +25,6 @@ class MdibVersionGroup:
     sequence_id: str
     instance_id: Union[int, None]
 
-    # @classmethod
-    # def from_mdib(cls, mdib):
-    #     return cls(mdib.mdib_version, mdib.sequence_id, mdib.instance_id)
-
 
 class _MultikeyWithVersionLookup(multikey.MultiKeyLookup):
     """
@@ -169,7 +165,7 @@ class MultiStateEntity:
 
 class MdibContainer:
     # these observables can be used to watch any change of data in the mdib. They contain lists of containers that were changed.
-    # every transaction (devicemdib) or notification (client mdib) will report their changes here.
+    # every transaction (device mdib) or notification (client mdib) will report their changes here.
     metrics_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
     waveform_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
     alert_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)

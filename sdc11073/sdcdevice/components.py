@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
-from typing import Type, Callable, List, Any, TYPE_CHECKING
+from typing import Type, Callable, Any, TYPE_CHECKING
 
-from .servicesfactory import mk_all_services
 from .operations import get_operation_class
-from .sco import ScoOperationsRegistry
-from .scopesfactory import mk_scopes
 from .porttypes.containmenttreeserviceimpl import ContainmentTreeService
 from .porttypes.contextserviceimpl import ContextService
 from .porttypes.descriptioneventserviceimpl import DescriptionEventService
@@ -16,6 +13,9 @@ from .porttypes.localizationservice import LocalizationService
 from .porttypes.setserviceimpl import SetService
 from .porttypes.stateeventserviceimpl import StateEventService
 from .porttypes.waveformserviceimpl import WaveformService
+from .sco import ScoOperationsRegistry
+from .scopesfactory import mk_scopes
+from .servicesfactory import mk_all_services
 from .subscriptionmgr import SubscriptionsManagerPath
 from .subscriptionmgr_async import SubscriptionsManagerPathAsync
 from ..pysoap.msgfactory import MessageFactory
@@ -27,7 +27,7 @@ from ..roles.product import MinimalProduct
 # pylint: disable=cyclic-import
 if TYPE_CHECKING:
     from lxml.etree import QName
-    from ..wsdiscovery import Scope
+    from ..xml_types.wsd_types import ScopesType
     from ..pysoap.msgfactory import MessageFactory
     from ..sdcdevice.servicesfactory import HostedServices
     from .sco import AbstractScoOperationsRegistry
@@ -50,7 +50,7 @@ class SdcDeviceComponents:
     sco_operations_registry_class: Type[AbstractScoOperationsRegistry] = None
     subscriptions_manager_class: dict[str, Any] = None
     role_provider_class: type = None
-    scopes_factory: Callable[[DeviceMdibContainer], List[Scope]] = None
+    scopes_factory: Callable[[DeviceMdibContainer], ScopesType] = None
     hosted_services: dict = None
 
     def merge(self, other):
@@ -102,7 +102,8 @@ default_sdc_device_components_sync = SdcDeviceComponents(
 # async variant
 default_sdc_device_components_async = copy.deepcopy(default_sdc_device_components_sync)
 default_sdc_device_components_async.soap_client_class = SoapClientAsync
-default_sdc_device_components_async.subscriptions_manager_class['StateEvent'] = SubscriptionsManagerPathAsync
+default_sdc_device_components_async.subscriptions_manager_class = {'StateEvent': SubscriptionsManagerPathAsync,
+                                                                   'Set': SubscriptionsManagerPathAsync}
 
 # set default to sync or async variant
-default_sdc_device_components = default_sdc_device_components_sync
+default_sdc_device_components = default_sdc_device_components_async

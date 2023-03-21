@@ -195,15 +195,15 @@ class DefaultWaveformSource(AbstractWaveformSource):
 
     def register_waveform_generator(self, descriptor_handle, wf_generator):
         """
-        :param descriptor_handle: the handle of the RealtimeSampelArray that shall accept this data
+        :param descriptor_handle: the handle of the RealtimeSampleArray that shall accept this data
         :param wf_generator: a waveforms.WaveformGenerator instance
         """
         sample_period = wf_generator.sampleperiod
         descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle)
         if descriptor_container.SamplePeriod != sample_period:
             # we must inform subscribers
-            with self._mdib.transaction_manager() as trns:
-                descr = trns.get_descriptor(descriptor_handle)
+            with self._mdib.transaction_manager() as mgr:
+                descr = mgr.get_descriptor(descriptor_handle)
                 descr.SamplePeriod = sample_period
         if descriptor_handle in self._waveform_generators:
             self._waveform_generators[descriptor_handle].set_waveform_generator(wf_generator)
@@ -219,8 +219,8 @@ class DefaultWaveformSource(AbstractWaveformSource):
         """
         wf_generator = self._waveform_generators[descriptor_handle]
         wf_generator.set_activation_state(component_activation_state)
-        with self._mdib.transaction_manager() as trns:
-            state = trns.get_state(descriptor_handle)
+        with self._mdib.transaction_manager() as mgr:
+            state = mgr.get_state(descriptor_handle)
             state.ActivationState = component_activation_state
             # if the generator is not active, there shall be no MetricValue
             if not wf_generator.is_active:

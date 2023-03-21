@@ -45,7 +45,7 @@ class DeviceMdibMethods:
         use the SdcDevice.set_location method if you want to publish the address on the network.
         :param sdc_location: a pysdc.location.SdcLocation instance
         :param validators: a list of pysdc.pmtypes.InstanceIdentifier objects or None
-        :param set_associated: if True, DindingTime, BindingMdibVersion and ContextAssociation are set
+        :param set_associated: if True, BindingTime, BindingMdibVersion and ContextAssociation are set
         """
         mdib = self._mdib
         pm = mdib.data_model.pm_names
@@ -165,7 +165,7 @@ class DescriptorFactory:
         This method creates an VmdDescriptorContainer with the given properties.
         :param handle: Handle of the new container
         :param parent_handle: Handle of the parent
-        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param coded_value: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
         :param safety_classification: a pmtypes.SafetyClassification value
         :return: the created object
         """
@@ -182,7 +182,7 @@ class DescriptorFactory:
         This method creates a ChannelDescriptorContainer with the given properties.
         :param handle: Handle of the new container.
         :param parent_handle: Handle of the parent.
-        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param coded_value: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
         :param safety_classification: a pmtypes.SafetyClassification value.
         :return: the created object.
         """
@@ -202,7 +202,7 @@ class DescriptorFactory:
         This method creates a StringMetricDescriptorContainer with the given properties.
         :param handle: Handle of the new container
         :param parent_handle: Handle of the parent
-        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param coded_value: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
         :param safety_classification: a pmtypes.SafetyClassification value
         :param unit: a CodedValue
         :param metric_availability: pmtypes.MetricAvailability
@@ -230,7 +230,7 @@ class DescriptorFactory:
         This method creates an EnumStringMetricDescriptorContainer with the given properties.
         :param handle: Handle of the new container
         :param parent_handle: Handle of the parent
-        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param coded_value: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
         :param safety_classification: a pmtypes.SafetyClassification value
         :param unit: pmtypes.CodedValue
         :param allowed_values:
@@ -256,7 +256,7 @@ class DescriptorFactory:
         This method creates a ClockDescriptorContainer with the given properties.
         :param handle: Handle of the new container
         :param parent_handle: Handle of the parent
-        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
+        :param coded_value: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
         :param safety_classification: a pmtypes.SafetyClassification value
         :return: the created object
         """

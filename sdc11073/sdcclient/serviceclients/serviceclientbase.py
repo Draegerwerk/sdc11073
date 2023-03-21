@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import urllib
+from urllib.parse import urlparse
 import weakref
 from concurrent.futures import Future
 from typing import Any, List, TYPE_CHECKING
@@ -64,7 +64,7 @@ class HostedServiceClient:
         self._msg_factory = sdc_client._msg_factory
         self.log_prefix = sdc_client.log_prefix
         self.endpoint_reference: EndpointReferenceType = dpws_hosted.EndpointReference[0]
-        self._url = urllib.parse.urlparse(self.endpoint_reference.Address)
+        self._url = urlparse(self.endpoint_reference.Address)
         self._porttype = port_type
         self._logger = loghelper.get_logger_adapter(f'sdc.client.{port_type}', self.log_prefix)
         self._operations_manager = None

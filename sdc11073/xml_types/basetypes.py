@@ -1,15 +1,14 @@
 from __future__ import annotations
-import inspect
+
 import enum
+import inspect
 import traceback
 from math import isclose
-from typing import TYPE_CHECKING, List
+from typing import List
+
 from lxml import etree as etree_
 
 from .xml_structure import NodeStringProperty, NodeTextListProperty
-
-if TYPE_CHECKING:
-    from lxml.etree import _Element as Element_, QName
 
 
 class StringEnum(str, enum.Enum):
@@ -19,7 +18,7 @@ class StringEnum(str, enum.Enum):
 
 
 class XMLTypeBase:
-    """ Base class that it used to declare XML data types. It supports nesting of data and inheritence.
+    """ Base class that it used to declare XML data types. It supports nesting of data and inheritance.
     It uses xml_structure elements to declare the members.
     Because order matters in XML, the _props member is needed that lists all members that
     represent XML data in the correct order.
@@ -33,12 +32,12 @@ class XMLTypeBase:
         for _, prop in self.sorted_container_properties():
             prop.init_instance_data(self)
 
-    def as_etree_node(self, q_name: QName, ns_map: dict):
+    def as_etree_node(self, q_name: etree_.QName, ns_map: dict):
         node = etree_.Element(q_name, nsmap=ns_map)
         self.update_node(node)
         return node
 
-    def update_node(self, node: Element_):
+    def update_node(self, node: etree_.Element):
         for prop_name, prop in self.sorted_container_properties():
             try:
                 prop.update_xml_value(self, node)
@@ -47,7 +46,7 @@ class XMLTypeBase:
                 raise ValueError(
                     f'In {self.__class__.__name__}.{prop_name}, {str(prop)} could not update: {traceback.format_exc()}') from ex
 
-    def update_from_node(self, node: Element_):
+    def update_from_node(self, node: etree_.Element):
         for dummy, prop in self.sorted_container_properties():
             prop.update_from_node(self, node)
 
@@ -115,12 +114,13 @@ class ElementWithText(XMLTypeBase):
         super().__init__()
         self.text = text
 
+
 class ElementWithTextList(XMLTypeBase):
     """An Element with text, which is alist of words(string without whitespace).
     """
     # this is the text list of the node. Here attribute is lower case!
     text: List[str] = NodeTextListProperty(sub_element_name=None,
-                                value_class=str)
+                                           value_class=str)
     _props = ['text']
 
 
@@ -131,4 +131,4 @@ class MessageType(XMLTypeBase):
     in the soap header."""
     NODETYPE = None
     action = None
-    additional_namespaces = [] # derived class list namespaces other than PM and MSG
+    additional_namespaces = []  # derived class list namespaces other than PM and MSG

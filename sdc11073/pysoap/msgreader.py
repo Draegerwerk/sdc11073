@@ -11,7 +11,6 @@ from lxml import etree as etree_
 from sdc11073.namespaces import QN_TYPE, text_to_qname, default_ns_helper
 from .soapenvelope import Fault, faultcodeEnum, ReceivedSoapMessage
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from sdc11073.xml_types.addressing_types import EndpointReferenceType
 from ..exceptions import ValidationError
 from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator
@@ -241,7 +240,7 @@ class MessageReader:
         descriptor_container = None
         st_cls = self.get_state_container_class(node_type)
         if st_cls is None:
-            raise ValueError(f'nody type {node_type} is not known')
+            raise ValueError(f'body type {node_type} is not known')
 
         if node.tag != self._pm_names.State:
             node = copy.copy(node)  # make a copy, do not modify the original report

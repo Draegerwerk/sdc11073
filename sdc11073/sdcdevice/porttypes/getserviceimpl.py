@@ -98,7 +98,6 @@ class GetService(DPWSPortTypeBase):
         # currently this implementation only supports a single mds.
         # => if at least one handle matches any descriptor, the one mds is returned, otherwise empty payload
         data_model = self._sdc_definitions.data_model
-        nsh = data_model.ns_helper
 
         self._logger.debug('_on_get_md_description')
         msg_node = request_data.message_data.p_msg.msg_node

@@ -37,7 +37,7 @@ class IndexDefinition(dict):
 
     def __init__(self, get_key_func, index_none_values=True):
         """
-        :param getKeyFunc: a callable that returns a key value from a given object
+        :param get_key_func: a callable that returns a key value from a given object
         :param index_none_values: if True, a None key is handled like every other value.
                                 if False,a None key is not added to index.
         """

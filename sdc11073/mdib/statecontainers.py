@@ -95,9 +95,6 @@ class T_AllowedValues(pm_types.PropertyBasedPMType):  # pylint: disable=invalid-
     Value = cp.SubElementStringListProperty(pm.Value)
     _props = ['Value']
 
-    def __init__(self):
-        pass
-
     def is_empty(self):
         return self.Value is None or len(self.Value) == 0
 

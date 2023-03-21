@@ -48,7 +48,7 @@ class HTTPReturnCodeError(HTTPException):
     def __init__(self, status, reason, soap_fault):
         """
         :param status: integer, e.g. 404
-        :param reason: the provided human readable text
+        :param reason: the provided information
         :param soap_fault: a SoapFault instance
         """
         super().__init__()
@@ -61,7 +61,7 @@ class HTTPReturnCodeError(HTTPException):
 
 
 class SoapClient:
-    """SOAP Client wraps an http connection. It can send / receive SoapEnvelopes."""
+    """SOAP Client wraps a http connection. It can send / receive SoapEnvelopes."""
     _usedSoapClients = 0
     SOCKET_TIMEOUT = 5 if sys.gettrace() is None else 1000  # higher timeout for debugging
 
@@ -77,7 +77,7 @@ class SoapClient:
                  request_encodings: Optional[List[str]] = None,
                  chunked_requests: Optional[bool] = False):
         """ Connects to one url
-        :param netloc: the location of the service (domainname:port) ###url of the service
+        :param netloc: the location of the service (domain name:port) ###url of the service
         :param logger: a python logger instance
         :param ssl_context: an optional sll.SSLContext instance
         :param sdc_definitions: needed to normalize and de-normalize xml text.
@@ -85,7 +85,7 @@ class SoapClient:
                                 This used for decompression of received responses.
                                 If this is an empty list, no compression is supported.
         :param request_encodings: an optional list of encodings that the other side accepts. It is used to compress requests.
-                                If not set, requests will not be commpressed.
+                                If not set, requests will not be compressed.
                                 If set, then the http request will be compressed using this method
         :param chunked_requests: it True, requests are chunk-encoded
         """
@@ -99,7 +99,8 @@ class SoapClient:
         self._client_number = self.__class__._usedSoapClients  # pylint: disable=protected-access
         self._log.info('created soap client No. {} for {}', self._client_number, netloc)
         self.supported_encodings = supported_encodings if supported_encodings is not None else CompressionHandler.available_encodings
-        self.request_encodings = request_encodings if request_encodings is not None else []  # these compression alg's does the other side accept ( set at runtime)
+        # request_encodings contains the compression algorithms that the other side accepts ( set at runtime)
+        self.request_encodings = request_encodings if request_encodings is not None else []
         self._get_headers = self._make_get_headers()
         self._lock = Lock()
         self._chunked_requests = chunked_requests
@@ -114,9 +115,7 @@ class SoapClient:
 
     def _mk_http_connection(self) -> [HTTPSConnectionNoDelay, HTTPConnectionNoDelay]:
         """ Soap client never sends very large requests, the largest packages are notifications.
-         Therefore we can use TCP_NODELAY for a little faster transmission.
-        (Otherwise there would be a chance that receivers windows size decreases, which would result in smaller
-        packages and therefore higher network load."""
+         We can use TCP_NODELAY for a little faster transmission. """
         if self._ssl_context is not None:
             conn = HTTPSConnectionNoDelay(self._netloc, context=self._ssl_context, timeout=self.SOCKET_TIMEOUT)
         else:
@@ -179,7 +178,7 @@ class SoapClient:
 
         message_data = self._msg_reader.read_received_message(xml_response)
         if message_data.action == f'{ns_hlp.WSA.namespace}/fault':
-            soap_fault = self._msg_reader.read_fault_message(message_data)
+            soap_fault = Fault.from_node(message_data.p_msg.msg_node)
             raise HTTPReturnCodeError(http_response.status, http_response.reason, soap_fault)
         return message_data
 
@@ -223,8 +222,7 @@ class SoapClient:
                 # for whatever reason the response of the previous call was not read. read it and try again
                 self._log.warn(
                     "{}: could not send request, got error '{}'. Will read response and retry", msg, ex)
-                tmp = self._http_connection.getresponse()
-                tmp.read()
+                self._http_connection.getresponse().read()
             except OSError as ex:
                 if ex.errno in (10053, 10054):
                     self._log.warn("{}: could not send request to {}, OSError={!r}", msg, self.netloc, ex)

@@ -428,7 +428,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             subscriptions = list(mgr._subscriptions.objects)  # make a copy of this list
             for s in subscriptions:
                 self.assertFalse(s.is_closed())
-
         self.sdc_client.stop_all(unsubscribe=False)
         time.sleep(SoapClient.SOCKET_TIMEOUT + 2)  # just a little longer than socket timeout 5 seconds
 

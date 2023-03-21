@@ -13,6 +13,7 @@ from .. import observableproperties
 from ..httpserver.compression import CompressionHandler
 from ..httpserver.httpreader import mk_chunks
 from ..namespaces import default_ns_helper as ns_hlp
+from ..pysoap.soapenvelope import Fault
 
 if TYPE_CHECKING:
     from ssl import SSLContext
@@ -151,7 +152,7 @@ class SoapClientAsync:
 
         message_data = self._msg_reader.read_received_message(xml_response.encode('utf-8'))
         if message_data.action == f'{ns_hlp.WSA.namespace}/fault':
-            soap_fault = self._msg_reader.read_fault_message(message_data)
+            soap_fault = Fault.from_node(message_data.p_msg.msg_node)
             raise HTTPReturnCodeError(resp.status, resp.reason, soap_fault)
         return message_data
 

@@ -1,9 +1,9 @@
 """
 This Module contains code handles Service Controller operations (sco).
-All remote control commands of a client are executed by sco's
+All remote control commands of a client are executed by sco instances.
 
 These operations share a common behavior:
-A remote control command is executed async. The respone to such soap request contains a state (typically 'wait') and a transaction id.
+A remote control command is executed async. The response to such soap request contains a state (typically 'wait') and a transaction id.
 The progress of the transaction is reported with an OperationInvokedReport.
 A client must subscribe to the OperationInvokeReport Event of the 'Set' service, otherwise it would not get informed about progress.
 """
@@ -14,7 +14,7 @@ import threading
 import time
 import traceback
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Optional
 
 from .. import loghelper
 from .. import observableproperties as properties
@@ -36,13 +36,13 @@ class OperationDefinition:
     OP_STATE_QNAME = None
     OP_QNAME = None
 
-    def __init__(self, handle, operation_target_handle,
+    def __init__(self, handle: str,
+                 operation_target_handle: str,
                  coded_value=None,
-                 log_prefix=None):  # pylint:disable=too-many-arguments
+                 log_prefix: Optional[str] = None):
         """
         :param handle: the handle of the operation itself.
         :param operation_target_handle: the handle of the modified data (MdDescription)
-        :param safety_classification: one of pmtypes.SafetyClassification values
         :param coded_value: a pmtypes.CodedValue instance
         """
         self._logger = loghelper.get_logger_adapter(f'sdc.device.op.{self.__class__.__name__}', log_prefix)
@@ -110,6 +110,7 @@ class OperationDefinition:
             cls = mdib.data_model.get_descriptor_container_class(self.OP_DESCR_QNAME)
             self._descriptor_container = cls(self._handle, parent_descriptor_container.Handle)
             self._init_operation_descriptor_container()
+            # ToDo: transaction context for flexibility to add operations at runtime
             mdib.descriptions.add_object(self._descriptor_container)
 
         self._operation_state_container = self._mdib.states.descriptorHandle.get_one(self._handle, allow_none=True)
@@ -246,7 +247,6 @@ class AbstractScoOperationsRegistry(ABC):
                  operation_cls_getter: Callable[[QName], type],
                  mdib,
                  sco_descriptor_container,
-                 handle='_sco',
                  log_prefix=None):
         self._worker = None
         self._set_service: SetServiceProtocol = set_service

@@ -184,7 +184,6 @@ class NamespaceHelper:
     def partial_map(self, *prefix) -> dict:
         """
         :param prefix: Prefix_Namespace_Tuples
-        :param default: if given, the default name space
         :return: a dictionary with prefix as key, namespace as value
         """
         # ret = dict((v.prefix, v.namespace) for v in prefix)

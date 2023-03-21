@@ -1,21 +1,24 @@
+from __future__ import annotations
 from collections import defaultdict
-
+from typing import TYPE_CHECKING, List, Optional, Union
 from .porttypebase import DPWSPortTypeBase
 from .porttypebase import WSDLMessageDescription, WSDLOperationBinding
 from .porttypebase import mk_wsdl_two_way_operation, msg_prefix
 from ...dispatch import DispatchKey
 
+if TYPE_CHECKING:
+    from ...xml_types.pm_types import LocalizedText
 
-def _tw2i(textwidth_string):
+def _tw2i(text_width_string):
     """ text width to int"""
     lookup = {'xs': 0, 's': 1, 'm': 2, 'l': 3, 'xl': 4, 'xxl': 5, None: 999}
-    return lookup[textwidth_string]
+    return lookup[text_width_string]
 
 
 def _calc_number_of_lines(text):
     # definition of a line in Participant Model:
     # ...a line is defined as the content of the text from either the beginning of the text or the beginning of
-    # a previous line until the next occurance of period mark, question mark, exclamation mark, or paragraph.
+    # a previous line until the next occurrence of period mark, question mark, exclamation mark, or paragraph.
     # TBD: naive approach?
     return len(text.split('\n'))
 
@@ -34,18 +37,21 @@ def _n_o_l_filter(localized_texts, n_o_l):
     return candidates
 
 
-class LocalizationStorage():
-    def __init__(self, localized_texts=None):
-        self._localized_texts = defaultdict(list)  # key = handle, value = list of pmtypes.LocalizedText objects
+class LocalizationStorage:
+    def __init__(self, localized_texts: Optional[List[LocalizedText]] = None):
+        self._localized_texts = defaultdict(list)  # key = handle, value = list of LocalizedText objects
         if localized_texts:
             self.add(*localized_texts)
 
-    def add(self, *localized_texts):
+    def add(self, *localized_texts: LocalizedText):
         for text in localized_texts:
             self._localized_texts[text.Ref].append(text)
 
-    def filter_localized_texts(self, requested_handles, requested_version, requested_langs, text_widths,
-                               number_of_lines):
+    def filter_localized_texts(self, requested_handles: Union[List[str], None],
+                               requested_version: Union[int, None],
+                               requested_langs: Union[List[str], None],
+                               text_widths: Union[List[str], None],
+                               number_of_lines: Union[List[int], None]):
         """
 
         :param requested_handles: list of handles
@@ -73,7 +79,7 @@ class LocalizationStorage():
             handles = list(self._localized_texts.keys())
         else:
             # If there is at least one Ref ELEMENT given, then msg:GetLocalizedTextResponse/msg:Text contains all texts
-            # that match the Ref ELEMENTs of the msg:GetLocalizedText request MESSAGE.
+            # that match the Ref elements of the msg:GetLocalizedText request MESSAGE.
             handles = requested_handles
 
         # create a flat list of all localized texts with the requested handles
@@ -94,29 +100,30 @@ class LocalizationStorage():
             tmp_dict[(text.Ref, text.Lang)].append(text)
         texts = []
 
+        effective_requested_version = requested_version
         if requested_version is None:
             # determine the highest available Version in the storage
             all_versions = []
             for value in self._localized_texts.values():
                 all_versions.extend(value)
             if len(all_versions) == 0:
+                # ToDo: why return here?
                 return []  # there is nothing
             all_versions = [a.Version for a in all_versions if a.Version is not None]
-            if len(all_versions) == 0:
-                requested_version = None
-            else:
-                requested_version = max(all_versions)
+            if len(all_versions) > 0:
+                effective_requested_version = max(all_versions)
+
         # If the referenced text is not available in the specific version, then
         # msg:GetLocalizedTextResponse/msg:Text is empty
         for _, value_list in tmp_dict.items():
-            texts.extend([v for v in value_list if v.Version == requested_version])
+            texts.extend([v for v in value_list if v.Version == effective_requested_version])
 
         # - If there is no NumberOfLines ELEMENT given in the request MESSAGE, then all texts independent of the number
         #   of lines are returned in msg:GetLocalizedTextResponse/msg:Text.
         # - If there is at least one NumberOfLines ELEMENT given, msg:GetLocalizedTextResponse/msg:Text contains texts
-        #   that match the number of lines defined by the NumberOfLines ELEMENTs of the msg:GetLocalizedText request
+        #   that match the number of lines defined by the NumberOfLines elements of the msg:GetLocalizedText request
         #   MESSAGE. Matching in this case means that the number of lines in the text is less or equal to the
-        #   NumberOfLines ELEMENTs.
+        #   NumberOfLines elements.
 
         if len(i_text_widths) > 0 or len(number_of_lines) > 0:
             if len(number_of_lines) > 0:
@@ -141,7 +148,7 @@ class LocalizationStorage():
                             candidates2 = _n_o_l_filter(candidates1, lines_cnt)
                             if len(candidates2) > 0:
                                 candidates2.sort(key=lambda obj: obj.TextWidth * obj.n_o_l)  # sort by area size
-                                tmp.append(candidates2[-1])  # use largest one
+                                tmp.append(candidates2[-1])  # use the largest one
             elif len(i_text_widths) > 0:
                 # filter only text widths
                 for value_list in tmp_dict.values():
@@ -149,7 +156,7 @@ class LocalizationStorage():
                         candidates = _text_width_filter(value_list,
                                                         text_width)  # returns sorted list of smaller elements
                         if candidates:
-                            tmp.append(candidates[-1])  # use largest one
+                            tmp.append(candidates[-1])  # use the largest one
 
             elif len(number_of_lines) > 0:
                 # filter only number of lines
@@ -175,7 +182,7 @@ class LocalizationStorage():
             handles = list(self._localized_texts.keys())
         else:
             # If there is at least one Ref ELEMENT given, then msg:GetLocalizedTextResponse/msg:Text contains all texts
-            # that match the Ref ELEMENTs of the msg:GetLocalizedText request MESSAGE.
+            # that match the Ref elements of the msg:GetLocalizedText request MESSAGE.
             handles = ref_list
 
         # create a flat list of all localized texts with the requested handles

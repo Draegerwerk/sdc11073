@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 from .request import RequestData
 from .. import commlog
-from ..exceptions import HTTPRequestHandlingError, ValidationError
+from ..exceptions import HTTPRequestHandlingError
 from ..pysoap.soapenvelope import Fault, faultcodeEnum
 from ..xml_types.addressing_types import HeaderInformationBlock
 
