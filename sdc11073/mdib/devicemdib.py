@@ -967,6 +967,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         Call this method to create missing states
         :return:
         """
+        new_states = []
         for descr in self.descriptions.objects:
             if descr.handle not in self.states.descriptorHandle and descr.handle not in self.contextStates.descriptorHandle:
                 state_cls = self.getStateClsForDescriptor(descr)
@@ -987,6 +988,9 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
                         self._current_transaction.addState(st)
                     else:
                         self.states.addObject(st)
+                        new_states.append(st)
+        if new_states:
+            self._updateStateObservables(new_states)
 
     @classmethod
     def fromMdibFile(cls, path, createLocationContextDescr=True, createPatientContextDescr=True,
