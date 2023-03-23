@@ -135,7 +135,7 @@ class OperationDefinition:
         self._operation_target_container = self._mdib.states.descriptorHandle.get_one(self._operation_target_handle,
                                                                                       allow_none=True)  # pylint:disable=protected-access
         if self._operation_target_container is not None:
-            self._logger.info('operation target state for operation "{}" is already present, re-using it',
+            self._logger.debug('operation target state for operation "{}" is already present, re-using it',
                               self._operation_target_handle)
         else:
             self._operation_target_container = self._mdib.data_model.mk_state_container(operation_target_descriptor)
@@ -161,7 +161,8 @@ class OperationDefinition:
         return properties.ValuesCollector(self, 'current_value', number_of_values)
 
     def __str__(self):
-        return f'{self.__class__.__name__} handle={self._handle} operation-target={self._operation_target_handle}'
+        code = '?' if self._descriptor_container is None else self._descriptor_container.Type
+        return f'{self.__class__.__name__} handle={self._handle} code={code} operation-target={self._operation_target_handle}'
 
 
 class _OperationsWorker(threading.Thread):
@@ -313,11 +314,11 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
     """
 
     def register_operation(self, operation: OperationDefinition, sco_descriptor_container=None):
-        self._logger.info('register operation "{}"', operation)
         if operation.handle in self._registered_operations:
-            self._logger.info('handle {} is already registered, will re-use it', operation.handle)
+            self._logger.debug('handle {} is already registered, will re-use it', operation.handle)
         parent_container = sco_descriptor_container or self.sco_descriptor_container
         operation.set_mdib(self._mdib, parent_container)
+        self._logger.info('register operation "{}"', operation)
         self._registered_operations[operation.handle] = operation
 
     def unregister_operation_by_handle(self, operation_handle: str):

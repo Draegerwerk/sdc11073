@@ -18,6 +18,7 @@ from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.xml_types.wsd_types import ScopesType
+from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 
 loopback_adapter = 'Loopback Pseudo-Interface 1' if os.name == 'nt' else 'lo'
 
@@ -98,13 +99,13 @@ class MyProvider1(ProviderRole):
         """This operation does not manipulate the mdib at all, it only registers the call."""
         self.operation1_called += 1
         self.operation1_args = argument
-        self._logger.info('_handle_operation_1 called')
+        self._logger.info('_handle_operation_1 called arg={}', argument)
 
     def _handle_operation_2(self, operation_instance, argument):
         """This operation manipulate it operation target, and only registers the call."""
         self.operation2_called += 1
         self.operation2_args = argument
-        self._logger.info('_handle_operation_2 called')
+        self._logger.info('_handle_operation_2 called arg={}', argument)
         with self._mdib.transaction_manager() as mgr:
             my_state = mgr.get_state(operation_instance.operation_target_handle)
             if my_state.MetricValue is None:
@@ -174,15 +175,20 @@ class Test_Tutorial(unittest.TestCase):
         self.my_clients = []
         self.my_ws_discoveries = []
 
+        basic_logging_setup()
+        self._logger = get_logger_adapter('sdc.tutorial')
+        self._logger.info('###### setUp done ##########')
+
     def tearDown(self) -> None:
+        self._logger.info('###### tearDown ... ##########')
         for cl in self.my_clients:
-            print('stopping {}'.format(cl))
+            self._logger.info('stopping {}', cl)
             cl.stop_all()
         for d in self.my_devices:
-            print('stopping {}'.format(d))
+            self._logger.info('stopping {}', d)
             d.stop_all()
         for w in self.my_ws_discoveries:
-            print('stopping {}'.format(w))
+            self._logger.info('stopping {}', w)
             w.stop()
 
     def test_createDevice(self):
@@ -365,12 +371,14 @@ class Test_Tutorial(unittest.TestCase):
         sco_handle = 'sco.mds0'
         my_product_impl = my_generic_device.product_roles_lookup[sco_handle]
         # call activate operation:
-        # As a client NEVER! use the handle of the operation directly, always use the code(s) to identify things.
+        # A client should NEVER! use the handle of the operation directly, always use the code(s) to identify things.
         # Handles are random values without any meaning, they are only unique id's in the mdib.
         operations = my_mdib.descriptions.coding.get(MY_CODE_1.coding)
         # the mdib contains 2 operations with the same code. To keep things simple, just use the first one here.
+        self._logger.info('looking for operations with code {}', MY_CODE_1.coding)
         op = operations[0]
         argument = 'foo'
+        self._logger.info('calling operation {}, argument = {}', op, argument)
         future = my_client.set_service_client.activate(op.Handle, arguments=[argument])
         result = future.result()
         print(result)
@@ -380,8 +388,13 @@ class Test_Tutorial(unittest.TestCase):
         self.assertEqual(args[0].ArgValue, 'foo')
 
         # call set_string operation
+        sco_handle = 'sco.vmd1.mds0'
+        my_product_impl = my_generic_device.product_roles_lookup[sco_handle]
+
+        self._logger.info('looking for operations with code {}', MY_CODE_2.coding)
         op = my_mdib.descriptions.coding.get_one(MY_CODE_2.coding)
         for value in ('foo', 'bar'):
+            self._logger.info('calling operation {}, argument = {}', op, value)
             future = my_client.set_service_client.set_string(op.Handle, value)
             result = future.result()
             print(result)

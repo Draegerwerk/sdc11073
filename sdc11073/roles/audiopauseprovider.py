@@ -151,6 +151,11 @@ class AudioPauseProvider(GenericAudioPauseProvider):
         pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
         ops = []
+        # in this case only the top level sco shall have the additional operations.
+        # Check if this is the top level sco (parent is mds)
+        parent_descriptor = self._mdib.descriptions.handle.get_one(sco.sco_descriptor_container.parent_handle)
+        if parent_descriptor.NODETYPE != pm_names.MdsDescriptor:
+            return ops
         operation_cls_getter = sco.operation_cls_getter
         # find mds for this sco
         mds_descr = None
@@ -166,7 +171,7 @@ class AudioPauseProvider(GenericAudioPauseProvider):
         operation_target_container = mds_descr  # the operation target is the mds itself
         activate_op_cls = operation_cls_getter(pm_names.ActivateOperationDescriptor)
         if not self._set_global_audio_pause_operations:
-            self._logger.info(
+            self._logger.debug(
                 f'adding "set audio pause" operation, no descriptor in mdib (looked for code = {nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE})')
             set_ap_operation = self._mk_operation(activate_op_cls,
                                                   handle='AP__ON',
@@ -176,7 +181,7 @@ class AudioPauseProvider(GenericAudioPauseProvider):
             self._set_global_audio_pause_operations.append(set_ap_operation)
             ops.append(set_ap_operation)
         if not self._cancel_global_audio_pause_operations:
-            self._logger.info(
+            self._logger.debug(
                 f'adding "cancel audio pause" operation, no descriptor in mdib (looked for code = {nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE})')
             cancel_ap_operation = self._mk_operation(activate_op_cls,
                                                      handle='AP__CANCEL',

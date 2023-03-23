@@ -1,6 +1,5 @@
 from . import providerbase
 from .nomenclature import NomenclatureCodes as nc
-from ..xml_types import basetypes as tb
 
 
 class GenericSDCClockProvider(providerbase.ProviderRole):
@@ -20,8 +19,8 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
         self.OP_SET_NTP = pm_types.CodedValue(nc.OP_SET_NTP)
         self.OP_SET_TZ = pm_types.CodedValue(nc.OP_SET_TZ)
 
-    def init_operations(self):
-        super().init_operations()
+    def init_operations(self, sco):
+        super().init_operations(sco)
         pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
         # create a clock descriptor and state if they do not exist in mdib
@@ -30,7 +29,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
         if clock_descriptor is None:
             mds_container = self._mdib.descriptions.NODETYPE.get_one(pm_names.MdsDescriptor)
             clock_descr_handle = 'clock_' + mds_container.Handle
-            self._logger.info(f'creating a clock descriptor, handle={clock_descr_handle}')
+            self._logger.debug(f'creating a clock descriptor, handle={clock_descr_handle}')
             clock_descriptor = self._create_clock_descriptor_container(
                 handle=clock_descr_handle,
                 parent_handle=mds_container.Handle,
@@ -136,7 +135,7 @@ class SDCClockProvider(GenericSDCClockProvider):
         set_string_op_cls = operation_cls_getter(pm_names.SetStringOperationDescriptor)
 
         if not self._set_ntp_operations:
-            self._logger.info(f'adding "set ntp server" operation, code = {nc.MDC_OP_SET_TIME_SYNC_REF_SRC}')
+            self._logger.debug(f'adding "set ntp server" operation, code = {nc.MDC_OP_SET_TIME_SYNC_REF_SRC}')
             set_ntp_operation = self._mk_operation(set_string_op_cls,
                                                    handle='SET_NTP_SRV_' + mds_container.handle,
                                                    operation_target_handle=clock_descriptor.handle,
@@ -145,7 +144,7 @@ class SDCClockProvider(GenericSDCClockProvider):
             self._set_ntp_operations.append(set_ntp_operation)
             ops.append(set_ntp_operation)
         if not self._set_tz_operations:
-            self._logger.info(f'adding "set time zone" operation, code = {nc.MDC_ACT_SET_TIME_ZONE}')
+            self._logger.debug(f'adding "set time zone" operation, code = {nc.MDC_ACT_SET_TIME_ZONE}')
             set_tz_operation = self._mk_operation(set_string_op_cls,
                                                   handle='SET_TZONE_' + mds_container.handle,
                                                   operation_target_handle=clock_descriptor.handle,

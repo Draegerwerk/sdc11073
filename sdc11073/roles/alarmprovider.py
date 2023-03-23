@@ -22,8 +22,8 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         self._stop_worker = Event()
         self._worker_thread = None
 
-    def init_operations(self):
-        super().init_operations()
+    def init_operations(self, sco):
+        super().init_operations(sco)
         self._set_alert_system_states_initial_values()
         self._set_alert_states_initial_values()
         self._worker_thread = Thread(target=self._worker_thread_loop)
@@ -65,7 +65,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                         current_argument_handler=self._delegate_alert_signal,
                         timeout_handler=self._end_delegate_alert_signal)
 
-                    self._logger.info(f'GenericAlarmProvider: added handler "self._setAlertState" '
+                    self._logger.debug(f'GenericAlarmProvider: added handler "self._setAlertState" '
                                       f'for {operation_descriptor_container} target= {op_target_descr} ')
                     return operation
 

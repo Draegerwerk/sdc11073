@@ -12,7 +12,7 @@ class ProviderRole:
     def stop(self):
         """ if provider uses worker threads, implement stop method"""
 
-    def init_operations(self):
+    def init_operations(self, sco):
         pass
 
     def make_operation_instance(self, operation_descriptor_container,  # pylint: disable=unused-argument,no-self-use

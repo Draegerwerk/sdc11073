@@ -126,16 +126,6 @@ class ClSubscription:
         except HTTPReturnCodeError:
             self._logger.error(f'could not subscribe: {HTTPReturnCodeError}')
 
-    def _mk_renew_message(self, expire_minutes):
-        renew = evt_types.Renew()
-        renew.Expires = expire_minutes * 60
-        dev_reference_param = self.subscribe_response.SubscriptionManager.ReferenceParameters
-        subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
-        inf = HeaderInformationBlock(action=renew.action,
-                                     addr_to=subscription_manager_address,
-                                     reference_parameters=dev_reference_param)
-        return self._msg_factory.mk_soap_message(inf, payload=renew)
-
     def renew(self, expire_minutes: int = 60) -> float:
         if not self.is_subscribed:
             return 0

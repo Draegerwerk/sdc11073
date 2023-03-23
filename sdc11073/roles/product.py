@@ -73,6 +73,9 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
 
 
 class BaseProduct:
+    """A Product is associated to a single sco. If a mdib contains multiple sco instances,
+    there will be multiple Products."""
+
     def __init__(self, mdib, sco, log_prefix):
         """
 
@@ -97,36 +100,35 @@ class BaseProduct:
     def init_operations(self):
         """ register all actively provided operations """
         pm_names = self._model.pm_names
+        sco_handle = self._sco.sco_descriptor_container.Handle
+        self._logger.info('init_operations for sco {}.', sco_handle)
 
         for role_handler in self._all_providers_sorted():
-            role_handler.init_operations()
+            role_handler.init_operations(self._sco)
 
         self._register_existing_mdib_operations(self._sco)
 
         for role_handler in self._all_providers_sorted():
             operations = role_handler.make_missing_operations(self._sco)
+            if operations:
+                info = ', '.join([f'{op.OP_DESCR_QNAME.localname} {op.handle}' for op in operations])
+                self._logger.info('role handler {} added operations to mdib: {}',
+                                  role_handler.__class__.__name__, info)
             for operation in operations:
                 self._sco.register_operation(operation)
 
-        # log all operations that do not have a handler now
-        all_mdib_ops = []
-        for nodetype in [pm_names.SetValueOperationDescriptor,
-                         pm_names.SetStringOperationDescriptor,
-                         pm_names.SetContextStateOperationDescriptor,
-                         pm_names.SetMetricStateOperationDescriptor,
-                         pm_names.SetComponentStateOperationDescriptor,
-                         pm_names.SetAlertStateOperationDescriptor,
-                         pm_names.ActivateOperationDescriptor]:
-            all_mdib_ops.extend(self._mdib.descriptions.NODETYPE.get(nodetype, []))
-        all_mdib_op_handles = [op.Handle for op in all_mdib_ops]
-        all_not_registered_op_handles = [op_h for op_h in all_mdib_op_handles if
+        all_sco_operations = self._mdib.descriptions.parent_handle.get(self._sco.sco_descriptor_container.Handle, [])
+        all_op_handles = [op.Handle for op in all_sco_operations]
+        all_not_registered_op_handles = [op_h for op_h in all_op_handles if
                                          self._sco.get_operation_by_handle(op_h) is None]
-        if not all_mdib_op_handles:
-            self._logger.info('this device has no operations in mdib.')
+
+        if not all_op_handles:
+            self._logger.info('sco {} has no operations in mdib.', sco_handle)
         elif all_not_registered_op_handles:
-            self._logger.info(f'there are operations without handler! handles = {all_not_registered_op_handles}')
+            self._logger.info('sco {} has operations without handler! handles = {}',
+                              sco_handle, all_not_registered_op_handles)
         else:
-            self._logger.info('there are no operations without handler.')
+            self._logger.info('sco {}: all operations have a handler.', sco_handle)
         self._mdib.xtra.mk_state_containers_for_all_descriptors()
         self._mdib.pre_commit_handler = self._on_pre_commit
         self._mdib.post_commit_handler = self._on_post_commit
@@ -149,14 +151,15 @@ class BaseProduct:
         for role_handler in self._all_providers_sorted():
             operation = role_handler.make_operation_instance(operation_descriptor_container, operation_cls_getter)
             if operation is not None:
-                self._logger.info(
+                self._logger.debug(
                     f'{role_handler.__class__.__name__} provided operation for {operation_descriptor_container}')
                 return operation
             self._logger.debug(f'{role_handler.__class__.__name__}: no handler for {operation_descriptor_container}')
         return None
 
     def _register_existing_mdib_operations(self, sco):
-        operation_descriptor_containers = self._mdib.get_operation_descriptors()
+        operation_descriptor_containers = self._mdib.descriptions.parent_handle.get(
+            self._sco.sco_descriptor_container.Handle, [])
         for descriptor in operation_descriptor_containers:
             registered_op = sco.get_operation_by_handle(descriptor.Handle)
             if registered_op is None:
@@ -181,12 +184,13 @@ class GenericProduct(BaseProduct):
         super().__init__(mdib, sco, log_prefix)
 
         self._ordered_providers.extend([audio_pause_provider, day_night_provider, clock_provider])
-        self._ordered_providers.extend([patientcontextprovider.GenericPatientContextProvider(mdib, log_prefix=log_prefix),
-                                        alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
-                                        metricprovider.GenericMetricProvider(mdib, log_prefix=log_prefix),
-                                        operationprovider.OperationProvider(mdib, log_prefix=log_prefix),
-                                        GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix)
-                                        ])
+        self._ordered_providers.extend(
+            [patientcontextprovider.GenericPatientContextProvider(mdib, log_prefix=log_prefix),
+             alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
+             metricprovider.GenericMetricProvider(mdib, log_prefix=log_prefix),
+             operationprovider.OperationProvider(mdib, log_prefix=log_prefix),
+             GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix)
+             ])
 
 
 class MinimalProduct(BaseProduct):
@@ -195,7 +199,8 @@ class MinimalProduct(BaseProduct):
         self.metric_provider = metricprovider.GenericMetricProvider(mdib, log_prefix=log_prefix)  # needed in a test
         self._ordered_providers.extend([AudioPauseProvider(mdib, log_prefix=log_prefix),
                                         clockprovider.GenericSDCClockProvider(mdib, log_prefix=log_prefix),
-                                        patientcontextprovider.GenericPatientContextProvider(mdib, log_prefix=log_prefix),
+                                        patientcontextprovider.GenericPatientContextProvider(mdib,
+                                                                                             log_prefix=log_prefix),
                                         alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
                                         self.metric_provider,
                                         operationprovider.OperationProvider(mdib, log_prefix=log_prefix),
@@ -210,7 +215,8 @@ class ExtendedProduct(MinimalProduct):
                                         clockprovider.GenericSDCClockProvider(mdib, log_prefix=log_prefix),
                                         contextprovider.EnsembleContextProvider(mdib, log_prefix=log_prefix),
                                         contextprovider.LocationContextProvider(mdib, log_prefix=log_prefix),
-                                        patientcontextprovider.GenericPatientContextProvider(mdib, log_prefix=log_prefix),
+                                        patientcontextprovider.GenericPatientContextProvider(mdib,
+                                                                                             log_prefix=log_prefix),
                                         alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
                                         self.metric_provider,
                                         operationprovider.OperationProvider(mdib, log_prefix=log_prefix),

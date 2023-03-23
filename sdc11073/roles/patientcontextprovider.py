@@ -8,8 +8,8 @@ class GenericPatientContextProvider(GenericContextProvider):
         self._patient_context_descriptor_container = None
         self._set_patient_context_operations = []
 
-    def init_operations(self):
-        super().init_operations()
+    def init_operations(self, sco):
+        super().init_operations(sco)
         # expecting exactly one PatientContextDescriptor
         pm_names = self._mdib.data_model.pm_names
         descriptor_containers = self._mdib.descriptions.NODETYPE.get(pm_names.PatientContextDescriptor)
