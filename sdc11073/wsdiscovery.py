@@ -19,13 +19,10 @@ import queue
 from dataclasses import dataclass, field
 from typing import Any
 
+from .netconn import get_ipv4_addresses, get_ip_for_adapter
+
 try:
-    from sdc11073.netconn import getNetworkAdapterConfigs
-except ImportError:
-    def getNetworkAdapterConfigs():
-        return []
-try:
-    from sdc11073.commlogg import getCommunicationLogger
+    from sdc11073.commlog import getCommunicationLogger
 except ImportError:
     class NullLogger(object):
         """ This is a dummy logger that does nothing."""
@@ -113,18 +110,6 @@ _namespaces_map = {'wsd': NS_D, 'wsa': NS_A, 's12': NS_S, 'dpws': NS_DPWS}
 def types_info(types):
     # helper for logging
     return [str(t) for t in types] if types else types
-
-
-def _getNetworkAddrs():
-    """
-    :return: a list of strings
-    """
-    result = []
-    interfaces = getNetworkAdapterConfigs()
-    for interface in interfaces:
-        if interface.ip not in _IP_BLACKLIST:
-            result.append(interface.ip)
-    return result
 
 
 def _getPrefix(nsmap, ns):
@@ -715,7 +700,7 @@ class AddressMonitorThread(threading.Thread):
         self._updateAddrs()
 
     def _updateAddrs(self):
-        addrs = set(_getNetworkAddrs())
+        addrs = set(get_ipv4_addresses())
 
         disappeared = self._addrs.difference(addrs)
         new = addrs.difference(self._addrs)
@@ -1127,7 +1112,7 @@ class Service:
         for xAddr in self._xAddrs:
             if '{ip}' in xAddr:
                 if ipAddrs is None:
-                    ipAddrs = _getNetworkAddrs()
+                    ipAddrs = get_ipv4_addresses()
                 for ipAddr in ipAddrs:
                     if ipAddr not in _IP_BLACKLIST:
                         ret.append(xAddr.format(ip=ipAddr))
@@ -1759,29 +1744,24 @@ class WSDiscoverySingleAdapter(WSDiscoveryBase):
                                  If False, and only one Adapter exists, the one existing adapter is used. (localhost is ignored in this case).
         """
         super().__init__(logger, multicast_port)
+        self._my_ip_address = get_ip_for_adapter(adapterName)
 
-        all_adapters = getNetworkAdapterConfigs()
-        # try to match name. if it matches, we are already ready.
-        filteredAdapters = [a for a in all_adapters if a.friendly_name == adapterName]
-        if len(filteredAdapters) == 1:
-            self._myIPaddress = (filteredAdapters[0].ip,)  # a tuple
-            return
-        if forceAdapterName:
-            raise RuntimeError(
-                'No adapter "{}" found. Having {}'.format(adapterName, [a.friendly_name for a in all_adapters]))
+        if self._my_ip_address is None:
+            all_adapters = get_ipv4_addresses()
+            all_adapter_names = [ip.nice_name for ip in all_adapters]
+            if forceAdapterName:
+                raise RuntimeError(f'No adapter "{adapterName}" found. Having {all_adapter_names}')
 
-        # see if there is only one physical adapter. if yes, use it
-        adapters_not_localhost = [a for a in all_adapters if not a.ip.startswith('127.')]
-        if len(adapters_not_localhost) == 1:
-            self._myIPaddress = (adapters_not_localhost[0].ip,)  # a tuple
-        else:
-            raise RuntimeError('No adapter "{}" found. Cannot use default, having {}'.format(adapterName,
-                                                                                             [a.friendly_name for a in
-                                                                                              all_adapters]))
+            # see if there is only one physical adapter. if yes, use it
+            adapters_not_localhost = [a for a in all_adapters if not a.ip.startswith('127.')]
+            if len(adapters_not_localhost) == 1:
+                self._my_ip_address = (adapters_not_localhost[0].ip,)  # a tuple
+            else:
+                raise RuntimeError(f'No adapter "{adapterName}" found. Having {all_adapter_names}')
 
     def _isAcceptedAddress(self, addr):
         """ check if any of the regular expressions matches the argument"""
-        return addr in self._myIPaddress
+        return addr in self._my_ip_address
 
 
 _FallbackMedicalDeviceTypesFilter = [QName(NS_DPWS, 'Device'),
