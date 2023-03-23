@@ -10,7 +10,7 @@ class GetServiceClient(HostedServiceClient):
         inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
         message = self._msg_factory.mk_soap_message(inf, payload=request)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
-        #ToDo: do like in methods below
+        #use method in messagereader
         result = received_message_data.msg_reader.read_get_mdib_response(received_message_data)
         return GetRequestResult(received_message_data, result)
 
