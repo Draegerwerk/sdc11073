@@ -7,7 +7,7 @@ import traceback
 import http.client
 from http.server import HTTPServer
 import queue
-import urllib
+from urllib.parse import urlparse,urlunparse
 from lxml import etree as etree_
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, ReceivedSoap12Envelope, WsAddress, WsSubscribe, \
     SoapResponseException
@@ -22,7 +22,6 @@ from .. import loghelper
 from ..httprequesthandler import HTTPRequestHandler
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 
-MULTITHREADED = True
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 
 
@@ -53,20 +52,16 @@ class MyThreadingMixIn(object):
         self.threads.append((t, request, client_address))
 
 
-if MULTITHREADED:
-    class MyHTTPServer(MyThreadingMixIn, HTTPServer):
-        """ Each request is handled in a thread.
-        Following receipe from https://pymotw.com/2/BaseHTTPServer/index.html#module-BaseHTTPServer
-        """
+class ThreadingHTTPServer(MyThreadingMixIn, HTTPServer):
+    """ Each request is handled in a thread.
+    Following receipe from https://pymotw.com/2/BaseHTTPServer/index.html#module-BaseHTTPServer
+    """
 
-        def __init__(self, *args, **kwargs):
-            HTTPServer.__init__(self, *args, **kwargs)
-            self.daemon_threads = True
-            self.threads = []
-            self.dispatcher = None
-
-else:
-    MyHTTPServer = HTTPServer  # single threaded, sequential operation
+    def __init__(self, *args, **kwargs):
+        HTTPServer.__init__(self, *args, **kwargs)
+        self.daemon_threads = True
+        self.threads = []
+        self.dispatcher = None
 
 
 class ClSubscription(object):
@@ -77,9 +72,12 @@ class ClSubscription(object):
 
     def __init__(self, dpwsHosted, actions, notification_url, endTo_url, ident, xml_validator):
         """
-        @param serviceClient:
-        @param filter_:
-        @param notification_url: e.g. http://1.2.3.4:9999, or https://1.2.3.4:9999
+        :param dpwsHosted: the DPWSHosted instance this port type belongs to
+        :param actions: list of subscribed actions
+        :param notification_url: e.g. http://1.2.3.4:9999, or https://1.2.3.4:9999
+        :param endTo_url: url for subscription end message
+        :param ident: prefix for logging
+        :param xml_validator: allows schema validation
         """
         self.dpwsHosted = dpwsHosted
         self._actions = actions
@@ -102,7 +100,7 @@ class ClSubscription(object):
         self._logger = loghelper.getLoggerAdapter('sdc.client.subscr', ident)
         self.eventCounter = 0  # for display purpose, we count notifications
         self.cl_ident = ident
-        self._device_epr = urllib.parse.urlparse(self.dpwsHosted.endpointReferences[0].address).path
+        self._device_epr = urlparse(self.dpwsHosted.endpointReferences[0].address).path
         self._xml_validator = xml_validator
 
     @property
@@ -137,7 +135,7 @@ class ClSubscription(object):
                     self.dev_reference_param = reference_params[0]
                 expires = msgNode.xpath('wse:Expires/text()', namespaces=_global_nsmap)
 
-                self._subscriptionManagerAddress = urllib.parse.urlparse(address[0])
+                self._subscriptionManagerAddress = urlparse(address[0])
                 expireseconds = isoduration.parse_duration(expires[0])
                 self.expireAt = time.time() + expireseconds
                 self.isSubscribed = True
@@ -179,7 +177,7 @@ class ClSubscription(object):
     def _mkRenewEnvelope(self, expire_minutes):
         soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
         soapEnvelope.setAddress(WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Renew',
-                                          to=urllib.parse.urlunparse(self._subscriptionManagerAddress)))
+                                          to=urlunparse(self._subscriptionManagerAddress)))
         self._add_device_references(soapEnvelope)
         renewNode = etree_.Element(wseTag('Renew'), nsmap=Prefix.partialMap(Prefix.WSE))
         expiresNode = etree_.SubElement(renewNode, wseTag('Expires'), nsmap=Prefix.partialMap(Prefix.WSE))
@@ -229,7 +227,7 @@ class ClSubscription(object):
 
         soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
         soapEnvelope.setAddress(WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Unsubscribe',
-                                          to=urllib.parse.urlunparse(self._subscriptionManagerAddress)))
+                                          to=urlunparse(self._subscriptionManagerAddress)))
         self._add_device_references(soapEnvelope)
         soapEnvelope.addBodyElement(etree_.Element(wseTag('Unsubscribe')))
         resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
@@ -246,7 +244,7 @@ class ClSubscription(object):
     def _mkGetStatusEnvelope(self):
         soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
         soapEnvelope.setAddress(WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/GetStatus',
-                                          to=urllib.parse.urlunparse(self._subscriptionManagerAddress)))
+                                          to=urlunparse(self._subscriptionManagerAddress)))
         self._add_device_references(soapEnvelope)
         bodyNode = etree_.Element(wseTag('GetStatus'))
         soapEnvelope.addBodyElement(bodyNode)
@@ -343,15 +341,17 @@ class ClSubscription(object):
 
 class SubscriptionManager(threading.Thread):
     """ Factory for Subscription objects, thread that automatically renews expiring subscriptions.
-    @param notification_url: the destination url for notifications.
-    @param endTo_url: if given the destination url for end subscription notifications; if not given, the notification_url is used.
-    @param check_interval: the interval (in seconds ) for getStatus requests. Defaults to SUBSCRIPTION_CHECK_INTERVAL
-    @param ident: a string that is used in log output; defaults to empty string
      """
     allSubscriptionsOkay = properties.ObservableProperty(True)  # a boolean
     keepAlive_with_renew = True  # enable as workaround if checkstatus is not supported
 
     def __init__(self, notification_url, endTo_url=None, checkInterval=None, log_prefix='', xml_validator=None):
+        """
+        @param notification_url: the destination url for notifications.
+        @param endTo_url: if given the destination url for end subscription notifications; if not given, the notification_url is used.
+        @param checkInterval: the interval (in seconds ) for getStatus requests. Defaults to SUBSCRIPTION_CHECK_INTERVAL
+        @param ident: a string that is used in log output; defaults to empty string
+         """
         super().__init__(name='Cl_SubscriptionManager{}'.format(log_prefix))
         self.daemon = True
         self._checkInterval = checkInterval or SUBSCRIPTION_CHECK_INTERVAL
@@ -584,8 +584,8 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
 
         :param my_ipaddress: http server will listen on this address
         :param sslContext: http server uses this ssl context
-        :param ident: used for logging
-        :param sdc_definitions: namespaces etc
+        :param log_prefix: used for logging
+        :param sdc_definitions: namespaces etc.
         :param supportedEncodings: a list of strings
         :param soap_notifications_handler_class: if None, SOAPNotificationsHandler is used,
                 otherwise the provided class ( a HTTPRequestHandler).
@@ -614,8 +614,8 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
     def run(self):
         try:
             myport = 0  # zero means that OS selects a free port
-            self.httpd = MyHTTPServer((self._my_ipaddress, myport),
-                                      self._soap_notifications_handler_class or SOAPNotificationsHandler)
+            self.httpd = ThreadingHTTPServer((self._my_ipaddress, myport),
+                                             self._soap_notifications_handler_class or SOAPNotificationsHandler)
             # add use compression flag to the server
             setattr(self.httpd, 'supportedEncodings', self.supportedEncodings)
             self.my_port = self.httpd.server_port
