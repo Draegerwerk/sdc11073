@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - replaces netifaces with ifaddr
 
+### Fixed
+- make weak ref to mdib a normal ref in sdc client
+- update observables in mkStateContainersforAllDescriptors
+- make copies of reportNode before processing in clientmdib
+
 ## [1.1.21] - 2023-02-24
 ### Fixed
 - SourceMds being interpreted as a state with an DescriptorHandle attribute
