@@ -12,7 +12,7 @@ from codecs import open
 import os
 import subprocess
 
-version = '1.1.21'
+version = '1.1.22'
 
 # create a version.py file that is
 # a) used for __version__ info
@@ -36,7 +36,7 @@ with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 dependencies = ['lxml>=2.3',
-                "netifaces ; platform_system!='Windows'"]
+                'ifaddr']
 
 setup(
     name='sdc11073',
