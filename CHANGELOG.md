@@ -4,6 +4,10 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.22] - 2023-03-23
+### Changed
+- replaces netifaces with ifaddr
+
 ## [1.1.21] - 2023-02-24
 ### Fixed
 - SourceMds being interpreted as a state with an DescriptorHandle attribute
