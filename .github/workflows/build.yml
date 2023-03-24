@@ -1,0 +1,71 @@
+name: Build package
+
+on:
+  workflow_call:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push: # Apply to all branches
+
+env:
+  SDC11073_VERSION: 0.0.0
+
+jobs:
+  tests:
+    name: Run tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: [ "3.7", "3.8" ]
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python dependencies
+        run: pip install pytest pytest-html
+
+      - name: Run pytest
+        run: pytest --html=unittest_report.html tests
+
+      - name: Archive test result
+        uses: actions/upload-artifact@v3
+        with:
+          name: unittest_report.html
+          path: unittest_report.html
+          retention-days: 1
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.8"
+
+      - name: Detect release version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          echo SDC11073_VERSION=${GITHUB_REF/refs\/tags\//} >> $GITHUB_ENV
+
+      - name: Install Python dependencies
+        run: pip install wheel
+
+      - name: Build package
+        run: python setup.py clean --all bdist_wheel
+
+      - name: Archive package
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist
+          path: dist/*.whl
+          retention-days: 1

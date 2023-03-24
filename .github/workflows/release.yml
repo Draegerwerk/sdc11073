@@ -1,0 +1,46 @@
+name: Release package
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+"
+
+jobs:
+  publish:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/publish.yml
+    secrets: inherit # pass all secrets
+
+  prerelease:
+    name: Prerelease
+    runs-on: ubuntu-latest
+    needs: publish
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Download Build
+        uses: actions/download-artifact@v3
+        with:
+          name: dist
+          path: dist/
+
+      - name: Download Unittest report
+        uses: actions/download-artifact@v3
+        with:
+          name: unittest_report.html
+          path: unittest_report.html
+
+      - name: Attach artifacts to github release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            CHANGELOG.md
+            dist/*.whl
+            unittest_report.html
+          prerelease: False
+          body_path: CHANGELOG.md

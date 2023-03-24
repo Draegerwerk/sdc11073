@@ -1,0 +1,33 @@
+name: Publish package to pypi
+
+on:
+  workflow_call:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+[ab][0-9]+" # rc and release will be handled in other workflow
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          repository-url: https://test.pypi.org/legacy/

@@ -12,7 +12,17 @@ from codecs import open
 import os
 import subprocess
 
-version = '1.1.22'
+def get_build_version():
+    """
+    Get the package version from the respective jenkins build parameter, if it is available.
+    Otherwise, return '0.0.0'.
+
+    @return: package version
+    """
+    return os.getenv('SDC11073_VERSION', default='0.0.0')
+
+
+version = get_build_version()
 
 # create a version.py file that is
 # a) used for __version__ info
@@ -30,7 +40,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 # write version file
 with open(os.path.join(here, 'sdc11073/version.py'), 'w') as v:
     v.write("#generated file!\nversion='{}'\n\ngitrev='''{}'''".format(version, gitrev))
-    
+
 # Get the long description from the README file
 with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
