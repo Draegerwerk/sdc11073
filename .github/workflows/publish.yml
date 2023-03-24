@@ -43,7 +43,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     needs: upload
-    if: $DO_GITHUB_RELEASE
+    if: ${{ env.DO_GITHUB_RELEASE }}
     permissions:
       contents: write
 
@@ -75,5 +75,5 @@ jobs:
             CHANGELOG.md
             dist/*.whl
             reports/unittest_report.html
-          prerelease: $DO_PRERELEASE
+          prerelease: ${{ env.DO_PRERELEASE }}
           body_path: CHANGELOG.md
