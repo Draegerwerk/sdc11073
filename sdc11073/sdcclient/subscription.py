@@ -7,7 +7,7 @@ import traceback
 import http.client
 from http.server import HTTPServer
 import queue
-from urllib.parse import urlparse,urlunparse
+from urllib.parse import urlparse, urlunparse
 from lxml import etree as etree_
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, ReceivedSoap12Envelope, WsAddress, WsSubscribe, \
     SoapResponseException
@@ -252,7 +252,7 @@ class ClSubscription(object):
 
     def getStatus(self):
         """ Sends a GetStatus Request to the device.
-        @return: the remaining time of the subscription or None, if the request was not successful
+        :return: the remaining time of the subscription or None, if the request was not successful
         """
         soapEnvelope = self._mkGetStatusEnvelope()
         try:
@@ -287,8 +287,8 @@ class ClSubscription(object):
 
     def checkStatus(self, renewLimit):
         """ Calls getStatus and updates internal data.
-        @param renewLimit: a value in seconds. If remaining duration of subscription is less than this value, it renews the subscription.
-        @return: None
+        :param renewLimit: a value in seconds. If remaining duration of subscription is less than this value, it renews the subscription.
+        :return: None
         """
         if not self.isSubscribed:
             return
@@ -308,7 +308,7 @@ class ClSubscription(object):
 
     def checkStatus_renew(self):
         """ Calls renew and updates internal data.
-        @return: None
+        :return: None
         """
         if self.isSubscribed:
             self.renew()
@@ -347,10 +347,11 @@ class SubscriptionManager(threading.Thread):
 
     def __init__(self, notification_url, endTo_url=None, checkInterval=None, log_prefix='', xml_validator=None):
         """
-        @param notification_url: the destination url for notifications.
-        @param endTo_url: if given the destination url for end subscription notifications; if not given, the notification_url is used.
-        @param checkInterval: the interval (in seconds ) for getStatus requests. Defaults to SUBSCRIPTION_CHECK_INTERVAL
-        @param ident: a string that is used in log output; defaults to empty string
+        :param notification_url: the destination url for notifications.
+        :param endTo_url: if given the destination url for end subscription notifications; if not given, the notification_url is used.
+        :param checkInterval: the interval (in seconds ) for getStatus requests. Defaults to SUBSCRIPTION_CHECK_INTERVAL
+        :param log_prefix: a string that is used in log output; defaults to empty string
+        :param xml_validator: helper for schema validation
          """
         super().__init__(name='Cl_SubscriptionManager{}'.format(log_prefix))
         self.daemon = True
@@ -636,7 +637,7 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
 
     def stop(self, closeAllConnections=True):
         """
-        @param closeAllConnections: for testing purpose one might want to keep the connection handler threads alive.
+        :param closeAllConnections: for testing purpose one might want to keep the connection handler threads alive.
                 If param is False then they are kept alive.
         """
         self.httpd.shutdown()
