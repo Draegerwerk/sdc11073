@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.22] - 2023-03-23
 ### Changed
 - replaces netifaces with ifaddr
+- removed option to run single threaded http server
 
 ## [1.1.21] - 2023-02-24
 ### Fixed
