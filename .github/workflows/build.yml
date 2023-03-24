@@ -36,7 +36,7 @@ jobs:
       - name: Archive test result
         uses: actions/upload-artifact@v3
         with:
-          name: unittest_report.html
+          name: unittest_report
           path: unittest_report.html
           retention-days: 1
   build:

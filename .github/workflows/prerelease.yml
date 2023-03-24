@@ -32,7 +32,7 @@ jobs:
       - name: Download Unittest report
         uses: actions/download-artifact@v3
         with:
-          name: unittest_report.html
+          name: unittest_report
           path: unittest_report.html
 
       - name: Attach artifacts to github release
