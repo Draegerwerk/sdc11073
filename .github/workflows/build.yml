@@ -28,7 +28,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install Python dependencies
-        run: pip install pytest pytest-html
+        run: pip install -r requirements.txt pytest pytest-html
 
       - name: Run pytest
         run: pytest --html=unittest_report.html tests
@@ -58,7 +58,7 @@ jobs:
           echo SDC11073_VERSION=${GITHUB_REF/refs\/tags\//} >> $GITHUB_ENV
 
       - name: Install Python dependencies
-        run: pip install wheel
+        run: pip install -r requirements.txt wheel
 
       - name: Build package
         run: python setup.py clean --all bdist_wheel
