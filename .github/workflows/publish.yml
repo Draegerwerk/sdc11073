@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: upload
     # check if pushed tag is release relevant
-    if: ${{ $((echo "${GITHUB_REF}" | grep -Eq "^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?$") && echo 1 || echo 0) }}
+    if: $((echo "${GITHUB_REF}" | grep -Eq "^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?$") && echo 1 || echo 0)
     permissions:
       contents: write
 
@@ -66,5 +66,5 @@ jobs:
             CHANGELOG.md
             dist/*.whl
             reports/unittest_report.html
-          prerelease: ${{ $((echo "${GITHUB_REF}" | grep -Eq "^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$") && echo 1 || echo 0) }}
+          prerelease: $((echo "${GITHUB_REF}" | grep -Eq "^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$") && echo 1 || echo 0)
           body_path: CHANGELOG.md
