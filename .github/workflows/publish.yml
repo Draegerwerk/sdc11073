@@ -47,7 +47,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     needs: upload
-    if: needs.upload.outputs.DO_GITHUB_RELEASE
+    if: ${{ needs.upload.outputs.DO_GITHUB_RELEASE == 1 }}
     permissions:
       contents: write
 
@@ -81,5 +81,5 @@ jobs:
             CHANGELOG.md
             dist/*.whl
             reports/unittest_report.html
-          prerelease: steps.detect-prerelease.outputs.DO_PRERELEASE
+          prerelease: ${[ steps.detect-prerelease.outputs.DO_PRERELEASE == 1 }}
           body_path: CHANGELOG.md
