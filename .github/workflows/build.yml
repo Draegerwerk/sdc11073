@@ -3,8 +3,10 @@ name: Build package
 on:
   workflow_call:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-  push: # Apply to all branches
+    types: [ opened, synchronize, reopened, ready_for_review ]
+  push:
+    branches:
+      - "*"  # exclude tags, as they trigger this workflow via workflow_call
 
 env:
   SDC11073_VERSION: 0.0.0
