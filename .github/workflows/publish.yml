@@ -69,8 +69,8 @@ jobs:
         id: detect-prerelease
         run: |
           do_prerelease=$((echo "${GITHUB_REF}" | grep -Eq "^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$") && echo 1 || echo 0)
-          echo "DO_PRERELEASE=$do_prerelease" >> "$GITHUB_OUTPUT"
-          echo "DO_PRERELEASE=$do_prerelease"
+          echo DO_PRERELEASE=$do_prerelease >> $GITHUB_ENV
+          echo DO_PRERELEASE=$do_prerelease
 
       - name: Attach artifacts to github release
         uses: softprops/action-gh-release@v1
@@ -79,5 +79,5 @@ jobs:
             CHANGELOG.md
             dist/*.whl
 #            reports/unittest_report.html
-          prerelease: steps.detect-prerelease.outputs.DO_PRERELEASE == '1'
+          prerelease: $DO_PRERELEASE == '1'
           body_path: CHANGELOG.md
