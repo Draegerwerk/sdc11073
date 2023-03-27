@@ -12,8 +12,8 @@ jobs:
       contents: write
     uses: ./.github/workflows/build.yml
 
-  upload:
-    name: Upload
+  publish:
+    name: Publish
     runs-on: ubuntu-latest
     needs: build
     permissions:
