@@ -45,31 +45,31 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v3
 
-      - name: Download Build
-        uses: actions/download-artifact@v3
-        with:
-          name: dist
-          path: dist/
-
-      - name: Download Unittest report
-        uses: actions/download-artifact@v3
-        with:
-          name: unittest_report
-          path: reports/
-
-      - name: Detect prerelease
-        id: detect-prerelease
-        run: |
-          do_prerelease=$((echo "${GITHUB_REF}" | grep -Eq "^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$") && echo 1 || echo 0)
-          echo "DO_PRERELEASE=$do_prerelease" >> GITHUB_OUTPUT
-          echo "Do prerelease: $do_prerelease"
-
-      - name: Attach artifacts to github release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            CHANGELOG.md
-            dist/*.whl
-            reports/unittest_report.html
-          prerelease: ${{ steps.detect-prerelease.outputs.DO_PRERELEASE == 1 }}
-          body_path: CHANGELOG.md
+#      - name: Download Build
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: dist
+#          path: dist/
+#
+#      - name: Download Unittest report
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: unittest_report
+#          path: reports/
+#
+#      - name: Detect prerelease
+#        id: detect-prerelease
+#        run: |
+#          do_prerelease=$((echo "${GITHUB_REF}" | grep -Eq "^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$") && echo 1 || echo 0)
+#          echo "DO_PRERELEASE=$do_prerelease" >> GITHUB_OUTPUT
+#          echo "Do prerelease: $do_prerelease"
+#
+#      - name: Attach artifacts to github release
+#        uses: softprops/action-gh-release@v1
+#        with:
+#          files: |
+#            CHANGELOG.md
+#            dist/*.whl
+#            reports/unittest_report.html
+#          prerelease: ${{ steps.detect-prerelease.outputs.DO_PRERELEASE == 1 }}
+#          body_path: CHANGELOG.md
