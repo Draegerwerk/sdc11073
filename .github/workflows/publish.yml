@@ -20,7 +20,7 @@ jobs:
     permissions:
       contents: write
     outputs:
-      DO_GITHUB_RELEASE: ${{ steps.detect-release.DO_GITHUB_RELEASE }}
+      DO_GITHUB_RELEASE: ${{ steps.detect-release.outputs.DO_GITHUB_RELEASE }}
 
     steps:
       - name: Download Artifact
