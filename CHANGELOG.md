@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.22] - 2023-03-23
 ### Changed
 - replaces netifaces with ifaddr
+- removed option to run single threaded http server
+
+### Fixed
+- make weak ref to mdib a normal ref in sdc client
+- update observables in mkStateContainersforAllDescriptors
+- make copies of reportNode before processing in clientmdib
 
 ## [1.1.21] - 2023-02-24
 ### Fixed

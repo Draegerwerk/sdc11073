@@ -2,16 +2,13 @@ import threading
 import time
 import traceback
 import socket
-import urllib
+from urllib.parse import urlparse
 from http.server import HTTPServer
 from .exceptions import HTTPRequestHandlingError, InvalidPathError, InvalidActionError
 from .. import pysoap
 from .. import commlog
 from .. import loghelper
 from ..httprequesthandler import HTTPRequestHandler, mkchunks
-
-
-MULTITHREADED = True
 
 
 class MyThreadingMixIn(object):
@@ -42,18 +39,15 @@ class MyThreadingMixIn(object):
         self.threads.append((t,request, client_address))
 
 
-if MULTITHREADED:
-    class MyHTTPServer(MyThreadingMixIn, HTTPServer):
-        ''' Each request is handled in a thread.
-        Following receipe from https://pymotw.com/2/BaseHTTPServer/index.html#module-BaseHTTPServer 
-        '''
-        def __init__(self, *args, **kwargs):
-            HTTPServer. __init__(self, *args, **kwargs)
-            self.daemon_threads = True
-            self.threads = []
-            self.dispatcher = None
-else:
-    MyHTTPServer = HTTPServer # single threaded, sequential operation
+class ThreadingHTTPServer(MyThreadingMixIn, HTTPServer):
+    ''' Each request is handled in a thread.
+    Following recipe from https://pymotw.com/2/BaseHTTPServer/index.html#module-BaseHTTPServer
+    '''
+    def __init__(self, *args, **kwargs):
+        HTTPServer. __init__(self, *args, **kwargs)
+        self.daemon_threads = True
+        self.threads = []
+        self.dispatcher = None
 
 class DevicesDispatcher(object):
     """ Dispatch to one of the registered devices, based on url"""
@@ -121,7 +115,7 @@ class HostedServiceDispatcher(object):
         try:
             return hostedService.dispatchSoapRequest( path, header, soapEnvelope)
         except InvalidActionError as ex:
-            # error: no handler for this action; log this error with all known pathes, the re-raise
+            # error: no handler for this action; log this error with all known paths, then re-raise
             all_actions = []
             for dispatcher in self.hostedServices:
                 all_actions.extend(', '.join([dispatcher.epr, k]) for k in dispatcher.getActions())
@@ -136,7 +130,7 @@ class HostedServiceDispatcher(object):
         return  self.sdc_definitions.denormalizeXMLText(response_string)
 
     def _dispatchGetRequest(self, path, httpHeaders):
-        parsedPath = urllib.parse.urlparse(path)
+        parsedPath = urlparse(path)
         p = parsedPath.path
         if p.endswith('/'):
             p = p[:-1]
@@ -151,7 +145,7 @@ class HostedServiceDispatcher(object):
 class _SdcServerRequestHandler(HTTPRequestHandler):
     protocol_version = "HTTP/1.1"  # this enables keep-alive
     # This server does NOT disable nagle algorithm. It sends Large responses,
-    # and network efficiency is more important tahn short latencies.
+    # and network efficiency is more important than short latencies.
     disable_nagle_algorithm = False
 
     def do_POST(self):
@@ -160,7 +154,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             devices_dispatcher = self.server.dispatcher
             if devices_dispatcher is None:
                 # close this connection
-                self.close_connection = 1
+                self.close_connection = True
                 response_xml_string = b'received a POST request, but have no dispatcher'
                 self.send_response(404)  # not found
             else:
@@ -187,7 +181,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(mkchunks(response_xml_string))
             else:
-                self.send_header("Content-length", len(response_xml_string))
+                self.send_header("Content-length", str(len(response_xml_string)))
                 self.end_headers()
                 self.wfile.write(response_xml_string)
         except Exception as ex:
@@ -204,12 +198,12 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             response_xml_string = dev_dispatcher.sdc_definitions.denormalizeXMLText(normalized_response_xml_string)
             self.send_response(500)
             self.send_header("Content-type", "application/soap+xml; charset=utf-8")
-            self.send_header("Content-length", len(response_xml_string))
+            self.send_header("Content-length", str(len(response_xml_string)))
             self.end_headers()
             self.wfile.write(response_xml_string)
 
     def do_GET(self):
-        parsedPath = urllib.parse.urlparse(self.path)
+        parsedPath = urlparse(self.path)
         try:
             commlog.defaultLogger.logSoapReqIn(b'', 'GET')  # GET has no content, log it to document duration of processing
             response_string = self.server.dispatcher.on_get(self.path, self.headers)
@@ -226,7 +220,7 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
             content_type = "text"
 
         self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", len(response_string))
+        self.send_header("Content-Length", str(len(response_string)))
         self.end_headers()
         self.wfile.write(response_string)
 
@@ -258,7 +252,7 @@ class HttpServerThread(threading.Thread):
     def run(self):
         try:
             myport = 0  # zero means that OS selects a free port
-            self.httpd = MyHTTPServer((self._my_ipaddress, myport), _SdcServerRequestHandler)
+            self.httpd = ThreadingHTTPServer((self._my_ipaddress, myport), _SdcServerRequestHandler)
             self.httpd.chunked_response = self.chunked_responses # monkey-patching, value needed by _SdcServerRequestHandler
             # add use compression flag to the server
             setattr(self.httpd, 'supportedEncodings', self.supportedEncodings)

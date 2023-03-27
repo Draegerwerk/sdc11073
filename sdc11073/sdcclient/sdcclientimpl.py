@@ -5,7 +5,6 @@ import os
 import ssl
 import traceback
 from urllib.parse import urlparse, urlsplit
-import weakref
 from dataclasses import dataclass
 
 from lxml import etree as etree_
@@ -241,7 +240,7 @@ class SdcClient(object):
         """ SdcClient sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib is not None:
             raise RuntimeError('SdcClient has already an registered mdib')
-        self._mdib = None if mdib is None else weakref.ref(mdib)
+        self._mdib = mdib
         if self.client('Set') is not None:
             self.client('Set').register_mdib(mdib)
         if self.client('Context') is not None:
@@ -249,14 +248,13 @@ class SdcClient(object):
 
     @property
     def mdib(self):
-        return self._mdib()
+        return self._mdib
 
     @property
     def my_ipaddress(self):
         return self._my_ipaddress
 
     def _findBestOwnIpAddress(self):
-        # myIpAddresses = [conn.ip for conn in sdc11073.netconn.getNetworkAdapterConfigs() if conn.ip not in (None, '0.0.0.0')]
         myIpAddresses = netconn.get_ipv4_addresses()
 
         splitted = urlsplit(self._devicelocation)
