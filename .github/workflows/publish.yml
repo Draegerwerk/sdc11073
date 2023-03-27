@@ -44,8 +44,8 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    if: needs.upload.outputs.DO_GITHUB_RELEASE == 1
     needs: upload
+    if: needs.upload.outputs.DO_GITHUB_RELEASE == 1
     permissions:
       contents: write
 
