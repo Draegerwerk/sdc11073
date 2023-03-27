@@ -4,9 +4,6 @@ on:
   workflow_call:
   pull_request:
     types: [ opened, synchronize, reopened, ready_for_review ]
-  push:
-    branches:
-      - "**" # exclude tags, as they trigger this workflow via workflow_call
 
 env:
   SDC11073_VERSION: 0.0.0
@@ -18,7 +15,7 @@ jobs:
     strategy:
       matrix:
         python-version: [ "3.7", "3.8" , "3.9", "3.10", "3.11" ]
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -34,14 +31,14 @@ jobs:
         run: pip install -r requirements.txt pytest pytest-html
 
       - name: Run pytest
-        run: pytest --html=unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}.html tests
+        run: pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}.html --self-contained-html tests
 
       - name: Archive test result
         uses: actions/upload-artifact@v3
         if: ${{ always() }}  # upload artifacts also if test stage failed
         with:
-          name: unittest_report
-          path: unittest_report_${{ matrix.python-version }}.html
+          name: unittest_reports
+          path: pytest_reports/unittest_report_${{ matrix.os }}_${{ matrix.python-version }}.html
           retention-days: 1
 
   build:

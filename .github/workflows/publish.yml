@@ -61,8 +61,8 @@ jobs:
       - name: Download Unittest report
         uses: actions/download-artifact@v3
         with:
-          name: unittest_report
-          path: reports/
+          name: unittest_reports
+          path: pytest_reports/
 
       - name: Detect prerelease
         id: detect-prerelease
@@ -77,6 +77,6 @@ jobs:
           files: |
             CHANGELOG.md
             dist/*.whl
-            reports/unittest_report_*.html
+            pytest_reports/unittest_report_*.html
           prerelease: ${{ env.DO_PRERELEASE == '1' }}
           body_path: CHANGELOG.md
