@@ -38,7 +38,7 @@ jobs:
         id: detect-release
         run: |
           do_github_release=$((echo "${GITHUB_REF}" | grep -Eq "^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?$") && echo 1 || echo 0)
-          echo "DO_GITHUB_RELEASE=$do_github_release" >> $GITHUB_OUTPUT
+          echo "DO_GITHUB_RELEASE=$do_github_release" >> "$GITHUB_OUTPUT"
           echo "DO_GITHUB_RELEASE=$do_github_release"
 
   release:
@@ -69,7 +69,7 @@ jobs:
         id: detect-prerelease
         run: |
           do_prerelease=$((echo "${GITHUB_REF}" | grep -Eq "^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$") && echo 1 || echo 0)
-          echo "DO_PRERELEASE=$do_prerelease" >> $GITHUB_OUTPUT
+          echo "DO_PRERELEASE=$do_prerelease" >> "$GITHUB_OUTPUT"
           echo "DO_PRERELEASE=$do_prerelease"
 
       - name: Attach artifacts to github release
