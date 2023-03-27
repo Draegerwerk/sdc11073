@@ -77,6 +77,6 @@ jobs:
           files: |
             CHANGELOG.md
             dist/*.whl
-            reports/unittest_report.html
+            reports/unittest_report_*.html
           prerelease: ${{ env.DO_PRERELEASE == '1' }}
           body_path: CHANGELOG.md
