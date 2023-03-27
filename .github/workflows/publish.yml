@@ -7,6 +7,9 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+" # release candidate
       - "v[0-9]+.[0-9]+.[0-9]+[ab][0-9]+" # alpha or beta release
 
+env:
+  DO_GITHUB_RELEASE:
+
 jobs:
   build:
     permissions:
@@ -19,6 +22,8 @@ jobs:
     needs: build
     permissions:
       contents: write
+    outputs:
+      DO_GITHUB_RELEASE: ${{ steps.detect-release.DO_GITHUB_RELEASE }}
 
     steps:
       - name: Download Artifact
@@ -32,11 +37,17 @@ jobs:
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
+      - name: Detect release version
+        id: detect-release
+        run: |
+          do_github_release=$((echo "${GITHUB_REF}" | grep -Eq "^refs\/tags\/v[0-9]+\.[0-9]+\.[0-9]+(rc[0-9]+)?$") && echo 1 || echo 0)
+          echo "DO_GITHUB_RELEASE=$do_github_release" >> GITHUB_OUTPUT
+          echo "Do github release: $do_github_release"
 
   release:
     name: Release
     runs-on: ubuntu-latest
-    if: ${{ !(contains(github.ref, 'a') && contains(github.ref, 'b')) }}
+    if: needs.upload.outputs.DO_GITHUB_RELEASE == '1'
     needs: upload
     permissions:
       contents: write
