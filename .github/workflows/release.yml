@@ -10,7 +10,7 @@ jobs:
   publish:
     permissions:
       contents: write
-    uses: ./.github/workflows/build.yml
+    uses: ./.github/workflows/publish.yml
 
   release:
     name: Release
