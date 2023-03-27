@@ -7,11 +7,6 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+rc[0-9]+" # release candidate
 
 jobs:
-  build:
-    permissions:
-      contents: write
-    uses: ./.github/workflows/build.yml
-
   upload:
     permissions:
       contents: write
