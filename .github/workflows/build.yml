@@ -14,11 +14,12 @@ env:
 jobs:
   tests:
     name: Run tests
-    runs-on: ubuntu-latest
 
     strategy:
       matrix:
         python-version: [ "3.7", "3.8" , "3.9", "3.10", "3.11" ]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Check out Git repository
@@ -33,7 +34,7 @@ jobs:
         run: pip install -r requirements.txt pytest pytest-html
 
       - name: Run pytest
-        run: pytest --html=unittest_report_${{ matrix.python-version }}.html tests
+        run: pytest --html=unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}.html tests
 
       - name: Archive test result
         uses: actions/upload-artifact@v3
