@@ -6,7 +6,7 @@ on:
     types: [ opened, synchronize, reopened, ready_for_review ]
   push:
     branches:
-    - "**" # exclude tags, as they trigger this workflow via workflow_call
+      - "**" # exclude tags, as they trigger this workflow via workflow_call
 
 env:
   SDC11073_VERSION: 0.0.0
@@ -37,6 +37,7 @@ jobs:
 
       - name: Archive test result
         uses: actions/upload-artifact@v3
+        if: {{ always() }}  # upload artifacts also if test stage failed
         with:
           name: unittest_report
           path: unittest_report.html
