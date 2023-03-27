@@ -18,8 +18,7 @@ jobs:
     needs: build
     permissions:
       contents: write
-    outputs:
-      DO_GITHUB_RELEASE: ${{ steps.detect-release.DO_GITHUB_RELEASE }}
+      id-token: write
 
     steps:
       - name: Download Artifact
