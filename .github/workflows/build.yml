@@ -38,7 +38,7 @@ jobs:
         if: ${{ always() }}  # upload artifacts also if test stage failed
         with:
           name: unittest_reports
-          path: pytest_reports/unittest_report_${{ matrix.os }}_${{ matrix.python-version }}.html
+          path: pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}.html
           retention-days: 1
 
   build:
