@@ -32,16 +32,16 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt pytest pytest-html
 
-#      - name: Run pytest
-#        run: pytest --html=unittest_report.html tests
+      - name: Run pytest
+        run: pytest --html=unittest_report.html tests
 
-#      - name: Archive test result
-#        uses: actions/upload-artifact@v3
-#        if: ${{ always() }}  # upload artifacts also if test stage failed
-#        with:
-#          name: unittest_report
-#          path: unittest_report.html
-#          retention-days: 1
+      - name: Archive test result
+        uses: actions/upload-artifact@v3
+        if: ${{ always() }}  # upload artifacts also if test stage failed
+        with:
+          name: unittest_report
+          path: unittest_report.html
+          retention-days: 1
   build:
     name: Build
     runs-on: ubuntu-latest
