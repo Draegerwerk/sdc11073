@@ -9,16 +9,12 @@ on:
 
 jobs:
   build:
-    permissions:
-      contents: write
     uses: ./.github/workflows/build.yml
 
   upload:
     name: Upload
     runs-on: ubuntu-latest
     needs: build
-    permissions:
-      contents: write
     outputs:
       DO_GITHUB_RELEASE: ${{ steps.detect-release.outputs.DO_GITHUB_RELEASE }}
 

@@ -1,6 +1,29 @@
-.. image:: doc/pySDC_Social_Preview.jpg
-  :width: 400
-  :alt: pySDC Picture
+********
+sdc11073
+********
+
+|img1| |img2| |img3| |img4| |img5| |img6|
+
+.. |img1| image:: https://img.shields.io/pypi/pyversions/sdc11073
+   :alt: pypi python version(s)
+
+.. |img2| image:: https://img.shields.io/pypi/implementation/sdc11073
+   :alt: pypi implementation
+
+.. |img3| image:: https://img.shields.io/pypi/status/sc11073
+   :alt: pypi development status
+
+.. |img4| image:: https://img.shields.io/pypi/v/sdc11073
+   :alt: pypi latest version
+
+.. |img5| image:: https://img.shields.io/pypi/dm/sdc11073
+   :alt: pypi downloads per month
+
+.. |img6| image:: https://img.shields.io/badge/tested%20on-ubuntu%20%7C%20windows-blue
+   :alt: tested on which operating systems
+
+.. image:: docs/sdc_social_preview.jpg
+   :alt: sdc Picture
 
 Overview
 ========
