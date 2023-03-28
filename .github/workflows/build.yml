@@ -4,6 +4,8 @@ on:
   workflow_call:
   pull_request:
     types: [ opened, synchronize, reopened, ready_for_review ]
+    branches:
+      - "**"
 
 env:
   SDC11073_VERSION: 0.0.0
