@@ -39,7 +39,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: dist
-          path: dist/sdc11073-${{ env.SDC11073_VERSION }}-py3-none-any.whl.whl
+          path: dist/sdc11073-${{ env.SDC11073_VERSION }}-py3-none-any.whl
           retention-days: 1
 
   tests:
