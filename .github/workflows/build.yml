@@ -39,7 +39,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: dist
-          path: dist/*.whl
+          path: dist/sdc11073-{{ env.SDC11073_VERSION }}-py3-none-any.whl.whl
           retention-days: 1
 
   tests:
@@ -56,7 +56,7 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v3
 
-      - name: Check out Git repository
+      - name: Remove sources
         run: rm -r sdc11073  # delete source directory
 
       - name: Set up Python
@@ -71,7 +71,7 @@ jobs:
           path: dist/
 
       - name: Install package
-        run: pip install dist/*.whl
+        run: pip install dist/sdc11073-{{ env.SDC11073_VERSION }}-py3-none-any.whl
 
       - name: Install test dependencies
         run: pip install pytest pytest-html
