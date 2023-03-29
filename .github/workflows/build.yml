@@ -62,9 +62,6 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v3
 
-      - name: Remove sources
-        run: rm -r sdc11073  # delete source directory, such that tests are run against the installed packed
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -81,6 +78,9 @@ jobs:
 
       - name: Install test dependencies
         run: pip install pytest pytest-html -e ".[lz4]"  # to execute lz4 tests install it
+
+      - name: Remove sources
+        run: rm -r sdc11073  # delete source directory, such that tests are run against the installed packed
 
       - name: Run pytest
         run: pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}.html --self-contained-html tests
