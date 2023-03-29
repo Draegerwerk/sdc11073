@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       WHL: ${{ steps.filenames.outputs.WHL }}
-      TARGZ: ${{ steps.filenames.outputs.TARGZ }}
 
     steps:
       - name: Check out Git repository
@@ -31,8 +30,8 @@ jobs:
           echo SDC11073_VERSION=${GITHUB_REF/refs\/tags\/v/} >> $GITHUB_ENV
           echo SDC11073_VERSION=$SDC11073_VERSION
 
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt wheel
+      - name: Install wheel
+        run: pip install wheel
 
       - name: Build package
         run: python setup.py clean --all bdist_wheel
@@ -41,7 +40,6 @@ jobs:
         id: filenames
         run: |
           echo WHL=$(echo dist/*.whl) >> $GITHUB_OUTPUT
-          echo TARGZ=$(echo dist/*.tar.gz) >> $GITHUB_OUTPUT
 
       - name: Archive package
         uses: actions/upload-artifact@v3
@@ -58,7 +56,6 @@ jobs:
       matrix:
         python-version: [ "3.7", "3.8" , "3.9", "3.10", "3.11" ]
         os: [ ubuntu-latest, windows-latest ]
-        distribution: [ "${{ needs.build.outputs.WHL }}", "${{ needs.build.outputs.TARGZ}}" ]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -80,18 +77,18 @@ jobs:
           path: dist
 
       - name: Install package
-        run: pip install ${{ matrix.distribution }}
+        run: pip install ${{ needs.build.outputs.WHL }}
 
       - name: Install test dependencies
-        run: pip install pytest pytest-html
+        run: pip install pytest pytest-html -e ".[lz4]"  # to execute lz4 tests install it
 
       - name: Run pytest
-        run: pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ matrix.distribution }}.html --self-contained-html tests
+        run: pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}.html --self-contained-html tests
 
       - name: Archive test result
         uses: actions/upload-artifact@v3
         if: success() || failure()  # upload artifacts also if test stage failed
         with:
           name: unittest_reports
-          path: pytest_reports/*.html
+          path: pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}.html
           retention-days: 1
