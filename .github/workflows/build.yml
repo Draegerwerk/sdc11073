@@ -73,14 +73,14 @@ jobs:
           name: distributions
           path: dist
 
-      - name: Install package
-        run: pip install ${{ needs.build.outputs.WHL }}
-
       - name: Install test dependencies
-        run: pip install pytest pytest-html -e ".[lz4]"  # to execute lz4 tests install it
+        run: pip install pytest pytest-html lz4  # to execute lz4 tests install it
 
       - name: Remove sources
         run: rm -r sdc11073  # delete source directory, such that tests are run against the installed packed
+
+      - name: Install package
+        run: pip install ${{ needs.build.outputs.WHL }}
 
       - name: Run pytest
         run: pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}.html --self-contained-html tests
