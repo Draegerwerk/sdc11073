@@ -10,7 +10,7 @@ sdc11073
 .. |img2| image:: https://img.shields.io/pypi/implementation/sdc11073
    :alt: pypi implementation
 
-.. |img3| image:: https://img.shields.io/pypi/status/sc11073
+.. |img3| image:: https://img.shields.io/pypi/status/sdc11073
    :alt: pypi development status
 
 .. |img4| image:: https://img.shields.io/pypi/v/sdc11073

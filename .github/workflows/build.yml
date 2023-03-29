@@ -53,11 +53,11 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Check out test directory
-        uses: Bhacaz/checkout-files@v2
-        with:
-          files: tests  # only checkout tests directory
-          branch: ${{ github.head_ref || github.ref_name }} # checkout current branch
+      - name: Check out Git repository
+        uses: actions/checkout@v3
+
+      - name: Check out Git repository
+        run: rm -r sdc11073  # delete source directory
 
       - name: Set up Python
         uses: actions/setup-python@v4
