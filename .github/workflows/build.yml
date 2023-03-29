@@ -12,6 +12,9 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    outputs:
+      WHL: ${{ steps.filenames.outputs.WHL }}
+      TARGZ: ${{ steps.filenames.outputs.TARGZ }}
 
     steps:
       - name: Check out Git repository
@@ -25,7 +28,8 @@ jobs:
       - name: Detect new version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          echo SDC11073_VERSION=${GITHUB_REF/refs\/tags\//} >> $GITHUB_ENV
+          echo SDC11073_VERSION=${GITHUB_REF/refs\/tags\/v/} >> $GITHUB_ENV
+          echo SDC11073_VERSION=$SDC11073_VERSION
 
       - name: Install Python dependencies
         run: pip install -r requirements.txt wheel
@@ -33,12 +37,18 @@ jobs:
       - name: Build package
         run: python setup.py clean --all bdist_wheel
 
+      - name: Set filenames in output
+        id: filenames
+        run: |
+          echo WHL=$(echo dist/*.whl) >> $GITHUB_OUTPUT
+          echo TARGZ=$(echo dist/*.tar.gz) >> $GITHUB_OUTPUT
+
       - name: Archive package
         uses: actions/upload-artifact@v3
         with:
-          name: dist
-          path: dist/sdc11073-${{ env.SDC11073_VERSION }}-py3-none-any.whl
-          retention-days: 1
+          name: distributions
+          path: dist
+          retention-days: 5
 
   tests:
     name: Run tests
@@ -48,6 +58,7 @@ jobs:
       matrix:
         python-version: [ "3.7", "3.8" , "3.9", "3.10", "3.11" ]
         os: [ ubuntu-latest, windows-latest ]
+        distribution: [ "${{ needs.build.outputs.WHL }}", "${{ needs.build.outputs.TARGZ}}" ]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -65,22 +76,22 @@ jobs:
       - name: Download Artifact
         uses: actions/download-artifact@v3
         with:
-          name: dist
-          path: dist/
+          name: distributions
+          path: dist
 
       - name: Install package
-        run: pip install dist/sdc11073-${{ env.SDC11073_VERSION }}-py3-none-any.whl  # pip3.7 does not support installation from *.whl filenames
+        run: pip install ${{ matrix.distribution }}
 
       - name: Install test dependencies
         run: pip install pytest pytest-html
 
       - name: Run pytest
-        run: pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}.html --self-contained-html tests
+        run: pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ matrix.distribution }}.html --self-contained-html tests
 
       - name: Archive test result
         uses: actions/upload-artifact@v3
         if: success() || failure()  # upload artifacts also if test stage failed
         with:
           name: unittest_reports
-          path: pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}.html
+          path: pytest_reports/*.html
           retention-days: 1

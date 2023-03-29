@@ -20,7 +20,7 @@ sdc11073
    :alt: pypi downloads per month
 
 .. |img6| image:: https://img.shields.io/badge/runs%20on-ubuntu%20%7C%20windows-blue
-   :alt: tested on which operating systems
+   :alt: runs on which operating systems
 
 .. image:: docs/sdc_social_preview.jpg
    :alt: sdc Picture
