@@ -57,6 +57,7 @@ jobs:
         uses: Bhacaz/checkout-files@v2
         with:
           files: tests/  # only checkout tests directory
+          branch: ${{ github.head_ref || github.ref_name }} # checkout current branch
 
       - name: Set up Python
         uses: actions/setup-python@v4
