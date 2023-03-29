@@ -19,7 +19,7 @@ sdc11073
 .. |img5| image:: https://img.shields.io/pypi/dm/sdc11073
    :alt: pypi downloads per month
 
-.. |img6| image:: https://img.shields.io/badge/tested%20on-ubuntu%20%7C%20windows-blue
+.. |img6| image:: https://img.shields.io/badge/runs%20on-ubuntu%20%7C%20windows-blue
    :alt: tested on which operating systems
 
 .. image:: docs/sdc_social_preview.jpg
