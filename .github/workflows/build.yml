@@ -56,7 +56,7 @@ jobs:
       - name: Check out test directory
         uses: Bhacaz/checkout-files@v2
         with:
-          files: tests/  # only checkout tests directory
+          files: tests  # only checkout tests directory
           branch: ${{ github.head_ref || github.ref_name }} # checkout current branch
 
       - name: Set up Python
@@ -81,7 +81,7 @@ jobs:
 
       - name: Archive test result
         uses: actions/upload-artifact@v3
-        if: ${{ always() }}  # upload artifacts also if test stage failed
+        if: success() || failure()  # upload artifacts also if test stage failed
         with:
           name: unittest_reports
           path: pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}.html
