@@ -76,7 +76,7 @@ jobs:
 
       - name: Detect suffix
         run: |
-          echo SUFFIX=$(python -c "import pathlib;p=pathlib.Path(${{ matrix.distribution }});print('whl') if p.suffix=='.whl' else print('tar_gz')") >> $GITHUB_ENV
+          echo SUFFIX=$(python -c "import pathlib;p=pathlib.Path('${{ matrix.distribution }}');print('whl') if p.suffix=='.whl' else print('tar_gz')") >> $GITHUB_ENV
 
       - name: Run pytest
         run: |
