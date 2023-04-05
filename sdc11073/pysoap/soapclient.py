@@ -3,7 +3,6 @@
 """Pythonic simple SOAP Client implementation
 Using lxml based SoapEnvelope."""
 from __future__ import annotations
-
 from http.client import HTTPConnection, HTTPSConnection
 from http.client import HTTPException, HTTPResponse
 from http.client import CannotSendRequest, BadStatusLine, NotConnected, UnknownTransferEncoding

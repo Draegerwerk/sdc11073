@@ -22,11 +22,10 @@ _DISCOVERY_TYPE_NS = "http://standards.ieee.org/downloads/11073/11073-10207-2017
 WSDL_S12 = ns_hlp.WSDL12.namespace  # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
 
 
-def etree_from_file(path):
+def etree_from_file(path) -> etree_.Element:
     parser = etree_.ETCompatXMLParser(resolve_entities=False)
-    with open(path, 'rb') as opened_file:
-        xml_text = opened_file.read()
-    return etree_.fromstring(xml_text, parser=parser, base_url=path)
+    doc = etree_.parse(path, parser=parser)
+    return doc.getroot()
 
 
 class _EventService(DispatchKeyRegistry):
@@ -113,7 +112,7 @@ class DPWSHostedService(_EventService):
         self._logger.debug('_onGetWsdl returns {}', self._wsdl_string)
         return self._wsdl_string
 
-    def _mk_wsdl_string(self):
+    def _mk_wsdl_string(self) -> bytes:
         sdc_definitions = self._sdc_device.mdib.sdc_definitions
         my_nsmap = ns_hlp.partial_map(
             ns_hlp.MSG, ns_hlp.PM, ns_hlp.WSA, ns_hlp.WSE, ns_hlp.DPWS, ns_hlp.MDPWS)
@@ -145,7 +144,7 @@ class DPWSHostedService(_EventService):
             _port_type_impl.add_wsdl_port_type(wsdl_definitions)
         for _port_type_impl in self._port_type_impls:
             _port_type_impl.add_wsdl_binding(wsdl_definitions, porttype_prefix)
-        return etree_.tostring(wsdl_definitions)
+        return b'<?xml version="1.0" encoding="UTF-8"?>' + etree_.tostring(wsdl_definitions)
 
     @staticmethod
     def _remove_annotations(root_node):

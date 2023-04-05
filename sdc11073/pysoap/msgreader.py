@@ -4,13 +4,14 @@ import copy
 import traceback
 from collections import namedtuple
 from dataclasses import dataclass
+from io import BytesIO
 from typing import Union
 
 from lxml import etree as etree_
 
 from sdc11073.namespaces import QN_TYPE, text_to_qname, default_ns_helper
-from .soapenvelope import Fault, faultcodeEnum, ReceivedSoapMessage
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
+from .soapenvelope import Fault, faultcodeEnum, ReceivedSoapMessage
 from ..exceptions import ValidationError
 from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator
@@ -51,6 +52,7 @@ OperationRequest = namedtuple('OperationRequest', 'operation_handle argument')
 
 SubscriptionEndResult = namedtuple('SubscriptionEndResult', 'status_list reason_list reference_parameter_list')
 
+
 @dataclass
 class MdibVersionGroupReader:
     mdib_version: int
@@ -82,14 +84,14 @@ class ReceivedMessage:
 class PayloadData:
     """Similar to ReceivedMessage, but it is only works with the body of the soap envelope, no addressing, action etc."""
 
-    def __init__(self, xml_string):
+    def __init__(self, xml_text: bytes):
         parser = etree_.ETCompatXMLParser(resolve_entities=False)
         try:
-            self._doc_root = etree_.fromstring(xml_string, parser=parser)
+            self._doc_root = etree_.fromstring(xml_text, parser=parser)
         except Exception as ex:
-            print(f'load error "{ex}" in "{xml_string}"')
+            print(f'load error "{ex}" in "{xml_text}"')
             raise
-        self.raw_data = xml_string
+        self.raw_data = xml_text
         self.msg_node = self._doc_root
         self.msg_name = etree_.QName(self.msg_node.tag)
 
@@ -255,6 +257,6 @@ class MessageReader:
             validate_node(node, self._xml_schema, self._logger)
 
     @staticmethod
-    def read_wsdl(wsdl_string: str) -> etree_.ElementTree:
+    def read_wsdl(wsdl_text: bytes) -> etree_.ElementTree:
         """ make am ElementTree instance"""
-        return etree_.fromstring(wsdl_string, parser=etree_.ETCompatXMLParser(resolve_entities=False))
+        return etree_.parse(BytesIO(wsdl_text), parser=etree_.ETCompatXMLParser(resolve_entities=False))

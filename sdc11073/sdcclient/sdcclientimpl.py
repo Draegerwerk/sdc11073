@@ -72,13 +72,19 @@ class HostedServiceDescription:
     def _read_wsdl(self, soap_client, wsdl_url):
         parsed = urlparse(wsdl_url)
         actual_path = parsed.path + f'?{parsed.query}' if parsed.query else parsed.path
-        self.wsdl_string = soap_client.get_url(actual_path, msg=f'{self.log_prefix}:getwsdl').decode('utf-8')
-        commlog.get_communication_logger().log_wsdl(self.wsdl_string)
+        self.wsdl_bytes = soap_client.get_url(actual_path, msg=f'{self.log_prefix}:getwsdl')
         try:
-            self.wsdl_node = self._msg_reader.read_wsdl(self.wsdl_string)
+            wsdl_element_tree = self._msg_reader.read_wsdl(self.wsdl_bytes)
+            self.wsdl_node = wsdl_element_tree.getroot()
+            try:
+                encoding = wsdl_element_tree.docinfo.encoding or 'UTF-8'
+            except AttributeError:
+                encoding ='UTF-8'
+            self.wsdl_string = self.wsdl_bytes.decode(encoding)
+            commlog.get_communication_logger().log_wsdl(self.wsdl_string)
         except etree_.XMLSyntaxError as ex:
             self._logger.error(
-                f'could not read wsdl from {actual_path}: error={ex}, data=\n{self.wsdl_string}')
+                f'could not read wsdl from {actual_path}: error={ex}, data=\n{self.wsdl_bytes}')
 
     def __repr__(self):
         return f'{self.__class__.__name__} "{self.service_id}" endpoint = {self._endpoint_address}'
