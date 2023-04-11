@@ -144,7 +144,7 @@ class DPWSHostedService(_EventService):
             _port_type_impl.add_wsdl_port_type(wsdl_definitions)
         for _port_type_impl in self._port_type_impls:
             _port_type_impl.add_wsdl_binding(wsdl_definitions, porttype_prefix)
-        return b'<?xml version="1.0" encoding="UTF-8"?>' + etree_.tostring(wsdl_definitions)
+        return etree_.tostring(wsdl_definitions, encoding='UTF-8', xml_declaration=True)
 
     @staticmethod
     def _remove_annotations(root_node):
