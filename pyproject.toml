@@ -52,6 +52,7 @@ test = [
 include = [
     "src/sdc11073/**/*.py",
     "src/sdc11073/**/*.xsd",
+    "docs/*",  # include picture for readme
     "LICENSE",
     "README.rst",
     "pyproject.toml",
