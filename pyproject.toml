@@ -50,8 +50,7 @@ test = [
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "src/sdc11073/**/*.py",
-    "src/sdc11073/**/*.xsd",
+    "src/sdc11073/**/*",
     "docs/*",  # include picture for readme
     "LICENSE",
     "README.rst",
