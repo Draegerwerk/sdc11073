@@ -310,13 +310,8 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                             mgr.ungetState(ss)
 
     def _pauseFallbackAlertSignals(self, delegableSignalDescriptor, allSignalDescriptors, transaction):
-        if allSignalDescriptors is None:
-            allSignalDescriptors = self._mdib.descriptions.ConditionSignaled.get(delegableSignalDescriptor.ConditionSignaled, [])
-
         # look for local fallback signal (same Manifestation), and set it to paused
-        fallbacks = [tmp for tmp in allSignalDescriptors if
-                     not tmp.SignalDelegationSupported and tmp.Manifestation == delegableSignalDescriptor.Manifestation]
-        for f in fallbacks:
+        for f in self._get_fallback_signals(delegableSignalDescriptor, allSignalDescriptors):
             ss_fallback = transaction.getAlertState(f.handle)
             if ss_fallback.ActivationState != AlertActivation.PAUSED:
                 ss_fallback.ActivationState = AlertActivation.PAUSED
@@ -324,25 +319,30 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 transaction.ungetState(ss_fallback)
 
     def _activateFallbackAlertSignals(self, delegableSignalDescriptor, allSignalDescriptors, transaction):
-        if allSignalDescriptors is None:
-            allSignalDescriptors = self._mdib.descriptions.ConditionSignaled.get(delegableSignalDescriptor.ConditionSignaled, [])
-
         # look for local fallback signal (same Manifestation), and set it to paused
-        fallbacks = [tmp for tmp in allSignalDescriptors if
-                     not tmp.SignalDelegationSupported and tmp.Manifestation == delegableSignalDescriptor.Manifestation]
-        for f in fallbacks:
+        for f in self._get_fallback_signals(delegableSignalDescriptor, allSignalDescriptors):
             ss_fallback = transaction.getAlertState(f.handle)
             if ss_fallback.ActivationState == AlertActivation.PAUSED:
                 ss_fallback.ActivationState = AlertActivation.ON
             else:
                 transaction.ungetState(ss_fallback)
 
+    def _get_fallback_signals(self, delegableSignalDescriptor, allSignalDescriptors):
+        if allSignalDescriptors is None:
+            allSignalDescriptors = self._mdib.descriptions.ConditionSignaled.get(
+                delegableSignalDescriptor.ConditionSignaled, [])
+        return [tmp for tmp in allSignalDescriptors if not tmp.SignalDelegationSupported
+                and tmp.Manifestation == delegableSignalDescriptor.Manifestation
+                and tmp.ConditionSignaled == delegableSignalDescriptor.ConditionSignaled]
+
+
     def _delegate_alert_signal(self, operationInstance, value):
         operationTargetHandle = operationInstance.operationTarget
         self._lastSetAlertSignalState[operationTargetHandle] = time.time()
         with self._mdib.mdibUpdateTransaction() as mgr:
             state = mgr.getAlertState(operationTargetHandle)
-            self._logger.info('delegate alert signal {} of {} from {} to {}', operationTargetHandle, state, state.ActivationState, value.ActivationState)
+            self._logger.info('delegate alert signal {} of {} from {} to {}',
+                              operationTargetHandle, state, state.ActivationState, value.ActivationState)
             for elem in operationInstance._descriptorContainer.ModifiableData:
                 name = elem.text
                 tmp = getattr(value, name)
