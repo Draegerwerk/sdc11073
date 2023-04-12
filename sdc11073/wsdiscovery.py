@@ -19,7 +19,7 @@ import queue
 from dataclasses import dataclass, field
 from typing import Any
 
-from .netconn import get_ipv4_addresses, get_ip_for_adapter
+from .netconn import get_ipv4_addresses, get_ip_for_adapter, get_ipv4_ips
 
 try:
     from sdc11073.commlog import getCommunicationLogger
@@ -1747,7 +1747,7 @@ class WSDiscoverySingleAdapter(WSDiscoveryBase):
         self._my_ip_address = get_ip_for_adapter(adapterName)
 
         if self._my_ip_address is None:
-            all_adapters = get_ipv4_addresses()
+            all_adapters = get_ipv4_ips()
             all_adapter_names = [ip.nice_name for ip in all_adapters]
             if forceAdapterName:
                 raise RuntimeError(f'No adapter "{adapterName}" found. Having {all_adapter_names}')
