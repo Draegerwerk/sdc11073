@@ -72,7 +72,7 @@ Test can be executed with::
     pytest
 
 Notices
-======
+=======
 
 The sdc11073 python library is not intended for use in medical products, clinical trials, clinical studies, or in clinical routine.
 
