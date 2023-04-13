@@ -35,14 +35,14 @@ def reset_handlers(root_logger_name='sdc'):
 
 
 def basic_logging_setup(root_logger_name='sdc', level=logging.INFO, log_file_name=None):
-    logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=level)
+    logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=level, force=True)
     reset_log_levels(root_logger_name)
     reset_handlers(root_logger_name)
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     if log_file_name:
         file_handler = logging.handlers.RotatingFileHandler(log_file_name,
                                                             maxBytes=5000000,
                                                             backupCount=2)
+        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         file_handler.setFormatter(formatter)
 
 

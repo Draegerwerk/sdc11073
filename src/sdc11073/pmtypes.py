@@ -1299,6 +1299,11 @@ class AlertSignalManifestation(StringEnum):
     OTH = 'Oth' # Oth = Other. The ALERT SIGNAL manifests in a manner not further specified.
 
 
+class AlertSignalPrimaryLocation(StringEnum):
+    LOCAL = 'Loc'
+    REMOTE = 'Rem'
+
+
 class MetricAvailability(StringEnum):
     INTERMITTENT = 'Intr'
     CONTINUOUS = 'Cont'

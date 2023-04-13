@@ -481,7 +481,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             clientMdib._logger.log.assert_any_call(logging.ERROR, clientmdib.MDIB_VERSION_TOO_OLD,
                                                    '_onEpisodicMetricReport', mdib_version, mdib_version - 99)
 
-
     def test_setPatientContextOperation(self):
         '''client calls corresponding operation. 
         - verify that operation is successful.
@@ -978,7 +977,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(len(texts), 1)
         self.assertEqual(texts[0].text, 'foo_bb')
 
-
     def test_ScoDefaultContent(self):
         for sdcClient, sdcDevice in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
@@ -1032,7 +1030,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 # the cycle time of the annotator source is 1.2 seconds. The difference of the observation times must be almost 1.2
                 self.assertAlmostEqual(with_annotation[1].observationTime - with_annotation[0].observationTime, 1.2 , delta=0.05)
 
-
             # now disable one waveform
             d_handle = d_handles[0]
             sdcDevice.mdib.setWaveformGeneratorActivationState(d_handle, pmtypes.ComponentActivation.OFF)
@@ -1081,7 +1078,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         waveform_descriptor_handle = '0x34F05505'
         list_of_handles = [metric_descriptor_handle, alert_descriptor_handle, component_descriptor_handle,
                            context_descriptor_handle, operationalstate_descriptor_handle, waveform_descriptor_handle]
-
+        self.sdcDevice_Final.mdib._waveform_source._waveform_generators = {}  # stop sending waveforms for this test
         for sdcClient, sdcDevice in self._all_cl_dev:
             # set value of a metric
             clientMdib = ClientMdibContainer(sdcClient)

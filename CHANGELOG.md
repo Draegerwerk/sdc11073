@@ -4,6 +4,12 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.23] - 2023-04-12
+### Fixed
+- error in constructor of WsDiscoverySingleAdapter
+- fixed error in alarmprovider.py, handling of fallback signals
+- added enum AlertSignalPrimaryLocation
+
 ## [1.1.22] - 2023-03-23
 ### Changed
 - replaces netifaces with ifaddr
