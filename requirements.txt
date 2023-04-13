@@ -1,4 +1,0 @@
-lxml >= 2.3
-lz4
-ifaddr
-html-testRunner
