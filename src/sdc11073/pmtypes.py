@@ -99,7 +99,7 @@ class ElementWithTextOnly(PropertyBasedPMType):
     @classmethod
     def fromNode(cls, node):
         text = node.text
-        return cls(text)    
+        return cls(text)
 
 
 
@@ -433,7 +433,7 @@ class Annotation(PropertyBasedPMType):
     ext_Extension = cp.ExtensionNodeProperty()
     Type = cp.SubElementProperty([namespaces.domTag('Type')], valueClass=CodedValue)
     _props = ['ext_Extension', 'Type']
-    
+
     codedValue = Type
     ''' An Annotation contains a Type Element that is a CodedValue.
     This is intended as an immutable object. After it has been created, no modification shall be done. '''
@@ -502,7 +502,7 @@ class InstanceIdentifier(PropertyBasedPMType):
         identifierNames = None
         ret = cls(root, type_codedValue=type_codedValue, identifierNames=identifierNames, extensionString=extensionString)
         ret.updateFromNode(node)
-        ret.node = node 
+        ret.node = node
         return ret
 
     def __repr__(self):
@@ -517,7 +517,7 @@ class Range(PropertyBasedPMType):
     RelativeAccuracy = cp.DecimalAttributeProperty('RelativeAccuracy') # optional, an integer or float
     AbsoluteAccuracy = cp.DecimalAttributeProperty('AbsoluteAccuracy') # optional, an integer or float
     _props= ['ext_Extension', 'Lower', 'Upper', 'StepWidth', 'RelativeAccuracy', 'AbsoluteAccuracy']
-    
+
     def __init__(self, lower=None, upper=None, stepWidth=None, relativeAccuracy=None, absoluteAccuracy=None):
         """
         @param lower: The including lower bound of the range. A value as float or integer, can be None
@@ -542,7 +542,7 @@ class Measurement(PropertyBasedPMType):
     MeasurementUnit = cp.SubElementProperty([namespaces.domTag('MeasurementUnit')], valueClass=CodedValue) # mandatory
     MeasuredValue = cp.DecimalAttributeProperty('MeasuredValue')
     _props = ['ext_Extension', 'MeasurementUnit', 'MeasuredValue']
-    
+
     def __init__(self, value, unit):
         """
         @param value: a value as string, float or integer
@@ -572,7 +572,7 @@ class AllowedValue(PropertyBasedPMType):
     _props=['Value', 'Type']
     typeCoding = Type
     value = Value
-    
+
     def __init__(self, valueString, typeCoding=None):
         """One AllowedValue of a EnumStringMetricDescriptor. It has up to two sub elements "Value" and "Type"(optional).
         A StringEnumMetricDescriptor has a list of AllowedValues.
@@ -605,7 +605,7 @@ class AbstractMetricValue(PropertyBasedPMType):
     Qi = cp.DecimalAttributeProperty('Qi', [namespaces.domTag('MetricQuality')], impliedPyValue=1) # pm:QualityIndicator
     Annotation = cp.SubElementListProperty([namespaces.domTag('Annotation')], Annotation)
     _props = ('ext_Extension', 'StartTime', 'StopTime', 'DeterminationTime', 'MQ_Extension', 'Validity', 'Mode', 'Qi', 'Annotation')
-    
+
     Annotations = Annotation
 
     def __init__(self, nsmapper, node=None):
@@ -620,7 +620,7 @@ class AbstractMetricValue(PropertyBasedPMType):
     def updateFromNode(self, node):
         for dummy, prop in self._sortedContainerProperties():
             prop.updateFromNode(self, node)
-        self.node = node    
+        self.node = node
 
     def asEtreeNode(self, qname, nsmap):
         node = super(AbstractMetricValue, self).asEtreeNode(qname, nsmap)
@@ -636,7 +636,7 @@ class AbstractMetricValue(PropertyBasedPMType):
 class NumericMetricValue(AbstractMetricValue):
     QType = namespaces.domTag('NumericMetricValue')
     Value = cp.DecimalAttributeProperty('Value') # an integer or float
-    _props = ('Value',)    
+    _props = ('Value',)
 
     def __repr__(self):
         return '{} Validity={} Value={} DeterminationTime={}'.format(self.__class__.__name__,
@@ -674,7 +674,7 @@ class NumericMetricValue(AbstractMetricValue):
 class StringMetricValue(AbstractMetricValue):
     QType = namespaces.domTag('StringMetricValue')
     Value = cp.NodeAttributeProperty('Value')  # a string
-    _props = ('Value',)    
+    _props = ('Value',)
 
     def __repr__(self):
         return '{} Validity={} Value={} DeterminationTime={}'.format(self.__class__.__name__,
@@ -690,7 +690,7 @@ class ApplyAnnotation(PropertyBasedPMType):
 
     def __init__(self, annotationIndex, sampleIndex):
         self.AnnotationIndex = annotationIndex
-        self.SampleIndex = sampleIndex   
+        self.SampleIndex = sampleIndex
 
     @classmethod
     def fromNode(cls, node):
@@ -705,9 +705,9 @@ class ApplyAnnotation(PropertyBasedPMType):
 
 class SampleArrayValue(AbstractMetricValue):
     QType = namespaces.domTag('SampleArrayValue')
-    Samples = cp.DecimalListAttributeProperty('Samples') # list of xs:decimal types 
+    Samples = cp.DecimalListAttributeProperty('Samples') # list of xs:decimal types
     ApplyAnnotations = cp.SubElementListProperty([namespaces.domTag('ApplyAnnotation')], ApplyAnnotation)
-    _props = ('Samples', 'ApplyAnnotations')    
+    _props = ('Samples', 'ApplyAnnotations')
 
     def __repr__(self):
         return '{} Samples={} ApplyAnnotations={}'.format(self.__class__.__name__, self.Samples, self.ApplyAnnotations)
@@ -756,7 +756,7 @@ class RemedyInfo(PropertyBasedPMType):
         """
         if descriptions:
             self.Description = descriptions
-        
+
 
 class CauseInfo(PropertyBasedPMType):
     """An Element that has
@@ -786,7 +786,7 @@ class CauseInfo(PropertyBasedPMType):
         descriptionNodes = node.findall(namespaces.domTag('Description'))
         for d in descriptionNodes:
             descriptions.append(LocalizedText.fromNode(d))
-        return cls(remedyInfo, descriptions)    
+        return cls(remedyInfo, descriptions)
 
 
 class Argument(PropertyBasedPMType):
@@ -810,7 +810,7 @@ class Argument(PropertyBasedPMType):
         argName = CodedValue.fromNode(argNameNode)
         argNode = node.find(namespaces.domTag('Arg'))
         arg_QName = namespaces.txt2QName(argNode.text, node.nsmap)
-        return cls(argName, arg_QName)    
+        return cls(argName, arg_QName)
 
     def __repr__(self):
         return 'Argument(argName={}, arg={})'.format(self.ArgName, self.Arg)
@@ -1117,7 +1117,7 @@ class T_Selector(PropertyBasedPMType):
         """
         self.Id = id_
         self.text = text
-        
+
 
     @classmethod
     def fromNode(cls, node):
@@ -1126,14 +1126,14 @@ class T_Selector(PropertyBasedPMType):
         cls.text.updateFromNode(obj, node)
         return obj
 
-    
-    
+
+
 class T_DualChannelDef(PropertyBasedPMType):
     Selector = cp.SubElementListProperty([namespaces.mdpwsTag('Selector')], cls=T_Selector)
     Algorithm = cp.NodeAttributeProperty('Algorithm')
     Transform = cp.NodeAttributeProperty('Transform')
     _props = ['Selector', 'Algorithm', 'Transform']
-    
+
     def __init__(self, selectors, algorithm=None, transform=None):
         """
         @param selectors: a list of Selector objects
@@ -1143,7 +1143,7 @@ class T_DualChannelDef(PropertyBasedPMType):
         self.Selector = selectors
         self.Algorithm = algorithm
         self.Transform = transform
-        
+
 
     @classmethod
     def fromNode(cls, node):
@@ -1158,13 +1158,13 @@ class T_DualChannelDef(PropertyBasedPMType):
 class T_SafetyContextDef(PropertyBasedPMType):
     Selector = cp.SubElementListProperty([namespaces.siTag('Selector')], cls=T_Selector)
     _props = ['Selector',]
-    
+
     def __init__(self, selectors):
         """
         @param selectors: a list of Selector objects
         """
         self.Selector = selectors
-        
+
 
     @classmethod
     def fromNode(cls, node):
@@ -1177,11 +1177,11 @@ class T_SafetyReq(PropertyBasedPMType):
     DualChannelDef = cp.SubElementProperty([namespaces.siTag('DualChannelDef')], valueClass=T_DualChannelDef)  # optional
     SafetyContextDef = cp.SubElementProperty([namespaces.siTag('SafetyContextDef')], valueClass=T_SafetyContextDef) #optional
     _props = ['DualChannelDef', 'SafetyContextDef']
-    
+
     def __init__(self, dualChannelDef, safetyContextDef):
         self.DualChannelDef = dualChannelDef
         self.SafetyContextDef = safetyContextDef
-        
+
 
     @classmethod
     def fromNode(cls, node):
@@ -1212,7 +1212,6 @@ class T_Udi(PropertyBasedPMType):
         self.Issuer = issuer
         self.Jurisdiction = jurisdiction
 
-        
 ###################################################################################
 # following : classes that serve only as name spaces
 
@@ -1235,14 +1234,14 @@ class MdsOperatingMode(StringEnum):
     DEMO = 'Dmo'
     SERVICE = 'Srv'
     MAINTENANCE = 'Mtn'
-    
+
 
 class OperatingMode(StringEnum):
     DISABLED = 'Dis'
     ENABLED = 'En'
     NA = 'NA'
 
-    
+
 class ComponentActivation(StringEnum):
     ON = 'On'
     NOT_READY = 'NotRdy'
@@ -1331,9 +1330,9 @@ class MeasurementValidity(StringEnum):
     UNDERFLOW = 'Uflw'
     NA = 'NA'
 
-    
+
 class InvocationState(StringEnum): # a namespace class
-    WAIT = 'Wait'                  # Wait = Waiting. The operation has been queued and waits for execution. 
+    WAIT = 'Wait'                  # Wait = Waiting. The operation has been queued and waits for execution.
     START = 'Start'                # Start = Started. The execution of the operation has been started
     CANCELLED = 'Cnclld'           # Cnclld = Cancelled. The execution has been cancelled by the SERVICE PROVIDER.
     CANCELLED_MANUALLY = 'CnclldMan' # CnclldMan = Cancelled Manually. The execution has been cancelled by the operator.
@@ -1374,3 +1373,40 @@ class PatientType(StringEnum):
     INFANT = 'Inf'
     NEONATAL = 'Neo'
     OTHER = 'Oth'
+
+
+class CalibrationResult(PropertyBasedPMType):
+    Code = cp.SubElementProperty([namespaces.domTag('Code')], valueClass=CodedValue)
+    Value = cp.SubElementProperty([namespaces.domTag('Value')], valueClass=Measurement)
+    _props = ('Code', 'Value')
+
+
+class CalibrationDocumentation(PropertyBasedPMType):
+    Documentation = cp.SubElementListProperty([namespaces.domTag('Documentation')], cls=LocalizedText)
+    CalibrationResult = cp.SubElementListProperty([namespaces.domTag('CalibrationResult')], cls=CalibrationResult)
+    _props = ('Documentation', 'Value')
+
+
+class ComponentCalibrationState(StringEnum):
+    NOT = 'No'  # No = Not Calibrated. Defines that a component is not calibrated.
+    REQUIRED = 'Req'  # Req = Calibration Required. Defines that a component requires a calibration.
+    RUNNING = 'Run'  # Run = Running. Defines that a calibration for a component is running.
+    CALIBRATED = 'Cal'  # Cal = Calibrated. Defines that a component is calibrated.
+    OTHER = 'Oth'  # Oth = Other. The calibration state is defined by other means.
+
+
+class CalibrationType(StringEnum):
+    OFFSET = 'Offset'  # Offset calibration.
+    GAIN = 'Gain'  # Gain calibration
+    TP = 'TP'  # Two point calibration.
+    UNSPECIFIED = 'Unspec'  # Unspecified calibration type.
+
+
+class CalibrationInfo(PropertyBasedPMType):
+    ext_Extension = cp.ExtensionNodeProperty()
+    ComponentCalibrationState = cp.NodeAttributeProperty('ComponentCalibrationState')
+    Type = cp.NodeAttributeProperty('Type', impliedPyValue=CalibrationType)
+    Time = cp.TimestampAttributeProperty('Time')
+    CalibrationDocumentation = cp.SubElementListProperty([namespaces.domTag('CalibrationDocumentation')],
+                                                         cls=CalibrationDocumentation)
+    _props = ('ext_Extension', 'ComponentCalibrationState', 'Type', 'Time')

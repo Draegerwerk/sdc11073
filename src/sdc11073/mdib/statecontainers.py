@@ -230,8 +230,8 @@ class DistributionSampleArrayMetricStateContainer(AbstractMetricStateContainer):
 
 class AbstractDeviceComponentStateContainer(AbstractStateContainer):
     isComponentState = True
-    CalibrationInfo = cp.NotImplementedProperty('CalibrationInfo', None)  # optional, CalibrationInfo type
-    NextCalibration = cp.NotImplementedProperty('NextCalibration', None)  # optional, CalibrationInfo type
+    CalibrationInfo = cp.SubElementProperty([domTag('CalibrationInfo')], valueClass=pmtypes.CalibrationType)  # optional, CalibrationInfo type
+    NextCalibration = cp.SubElementProperty([domTag('NextCalibration')], valueClass=pmtypes.CalibrationType)  # optional, CalibrationInfo type
     PhysicalConnector = cp.SubElementProperty([domTag('PhysicalConnector')], valueClass=pmtypes.PhysicalConnectorInfo) #optional
 
     ActivationState = cp.NodeAttributeProperty('ActivationState')  # pmtypes.ComponentActivation
