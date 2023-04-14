@@ -342,7 +342,7 @@ class TestDiscovery(unittest.TestCase):
         time.sleep(3.02)
         test_log.info('starting client...')
         self.wsd_client.start()
-        services = self.wsd_client.search_services(timeout=1)
+        services = self.wsd_client.search_services(timeout=self.SEARCH_TIMEOUT)
         test_log.info('search done.')
 
         for service in services:
