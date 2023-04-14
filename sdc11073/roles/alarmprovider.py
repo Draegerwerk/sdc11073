@@ -1,470 +1,390 @@
 import time
-import random
 import traceback
 from threading import Thread, Event
-from .. import namespaces
-from ..pmtypes import  AlertActivation, AlertConditionKind, AlertSignalPresence, SystemSignalActivation, AlertSignalManifestation
+
 from . import providerbase
 
 
 class GenericAlarmProvider(providerbase.ProviderRole):
-    WORKERTHREAD_INTERVAL = 1.0 # seconds
-    def __init__(self, log_prefix):
-        super(GenericAlarmProvider, self).__init__(log_prefix)
+    """
+    - in pre commit handler it updates present alarms list of alarm system states
+    - runs periodic job to send currently present alarms in AlertSystemState
+    - supports alert delegation acc. to BICEPS chapter 6.2
+    """
+    WORKER_THREAD_INTERVAL = 1.0  # seconds
+
+    def __init__(self, mdib, log_prefix):
+        super().__init__(mdib, log_prefix)
 
         # some time stamps for handling of delegable alert signals
-        self._lastActivateAllDelegableAlerts = 0 # time when _activateAllDelegableAlertSignals has been called last time
-        self._lastSetAlertSignalState = {} # a lookup by alert signal handle , value = time of last call
+        # self._last_set_alert_signal_state = {}  # a lookup by alert signal handle , value = time of last call
 
-        self._stopWorker = Event()
-        self._workerThread = None
+        self._stop_worker = Event()
+        self._worker_thread = None
 
-    def initOperations(self, mdib):
-        super(GenericAlarmProvider, self).initOperations(mdib)
-        self._setAlertSystemStatesInitialValues()
-        self._setAlertStatesInitialValues()
-        self._workerThread = Thread(target=self._workerThreadLoop)
-        self._workerThread.daemon = True
-        self._workerThread.start()
-
-    def makeMissingOperations(self):
-        return []
+    def init_operations(self, sco):
+        super().init_operations(sco)
+        self._set_alert_system_states_initial_values()
+        self._set_alert_states_initial_values()
+        self._worker_thread = Thread(target=self._worker_thread_loop)
+        self._worker_thread.daemon = True
+        self._worker_thread.start()
 
     def stop(self):
-        self._stopWorker.set()
-        self._workerThread.join()
+        self._stop_worker.set()
+        self._worker_thread.join()
 
-
-    def makeOperationInstance(self, operationDescriptorContainer):
-        operationTargetHandle = operationDescriptorContainer.OperationTarget
-        operationTargetDescr = self._mdib.descriptions.handle.getOne(operationTargetHandle) # descriptor container
-        if operationDescriptorContainer.NODETYPE == namespaces.domTag('SetValueOperationDescriptor'):
+    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
+        """
+        creates operation handler for:
+        - set alert signal state
+            => SetAlertStateOperation
+                operation target Is an AlertSignalDescriptor
+            handler = self._delegate_alert_signal
+        :param operation_descriptor_container:
+        :param operation_cls_getter:
+        :return: None or an OperationDefinition instance
+        """
+        pm_names = self._mdib.data_model.pm_names
+        op_target_handle = operation_descriptor_container.OperationTarget
+        op_target_descr = self._mdib.descriptions.handle.get_one(op_target_handle)
+        if operation_descriptor_container.NODETYPE == pm_names.SetValueOperationDescriptor:
             pass
-        elif operationDescriptorContainer.NODETYPE == namespaces.domTag('ActivateOperationDescriptor'):
+        elif operation_descriptor_container.NODETYPE == pm_names.ActivateOperationDescriptor:
             pass
-        elif operationDescriptorContainer.NODETYPE == namespaces.domTag('SetAlertStateOperationDescriptor'):
-            if operationTargetDescr.NODETYPE == namespaces.domTag('AlertSignalDescriptor'):
-                # no check for code, because the setAlertState operation always means setting
-                # ActivationState, Presence and ActualSignalGenerationDelay
-                # if stricter checking needed, one might add it
-                operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
-                                                                     currentArgumentHandler=self._setAlertSignalState)
+        elif operation_descriptor_container.NODETYPE == pm_names.SetAlertStateOperationDescriptor:
+            if op_target_descr.NODETYPE == pm_names.AlertSignalDescriptor and op_target_descr.SignalDelegationSupported:
+                modifiable_data = operation_descriptor_container.ModifiableData
+                if 'Presence' in modifiable_data \
+                        and 'ActivationState' in modifiable_data \
+                        and 'ActualSignalGenerationDelay' in modifiable_data:
+                    # ToDo:  check for appropriate code
+                    operation = self._mk_operation_from_operation_descriptor(
+                        operation_descriptor_container,
+                        operation_cls_getter,
+                        current_argument_handler=self._delegate_alert_signal,
+                        timeout_handler=self._end_delegate_alert_signal)
 
-                self._logger.info(
-                    'GenericAlarmProvider: added handler "self._setAlertState" for {} target= {} '.format(operationDescriptorContainer,
-                                                                                                          operationTargetDescr))
-                return operation
+                    self._logger.debug(f'GenericAlarmProvider: added handler "self._setAlertState" '
+                                      f'for {operation_descriptor_container} target= {op_target_descr} ')
+                    return operation
 
         return None  # None == no handler for this operation instantiated
 
-    def _setAlertSystemStatesInitialValues(self):
-        alertSystemStates = self._mdib.states.NODETYPE.get(namespaces.domTag('AlertSystemState'), [])
-        for alertSystemState in alertSystemStates:
-            if hasattr(alertSystemState, 'SystemSignalActivation'): # attribute not exists in Draft6
-                alertSystemState.SystemSignalActivation.append(SystemSignalActivation(manifestation=AlertSignalManifestation.AUD,
-                                                                                              state=AlertActivation.ON))
+    def _set_alert_system_states_initial_values(self):
+        """  Sets ActivationState to ON in all alert systems.
+        adds audible SystemSignalActivation, state=ON to all AlertSystemState instances.      Why????
+        :return:
+        """
+        pm_names = self._mdib.data_model.pm_names
+        pm_types = self._mdib.data_model.pm_types
 
-    def _setAlertStatesInitialValues(self):
-        '''
+        states = self._mdib.states.NODETYPE.get(pm_names.AlertSystemState, [])
+        for state in states:
+            state.ActivationState = pm_types.AlertActivation.ON
+            state.SystemSignalActivation.append(
+                pm_types.SystemSignalActivation(manifestation=pm_types.AlertSignalManifestation.AUD,
+                                                state=pm_types.AlertActivation.ON))
+
+    def _set_alert_states_initial_values(self):
+        """
         - if an AlertCondition.ActivationState is 'On', then the local AlertSignals shall also be 'On'
-        - all remote alert Signals shall be 'Off' initially (must be explicitely enabled by delegating device)'''
-        for alertCondition in self._mdib.states.NODETYPE.get(namespaces.domTag('AlertConditionState'),[]):
-            alertCondition.ActivationState = AlertActivation.ON
-        for alertCondition in self._mdib.states.NODETYPE.get(namespaces.domTag('LimitAlertConditionState'),[]):
-            alertCondition.ActivationState = AlertActivation.ON
-        for alertSignalState in self._mdib.states.NODETYPE.get(namespaces.domTag('AlertSignalState'),[]):
-            if alertSignalState.Location == 'Rem':
-                alertSignalState.ActivationState = AlertActivation.OFF
-                alertSignalState.updateNode()
+        - all remote alert Signals shall be 'Off' initially (must be explicitly enabled by delegating device)"""
+        pm_types = self._mdib.data_model.pm_types
+        pm_names = self._mdib.data_model.pm_names
+        for alert_condition in self._mdib.states.NODETYPE.get(pm_names.AlertConditionState, []):
+            alert_condition.ActivationState = pm_types.AlertActivation.ON
+            alert_condition.Presence = False
+        for alert_condition in self._mdib.states.NODETYPE.get(pm_names.LimitAlertConditionState, []):
+            alert_condition.ActivationState = pm_types.AlertActivation.ON
+            alert_condition.Presence = False
+
+        for alert_signal_state in self._mdib.states.NODETYPE.get(pm_names.AlertSignalState, []):
+            alert_signal_descr = self._mdib.descriptions.handle.get_one(alert_signal_state.DescriptorHandle)
+            if alert_signal_descr.SignalDelegationSupported:
+                alert_signal_state.Location = pm_types.AlertSignalPrimaryLocation.REMOTE
+                alert_signal_state.ActivationState = pm_types.AlertActivation.OFF
+                alert_signal_state.Presence = pm_types.AlertSignalPresence.OFF
             else:
-                alertSignalDescr = self._mdib.descriptions.handle.getOne(alertSignalState.descriptorHandle)
-                # ConditionSignaled can be None, in that case do nothing
-                if alertSignalDescr.ConditionSignaled:
-                    alertConditionState = self._mdib.states.descriptorHandle.getOne(alertSignalDescr.ConditionSignaled, allowNone=True)
-                    if alertConditionState and alertSignalState.ActivationState != alertConditionState.ActivationState:
-                        alertSignalState.ActivationState = alertConditionState.ActivationState
-                        alertSignalState.updateNode()
+                alert_signal_state.ActivationState = pm_types.AlertActivation.ON
+                alert_signal_state.Presence = pm_types.AlertSignalPresence.OFF
 
-    def _getDescriptor(self, handle, mdib, transaction):
-        ''' Helper that looks for descriptor first in current transaction, then in mdib. returns first found one or raises KeyError'''
-        descriptor = None
-        tr_item = transaction.descriptorUpdates.get(handle)
-        if tr_item is not None:
-            descriptor = tr_item.new
-        if descriptor is None:
-            # it is not part of this transaction
-            descriptor = mdib.descriptions.handle.getOne(handle, allowNone=True)
-        if descriptor is None:
-            raise KeyError('there is no descriptor for {}'.format(handle))
-        return descriptor
+    # @staticmethod
+    # def _get_descriptor(handle, mdib, transaction):
+    #     """ Helper that looks for descriptor first in current transaction, then in mdib. returns first found one or raises KeyError"""
+    #     descriptor = None
+    #     tr_item = transaction.descriptor_updates.get(handle)
+    #     if tr_item is not None:
+    #         descriptor = tr_item.new
+    #     if descriptor is None:
+    #         # it is not part of this transaction
+    #         descriptor = mdib.descriptions.handle.get_one(handle, allow_none=True)
+    #     if descriptor is None:
+    #         raise KeyError(f'there is no descriptor for {handle}')
+    #     return descriptor
 
-    def _getChangedAlertConditionStates(self, transaction):
+    def _get_changed_alert_condition_states(self, transaction):
+        pm_names = self._mdib.data_model.pm_names
         result = []
-        for item in list(transaction.alertStateUpdates.values()):
+        for item in list(transaction.alert_state_updates.values()):
             tmp = item.old if item.new is None else item.new
-            if tmp.NODETYPE in(namespaces.domTag('AlertConditionState'),
-                               namespaces.domTag('LimitAlertConditionState')):
+            if tmp.NODETYPE in (pm_names.AlertConditionState,
+                                pm_names.LimitAlertConditionState):
                 result.append(tmp)
         return result
 
-    def _findAlertSystemsWithModifications(self, mdib, transaction):
-        # find all alert systems with changed states
-        alertSystemStates = set()
-        changedAlertConditions = self._getChangedAlertConditionStates(transaction)
-        for tmp in changedAlertConditions:
-            alertDescriptor = self._getDescriptor(tmp.descriptorHandle, mdib, transaction)
-            alertSystemDescriptor = self._getDescriptor(alertDescriptor.parentHandle, mdib, transaction)
-            if alertSystemDescriptor.handle in transaction.alertStateUpdates:
-                tmp_st = transaction.alertStateUpdates[alertSystemDescriptor.handle]
-                if tmp_st.new is not None:
-                    alertSystemStateContainer = tmp_st.new
-                    alertSystemStates.add(alertSystemStateContainer)
-            else:
-                alertSystemStateContainer = transaction.getAlertState(alertSystemDescriptor.handle)
-                alertSystemStates.add(alertSystemStateContainer)
-        return alertSystemStates
+    def on_pre_commit(self, mdib, transaction):
+        """
+        - Updates alert system states and adds them to transaction, if at least one of its alert
+          conditions changed ( is in transaction).
+        - Updates all AlertSignals for changed Alert Conditions and adds them to transaction.
 
-    def onPreCommit(self, mdib, transaction):
-        if not transaction.alertStateUpdates:
+        :param mdib:
+        :param transaction:
+        :return:
+        """
+        if not transaction.alert_state_updates:
             return
-        # find all alert systems with changed states
-        alertSystemStates = self._findAlertSystemsWithModifications( mdib, transaction)
-        if alertSystemStates:
-            self._updateAlertSystemStates(mdib, transaction, alertSystemStates) # add found alert system states to transaction
 
+        changed_alert_conditions = self._get_changed_alert_condition_states(transaction)
         # change AlertSignal Settings in order to be compliant with changed Alert Conditions
-        changedAlertConditions = self._getChangedAlertConditionStates(transaction)
-        for changedAlertCondition in changedAlertConditions:
-            self._updateAlertSignals(changedAlertCondition, mdib, transaction)
+        for changed_alert_condition in changed_alert_conditions:
+            self._update_alert_signals(changed_alert_condition, mdib, transaction)
 
-    def _updateAlertSystemStates(self, mdib, transaction, alertSystemStates):
-        '''update alert system states and add them to transaction
-        '''
-        def _getAlertState(descriptorHandle):
-            alertState = None
-            tr_item = transaction.getStateTransactionItem(descriptorHandle)
+        # find all alert systems with changed states
+        alert_system_states = self._find_alert_systems_with_modifications(transaction, changed_alert_conditions)
+        if alert_system_states:
+            # add found alert system states to transaction
+            self._update_alert_system_states(mdib, transaction, alert_system_states, is_self_check=False)
+
+    @staticmethod
+    def _find_alert_systems_with_modifications(transaction, changed_alert_conditions):
+        # find all alert systems for the changed alert conditions
+        alert_system_states = set()
+        for tmp in changed_alert_conditions:
+            alert_descriptor = transaction.get_descriptor_in_transaction(tmp.DescriptorHandle)
+            alert_system_descriptor = transaction.get_descriptor_in_transaction(alert_descriptor.parent_handle)
+            if alert_system_descriptor.Handle in transaction.alert_state_updates:
+                tmp_st = transaction.alert_state_updates[alert_system_descriptor.Handle]
+                if tmp_st.new is not None:
+                    alert_system_states.add(tmp_st.new)
+            else:
+                alert_system_states.add(transaction.get_state(alert_system_descriptor.Handle))
+        return alert_system_states
+
+    @staticmethod
+    def _update_alert_system_states(mdib, transaction, alert_system_states, is_self_check=True):
+        """
+         update alert system states
+         :param mdib:
+         :param transaction:
+         :param alert_system_states: list of AlertSystemStateContainer instances
+         :param is_self_check: if True, LastSelfCheck and SelfCheckCount are set
+         :return:
+         """
+        pm_types = mdib.data_model.pm_types
+
+        def _get_alert_state(descriptor_handle):
+            alert_state = None
+            tr_item = transaction.get_state_transaction_item(descriptor_handle)
             if tr_item is not None:
-                alertState = tr_item.new
-            if alertState is None:
+                alert_state = tr_item.new
+            if alert_state is None:
                 # it is not part of this transaction
-                alertState = mdib.states.descriptorHandle.getOne(descriptorHandle, allowNone=True)
-            if alertState is None:
-                raise RuntimeError('there is no alert state for {}'.format(descriptorHandle))
-            return alertState
-        for st in alertSystemStates:
-            all_child_descriptors = mdib.descriptions.parentHandle.get(st.descriptorHandle, list())
-            all_child_descriptors.extend([i.new for i in transaction.descriptorUpdates.values() if i.new.parentHandle == st.descriptorHandle])
+                alert_state = mdib.states.descriptorHandle.get_one(descriptor_handle, allow_none=True)
+            if alert_state is None:
+                raise ValueError(f'there is no alert state for {descriptor_handle}')
+            return alert_state
+
+        for state in alert_system_states:
+            all_child_descriptors = mdib.descriptions.parent_handle.get(state.DescriptorHandle, [])
+            all_child_descriptors.extend(
+                [i.new for i in transaction.descriptor_updates.values() if
+                 i.new.parent_handle == state.DescriptorHandle])
             all_alert_condition_descr = [d for d in all_child_descriptors if hasattr(d, 'Kind')]
             # select all state containers with technical alarms present
-            all_tech_descr = [ d for d in all_alert_condition_descr if d.Kind == AlertConditionKind.TECHNICAL]
-            all_tech_states = [_getAlertState(d.handle) for d in all_tech_descr]
+            all_tech_descr = [d for d in all_alert_condition_descr if d.Kind == pm_types.AlertConditionKind.TECHNICAL]
+            all_tech_states = [_get_alert_state(d.Handle) for d in all_tech_descr]
             all_tech_states = [s for s in all_tech_states if s is not None]
             all_present_tech_states = [s for s in all_tech_states if s.Presence]
-            # select all state containers with physiolocical alarms present
-            all_phys_descr = [ d for d in all_alert_condition_descr if d.Kind == AlertConditionKind.PHYSIOLOGICAL]
-            all_phys_states = [_getAlertState(d.handle) for d in all_phys_descr]
-            all_phys_states = [ s for s in all_phys_states if s is not None]
+            # select all state containers with physiological alarms present
+            all_phys_descr = [d for d in all_alert_condition_descr if
+                              d.Kind == pm_types.AlertConditionKind.PHYSIOLOGICAL]
+            all_phys_states = [_get_alert_state(d.Handle) for d in all_phys_descr]
+            all_phys_states = [s for s in all_phys_states if s is not None]
             all_present_phys_states = [s for s in all_phys_states if s.Presence]
 
-            st.PresentTechnicalAlarmConditions = [s.descriptorHandle for s in all_present_tech_states]
-            st.PresentPhysiologicalAlarmConditions = [s.descriptorHandle for s in all_present_phys_states]
+            state.PresentTechnicalAlarmConditions = [s.DescriptorHandle for s in all_present_tech_states]
+            state.PresentPhysiologicalAlarmConditions = [s.DescriptorHandle for s in all_present_phys_states]
+            if is_self_check:
+                state.LastSelfCheck = time.time()
+                state.SelfCheckCount = 1 if state.SelfCheckCount is None else state.SelfCheckCount + 1
 
-            st.LastSelfCheck = time.time()
-            st.SelfCheckCount = 1 if st.SelfCheckCount is None else st.SelfCheckCount + 1
-
-    def _updateAlertSignals(self, changedAlertCondition, mdib, transaction):
-        ''' Handle alert signals for a changed alert condition.
+    @staticmethod
+    def _update_alert_signals(changed_alert_condition, mdib, transaction):
+        """ Handle alert signals for a changed alert condition.
         This method only changes states of local signals.
-        Handling of delegated signals is in the responsibility of the delegated device!'''
-        alertSignalDescriptors = mdib.descriptions.ConditionSignaled.get(changedAlertCondition.descriptorHandle, [])
+        Handling of delegated signals is in the responsibility of the delegated device!"""
+        pm_types = mdib.data_model.pm_types
+        alert_signal_descriptors = mdib.descriptions.condition_signaled.get(changed_alert_condition.DescriptorHandle,
+                                                                            [])
         # separate remote from local
-        remoteAlertSignalDescriptors = [a for a in alertSignalDescriptors if a.SignalDelegationSupported]
-        localAlertSignalDescriptors = [a for a in alertSignalDescriptors if not a.SignalDelegationSupported]
+        remote_alert_signal_descriptors = [a for a in alert_signal_descriptors if a.SignalDelegationSupported]
+        local_alert_signal_descriptors = [a for a in alert_signal_descriptors if not a.SignalDelegationSupported]
 
         # look for active delegations (we only need the Manifestation value here)
         active_delegate_manifestations = []
-        for a in remoteAlertSignalDescriptors:
-            alertSignalState = mdib.states.descriptorHandle.getOne(a.handle)
-            if alertSignalState.Presence != AlertSignalPresence.OFF and alertSignalState.Location == 'Rem':
-                active_delegate_manifestations.append(a.Manifestation)
+        for descriptor in remote_alert_signal_descriptors:
+            alert_signal_state = mdib.states.descriptorHandle.get_one(descriptor.Handle)
+            if alert_signal_state.Presence != pm_types.AlertSignalPresence.OFF and alert_signal_state.Location == 'Rem':
+                active_delegate_manifestations.append(descriptor.Manifestation)
 
         # this lookup gives the values that a local signal shall have:
         # key = (Cond.Presence, isDelegated): value = (SignalState.ActivationState, SignalState.Presence)
         # see BICEPS standard table 9: valid combinations of alert activation states, alert condition presence, ...
         # this is the relevant subset for our case
-        lookup = {(True, True): (AlertActivation.PAUSED, AlertSignalPresence.OFF),
-                  (True, False): (AlertActivation.ON, AlertSignalPresence.ON),
-                  (False, True): (AlertActivation.PAUSED, AlertSignalPresence.OFF),
-                  (False, False): (AlertActivation.ON, AlertSignalPresence.OFF)
+        lookup = {(True, True): (pm_types.AlertActivation.PAUSED, pm_types.AlertSignalPresence.OFF),
+                  (True, False): (pm_types.AlertActivation.ON, pm_types.AlertSignalPresence.ON),
+                  (False, True): (pm_types.AlertActivation.PAUSED, pm_types.AlertSignalPresence.OFF),
+                  (False, False): (pm_types.AlertActivation.ON, pm_types.AlertSignalPresence.OFF)
                   }
-        for a in localAlertSignalDescriptors:
-            tr_item = transaction.getStateTransactionItem(a.handle)
+        for descriptor in local_alert_signal_descriptors:
+            tr_item = transaction.get_state_transaction_item(descriptor.Handle)
             if tr_item is None:
-                isDelegated = a.Manifestation in active_delegate_manifestations  # is this local signal delegated?
-                activation, presence = lookup[(changedAlertCondition.Presence, isDelegated)]
-                alertSignalState = transaction.getAlertState(a.handle)
+                is_delegated = descriptor.Manifestation in active_delegate_manifestations  # is this local signal delegated?
+                activation, presence = lookup[(changed_alert_condition.Presence, is_delegated)]
+                alert_signal_state = transaction.get_state(descriptor.Handle)
 
-                if alertSignalState.ActivationState != activation or alertSignalState.Presence != presence:
-                    alertSignalState.ActivationState = activation
-                    alertSignalState.Presence = presence
+                if alert_signal_state.ActivationState != activation or alert_signal_state.Presence != presence:
+                    alert_signal_state.ActivationState = activation
+                    alert_signal_state.Presence = presence
                 else:
                     # don't change
-                    transaction.ungetState(alertSignalState)
+                    transaction.unget_state(alert_signal_state)
 
-    def _setUpperLimit(self, operationDescriptorContainer, value):
-        ''' set upper limit of an LimitAlertConditionStateContainer'''
-        operationTargetHandle = operationDescriptorContainer.operationTarget
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            operationStateContainer = mgr._deviceMdibContainer.states.descriptorHandle.getOne(operationDescriptorContainer.handle)
-            self._inAllowedRange(operationStateContainer, value)
-            state = mgr.getAlertState(operationTargetHandle)
-            self._logger.info('set upper limit handle="{}" from {} to {}', operationTargetHandle, state.Limits.Upper, value)
-            state.Limits.Upper = value
-
-    def _setLowerLimit(self, operationDescriptorContainer, value):
-        ''' set lower limit of an LimitAlertConditionStateContainer'''
-        operationTargetHandle = operationDescriptorContainer.operationTarget
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            operationStateContainer = mgr._deviceMdibContainer.states.descriptorHandle.getOne(operationDescriptorContainer.handle)
-            self._inAllowedRange(operationStateContainer, value)
-            state = mgr.getAlertState(operationTargetHandle)
-            self._logger.info('set lower limit handle={} from {} to {}', operationTargetHandle, state.Limits.Lower, value)
-            state.Limits.Lower = value
-
-    @staticmethod
-    def _inAllowedRange(operationStateContainer, value):
-        if operationStateContainer.AllowedRange:
-            max_upper = max([i.Upper for i in operationStateContainer.AllowedRange])
-            min_lower = min([i.Lower for i in operationStateContainer.AllowedRange])
-            if not min_lower <= value <= max_upper:
-                raise ValueError('value "{}" to be set is not in AllowedRanges {}'.format(value, operationStateContainer.AllowedRange))
-
-    def _getAcSourceRange(self, source):
+    def _pause_fallback_alert_signals(self, delegable_signal_descriptor, all_signal_descriptors, transaction):
+        """ The idea of the fallback signal is to set it paused when the delegable signal is currently ON,
+        and to set it back to ON when the delegable signal is not ON.
+        This method sets the fallback to PAUSED value.
+        :param delegable_signal_descriptor: a descriptor container
+        :param all_signal_descriptors: list of descriptor containers
+        :param transaction: the current transaction.
+        :return:
         """
-        Given the source of the AlertCondition return PhysiologicalRange
-        Only returns range with Lower, Upper and StepWidth
-        @param source: Source metric handle
-        @return: (Range) PhysiologicalRange
-        """
-
-        for handle in source:
-            state = self._mdib.states.descriptorHandle.getOne(handle)
-            ranges = state.PhysiologicalRange
-            # find range that has Upper Lower and Step
-            for range in ranges:
-                if range.Upper is not None and range.Lower is not None and range.StepWidth is not None:
-                    return range
-        return None
-
-    def _generateValueWithinRange(self, sourceRange, previousValue, isLower=True):
-        """ Generates a value within range different from the previous value"""
-        if sourceRange is None:
-            if isLower:
-                return -random.random()
-            else:
-                return random.random()
-
-        exp = str(sourceRange.StepWidth)[::-1].find(".")
-        if exp == -1:
-            exp = 0
-
-        value = previousValue
-        for cnt in range(int((sourceRange.Upper - sourceRange.Lower) // sourceRange.StepWidth)):
-            if value != previousValue: break
-
-            if isLower:
-                value = round(sourceRange.Lower + (sourceRange.StepWidth*cnt), exp)
-            else:
-                value = round(sourceRange.Upper - (sourceRange.StepWidth*cnt), exp)
-
-        return value
-
-    def _activateAllDelegableAlertSignals(self, operationDescriptorContainer, value): #pylint: disable=unused-argument
-        # find all delegable Alert Signals in main alert system
-        # set ActivationState to "On"
-        # set all corresponding local alert signals to paused
-        allAlertConditionDescriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('AlertConditionDescriptor'), [])
-        allAlertConditionDescriptors += self._mdib.descriptions.NODETYPE.get(namespaces.domTag('LimitAlertConditionDescriptor'), [])
-        self._lastActivateAllDelegableAlerts = time.time()
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            for acd in allAlertConditionDescriptors:
-                signalDescriptors = self._mdib.descriptions.ConditionSignaled.get(acd.handle, [])
-                for sd in signalDescriptors:
-                    if sd.SignalDelegationSupported:
-                        ss = mgr.getAlertState(sd.handle)
-                        if ss.ActivationState == AlertActivation.OFF:
-                            ss.ActivationState = AlertActivation.ON
-                            self._pauseFallbackAlertSignals(sd, signalDescriptors, mgr)
-                        else:
-                            mgr.ungetState(ss)
-
-    def _pauseFallbackAlertSignals(self, delegableSignalDescriptor, allSignalDescriptors, transaction):
-        if allSignalDescriptors is None:
-            allSignalDescriptors = self._mdib.descriptions.ConditionSignaled.get(delegableSignalDescriptor.ConditionSignaled, [])
-
+        pm_types = self._mdib.data_model.pm_types
         # look for local fallback signal (same Manifestation), and set it to paused
-        fallbacks = [tmp for tmp in allSignalDescriptors if
-                     not tmp.SignalDelegationSupported and tmp.Manifestation == delegableSignalDescriptor.Manifestation]
-        for f in fallbacks:
-            ss_fallback = transaction.getAlertState(f.handle)
-            if ss_fallback.ActivationState != AlertActivation.PAUSED:
-                ss_fallback.ActivationState = AlertActivation.PAUSED
+        for fallback in self._get_fallback_signals(delegable_signal_descriptor, all_signal_descriptors):
+            ss_fallback = transaction.get_state(fallback.Handle)
+            if ss_fallback.ActivationState != pm_types.AlertActivation.PAUSED:
+                ss_fallback.ActivationState = pm_types.AlertActivation.PAUSED
             else:
-                transaction.ungetState(ss_fallback)
+                transaction.unget_state(ss_fallback)
 
-    def _activateFallbackAlertSignals(self, delegableSignalDescriptor, allSignalDescriptors, transaction):
-        if allSignalDescriptors is None:
-            allSignalDescriptors = self._mdib.descriptions.ConditionSignaled.get(delegableSignalDescriptor.ConditionSignaled, [])
-
+    def _activate_fallback_alert_signals(self, delegable_signal_descriptor, all_signal_descriptors, transaction):
+        pm_types = self._mdib.data_model.pm_types
         # look for local fallback signal (same Manifestation), and set it to paused
-        fallbacks = [tmp for tmp in allSignalDescriptors if
-                     not tmp.SignalDelegationSupported and tmp.Manifestation == delegableSignalDescriptor.Manifestation]
-        for f in fallbacks:
-            ss_fallback = transaction.getAlertState(f.handle)
-            if ss_fallback.ActivationState == AlertActivation.PAUSED:
-                ss_fallback.ActivationState = AlertActivation.ON
+        for fallback in self._get_fallback_signals(delegable_signal_descriptor, all_signal_descriptors):
+            ss_fallback = transaction.get_state(fallback.Handle)
+            if ss_fallback.ActivationState == pm_types.AlertActivation.PAUSED:
+                ss_fallback.ActivationState = pm_types.AlertActivation.ON
             else:
-                transaction.ungetState(ss_fallback)
+                transaction.unget_state(ss_fallback)
 
-    def _activateAlertSystem(self, operationDescriptorContainer, _):
-        self._setAlertSystemActivationState(operationDescriptorContainer.operationTarget, AlertActivation.ON)
+    def _get_fallback_signals(self, delegable_signal_descriptor, all_signal_descriptors):
+        """looks in all_signal_descriptors for a signal with same ConditionSignaled and same
+        Manifestation as delegable_signal_descriptor and SignalDelegationSupported == True """
+        if all_signal_descriptors is None:
+            all_signal_descriptors = self._mdib.descriptions.condition_signaled.get(
+                delegable_signal_descriptor.ConditionSignaled, [])
+        return [tmp for tmp in all_signal_descriptors if not tmp.SignalDelegationSupported
+                and tmp.Manifestation == delegable_signal_descriptor.Manifestation
+                and tmp.ConditionSignaled == delegable_signal_descriptor.ConditionSignaled]
 
-    def _deactivateAlertSystem(self, operationDescriptorContainer, _):
-        self._setAlertSystemActivationState(operationDescriptorContainer.operationTarget, AlertActivation.OFF)
+    def _delegate_alert_signal(self, operation_instance, value):
+        """Handler for an operation call from remote.
+        Sets ActivationState, Presence and ActualSignalGenerationDelay of the corresponding state in mdib.
+        If this is a delegable signal, it also sets the ActivationState of the fallback signal.
 
-    def _setAlertSystemActivationState(self, handle, alertActivationState):
+        :param operation_instance: OperationDefinition instance
+        :param value: AlertSignalStateContainer instance
+        :return:
         """
-        R0116: The activation state of pm:AlertSystemState SHALL result in an activation state of
-            pm:AlertConditionState and pm:AlertSignalState
-        """
-        alertConditions, alertSignals = [], []
-        for child in self._mdib.descriptions.parentHandle.get(handle, []):
-            if child.isAlertSignalDescriptor:
-                alertSignals.append(child.handle)
-            elif child.isAlertConditionDescriptor:
-                alertConditions.append(child.handle)
-
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            state = mgr.getAlertState(handle)
-            state.ActivationState = alertActivationState
-            for alertConditionHandle in alertConditions:
-                self._setAlertConditionActivationState(mgr, alertConditionHandle, alertActivationState)
-            for alertSignalHandle in alertSignals:
-                self._setAlertSignalActivationState(mgr, alertSignalHandle, alertActivationState)
-
-    def _activateAlertCondition(self, operationDescriptorContainer, _):
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            self._setAlertConditionActivationState(mgr, operationDescriptorContainer.operationTarget, AlertActivation.ON)
-
-    def _deactivateAlertCondition(self, operationDescriptorContainer, _):
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            self._setAlertConditionActivationState(mgr, operationDescriptorContainer.operationTarget, AlertActivation.OFF)
-
-    def _setAlertConditionActivationState(self, mgr, handle, alertActivationState):
-        state = mgr.getAlertState(handle)
-        state.ActivationState = alertActivationState
-
-    def _activateAlertSignal(self, operationDescriptorContainer, _):
-        operationTargetHandle = operationDescriptorContainer.operationTarget
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            self._setAlertSignalActivationState(mgr, operationTargetHandle, AlertActivation.ON)
-
-    def _deactivateAlertSignal(self, operationDescriptorContainer, _):
-        operationTargetHandle = operationDescriptorContainer.operationTarget
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            self._setAlertSignalActivationState(mgr, operationTargetHandle, AlertActivation.OFF)
-
-    def _setAlertSignalActivationState(self, mgr, handle, alertActivationState):
-        self._lastSetAlertSignalState[handle] = time.time()
-        state = mgr.getAlertState(handle)
-        state.ActivationState = alertActivationState
-        descr = self._mdib.descriptions.handle.getOne(handle)
-        if descr.SignalDelegationSupported:
-            if alertActivationState == AlertActivation.ON:
-                self._pauseFallbackAlertSignals(descr, None, mgr)
-            else:
-                self._activateFallbackAlertSignals(descr, None, mgr)
-
-    def _setAlertSignalState(self, operationDescriptorContainer, value):
-        operationTargetHandle = operationDescriptorContainer.operationTarget
-        self._lastSetAlertSignalState[operationTargetHandle] = time.time()
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            state = mgr.getAlertState(operationTargetHandle)
-            self._logger.info('set alert state {} of {} from {} to {}', operationTargetHandle, state, state.ActivationState, value.ActivationState)
-            state.ActivationState = value.ActivationState
-            state.Presence = value.Presence
-            state.ActualSignalGenerationDelay = value.ActualSignalGenerationDelay
-            descr = self._mdib.descriptions.handle.getOne(operationTargetHandle)
+        pm_types = self._mdib.data_model.pm_types
+        operation_target_handle = operation_instance.operation_target_handle
+        # self._last_set_alert_signal_state[operation_target_handle] = time.time()
+        with self._mdib.transaction_manager() as mgr:
+            state = mgr.get_state(operation_target_handle)
+            self._logger.info('delegate alert signal {} of {} from {} to {}', operation_target_handle, state,
+                              state.ActivationState, value.ActivationState)
+            for name in operation_instance.descriptor_container.ModifiableData:
+                tmp = getattr(value, name)
+                setattr(state, name, tmp)
+            descr = self._mdib.descriptions.handle.get_one(operation_target_handle)
             if descr.SignalDelegationSupported:
-                if value.ActivationState == AlertActivation.ON:
-                    self._pauseFallbackAlertSignals(descr, None, mgr)
+                if value.ActivationState == pm_types.AlertActivation.ON:
+                    self._pause_fallback_alert_signals(descr, None, mgr)
                 else:
-                    self._activateFallbackAlertSignals(descr, None, mgr)
+                    self._activate_fallback_alert_signals(descr, None, mgr)
 
-    def _workerThreadLoop(self):
+    def _end_delegate_alert_signal(self, operation_instance, _):
+        pm_types = self._mdib.data_model.pm_types
+        operation_target_handle = operation_instance.operation_target_handle
+        with self._mdib.transaction_manager() as mgr:
+            state = mgr.get_state(operation_target_handle)
+            self._logger.info('timeout alert signal delegate operation={} target={} ',
+                              operation_instance.handle, operation_target_handle)
+            state.ActivationState = pm_types.AlertActivation.OFF
+            descr = self._mdib.descriptions.handle.get_one(operation_target_handle)
+            self._activate_fallback_alert_signals(descr, None, mgr)
+
+    def _worker_thread_loop(self):
         # delay start of operation
-        shall_stop = self._stopWorker.wait(timeout=self.WORKERTHREAD_INTERVAL)
+        shall_stop = self._stop_worker.wait(timeout=self.WORKER_THREAD_INTERVAL)
         if shall_stop:
             return
 
         while True:
-            shall_stop = self._stopWorker.wait(timeout=self.WORKERTHREAD_INTERVAL)
+            shall_stop = self._stop_worker.wait(timeout=self.WORKER_THREAD_INTERVAL)
             if shall_stop:
                 return
-            self._updateAlertSystemState_CurrentAlerts()
-            self._handleDelegateTimeouts()
+            self._run_worker_job()
 
-    def _getAlertSystemStates_needingUpdate(self):
-        '''
+    def _run_worker_job(self):
+        self._update_alert_system_state_current_alerts()
 
-        :return: all AlertSystemStateContainers of those last
-        '''
-        alertStatesNeedingUpdate = []
-        try:
-            all_alert_systems_descr = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('AlertSystemDescriptor'), list())
-            for alert_system_descr in all_alert_systems_descr:
-                alert_system_state = self._mdib.states.descriptorHandle.getOne(alert_system_descr.handle, allowNone=True)
-                selfcheck_period = alert_system_descr.SelfCheckPeriod
-                if selfcheck_period is not None:
-                    last_selfcheck = alert_system_state.LastSelfCheck or 0.0
-                    if time.time() - last_selfcheck >= selfcheck_period:
-                        alertStatesNeedingUpdate.append(alert_system_state)
-        except:
-            exc = traceback.format_exc()
-            self._logger.error('_getAlertSystemStates_needingUpdate: {}', exc)
-        return alertStatesNeedingUpdate
-
-    def _updateAlertSystemState_CurrentAlerts(self):
-        ''' updates AlertSystemState present alarms list'''
-        alertStatesNeedingUpdate = self._getAlertSystemStates_needingUpdate()
-        if len(alertStatesNeedingUpdate) > 0:
+    def _update_alert_system_state_current_alerts(self):
+        """ updates AlertSystemState present alarms list"""
+        states_needing_update = self._get_alert_system_states_needing_update()
+        self._logger.debug(f'{len(states_needing_update)} states_needing_update')
+        if len(states_needing_update) > 0:
             try:
-                with self._mdib.mdibUpdateTransaction() as tr:
-                    tr_states = [tr.getAlertState(s.descriptorHandle) for s in alertStatesNeedingUpdate]
-                    self._updateAlertSystemStates(self._mdib, tr, tr_states)
-            except:
+                with self._mdib.transaction_manager() as mgr:
+                    tr_states = [mgr.get_state(s.DescriptorHandle) for s in states_needing_update]
+                    self._update_alert_system_states(self._mdib, mgr, tr_states)
+            except Exception:
                 exc = traceback.format_exc()
                 self._logger.error('_checkAlertStates: {}', exc)
 
-    def _handleDelegateTimeouts(self):
-        if self._lastActivateAllDelegableAlerts:
-            # find the minimal invocation_effective_timeout
-            all_op_descrs = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('SetAlertStateOperationDescriptor'), [])
-            timeouts = [op.InvocationEffectiveTimeout for op in all_op_descrs]
-            timeouts = [t for t in timeouts if t is not None]
-            if not timeouts:
-                return # nothing to do
-            minimal_invocation_effective_timeout = min(timeouts)
-            if time.time() - self._lastActivateAllDelegableAlerts > minimal_invocation_effective_timeout:
-                # expired, set all AlertSignalState.ActivationState to 'Off'
-                with self._mdib.mdibUpdateTransaction() as mgr:
-                    for op in all_op_descrs:
-                        signalDescr = self._mdib.descriptions.handle.getOne(op.OperationTarget)
-                        allSignalDescriptors = self._mdib.descriptions.ConditionSignaled.get(signalDescr.ConditionSignaled, [])
-                        ss = mgr.getAlertState(signalDescr.handle)
-                        if ss.ActivationState == AlertActivation.ON:
-                            ss.ActivationState = AlertActivation.OFF
-                            self._activateFallbackAlertSignals(signalDescr, allSignalDescriptors, mgr)
-                        else:
-                            mgr.ungetState(ss)
-                self._lastActivateAllDelegableAlerts = 0
+    def _get_alert_system_states_needing_update(self):
+        """
+
+        :return: all AlertSystemStateContainers of those last
+        """
+        pm_names = self._mdib.data_model.pm_names
+        states_needing_update = []
+        try:
+            all_alert_systems_descr = self._mdib.descriptions.NODETYPE.get(pm_names.AlertSystemDescriptor,
+                                                                           [])
+            for alert_system_descr in all_alert_systems_descr:
+                alert_system_state = self._mdib.states.descriptorHandle.get_one(alert_system_descr.Handle,
+                                                                                allow_none=True)
+                if alert_system_state is not None:
+                    selfcheck_period = alert_system_descr.SelfCheckPeriod
+                    if selfcheck_period is not None:
+                        last_selfcheck = alert_system_state.LastSelfCheck or 0.0
+                        if time.time() - last_selfcheck >= selfcheck_period:
+                            states_needing_update.append(alert_system_state)
+        except Exception:
+            exc = traceback.format_exc()
+            self._logger.error('_get_alert_system_states_needing_update: {}', exc)
+        return states_needing_update

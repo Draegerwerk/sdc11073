@@ -1,121 +1,138 @@
 from functools import partial
-from .. import observableproperties as properties
+
 from .. import loghelper
-from .. import pmtypes
-from .. import sdcdevice
+from .. import observableproperties as properties
 
 
-
-class ProviderRole(object):
-    def __init__(self, log_prefix):
-        self._mdib = None
-        self._logger = loghelper.getLoggerAdapter('sdc.device.{}'.format(self.__class__.__name__), log_prefix)
+class ProviderRole:
+    def __init__(self, mdib, log_prefix):
+        self._mdib = mdib
+        self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
     def stop(self):
-        ''' if provider uses worker threads, implement stop method'''
+        """ if provider uses worker threads, implement stop method"""
+
+    def init_operations(self, sco):
         pass
 
-    def initOperations(self, mdib):
-        self._mdib = mdib
-
-    def makeOperationInstance(self, operationDescriptorContainer): #pylint: disable=unused-argument
-        '''returns a callable for this operation or None.
+    def make_operation_instance(self, operation_descriptor_container,  # pylint: disable=unused-argument,no-self-use
+                                operation_cls_getter):  # pylint: disable=unused-argument
+        """returns a callable for this operation or None.
         If a mdib already has operations defined, this method can connect a handler to a given operation descriptor.
-        Use case: initialization from an existing mdib'''
+        Use case: initialization from an existing mdib"""
         return None
 
-    def makeMissingOperations(self):
-        '''
+    def make_missing_operations(self, sco):  # pylint: disable=unused-argument, no-self-use
+        """
         This method is called after all existing operations from mdib have been registered.
         If a role provider needs to add operations beyond that, it can do it here.
         :return: []
-        '''
+        """
         return []
 
-    def onPreCommit(self, mdib, transaction):
+    def on_pre_commit(self, mdib, transaction):
         pass
 
-    def onPostCommit(self, mdib, transaction):
+    def on_post_commit(self, mdib, transaction):
         pass
 
-
-    def _setNumericValue(self, operationInstance, value):
-        ''' sets a numerical metric value'''
-        operationDescriptorHandle = operationInstance.handle
-        operationDescriptorContainer = self._mdib.descriptions.handle.getOne(operationDescriptorHandle)
-        operationTargetHandle = operationDescriptorContainer.OperationTarget
-        self._logger.info('set value of {} via {} from {} to {}', operationTargetHandle, operationDescriptorHandle,
-                          operationInstance.currentValue, value)
-        operationInstance.currentValue = value
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            state = mgr.getMetricState(operationTargetHandle)
-            if state.metricValue is None:
-                state.mkMetricValue()
-            state.metricValue.Value = value
-            #SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
+    def _set_numeric_value(self, operation_instance, value):
+        """ sets a numerical metric value"""
+        pm_types = self._mdib.data_model.pm_types
+        operation_target_handle = self._get_operation_target_handle(operation_instance)
+        self._logger.info('set value of {} via {} from {} to {}', operation_target_handle, operation_instance.handle,
+                          operation_instance.current_value, value)
+        operation_instance.current_value = value
+        with self._mdib.transaction_manager() as mgr:
+            # state = mgr.getMetricState(operation_target_handle)
+            state = mgr.get_state(operation_target_handle)
+            if state.MetricValue is None:
+                state.mk_metric_value()
+            state.MetricValue.Value = value
+            # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
             # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
-            metricDescriptorContainer = self._mdib.descriptions.handle.getOne(operationTargetHandle)
-            if metricDescriptorContainer.MetricCategory in (pmtypes.MetricCategory.SETTING,
-                                                            pmtypes.MetricCategory.PRESETTING):
-                state.metricValue.Validity = pmtypes.MeasurementValidity.VALID
+            metric_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
+            if metric_descriptor_container.MetricCategory in (pm_types.MetricCategory.SETTING,
+                                                              pm_types.MetricCategory.PRESETTING):
+                state.MetricValue.Validity = pm_types.MeasurementValidity.VALID
 
-
-    def _setString(self, operationInstance, value):
-        ''' sets a string value'''
-        operationDescriptorHandle = operationInstance.handle
-        operationDescriptorContainer = self._mdib.descriptions.handle.getOne(operationDescriptorHandle)
-        operationTargetHandle = operationDescriptorContainer.OperationTarget
-        self._logger.info('set value {} from {} to {}', operationTargetHandle, operationInstance.currentValue,
+    def _set_string(self, operation_instance, value):
+        """ sets a string value"""
+        pm_types = self._mdib.data_model.pm_types
+        operation_target_handle = self._get_operation_target_handle(operation_instance)
+        self._logger.info('set value {} from {} to {}', operation_target_handle, operation_instance.current_value,
                           value)
-        operationInstance.currentValue = value
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            state = mgr.getMetricState(operationTargetHandle)
-            if state.metricValue is None:
-                state.mkMetricValue()
-            state.metricValue.Value = value
-            #SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
+        operation_instance.current_value = value
+        with self._mdib.transaction_manager() as mgr:
+            # state = mgr.getMetricState(operation_target_handle)
+            state = mgr.get_state(operation_target_handle)
+            if state.MetricValue is None:
+                state.mk_metric_value()
+            state.MetricValue.Value = value
+            # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
             # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
-            metricDescriptorContainer = self._mdib.descriptions.handle.getOne(operationTargetHandle)
-            if metricDescriptorContainer.MetricCategory in (pmtypes.MetricCategory.SETTING,
-                                                            pmtypes.MetricCategory.PRESETTING):
-                state.metricValue.Validity = pmtypes.MeasurementValidity.VALID
+            metric_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
+            if metric_descriptor_container.MetricCategory in (pm_types.MetricCategory.SETTING,
+                                                              pm_types.MetricCategory.PRESETTING):
+                state.MetricValue.Validity = pm_types.MeasurementValidity.VALID
 
-
-    def _mkOperationFromOperationDescriptor(self, operationDescriptorContainer, currentArgumentHandler=None, currentRequestHandler=None):
-        '''
-        :param operationDescriptorContainer: the operation container for which this operation Handler shall be created
-        :param currentArgumentHandler: the handler that shall be called by operation
-        :param currentRequestHandler: the handler that shall be called by operation
+    def _mk_operation_from_operation_descriptor(self, operation_descriptor_container,
+                                                operation_cls_getter,
+                                                current_argument_handler=None,
+                                                current_request_handler=None,
+                                                timeout_handler=None):
+        """
+        :param operation_descriptor_container: the operation container for which this operation Handler shall be created
+        :param current_argument_handler: the handler that shall be called by operation
+        :param current_request_handler: the handler that shall be called by operation
+        :para timeout_handler: callable when timeout is detected (InvocationEffectiveTimeout)
         :return: instance of cls
-        '''
-        cls = sdcdevice.sco.getOperationClass(operationDescriptorContainer.NODETYPE)
-        op = self._mkOperation(cls,
-                               operationDescriptorContainer.handle,
-                               operationDescriptorContainer.OperationTarget,
-                               operationDescriptorContainer.coding,
-                               currentArgumentHandler,
-                               currentRequestHandler)
-        op.safetyReq = operationDescriptorContainer.SafetyReq
-        return op
+        """
+        cls = operation_cls_getter(operation_descriptor_container.NODETYPE)
+        operation = self._mk_operation(cls,
+                                       operation_descriptor_container.Handle,
+                                       operation_descriptor_container.OperationTarget,
+                                       operation_descriptor_container.coding,
+                                       current_argument_handler,
+                                       current_request_handler,
+                                       timeout_handler)
+        return operation
 
-    def _mkOperation(self, cls, handle, operationTargetHandle, codedValue, currentArgumentHandler=None, currentRequestHandler=None):
-        '''
+    def _mk_operation(self, cls, handle, operation_target_handle, # pylint: disable=no-self-use
+                      coded_value, current_argument_handler=None,
+                      current_request_handler=None, timeout_handler=None):
+        """
 
         :param cls: one of the Operations defined in sdcdevice.sco
         :param handle: the handle of this operation
-        :param operationTargetHandle: the handle of the operation target
-        :param codedValue: the CodedValue for the Operation ( can be None)
-        :param currentArgumentHandler: the handler that shall be called by operation
-        :param currentRequestHandler: the handler that shall be called by operation
+        :param operation_target_handle: the handle of the operation target
+        :param coded_value: the CodedValue for the Operation ( can be None)
+        :param current_argument_handler: the handler that shall be called by operation
+        :param current_request_handler: the handler that shall be called by operation
         :return: instance of cls
-        '''
+        """
         operation = cls(handle=handle,
-                        operationTarget=operationTargetHandle,
-                        codedValue=codedValue)
-        if currentArgumentHandler:
-            # bind method to currentArgument
-            properties.strongbind(operation, currentArgument=partial(currentArgumentHandler, operation))
-        if currentRequestHandler:
-            # bind method to currentRequest
-            properties.strongbind(operation, currentRequest=partial(currentRequestHandler, operation))
+                        operation_target_handle=operation_target_handle,
+                        coded_value=coded_value)
+        if current_argument_handler:
+            # bind method to current_argument
+            properties.strongbind(operation, current_argument=partial(current_argument_handler, operation))
+        if current_request_handler:
+            # bind method to current_request
+            properties.strongbind(operation, current_request=partial(current_request_handler, operation))
+        if timeout_handler:
+            # bind method to current_request
+            properties.strongbind(operation, on_timeout=partial(timeout_handler, operation))
         return operation
+
+    def _get_operation_target_handle(self, operation_instance):
+        operation_descriptor_handle = operation_instance.handle
+        operation_descriptor_container = self._mdib.descriptions.handle.get_one(operation_descriptor_handle)
+        return operation_descriptor_container.OperationTarget
+
+    @staticmethod
+    def _create_descriptor_container(container_cls, handle, parent_handle, coded_value, safety_classification):
+        obj = container_cls(handle=handle, parent_handle=parent_handle)
+        obj.SafetyClassification = safety_classification
+        obj.Type = coded_value
+        return obj

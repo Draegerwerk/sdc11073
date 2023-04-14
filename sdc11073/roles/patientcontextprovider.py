@@ -1,35 +1,46 @@
-from .. import namespaces
-from .. import sdcdevice
 from .contextprovider import GenericContextProvider
+
 
 class GenericPatientContextProvider(GenericContextProvider):
 
-    def __init__(self, log_prefix):
-        super(GenericPatientContextProvider, self).__init__(log_prefix)
-        self._patientContextDescriptorContainer = None
-        self._setPatientContextOperations = []
+    def __init__(self, mdib, log_prefix):
+        super().__init__(mdib, log_prefix)
+        self._patient_context_descriptor_container = None
+        self._set_patient_context_operations = []
 
-    def initOperations(self, mdib):
-        super(GenericPatientContextProvider, self).initOperations(mdib)
+    def init_operations(self, sco):
+        super().init_operations(sco)
         # expecting exactly one PatientContextDescriptor
-        patientContextDescriptorContainers = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('PatientContextDescriptor'))
-        if patientContextDescriptorContainers is not None and len(patientContextDescriptorContainers) == 1:
-            self._patientContextDescriptorContainer = patientContextDescriptorContainers[0]
+        pm_names = self._mdib.data_model.pm_names
+        descriptor_containers = self._mdib.descriptions.NODETYPE.get(pm_names.PatientContextDescriptor)
+        if descriptor_containers is not None and len(descriptor_containers) == 1:
+            self._patient_context_descriptor_container = descriptor_containers[0]
 
-    def makeOperationInstance(self, operationDescriptorContainer):
-        if self._patientContextDescriptorContainer and operationDescriptorContainer.OperationTarget == self._patientContextDescriptorContainer.handle:
-            pc_operation = self._mkOperationFromOperationDescriptor(operationDescriptorContainer,
-                                                                    currentArgumentHandler=self._setContextState)
-            self._setPatientContextOperations.append(pc_operation)
+    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
+        if self._patient_context_descriptor_container and operation_descriptor_container.OperationTarget == self._patient_context_descriptor_container.Handle:
+            pc_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
+                                                                        operation_cls_getter,
+                                                                        current_argument_handler=self._set_context_state)
+            self._set_patient_context_operations.append(pc_operation)
             return pc_operation
+        return None
 
-    def makeMissingOperations(self):
+
+class PatientContextProvider(GenericPatientContextProvider):
+    """This Implementation adds operations to mdib if they do not exist."""
+
+    def make_missing_operations(self, sco):
+        pm_names = self._mdib.data_model.pm_names
         ops = []
-        if self._patientContextDescriptorContainer and not self._setPatientContextOperations:
-            pc_operation = self._mkOperation(sdcdevice.sco.SetContextStateOperation,
-                                             handle='opSetPatCtx',
-                                             operationTargetHandle=self._patientContextDescriptorContainer.handle,
-                                             codedValue=None,
-                                             currentArgumentHandler=self._setContextState)
+        operation_cls_getter = sco.operation_cls_getter
+        if self._patient_context_descriptor_container and not self._set_patient_context_operations:
+            set_context_state_op_cls = operation_cls_getter(pm_names.SetContextStateOperationDescriptor)
+
+            pc_operation = self._mk_operation(set_context_state_op_cls,
+                                              handle='opSetPatCtx',
+                                              operation_target_handle=self._patient_context_descriptor_container.handle,
+                                              coded_value=None,
+                                              current_argument_handler=self._set_context_state,
+                                              timeout_handler=None)
             ops.append(pc_operation)
         return ops

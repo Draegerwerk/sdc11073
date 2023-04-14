@@ -2,26 +2,53 @@ import logging
 import traceback
 
 
-def ensureLogStream():
-    """Method makes sure that the pysdc root Logger has a stream handler with the default format.
-    :return: pysdc root logger
+# pylint: disable=invalid-name
+
+def ensure_log_stream():
+    """Method makes sure that the sdc11073 root Logger has a stream handler with the default format.
+    :return: None
     """
     applog = logging.getLogger('sdc')
     for handler in applog.handlers:
         if isinstance(handler, logging.StreamHandler):
             return
-    ch = logging.StreamHandler()
+    stream_handler = logging.StreamHandler()
     # create formatter
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     # add formatter to ch
-    ch.setFormatter(formatter)
+    stream_handler.setFormatter(formatter)
     # add ch to logger
-    applog.addHandler(ch)
-    return applog
+    applog.addHandler(stream_handler)
+    return
 
 
+def reset_log_levels(root_logger_name='sdc'):
+    for name in logging.Logger.manager.loggerDict:
+        if name.startswith(root_logger_name):
+            logging.getLogger(name).setLevel(logging.NOTSET)
 
-class LoggerAdapter(object):
+
+def reset_handlers(root_logger_name='sdc'):
+    for name in logging.Logger.manager.loggerDict:
+        if name.startswith(root_logger_name):
+            logger = logging.getLogger(name)
+            for handler in logger.handlers:
+                logger.removeHandler(handler)
+
+
+def basic_logging_setup(root_logger_name='sdc', level=logging.INFO, log_file_name=None):
+    logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=level)
+    reset_log_levels(root_logger_name)
+    reset_handlers(root_logger_name)
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    if log_file_name:
+        file_handler = logging.handlers.RotatingFileHandler(log_file_name,
+                                                            maxBytes=5000000,
+                                                            backupCount=2)
+        file_handler.setFormatter(formatter)
+
+
+class LoggerAdapter:
     """
     This adapter wraps a standard logger and changes the interface in two ways:
      - it uses .format() method of strings for formatting (in contrast to logging.Logger, which uses % operator).
@@ -44,65 +71,50 @@ class LoggerAdapter(object):
 
         if '%' in msg and not '{' in msg:
             # traditional log formatting
-            return _msg%args
+            return _msg % args
 
-        resolvedArgs = []
-        for a in args:
-            resolvedArgs.append(a() if callable(a) else a)
-        resolvedKwargs = {}
-        for k, a in kwargs.items():
-            resolvedKwargs[k] = a() if callable(a) else a
-        
-        try:   
-            fullmsg = _msg.format(*resolvedArgs, **resolvedKwargs)
+        resolved_args = []
+        for arg in args:
+            resolved_args.append(arg() if callable(arg) else arg)
+        resolved_kwargs = {}
+        for key, arg in kwargs.items():
+            resolved_kwargs[key] = arg() if callable(arg) else arg
+
+        try:
+            return _msg.format(*resolved_args, **resolved_kwargs)
         except:
-            print (traceback.format_exc())
+            print(traceback.format_exc())
             raise
-        return fullmsg
-
 
     def debug(self, msg, *args, **kwargs):
         self.log(logging.DEBUG, msg, *args, **kwargs)
 
-
     def info(self, msg, *args, **kwargs):
         self.log(logging.INFO, msg, *args, **kwargs)
-
 
     def warning(self, msg, *args, **kwargs):
         self.log(logging.WARN, msg, *args, **kwargs)
 
     warn = warning
-    
-    
+
     def error(self, msg, *args, **kwargs):
         self.log(logging.ERROR, msg, *args, **kwargs)
-
 
     def exception(self, msg, *args, **kwargs):
         self.logger.error(self._process(msg, args, kwargs), exc_info=1)
 
-
     def critical(self, msg, *args, **kwargs):
         self.log(logging.CRITICAL, msg, *args, **kwargs)
-
 
     def log(self, level, msg, *args, **kwargs):
         """
         Delegate a log call to the underlying logger, after processing msg, args and kwargs
         """
-        if self.isEnabledFor(level):
+        if self.logger.isEnabledFor(level):
             self.logger.log(level, self._process(msg, args, kwargs))
 
 
-    def isEnabledFor(self, level):
-        """
-        See if the underlying logger is enabled for the specified level.
-        """
-        return self.logger.isEnabledFor(level)
-
-
-def getLoggerAdapter(name, prefix=None):
+def get_logger_adapter(name, prefix=None):
     ''' Use this method instead of logging.getLogger.
     @return: a LoggerAdapter instance
     '''
@@ -111,14 +123,14 @@ def getLoggerAdapter(name, prefix=None):
 
 class LogWatchException(Exception):
     def __init__(self, issues):
-        super(LogWatchException, self).__init__()
+        super().__init__()
         self.issues = issues
 
     def __repr__(self):
-        return 'LogWatchException: {}'.format(self.issues)
+        return f'LogWatchException: {self.issues}'
 
 
-class _LogIssue(object):
+class _LogIssue:
     def __init__(self, record):
         self.record = record
         self.call_stack = traceback.format_stack(limit=15)
@@ -128,21 +140,21 @@ class _LogIssue(object):
             del self.call_stack[-1]
 
     def __repr__(self):
+        call_stack = ''.join(self.call_stack)
+        return f'log msg="{self.record.msg}" level={self.record.levelname} ' \
+               f'thread="{self.record.threadName or self.record.thread}"; call-stack:\n{call_stack}'
 
-        return 'log msg="{}" level={} thread="{}"; call-stack:\n{}'.format(self.record.msg,
-                                                                    self.record.levelname,
-                                                                    self.record.threadName or self.record.thread,
-                                                                    ''.join(self.call_stack))
 
 class LogWatcherHandler(logging.Handler):
     ''' This is a logging handler that stores all records in a list'''
+
     def __init__(self, logger, level):
         '''
         This is a logging handler that stores all records in a list.
         :param logger: the logger that shall be handled
         :param level: all records with log level >= level will be recorded
         '''
-        super(LogWatcherHandler, self).__init__(level=level)
+        super().__init__(level=level)
         self._logger = logger
         self.records = []
         self._logger.addHandler(self)
@@ -170,9 +182,10 @@ class LogWatcherHandler(logging.Handler):
             self.release()
 
 
-class LogWatcher(object):
+class LogWatcher:
     '''Manages one or more LogWatcherHandlers.
     Can be used also as contextmanager'''
+
     def __init__(self, logger, level=logging.ERROR, startPaused=False):
         '''
         :param logger: the initial logger that shall be recorded
@@ -248,8 +261,8 @@ class LogWatcher(object):
         if all_records:
             raise LogWatchException(all_records)
 
-    def filter(self, record): #pylint: disable=unused-argument
-        return self._collecting == True #pylint: disable=singleton-comparision
+    def filter(self, record):  # pylint: disable=unused-argument
+        return self._collecting
 
     def __enter__(self):
         return self

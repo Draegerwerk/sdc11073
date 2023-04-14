@@ -20,6 +20,7 @@ No other rights are granted by implication, estoppel or otherwise.
 ###################################
 B.D.: replaced http://schemas.xmlsoap.org/ws/2004/08/addressing with http://www.w3.org/2005/08/addressing!!
 DPWS overwrites the adressing standard of eventing, this change reflects that requirement!!!
+Use the identical schema location of dpws here.
 ####################################
 
 -->
@@ -27,18 +28,18 @@ DPWS overwrites the adressing standard of eventing, this change reflects that re
   targetNamespace="http://schemas.xmlsoap.org/ws/2004/08/eventing" 
   xmlns:tns="http://schemas.xmlsoap.org/ws/2004/08/eventing"
   xmlns:wsa="http://www.w3.org/2005/08/addressing"
-  xmlns:xs="http://www.w3.org/2001/XMLSchema" 
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
   elementFormDefault="qualified" 
   blockDefault="#all">
   
   <xs:import namespace="http://www.w3.org/XML/1998/namespace"
 	schemaLocation="http://www.w3.org/2001/xml.xsd" />
 
-  <!--xs:import namespace="http://schemas.xmlsoap.org/ws/2004/08/addressing" 
+  <!--xs:import namespace="http://schemas.xmlsoap.org/ws/2004/08/addressing"
 	schemaLocation="http://schemas.xmlsoap.org/ws/2004/08/addressing" /-->
 
-  <xs:import namespace="http://www.w3.org/2005/08/addressing" 
-    schemaLocation="http://www.w3.org/2005/08/addressing" />
+  <xs:import namespace="http://www.w3.org/2005/08/addressing"
+    schemaLocation="http://www.w3.org/2006/03/addressing/ws-addr.xsd" />
 
   <!-- Types and global elements -->
   <xs:complexType name="DeliveryType" mixed="true">

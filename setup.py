@@ -12,7 +12,7 @@ from codecs import open
 import os
 import subprocess
 
-version = '1.1.1'
+version = '2.0.0a1'
 
 # create a version.py file that is
 # a) used for __version__ info
@@ -29,16 +29,15 @@ here = os.path.abspath(os.path.dirname(__file__))
 
 # write version file
 with open(os.path.join(here, 'sdc11073/version.py'), 'w') as v:
-    v.write("#generated file!\nversion='{}'\n\ngitrev='''{}'''".format(version, gitrev))
+    v.write(f"# generated file!\nVERSION = '{version}'\n\nGIT_REVISION = '''{gitrev}'''\n")
     
 # Get the long description from the README file
 with open(os.path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 dependencies = ['lxml>=2.3',
-                'lz4',
-                'cryptography',
-                "netifaces ; platform_system!='Windows'"]
+                'ifaddr',
+                'aiohttp']
 
 
 setup(
@@ -56,7 +55,7 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 5 - Production/Stable',
+        'Development Status :: 3 - Alpha',
 
         # Indicate who your project is intended for
         'Intended Audience :: Developers',
@@ -66,8 +65,8 @@ setup(
         'License :: OSI Approved :: MIT License',
 
         # Specify the Python versions you support here. In particular, ensure
-        # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
 
     # What does your project relate to?
@@ -100,12 +99,11 @@ setup(
     # have to be included in MANIFEST.in as well.
     package_data={
         'sdc11073': ['tutorial/readme.rst',
+                     'tutorial/*.txt',
                      'tutorial/consumer/*.py',
                      'tutorial/provider/*.xml',
                      'tutorial/provider/*.py',
-                     'xsd/*.xsd',
-                     'ca/*.*',
-                     'codings/*.csv'],
+                     'xsd/*.xsd'],
     },
 
     # Although 'package_data' is the preferred approach, in some case you may

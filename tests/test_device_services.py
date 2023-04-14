@@ -1,257 +1,182 @@
 # -*- coding: utf-8 -*-
 import unittest
-import os
-import uuid
+
 from lxml import etree as etree_
-import logging
-import logging.handlers
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
-from sdc11073.location import SdcLocation
-from sdc11073.namespaces import msgTag, domTag, nsmap
-from sdc11073.namespaces import Prefix_Namespace as Prefix
-from sdc11073.pysoap.soapenvelope import GenericNode, WsAddress, Soap12Envelope, ReceivedSoap12Envelope
+
+from sdc11073.xml_types import pm_qnames as pm
+from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.location import SdcLocation
+from sdc11073.loghelper import basic_logging_setup
+from sdc11073.namespaces import default_ns_helper as ns_hlp
+from sdc11073.xml_types.pm_types import AlertConditionPriority
+from sdc11073.pysoap.msgfactory import CreatedMessage
+from sdc11073.pysoap.soapenvelope import Soap12Envelope
+from sdc11073.dispatch.request import RequestData
+from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from tests import mockstuff
-_msg_ns = Prefix.MSG.namespace
-_sdc_ns = Prefix.SDC.namespace
+
+_sdc_ns = ns_hlp.SDC.namespace
 
 
 class TestDeviceServices(unittest.TestCase):
-    
-    def setUp(self):
-        ''' validate test data'''
-        print ('############### setUp {}... ##############'.format(self._testMethodName))
-        self.wsDiscovery = WSDiscoveryWhitelist(['127.0.0.1'])
-        self.wsDiscovery.start()
-        my_uuid = None # let device create one
-        self.sdcDevice_final = mockstuff.SomeDevice.fromMdibFile(self.wsDiscovery, my_uuid, '70041_MDIB_Final.xml')
-        self.sdcDevice_final.startAll()
-        self._alldevices = (self.sdcDevice_final,)
-        print ('############### setUp done {} ##############'.format(self._testMethodName))
 
+    def setUp(self):
+        basic_logging_setup()
+        ''' validate test data'''
+        print('############### setUp {}... ##############'.format(self._testMethodName))
+        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd.start()
+        my_uuid = None  # let device create one
+        self.sdc_device = mockstuff.SomeDevice.from_mdib_file(self.wsd, my_uuid, '70041_MDIB_Final.xml')
+        self.sdc_device.start_all()
+        self.msg_reader = self.sdc_device.msg_reader
+
+        print('############### setUp done {} ##############'.format(self._testMethodName))
 
     def tearDown(self):
-        print ('############### tearDown {}... ##############'.format(self._testMethodName))
-        for d in self._alldevices:
-            if d:
-                d.stopAll()
-        self.wsDiscovery.stop()
-        print ('############### tearDown {} done ##############'.format(self._testMethodName))
-    
-    
-    def _mkGetRequest(self, sdcDevice, porttype, method, endpoint_reference):
-        if sdcDevice is self.sdcDevice_final:
-            ns = sdcDevice.mdib.sdc_definitions.DPWS_SDCNamespace
-        else:
-            ns = sdcDevice.mdib.sdc_definitions.MessageModelNamespace
-        action = '{}/{}/{}'.format(ns, porttype, method)
-        bodyNode = etree_.Element(msgTag(method))
-        soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.MSG))
-        identifier = uuid.uuid4().urn
-        soapEnvelope.addHeaderObject(WsAddress(messageId=identifier, 
-                                               action=action, 
-                                               to=endpoint_reference))
-        soapEnvelope.addBodyObject(GenericNode(bodyNode))
-                
-        soapEnvelope.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
-        return soapEnvelope
+        print('############### tearDown {}... ##############'.format(self._testMethodName))
+        self.sdc_device.stop_all()
+        self.wsd.stop()
+        print('############### tearDown {} done ##############'.format(self._testMethodName))
 
+    def _mk_get_request(self, sdc_device, port_type, method, path) -> CreatedMessage:
+        name_space = sdc_device.mdib.sdc_definitions.ActionsNamespace
+        nsm = self.sdc_device.mdib.nsmapper  # shortcut
 
-    def test_dispatch_final(self):
-        self._test_dispatch(self.sdcDevice_final)
+        action = '{}/{}/{}'.format(name_space, port_type, method)
+        body_node = etree_.Element(nsm.msgTag(method))
+        soap_envelope = Soap12Envelope(nsm.partial_map(nsm.S12, nsm.WSA, nsm.MSG))
+        soap_envelope.set_header_info_block(HeaderInformationBlock(action=action, addr_to=path))
+        soap_envelope.payload_element = body_node
 
-    def _test_dispatch(self, sdcDevice):
-        dispatcher = sdcDevice._handler._httpServerThread.devices_dispatcher
+        return CreatedMessage(soap_envelope, sdc_device.msg_factory)
 
-        endpoint_reference = sdcDevice._handler._GetDispatcher.hostingService.epr
-        getService = sdcDevice._handler._GetDispatcher
-        getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdib', endpoint_reference)
-        httpHeader = {}
-        response_string = dispatcher.on_post(endpoint_reference, httpHeader, getEnv.as_xml())
-        self.assertTrue('/{}/GetMdibResponse'.format(getService.port_type_string).encode('utf-8') in response_string)
+    def test_dispatch(self):
+        dispatcher = self.sdc_device._http_server.dispatcher
 
-        endpoint_reference = sdcDevice._handler._ContextDispatcher.hostingService.epr
-        contextService = sdcDevice._handler._ContextDispatcher
-        getEnv = self._mkGetRequest(sdcDevice, contextService.port_type_string, 'GetContextStates', endpoint_reference)
-        httpHeader = {}
-        response_string = dispatcher.on_post(endpoint_reference, httpHeader, getEnv.as_xml())
-        self.assertTrue('/{}/GetContextStatesResponse'.format(contextService.port_type_string).encode('utf-8') in response_string)
+        get_service = self.sdc_device.hosted_services.get_service
+        path = self.sdc_device.path_prefix + '/Get'
+        get_env = self._mk_get_request(self.sdc_device, get_service.port_type_string, 'GetMdib', path)
+        http_header = {}
+        peer_name = 'foo'
+        sub_dispatcher = dispatcher.get_instance(self.sdc_device.path_prefix)
+        response = sub_dispatcher.do_post(http_header, path, peer_name,
+                                          self.sdc_device.msg_factory.serialize_message(get_env))
+        code, reason, response_string = response
+        self.assertTrue(f'/{get_service.port_type_string}/GetMdibResponse'.encode('utf-8') in response_string)
 
+        context_service = self.sdc_device.hosted_services.context_service
+        path = self.sdc_device.path_prefix + '/StateEvent'
+        get_env = self._mk_get_request(self.sdc_device, context_service.port_type_string, 'GetContextStates',
+                                     path)
+        http_header = {}
+        response = sub_dispatcher.do_post(http_header, path, peer_name,
+                                          self.sdc_device.msg_factory.serialize_message(get_env))
+        code, reason, response_string = response
+
+        self.assertTrue(
+            f'/{context_service.port_type_string}/GetContextStatesResponse'.encode('utf-8') in response_string)
 
     def test_getMdib(self):
-        for sdcDevice in self._alldevices:
-            getService = sdcDevice._handler._GetDispatcher
-            endpoint_reference = '123'
-            getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdib', endpoint_reference)
-            receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
-            httpHeader = {}
-            response = getService._onGetMdib(httpHeader, receivedEnv)
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
+        get_service = self.sdc_device.hosted_services.get_service
+        path = '123'
+        get_env = self._mk_get_request(self.sdc_device, get_service.port_type_string, 'GetMdib', path)
+        http_header = {}
+        request = RequestData(http_header, path, 'foo')
+        request.message_data = self.msg_reader.read_received_message(
+            self.sdc_device.msg_factory.serialize_message(get_env))
+        response = get_service._on_get_mdib(request)
+        msg_node = response.p_msg.payload_element
+        self.assertEqual(msg_node.attrib['MdibVersion'], str(self.sdc_device.mdib.mdib_version))
+        self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
     def test_getMdState(self):
-        for sdcDevice in self._alldevices:
-            getService = sdcDevice._handler._GetDispatcher
-            endpoint_reference = '123'
-            getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdState', endpoint_reference)
-            receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
-            httpHeader = {}
-            response = getService.dispatchSoapRequest(None, httpHeader, receivedEnv)
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
-   
+        get_service = self.sdc_device.hosted_services.get_service
+        path = '123'
+        get_env = self._mk_get_request(self.sdc_device, get_service.port_type_string, 'GetMdState', path)
+        http_header = {}
+        request = RequestData(http_header, path, 'foo')
+        request.message_data = self.msg_reader.read_received_message(
+            self.sdc_device.msg_factory.serialize_message(get_env))
+        response = get_service.hosting_service.on_post(request)
+        msg_node = response.p_msg.payload_element
+        self.assertEqual(msg_node.attrib['MdibVersion'], str(self.sdc_device.mdib.mdib_version))
+        self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
     def test_getMdDescription(self):
-        for sdcDevice in self._alldevices:
-            getService = sdcDevice._handler._GetDispatcher
-            endpoint_reference = '123'
-            getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdDescription', endpoint_reference)
-            receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
-            httpHeader = {}
-            response = getService.dispatchSoapRequest(None, httpHeader, receivedEnv)
-            
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
-
+        get_service = self.sdc_device.hosted_services.get_service
+        path = '123'
+        get_env = self._mk_get_request(self.sdc_device, get_service.port_type_string, 'GetMdDescription', path)
+        http_header = {}
+        request = RequestData(http_header, path, 'foo')
+        request.message_data = self.msg_reader.read_received_message(
+            self.sdc_device.msg_factory.serialize_message(get_env))
+        response = get_service.hosting_service.on_post(request)
+        msg_node = response.p_msg.payload_element
+        self.assertEqual(msg_node.attrib['MdibVersion'], str(self.sdc_device.mdib.mdib_version))
+        self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
     def test_changeAlarmPrio(self):
-        ''' This is a test for defect SDCSIM-129
-        The order of children of '''
-        for sdcDevice in self._alldevices:
-            getService = sdcDevice._handler._GetDispatcher
-            endpoint_reference = '123'
-            with sdcDevice.mdib.mdibUpdateTransaction() as tr:
-                alarmConditionDescriptor = tr.getDescriptor('0xD3C00109')
-                alarmConditionDescriptor.Priority='Lo'
-            getEnv = self._mkGetRequest(sdcDevice, getService.port_type_string, 'GetMdDescription', endpoint_reference)
-            receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
-            httpHeader = {}
-            response = getService.dispatchSoapRequest(None, httpHeader, receivedEnv)
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
-
+        get_service = self.sdc_device.hosted_services.get_service
+        path = '123'
+        with self.sdc_device.mdib.transaction_manager() as tr:
+            alarmConditionDescriptor = tr.get_descriptor('0xD3C00109')
+            alarmConditionDescriptor.Priority = AlertConditionPriority.LOW
+        get_env = self._mk_get_request(self.sdc_device, get_service.port_type_string, 'GetMdDescription', path)
+        http_header = {}
+        request = RequestData(http_header, path, 'foo')
+        request.message_data = self.msg_reader.read_received_message(
+            self.sdc_device.msg_factory.serialize_message(get_env))
+        response = get_service.hosting_service.on_post(request)
+        msg_node = response.p_msg.payload_element
+        self.assertEqual(msg_node.attrib['MdibVersion'], str(self.sdc_device.mdib.mdib_version))
+        self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
     def test_getContextStates(self):
         facility = 'HOSP42'
         poc = 'Care Unit 1'
         bed = 'my bed'
         loc = SdcLocation(fac=facility, poc=poc, bed=bed)
-        for sdcDevice in self._alldevices:
-            sdcDevice.mdib.setLocation(loc)
-            contextService = sdcDevice._handler._ContextDispatcher
-            endpoint_reference = '123'
-            getEnv = self._mkGetRequest(sdcDevice, contextService.port_type_string, 'GetContextStates', endpoint_reference)
-            receivedEnv = ReceivedSoap12Envelope.fromXMLString(getEnv.as_xml())
-            httpHeader = {}
-            response = contextService.dispatchSoapRequest(None, httpHeader, receivedEnv)
-            print (response.as_xml(pretty=True))
-            response.validateBody(sdcDevice.mdib.bicepsSchema.bmmSchema)
-            _ns = sdcDevice.mdib.nsmapper # shortcut
-            query = '*/{}[@{}="{}"]'.format(_ns.docName(Prefix.MSG, 'ContextState'),
-                                          _ns.docName(Prefix.XSI,'type'),
-                                          _ns.docName(Prefix.PM,'LocationContextState'))
-            locationContextNodes = response.bodyNode.xpath(query, namespaces=_ns.docNssmap)
-            self.assertEqual(len(locationContextNodes), 1)
-            identificationNode = locationContextNodes[0].find(domTag('Identification'))
-            if sdcDevice is self.sdcDevice_final:
-                self.assertEqual(identificationNode.get('Extension'), '{}///{}//{}'.format(facility, poc, bed))
-            else:
-                self.assertEqual(identificationNode.get('Extension'), '{}/{}/{}'.format(facility, poc, bed))
-            
-            locationDetailNode = locationContextNodes[0].find(domTag('LocationDetail'))
-            self.assertEqual(locationDetailNode.get('PoC'), poc) 
-            self.assertEqual(locationDetailNode.get('Bed'), bed) 
-            self.assertEqual(locationDetailNode.get('Facility'), facility) 
-            print (response.as_xml(pretty=True))
+        self.sdc_device.set_location(loc)
+        context_service = self.sdc_device.hosted_services.context_service
+        path = '123'
+        get_env = self._mk_get_request(self.sdc_device, context_service.port_type_string, 'GetContextStates',
+                                     path)
+        http_header = {}
+        request = RequestData(http_header, path, 'foo')
+        request.message_data = self.msg_reader.read_received_message(
+            self.sdc_device.msg_factory.serialize_message(get_env))
+        response = context_service.hosting_service.on_post(request)
+        _ns = self.sdc_device.mdib.nsmapper  # shortcut
+        query = '{}[@{}="{}"]'.format(_ns.MSG.doc_name('ContextState'),
+                                      _ns.XSI.doc_name('type'),
+                                      _ns.PM.doc_name('LocationContextState'))
+        locationContextNodes = response.p_msg.payload_element.xpath(query, namespaces=_ns.ns_map)
+        self.assertEqual(len(locationContextNodes), 1)
+        identificationNode = locationContextNodes[0].find(pm.Identification)
+        self.assertEqual(identificationNode.get('Extension'), '{}///{}//{}'.format(facility, poc, bed))
 
+        locationDetailNode = locationContextNodes[0].find(pm.LocationDetail)
+        self.assertEqual(locationDetailNode.get('PoC'), poc)
+        self.assertEqual(locationDetailNode.get('Bed'), bed)
+        self.assertEqual(locationDetailNode.get('Facility'), facility)
 
-    def test_wsdl_final(self):
-        '''
-        check porttype and action namespaces in wsdl
-        '''
-        dev = self.sdcDevice_final
-        for hosted in dev._handler._hostedServices:
-            wsdl = etree_.fromstring(hosted._wsdlString)
-            inputs = wsdl.xpath('//wsdl:input', namespaces=nsmap)#{'wsdl':'http://schemas.xmlsoap.org/wsdl/'})
-            outputs = wsdl.xpath('//wsdl:output', namespaces=nsmap)#{'wsdl':'http://schemas.xmlsoap.org/wsdl/'})
+    def test_wsdl(self):
+        """
+        check port type and action namespaces in wsdl
+        """
+        dev = self.sdc_device
+        _ns = dev.mdib.nsmapper  # shortcut
+        for hosted in dev.hosted_services.dpws_hosted_services.values():
+            wsdl = etree_.fromstring(hosted._wsdl_string)
+            inputs = wsdl.xpath(f'//{_ns.WSDL.doc_name("input")}', namespaces=_ns.ns_map)
+            outputs = wsdl.xpath(f'//{_ns.WSDL.doc_name("output")}', namespaces=_ns.ns_map)
             self.assertGreater(len(inputs), 0)
             self.assertGreater(len(outputs), 0)
             for src in (inputs, outputs):
                 for i in inputs:
-                    action_keys = [ k for k in i.attrib.keys() if k.endswith('Action')]
+                    action_keys = [k for k in i.attrib.keys() if k.endswith('Action')]
                     for k in action_keys:
                         action = i.attrib[k]
                         self.assertTrue(action.startswith(SDC_v1_Definitions.ActionsNamespace))
-
-
-    def test_metadata_final(self):
-        '''
-        verifies that
-        - 7 hosted services exist ( one per port type)
-        - every port type has BICEPS Message Model as namespace
-        '''
-        dev = self.sdcDevice_final
-        metaDataNode = dev._handler._mkMetaDataNode()
-        print (etree_.tostring(metaDataNode))
-        dpws_hosted = metaDataNode.xpath('//dpws:Hosted', namespaces={'dpws': 'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01'})
-        self.assertEqual(len(dpws_hosted), 4) #
-        for h in dpws_hosted:
-            dpws_types = h.xpath('dpws:Types', namespaces={'dpws': 'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01'})
-            for t in dpws_types:
-                txt = t.text
-                port_types = txt.split()
-                for p in port_types:
-                    ns, value = p.split(':')
-                    self.assertEqual(metaDataNode.nsmap[ns], _sdc_ns)
-
-
-def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(TestDeviceServices)
-
-
-
-if __name__ == '__main__':
-    def mklogger(logFolder):
-        applog = logging.getLogger('sdc')
-        if len(applog.handlers) == 0:
-            
-            ch = logging.StreamHandler()
-            # create formatter
-            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-            # add formatter to ch
-            ch.setFormatter(formatter)
-            # add ch to logger
-            applog.addHandler(ch)
-            ch2 = logging.handlers.RotatingFileHandler(os.path.join(logFolder,'sdcdevice.log'),
-                                                       maxBytes=100000000,
-                                                       backupCount=100)
-            ch2.setFormatter(formatter)
-            # add ch to logger
-            applog.addHandler(ch2)
-        
-        applog.setLevel(logging.DEBUG)
-        # reduce log level for some loggers
-        tmp = logging.getLogger('sdc.discover')
-        tmp.setLevel(logging.WARN)
-        tmp = logging.getLogger('sdc.client.subscr')
-        tmp.setLevel(logging.INFO)
-        tmp = logging.getLogger('sdc.client.mdib')
-        tmp.setLevel(logging.INFO)
-        tmp = logging.getLogger('sdc.client.wf')
-        tmp.setLevel(logging.INFO)
-        tmp = logging.getLogger('sdc.client.Set')
-        tmp.setLevel(logging.INFO)
-        tmp = logging.getLogger('sdc.client.Get')
-        tmp.setLevel(logging.DEBUG)
-        tmp = logging.getLogger('sdc.device')
-        tmp.setLevel(logging.DEBUG)
-        tmp = logging.getLogger('sdc.device.subscrMgr')
-        tmp.setLevel(logging.DEBUG)
-        logging.getLogger('sdc.device.GetService').setLevel(logging.DEBUG)
-        
-        
-        return applog
-
-
-    mklogger('c:/tmp')
-#     unittest.TextTestRunner(verbosity=2).run(suite())
-#    unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('test_device_services.TestDeviceServices.test_getMdib'))
-#    unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('test_device_services.TestDeviceServices.test_getContextStates'))
-#    unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('test_device_services.TestDeviceServices.test_getMdDescription'))
-    unittest.TextTestRunner(verbosity=2).run(unittest.TestLoader().loadTestsFromName('test_device_services.TestDeviceServices.test_changeAlarmPrio'))

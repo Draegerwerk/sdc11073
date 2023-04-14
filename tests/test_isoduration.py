@@ -1,18 +1,18 @@
 import unittest
-from sdc11073.isoduration import parse_duration, durationString
-from sdc11073.isoduration import parse_date_time, date_time_string, GYearMonth, GYear, UTC
+from sdc11073.xml_types.isoduration import parse_duration, duration_string
+from sdc11073.xml_types.isoduration import parse_date_time, date_time_string, GYearMonth, GYear, UTC
 from datetime import date, datetime
 
 class TestIsoDate(unittest.TestCase):
     
     def test_durationString(self):
-        self.assertEqual('PT0H0M1S', durationString(1))
-        self.assertEqual('PT0H1M0S', durationString(60))
-        self.assertEqual('PT0H1M1S', durationString(61))
-        self.assertEqual('P0Y0M3DT5H13M17S', durationString(3600*24*3 +3600*5 + 60*13 +17))
-        self.assertEqual('-P0Y0M3DT5H13M17S', durationString((3600*24*3 +3600*5 + 60*13 +17)*-1))
-        self.assertEqual('PT0H0M0.1S', durationString(0.1))
-        self.assertEqual('-PT0H0M0.000001S', durationString(-0.000001))
+        self.assertEqual('PT0H0M1S', duration_string(1))
+        self.assertEqual('PT0H1M0S', duration_string(60))
+        self.assertEqual('PT0H1M1S', duration_string(61))
+        self.assertEqual('P0Y0M3DT5H13M17S', duration_string(3600*24*3 +3600*5 + 60*13 +17))
+        self.assertEqual('-P0Y0M3DT5H13M17S', duration_string((3600*24*3 +3600*5 + 60*13 +17)*-1))
+        self.assertEqual('PT0H0M0.1S', duration_string(0.1))
+        self.assertEqual('-PT0H0M0.000001S', duration_string(-0.000001))
 
 
     def test_parseDuration(self):
@@ -47,17 +47,8 @@ class TestIsoDate(unittest.TestCase):
     def test_date_time_string(self):
         self.assertEqual(date_time_string(date(2015, 5, 25)), '2015-05-25')
         self.assertEqual(date_time_string(datetime(2015, 5, 25, 14, 45, 00)), '2015-05-25T14:45:00')
+        self.assertEqual(date_time_string(datetime(2015, 5, 25, 14, 45, 00, 5000)), '2015-05-25T14:45:00.005')
         self.assertEqual(date_time_string(datetime(2015, 5, 25, 14, 45, 00, tzinfo=UTC(60))), '2015-05-25T14:45:00+01:00')
         self.assertEqual(date_time_string(datetime(2015, 5, 25, 14, 45, 00, tzinfo=UTC(-60))), '2015-05-25T14:45:00-01:00')
         self.assertEqual(date_time_string(GYearMonth(2015, 5)), '2015-05')
         self.assertEqual(date_time_string(GYear(2015)), '2015')
-
-        
-
-def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(TestIsoDate)
-
-
-if __name__ == '__main__':
-    unittest.TextTestRunner(verbosity=2).run(suite())
-        

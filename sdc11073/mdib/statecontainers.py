@@ -1,504 +1,501 @@
+import inspect
+import sys
 import time
 import uuid
-import sys
-import inspect
-import copy
+
 from .containerbase import ContainerBase
-from ..namespaces import domTag
-from .. import pmtypes 
-from . import containerproperties as cp
+from ..xml_types import pm_types
+from ..xml_types import xml_structure as cp
+from ..xml_types import pm_qnames as pm
+from ..xml_types import ext_qnames as ext
 
 
 class AbstractStateContainer(ContainerBase):
-    NODENAME = domTag('State')
-
     # these class variables allow easy type-checking. Derived classes will set corresponding values to True
-    isSystemContextState = False
-    isRealtimeSampleArrayMetricState = False
-    isMetricState = False
-    isOperationalState = False
-    isComponentState = False
-    isAlertState = False
-    isAlertSignal = False
-    isAlertCondition = False
-    isMultiState = False
-    isContextState = False
+    is_state_container = True
+    is_realtime_sample_array_metric_state = False
+    is_metric_state = False
+    is_operational_state = False
+    is_component_state = False
+    is_alert_state = False
+    is_alert_signal = False
+    is_alert_condition = False
+    is_multi_state = False
+    is_context_state = False
 
-    ext_Extension = cp.ExtensionNodeProperty()
-    DescriptorVersion = cp.IntegerAttributeProperty('DescriptorVersion', defaultPyValue=0) # an integer
-    StateVersion = cp.IntegerAttributeProperty('StateVersion', defaultPyValue=0) # an integer
-    _props=('ext_Extension', 'DescriptorVersion', 'StateVersion')
+    Extension = cp.ExtensionNodeProperty(ext.Extension)
+    DescriptorHandle = cp.HandleRefAttributeProperty('DescriptorHandle', is_optional=False)
+    DescriptorVersion = cp.ReferencedVersionAttributeProperty('DescriptorVersion', default_py_value=0)
+    StateVersion = cp.VersionCounterAttributeProperty('StateVersion', default_py_value=0)
+    _props = ('Extension', 'DescriptorHandle', 'DescriptorVersion', 'StateVersion')
 
-    stateVersion = StateVersion   # lower case for backwards compatibility
-    
-    def __init__(self, nsmapper, descriptorContainer, node=None):
-        self.descriptorContainer = descriptorContainer
-        self.descriptorHandle = descriptorContainer.handle
-        super(AbstractStateContainer, self).__init__(nsmapper, node)
+    def __init__(self, descriptor_container):
+        super().__init__()
+        self.descriptor_container = descriptor_container
+        if descriptor_container is not None:
+            # pylint: disable=invalid-name
+            self.DescriptorHandle = descriptor_container.Handle
+            self.DescriptorVersion = descriptor_container.DescriptorVersion
+            # pylint: enable=invalid-name
 
-        if node is None:
-            self.DescriptorVersion = descriptorContainer.DescriptorVersion
+    def mk_state_node(self, tag, nsmapper, set_xsi_type=True):
+        return super().mk_node(tag, nsmapper, set_xsi_type=set_xsi_type)
 
-    @property
-    def nodeName(self):
-        return self.NODENAME
-
-    def updateNode(self):
-        self.node = self.mkStateNode()
-
-
-    def mkStateNode(self, tag=None, updateDescriptorVersion=True):
-        if updateDescriptorVersion:
-            self.updateDescriptorVersion()
-        node = super(AbstractStateContainer, self).mkNode(tag, setXsiType=True)
-        node.set('DescriptorHandle', self.descriptorHandle)
-        return node
-
-
-    def updateFromNode(self, node):
-        ''' update self.node with node, and set members.
-        Accept node only if descriptorHandle matches'''
-        descriptorHandle = node.get('DescriptorHandle')
-        if self.descriptorHandle is not None and descriptorHandle != self.descriptorHandle:
-            raise RuntimeError(
-                'Update from a node with different descriptor handle is not possible! Have "{}", got "{}"'.format(
-                    self.descriptorHandle, descriptorHandle))
-        super(AbstractStateContainer, self)._updateFromNode(node)
-        self.node = node
-
-    def updateFromOtherContainer(self, other, skippedProperties=None):
-        if other.__class__ != self.__class__:
-            raise RuntimeError('Update from a node with different type is not possible! Have "{}", got "{}"'.format(self.__class__.__name__, other.__class__.__name__))
-        if other.descriptorHandle != self.descriptorHandle:
-            raise RuntimeError('Update from a node with different descriptor handle is not possible! Have "{}", got "{}"'.format(self.descriptorHandle, other.descriptorHandle))
-
-        # update all ContainerProperties
-        if skippedProperties is None:
-            skippedProperties = []
+    def update_from_other_container(self, other, skipped_properties=None):
+        if other.DescriptorHandle != self.DescriptorHandle:
+            raise ValueError(
+                f'Update from a node with different descriptor handle is not possible! '
+                f'Have "{self.DescriptorHandle}", got "{other.DescriptorHandle}"')
+        self._update_from_other(other, skipped_properties)
         self.node = other.node
-        for prop_name, _ in self._sortedContainerProperties():
-            if prop_name not in skippedProperties:
-                new_value = getattr(other, prop_name)
-                setattr(self, prop_name, new_value)
 
-    def incrementState(self):
+    def increment_state_version(self):
+        # pylint: disable=invalid-name
         if self.StateVersion is None:
             self.StateVersion = 1
         else:
             self.StateVersion += 1
+        # pylint: enable=invalid-name
 
-    def updateDescriptorVersion(self):
-        if self.descriptorContainer is None:
-            raise RuntimeError('State {} has no descriptorContainer'.format(self))
-        if self.descriptorContainer.DescriptorVersion != self.DescriptorVersion:
-            self.DescriptorVersion = self.descriptorContainer.DescriptorVersion
+    def update_descriptor_version(self):
+        if self.descriptor_container is None:
+            raise ValueError(f'State {self} has no descriptor_container')
+        if self.descriptor_container.DescriptorVersion != self.DescriptorVersion:
+            self.DescriptorVersion = self.descriptor_container.DescriptorVersion
 
-
+    @property
+    def source_mds(self):
+        return self.descriptor_container.source_mds
 
     def __repr__(self):
-        return '{} descriptorHandle="{}" StateVersion={}'.format(self.__class__.__name__, self.descriptorHandle, self.StateVersion)
+        return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" StateVersion={self.StateVersion}'
 
-
+    @classmethod
+    def from_node(cls, node, descriptor_container=None):
+        obj = cls(descriptor_container)
+        obj.update_from_node(node)
+        return obj
 
 
 class AbstractOperationStateContainer(AbstractStateContainer):
-    NODETYPE = domTag('AbstractOperationState') # a QName
-    isOperationalState = True
-    OperatingMode = cp.NodeAttributeProperty('OperatingMode', defaultPyValue=pmtypes.OperatingMode.ENABLED)
-    _props=('OperatingMode',)    
+    NODETYPE = pm.AbstractOperationState
+    is_operational_state = True
+    OperatingMode = cp.EnumAttributeProperty('OperatingMode', default_py_value=pm_types.OperatingMode.ENABLED,
+                                             enum_cls=pm_types.OperatingMode)
+    _props = ('OperatingMode',)
 
 
 class SetValueOperationStateContainer(AbstractOperationStateContainer):
-    NODETYPE = domTag('SetValueOperationState') # a QName
-    AllowedRange = cp.SubElementListProperty([domTag('AllowedRange')], cls=pmtypes.Range)
-    _props=('AllowedRange',)
+    NODETYPE = pm.SetValueOperationState
+    AllowedRange = cp.SubElementListProperty(pm.AllowedRange, value_class=pm_types.Range)
+    _props = ('AllowedRange',)
+
+
+class T_AllowedValues(pm_types.PropertyBasedPMType):  # pylint: disable=invalid-name
+    Value = cp.SubElementStringListProperty(pm.Value)
+    _props = ['Value']
+
+    def is_empty(self):
+        return self.Value is None or len(self.Value) == 0
 
 
 class SetStringOperationStateContainer(AbstractOperationStateContainer):
-    NODETYPE = domTag('SetStringOperationState') # a QName
-    AllowedValues = cp.SubElementTextListProperty([domTag('AllowedValues'), domTag('Value')])
+    NODETYPE = pm.SetStringOperationState
+    AllowedValues = cp.SubElementWithSubElementListProperty(pm.AllowedValues,
+                                                            default_py_value=T_AllowedValues(),
+                                                            value_class=T_AllowedValues)
     _props = ('AllowedValues',)
 
 
 class ActivateOperationStateContainer(AbstractOperationStateContainer):
-    NODETYPE = domTag('ActivateOperationState') # a QName
+    NODETYPE = pm.ActivateOperationState
 
 
 class SetContextStateOperationStateContainer(AbstractOperationStateContainer):
-    NODETYPE = domTag('SetContextStateOperationState') # a QName
+    NODETYPE = pm.SetContextStateOperationState
 
 
 class SetMetricStateOperationStateContainer(AbstractOperationStateContainer):
-    NODETYPE = domTag('SetMetricStateOperationState') # a QName
+    NODETYPE = pm.SetMetricStateOperationState
 
 
 class SetComponentStateOperationStateContainer(AbstractOperationStateContainer):
-    NODETYPE = domTag('SetComponentStateOperationState') # a QName
+    NODETYPE = pm.SetComponentStateOperationState
 
 
 class SetAlertStateOperationStateContainer(AbstractOperationStateContainer):
-    NODETYPE = domTag('SetAlertStateOperationState') # a QName
+    NODETYPE = pm.SetAlertStateOperationState
 
 
-
-class AbstractMetricStateContainer_Base(AbstractStateContainer):
-    '''
-    This class is not in the xml schema hierarchy, it only helps to centrally implement functionality
-    '''
-    isMetricState = True
-
-    @property
-    def metricValue(self):
-        return self._MetricValue
-
-
-    @metricValue.setter
-    def metricValue(self, metricValueObject):
-        if metricValueObject is not None:
-            assert isinstance(metricValueObject, self.__class__._MetricValue.valueClass) #pylint: disable=protected-access
-        self._MetricValue = metricValueObject
-
-
-    def mkMetricValue(self):
-        if self._MetricValue is None:
-            self._MetricValue = self.__class__._MetricValue.valueClass(self.nsmapper) #pylint: disable=protected-access
-            return self._MetricValue
-        else:
-            raise RuntimeError('State (handle="{}") already has a metric value'.format(self.handle))
-
-    def mkCopy(self, copy_node=True):
-        copied = super().mkCopy(copy_node)
-        copied._MetricValue = copy.deepcopy(self._MetricValue)
-        return copied
-
-
-class AbstractMetricStateContainer(AbstractMetricStateContainer_Base):
-    BodySite = cp.SubElementListProperty([domTag('BodySite')], cls=pmtypes.CodedValue)
-    PhysicalConnector = cp.SubElementProperty([domTag('PhysicalConnector')], valueClass=pmtypes.PhysicalConnectorInfo) # optional
-    ActivationState = cp.NodeAttributeProperty('ActivationState', impliedPyValue=pmtypes.ComponentActivation.ON)
-    ActiveDeterminationPeriod = cp.DurationAttributeProperty('ActiveDeterminationPeriod') # xsd:duration
-    LifeTimePeriod = cp.DurationAttributeProperty('LifeTimePeriod') # xsd:duration, optional
-    _props=('BodySite', 'PhysicalConnector', 'ActivationState', 'ActiveDeterminationPeriod', 'LifeTimePeriod')
+class AbstractMetricStateContainer(AbstractStateContainer):
+    is_metric_state = True
+    BodySite = cp.SubElementListProperty(pm.BodySite, value_class=pm_types.CodedValue)
+    PhysicalConnector = cp.SubElementProperty(pm.PhysicalConnector,
+                                              value_class=pm_types.PhysicalConnectorInfo, is_optional=True)
+    ActivationState = cp.EnumAttributeProperty('ActivationState', implied_py_value=pm_types.ComponentActivation.ON,
+                                               enum_cls=pm_types.ComponentActivation)
+    ActiveDeterminationPeriod = cp.DurationAttributeProperty('ActiveDeterminationPeriod')  # xsd:duration
+    LifeTimePeriod = cp.DurationAttributeProperty('LifeTimePeriod')  # xsd:duration, optional
+    _props = ('BodySite', 'PhysicalConnector', 'ActivationState', 'ActiveDeterminationPeriod', 'LifeTimePeriod')
 
 
 class NumericMetricStateContainer(AbstractMetricStateContainer):
-    NODETYPE = domTag('NumericMetricState')
-    _MetricValue = cp.SubElementProperty([domTag('MetricValue')], valueClass=pmtypes.NumericMetricValue)
-    PhysiologicalRange = cp.SubElementListProperty([domTag('PhysiologicalRange')], cls=pmtypes.Range)
+    NODETYPE = pm.NumericMetricState
+    MetricValue = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.NumericMetricValue, is_optional=True)
+    PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pm_types.Range)
     ActiveAveragingPeriod = cp.DurationAttributeProperty('ActiveAveragingPeriod')  # xsd:duration
-    _props = ('_MetricValue', 'PhysiologicalRange', 'ActiveAveragingPeriod')
+    _props = ('MetricValue', 'PhysiologicalRange', 'ActiveAveragingPeriod')
+
+    def mk_metric_value(self):
+        if self.MetricValue is None:
+            self.MetricValue = pm_types.NumericMetricValue()
+            return self.MetricValue
+        raise ValueError(f'State (descriptor handle="{self.DescriptorHandle}") already has a metric value')
 
 
 class StringMetricStateContainer(AbstractMetricStateContainer):
-    NODETYPE = domTag('StringMetricState')
-    _MetricValue = cp.SubElementProperty([domTag('MetricValue')], valueClass=pmtypes.StringMetricValue)
-    _props = ('_MetricValue',)
+    NODETYPE = pm.StringMetricState
+    MetricValue = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.StringMetricValue, is_optional=True)
+    _props = ('MetricValue',)
+
+    def mk_metric_value(self):
+        if self.MetricValue is None:
+            self.MetricValue = pm_types.StringMetricValue()
+            return self.MetricValue
+        raise ValueError(f'State (descriptor handle="{self.DescriptorHandle}") already has a metric value')
 
 
-
-class EnumStringMetricStateContainer(AbstractMetricStateContainer):
-    NODETYPE = domTag('EnumStringMetricState')
-    _MetricValue = cp.SubElementProperty([domTag('MetricValue')], valueClass=pmtypes.StringMetricValue)
-    _props = ('_MetricValue',)
-
+class EnumStringMetricStateContainer(StringMetricStateContainer):
+    NODETYPE = pm.EnumStringMetricState
 
 
 class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
-    NODETYPE = domTag('RealTimeSampleArrayMetricState')
-    isRealtimeSampleArrayMetricState = True
-    _MetricValue = cp.SubElementProperty([domTag('MetricValue')], valueClass=pmtypes.SampleArrayValue)
-    PhysiologicalRange = cp.SubElementListProperty([domTag('PhysiologicalRange')], cls = pmtypes.Range)
-    _props = ('_MetricValue', 'PhysiologicalRange')
-    MetricValue = _MetricValue
+    NODETYPE = pm.RealTimeSampleArrayMetricState
+    is_realtime_sample_array_metric_state = True
+    MetricValue = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.SampleArrayValue, is_optional=True)
+    PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pm_types.Range)
+    _props = ('MetricValue', 'PhysiologicalRange')
 
+    def mk_metric_value(self):
+        if self.MetricValue is None:
+            self.MetricValue = pm_types.SampleArrayValue()
+            return self.MetricValue
+        raise ValueError(f'State (descriptor handle="{self.DescriptorHandle}") already has a metric value')
 
     def __repr__(self):
-        samplesCount = 0
-        if self.metricValue is not None and self.metricValue.Samples is not None:
-            samplesCount = len(self.metricValue.Samples)
-        return '{} Version={} descriptorHandle="{}" Activation="{}" Samples={}'.format(
-            self.__class__.__name__, self.StateVersion, self.descriptorHandle, self.ActivationState, samplesCount)
+        samples_count = 0
+        if self.MetricValue is not None and self.MetricValue.Samples is not None:
+            samples_count = len(self.MetricValue.Samples)
+        return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" ' \
+               f'Activation="{self.ActivationState}" Samples={samples_count}'
 
 
 class DistributionSampleArrayMetricStateContainer(AbstractMetricStateContainer):
-    NODETYPE = domTag('DistributionSampleArrayMetricState')
-    _MetricValue = cp.SubElementProperty([domTag('MetricValue')], valueClass=pmtypes.SampleArrayValue)
-    PhysiologicalRange = cp.SubElementListProperty([domTag('PhysiologicalRange')], cls = pmtypes.Range)
-    _props = ('_MetricValue', 'PhysiologicalRange')
-
+    NODETYPE = pm.DistributionSampleArrayMetricState
+    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.SampleArrayValue, is_optional=True)
+    PhysiologicalRange = cp.SubElementListProperty(pm.PhysiologicalRange, value_class=pm_types.Range)
+    _props = ('_metric_value', 'PhysiologicalRange')
 
 
 class AbstractDeviceComponentStateContainer(AbstractStateContainer):
-    isComponentState = True
-    CalibrationInfo = cp.NotImplementedProperty('CalibrationInfo', None)  # optional, CalibrationInfo type
-    NextCalibration = cp.NotImplementedProperty('NextCalibration', None)  # optional, CalibrationInfo type
-    PhysicalConnector = cp.SubElementProperty([domTag('PhysicalConnector')], valueClass=pmtypes.PhysicalConnectorInfo) #optional
+    is_component_state = True
+    CalibrationInfo = cp.SubElementProperty(pm.CalibrationInfo,
+                                            value_class=pm_types.CalibrationInfo,
+                                            is_optional=True)
+    NextCalibration = cp.SubElementProperty(pm.NextCalibration,
+                                            value_class=pm_types.CalibrationInfo,
+                                            is_optional=True)
+    PhysicalConnector = cp.SubElementProperty(pm.PhysicalConnector,
+                                              value_class=pm_types.PhysicalConnectorInfo,
+                                              is_optional=True)
 
-    ActivationState = cp.NodeAttributeProperty('ActivationState')  # pmtypes.ComponentActivation
-    OperatingHours = cp.IntegerAttributeProperty('OperatingHours')  # optional, unsigned int
-    OperatingCycles = cp.IntegerAttributeProperty('OperatingCycles')  # optional, unsigned int
-    _props = ('CalibrationInfo', 'NextCalibration', 'PhysicalConnector', 'ActivationState', 'OperatingHours', 'OperatingCycles')
+    ActivationState = cp.EnumAttributeProperty('ActivationState', enum_cls=pm_types.ComponentActivation)
+    OperatingHours = cp.UnsignedIntAttributeProperty('OperatingHours')  # optional
+    OperatingCycles = cp.UnsignedIntAttributeProperty('OperatingCycles')  # optional
+    _props = (
+        'CalibrationInfo', 'NextCalibration', 'PhysicalConnector', 'ActivationState', 'OperatingHours',
+        'OperatingCycles')
 
 
-class MdsStateContainer(AbstractDeviceComponentStateContainer):
-    NODETYPE = domTag('MdsState')
-    OperatingMode = cp.NodeAttributeProperty('OperatingMode',
-                                             defaultPyValue=pmtypes.MdsOperatingMode.NORMAL)  # pmtypes.MdsOperatingMode
-    Lang = cp.NodeAttributeProperty('Lang', impliedPyValue='en')
-    _props = ('OperatingMode', 'Lang')
+class AbstractComplexDeviceComponentStateContainer(AbstractDeviceComponentStateContainer):
+    NODETYPE = pm.AbstractComplexDeviceComponentState
+
+
+class MdsStateContainer(AbstractComplexDeviceComponentStateContainer):
+    NODETYPE = pm.MdsState
+    OperatingJurisdiction = cp.SubElementProperty(pm.OperatingJurisdiction,
+                                                  value_class=pm_types.OperatingJurisdiction,
+                                                  is_optional=True)
+    OperatingMode = cp.EnumAttributeProperty('OperatingMode',
+                                             default_py_value=pm_types.MdsOperatingMode.NORMAL,
+                                             enum_cls=pm_types.MdsOperatingMode)
+    Lang = cp.StringAttributeProperty('Lang', default_py_value='en')
+    _props = ('OperatingJurisdiction', 'OperatingMode', 'Lang')
 
 
 class ScoStateContainer(AbstractDeviceComponentStateContainer):
-    NODETYPE = domTag('ScoState')
-    OperationGroup = cp.SubElementListProperty([domTag('OperationGroup')], cls=pmtypes.OperationGroup)
-    InvocationRequested = cp.NodeAttributeListProperty('InvocationRequested')  # pm:OperationRef
-    InvocationRequired = cp.NodeAttributeListProperty('InvocationRequired')  # pm:OperationRef
+    NODETYPE = pm.ScoState
+    OperationGroup = cp.SubElementListProperty(pm.OperationGroup, value_class=pm_types.OperationGroup)
+    InvocationRequested = cp.OperationRefListAttributeProperty('InvocationRequested')
+    InvocationRequired = cp.OperationRefListAttributeProperty('InvocationRequired')
     _props = ('OperationGroup', 'InvocationRequested', 'InvocationRequired')
 
 
-class VmdStateContainer(AbstractDeviceComponentStateContainer):
-    NODETYPE = domTag('VmdState')
+class VmdStateContainer(AbstractComplexDeviceComponentStateContainer):
+    NODETYPE = pm.VmdState
+    OperatingJurisdiction = cp.SubElementProperty(pm.OperatingJurisdiction,
+                                                  value_class=pm_types.OperatingJurisdiction,
+                                                  is_optional=True)
+    _props = ('OperatingJurisdiction',)
 
 
 class ChannelStateContainer(AbstractDeviceComponentStateContainer):
-    NODETYPE = domTag('ChannelState')
+    NODETYPE = pm.ChannelState
+
 
 
 class ClockStateContainer(AbstractDeviceComponentStateContainer):
-    NODETYPE = domTag('ClockState')
-    ActiveSyncProtocol = cp.SubElementProperty([domTag('ActiveSyncProtocol')], valueClass=pmtypes.CodedValue)
-    ReferenceSource = cp.SubElementListProperty([domTag('ReferenceSource')], cls=pmtypes.ElementWithTextOnly)
+    NODETYPE = pm.ClockState
+    ActiveSyncProtocol = cp.SubElementProperty(pm.ActiveSyncProtocol, value_class=pm_types.CodedValue, is_optional=True)
+    ReferenceSource = cp.SubElementStringListProperty(pm.ReferenceSource)
     DateAndTime = cp.CurrentTimestampAttributeProperty('DateAndTime')
-    RemoteSync = cp.BooleanAttributeProperty('RemoteSync', defaultPyValue=True)
+    RemoteSync = cp.BooleanAttributeProperty('RemoteSync', default_py_value=True, is_optional=False)
     Accuracy = cp.DecimalAttributeProperty('Accuracy')
     LastSet = cp.TimestampAttributeProperty('LastSet')
-    TimeZone = cp.NodeAttributeProperty('TimeZone') # optional, a time zone string
-    CriticalUse = cp.BooleanAttributeProperty('CriticalUse', impliedPyValue=False) # optional
-    _props = ('ActiveSyncProtocol', 'ReferenceSource', 'DateAndTime', 'RemoteSync', 'Accuracy', 'LastSet', 'TimeZone', 'CriticalUse')
-
-    def diff(self, other):
-        """ compares all properties EXCEPT DateAndTime.
-        BICEPS says:
-        "As the current date/time changes at a high frequency, a change of this value SHALL NOT cause
-        an update of the state version unless it has been synchronized either remotely or manually."
-        returns a list of strings that describe differences"""
-        return super().diff(other, ignore_property_names=['DateAndTime'])
+    TimeZone = cp.TimeZoneAttributeProperty('TimeZone')  # a time zone string
+    CriticalUse = cp.BooleanAttributeProperty('CriticalUse', implied_py_value=False)  # optional
+    _props = ('ActiveSyncProtocol', 'ReferenceSource', 'DateAndTime', 'RemoteSync', 'Accuracy', 'LastSet', 'TimeZone',
+              'CriticalUse')
 
 
 class SystemContextStateContainer(AbstractDeviceComponentStateContainer):
-    NODETYPE = domTag('SystemContextState')
+    NODETYPE = pm.SystemContextState
 
 
 class BatteryStateContainer(AbstractDeviceComponentStateContainer):
-    NODETYPE = domTag('BatteryState')
-    CapacityRemaining = cp.SubElementProperty([domTag('CapacityRemaining')], valueClass=pmtypes.Measurement) #optional
-    Voltage = cp.SubElementProperty([domTag('Voltage')], valueClass=pmtypes.Measurement) #optional
-    Current = cp.SubElementProperty([domTag('Current')], valueClass=pmtypes.Measurement) #optional
-    Temperature = cp.SubElementProperty([domTag('Temperature')], valueClass=pmtypes.Measurement) #optional
-    RemainingBatteryTime = cp.SubElementProperty([domTag('RemainingBatteryTime')], valueClass=pmtypes.Measurement) #optional
-    ChargeStatus = cp.NodeAttributeProperty('ChargeStatus') # Ful, ChB, DisChB, DEB
-    ChargeCycles = cp.IntegerAttributeProperty('ChargeCycles') # Number of charge/discharge cycles.
-    _props = ('CapacityRemaining', 'Voltage', 'Current', 'Temperature', 'RemainingBatteryTime', 'ChargeStatus', 'ChargeCycles')
+    class ChargeStatusEnum(pm_types.StringEnum):
+        FULL = 'Ful'
+        CHARGING = 'ChB'
+        DISCHARGING = 'DisChB'
+        EMPTY = 'DEB'
+
+    NODETYPE = pm.BatteryState
+    CapacityRemaining = cp.SubElementProperty(pm.CapacityRemaining,
+                                              value_class=pm_types.Measurement,
+                                              is_optional=True)
+    Voltage = cp.SubElementProperty(pm.Voltage, value_class=pm_types.Measurement, is_optional=True)
+    Current = cp.SubElementProperty(pm.Current, value_class=pm_types.Measurement, is_optional=True)
+    Temperature = cp.SubElementProperty(pm.Temperature, value_class=pm_types.Measurement, is_optional=True)
+    RemainingBatteryTime = cp.SubElementProperty(pm.RemainingBatteryTime,
+                                                 value_class=pm_types.Measurement,
+                                                 is_optional=True)
+    ChargeStatus = cp.EnumAttributeProperty('ChargeStatus', enum_cls=ChargeStatusEnum)
+    ChargeCycles = cp.UnsignedIntAttributeProperty('ChargeCycles')  # Number of charge/discharge cycles.
+    _props = (
+        'CapacityRemaining', 'Voltage', 'Current', 'Temperature', 'RemainingBatteryTime', 'ChargeStatus',
+        'ChargeCycles')
 
 
 class AbstractAlertStateContainer(AbstractStateContainer):
-    isAlertState = True
-    ActivationState = cp.NodeAttributeProperty('ActivationState', defaultPyValue=pmtypes.AlertActivation.ON)
-    _props=('ActivationState', )
+    is_alert_state = True
+    ActivationState = cp.EnumAttributeProperty('ActivationState',
+                                               default_py_value=pm_types.AlertActivation.ON,
+                                               enum_cls=pm_types.AlertActivation,
+                                               is_optional=False)
+    _props = ('ActivationState',)
 
 
 class AlertSystemStateContainer(AbstractAlertStateContainer):
-    NODETYPE = domTag('AlertSystemState')
-    SystemSignalActivation = cp.SubElementListProperty([domTag('SystemSignalActivation')],
-                                                       cls=pmtypes.SystemSignalActivation)
+    NODETYPE = pm.AlertSystemState
+    SystemSignalActivation = cp.SubElementListProperty(pm.SystemSignalActivation,
+                                                       value_class=pm_types.SystemSignalActivation)
     LastSelfCheck = cp.TimestampAttributeProperty('LastSelfCheck')
     SelfCheckCount = cp.IntegerAttributeProperty('SelfCheckCount')
-    PresentPhysiologicalAlarmConditions = cp.NodeAttributeListProperty('PresentPhysiologicalAlarmConditions')# pm:AlertConditionReference, List of HANDLE references
-    PresentTechnicalAlarmConditions = cp.NodeAttributeListProperty('PresentTechnicalAlarmConditions')# pm:AlertConditionReference, List of HANDLE references
-    _props=('SystemSignalActivation', 'LastSelfCheck', 'SelfCheckCount', 'PresentPhysiologicalAlarmConditions', 'PresentTechnicalAlarmConditions')
+    PresentPhysiologicalAlarmConditions = cp.AlertConditionRefListAttributeProperty(
+        'PresentPhysiologicalAlarmConditions')
+    PresentTechnicalAlarmConditions = cp.AlertConditionRefListAttributeProperty('PresentTechnicalAlarmConditions')
+    _props = ('SystemSignalActivation', 'LastSelfCheck', 'SelfCheckCount', 'PresentPhysiologicalAlarmConditions',
+              'PresentTechnicalAlarmConditions')
 
     def __repr__(self):
-        return '{} descriptorHandle="{}" StateVersion={} LastSelfCheck={} SelfCheckCount={}'.format(self.__class__.__name__,
-                                                                           self.descriptorHandle,
-                                                                           self.StateVersion,
-                                                                           self.LastSelfCheck,
-                                                                           self.SelfCheckCount)
+        return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" ' \
+               f'StateVersion={self.StateVersion} LastSelfCheck={self.LastSelfCheck} ' \
+               f'SelfCheckCount={self.SelfCheckCount} Activation={self.ActivationState}'
 
 
 class AlertSignalStateContainer(AbstractAlertStateContainer):
-    isAlertSignal = True
-    NODETYPE = domTag('AlertSignalState')
-    Presence = cp.NodeAttributeProperty('Presence', impliedPyValue=pmtypes.AlertSignalPresence.OFF)
-    Location = cp.NodeAttributeProperty('Location', impliedPyValue='Loc') # 'Loc', 'Rem'
-    Slot = cp.IntegerAttributeProperty('Slot')             # unsigned int
-    ActualSignalGenerationDelay = cp.DurationAttributeProperty('ActualSignalGenerationDelay') # xsd:duration
-    _props = ('Presence', 'Location', 'Slot', 'ActualSignalGenerationDelay')
+    is_alert_signal = True
+    NODETYPE = pm.AlertSignalState
+    ActualSignalGenerationDelay = cp.DurationAttributeProperty('ActualSignalGenerationDelay')
+    Presence = cp.EnumAttributeProperty('Presence', implied_py_value=pm_types.AlertSignalPresence.OFF,
+                                        enum_cls=pm_types.AlertSignalPresence)
+    Location = cp.EnumAttributeProperty('Location', implied_py_value=pm_types.AlertSignalPrimaryLocation.LOCAL,
+                                        enum_cls=pm_types.AlertSignalPrimaryLocation)
+    Slot = cp.UnsignedIntAttributeProperty('Slot')
+    _props = ('ActualSignalGenerationDelay', 'Presence', 'Location', 'Slot')
 
     def __init__(self, *args, **kwargs):
-        super(AlertSignalStateContainer, self).__init__(*args, **kwargs)
-        self.lastUpdated = time.time()
+        super().__init__(*args, **kwargs)
+        self.last_updated = time.time()
 
-        if self.descriptorContainer.SignalDelegationSupported:
-            # Delegable signals should have location Remote according to BICEPS
-            self.Location = 'Rem'
+    def __repr__(self):
+        return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" ' \
+               f'StateVersion={self.StateVersion} Location={self.Location} ' \
+               f'Activation={self.ActivationState} Presence={self.Presence}'
 
 
 class AlertConditionStateContainer(AbstractAlertStateContainer):
-    isAlertCondition = True
-    NODETYPE = domTag('AlertConditionState')
-    ActualConditionGenerationDelay = cp.DurationAttributeProperty('ActualConditionGenerationDelay')# xsd:duration
-    ActualPriority = cp.NodeAttributeProperty('ActualPriority') # optional, pmtypes.AlertConditionPriority ('Lo', 'Me', 'Hi', 'None')
-    Rank = cp.NodeAttributeProperty('Rank', valueConverter=cp.IntegerConverter) # Integer
-    DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime') # Integer
-    Presence = cp.NodeAttributeProperty('Presence', valueConverter=cp.BooleanConverter, impliedPyValue=False)
-    _props=('ActualConditionGenerationDelay', 'ActualPriority', 'Rank', 'DeterminationTime', 'Presence')
+    is_alert_condition = True
+    NODETYPE = pm.AlertConditionState
+    ActualConditionGenerationDelay = cp.DurationAttributeProperty('ActualConditionGenerationDelay')
+    ActualPriority = cp.EnumAttributeProperty('ActualPriority', enum_cls=pm_types.AlertConditionPriority)
+    Rank = cp.IntegerAttributeProperty('Rank')
+    DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime')
+    Presence = cp.BooleanAttributeProperty('Presence', implied_py_value=False)
+    _props = ('ActualConditionGenerationDelay', 'ActualPriority', 'Rank', 'DeterminationTime', 'Presence')
+
+    def __repr__(self):
+        return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" ' \
+               f'StateVersion={self.StateVersion} ' \
+               f'Activation={self.ActivationState} Presence={self.Presence}'
 
 
 class LimitAlertConditionStateContainer(AlertConditionStateContainer):
-    NODETYPE = domTag('LimitAlertConditionState') # a QName
-    Limits = cp.SubElementProperty([domTag('Limits')], valueClass=pmtypes.Range, defaultPyValue=pmtypes.Range())# required, pm:Range
-    MonitoredAlertLimits = cp.NodeAttributeProperty('MonitoredAlertLimits', defaultPyValue=pmtypes.AlertConditionMonitoredLimits.ALL_OFF) # required, pm:AlertConditionMonitoredLimits
-    AutoLimitActivationState = cp.NodeAttributeProperty('AutoLimitActivationState') # optional, pm:AlertActivation
-    _props=('Limits', 'MonitoredAlertLimits', 'AutoLimitActivationState')
+    NODETYPE = pm.LimitAlertConditionState
+    Limits = cp.SubElementProperty(pm.Limits, value_class=pm_types.Range, default_py_value=pm_types.Range())
+    MonitoredAlertLimits = cp.EnumAttributeProperty('MonitoredAlertLimits',
+                                                    default_py_value=pm_types.AlertConditionMonitoredLimits.NONE,
+                                                    enum_cls=pm_types.AlertConditionMonitoredLimits,
+                                                    is_optional=False)
+    AutoLimitActivationState = cp.EnumAttributeProperty('AutoLimitActivationState',
+                                                        enum_cls=pm_types.AlertActivation)
+    _props = ('Limits', 'MonitoredAlertLimits', 'AutoLimitActivationState')
 
 
 class AbstractMultiStateContainer(AbstractStateContainer):
-    isMultiState = True
-    Handle = cp.NodeAttributeProperty('Handle') # required
-    _props = ('Handle', )    
+    is_multi_state = True
+    Category = cp.SubElementProperty(pm.Category, value_class=pm_types.CodedValue, is_optional=True)
+    Handle = cp.HandleAttributeProperty('Handle', is_optional=False)
+    _props = ('Category', 'Handle',)
 
-    def __init__(self, nsmapper, descriptorContainer, node=None):
-        super(AbstractMultiStateContainer, self).__init__(nsmapper, descriptorContainer, node)
-        if node is None:
-            # auto- generate a handle
+    def __init__(self, descriptor_container, handle=None):
+        super().__init__(descriptor_container)
+        self.Handle = handle  # pylint: disable=invalid-name
+
+    def update_from_other_container(self, other, skipped_properties=None):
+        # Accept node only if descriptorHandle and Handle match
+        if self.Handle is not None and other.Handle != self.Handle:
+            raise ValueError(
+                f'Update from a node with different handle is not possible! Have "{self.Handle}", got "{other.Handle}"')
+        super().update_from_other_container(other, skipped_properties)
+
+    def mk_state_node(self, tag, nsmapper, set_xsi_type=True):
+        if self.Handle is None:
             self.Handle = uuid.uuid4().hex
-
-    def updateFromNode(self, node):
-        ''' update self.node with node, and set members.
-        Accept node only if descriptorHandle and Handle match'''
-        if self.Handle is not None: # if self.handle is None, this is an initial init from node, no check for equality.
-            handle = node.get('Handle')
-
-            if handle != self.Handle:
-                raise RuntimeError(
-                    'Update from a node with different handle is not possible! Have "{}", got "{}"'.format(
-                        self.Handle, handle))
-        super(AbstractMultiStateContainer, self).updateFromNode(node)
+        return super().mk_state_node(tag, nsmapper, set_xsi_type)
 
     def __repr__(self):
-        return '{} descriptorHandle="{}" handle="{}" type={}'.format(self.__class__.__name__, self.descriptorHandle, self.Handle, self.NODETYPE)
+        return f'{self.__class__.__name__} DescriptorHandle="{self.DescriptorHandle}" ' \
+               f'Handle="{self.Handle}" type={self.NODETYPE}'
 
 
 class AbstractContextStateContainer(AbstractMultiStateContainer):
-    isContextState = True
-    Validator = cp.SubElementListProperty([domTag('Validator')], cls = pmtypes.InstanceIdentifier)
-    Identification = cp.SubElementListProperty([domTag('Identification')], cls = pmtypes.InstanceIdentifier)
-    ContextAssociation = cp.NodeAttributeProperty('ContextAssociation', impliedPyValue=pmtypes.ContextAssociation.NO_ASSOCIATION)
-    BindingMdibVersion = cp.IntegerAttributeProperty('BindingMdibVersion') 
-    UnbindingMdibVersion = cp.IntegerAttributeProperty('UnbindingMdibVersion') 
-    BindingStartTime = cp.TimestampAttributeProperty('BindingStartTime') # time.time() value (float)
-    BindingEndTime = cp.TimestampAttributeProperty('BindingEndTime') # time.time() value (float)
-    _props = ('Validator', 'Identification', 'ContextAssociation', 'BindingMdibVersion', 'UnbindingMdibVersion', 'BindingStartTime', 'BindingEndTime')    
+    is_context_state = True
+    Validator = cp.SubElementListProperty(pm.Validator, value_class=pm_types.InstanceIdentifier)
+    Identification = cp.SubElementListProperty(pm.Identification, value_class=pm_types.InstanceIdentifier)
+    ContextAssociation = cp.EnumAttributeProperty('ContextAssociation',
+                                                  enum_cls=pm_types.ContextAssociation,
+                                                  implied_py_value=pm_types.ContextAssociation.NO_ASSOCIATION)
+    BindingMdibVersion = cp.ReferencedVersionAttributeProperty('BindingMdibVersion')
+    UnbindingMdibVersion = cp.ReferencedVersionAttributeProperty('UnbindingMdibVersion')
+    BindingStartTime = cp.TimestampAttributeProperty('BindingStartTime')
+    BindingEndTime = cp.TimestampAttributeProperty('BindingEndTime')
+    _props = ('Validator', 'Identification', 'ContextAssociation', 'BindingMdibVersion', 'UnbindingMdibVersion',
+              'BindingStartTime', 'BindingEndTime')
 
 
 class LocationContextStateContainer(AbstractContextStateContainer):
-    NODETYPE = domTag('LocationContextState')
-    lc = domTag('LocationDetail')
-    PoC = cp.NodeAttributeProperty('PoC', [lc])
-    Room = cp.NodeAttributeProperty('Room', [lc])
-    Bed = cp.NodeAttributeProperty('Bed', [lc])
-    Facility = cp.NodeAttributeProperty('Facility', [lc])
-    Building = cp.NodeAttributeProperty('Building', [lc])
-    Floor = cp.NodeAttributeProperty('Floor', [lc])
-    _props = ('PoC', 'Room', 'Bed', 'Facility', 'Building', 'Floor')
+    NODETYPE = pm.LocationContextState
+    LocationDetail = cp.SubElementProperty(pm.LocationDetail,
+                                           value_class=pm_types.LocationDetail,
+                                           default_py_value=pm_types.LocationDetail(),
+                                           is_optional=True)
+    _props = ('LocationDetail',)
 
-    def updateFromSdcLocation(self, sdc_location, bicepsSchema):
-        self.PoC = sdc_location.poc
-        self.Room = sdc_location.rm
-        self.Bed = sdc_location.bed
-        self.Facility = sdc_location.fac
-        self.Building = sdc_location.bld
-        self.Floor = sdc_location.flr
-        self.ContextAssociation = 'Assoc'
+    def update_from_sdc_location(self, sdc_location):
+        # pylint: disable=invalid-name
+        self.LocationDetail.PoC = sdc_location.poc
+        self.LocationDetail.Room = sdc_location.rm
+        self.LocationDetail.Bed = sdc_location.bed
+        self.LocationDetail.Facility = sdc_location.fac
+        self.LocationDetail.Building = sdc_location.bld
+        self.LocationDetail.Floor = sdc_location.flr
+        self.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
 
-        extensionString = self._mkExtensionstring(sdc_location)
-        if not extensionString:
+        extension_string = self._mk_extension_string(sdc_location)
+        if not extension_string:
             # schema does not allow extension string of zero length
-            extensionString = None
-        self.Identification = [pmtypes.InstanceIdentifier(root=sdc_location.root, extensionString=extensionString)]
-        self.updateNode()
+            extension_string = None
+        self.Identification = [pm_types.InstanceIdentifier(root=sdc_location.root, extension_string=extension_string)]
+        # pylint: enable=invalid-name
 
-    def _mkExtensionstring(self, sdcLocation):
-        return sdcLocation.mkExtensionStringSdc()
+    @staticmethod
+    def _mk_extension_string(sdc_location):
+        return sdc_location.mk_extension_string()
 
     @classmethod
-    def fromSdcLocation(cls, nsmapper, descriptorContainer, handle, sdc_location, bicepsSchema):
-        obj = cls(nsmapper, descriptorContainer)
+    def from_sdc_location(cls, descriptor_container, handle, sdc_location):
+        obj = cls(descriptor_container)
         obj.Handle = handle
-        obj.updateFromSdcLocation(sdc_location, bicepsSchema)
+        obj.update_from_sdc_location(sdc_location)
         return obj
 
 
 class PatientContextStateContainer(AbstractContextStateContainer):
-    NODETYPE = domTag('PatientContextState')
-    cd = domTag('CoreData') # a shortcut
-    Givenname = cp.NodeTextProperty([cd, domTag('Givenname')])
-    Middlename = cp.NodeTextProperty([cd, domTag('Middlename')])
-    Familyname = cp.NodeTextProperty([cd, domTag('Familyname')])
-    Birthname = cp.NodeTextProperty([cd, domTag('Birthname')])
-    Title = cp.NodeTextProperty([cd, domTag('Title')])
-    Sex = cp.NodeTextProperty([cd, domTag('Sex')])
-    PatientType = cp.NodeTextProperty([cd, domTag('PatientType')])
-    DateOfBirth = cp.DateOfBirthProperty([cd, domTag('DateOfBirth')])
-    Height = cp.SubElementProperty([cd, domTag('Height')], valueClass=pmtypes.Measurement)
-    Weight = cp.SubElementProperty([cd, domTag('Weight')], valueClass=pmtypes.Measurement)
-    Race = cp.SubElementProperty([cd, domTag('Race')], valueClass=pmtypes.CodedValue)
-    _props = ('Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title', 'Sex', 'PatientType', 'DateOfBirth', 'Height', 'Weight', 'Race')
-
-    def setBirthdate(self, dateTimeOfBirth_string):
-        ''' this method accepts a string, format acc. to XML Schema: xsd:dateTime, xsd:date, xsd:gYearMonth or xsd:gYear
-        Internally it holds it as a datetime object, so specific formatting of the dateTimeOfBirth_string will be lost.'''
-        if not dateTimeOfBirth_string:
-            self.DateOfBirth = None
-        else:
-            datetime = cp.DateOfBirthProperty.mk_value_object(dateTimeOfBirth_string)
-            self.DateOfBirth = datetime
+    NODETYPE = pm.PatientContextState
+    CoreData = cp.SubElementProperty(pm.CoreData,
+                                     value_class=pm_types.PatientDemographicsCoreData,
+                                     default_py_value=pm_types.PatientDemographicsCoreData(),
+                                     is_optional=True)
+    _props = ('CoreData',)
 
 
 class WorkflowContextStateContainer(AbstractContextStateContainer):
-    NODETYPE = domTag('WorkflowContextState')
-    WorkflowDetail = cp.SubElementProperty([domTag('WorkflowDetail')], valueClass=pmtypes.WorkflowDetail)
+    NODETYPE = pm.WorkflowContextState
+    WorkflowDetail = cp.SubElementProperty(pm.WorkflowDetail, value_class=pm_types.WorkflowDetail)
     _props = ('WorkflowDetail',)
 
 
 class OperatorContextStateContainer(AbstractContextStateContainer):
-    NODETYPE = domTag('OperatorContextState')
-    OperatorDetails = cp.SubElementProperty([domTag('OperatorDetails')], valueClass=pmtypes.BaseDemographics) #optional
+    NODETYPE = pm.OperatorContextState
+    OperatorDetails = cp.SubElementProperty(pm.OperatorDetails,
+                                            value_class=pm_types.BaseDemographics,
+                                            is_optional=True)
     _props = ('OperatorDetails',)
 
 
 class MeansContextStateContainer(AbstractContextStateContainer):
-    NODETYPE = domTag('MeansContextState')
+    NODETYPE = pm.MeansContextState
     # class has no own members
 
 
 class EnsembleContextStateContainer(AbstractContextStateContainer):
-    NODETYPE = domTag('EnsembleContextState')
+    NODETYPE = pm.EnsembleContextState
     # class has no own members
 
 
 # mapping of states: xsi:type information to classes
 # find all classes in this module that have a member "NODETYPE"
-classes = inspect.getmembers(sys.modules[__name__], lambda member: inspect.isclass(member) and member.__module__ == __name__ )
+classes = inspect.getmembers(sys.modules[__name__],
+                             lambda member: inspect.isclass(member) and member.__module__ == __name__)
 classes_with_NODETYPE = [c[1] for c in classes if hasattr(c[1], 'NODETYPE') and c[1].NODETYPE is not None]
 # make a dictionary from found classes: (Key is NODETYPE, value is the class itself
-_state_lookup_by_type = dict([(c.NODETYPE, c) for c in classes_with_NODETYPE])
+# _state_lookup_by_type = dict([(c.NODETYPE, c) for c in classes_with_NODETYPE])
+_state_lookup_by_type = {c.NODETYPE: c for c in classes_with_NODETYPE}
 
 
-def getContainerClass(qNameType):
-    '''
-    @param qNameType: a QName instance
-    '''
-    return _state_lookup_by_type.get(qNameType)
-
-    
+def get_container_class(type_qname):
+    """ Returns class for given type
+    :param type_qname: the QName of the expected NODETYPE
+    """
+    return _state_lookup_by_type.get(type_qname)

@@ -1,128 +1,106 @@
 import os
-import urllib
-import traceback
-from lxml import etree as etree_
-from . import loghelper
-from .namespaces import dpwsTag
-from .namespaces import Prefix_Namespace as Prefix
+from abc import ABC, abstractmethod
+
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
 
 class ProtocolsRegistry(type):
-    '''
-    base class that has the only purpose to register classes that use this as meta class
-    '''
+    """
+    base class that has the only purpose to register classes that use this as metaclass
+    """
     protocols = []
 
     def __new__(cls, name, *arg, **kwarg):
         new_cls = super().__new__(cls, name, *arg, **kwarg)
-        if name != 'BaseDefinitions': # ignore the base class itself
+        if name != 'BaseDefinitions':  # ignore the base class itself
             cls.protocols.append(new_cls)
         return new_cls
+
+class AbstractDataModel(ABC):
+
+    @abstractmethod
+    def get_descriptor_container_class(self, type_qname):
+        raise NotImplementedError
+
+    def mk_descriptor_container(self, type_qname, handle, parent_descriptor):
+        cls = self.get_descriptor_container_class(type_qname)
+        if parent_descriptor is not None:
+            ret = cls(handle, parent_descriptor.Handle)
+            ret.set_source_mds(parent_descriptor.source_mds)
+        else:
+            ret = cls(handle, None)
+        return ret
+
+    @abstractmethod
+    def get_state_container_class(self, type_qname):
+        raise NotImplementedError
+
+    def get_state_class_for_descriptor(self, descriptor_container):
+        state_class_qtype = descriptor_container.STATE_QNAME
+        if state_class_qtype is None:
+            raise TypeError(f'No state association for {descriptor_container.__class__.__name__}')
+        return self.get_state_container_class(state_class_qtype)
+
+    def mk_state_container(self, descriptor_container):
+        cls = self.get_state_class_for_descriptor(descriptor_container)
+        if cls is None:
+            raise TypeError(
+                f'No state container class for descr={descriptor_container.__class__.__name__}, '
+                f'name={descriptor_container.NODETYPE}, '
+                f'type={descriptor_container.nodeType}')
+        return cls(descriptor_container)
+
+    @property
+    @abstractmethod
+    def pm_types(self):
+        """Gives access to a module with participant model types"""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def pm_names(self):
+        """Gives access to a module with all qualified names of the BICEPS participant model"""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def msg_types(self):
+        """Gives access to a module with message model types"""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def msg_names(self):
+        """Gives access to a module with all qualified names of the BICEPS message model"""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def ns_helper(self):
+        """Gives access to a module with all name spaces used"""
+        raise NotImplementedError
 
 
 # definitions that group all relevant dependencies for BICEPS versions
 class BaseDefinitions(metaclass=ProtocolsRegistry):
-    ''' Central definitions for SDC
+    """ Base class for central definitions used by SDC.
     It defines namespaces and handlers for the protocol.
-    Derive from this class in order to define different protocol handling.'''
-    DpwsDeviceType = dpwsTag('Device')
-    MetaDataExchangeSchemaFile = os.path.join(schemaFolder, 'MetadataExchange.xsd')
-    EventingSchemaFile = os.path.join(schemaFolder, 'eventing.xsd')
-    SoapEnvelopeSchemaFile = os.path.join(schemaFolder, 'soap-envelope.xsd')
-    WsAddrSchemaFile = os.path.join(schemaFolder, 'ws-addr.xsd')
-    AddressingSchemaFile = os.path.join(schemaFolder, 'addressing.xsd')
-    XMLSchemaFile = os.path.join(schemaFolder, 'xml.xsd')
-    DPWSSchemaFile = os.path.join(schemaFolder, 'wsdd-dpws-1.1-schema-os.xsd')
-    # set the following namespaces in derived classes:
-    MedicalDeviceTypeNamespace = None
-    BICEPSNamespace = None
-    MessageModelNamespace = None
-    ParticipantModelNamespace = None
-    ExtensionPointNamespace = None
-    MedicalDeviceType = None
-    ActionsNamespace = None
+    Derive from this class in order to define different protocol handling."""
+    # set the following values in derived classes:
+    MedicalDeviceType = None  # a QName, needed for types_match method
+    ActionsNamespace = None  # needed for wsdl generation
+    PortTypeNamespace = None # needed for wsdl generation
+    MedicalDeviceTypesFilter = None  # list of QNames that are used / expected in "types" of wsdiscovery
+    Actions = None
+    SchemaFilePaths = None
+    data_model = None  # AbstractDataModel instance
+
 
     @classmethod
-    def ns_matches(cls, ns):
-        ''' This method checks if this definition set is the correct one for a given namespace'''
-        return ns in (cls.MedicalDeviceTypeNamespace, cls.BICEPSNamespace, cls.MessageModelNamespace, cls.ParticipantModelNamespace, cls.ExtensionPointNamespace, cls.MedicalDeviceType)
+    def types_match(cls, types):
+        """ This method checks if this definition can be used for the provided types."""
+        return cls.MedicalDeviceType in types
 
     @classmethod
-    def normalizeXMLText(cls, xml_text):
-        ''' replace BICEPS namespaces with internal namespaces'''
-        for ns, internal_ns in ((cls.MessageModelNamespace, Prefix.MSG.namespace), #'__BICEPS_MessageModel__'),
-                                (cls.ParticipantModelNamespace, Prefix.PM.namespace), #'__BICEPS_ParticipantModel__'),
-                                (cls.ExtensionPointNamespace, Prefix.EXT.namespace), #'__ExtensionPoint__'),
-                                (cls.MDPWSNameSpace, Prefix.MDPWS.namespace)): #'__MDPWS__')):
-            xml_text = xml_text.replace('"{}"'.format(ns).encode('utf-8'), '"{}"'.format(internal_ns).encode('utf-8'))
-        return xml_text
-
-    @classmethod
-    def denormalizeXMLText(cls, xml_text):
-        ''' replace internal namespaces with BICEPS namespaces'''
-        for ns, internal_ns in ((cls.MessageModelNamespace.encode('utf-8'), b'__BICEPS_MessageModel__'),
-                                (cls.ParticipantModelNamespace.encode('utf-8'), b'__BICEPS_ParticipantModel__'),
-                                (cls.ExtensionPointNamespace.encode('utf-8'), b'__ExtensionPoint__'),
-                                (cls.MDPWSNameSpace.encode('utf-8'), b'__MDPWS__')):
-            xml_text = xml_text.replace(internal_ns, ns)
-        return xml_text
-
-
-class SchemaResolverBase(etree_.Resolver):
-    lookup = {'http://schemas.xmlsoap.org/ws/2004/08/addressing': 'AddressingSchemaFile',
-              'http://www.w3.org/2005/08/addressing/ws-addr.xsd': 'WsAddrSchemaFile',
-              'http://www.w3.org/2005/08/addressing': 'WsAddrSchemaFile',
-              'http://www.w3.org/2006/03/addressing/ws-addr.xsd': 'WsAddrSchemaFile',
-              'http://schemas.xmlsoap.org/ws/2004/08/eventing/eventing.xsd': 'EventingSchemaFile',
-              Prefix.DPWS.namespace: 'DPWSSchemaFile',
-              'http://schemas.xmlsoap.org/ws/2004/09/mex/MetadataExchange.xsd': 'MetaDataExchangeSchemaFile',
-              'http://www.w3.org/2001/xml.xsd': 'XMLSchemaFile',}
-    lookup_ext = {} # to be overridden by derived classes
-    def __init__(self, baseDefinitions, log_prefix=None):
-        super(SchemaResolverBase, self).__init__()
-        self._baseDefinitions = baseDefinitions
-        self._logger = loghelper.getLoggerAdapter('sdc.schema_resolver', log_prefix)
-
-    def _isBicepsSchemaFile(self, filename):
-        return filename.endswith('ExtensionPoint.xsd') or filename.endswith('BICEPS_ParticipantModel.xsd') or filename.endswith('BICEPS_MessageModel.xsd')
-
-    def resolve(self, url, id, context):  # pylint: disable=unused-argument, redefined-builtin
-        try:
-            # first check if there is a lookup defined
-            ref = self.lookup.get(url)
-            if ref is None:
-                ref = self.lookup_ext.get(url)
-            if ref is not None:
-                filename = getattr(self._baseDefinitions, ref)
-                self._logger.debug('could resolve url {} via lookup to {}', url, filename)
-                if not os.path.exists(filename):
-                    self._logger.warn('could resolve url {} via lookup, but path {} does not exist', url, filename)
-                    return
-                with open(filename, 'rb') as f:
-                    xml_text = f.read()
-                if self._isBicepsSchemaFile(filename):
-                    xml_text = self._baseDefinitions.normalizeXMLText(xml_text)
-                return self.resolve_string(xml_text, context, base_url=filename)
-
-            # no lookup, parse url
-            parsed = urllib.parse.urlparse(url)
-            if parsed.scheme == 'file':
-                path = parsed.path # get the path part
-            else: # the url is a path
-                path = url
-            if path.startswith('/') and path[2] == ':':  # invalid construct like /C:/Temp
-                path = path[1:]
-            if not os.path.exists(path):
-                self._logger.warn('could not resolve url {}, path {} does not exist', url, path)
-                return
-            else:
-                self._logger.debug('could resolve url {}: path = {}', url, path)
-                with open(path, 'rb') as f:
-                    xml_text = f.read()
-                if self._isBicepsSchemaFile(path):
-                    xml_text = self._baseDefinitions.normalizeXMLText(xml_text)
-                return self.resolve_string(xml_text, context, base_url=path)
-        except:
-            self._logger.error(traceback.format_exc())
-
+    def get_schema_file_path(cls, url):
+        return cls.SchemaFilePaths.schema_location_lookup.get(url)

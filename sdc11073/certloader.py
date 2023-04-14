@@ -1,5 +1,6 @@
-import ssl
 import os
+import ssl
+
 
 def mk_ssl_context_from_folder(ca_folder,
                                private_key='userkey.pem',
@@ -13,23 +14,32 @@ def mk_ssl_context_from_folder(ca_folder,
     :param private_key: name of the private key file of the user
     :param certificate: name of the signed certificate of the user
     :param ca_public_key: name of public key of the certificate authority that signed the certificate; if given,
-                   verify_mode of sslContext will be set to CERT_REQUIRED
+                   verify_mode of ssl_context will be set to CERT_REQUIRED
     :param cyphers_file: optional file that contains a cyphers string; comments are possible, start line with '#'
     :param ssl_passwd: optional password string
     :return: SSLContext instance
     """
     certfile = os.path.join(ca_folder, certificate)
+    if not os.path.exists(certfile):
+        raise FileNotFoundError(f'{certfile} not found')
     keyfile = os.path.join(ca_folder, private_key)
+    if not os.path.exists(keyfile):
+        raise FileNotFoundError(f'{keyfile} not found')
     if ca_public_key:
         cafile = os.path.join(ca_folder, ca_public_key)
+        if not os.path.exists(cafile):
+            raise FileNotFoundError(f'{cafile} not found')
     else:
         cafile = None
     if cyphers_file:
-        with open(os.path.join(ca_folder, cyphers_file)) as f:
+        cyphers_file_path = os.path.join(ca_folder, cyphers_file)
+        if not os.path.exists(cyphers_file_path):
+            raise FileNotFoundError(f'{cyphers_file_path} not found')
+        with open(cyphers_file_path, encoding='utf-8') as file:
             while True:
                 # allow comment lines, starting with #
-                cyphers = f.readline()
-                if len(cyphers) == 0: # end of file reached without having found a valid line
+                cyphers = file.readline()
+                if len(cyphers) == 0:  # end of file reached without having found a valid line
                     cyphers = None
                     break
                 cyphers = cyphers.strip()
@@ -52,7 +62,7 @@ def mk_ssl_context(key_file,
     :param key_file: the private key pem file of the user
     :param cert_file: the signed certificate of the user
     :param ca_file: optional public key of the certificate authority that signed the certificate; if given,
-                   verify_mode of sslContext will be set to CERT_REQUIRED
+                   verify_mode of ssl_context will be set to CERT_REQUIRED
     :param cyphers: optional cyphers string
     :param ssl_passwd: optional password string
     :return: SSLContext instance

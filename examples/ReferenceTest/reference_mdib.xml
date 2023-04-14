@@ -34,7 +34,7 @@
 					<pm:Operation Handle="actop.mds0_sco_0"
 						xsi:type="pm:ActivateOperationDescriptor"
 						SafetyClassification="MedC" OperationTarget="mds0"
-						MaxTimeToFinish="PT1S" Retriggerable="true" AccessLevel="Usr">
+						MaxTimeToFinish="PT2S" Retriggerable="true" AccessLevel="Usr">
 						<pm:Type Code="196279"> <!-- 2:65.207 -->
 							<pm:ConceptDescription Lang="en-US">dummy activate operation</pm:ConceptDescription>
 						</pm:Type>
@@ -190,7 +190,7 @@
 						<pm:Operation Handle="actop.vmd1_sco_0"
 							xsi:type="pm:ActivateOperationDescriptor"
 							SafetyClassification="MedC" OperationTarget="mds0"
-							MaxTimeToFinish="PT1S" Retriggerable="true" AccessLevel="Usr">
+							MaxTimeToFinish="PT2S" Retriggerable="true" AccessLevel="Usr">
 							<pm:Type Code="196279"> <!-- 2:65.207 -->
 								<pm:ConceptDescription Lang="en-US">dummy activate operation</pm:ConceptDescription>
 							</pm:Type>
@@ -200,7 +200,7 @@
 							xsi:type="pm:SetValueOperationDescriptor"
 							Handle="numeric.ch0.vmd1_sco_0"
 							OperationTarget="numeric.ch0.vmd1" SafetyClassification="MedA"
-							MaxTimeToFinish="PT1S" Retriggerable="true" AccessLevel="Usr">
+							MaxTimeToFinish="PT2S" Retriggerable="true" AccessLevel="Usr">
 							<pm:Type Code="196276"> <!-- 2:65.204 -->
 								<pm:ConceptDescription Lang="en-US">set numeric metric value</pm:ConceptDescription>
 							</pm:Type>
@@ -210,7 +210,7 @@
 							xsi:type="pm:SetStringOperationDescriptor"
 							Handle="enumstring.ch0.vmd1_sco_0"
 							OperationTarget="enumstring.ch0.vmd1" SafetyClassification="MedA"
-							MaxTimeToFinish="PT1S" Retriggerable="true" AccessLevel="Usr">
+							MaxTimeToFinish="PT2S" Retriggerable="true" AccessLevel="Usr">
 							<pm:Type Code="196277"> <!-- 2:65.205 -->
 								<pm:ConceptDescription Lang="en-US">set enum string metric value</pm:ConceptDescription>
 							</pm:Type>
@@ -220,7 +220,7 @@
 							xsi:type="pm:SetStringOperationDescriptor"
 							Handle="string.ch0.vmd1_sco_0"
 							OperationTarget="string.ch0.vmd1" SafetyClassification="MedA"
-							MaxTimeToFinish="PT1S" Retriggerable="true" AccessLevel="Usr">
+							MaxTimeToFinish="PT2S" Retriggerable="true" AccessLevel="Usr">
 							<pm:Type Code="196278"> <!-- 2:65.206 -->
 								<pm:ConceptDescription Lang="en-US">set string metric value</pm:ConceptDescription>
 							</pm:Type>

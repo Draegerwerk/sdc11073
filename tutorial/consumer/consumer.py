@@ -1,6 +1,7 @@
+import time
 import uuid
-from sdc11073 import pmtypes
-from sdc11073.namespaces import domTag
+from sdc11073.xml_types import pm_types
+from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.wsdiscovery import WSDiscoverySingleAdapter
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.sdcclient import SdcClient
@@ -24,13 +25,13 @@ def setEnsembleContext(theMDIB, theClient):
     # calling operation on remote device 
     print("Trying to set ensemble context of device A")
     # first we get the container to the element in the MDIB
-    descriptorContainer = theMDIB.descriptions.NODETYPE.getOne(domTag('EnsembleContextDescriptor'))
+    descriptorContainer = theMDIB.descriptions.NODETYPE.getOne(pm.EnsembleContextDescriptor)
     # get the context of our provider(client)
     contextClient = theClient.ContextService_client
     # start with empty operation handle and try to find the one we need
     operationHandle = None
     # iterate over all matching handles (can be 0..n)
-    for oneOp in theMDIB.descriptions.NODETYPE.get(domTag('SetContextStateOperationDescriptor'), []):
+    for oneOp in theMDIB.descriptions.NODETYPE.get(pm.SetContextStateOperationDescriptor, []):
         if oneOp.OperationTarget == descriptorContainer.handle:
             operationHandle = oneOp.Handle
     # now we should have a operatoin handle to work with
@@ -38,7 +39,7 @@ def setEnsembleContext(theMDIB, theClient):
     newEnsembleContext = contextClient.mkProposedContextObject(descriptorContainer.handle)
     newEnsembleContext.ContextAssociation = 'Assoc'
     newEnsembleContext.Identification = [
-        pmtypes.InstanceIdentifier(root="1.2.3", extensionString="SupervisorSuperEnsemble")]
+        pm_types.InstanceIdentifier(root="1.2.3", extension_string="SupervisorSuperEnsemble")]
     # execute the remote operation (based on handle) with the newly created ensemble as parameter
     contextClient.setContextState(operationHandle, [newEnsembleContext])
 
@@ -57,7 +58,7 @@ if __name__ == '__main__':
         # we now search explicitly for MedicalDevices on the network
         # this will send a probe to the network and wait for responses
         # See MDPWS discovery mechanisms for details
-        services = myDiscovery.searchServices(types=SDC_v1_Definitions.MedicalDeviceTypesFilter)
+        services = myDiscovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter)
 
         # now iterate through the discovered services to check if we foundDevice
         # the specific provider we search for
@@ -69,25 +70,27 @@ if __name__ == '__main__':
                     print("Got a match: {}".format(oneService))
                     # now create a new SDCClient (=Consumer) that can be used
                     # for all interactions with the communication partner
-                    my_client = SdcClient.fromWsdService(oneService)
+                    my_client = SdcClient.from_wsd_service(oneService)
                     # start all services on the client to make sure we get updates
                     my_client.startAll()
                     # all data interactions happen through the MDIB (MedicalDeviceInformationBase)
                     # that contains data as described in the BICEPS standard
                     # this variable will contain the data from the provider
                     my_mdib = ClientMdibContainer(my_client)
-                    my_mdib.initMdib()
+                    my_mdib.init_mdib()
                     # we can subscribe to updates in the MDIB through the 
                     # Observable Properties in order to get a callback on
                     # specific changes in the MDIB
                     observableproperties.bind(my_mdib, metricsByHandle=onMetricUpdate)
                     # in order to end the 'scan' loop 
                     foundDevice = True
+
+                    # now we demonstrate how to call a remote operation on the consumer
+                    setEnsembleContext(my_mdib, my_client)
             except:
                 print("Problem in discovery, ignoring it")
-    # now we demonstrate how to call a remote operation on the consumer
-    setEnsembleContext(my_mdib, my_client)
-    
+
+
     # endless loop to keep the client running and get notified on metric changes through callback
     while True:
-        pass
+        time.sleep(1)
