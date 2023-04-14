@@ -18,7 +18,7 @@ SAMPLES = {"0x34F05506": (5.566406, 5.712891, 5.712891, 5.712891, 5.800781),
            "0x34F05501": (0.1, -0.1, 1.0, 2.0, 3.0),
            "0x34F05500": (3.198242, 3.198242, 3.198242, 3.198242, 3.163574, 1.1)}
 
-WfReport_draft6 = u'''<?xml version="1.0" encoding="utf-8"?>
+WfReport_draft6 = u"""<?xml version="1.0" encoding="utf-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
 xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding"
 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -78,7 +78,7 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
     </msg:WaveformStreamReport>
   </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>
-'''.format(obs_time=observationTime_ms, 
+""".format(obs_time=observationTime_ms, 
            array1=' '.join([str(n) for n in SAMPLES["0x34F05506"]]),
            array2=' '.join([str(n) for n in SAMPLES["0x34F05501"]]),
            array3=' '.join([str(n) for n in SAMPLES["0x34F05500"]]),
@@ -88,7 +88,7 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
           )
 
 
-WfReport_draft10 = u'''<?xml version="1.0" encoding="utf-8"?>
+WfReport_draft10 = u"""<?xml version="1.0" encoding="utf-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
 xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding"
 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -148,7 +148,7 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
     </msg:WaveformStream>
   </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>
-'''.format(obs_time=observationTime_ms, 
+""".format(obs_time=observationTime_ms, 
            array1=' '.join([str(n) for n in SAMPLES["0x34F05506"]]),
            array2=' '.join([str(n) for n in SAMPLES["0x34F05501"]]),
            array3=' '.join([str(n) for n in SAMPLES["0x34F05500"]]),
@@ -170,7 +170,7 @@ class TestClientWaveform(unittest.TestCase):
 
 
     def test_basic_handling(self):
-        ''' call _onWaveformReport method directly. Verify that observable is a WaveformStream Element'''
+        """ call _onWaveformReport method directly. Verify that observable is a WaveformStream Element"""
 
         # same test for draft10 version
         cl = self.sdcClient_final
@@ -181,7 +181,7 @@ class TestClientWaveform(unittest.TestCase):
 
 
     def test_stream_handling(self):
-        ''' Connect a mdib with client. Call _onWaveformReport method directly. Verify that observable is a WaveformStream Element'''
+        """ Connect a mdib with client. Call _onWaveformReport method directly. Verify that observable is a WaveformStream Element"""
         my_handles = ('0x34F05506', '0x34F05501', '0x34F05500')
         for cl, wfReport in ((self.sdcClient_final, WfReport_draft10),):
             clientmdib = sdc11073.mdib.ClientMdibContainer(cl)

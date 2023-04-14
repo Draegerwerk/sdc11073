@@ -47,7 +47,7 @@ class MockWsDiscovery(object):
 
 
 class TestDevSubscription(_DevSubscription):
-    ''' Can be used instead of real Subscription objects'''
+    """ Can be used instead of real Subscription objects"""
     mode = 'SomeMode'
     notifyTo = 'http://self.com:123'
     identifier = '0815'

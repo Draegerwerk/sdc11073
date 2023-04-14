@@ -54,8 +54,8 @@ class AbstractStateContainer(ContainerBase):
         return node
 
     def updateFromNode(self, node):
-        ''' update self.node with node, and set members.
-        Accept node only if descriptorHandle matches'''
+        """ update self.node with node, and set members.
+        Accept node only if descriptorHandle matches"""
         descriptorHandle = node.get('DescriptorHandle')
         if self.descriptorHandle is not None and descriptorHandle != self.descriptorHandle:
             raise RuntimeError(
@@ -139,9 +139,9 @@ class SetAlertStateOperationStateContainer(AbstractOperationStateContainer):
 
 
 class AbstractMetricStateContainer_Base(AbstractStateContainer):
-    '''
+    """
     This class is not in the xml schema hierarchy, it only helps to centrally implement functionality
-    '''
+    """
     isMetricState = True
 
     @property
@@ -374,8 +374,8 @@ class AbstractMultiStateContainer(AbstractStateContainer):
             self.Handle = uuid.uuid4().hex
 
     def updateFromNode(self, node):
-        ''' update self.node with node, and set members.
-        Accept node only if descriptorHandle and Handle match'''
+        """ update self.node with node, and set members.
+        Accept node only if descriptorHandle and Handle match"""
         if self.Handle is not None:  # if self.handle is None, this is an initial init from node, no check for equality.
             handle = node.get('Handle')
 
@@ -460,8 +460,8 @@ class PatientContextStateContainer(AbstractContextStateContainer):
               'Height', 'Weight', 'Race')
 
     def setBirthdate(self, dateTimeOfBirth_string):
-        ''' this method accepts a string, format acc. to XML Schema: xsd:dateTime, xsd:date, xsd:gYearMonth or xsd:gYear
-        Internally it holds it as a datetime object, so specific formatting of the dateTimeOfBirth_string will be lost.'''
+        """ this method accepts a string, format acc. to XML Schema: xsd:dateTime, xsd:date, xsd:gYearMonth or xsd:gYear
+        Internally it holds it as a datetime object, so specific formatting of the dateTimeOfBirth_string will be lost."""
         if not dateTimeOfBirth_string:
             self.DateOfBirth = None
         else:
@@ -501,7 +501,7 @@ _state_lookup_by_type = dict([(c.NODETYPE, c) for c in classes_with_NODETYPE])
 
 
 def getContainerClass(qNameType):
-    '''
+    """
     @param qNameType: a QName instance
-    '''
+    """
     return _state_lookup_by_type.get(qNameType)

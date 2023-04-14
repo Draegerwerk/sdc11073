@@ -12,7 +12,7 @@ def mk_schema_validator(schema_resolver: etree_.Resolver) -> etree_.XMLSchema:
     parser = etree_.XMLParser(resolve_entities=True)
     parser.resolvers.add(schema_resolver)
     # create a schema that includes all used schemas into a single one
-    all_included = f'''<?xml version="1.0" encoding="UTF-8"?>
+    all_included = f"""<?xml version="1.0" encoding="UTF-8"?>
     <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
      <xsd:import namespace="http://www.w3.org/2003/05/soap-envelope" schemaLocation="http://www.w3.org/2003/05/soap-envelope"/>
      <xsd:import namespace="http://schemas.xmlsoap.org/ws/2004/08/eventing" schemaLocation="http://schemas.xmlsoap.org/ws/2004/08/eventing"/>
@@ -22,7 +22,7 @@ def mk_schema_validator(schema_resolver: etree_.Resolver) -> etree_.XMLSchema:
      <xsd:import namespace="http://www.w3.org/2005/08/addressing" schemaLocation="http://www.w3.org/2006/03/addressing/ws-addr.xsd"/>
      <xsd:import namespace="http://schemas.xmlsoap.org/wsdl/" schemaLocation="http://schemas.xmlsoap.org/wsdl/"/>
      <xsd:import namespace="{Prefixes.MSG.namespace}" schemaLocation="http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd"/>
-     </xsd:schema>'''.encode('utf-8')
+     </xsd:schema>""".encode('utf-8')
 
     elem_tree = etree_.fromstring(all_included, parser=parser, base_url='C://')
     return etree_.XMLSchema(etree=elem_tree)

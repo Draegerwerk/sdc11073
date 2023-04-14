@@ -9,7 +9,7 @@ class MdibStructureError(Exception):
 
 
 class MessageReader(object):
-    ''' This class does all the conversions from DOM trees (body of SOAP messages) to MDIB objects.'''
+    """ This class does all the conversions from DOM trees (body of SOAP messages) to MDIB objects."""
     def __init__(self, mdib):
         self._mdib = mdib
         self._logger = mdib.logger
@@ -18,12 +18,12 @@ class MessageReader(object):
 
     @staticmethod
     def getMdibRootNode(sdc_definitions, xml_text):
-        '''
+        """
         Creates a normalized and validated elementtree from xml_text.
         normalizing means that draft6 or final BICEPS namespaces are replaced by an standardized internal namespace.
         :param xml_text: xml document
         :return: elementtree node of the root element
-        '''
+        """
         xml_text = sdc_definitions.normalizeXMLText(xml_text)
         parser = etree_.ETCompatXMLParser(remove_comments=True, remove_blank_text=True)
         root = etree_.fromstring(xml_text, parser=parser, base_url=None)
@@ -37,11 +37,11 @@ class MessageReader(object):
 
 
     def readMdDescription(self, node):
-        '''
+        """
         Parses a GetMdDescriptionResponse or the MdDescription part of GetMdibResponse
         :param node: An etree node
         :return: a list of DescriptorContainer objects, sorted depth last
-        '''
+        """
         descriptions = []
         mdDescriptionNodes = node.xpath('//dom:MdDescription', namespaces=namespaces.nsmap)
         if not mdDescriptionNodes:
@@ -67,13 +67,13 @@ class MessageReader(object):
 
 
     def readMdState(self, node, additionalDescriptorContainers=None):
-        '''
+        """
         Parses a GetMdStateResponse or the MdState part of GetMdibResponse
         :param node: A node that contains MdState nodes
         :param additionalDescriptorContainers: a list of descriptor containers that can also be used for state creation
                 (typically used if descriptors and states are created in the same transaction. In that case the descriptors are not yet part of mdib.)
         :return: a list of state containers
-        '''
+        """
         stateContainers = []
         mdStateNodes = node.xpath('//dom:MdState', namespaces=namespaces.nsmap)
         if mdStateNodes:
@@ -87,12 +87,12 @@ class MessageReader(object):
 
 
     def readContextState(self, getContextStatesResponseNode):
-        ''' Creates Context State Containers from dom tree.
+        """ Creates Context State Containers from dom tree.
         @param getContextstatesResponseNode: node "getContextStatesResponse" of getContextStates.
         :param additionalDescriptorContainers: a list of descriptor containers that can also be used for state creation
                 (typically used if descriptors and states are created in the same transaction. In that case the descriptors are not yet part of mdib.)
         @return: a list of state containers
-        '''
+        """
         states = []
         contextStateNodes = list(getContextStatesResponseNode) # list of msg:ContextStatenodes
         for contextStateNode in contextStateNodes:
@@ -107,12 +107,12 @@ class MessageReader(object):
 
 
     def mkDescriptorContainerFromNode(self, node, parentHandle):
-        '''
+        """
 
         :param node: a descriptor node
         :param parentHandle: the handle of the parent
         :return: a DescriptorContainer object representing the content of node
-        '''
+        """
         nodeType = node.get(namespaces.QN_TYPE)
         if nodeType is not None:
             nodeType = namespaces.txt2QName(nodeType, node.nsmap)
@@ -123,10 +123,10 @@ class MessageReader(object):
 
 
     def mkStateContainerFromNode(self, node, forcedType=None, additionalDescriptorContainers = None):
-        '''
+        """
         @param node: a etree node
         @param forcedType: if given, the QName that shall be used for class instantiation instead of the data in node
-        '''
+        """
         if forcedType is not None:
             nodeType = forcedType
         else:
@@ -167,11 +167,11 @@ class MessageReader(object):
 
 
     def readWaveformReport(self, reportNode):
-        '''
+        """
         Parses a waveform report
         :param reportNode: A waveform report etree
         :return: a list of StateContainer objects
-        '''
+        """
         states = []
         allSampleArrays = list(reportNode)
         for sampleArray in allSampleArrays:
@@ -182,11 +182,11 @@ class MessageReader(object):
 
 
     def readEpisodicMetricReport(self, reportNode):
-        '''
+        """
         Parses an episodic metric report
         :param reportNode:  An episodic metric report etree
         :return: a list of StateContainer objects
-        '''
+        """
         states = []
         reportPartNodes = reportNode.xpath('msg:ReportPart', namespaces=namespaces.nsmap)
         for reportPartNode in reportPartNodes:
@@ -195,11 +195,11 @@ class MessageReader(object):
 
 
     def readEpisodicAlertReport(self, reportNode):
-        '''
+        """
         Parses an episodic alert report
         :param reportNode:  An episodic alert report etree
         :return: a list of StateContainer objects
-        '''
+        """
         states = []
         allAlerts = reportNode.xpath('msg:ReportPart/msg:AlertState', namespaces=namespaces.nsmap)
         for alert in allAlerts:
@@ -209,11 +209,11 @@ class MessageReader(object):
 
 
     def readOperationalStateReport(self, reportNode):
-        '''
+        """
         Parses an operational state report
         :param reportNode:  An operational state report etree
         :return: a list of StateContainer objects
-        '''
+        """
         states = []
         allOperationStateNodes = reportNode.xpath('msg:ReportPart/msg:OperationState', namespaces=namespaces.nsmap)
         for opStateNode in allOperationStateNodes:
@@ -223,11 +223,11 @@ class MessageReader(object):
 
 
     def readEpisodicContextReport(self, reportNode):
-        '''
+        """
         Parses an episodic context report
         :param reportNode:  An episodic context report etree
         :return: a list of StateContainer objects
-        '''
+        """
         states = []
         reportPartNodes = reportNode.xpath('msg:ReportPart', namespaces=namespaces.nsmap)
         for reportPartNode in reportPartNodes:
@@ -237,11 +237,11 @@ class MessageReader(object):
 
 
     def readEpisodicComponentReport(self, reportNode):
-        '''
+        """
         Parses an episodic component report
         :param reportNode:  An episodic component report etree
         :return: a list of StateContainer objects
-        '''
+        """
         states = []
         componentStateNodes = reportNode.xpath('msg:ReportPart/msg:ComponentState', namespaces=namespaces.nsmap)
         for componentState in componentStateNodes:
@@ -251,11 +251,11 @@ class MessageReader(object):
 
 
     def readDescriptionModificationReport(self, reportNode):
-        '''
+        """
         Parses a description modification report
         :param reportNode:  A description modification report etree
         :return: a list of DescriptorContainer objects
-        '''
+        """
         descriptors_list = []
         reportParts = list(reportNode) # list of msg:ReportPart nodes
         for reportPart in reportParts:

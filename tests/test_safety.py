@@ -5,7 +5,7 @@ from sdc11073.namespaces import Prefix_Namespace as Prefix
 from sdc11073.namespaces import nsmap
 
 # a wsdl taken from safety example
-safety_mdib_response = '''<?xml version="1.0" encoding="UTF-8"?>
+safety_mdib_response = """<?xml version="1.0" encoding="UTF-8"?>
 <msg:GetMdibResponse xmlns:dom="{dom}" xmlns:ext="{ext}" xmlns:msg="{msg}" xmlns:si="{si}" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://message-model-uri/15/04 ../BICEPS_MessageModel.xsd http://safety-information-uri/15/08 ../SafetyInformation.xsd" dom:MDIBVersion="4294967295">
     <msg:Mdib dom:MDIBVersion="4294967295">
         <dom:MdDescription DescriptionVersion="4294967295">
@@ -50,7 +50,7 @@ safety_mdib_response = '''<?xml version="1.0" encoding="UTF-8"?>
         </dom:MdState>
     </msg:Mdib>
 </msg:GetMdibResponse>
-'''.format(msg=Prefix.MSG.prefix, ext=Prefix.EXT.prefix, dom=Prefix.PM.prefix, si=Prefix.MDPWS.prefix)
+""".format(msg=Prefix.MSG.prefix, ext=Prefix.EXT.prefix, dom=Prefix.PM.prefix, si=Prefix.MDPWS.prefix)
 
 
 def parseXMLString(xmlString, **kwargs):

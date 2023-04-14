@@ -12,9 +12,9 @@ class NullConverter(object):
 
 
 class TimestampConverter(object):
-    ''' XML representation: integer, representing timestamp in milliseconds
+    """ XML representation: integer, representing timestamp in milliseconds
      Python representation: float in seconds
-    '''
+    """
     @staticmethod
     def toPy(xmlValue):
         return float(xmlValue) / 1000.0

@@ -4,10 +4,10 @@ from .definitions_base import ProtocolsRegistry
 
 # class BicepsSchema(object):
 #     def __init__(self, definition_cls):
-#         '''
+#         """
 #
 #         :param base_definition_cls: a class derived from BaseDefinitions, it contains paths to xml schema files
-#         '''
+#         """
 #         self.parser = etree_.ETCompatXMLParser()
 #         self._versionRef = definition_cls
 #         self.parser.resolvers.add(self._versionRef.schemaResolver)
@@ -49,9 +49,9 @@ def _shortActionString(action):
 
 
 def shortFilterString(actions):
-    '''
+    """
     Helper function to make shorter action strings for logging
     :param actions: list of strings
     :return: a comma separated string of shortened names
-    '''
+    """
     return ', '.join([_shortActionString(a) for a in actions])

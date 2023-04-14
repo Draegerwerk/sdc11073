@@ -1,7 +1,7 @@
 from collections import defaultdict, namedtuple
 from threading import RLock
 
-'''
+"""
 This module implements an in-memory table with indices for faster access to objects.
 Example: You have a class 
 class Person:
@@ -26,20 +26,20 @@ person_lookup.addObject(Person('Agnes', 'Miller', 42)
 accessing by index:
 all_millers = person_lookup.by_lastname.get('Miller')
 all_42_agers = person_lookup.by_age.get(42)
-'''
+"""
 
 
 class IndexDefinition(dict):
-    ''' An index allows to group objects by values.
+    """ An index allows to group objects by values.
     This is a dictionary that has lists ob objects as value.
-    Each list contains objects that have the same key member'''
+    Each list contains objects that have the same key member"""
 
     def __init__(self, getKeyFunc, indexNoneValues=True):
-        '''
+        """
         :param getKeyFunc: a callable that returns a key value from a given object
         :param indexNoneValues: if True, a None key is handled like every other value.
                                 if False,a None key is not added to index.
-        '''
+        """
         super(IndexDefinition, self).__init__()
         self._getKeyFunc = getKeyFunc
         self._indexNoneValues = indexNoneValues
@@ -76,7 +76,7 @@ class IndexDefinition(dict):
 
 
 class UIndexDefinition(IndexDefinition):
-    ''' A unique Index, there can only be one object with that key'''
+    """ A unique Index, there can only be one object with that key"""
 
     def _mkKeys(self, obj):
         keys = self._getKeyFunc(obj)
@@ -95,7 +95,7 @@ class UIndexDefinition(IndexDefinition):
 
 
 class IndexDefinition1n(IndexDefinition):
-    ''' For member values that are a list of keys (1:n relationship)'''
+    """ For member values that are a list of keys (1:n relationship)"""
 
     def _mkKeys(self, obj):
         keys = self._getKeyFunc(obj)
@@ -114,7 +114,7 @@ class ObjectSelector(object):
         self.objects = selectedObjects
 
     def find(self, **kwargs):
-        ''' OR combination of args. Values are compared for equality (==), not identity (is).'''
+        """ OR combination of args. Values are compared for equality (==), not identity (is)."""
         result = []
         for o in self.objects:
             for name, value in kwargs.items():

@@ -12,7 +12,7 @@ from . import containerproperties as cp
 
 
 class AbstractDescriptorContainer(ContainerBase):
-    '''
+    """
     This class represents the AbstractDescriptor type. It contains a DOM node of a descriptor.
     For convenience it makes some data of that node available as members:
     nodeName: QName of the node
@@ -22,7 +22,7 @@ class AbstractDescriptorContainer(ContainerBase):
     descriptorVersion: int
     codingSystem
     codeId
-    '''
+    """
     # these class variables allow easy type-checking. Derived classes will set corresponding values to True
     isSystemContextDescriptor = False
     isRealtimeSampleArrayMetricDescriptor = False
@@ -107,7 +107,7 @@ class AbstractDescriptorContainer(ContainerBase):
             self.DescriptorVersion += 1
 
     def updateDescrFromNode(self, node):
-        ''' This is a node msg:Descriptor'''
+        """ This is a node msg:Descriptor"""
         # first verify that node is the same identification data as self.node
         newHandle = node.get('Handle')
 
@@ -125,7 +125,7 @@ class AbstractDescriptorContainer(ContainerBase):
 
     def updateNode(self, setXsiType=False):
         return
-#        ''' deprecated, remove!'''
+#        """ deprecated, remove!"""
 #        self.node = self.mkNode(setXsiType=setXsiType)
 
     def connectChildContainers(self, node, containers):
@@ -154,7 +154,7 @@ class AbstractDescriptorContainer(ContainerBase):
         return [c.handle for c in self.getOrderedChildContainers()]
 
     def getActualValue(self, attr_name):
-        ''' ignores default value and implied value, e.g. returns None if value is not present in xml'''
+        """ ignores default value and implied value, e.g. returns None if value is not present in xml"""
         return getattr(self.__class__, attr_name).getActualValue(self)
 
     def _connectChildNodes(self, node, containers):
@@ -167,9 +167,9 @@ class AbstractDescriptorContainer(ContainerBase):
         return ret
 
     def _sortedContainerProperties(self):
-        '''
+        """
         @return: a list of (name, object) tuples of all GenericProperties ( and subclasses)
-        '''
+        """
         ret = []
         classes = inspect.getmro(self.__class__)
         for cls in reversed(classes):
@@ -184,9 +184,9 @@ class AbstractDescriptorContainer(ContainerBase):
         return ret
 
     def _sortedChildNames(self):
-        '''
+        """
         @return: a list of QNames
-        '''
+        """
         ret = []
         classes = inspect.getmro(self.__class__)
         for cls in reversed(classes):
@@ -198,12 +198,12 @@ class AbstractDescriptorContainer(ContainerBase):
         return ret
 
     def mkDescriptorNode(self, setXsiType=True, tag=None):
-        '''
+        """
         Creates a lxml etree node from instance data.
         :param setXsiType:
         :param tag: tag of node, defaults to self.nodeName
         :return: an etree node
-        '''
+        """
         myTag = tag or self.nodeName
         node = etree_.Element(myTag, attrib={'Handle': self.handle},
                               nsmap = self.nsmapper.partialMap(Prefix.PM, Prefix.XSI))
@@ -213,10 +213,10 @@ class AbstractDescriptorContainer(ContainerBase):
         return node
 
     def _sortChildNodes(self, node, ordered_tags):
-        '''
+        """
         raises an ValueError if a child node exist that is not listed in ordered_tags
         @param ordered_tags: a list of QNames
-        '''
+        """
         not_in_order = [n for n in node if n.tag not in ordered_tags]
         if len(not_in_order) > 0:
             raise ValueError('{}: not in Order:{} node={}, order={}'.format(self.__class__.__name__,
@@ -301,7 +301,7 @@ class MdsDescriptorContainer(AbstractComplexDeviceComponentDescriptorContainer):
             self._sortChildNodes(metaDataNode, order)
 
     def mkDescriptorNode(self, setXsiType=True, tag=None):
-        '''returns a node without any child with a handle'''
+        """returns a node without any child with a handle"""
         node = super(MdsDescriptorContainer, self).mkDescriptorNode(setXsiType, tag)
         self._sortMetaData(node)
         return node
@@ -489,17 +489,17 @@ class ActivateOperationDescriptorContainer(AbstractSetStateOperationDescriptor):
 
 
 class AbstractAlertDescriptorContainer(AbstractDescriptorContainer):
-    '''AbstractAlertDescriptor acts as a base class for all alert descriptors that contain static alert meta information.
-     This class has nor specific data.''' 
+    """AbstractAlertDescriptor acts as a base class for all alert descriptors that contain static alert meta information.
+     This class has nor specific data.""" 
     isAlertDescriptor = True
 
 
 class AlertSystemDescriptorContainer(AbstractAlertDescriptorContainer):
-    '''AlertSystemDescriptor describes an ALERT SYSTEM to detect ALERT CONDITIONs and generate ALERT SIGNALs, 
+    """AlertSystemDescriptor describes an ALERT SYSTEM to detect ALERT CONDITIONs and generate ALERT SIGNALs, 
     which belong to specific ALERT CONDITIONs.
     ALERT CONDITIONs are represented by a list of pm:AlertConditionDescriptor ELEMENTs and 
     ALERT SIGNALs are represented by a list of pm:AlertSignalDescriptor ELEMENTs.
-    '''
+    """
     NODETYPE = domTag('AlertSystemDescriptor')
     STATE_QNAME = domTag('AlertSystemState')
     MaxPhysiologicalParallelAlarms = cp.IntegerAttributeProperty('MaxPhysiologicalParallelAlarms')
@@ -511,8 +511,8 @@ class AlertSystemDescriptorContainer(AbstractAlertDescriptorContainer):
 
 
 class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
-    '''An ALERT CONDITION contains the information about a potentially or actually HAZARDOUS SITUATION.
-      Examples: a physiological alarm limit has been exceeded or a sensor has been unplugged.'''
+    """An ALERT CONDITION contains the information about a potentially or actually HAZARDOUS SITUATION.
+      Examples: a physiological alarm limit has been exceeded or a sensor has been unplugged."""
     isAlertConditionDescriptor = True
     NODETYPE = domTag('AlertConditionDescriptor')
     STATE_QNAME = domTag('AlertConditionState')
@@ -649,8 +649,8 @@ _name_class_lookup = {
     }
 
 def getContainerClass(qNameType):
-    '''
+    """
     @param qNameType: a QName instance
-    '''
+    """
     # first check type, this is more specific. 
     return _name_class_lookup.get(qNameType)

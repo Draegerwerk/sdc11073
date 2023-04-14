@@ -12,13 +12,13 @@ from sdc11073 import namespaces
 from .mdib import containerproperties as cp
 from math import isclose
 
-'''
+"""
 Interface of  pmTypes:
 
 fromEtreeNode (class method) is a constructor that is used to create a type object from XML node
 
 asEtreeNode: returns an etree node that represents the object
-'''
+"""
 
 
 class PropertyBasedPMType(object):
@@ -90,7 +90,7 @@ class PropertyBasedPMType(object):
 class ElementWithTextOnly(PropertyBasedPMType):
     text = cp.NodeTextProperty()  # this is the text of the node. Here attribute is lower case!
     _props = ['text']
-    '''An Element that has no attributes, only a text.'''
+    """An Element that has no attributes, only a text."""
 
     def __init__(self, text):
         self.text = text
@@ -108,7 +108,7 @@ class LocalizedText(PropertyBasedPMType):
     Version = cp.IntegerAttributeProperty('Version')
     TextWidth = cp.NodeAttributeProperty('TextWidth')  # one of xs, s, m, l, xl, xxl
     _props = ['text', 'Ref', 'Lang', 'Version', 'TextWidth']
-    ''' Represents a LocalizedText type in the Participant Model. '''
+    """ Represents a LocalizedText type in the Participant Model. """
 
     def __init__(self, text, lang=None, ref=None, version=None, textWidth=None):
         """
@@ -439,8 +439,8 @@ class Annotation(PropertyBasedPMType):
     _props = ['ext_Extension', 'Type']
 
     codedValue = Type
-    ''' An Annotation contains a Type Element that is a CodedValue.
-    This is intended as an immutable object. After it has been created, no modification shall be done. '''
+    """ An Annotation contains a Type Element that is a CodedValue.
+    This is intended as an immutable object. After it has been created, no modification shall be done. """
 
     def __init__(self, codedValue):
         self.Type = codedValue

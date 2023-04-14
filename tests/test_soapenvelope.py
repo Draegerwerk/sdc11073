@@ -6,7 +6,7 @@ from sdc11073.pysoap import soapenvelope
 class TestSoapEnvelope(unittest.TestCase):
 
     def test_soap12_fromXML(self):
-        xml = b'''<?xml version="1.0" encoding="UTF-8"?><env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope">
+        xml = b"""<?xml version="1.0" encoding="UTF-8"?><env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope">
  <env:Header>
   <n:alertcontrol xmlns:n="http://example.org/alertcontrol">
    <n:priority>1</n:priority>
@@ -18,7 +18,7 @@ class TestSoapEnvelope(unittest.TestCase):
    <m:msg>Pick up Mary at school at 2pm</m:msg>
   </m:alert>
  </env:Body>
-</env:Envelope>'''
+</env:Envelope>"""
         env = soapenvelope.ReceivedSoap12Envelope.fromXMLString(xml)
 
         # verify that document was parsed
@@ -38,7 +38,7 @@ class TestSoapEnvelope(unittest.TestCase):
         self.assertTrue(env.bodyNode is not None)
 
     def test_adressing_fromXML(self):
-        xml = b'''<?xml version="1.0" encoding="UTF-8"?><env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://www.w3.org/2005/08/addressing">
+        xml = b"""<?xml version="1.0" encoding="UTF-8"?><env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope" xmlns:wsa="http://www.w3.org/2005/08/addressing">
  <env:Header>
     <wsa:MessageID>http://example.com/someuniquestring</wsa:MessageID>
     <wsa:ReplyTo>
@@ -55,7 +55,7 @@ class TestSoapEnvelope(unittest.TestCase):
    <m:msg>Pick up Mary at school at 2pm</m:msg>
   </m:alert>
  </env:Body>
-</env:Envelope>'''
+</env:Envelope>"""
         env = soapenvelope.DPWSEnvelope.fromXMLString(xml)
 
         # verify that document was parsed
@@ -70,7 +70,7 @@ class TestSoapEnvelope(unittest.TestCase):
         self.assertEqual(env.address.action, 'http://example.com/fabrikam/mail/Delete')
 
     def test_DeviceCharacteristics_fromXML(self):
-        xml = b'''<?xml version="1.0" encoding="UTF-8"?><env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope" 
+        xml = b"""<?xml version="1.0" encoding="UTF-8"?><env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope" 
            xmlns:wsa="http://www.w3.org/2005/08/addressing"
            xmlns:wsx="http://schemas.xmlsoap.org/ws/2004/09/mex"
            xmlns:dpws="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01">
@@ -104,7 +104,7 @@ class TestSoapEnvelope(unittest.TestCase):
     </wsx:MetadataSection> 
    </wsx:Metadata>
  </env:Body>
-</env:Envelope>'''
+</env:Envelope>"""
         env = soapenvelope.DPWSEnvelope.fromXMLString(xml)
 
         # verify that document was parsed
@@ -121,7 +121,7 @@ class TestSoapEnvelope(unittest.TestCase):
         self.assertEqual(env.thisDevice.serialNumber, '123_abc')
 
     def test_Hosting_fromXML(self):
-        xml = b'''<?xml version="1.0" encoding="UTF-8"?>
+        xml = b"""<?xml version="1.0" encoding="UTF-8"?>
         <env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope" 
            xmlns:wsa="http://www.w3.org/2005/08/addressing"
            xmlns:wsx="http://schemas.xmlsoap.org/ws/2004/09/mex"
@@ -156,7 +156,7 @@ class TestSoapEnvelope(unittest.TestCase):
     </wsx:MetadataSection> 
    </wsx:Metadata>
  </env:Body>
-</env:Envelope>'''
+</env:Envelope>"""
         env = soapenvelope.DPWSEnvelope.fromXMLString(xml)
 
         # verify that document was parsed

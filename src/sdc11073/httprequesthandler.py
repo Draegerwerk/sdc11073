@@ -36,12 +36,12 @@ def mkchunks(body, chunk_size=512):
 
 
 class HTTPReader(CompressionHandler):
-    ''' Base class that implements decoding of incoming http requests.
+    """ Base class that implements decoding of incoming http requests.
     Supported features:
     - read data by content-length
     - handle chunk-encoding
     - handle compression
-    '''
+    """
     @classmethod
     def _read_dechunk(cls, stream):
         """De-chunk HTTP body stream.
@@ -102,11 +102,11 @@ class HTTPReader(CompressionHandler):
 
     @classmethod
     def read_request_body(cls, http_message, supported_encodings=None):
-        ''' checks header for content-length, chunk-encoding and compression entries.
+        """ checks header for content-length, chunk-encoding and compression entries.
         Handles incoming bytes correspondingly.
         @http_message: a http request or response read from network
         :return: bytes
-        '''
+        """
         http_body = None
         cl_string = http_message.headers.get('content-length')
         if cl_string:
@@ -136,11 +136,11 @@ class HTTPReader(CompressionHandler):
 
     @classmethod
     def read_response_body(cls, http_response, supported_encodings=None):
-        ''' checks header for content-length, chunk-encoding and compression entries.
+        """ checks header for content-length, chunk-encoding and compression entries.
         Handles incoming bytes correspondingly.
         @http_message: a http request or response read from network
         :return: bytes
-        '''
+        """
         http_body = None
         cl_string = http_response.getheader('content-length')
         if cl_string:
@@ -176,24 +176,24 @@ class HTTPReader(CompressionHandler):
 
 
 class HTTPRequestHandler(BaseHTTPRequestHandler, CompressionHandler):
-    ''' Base class that implements decoding of incoming http requests.
+    """ Base class that implements decoding of incoming http requests.
     Supported features:
     - read data by content-length
     - handle chunk-encoding
     - handle compression
-    '''
+    """
     protocol_version = "HTTP/1.1"  # this enables keep-alive
 
     def _read_request(self):
-        ''' checks header for content-length, chunk-encoding and compression entries.
+        """ checks header for content-length, chunk-encoding and compression entries.
         Handles incoming bytes correspondingly.
         :return: http body as bytes
-        '''
+        """
         return HTTPReader.read_request_body(self)
 
     def _compressIfRequired(self, response_bytes):
-        '''Compress response if header of request indicates that other side
-        accepts one of our supported compression encodings'''
+        """Compress response if header of request indicates that other side
+        accepts one of our supported compression encodings"""
         accepted_enc = CompressionHandler.parseHeader(self.headers.get('accept-encoding'))
         for enc in accepted_enc:
             if enc in self.server.supportedEncodings:

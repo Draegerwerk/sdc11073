@@ -53,7 +53,7 @@ class SOAPActionRegistry(object):
         self._getCallbacks[(path, query)] = fn
 
     def _getActionHandler(self, action):
-        ''' returns a callable or None'''
+        """ returns a callable or None"""
         return self._soapActionCallbacks.get(action)
 
     def getActions(self):
@@ -93,7 +93,7 @@ class SOAPActionDispatcher(SOAPActionRegistry):
 
 
 class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
-    ''' receiver of all messages'''
+    """ receiver of all messages"""
 
     def __init__(self, subDispatchers=None):
         super(_SOAPActionDispatcherWithSubDispatchers, self).__init__()
@@ -101,7 +101,7 @@ class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
 
 
     def _getActionHandler(self, action):
-        ''' returns a callable or None'''
+        """ returns a callable or None"""
         fn = self._soapActionCallbacks.get(action)
         if fn is not None:
             return fn
@@ -113,7 +113,7 @@ class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
 
 
     def getActions(self):
-        ''' returns a list of action strings that can be handled.'''
+        """ returns a list of action strings that can be handled."""
         actions =  list(self._soapActionCallbacks.keys())
         for sd in self.subDispatchers:
             actions.extend(sd.getActions())
@@ -125,7 +125,7 @@ class _SOAPActionDispatcherWithSubDispatchers(SOAPActionDispatcher):
 
 
 class EventService(_SOAPActionDispatcherWithSubDispatchers):
-    ''' A service that offers subscriptions'''
+    """ A service that offers subscriptions"""
     def __init__(self, sdcDevice, subDispatchers, offeredSubscriptions):
         super(EventService, self).__init__(subDispatchers)
 
@@ -177,12 +177,12 @@ class EventService(_SOAPActionDispatcherWithSubDispatchers):
 
 
 class DPWSHostedService(EventService):
-    ''' An Endpoint (url) with one or more DPWS Types'''
+    """ An Endpoint (url) with one or more DPWS Types"""
 
     def __init__(self, sdcDevice, base_urls, path_suffix, subDispatchers, offeredSubscriptions):
-        '''
+        """
         @param base_urls: urlparse.SplitResult instances. They define the base addresses of this service
-        '''
+        """
         super(DPWSHostedService, self).__init__(sdcDevice, subDispatchers, offeredSubscriptions)
 
         self._base_urls = base_urls
@@ -209,7 +209,7 @@ class DPWSHostedService(EventService):
 
 
     def _onGetWSDL(self):
-        ''' return wsdl'''
+        """ return wsdl"""
         return self._wsdlString
 
 
@@ -251,7 +251,7 @@ class DPWSHostedService(EventService):
 
 
     def _removeAnnotations(self, root_node):
-        remove_annotations_string = b'''<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+        remove_annotations_string = b"""<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                                       xmlns:xs="http://www.w3.org/2001/XMLSchema">
           <xsl:output method="xml" indent="yes"/>
 
@@ -262,7 +262,7 @@ class DPWSHostedService(EventService):
           </xsl:template>
 
           <xsl:template match="xs:annotation" />
-        </xsl:stylesheet>'''
+        </xsl:stylesheet>"""
         remove_annotations_doc = etree_.parse(BytesIO(remove_annotations_string))
         remove_annotations_xslt = etree_.XSLT(remove_annotations_doc)
         return remove_annotations_xslt(root_node).getroot()
@@ -308,15 +308,15 @@ class DPWSHostedService(EventService):
 
 
 class DPWSPortTypeImpl(SOAPActionRegistry):
-    ''' Base class of all PortType implementations'''
+    """ Base class of all PortType implementations"""
     WSDLOperationBindings = () # overwrite in derived classes
     WSDLMessageDescriptions = () # overwrite in derived classes
 
     def __init__(self, port_type_string, sdcDevice):
-        '''
+        """
         :param port_type_string: port type without namespace, e.g 'Get'
         :param sdcDevice:
-        '''
+        """
         super(DPWSPortTypeImpl, self).__init__()
         self.port_type_string = port_type_string
         self._sdcDevice = sdcDevice
@@ -336,7 +336,7 @@ class DPWSPortTypeImpl(SOAPActionRegistry):
 
 
     def addWsdlMessages(self, parentNode):
-        '''
+        """
         add wsdl:message node to parentNode.
         xml looks like this:
         <wsdl:message name="GetMdDescription">
@@ -344,7 +344,7 @@ class DPWSPortTypeImpl(SOAPActionRegistry):
         </wsdl:message>
         :param parentNode:
         :return:
-        '''
+        """
         for msg in self.WSDLMessageDescriptions:
             elem = etree_.SubElement(parentNode, _wsdl_message, attrib={'name': msg.name})
             for elementName in msg.parameters:
@@ -354,7 +354,7 @@ class DPWSPortTypeImpl(SOAPActionRegistry):
 
 
     def addWsdlBinding(self, parentNode, porttype_prefix):
-        '''
+        """
         add wsdl:binding node to parentNode.
         xml looks like this:
         <wsdl:binding name="GetBinding" type="msg:Get">
@@ -373,7 +373,7 @@ class DPWSPortTypeImpl(SOAPActionRegistry):
         :param parentNode:
         :param porttype_prefix:
         :return:
-        '''
+        """
         v_ref = self._sdcDevice.mdib.sdc_definitions
         wsdl_binding = etree_.SubElement(parentNode, etree_.QName(_wsdl_ns,'binding'),
                                      attrib={'name': self.port_type_string+'Binding', 'type': '{}:{}'.format(porttype_prefix, self.port_type_string)})
@@ -426,13 +426,13 @@ def _mkWsdlOnewayOperation(parentNode, operationName, outputMessageName=None, fa
                             outputMessageName=output_MessageName, fault=fault)
 
 def _addPolicy_dpwsProfile(parentNode):
-    '''
+    """
     :param parentNode:
     :return: <wsp:Policy>
             <dpws:Profile wsp:Optional="true"/>
             <mdpws:Profile wsp:Optional="true"/>
           </wsp:Policy>
-    '''
+    """
     wsp_policyNode = etree_.SubElement(parentNode, etree_.QName(_wsp_ns, 'Policy'), attrib=None)
     _ = etree_.SubElement(wsp_policyNode, dpwsTag('Profile'), attrib={etree_.QName(_wsp_ns, 'Optional'): 'true'})
     _ = etree_.SubElement(wsp_policyNode, mdpwsTag('Profile'), attrib={etree_.QName(_wsp_ns, 'Optional'): 'true'})
@@ -528,12 +528,12 @@ class GetService(DPWSPortTypeImpl):
         return responseSoapEnvelope
 
     def _onGetMdDescription(self, httpHeader, request):  # pylint:disable=unused-argument
-        '''
+        """
         MdDescription comprises the requested set of MDS descriptors. Which MDS descriptors are included depends on the msg:GetMdDescription/msg:HandleRef list:
         - If the HANDLE reference list is empty, all MDS descriptors SHALL be included in the result list.
         - If a HANDLE reference does match an MDS descriptor, it SHALL be included in the result list.
         - If a HANDLE reference does not match an MDS descriptor (any other descriptor), the MDS descriptor that is in the parent tree of the HANDLE reference SHOULD be included in the result list.
-        '''
+        """
         # currently this implementation only supports a single mds.
         # => if at least one handle matches any descriptor, the one mds is returned, otherwise empty payload
 
@@ -569,7 +569,7 @@ class GetService(DPWSPortTypeImpl):
 
 
     def addWsdlPortType(self, parentNode):
-        '''
+        """
         add wsdl:portType node to parentNode.
         xml looks like this:
         <wsdl:portType name="GetService" dpws:DiscoveryType="dt:ServiceProvider">
@@ -584,7 +584,7 @@ class GetService(DPWSPortTypeImpl):
         </wsdl:portType>
         :param parentNode:
         :return:
-        '''
+        """
         if 'dt' in parentNode.nsmap:
             portType = etree_.SubElement(parentNode, etree_.QName(_wsdl_ns,'portType'),
                                          attrib={'name': self.port_type_string,
@@ -668,52 +668,52 @@ class SetService(DPWSPortTypeImpl):
 
 
     def _onActivate(self, httpHeader, request): #pylint:disable=unused-argument
-        '''Handler for Active calls.
-        It enques an operation and generates the expected operation invoked report. '''
+        """Handler for Active calls.
+        It enques an operation and generates the expected operation invoked report. """
         return self._handleOperationRequest(request, 'ActivateResponse')
 
     def _onSetValue(self, httpHeader, request): #pylint:disable=unused-argument
-        '''Handler for SetValue calls.
-        It enques an operation and generates the expected operation invoked report. '''
+        """Handler for SetValue calls.
+        It enques an operation and generates the expected operation invoked report. """
         self._logger.info('_onSetValue')
         ret = self._handleOperationRequest(request, 'SetValueResponse')
         self._logger.info('_onSetValue done')
         return ret
 
     def _onSetString(self, httpHeader, request):  # pylint:disable=unused-argument
-        '''Handler for SetString calls.
-        It enques an operation and generates the expected operation invoked report.'''
+        """Handler for SetString calls.
+        It enques an operation and generates the expected operation invoked report."""
         self._logger.debug('_onSetString')
         return self._handleOperationRequest(request, 'SetStringResponse')
 
     def _onSetMetricState(self, httpHeader, request):  # pylint:disable=unused-argument
-        '''Handler for SetMetricState calls.
-        It enques an operation and generates the expected operation invoked report.'''
+        """Handler for SetMetricState calls.
+        It enques an operation and generates the expected operation invoked report."""
         self._logger.debug('_onSetMetricState')
         return self._handleOperationRequest(request, 'SetMetricStateResponse')
 
 
     def _onSetAlertState(self, httpHeader, request):  # pylint:disable=unused-argument
-        '''Handler for SetMetricState calls.
-        It enques an operation and generates the expected operation invoked report.'''
+        """Handler for SetMetricState calls.
+        It enques an operation and generates the expected operation invoked report."""
         self._logger.debug('_onSetAlertState')
         return self._handleOperationRequest(request, 'SetAlertStateResponse')
 
 
     def _onSetComponentState(self, httpHeader, request):  # pylint:disable=unused-argument
-        '''Handler for SetMetricState calls.
-        It enques an operation and generates the expected operation invoked report.'''
+        """Handler for SetMetricState calls.
+        It enques an operation and generates the expected operation invoked report."""
         self._logger.debug('_onSetAlertState')
         return self._handleOperationRequest(request, 'SetComponentStateResponse')
 
 
     def _handleOperationRequest(self, request, responseName):  # pylint:disable=unused-argument
-        '''
+        """
         It enques an operation and generate the expected operation invoked report.
         :param request:
         :param responseName:
         :return:
-        '''
+        """
         response = pysoap.soapenvelope.Soap12Envelope(self._mdib.nsmapper.partialMap(Prefix.S12, Prefix.WSA))
         replyAddress = request.address.mkReplyAddress(action=self._getActionString(responseName))
         response.addHeaderObject(replyAddress)
@@ -844,7 +844,7 @@ class ContextService(DPWSPortTypeImpl):
         self.register_soapActionCallback(actions.GetContextStates, self._onGetContextStates)
 
     def _onSetContextState(self, httpHeader, request):  # pylint:disable=unused-argument
-        ''' enqueues an operation and returns a 'wait' reponse.'''
+        """ enqueues an operation and returns a 'wait' reponse."""
         response = pysoap.soapenvelope.Soap12Envelope(
             self._mdib.nsmapper.partialMap(Prefix.S12, Prefix.PM, Prefix.WSA, Prefix.MSG))
         replyAddress = request.address.mkReplyAddress(action=self._getActionString('SetContextStateResponse'))

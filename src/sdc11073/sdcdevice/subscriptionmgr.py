@@ -48,12 +48,12 @@ class _DevSubscription(object):
 
     def __init__(self, mode, base_urls, notifyToAddress, notifyRefNode, endToAddress, endToRefNode, expires,
                  max_subscription_duration, filter_, sslContext, acceptedEncodings):  # pylint:disable=too-many-arguments
-        '''
+        """
         @param notifyToAddress: dom node of Subscribe Request
         @param endToAddress: dom node of Subscribe Request
         @param expires: seconds as float
         @param filter: a space separated list of actions, or only one action
-        '''
+        """
         self.mode = mode
         self.base_urls = base_urls
         self.notifyToAddress = notifyToAddress
@@ -710,7 +710,7 @@ class SubscriptionsManager(object):
             self._subscriptions.clear()
 
     def _mkDescriptorUpdatesReportPart(self, parentNode, modificationtype, descriptors, updated_states):
-        ''' Helper that creates ReportPart.'''
+        """ Helper that creates ReportPart."""
         # This method creates one ReportPart for every descriptor.
         # An optimization is possible by grouping all descriptors with the same parent handle into one ReportPart.
         # This is not implemented, and I think it is not needed.
@@ -786,7 +786,7 @@ class SubscriptionsManager(object):
         return subscr[0]
 
     def _doHousekeeping(self):
-        ''' remove expired or invalid subscriptions'''
+        """ remove expired or invalid subscriptions"""
         with self._subscriptions._lock:  # pylint: disable=protected-access
             crap = [s for s in self._subscriptions.objects if not s.isValid]
         unreachable_netlocs = []
@@ -815,10 +815,10 @@ class SubscriptionsManager(object):
                 self._subscriptions.removeObject(s)
 
     def getSubScriptionRoundtripTimes(self):
-        '''Calculates roundtrip times based on last MAX_ROUNDTRIP_VALUES values.
+        """Calculates roundtrip times based on last MAX_ROUNDTRIP_VALUES values.
 
         @return: a dictionary with key=(<notifyToAddress>, (subscriptionnames)), value = _RoundTripData with members min, max, avg, abs_max, values
-        '''
+        """
         ret = {}
         with self._subscriptions.lock:
             for s in self._subscriptions.objects:
@@ -827,10 +827,10 @@ class SubscriptionsManager(object):
         return ret
 
     def getClientRoundtripTimes(self):
-        '''Calculates roundtrip times based on last MAX_ROUNDTRIP_VALUES values.
+        """Calculates roundtrip times based on last MAX_ROUNDTRIP_VALUES values.
 
         @return: a dictionary with key=<notifyToAddress>, value = _RoundTripData with members min, max, avg, abs_max, values
-        '''
+        """
         # first step: collect all roundtrip times of subscriptions, group them by notifyToAddress
         tmp = defaultdict(list)
         ret = {}

@@ -11,20 +11,20 @@ class GenericMetricProvider(providerbase.ProviderRole):
     - SetStringOperation on (enum) string metrics
     """
     def __init__(self, activationStateCanRemoveMetricValue=True, log_prefix=None):
-        '''
+        """
 
         :param activationStateCanRemoveMetricValue: if True, SF717 is handled
                SF717: A Metric Provider shall not provide a MetricValue if the ActivationState = Shtdn|Off|Fail.
-        '''
+        """
         super().__init__(log_prefix)
         self.activationStateCanRemoveMetricValue = activationStateCanRemoveMetricValue
 
     def makeOperationInstance(self, operationDescriptorContainer):
-        ''' Can handle following cases:
+        """ Can handle following cases:
         SetValueOperation, target = NumericMetricDescriptor: => handler = _setNumericValue
         SetStringOperation, target = (Enum)StringMetricDescriptor: => handler = _setString
         SetMetricStateOperationDescriptor, target = any subclass of AbstractMetricDescriptor: => handler = _setMetricState
-        '''
+        """
         operationTargetHandle = operationDescriptorContainer.OperationTarget
         operationTargetDescriptorContainer = self._mdib.descriptions.handle.getOne(operationTargetHandle)
 
@@ -61,12 +61,12 @@ class GenericMetricProvider(providerbase.ProviderRole):
         return None
 
     def _setMetricState(self, operationInstance, value):
-        '''
+        """
 
         :param operationInstance: the operation
         :param value: a list of proposed metric states
         :return:
-        '''
+        """
         #ToDo: consider ModifiableDate attribute
         operationInstance.currentValue = value
         with self._mdib.mdibUpdateTransaction() as mgr:

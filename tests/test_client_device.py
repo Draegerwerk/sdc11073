@@ -186,7 +186,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
 
     def test_childOrdering(self):
-        ''' verify that sockets get closed'''
+        """ verify that sockets get closed"""
         for sdcClient, sdcDevice in self._all_cl_dev:
             cl_mdib = ClientMdibContainer(sdcClient)
             cl_mdib.initMdib()
@@ -204,7 +204,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.assertEqual(cl_obj.orderedChildHandles, dev_obj.orderedChildHandles)
 
     def test_clientStop(self):
-        ''' verify that sockets get closed'''
+        """ verify that sockets get closed"""
         for sdcClient, sdcDevice in self._all_cl_dev:
             cl_mdib = ClientMdibContainer(sdcClient)
             cl_mdib.initMdib()
@@ -219,7 +219,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.assertTrue(s.isClosed())
 
     def test_deviceStop(self):
-        ''' verify that sockets get closed'''
+        """ verify that sockets get closed"""
         for sdcClient, sdcDevice in self._all_cl_dev:
             cl_mdib = ClientMdibContainer(sdcClient)
             cl_mdib.initMdib()
@@ -263,8 +263,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self._all_cl_dev = []
 
     def test_getMdStateParameters(self):
-        ''' verify that getMdState correctly handles call parameters 
-        '''
+        """ verify that getMdState correctly handles call parameters 
+        """
         for sdcClient, _ in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
             node = cl_getService.getMdStateNode(['nonexisting_handle'])
@@ -278,8 +278,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
 
     def test_getMdDescriptionParameters(self):
-        ''' verify that getMdDescription correctly handles call parameters 
-        '''
+        """ verify that getMdDescription correctly handles call parameters 
+        """
         for sdcClient, _ in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
             node = cl_getService.getMdDescriptionNode(['nonexisting_handle'])
@@ -482,9 +482,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                                    '_onEpisodicMetricReport', mdib_version, mdib_version - 99)
 
     def test_setPatientContextOperation(self):
-        '''client calls corresponding operation. 
+        """client calls corresponding operation. 
         - verify that operation is successful.
-         verify that a notification device->client also updates the client mdib.'''
+         verify that a notification device->client also updates the client mdib."""
         for sdcClient, sdcDevice in self._all_cl_dev:
             clientMdib = ClientMdibContainer(sdcClient)
             clientMdib.initMdib()
@@ -615,8 +615,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
 
     def test_setPatientContextOnDevice(self):
-        '''device updates patient. 
-         verify that a notification device->client updates the client mdib.'''
+        """device updates patient. 
+         verify that a notification device->client updates the client mdib."""
         for sdcClient, sdcDevice in self._all_cl_dev:
             clientMdib = ClientMdibContainer(sdcClient)
             clientMdib.initMdib()
@@ -1425,10 +1425,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
             sdcClient.stopAll(unsubscribe=False) # without unsubscribe, is faster and would make no sense anyway
 
     def test_invalid_request(self):
-        '''MDPWS R0012: If a HOSTED SERVICE receives a MESSAGE that is inconsistent with its WSDL description, the HOSTED
+        """MDPWS R0012: If a HOSTED SERVICE receives a MESSAGE that is inconsistent with its WSDL description, the HOSTED
         SERVICE SHOULD generate a SOAP Fault with a Code Value of 'Sender', unless a 'MustUnderstand' or
         'VersionMismatch' Fault is generated
-        '''
+        """
         self.log_watcher.setPaused(True)
         for sdcClient, sdcDevice in self._all_cl_dev:
             sdcClient.GetService_client._validate = False # want to send an invalid request

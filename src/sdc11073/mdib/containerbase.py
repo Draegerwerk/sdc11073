@@ -29,16 +29,16 @@ class ContainerBase(object):
 
 
     def getActualValue(self, attr_name):
-        ''' ignores default value and implied value, e.g. returns None if value is not present in xml'''
+        """ ignores default value and implied value, e.g. returns None if value is not present in xml"""
         return getattr(self.__class__, attr_name).getActualValue(self)
 
 
     def mkNode(self, tag=None, setXsiType=False):
-        '''
+        """
         create a etree node from instance data
         :param tag: tag of the newly created node, defaults to self.NODENAME
         :return: etree node
-        '''
+        """
         myTag = tag or self.NODENAME
         node = etree_.Element(myTag, nsmap=self.nsmapper.partialMap(Prefix.PM, Prefix.MSG, Prefix.XSI))
         self._updateNode(node, setXsiType)
@@ -46,11 +46,11 @@ class ContainerBase(object):
 
 
     def _updateNode(self, node, setXsiType=False):
-        '''
+        """
         create a etree node from instance data
         :param tag: tag of the newly created node, defaults to self.NODENAME
         :return: etree node
-        '''
+        """
         if setXsiType and self.NODETYPE is not None:
             node.set(QN_TYPE, self.nsmapper.docNameFromQName(self.NODETYPE))
         for dummy_name, prop in self._sortedContainerProperties():
@@ -59,8 +59,8 @@ class ContainerBase(object):
 
 
     def _updateFromNode(self, node):
-        ''' update members.
-        '''
+        """ update members.
+        """
         # update all ContainerProperties
         for dummy_name, cprop in self._sortedContainerProperties():
             cprop.updateFromNode(self, node)
@@ -75,9 +75,9 @@ class ContainerBase(object):
 
 
     def _sortedContainerProperties(self):
-        '''
+        """
         @return: a list of (name, object) tuples of all GenericProperties ( and subclasses)
-        '''
+        """
         ret = []
         all_classes = inspect.getmro(self.__class__)
         for cls in reversed(all_classes):

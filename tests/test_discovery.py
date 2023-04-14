@@ -158,7 +158,7 @@ class TestDiscovery(unittest.TestCase):
 
 
     def test_discover_noEPR(self):
-        ''' if a service has no epr in ProbeMatches response, it shall be ignored.'''
+        """ if a service has no epr in ProbeMatches response, it shall be ignored."""
         self.wsdService.PROBEMATCH_EPR = False
         testlog.info('starting service...')
         self.wsdService.start()
@@ -182,7 +182,7 @@ class TestDiscovery(unittest.TestCase):
 
 
     def test_discover_noTYPES(self):
-        ''' if a service has no types in ProbeMatches response, the client shall send a resolve and add that result.'''
+        """ if a service has no types in ProbeMatches response, the client shall send a resolve and add that result."""
         self.wsdService.PROBEMATCH_TYPES = False
         testlog.info('starting service...')
         self.wsdService.start()
@@ -209,7 +209,7 @@ class TestDiscovery(unittest.TestCase):
         self.assertEqual(myServices[0].getTypes(), [ttype])
 
     def test_discover_noScopes(self):
-        ''' if a service has no scopes in ProbeMatches response, the client shall send a resolve and add that result.'''
+        """ if a service has no scopes in ProbeMatches response, the client shall send a resolve and add that result."""
         self.wsdService.PROBEMATCH_SCOPES = False
         testlog.info('starting service...')
         self.wsdService.start()
@@ -236,7 +236,7 @@ class TestDiscovery(unittest.TestCase):
         self.assertEqual(myServices[0].getTypes(), [ttype])
 
     def test_discover_noXaddrs(self):
-        ''' if a service has no x-addresses in ProbeMatches response, the client shall send a resolve and add that result.'''
+        """ if a service has no x-addresses in ProbeMatches response, the client shall send a resolve and add that result."""
         self.wsdService.PROBEMATCH_XADDRS = False
         testlog.info('starting service...')
         self.wsdService.start()
