@@ -294,7 +294,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         """looks in all_signal_descriptors for a signal with same ConditionSignaled and same
         Manifestation as delegable_signal_descriptor and SignalDelegationSupported == True """
         if all_signal_descriptors is None:
-            all_signal_descriptors = self._mdib.descriptions.ConditionSignaled.get(
+            all_signal_descriptors = self._mdib.descriptions.condition_signaled.get(
                 delegable_signal_descriptor.ConditionSignaled, [])
         return [tmp for tmp in all_signal_descriptors if not tmp.SignalDelegationSupported
                 and tmp.Manifestation == delegable_signal_descriptor.Manifestation
