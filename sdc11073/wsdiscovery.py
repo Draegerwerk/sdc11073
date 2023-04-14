@@ -26,7 +26,7 @@ from .definitions_sdc import SDC_v1_Definitions
 from .exceptions import ApiUsageError
 from .exceptions import ValidationError
 from .namespaces import default_ns_helper as nsh
-from .netconn import get_ipv4_addresses, get_ip_for_adapter
+from .netconn import get_ipv4_addresses, get_ip_for_adapter, get_ipv4_ips
 from .pysoap.msgfactory import MessageFactory
 from .pysoap.msgreader import MessageReader
 from .pysoap.soapenvelope import Soap12Envelope
@@ -1137,7 +1137,7 @@ class WSDiscoverySingleAdapter(WSDiscoveryBase):
         self._my_ip_address = get_ip_for_adapter(adapter_name)
 
         if self._my_ip_address is None:
-            all_adapters = get_ipv4_addresses()
+            all_adapters = get_ipv4_ips()
             all_adapter_names = [ip.nice_name for ip in all_adapters]
             if force_adapter_name:
                 raise RuntimeError(f'No adapter "{adapter_name}" found. Having {all_adapter_names}')
