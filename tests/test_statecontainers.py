@@ -300,7 +300,7 @@ class TestStateContainers(unittest.TestCase):
         calibration_result.Code = pmtypes.CodedValue(42)
         calibration_result.Value = pmtypes.Measurement(decimal.Decimal(50), pmtypes.CodedValue(10))
         calibration_documentation = pmtypes.T_CalibrationDocumentation()
-        calibration_documentation.Documentation = pmtypes.LocalizedText('documentation result')
+        calibration_documentation.Documentation = [pmtypes.LocalizedText('documentation result')]
         calibration_documentation.CalibrationResult = calibration_result
 
         calib_info = pmtypes.CalibrationInfo()
