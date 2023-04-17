@@ -308,7 +308,7 @@ class TestStateContainers(unittest.TestCase):
         calib_info.CalibrationDocumentation = [calibration_documentation]
         calib_info.ComponentCalibrationState = pmtypes.T_CalibrationState.CALIBRATED
         calib_info.Time = 3782495
-        calib_info.Type = pmtypes.T_CalibrationType.TP
+        calib_info.Type = pmtypes.T_CalibrationType.TWO_POINT_CALIBRATION
         sc.CalibrationInfo = calib_info
 
         # test creation from node
