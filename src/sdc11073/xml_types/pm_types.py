@@ -1349,12 +1349,12 @@ class CalibrationInfo(PropertyBasedPMType):
                                                          value_class=T_CalibrationDocumentation)
     ComponentCalibrationState = cp.EnumAttributeProperty('ComponentCalibrationState',
                                                          enum_cls=T_CalibrationState)
-    CalibrationType = cp.EnumAttributeProperty('CalibrationType',
-                                               implied_py_value=T_CalibrationType.UNSPEC,
-                                               enum_cls=T_CalibrationType)
+    Type = cp.EnumAttributeProperty('Type',
+                                    implied_py_value=T_CalibrationType.UNSPEC,
+                                    enum_cls=T_CalibrationType)
     Time = cp.TimestampAttributeProperty('Time')
     # pylint: enable=invalid-name
-    _props = ['CalibrationDocumentation', 'ComponentCalibrationState', 'CalibrationType', 'Time']
+    _props = ['CalibrationDocumentation', 'ComponentCalibrationState', 'Type', 'Time']
 
 
 class ApprovedJurisdictions(PropertyBasedPMType):
