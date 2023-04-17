@@ -45,6 +45,7 @@ lz4 = [
 test = [
     "pytest",
     "pytest-html",
+    "pytest-cov",
     "sdc11073[lz4]",
 ]
 

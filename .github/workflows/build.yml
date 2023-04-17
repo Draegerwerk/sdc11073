@@ -87,7 +87,8 @@ jobs:
 
       - name: Run pytest
         run: |
-          pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html --self-contained-html tests
+          sources=$(python -c "import pathlib;import sdc11073;print(pathlib.Path(sdc11073.__file__).parent)")
+          pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html --self-contained-html tests --cov=sources
 
       - name: Archive test result
         uses: actions/upload-artifact@v3
@@ -96,3 +97,7 @@ jobs:
           name: unittest_reports
           path: pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html
           retention-days: 5
+
+      - name: Upload coverage reports to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v3
