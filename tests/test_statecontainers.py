@@ -211,6 +211,8 @@ class TestStateContainers(unittest.TestCase):
         self.assertEqual(state.OperatingHours, None)
         self.assertEqual(state.OperatingCycles, None)
         self.assertEqual(state.PhysicalConnector, None)
+        self.assertEqual(state.CalibrationInfo, None)
+        self.assertEqual(state.NextCalibration, None)
 
         state.ActivationState = pm_types.ComponentActivation.ON
         state.OperatingHours = 4
