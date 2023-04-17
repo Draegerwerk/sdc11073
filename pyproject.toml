@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sdc11073"
+dynamic = ["version"]
+authors = [
+    { name = "Bernd Deichmann", email = "bernd.deichmann@draeger.com" },
+    { name = "Leon Budnick", email = "leon.budnick@draeger.com" },
+]
+description = "Pure python implementation of IEEE11073 SDC protocol"
+readme = "README.rst"
+requires-python = ">=3.9, <3.12"
+classifiers = [
+        'Development Status :: 5 - Production/Stable',
+        'Intended Audience :: Developers',
+        'Topic :: Software Development',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Operating System :: Microsoft :: Windows',
+        'Operating System :: POSIX :: Linux'
+]
+keywords = [
+    "SDC",
+    "IEEE11073",
+]
+dependencies = [
+    'lxml>=2.3',
+    'ifaddr',
+    'aiohttp',
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Draegerwerk/sdc11073"
+"Bug Tracker" = "https://github.com/Draegerwerk/sdc11073/issues"
+
+[project.optional-dependencies]
+lz4 = [
+    'lz4',
+]
+test = [
+    "pytest",
+    "pytest-html",
+    "sdc11073[lz4]",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/sdc11073/**/*",
+    "docs/*",  # include picture for readme
+    "LICENSE",
+    "README.rst",
+    "pyproject.toml",
+    "CHANGELOG.md"
+]
+support-legacy = false
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sdc11073"]
+
+[tool.hatch.version]
+path = "src/sdc11073/__init__.py"
+
+[tool.pytest.ini_options]
+testpaths = "tests/"
