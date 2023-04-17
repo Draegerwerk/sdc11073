@@ -1393,7 +1393,7 @@ class PatientType(StringEnum):
     OTHER = 'Oth'
 
 
-class CalibrationResult(PropertyBasedPMType):
+class T_CalibrationResult(PropertyBasedPMType):
     Code = cp.SubElementProperty([namespaces.domTag('Code')], valueClass=CodedValue)
     Value = cp.SubElementProperty([namespaces.domTag('Value')], valueClass=Measurement)
     _props = ('Code', 'Value')
@@ -1401,7 +1401,7 @@ class CalibrationResult(PropertyBasedPMType):
 
 class T_CalibrationDocumentation(PropertyBasedPMType):
     Documentation = cp.SubElementListProperty([namespaces.domTag('Documentation')], cls=LocalizedText)
-    CalibrationResult = cp.SubElementListProperty([namespaces.domTag('CalibrationResult')], cls=CalibrationResult)
+    CalibrationResult = cp.SubElementListProperty([namespaces.domTag('CalibrationResult')], cls=T_CalibrationResult)
     _props = ('Documentation', 'CalibrationResult')
 
 
@@ -1425,7 +1425,7 @@ class CalibrationInfo(PropertyBasedPMType):
                                                          cls=T_CalibrationDocumentation)
     ext_Extension = cp.ExtensionNodeProperty()
     ComponentCalibrationState = cp.NodeAttributeProperty('ComponentCalibrationState')
-    Type = cp.NodeAttributeProperty('Type', impliedPyValue=T_CalibrationType)
+    Type = cp.NodeAttributeProperty('Type', impliedPyValue=T_CalibrationType.UNSPECIFIED)
     Time = cp.TimestampAttributeProperty('Time')
 
     _props = ('CalibrationDocumentation', 'ext_Extension', 'ComponentCalibrationState', 'Type', 'Time')
