@@ -200,10 +200,12 @@ class TestStateContainers(unittest.TestCase):
     def test_AbstractDeviceComponentStateContainer(self):
 
         def verifyEqual(origin, copied):
+            self.assertEqual(copied.CalibrationInfo, origin.CalibrationInfo)
+            self.assertEqual(copied.NextCalibration, origin.NextCalibration)
+            self.assertEqual(copied.PhysicalConnector, origin.PhysicalConnector)
             self.assertEqual(copied.ActivationState, origin.ActivationState)
             self.assertEqual(copied.OperatingHours, origin.OperatingHours)
             self.assertEqual(copied.OperatingCycles, origin.OperatingCycles)
-            self.assertEqual(copied.PhysicalConnector, origin.PhysicalConnector)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
         state = sc.AbstractDeviceComponentStateContainer(descriptor_container=self.descr, )
