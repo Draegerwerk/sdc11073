@@ -1406,8 +1406,8 @@ class T_CalibrationDocumentation(PropertyBasedPMType):
 
 
 class T_CalibrationState(StringEnum):
-    NOT = 'No'  # No = Not Calibrated. Defines that a component is not calibrated.
-    REQUIRED = 'Req'  # Req = Calibration Required. Defines that a component requires a calibration.
+    NOT_CALIBRATED = 'No'  # No = Not Calibrated. Defines that a component is not calibrated.
+    CALIBRATION_REQUIRED = 'Req'  # Req = Calibration Required. Defines that a component requires a calibration.
     RUNNING = 'Run'  # Run = Running. Defines that a calibration for a component is running.
     CALIBRATED = 'Cal'  # Cal = Calibrated. Defines that a component is calibrated.
     OTHER = 'Oth'  # Oth = Other. The calibration state is defined by other means.
@@ -1416,7 +1416,7 @@ class T_CalibrationState(StringEnum):
 class T_CalibrationType(StringEnum):
     OFFSET = 'Offset'  # Offset calibration.
     GAIN = 'Gain'  # Gain calibration
-    TP = 'TP'  # Two point calibration.
+    TWO_POINT_CALIBRATION = 'TP'  # Two point calibration.
     UNSPECIFIED = 'Unspec'  # Unspecified calibration type.
 
 
