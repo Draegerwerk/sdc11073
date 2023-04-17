@@ -79,14 +79,14 @@ jobs:
         run: |
           suffix=$(python -c "import pathlib;p=pathlib.Path('${{ matrix.distribution }}');print('whl') if p.suffix=='.whl' else print('tar_gz')")
           sources=$(python -c "import pathlib;import sdc11073;print(pathlib.Path(sdc11073.__file__).parent)")
-          pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.suffix }}.html --self-contained-html tests --cov=${{ env.sources }}
+          pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_$suffix.html --self-contained-html tests --cov=$sources
 
       - name: Run pytest on windows
         if: ${{ matrix.os == 'windows-latest' }}
         # https://github.com/actions/runner-images/issues/5251#issuecomment-1071030822
         run: |
           $suffix=$(python -c "import pathlib;p=pathlib.Path('${{ matrix.distribution }}');print('whl') if p.suffix=='.whl' else print('tar_gz')")
-          pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.suffix }}.html --self-contained-html tests
+          pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_$suffix.html --self-contained-html tests
 
       - name: Archive test result
         uses: actions/upload-artifact@v3
