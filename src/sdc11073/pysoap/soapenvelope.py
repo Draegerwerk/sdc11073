@@ -60,9 +60,9 @@ class GenericNode(object):
 
     
 class WsaEndpointReferenceType(object):
-    ''' Acc. to "http://www.w3.org/2005/08/addressing"
+    """ Acc. to "http://www.w3.org/2005/08/addressing"
 
-    '''
+    """
     __slots__ = ('address', 'referenceParametersNode', 'metaDataNode')
     def __init__(self, address, referenceParametersNode=None, metaDataNode=None):
         self.address = address # type="wsa:AttributedURI", which is an xs:anyURI element
@@ -109,7 +109,7 @@ class WsAddress(object):
                  'messageId', 'relatesTo', 'referenceParametersNode', 'relationshipType')
     def __init__(self, action, messageId=None, to=None, relatesTo=None, from_=None, replyTo=None,
                  faultTo=None, referenceParametersNode=None, relationshipType=None): #pylint: disable=too-many-arguments
-        '''
+        """
 
         :param action: xs:anyURI string, required
         :param messageId: xs:anyURI string or None or False; default is None
@@ -122,7 +122,7 @@ class WsAddress(object):
         :param faultTo: WsaEndpointReferenceType instance, optional
         :param referenceParametersNode: any node, optional
         :param relationshipType: a QName, optional
-        '''
+        """
         self.action = action
         if messageId == False:
             self.messageId = None
@@ -219,12 +219,12 @@ class WsSubscribe(object):
                        endTo=None,
                        filter_=None,
                        delivery_mode=None):
-        '''
+        """
         @param notifyTo: a WsaEndpointReferenceType
         @param expires: duration in seconds ( absolute date not supported)
         @param endTo: a WsaEndpointReferenceType or None
         @param delivery_mode: defaults to self.MODE_PUSH
-        '''
+        """
         self.delivery_mode = delivery_mode or self.MODE_PUSH
         self.notifyTo = notifyTo
         self.endTo = endTo
@@ -362,10 +362,10 @@ class DPWSThisModel(object):
 class DPWSHost(object):
     __slots__ = ('endpointReferences', 'types')
     def __init__(self, endpointReferencesList, typesList):
-        '''
+        """
         @param endpointReferencesList: list of WsEndpointReference instances
         @param typesList: a list of etree.QName instances
-        '''
+        """
         self.endpointReferences = endpointReferencesList
         self.types = typesList
 
@@ -712,7 +712,7 @@ class DPWSEnvelope(ReceivedSoap12Envelope):
 
 
 class _SoapFaultBase(Soap12Envelope):
-    '''
+    """
     created xml:
         <S:Body>
             <S:Fault>
@@ -731,7 +731,7 @@ class _SoapFaultBase(Soap12Envelope):
             </S:Fault>
         </S:Body>
 
-    '''
+    """
     def __init__(self, requestEnvelope, fault_action, code, reason, subCode, details):
         super(_SoapFaultBase, self).__init__(Prefix.partialMap(Prefix.S12, Prefix.WSA,Prefix.WSE))
         replyAddress = requestEnvelope.address.mkReplyAddress(fault_action)
@@ -784,9 +784,9 @@ class ReceivedSoapFault(ReceivedSoap12Envelope):
 
 
 class SoapFaultCode:
-    '''
+    """
         Soap Fault codes, see https://www.w3.org/TR/soap12-part1/#faultcodes
-    '''
+    """
     VERSION_MM = 'VersionMismatch'
     MUSTUNSERSTAND = 'MustUnderstand'
     DATAENC = 'DataEncodingUnknown'

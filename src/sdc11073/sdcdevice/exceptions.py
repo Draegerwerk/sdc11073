@@ -1,11 +1,11 @@
 from ..pysoap.soapenvelope import SoapFault, SoapFaultCode, AdressingFault
 class HTTPRequestHandlingError(Exception):
-    ''' This class is used to communicate errors from http request handlers back to http server.'''
+    """ This class is used to communicate errors from http request handlers back to http server."""
     def __init__(self, status, reason, soapfault):
-        '''
+        """
         @param status: integer, e.g. 404
         param reason: the provided human readable text
-        '''
+        """
         super(HTTPRequestHandlingError, self).__init__()
         self.status = status
         self.reason = reason

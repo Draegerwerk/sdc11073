@@ -51,9 +51,9 @@ class DeterminationTimeWarner:
         self.last_state = self.ST_IN_RANGE
 
     def getOutOfDeterminationTimeLogState(self, minAge, maxAge, warn_limit):
-        '''
+        """
         @return: one of above constants
-        '''
+        """
         now = time.time()
         if minAge < -warn_limit or maxAge > warn_limit:
             current_state = self.ST_OUT_OF_RANGE
@@ -76,14 +76,14 @@ class DeterminationTimeWarner:
 _AgeData = namedtuple('_AgeData', 'mean_age stdev min_age max_age')
 
 class ClientRtBuffer(object):
-    '''Collects data of one real time stream.'''
+    """Collects data of one real time stream."""
     def __init__(self, sample_period, max_samples):
-        '''
+        """
         @param sample_period: float value, in seconds. 
                               When an incoming real time sample array is split into single RtSampleContainers, this is used to calculate the individual time stamps.
                               Value can be zero if correct value is not known. In this case all Containers will have the observation time of the sample array.
         @param max_samples: integer, max. length of self.rtdata
-        '''
+        """
         self.rt_data = deque(maxlen=max_samples)
         self.sample_period = sample_period
         self._max_samples = max_samples
@@ -96,11 +96,11 @@ class ClientRtBuffer(object):
 
 
     def mkRtSampleContainers(self, realtimeSampleArrayContainer):
-        '''
+        """
 
         :param realtimeSampleArrayContainer: a RealTimeSampleArrayMetricStateContainer instance
         :return: a list of mdibbase.RtSampleContainer
-        '''
+        """
         self.last_sc = realtimeSampleArrayContainer
         metricValue = realtimeSampleArrayContainer.metricValue
         if metricValue is None:
@@ -141,8 +141,8 @@ class ClientRtBuffer(object):
             self._reported_max_age = self._age_of_data_list[-1]
 
     def readData(self):
-        ''' This read method consumes all data in buffer.
-        @return: a list of RtSampleContainer objects'''    
+        """ This read method consumes all data in buffer.
+        @return: a list of RtSampleContainer objects"""    
         with self._lock:
             ret = copy.copy(self.rt_data)
             self.rt_data.clear()
@@ -166,8 +166,8 @@ _BufferedNotification = namedtuple('_BufferedNotification', 'report handler')
 
 
 class ClientMdibContainer(mdibbase.MdibContainer):
-    ''' This mdib is meant to be read-only.
-    Only update source is a BICEPSClient.'''
+    """ This mdib is meant to be read-only.
+    Only update source is a BICEPSClient."""
 
     DETERMINATIONTIME_WARN_LIMIT = 1.0 # in seconds
     MDIB_VERSION_CHECK_DISABLED = False # for testing purpose you can disable checking of mdib version, so that every notification is accepted.
@@ -250,12 +250,12 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
 
     def _bufferNotification(self, report, callable):
-        '''
+        """
         write notification to an temporary buffer, as long as mdib is not initialized
         :param report: the report
         :param callable: the mothod that shall be called later for delayed handling of report
         :return: True if buffered, False if report shall be processed immediately
-        '''
+        """
         if self._isInitialized:
             # no reason to buffer
             return False
@@ -272,8 +272,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             return False
 
     def syncContextStates(self):
-        '''This method requests all context states from device and deletes all local context states that are not
-        available in response from Device.'''
+        """This method requests all context states from device and deletes all local context states that are not
+        available in response from Device."""
         try:
             self._logger.info('syncContextStates called')
             contextService = self._sdcClient.client('Context')
@@ -688,10 +688,10 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             self._updateStateObservables(contextByHandle.values())
 
     def _onEpisodicComponentReport(self, reportNode, is_buffered_report=False):
-        '''The EpisodicComponentReport is sent if at least one property of at least one component state has changed 
+        """The EpisodicComponentReport is sent if at least one property of at least one component state has changed 
         and SHOULD contain only the changed component states.
         Components are MDSs, VMDs, Channels. Not metrics and alarms
-        '''
+        """
         # copy reportNode, further processing might change report data. Avoid side effects
         reportNode = copy.deepcopy(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicComponentReport):
@@ -735,9 +735,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
 
     def _onDescriptionModificationReport(self, reportNode, is_buffered_report=False):
-        '''The DescriptionModificationReport is sent if at least one Descriptor has been created, updated or deleted during runtime.
+        """The DescriptionModificationReport is sent if at least one Descriptor has been created, updated or deleted during runtime.
         It consists of 1...n DescriptionModificationReportParts.
-        '''
+        """
         # copy reportNode, further processing might change report data. Avoid side effects
         reportNode = copy.deepcopy(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onDescriptionModificationReport):
@@ -821,13 +821,13 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
 
     def _hasNewStateUsableStateVersion(self, oldStateContainer, newStateContainer, reportName, is_buffered_report):
-        '''
+        """
         compare state versions old vs new
         :param oldStateContainer:
         :param newStateContainer:
         :param reportName: used for logging
         :return: True if new state is ok for mdib , otherwise False
-        '''
+        """
         diff = int(newStateContainer.StateVersion) - int(oldStateContainer.StateVersion)
         # diff == 0 can happen if there is only a descriptor version update
         if diff == 1:  # this is the perfect version
@@ -856,7 +856,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
 
     def waitMetricMatches(self, handle, matchesfunc, timeout):
-        ''' wait until a matching metric has been received. The matching is defined by the handle of the metric and the result of a matching function.
+        """ wait until a matching metric has been received. The matching is defined by the handle of the metric and the result of a matching function.
         If the matching function returns true, this function returns.
         @param handle: The handle string of the metric of interest.
         @param matchesfunc: a callable, argument is the current state with matching handle. Can be None, in that case every state matches
@@ -869,7 +869,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     return [expected] == found
         @param timeout: timeout in seconds
         @return: the matching state. In cas of a timeout it raises a TimeoutError exception.
-        ''' 
+        """ 
         fut = futures.Future()
         # define a callback function that sets value of fut
         def onMetricsByHandle(metricsByHandle):
@@ -888,14 +888,14 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
 
     def mkProposedState(self, descriptorHandle, copyCurrentState=True, handle=None):
-        ''' Create a new state that can be used as proposed state in according operations.
+        """ Create a new state that can be used as proposed state in according operations.
         The new state is not part of mdib!
 
         :param descriptorHandle: the descriptor
         :param copyCurrentState: if True, all members of existing state will be copied to new state
         :param handle: if this is a multi state class, then this is the handle of the existing state that shall be used for copy.
         :return:
-        '''
+        """
         descr = self.descriptions.handle.getOne(descriptorHandle)
         new_state = self.mkStateContainerFromDescriptor(descr)
         if copyCurrentState:

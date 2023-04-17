@@ -83,8 +83,8 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
 
 
     def _setNTPString(self, operationInstance, value):
-        '''This is the handler for the set ntp server operation.
-         It sets the ReferenceSource value of clock state'''
+        """This is the handler for the set ntp server operation.
+         It sets the ReferenceSource value of clock state"""
         operationDescriptorHandle = operationInstance.handle
         operationDescriptorContainer = self._mdib.descriptions.handle.getOne(operationDescriptorHandle)
         operationTargetHandle = operationDescriptorContainer.OperationTarget
@@ -106,8 +106,8 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
 
 
     def _setTZString(self, operationInstance, value):
-        '''This is the handler for the set time zone operation.
-         It sets the TimeZone value of clock state.'''
+        """This is the handler for the set time zone operation.
+         It sets the TimeZone value of clock state."""
         operationDescriptorHandle = operationInstance.handle
         operationDescriptorContainer = self._mdib.descriptions.handle.getOne(operationDescriptorHandle)
         operationTargetHandle = operationDescriptorContainer.OperationTarget

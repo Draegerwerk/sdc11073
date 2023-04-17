@@ -36,7 +36,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
     
     def setUp(self):
 
-        ''' validate test data'''
+        """ validate test data"""
         here = os.path.dirname(__file__)
         self.mdib = sdc11073.mdib.DeviceMdibContainer.fromMdibFile(os.path.join(mdibFolder, '70041_MDIB_Final.xml'))
         
@@ -99,7 +99,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
 
     def test_episodicMetricReportSubscription(self):
-        ''' verify that a subscription response is valid'''
+        """ verify that a subscription response is valid"""
         notifyTo = 'http://localhost:123'
         endTo = 'http://localhost:124'
         hosted = sdc11073.pysoap.soapenvelope.DPWSHosted(
@@ -158,7 +158,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
 
     def test_episodicMetricReportEvent(self):
-        ''' verify that an event message is sent to subscriber and that message is valid'''
+        """ verify that an event message is sent to subscriber and that message is valid"""
         # directly inject a subscription event, this test is not about starting subscriptions
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.EpisodicMetricReport)
@@ -186,7 +186,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
 
     def test_episodicContextReportEvent(self):
-        ''' verify that an event message is sent to subscriber and that message is valid'''
+        """ verify that an event message is sent to subscriber and that message is valid"""
         # directly inject a subscription event, this test is not about starting subscriptions
         for sdcDevice in self._allDevices:
             testSubscr = mockstuff.TestDevSubscription(sdcDevice.mdib.sdc_definitions.Actions.EpisodicContextReport)
@@ -216,7 +216,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
 
     def test_invalid_GetStatus_Renew(self):
-        ''' verify that a subscription response is 'Fault' response in case of invalid request'''
+        """ verify that a subscription response is 'Fault' response in case of invalid request"""
         notifyTo = 'http://localhost:123'
         endTo = 'http://localhost:124'
         hosted = sdc11073.pysoap.soapenvelope.DPWSHosted(
@@ -264,7 +264,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             response.validate_envelope(sdcDevice._handler.xml_validator)
 
     def test_periodicMetricReportSubscription(self):
-        ''' verify that a subscription response is valid'''
+        """ verify that a subscription response is valid"""
         notifyTo = 'http://localhost:123'
         endTo = 'http://localhost:124'
         hosted = sdc11073.pysoap.soapenvelope.DPWSHosted(
@@ -326,7 +326,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             response.validate_envelope(sdcDevice._handler.xml_validator)
 
     def test_periodicMetricReportEvent(self):
-        ''' verify that an event message is sent to subscriber and that message is valid'''
+        """ verify that an event message is sent to subscriber and that message is valid"""
         # directly inject a subscription event, this test is not about starting subscriptions
         logging.getLogger('sdc.device').setLevel(logging.DEBUG)
         for sdcDevice in self._allDevices:

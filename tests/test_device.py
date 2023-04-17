@@ -37,7 +37,7 @@ class Test_Device(unittest.TestCase):
 
 
     def test_restart(self):
-        ''' Starting 2nd device with existing mdib shall not raise an exception'''
+        """ Starting 2nd device with existing mdib shall not raise an exception"""
         self.sdcDevice.stopAll()
 #        sdcDevice2 = CoCoDeviceAnesthesia(self.wsd, my_uuid=None, useSSL=False,
 #                                          deviceMdibContainer=self.sdcDevice.mdib)

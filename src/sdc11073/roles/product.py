@@ -12,13 +12,13 @@ from .. import sdcdevice
 
 
 class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
-    '''
+    """
     Responsible for SetComponentState Operations
-    '''
+    """
     def makeOperationInstance(self, operationDescriptorContainer):
-        ''' Can handle following cases:
+        """ Can handle following cases:
         SetComponentStateOperationDescriptor, target = any AbstractComponentDescriptor: => handler = _setComponentState
-        '''
+        """
         operationTargetHandle = operationDescriptorContainer.OperationTarget
         operationTargetDescriptorContainer = self._mdib.descriptions.handle.getOne(operationTargetHandle)
 
@@ -53,12 +53,12 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
 
 
     def _setComponentState(self, operationInstance, value):
-        '''
+        """
 
         :param operationInstance: the operation
         :param value: a list of proposed metric states
         :return:
-        '''
+        """
         #ToDo: consider ModifiableDate attribute
         operationInstance.currentValue = value
         with self._mdib.mdibUpdateTransaction() as mgr:
@@ -106,7 +106,7 @@ class BaseProduct(object):
 
     def initOperations(self, mdib, sco):
         self._mdib = mdib
-        ''' register all actively provided operations '''
+        """ register all actively provided operations """
         for role_handler in self._all_providers_sorted():
             role_handler.initOperations(mdib)
 
@@ -144,7 +144,7 @@ class BaseProduct(object):
             role_handler.stop()
 
     def makeOperationInstance(self, operationDescriptorContainer):
-        ''' try to get an operation for this operationDescriptorContainer ( given in mdib) '''
+        """ try to get an operation for this operationDescriptorContainer ( given in mdib) """
         operationTargetHandle = operationDescriptorContainer.OperationTarget
         operationTargetDescr = self._mdib.descriptions.handle.getOne(operationTargetHandle, allowNone=True) # descriptor container
         if operationTargetDescr is None:
@@ -184,10 +184,10 @@ class BaseProduct(object):
         self._removeStatesForDeletedDescriptors(mdib, transaction)
 
     def _removeStatesForDeletedDescriptors(self, mdib, transaction):
-        '''
+        """
         remove states from mdib for deleted descriptors
         :return:
-        '''
+        """
         for tr_item in transaction.descriptorUpdates.values():
             if tr_item.new is None:
                 # deleted descriptor
@@ -200,9 +200,9 @@ class BaseProduct(object):
 
 
     def _addMissingStatesToTransaction(self, mdib, transaction):
-        '''
+        """
         add states to new descriptors if they are not part of this transaction
-        '''
+        """
         for tr_item in transaction.descriptorUpdates.values():
             if tr_item.old is None:
                 # new descriptor

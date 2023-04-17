@@ -11,7 +11,7 @@ from .sdcservicesimpl import _wsdl_ns, _mkWsdlTwowayOperation
 _msg = Prefix.MSG.prefix
 
 def _tw2i(textwidth_string):
-    ''' text width to int'''
+    """ text width to int"""
     lookup = {'xs': 0, 's':1, 'm':2, 'l':3, 'xl':4, 'xxl':5, None: 999}
     return lookup[textwidth_string]
 
@@ -48,7 +48,7 @@ class LocalizationStorage():
             self._localizedTexts[t.Ref].append(t)
 
     def filterLocalizedTexts(self, requestedHandles, requestedVersion, requestedLangs, textWidths, numberOfLines):
-        '''
+        """
 
         :param requestedHandles: list of handles
         :param requestedVersion: an integer or None
@@ -56,7 +56,7 @@ class LocalizationStorage():
         :param textWidths: a list of integers, 0...n
         :param numberOfLines: a list of integers, 0...n
         :return: a list of LocalizedText instances
-        '''
+        """
         # make integers for textWidths and numberOfLines
         if textWidths is None:
             textWidths = []
@@ -254,7 +254,7 @@ class LocalizationService(DPWSPortTypeImpl):
 
 
     def addWsdlPortType(self, parentNode):
-        '''
+        """
         add wsdl:portType node to parentNode.
         xml looks like this:
         <wsdl:portType name="GetService" dpws:DiscoveryType="dt:ServiceProvider">
@@ -269,7 +269,7 @@ class LocalizationService(DPWSPortTypeImpl):
         </wsdl:portType>
         :param parentNode:
         :return:
-        '''
+        """
         if 'dt' in parentNode.nsmap:
             portType = etree_.SubElement(parentNode, etree_.QName(_wsdl_ns,'portType'),
                                          attrib={'name': self.port_type_string,

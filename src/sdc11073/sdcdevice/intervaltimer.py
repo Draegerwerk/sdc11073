@@ -1,7 +1,7 @@
 from time import monotonic, sleep
 
 class IntervalTimer(object):
-    ''' this is a timer that does not drift (but is has jitter). '''
+    """ this is a timer that does not drift (but is has jitter). """
     VERBOSE = 0                    
     def __init__(self, periodInSeconds, activeWaitLimit=0.0):
         self._period = periodInSeconds
@@ -18,9 +18,9 @@ class IntervalTimer(object):
 
     
     def waitForNextIntervalBegin(self):
-        '''
+        """
         @param return: 0.0 if timer is in scheduled plan, otherwise seconds how far timer is behind schedule
-        '''
+        """
         behindSchedule = 0.0
         now = monotonic()
         dt = self._nextIntervalStart - now

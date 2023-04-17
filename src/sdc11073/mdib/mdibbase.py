@@ -10,7 +10,7 @@ from .. import multikey
 from typing import Union
 
 class RtSampleContainer(object):
-    '''Contains a single Value'''
+    """Contains a single Value"""
     def __init__(self, valueString, timestamp, validity, annotations = None):
         self.valueString = valueString
         self.value = float(valueString)
@@ -41,9 +41,9 @@ class MdibVersionGroup:
 
 
 class _MultikeyWithVersionLookup(multikey.MultiKeyLookup):
-    '''
+    """
     This class keeps track of versions of removed objects
-    '''
+    """
     def __init__(self):
         multikey.MultiKeyLookup.__init__(self)
         self.handle_version_lookup = dict()
@@ -68,7 +68,7 @@ class _MultikeyWithVersionLookup(multikey.MultiKeyLookup):
 
 
 class DescriptorsLookup(_MultikeyWithVersionLookup):
-    ''' This class knows about the hierarchy of descriptors and keeps the order of objects '''
+    """ This class knows about the hierarchy of descriptors and keeps the order of objects """
 
     def __init__(self):
         _MultikeyWithVersionLookup.__init__(self)
@@ -101,7 +101,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
             self.addObjectNoLock(obj)
 
     def addObjectNoLock(self, obj):
-        ''' appends obj to parent'''
+        """ appends obj to parent"""
         _MultikeyWithVersionLookup.addObjectNoLock(self, obj)
         parent = None if obj.parentHandle is None else self.handle.getOne(obj.parentHandle, allowNone=True)
         if parent is not None:
@@ -141,7 +141,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
             self.replaceObjectNoLock(newObj)
 
     def replaceObjectNoLock(self, newObj):
-        ''' remove existing descriptorContainer and add new one, but do not touch childlist of parent (that keeps order)'''
+        """ remove existing descriptorContainer and add new one, but do not touch childlist of parent (that keeps order)"""
         origObj = self.handle.getOne(newObj.handle)
         self.removeObjectNoLock(origObj)
         self.addObjectNoLock(newObj)
@@ -189,9 +189,9 @@ class MdibContainer(object):
     instanceId = properties.ObservableProperty()
 
     def __init__(self, sdc_definitions):
-        '''
+        """
         @param sdc_definitions: a class derived from Definitions_Base
-        '''
+        """
         self.sdc_definitions = sdc_definitions
         self._logger = None # must to be instantiated by derived class
         self.nsmapper = namespaces.DocNamespaceHelper()  # default map, might be replaced with nsmap from xml file  
@@ -229,9 +229,9 @@ class MdibContainer(object):
         return MdibVersionGroup(self.mdibVersion, self.sequenceId, self.instanceId)
 
     def addDescriptionContainers(self, descriptionContainers):
-        ''' init self.descriptions with provided descriptors
+        """ init self.descriptions with provided descriptors
         @param descriptionContainers: a list od DescriptionStateContainer objects
-        '''
+        """
         newDescriptorByHandle = {}
         with self.descriptions._lock: #pylint: disable=protected-access
             for d in descriptionContainers:
@@ -244,7 +244,7 @@ class MdibContainer(object):
 
 
     def clearStates(self):
-        '''removes all states and context states. '''
+        """removes all states and context states. """
         with self.states._lock: #pylint: disable=protected-access
             self.states.clear()
             self.contextStates.clear()
@@ -302,9 +302,9 @@ class MdibContainer(object):
 
 
     def addStateContainers(self, stateContainers):
-        '''Adds states to self.states and self.contextStates.
+        """Adds states to self.states and self.contextStates.
         @param stateContainers: a list of StateContainer objects.
-        '''
+        """
         for sc in stateContainers:
             if sc.descriptorContainer is not None:
                 self._logger.debug('addStateContainers: new state {}', sc)
@@ -325,9 +325,9 @@ class MdibContainer(object):
 
 
     def _reconstructMdDescription(self):
-        '''build dom tree from current data
+        """build dom tree from current data
         @return: an etree_ node
-        '''
+        """
         doc_nsmap = self.nsmapper.docNssmap
         rootContainers = self.descriptions.parentHandle.get(None) or []
         mdDescriptionNode = etree_.Element(namespaces.domTag('MdDescription'),
@@ -349,10 +349,10 @@ class MdibContainer(object):
 
 
     def _reconstructMdib(self, addContextStates):
-        '''build dom tree from current data
+        """build dom tree from current data
         @param addContextStates: bool
         @return: an etree_ node
-        '''
+        """
         doc_nsmap = self.nsmapper.docNssmap
         mdibNode = etree_.Element(namespaces.msgTag('Mdib'), nsmap=doc_nsmap)
         self.mdib_version_group.update_node(mdibNode)
@@ -377,33 +377,33 @@ class MdibContainer(object):
         return mdibNode
 
     def reconstructMdDescription(self):
-        '''build dom tree from current data
+        """build dom tree from current data
         @return: a tuple etree_ node, mdibVersion
-        '''
+        """
         with self.mdibLock:
             node = self._reconstructMdDescription()
             return node, self.mdib_version_group
 
     def reconstructMdib(self):
-        '''build dom tree from current data
+        """build dom tree from current data
         This method does not include context states!
         @return: an etree_ node
-        '''
+        """
         with self.mdibLock:
             return self._reconstructMdib(addContextStates=False), self.mdib_version_group
 
 
     def reconstructMdibWithContextStates(self):
-        ''' this method includes the context states in mdib tree.
-        '''
+        """ this method includes the context states in mdib tree.
+        """
         with self.mdibLock:
             return self._reconstructMdib(addContextStates=True), self.mdib_version_group
 
 
     def nodeToString(self, etree_node, pretty_print=False, xml_declaration=True, encoding='utf-8'):
-        '''Special toString converter that replaces the internal normalized namespaces with the correct external namespaces.
+        """Special toString converter that replaces the internal normalized namespaces with the correct external namespaces.
         @return: a string
-        '''
+        """
         mdibString = etree_.tostring(etree_node, pretty_print=pretty_print, xml_declaration=xml_declaration, encoding=encoding)
         return self.sdc_definitions.denormalizeXMLText(mdibString)
 
@@ -456,12 +456,12 @@ class MdibContainer(object):
 
 
     def getOperationDescriptorsForDescriptorHandle(self, descriptorHandle, **additionalFilters):
-        '''
+        """
         :param descriptorHandle: the handle for that operations shall be found
         :return: a list with operation descriptors that have descriptorHandle as OperationTarget. List can be empty
         :additionalFilters: optional filters for the key = name of member attribute, value = expected value
             example: NODETYPE=domTag('SetContextStateOperationDescriptor') filters for SetContextStateOperation descriptors
-        '''
+        """
         allOperationContainers = self.getOperationDescriptors()
         myOperations = [opC for opC in allOperationContainers if opC.OperationTarget == descriptorHandle]
         for k, v in additionalFilters.items():
@@ -470,9 +470,9 @@ class MdibContainer(object):
 
 
     def getStateContainerClass(self, qNameType):
-        '''
+        """
         @param qNameType: a QName instance
-        '''
+        """
         cls = self.sdc_definitions.sc.getContainerClass(qNameType)
         if cls is None:
             self._logger.warn('No class for type={}; using AbstractStateContainer', str(qNameType))
@@ -494,9 +494,9 @@ class MdibContainer(object):
 
 
     def getOperationDescriptors(self):
-        '''
+        """
         :return: a list of all operation descriptors
-        '''
+        """
         result = []
         for nodeType in ('SetValueOperationDescriptor',
                          'SetStringOperationDescriptor',
@@ -510,9 +510,9 @@ class MdibContainer(object):
 
 
     def getDescriptorContainerClass(self, qNameType):
-        '''
+        """
         @param qNameType: a QName instance
-        '''
+        """
         cls = self.sdc_definitions.dc.getContainerClass(qNameType)
         if cls is None:
             self._logger.warn('No class for type={}; using AbstractDescriptorContainer',
@@ -522,13 +522,13 @@ class MdibContainer(object):
 
 
     def selectDescriptors(self, *codings):
-        ''' Returns all descriptor containers that match a path defined by list of codings.
+        """ Returns all descriptor containers that match a path defined by list of codings.
         example: 
         ['70041'] returns all containers that have CodedValue = 70041
         ['70041', '69650'] : returns all descriptors with CodedValue= 69650 and parent descriptor CodedValue = 70041
         ['70041', '69650', '69651'] : returns all descriptors with CodedValue= 69651 and parent descriptor CodedValue = 69650 and parent's parent descriptor CodedValue = 70041
         It is not necessary that path starts at the top of an mds, it can start anywhere.  
-        '''
+        """
         selectedObjects = None
         for coding in codings:
             
@@ -555,12 +555,12 @@ class MdibContainer(object):
 
 
     def getAllDescriptorsInSubTree(self, descriptorContainer, depthFirst=True, includeRoot=True):
-        ''' walks the tree below descriptorContainer.
+        """ walks the tree below descriptorContainer.
         :param descriptorContainer:
         :param depthFirst: determines order of returned list. DepthFirst=True has all leaves on top, otherwise at the end.
         :param includeRoot: if True descriptorContainer itself is also part of returned list
         :return: a list of DescriptorContainer objects
-        '''
+        """
         result = []
         def _getchildren(parent):
             childContainers = self.descriptions.parentHandle.get(parent.handle, list())
@@ -579,7 +579,7 @@ class MdibContainer(object):
 
 
     def _rmDescriptorsAndStates(self, descriptorContainers):
-        ''' recursive delete of a descriptor and all children and all related states'''
+        """ recursive delete of a descriptor and all children and all related states"""
         deletedDescriptorByHandle = {}
         deletedStatesByHandle = {}
         for descriptorContainer in descriptorContainers:

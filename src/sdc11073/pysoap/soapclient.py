@@ -31,12 +31,12 @@ class HTTPSConnection_NODELAY(httplib.HTTPSConnection):
 
 
 class HTTPReturnCodeError(httplib.HTTPException):
-    ''' THis class is used to map http return codes to Python exceptions.'''
+    """ THis class is used to map http return codes to Python exceptions."""
     def __init__(self, status, reason, soapfault):
-        '''
+        """
         @param status: integer, e.g. 404
         param reason: the provided human readable text
-        '''
+        """
         super(HTTPReturnCodeError, self).__init__()
         self.status = status
         self.reason = reason
@@ -58,7 +58,7 @@ class SoapClient(CompressionHandler):
     roundtrip_time = observableproperties.ObservableProperty()
     def __init__(self, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
                  requestEncodings=None, chunked_requests=False, xml_validator=None):
-        ''' Connects to one url
+        """ Connects to one url
         @param netloc: the location of the service (domainname:port) ###url of the service
         @param sslContext: an optional sll.SSLContext instance
         @param supportedEncodings: configured set of encodings that can be used. If None, all available encodings are used.
@@ -68,7 +68,7 @@ class SoapClient(CompressionHandler):
                                 If not set, requests will not be commpressed.
                                 If set, then the http request will be compressed using this method
         @param xml_validator: optional etree.XMLSchema instance
-        '''
+        """
         self._log = logger
         self._sslContext = sslContext
         self._sdc_definitions = sdc_definitions
@@ -95,10 +95,10 @@ class SoapClient(CompressionHandler):
         return None if self._httpConnection is None else self._httpConnection.sock
 
     def _mkHttpConnection(self):
-        ''' Soap client never sends very large requests, the largest packages are notifications.
+        """ Soap client never sends very large requests, the largest packages are notifications.
          Therefore we can use TCP_NODELAY for a little faster transmission.
         (Otherwise there would be a chance that receivers windows size decreases, which would result in smaller
-        packages and therefore higher network load.'''
+        packages and therefore higher network load."""
         if self._sslContext is not None:
             conn = HTTPSConnection_NODELAY(self._netloc, context=self._sslContext, timeout=self.SOCKET_TIMEOUT)
         else:
@@ -130,13 +130,13 @@ class SoapClient(CompressionHandler):
                            responseFactory=soapenvelope.ReceivedSoap12Envelope.fromXMLString,
                            msg='',
                            request_manipulator=None):
-        '''
+        """
         @param path: url path component
         @param soapEnvelopeRequest: The soap envelope that shall be sent
         @param responseFactory: a callable that creates a response object from received xml. If None, a ReceivedSoap12Envelope will be created
         @param schema: If given, the request is validated against this schema
         @param msg: used in logs, helps to identify the context in which the method was called
-        '''
+        """
         if self.isClosed():
             raise httplib.NotConnected('call connect before posting!')
         return self.__postSoapEnvelope(soapEnvelopeRequest, responseFactory, path, msg, request_manipulator)

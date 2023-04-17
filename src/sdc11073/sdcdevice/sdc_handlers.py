@@ -49,8 +49,8 @@ _ssl_cypherfile = os.path.join(caFolder, 'cyphers.json') # Json file that determ
 PeriodicStates = namedtuple('PeriodicStates', 'mdib_version states')
 
 class SdcHandler_Base(object):
-    ''' This is the base class for the sdc device handler. It contains all functionality of a device except the definition of the hosted services.
-    These must be instantiated in a derived class.'''
+    """ This is the base class for the sdc device handler. It contains all functionality of a device except the definition of the hosted services.
+    These must be instantiated in a derived class."""
 
     SSL_CIPHERS = 'HIGH:!3DES:!DSS:!aNULL@STRENGTH'
 
@@ -169,14 +169,14 @@ class SdcHandler_Base(object):
         return scopes
 
     def _getDeviceComponentBasedScopes(self):
-        '''
+        """
         SDC: For every instance derived from pm:AbstractComplexDeviceComponentDescriptor in the MDIB an
         SDC SERVICE PROVIDER SHOULD include a URIencoded pm:AbstractComplexDeviceComponentDescriptor/pm:Type
         as dpws:Scope of the MDPWS discovery messages. The URI encoding conforms to the given Extended Backus-Naur Form.
         E.G.  sdc.cdc.type:///69650, sdc.cdc.type:/urn:oid:1.3.6.1.4.1.3592.2.1.1.0//DN_VMD
         After discussion with David: use only MDSDescriptor, VmdDescriptor makes no sense.
         :return: a set of scopes
-        '''
+        """
         scopes = set()
         for t in (namespaces.domTag('MdsDescriptor'),):
             descriptors = self._mdib.descriptions.NODETYPE.get(t)
@@ -249,11 +249,11 @@ class SdcHandler_Base(object):
         return self._scoOperationsRegistry.enqueueOperation(operation, request)
 
     def dispatchGetRequest(self, parseResult, headers):
-        ''' device itself can also handle GET requests. This is the handler'''
+        """ device itself can also handle GET requests. This is the handler"""
         return self._hostDispatcher.dispatchGetRequest(parseResult, headers)
 
     def _startServices(self, shared_http_server=None):
-        ''' start the services'''
+        """ start the services"""
         self._logger.info('starting services, addr = {}', self._wsdiscovery.getActiveAddresses())
 
         self._scoOperationsRegistry.startWorker()

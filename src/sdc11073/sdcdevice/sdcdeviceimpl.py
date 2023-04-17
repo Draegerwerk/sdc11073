@@ -80,7 +80,7 @@ class SdcDevice(object):
         return self._handler.enqueueOperation(operation, request)
 
     def dispatchGetRequest(self, parseResult, headers):
-        ''' device itself can also handle GET requests. This is the handler'''
+        """ device itself can also handle GET requests. This is the handler"""
         return self._handler.dispatchGetRequest(parseResult, headers)
 
     def startAll(self, startRealtimeSampleLoop=True, periodic_reports_interval=None, shared_http_server = None):
