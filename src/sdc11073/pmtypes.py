@@ -1399,13 +1399,13 @@ class CalibrationResult(PropertyBasedPMType):
     _props = ('Code', 'Value')
 
 
-class CalibrationDocumentation(PropertyBasedPMType):
+class T_CalibrationDocumentation(PropertyBasedPMType):
     Documentation = cp.SubElementListProperty([namespaces.domTag('Documentation')], cls=LocalizedText)
     CalibrationResult = cp.SubElementListProperty([namespaces.domTag('CalibrationResult')], cls=CalibrationResult)
-    _props = ('Documentation', 'Value')
+    _props = ('Documentation', 'CalibrationResult')
 
 
-class ComponentCalibrationState(StringEnum):
+class T_CalibrationState(StringEnum):
     NOT = 'No'  # No = Not Calibrated. Defines that a component is not calibrated.
     REQUIRED = 'Req'  # Req = Calibration Required. Defines that a component requires a calibration.
     RUNNING = 'Run'  # Run = Running. Defines that a calibration for a component is running.
@@ -1413,7 +1413,7 @@ class ComponentCalibrationState(StringEnum):
     OTHER = 'Oth'  # Oth = Other. The calibration state is defined by other means.
 
 
-class CalibrationType(StringEnum):
+class T_CalibrationType(StringEnum):
     OFFSET = 'Offset'  # Offset calibration.
     GAIN = 'Gain'  # Gain calibration
     TP = 'TP'  # Two point calibration.
@@ -1421,10 +1421,11 @@ class CalibrationType(StringEnum):
 
 
 class CalibrationInfo(PropertyBasedPMType):
+    CalibrationDocumentation = cp.SubElementListProperty([namespaces.domTag('CalibrationDocumentation')],
+                                                         cls=T_CalibrationDocumentation)
     ext_Extension = cp.ExtensionNodeProperty()
     ComponentCalibrationState = cp.NodeAttributeProperty('ComponentCalibrationState')
-    Type = cp.NodeAttributeProperty('Type', impliedPyValue=CalibrationType)
+    Type = cp.NodeAttributeProperty('Type', impliedPyValue=T_CalibrationType)
     Time = cp.TimestampAttributeProperty('Time')
-    CalibrationDocumentation = cp.SubElementListProperty([namespaces.domTag('CalibrationDocumentation')],
-                                                         cls=CalibrationDocumentation)
-    _props = ('ext_Extension', 'ComponentCalibrationState', 'Type', 'Time')
+
+    _props = ('CalibrationDocumentation', 'ext_Extension', 'ComponentCalibrationState', 'Type', 'Time')
