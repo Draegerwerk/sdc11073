@@ -301,7 +301,7 @@ class TestStateContainers(unittest.TestCase):
         calibration_result.Value = pmtypes.Measurement(decimal.Decimal(50), pmtypes.CodedValue(10))
         calibration_documentation = pmtypes.T_CalibrationDocumentation()
         calibration_documentation.Documentation = [pmtypes.LocalizedText('documentation result')]
-        calibration_documentation.CalibrationResult = calibration_result
+        calibration_documentation.CalibrationResult = [calibration_result]
 
         calib_info = pmtypes.CalibrationInfo()
         self.assertEqual(calib_info.Type, pmtypes.T_CalibrationType.UNSPECIFIED)
@@ -321,7 +321,7 @@ class TestStateContainers(unittest.TestCase):
         sc.ActivationState = 'Off'
         sc.OperatingHours += 1
         sc.OperatingHours += 1
-        sc.CalibrationInfo.CalibrationDocumentation[0].CalibrationResult.Code = pmtypes.CodedValue(1000)
+        sc.CalibrationInfo.CalibrationDocumentation[0].CalibrationResult[0].Code = pmtypes.CodedValue(1000)
         sc.PhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('DEF')], 2)
         node = sc.mkStateNode()
         sc2.updateFromNode(node)
