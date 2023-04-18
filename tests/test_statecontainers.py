@@ -200,10 +200,12 @@ class TestStateContainers(unittest.TestCase):
     def test_AbstractDeviceComponentStateContainer(self):
 
         def verifyEqual(origin, copied):
+            self.assertEqual(copied.CalibrationInfo, origin.CalibrationInfo)
+            self.assertEqual(copied.NextCalibration, origin.NextCalibration)
+            self.assertEqual(copied.PhysicalConnector, origin.PhysicalConnector)
             self.assertEqual(copied.ActivationState, origin.ActivationState)
             self.assertEqual(copied.OperatingHours, origin.OperatingHours)
             self.assertEqual(copied.OperatingCycles, origin.OperatingCycles)
-            self.assertEqual(copied.PhysicalConnector, origin.PhysicalConnector)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
         state = sc.AbstractDeviceComponentStateContainer(descriptor_container=self.descr, )
@@ -211,10 +213,27 @@ class TestStateContainers(unittest.TestCase):
         self.assertEqual(state.OperatingHours, None)
         self.assertEqual(state.OperatingCycles, None)
         self.assertEqual(state.PhysicalConnector, None)
+        self.assertEqual(state.CalibrationInfo, None)
+        self.assertEqual(state.NextCalibration, None)
 
         state.ActivationState = pm_types.ComponentActivation.ON
         state.OperatingHours = 4
         state.PhysicalConnector = pm_types.PhysicalConnectorInfo([pm_types.LocalizedText('ABC')], 1)
+
+        calibration_result = pm_types.T_CalibrationResult()
+        calibration_result.Code = pm_types.CodedValue("42")
+        calibration_result.Value = pm_types.Measurement(Decimal(50), pm_types.CodedValue("10"))
+        calibration_documentation = pm_types.T_CalibrationDocumentation()
+        calibration_documentation.Documentation.append(pm_types.LocalizedText('documentation result'))
+        calibration_documentation.CalibrationResult.append(calibration_result)
+
+        calib_info = pm_types.CalibrationInfo()
+        self.assertEqual(calib_info.Type, pm_types.T_CalibrationType.UNSPEC)
+        calib_info.CalibrationDocumentation = [calibration_documentation]
+        calib_info.ComponentCalibrationState = pm_types.T_CalibrationState.CALIBRATED
+        calib_info.Time = 3782495
+        calib_info.Type = pm_types.T_CalibrationType.TWO_POINT_CALIBRATION
+        state.CalibrationInfo = calib_info
 
         state2 = sc.AbstractDeviceComponentStateContainer(descriptor_container=self.descr)
         state2.update_from_other_container(state)
@@ -224,6 +243,7 @@ class TestStateContainers(unittest.TestCase):
         state.OperatingHours += 1
         state.OperatingHours += 1
         state.PhysicalConnector = pm_types.PhysicalConnectorInfo([pm_types.LocalizedText('DEF')], 2)
+        state.CalibrationInfo.CalibrationDocumentation[0].CalibrationResult[0].Code = pm_types.CodedValue("1000")
         state2.update_from_other_container(state)
         verifyEqual(state, state2)
 
