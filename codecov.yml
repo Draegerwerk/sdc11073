@@ -1,0 +1,3 @@
+codecov:
+    notify:
+        after_n_builds: 20 # do not notify until at least 20 builds have been uploaded from the CI pipeline
