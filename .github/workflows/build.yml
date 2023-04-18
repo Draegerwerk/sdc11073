@@ -74,19 +74,20 @@ jobs:
       - name: Install package and test dependencies
         run: pip install ${{ matrix.distribution }}[test]
 
-      - name: Run pytest on ubuntu
+      - name: Detect suffix on ubuntu
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           echo SUFFIX=$(python -c "import pathlib;p=pathlib.Path('${{ matrix.distribution }}');print('whl') if p.suffix=='.whl' else print('tar_gz')") >> $GITHUB_ENV
-          echo SOURCES=$(python -c "import pathlib;import sdc11073;print(pathlib.Path(sdc11073.__file__).parent)") >> $GITHUB_ENV
-          pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html --self-contained-html tests --cov=${{ env.SOURCES }}
 
-      - name: Run pytest on windows
+      - name: Detect suffix on windows
         if: ${{ matrix.os == 'windows-latest' }}
         # https://github.com/actions/runner-images/issues/5251#issuecomment-1071030822
         run: |
           echo SUFFIX=$(python -c "import pathlib;p=pathlib.Path('${{ matrix.distribution }}');print('whl') if p.suffix=='.whl' else print('tar_gz')") | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html --self-contained-html tests
+
+      - name: Run pytest
+        run: |
+          pytest --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html --self-contained-html --cov=$(python -c "import pathlib;import sdc11073;print(pathlib.Path(sdc11073.__file__).parent)") tests
 
       - name: Archive test result
         uses: actions/upload-artifact@v3
