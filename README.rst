@@ -2,27 +2,21 @@
 sdc11073
 ********
 
-|img1| |img2| |img3| |img4| |img5| |img6| |img7|
+|img1| |img2| |img3| |img4| |img5|
 
 .. |img1| image:: https://img.shields.io/pypi/pyversions/sdc11073
    :alt: pypi python version(s)
 
-.. |img2| image:: https://img.shields.io/pypi/implementation/sdc11073
-   :alt: pypi implementation
-
-.. |img3| image:: https://img.shields.io/pypi/status/sdc11073
-   :alt: pypi development status
-
-.. |img4| image:: https://img.shields.io/pypi/v/sdc11073
+.. |img2| image:: https://img.shields.io/pypi/v/sdc11073
    :alt: pypi latest version
 
-.. |img5| image:: https://img.shields.io/pypi/dm/sdc11073
+.. |img3| image:: https://img.shields.io/pypi/dm/sdc11073
    :alt: pypi downloads per month
 
-.. |img6| image:: https://img.shields.io/badge/runs%20on-ubuntu%20%7C%20windows-blue
+.. |img4| image:: https://img.shields.io/badge/runs%20on-ubuntu%20%7C%20windows-blue
    :alt: runs on which operating systems
 
-.. |img7| image:: https://codecov.io/gh/Draegerwerk/sdc11073/branch/v1.1.x/graph/badge.svg?token=EPLCCZMWMM
+.. |img5| image:: https://codecov.io/gh/Draegerwerk/sdc11073/branch/v1.1.x/graph/badge.svg?token=EPLCCZMWMM
    :target: https://codecov.io/gh/Draegerwerk/sdc11073
    :alt: test coverage
 
