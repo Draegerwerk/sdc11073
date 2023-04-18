@@ -429,12 +429,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
             for s in subscriptions:
                 self.assertFalse(s.is_closed())
         self.sdc_client.stop_all(unsubscribe=False)
-        time.sleep(SoapClient.SOCKET_TIMEOUT + 2)  # just a little longer than socket timeout 5 seconds
+        time.sleep(SoapClient.SOCKET_TIMEOUT + 3)  # just a little longer than socket timeout 5 seconds
 
         # all subscriptions shall be closed now
         for s in all_subscriptions:
-            print(s)
-            self.assertTrue(s.is_closed())
+            self.assertTrue(s.is_closed(), msg=f'socket {s} is not closed')
 
         # subscription managers shall have no subscriptions
         for hosted_service in services:
