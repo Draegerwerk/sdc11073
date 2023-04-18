@@ -62,7 +62,7 @@ class _Selector(object):
 
 
 class DualChannelDef(object):
-    ''' Definition is located in MdDescription'''
+    """ Definition is located in MdDescription"""
     def __init__(self, algorithm, transform, selectorDict):
         self.algorithm = algorithm
         self.transform = transform

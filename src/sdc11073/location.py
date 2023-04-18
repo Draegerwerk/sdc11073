@@ -25,9 +25,9 @@ class SdcLocation(object):
 
 
     def _getExtensionElementsSdc(self):
-        '''
+        """
         :return: a list of (urlName, value) tuples
-        '''
+        """
         identifiers = []
         for urlName, attrName in self._url_member_mapping:
             value = getattr(self, attrName)
@@ -74,11 +74,11 @@ class SdcLocation(object):
     
     
     def scopeStringMatches(self, scope):
-        '''
+        """
         Check if location in scope is inside own location.
         :param scope: url string
         :return: boolean
-        '''
+        """
         try:
             other =  self.__class__.fromScopeString(str(scope))
             return other in self
@@ -104,11 +104,11 @@ class SdcLocation(object):
 
     @classmethod
     def fromScopeString(cls, s):
-        '''
+        """
         Construct a Location from a scope string. If url scheme is not 'sdc.ctxt.loc', an UrlSchemeError is raised
         :param s: an url
         :return: a SdcLocation object
-        '''
+        """
         src = urllib.parse.urlsplit(s)
         
         if src.scheme.lower() != cls.scheme:

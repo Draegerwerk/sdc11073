@@ -15,9 +15,9 @@ class HostedServiceClient(object):
     subscribeable_actions = tuple()
     #def __init__(self, soapClient, dpws_hosted, porttype, validate, sdc_definitions, bicepsParser, log_prefix=''):
     def __init__(self, soapClient, dpws_hosted, porttype, sdc_definitions, log_prefix=''):
-        '''
+        """
         @param simple_xml_hosted_node: a "Hosted" node in a simplexml document
-        '''
+        """
         self.endpoint_reference = dpws_hosted.endpointReferences[0]
         self._url = urllib.parse.urlparse(self.endpoint_reference.address)
         self.porttype = porttype
@@ -35,7 +35,7 @@ class HostedServiceClient(object):
             self.predefined_actions[s] = self._getActionString(s)
 
     def register_mdib(self, mdib):
-        ''' Client sometimes must know the mdib data (e.g. Set service, activate method).'''
+        """ Client sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib_wref is not None:
             raise RuntimeError('Client "{}" has already an registered mdib'.format(self.porttype))
         self._mdib_wref = None if mdib is None else weakref.ref(mdib)
@@ -68,11 +68,11 @@ class HostedServiceClient(object):
         return self.soapClient.postSoapEnvelopeTo(self._url.path, soapEnvelope, msg=msg, request_manipulator=request_manipulator)
 
     def _mkSetMethodSoapEnvelope(self, methodName, operationHandle, requestNodes, additionalNamespaces=None):
-        ''' helper to create the soap envelope
+        """ helper to create the soap envelope
         @param methodName: last element of name of the called action
         @param operationHandle: handle name as string
         @param requestNodes: a list of etree_ nodes that will become Subelement of Method name element
-        '''
+        """
         soapBodyNode = etree_.Element( msgTag(methodName))
         ref = etree_.SubElement(soapBodyNode, msgTag('OperationHandleRef'), attrib={QN_TYPE: '{}:HandleRef'.format(Prefix.PM.prefix)}, nsmap=Prefix.partialMap(Prefix.PM))
         ref.text = operationHandle

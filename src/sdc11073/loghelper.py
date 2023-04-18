@@ -129,9 +129,9 @@ class LoggerAdapter(object):
 
 
 def getLoggerAdapter(name, prefix=None):
-    ''' Use this method instead of logging.getLogger.
+    """ Use this method instead of logging.getLogger.
     @return: a LoggerAdapter instance
-    '''
+    """
     return LoggerAdapter(logging.getLogger(name), prefix)
 
 
@@ -161,22 +161,22 @@ class _LogIssue(object):
                                                                     ''.join(self.call_stack))
 
 class LogWatcherHandler(logging.Handler):
-    ''' This is a logging handler that stores all records in a list'''
+    """ This is a logging handler that stores all records in a list"""
     def __init__(self, logger, level):
-        '''
+        """
         This is a logging handler that stores all records in a list.
         :param logger: the logger that shall be handled
         :param level: all records with log level >= level will be recorded
-        '''
+        """
         super(LogWatcherHandler, self).__init__(level=level)
         self._logger = logger
         self.records = []
         self._logger.addHandler(self)
 
     def emit(self, record):
-        '''
+        """
         This method is called by logger if record log level >= own level
-        '''
+        """
         self.acquire()
         try:
             self.records.append(_LogIssue(record))
@@ -184,11 +184,11 @@ class LogWatcherHandler(logging.Handler):
             self.release()
 
     def disconnect(self):
-        '''Remove self from logger.'''
+        """Remove self from logger."""
         self._logger.removeHandler(self)
 
     def clear(self):
-        ''' Delete all records'''
+        """ Delete all records"""
         self.acquire()
         try:
             del self.records[:]
@@ -197,14 +197,14 @@ class LogWatcherHandler(logging.Handler):
 
 
 class LogWatcher(object):
-    '''Manages one or more LogWatcherHandlers.
-    Can be used also as contextmanager'''
+    """Manages one or more LogWatcherHandlers.
+    Can be used also as contextmanager"""
     def __init__(self, logger, level=logging.ERROR, startPaused=False):
-        '''
+        """
         :param logger: the initial logger that shall be recorded
         :param level:  the log level for the initial handler
         :param startPaused: if true, logging is not started immediately.
-        '''
+        """
         self._logger = logger
         self._level = level
         self.handlers = []
@@ -213,47 +213,47 @@ class LogWatcher(object):
         self._collecting = not startPaused
 
     def addHandler(self, logger, level):
-        '''
+        """
         Add another LogWatcherHandler.
         :param logger: the logger that shall be recorded
         :param level: the log level for the handler
         :return: a LogWatcherHandler instance
-        '''
+        """
         coll = LogWatcherHandler(logger, level)
         coll.addFilter(self)
         self.handlers.append(coll)
         return coll
 
     def setPaused(self, isPaused):
-        '''
+        """
         Enable/disable recording.
         :param isPaused: if True, no records will be saved.
         :return:
-        '''
+        """
         self._collecting = not isPaused
 
     def stop(self):
-        '''
+        """
         Disconnect and delete all Handlers
         :return:
-        '''
+        """
         self._collecting = False
         for handler in self.handlers:
             handler.disconnect()
         self.handlers = []
 
     def clearHandlers(self):
-        '''
+        """
         Delete all recorded records in all handlers.
         :return:
-        '''
+        """
         for handler in self.handlers:
             handler.clear()
 
     def getAllRecords(self):
-        '''
+        """
         :return: a list of all records in all handlers
-        '''
+        """
         all_records = []
         for handler in self.handlers:
             handler.acquire()
@@ -264,10 +264,10 @@ class LogWatcher(object):
         return all_records
 
     def check(self, stop=True):
-        '''
+        """
         Check for Records. Raises a LogWatchException if any record was found
         :param stop: if True, stop is called internally
-        '''
+        """
         all_records = self.getAllRecords()
         if stop:
             self.stop()

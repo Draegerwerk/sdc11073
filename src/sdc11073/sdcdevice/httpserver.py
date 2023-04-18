@@ -40,9 +40,9 @@ class MyThreadingMixIn(object):
 
 
 class ThreadingHTTPServer(MyThreadingMixIn, HTTPServer):
-    ''' Each request is handled in a thread.
+    """ Each request is handled in a thread.
     Following recipe from https://pymotw.com/2/BaseHTTPServer/index.html#module-BaseHTTPServer
-    '''
+    """
     def __init__(self, *args, **kwargs):
         HTTPServer. __init__(self, *args, **kwargs)
         self.daemon_threads = True
@@ -79,7 +79,7 @@ class DevicesDispatcher(object):
 
 
 class HostedServiceDispatcher(object):
-    ''' receiver of all messages'''
+    """ receiver of all messages"""
 
     def __init__(self, sdc_definitions, logger):
         self.sdc_definitions = sdc_definitions
@@ -228,11 +228,11 @@ class _SdcServerRequestHandler(HTTPRequestHandler):
 class HttpServerThread(threading.Thread):
     
     def __init__(self, my_ipaddress, sslContext, supportedEncodings, log_prefix=None, chunked_responses=False):
-        '''
+        """
         :param my_ipaddress:
         :param sslContext:
         :param supportedEncodings: a list od strings
-        '''
+        """
         super(HttpServerThread, self).__init__(name='Dev_SdcHttpServerThread')
         self.daemon = True
 
@@ -269,9 +269,9 @@ class HttpServerThread(threading.Thread):
             raise
 
     def setCompressionFlag(self, useCompression):
-        '''Sets use compression attribute on the http server to be used in handler
+        """Sets use compression attribute on the http server to be used in handler
         @param useCompression: bool flag 
-        '''
+        """
         self.httpd.useCompression = useCompression
    
     def stop(self, closeAllConnections=True):

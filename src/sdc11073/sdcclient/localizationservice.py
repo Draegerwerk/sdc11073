@@ -7,7 +7,7 @@ from ..pmtypes import LocalizedText
 class LocalizationServiceClient(HostedServiceClient):
 
     def _getLocalizedTextResponse(self, refs=None, version=None, langs=None, textWidths=None, numberOfLines=None, request_manipulator=None):
-        '''
+        """
 
         :param refs: a list of strings or None
         :param version: an unsigned integer or None
@@ -16,7 +16,7 @@ class LocalizationServiceClient(HostedServiceClient):
         :param numberOfLines: a list of unsigned integers or None
         :param request_manipulator:
         :return: a list of LocalizedText objects
-        '''
+        """
         requestparams = []
         if refs is not None:
             for r in refs:

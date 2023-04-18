@@ -4,6 +4,10 @@ on:
   workflow_call:
   pull_request:
     types: [ opened, synchronize, reopened, ready_for_review ]
+  push:
+    branches:
+      - master
+      - v*
 
 jobs:
   build:

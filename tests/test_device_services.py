@@ -19,7 +19,7 @@ _sdc_ns = Prefix.SDC.namespace
 class TestDeviceServices(unittest.TestCase):
     
     def setUp(self):
-        ''' validate test data'''
+        """ validate test data"""
         print ('############### setUp {}... ##############'.format(self._testMethodName))
         self.wsDiscovery = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsDiscovery.start()
@@ -111,8 +111,8 @@ class TestDeviceServices(unittest.TestCase):
 
 
     def test_changeAlarmPrio(self):
-        ''' This is a test for defect SDCSIM-129
-        The order of children of '''
+        """ This is a test for defect SDCSIM-129
+        The order of children of """
         for sdcDevice in self._alldevices:
             getService = sdcDevice._handler._GetDispatcher
             endpoint_reference = '123'
@@ -161,9 +161,9 @@ class TestDeviceServices(unittest.TestCase):
 
 
     def test_wsdl_final(self):
-        '''
+        """
         check porttype and action namespaces in wsdl
-        '''
+        """
         dev = self.sdcDevice_final
         for hosted in dev._handler._hostedServices:
             wsdl = etree_.fromstring(hosted._wsdlString)
@@ -180,11 +180,11 @@ class TestDeviceServices(unittest.TestCase):
 
 
     def test_metadata_final(self):
-        '''
+        """
         verifies that
         - 7 hosted services exist ( one per port type)
         - every port type has BICEPS Message Model as namespace
-        '''
+        """
         dev = self.sdcDevice_final
         metaDataNode = dev._handler._mkMetaDataNode()
         print (etree_.tostring(metaDataNode))

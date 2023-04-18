@@ -46,10 +46,10 @@ class CommLogger(object):
 
 
     def _mkFileName(self, ipType, direction, info):
-        '''
+        """
         @param ipType: "tcp" or "udp"
         @param direction: "in" or "out"
-        '''
+        """
         assert ipType in (T_UDP, T_UDPBroadcast, T_HTTP, T_HTTP_REQ, T_HTTP_RESP, T_WSDL)
         assert direction in (D_IN, D_OUT)
         extension = 'wsdl' if ipType == T_WSDL else 'xml'

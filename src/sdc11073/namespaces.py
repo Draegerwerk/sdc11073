@@ -1,4 +1,4 @@
-''' A helper for xml name space handling'''
+""" A helper for xml name space handling"""
 from lxml import etree as etree_
 from _functools import partial
 from collections import namedtuple
@@ -31,10 +31,10 @@ class Prefix_Namespace(_Prefix_Namespace_Tuple, Enum):
     WSDL = _Prefix_Namespace_Tuple('wsdl', 'http://schemas.xmlsoap.org/wsdl/')
     @staticmethod
     def partialMap(*prefix):
-        '''
+        """
         :param prefix: Prefix_Namespace_Tuples
         :return: a dictionary with prefix as key, namespace as value
-        '''
+        """
         return dict((v.prefix, v.namespace) for v in prefix)
 
 
@@ -84,7 +84,7 @@ class DocNamespaceHelper(object):
             self._prefixmap[_ns] = prefix
 
     def _docPrefix(self, prefix_namespace_tuple):
-        ''' returns the document prefix for nsmap prefix'''
+        """ returns the document prefix for nsmap prefix"""
         return self._prefixmap[prefix_namespace_tuple.namespace]
 
     def msgPrefix(self):
@@ -94,7 +94,7 @@ class DocNamespaceHelper(object):
         return self._prefixmap[Prefix_Namespace.PM.namespace]
 
     def docName(self, myPrefix_or_namespace, name):
-        ''' returns the docprefix:name string. '''
+        """ returns the docprefix:name string. """
         prefix = self._docPrefix(myPrefix_or_namespace)
         if prefix is None:
             return name
@@ -114,10 +114,10 @@ class DocNamespaceHelper(object):
         return dict ((v,k) for k, v in self._prefixmap.items())
 
     def partialMap(self, *prefix):
-        '''
+        """
         :param prefix: Prefix class members
         :return: a dictionary with prefix as key, namespace as value
-        '''
+        """
         mynamespaces = []
         for p in prefix:
             if isinstance(p, _Prefix_Namespace_Tuple):

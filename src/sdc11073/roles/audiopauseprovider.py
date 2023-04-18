@@ -131,7 +131,7 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
 
 
     def _setGlobalAudioPause(self, operationInstance, request):  # pylint: disable=unused-argument
-        ''' This is the code that executes the operation itself:
+        """ This is the code that executes the operation itself:
         SF1132: If global audio pause is initiated, all SystemSignalActivation/State for all alarm systems of the
         product with SystemSignalActivation/Manifestation evaluating to 'Aud' shall be set to 'Psd'.
 
@@ -140,7 +140,7 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
 
         SF959: If signal pause is initiated for an ACKNOWLEDGEABLE ALERT SIGNAL, the the Alert Provider shall set the
         AlertSignalState/ActivationState to 'Psd' and AlertSignalState/Presence to 'Ack' for that ALERT SIGNAL.
-         '''
+         """
         alertSystemDescriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSystemDescriptor'))
         if alertSystemDescriptors is None:
             self._logger.error('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
@@ -188,10 +188,10 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
 
 
     def _cancelGlobalAudioPause(self, operationInstance, request): #pylint: disable=unused-argument
-        ''' This is the code that executes the operation itself:
+        """ This is the code that executes the operation itself:
         If global audio pause is initiated, all SystemSignalActivation/State for all alarm systems of the product with
         SystemSignalActivation/Manifestation evaluating to 'Aud' shall be set to 'Psd'.
-         '''
+         """
         alertSystemDescriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSystemDescriptor'))
         if self.USE_SAFETYCONTEXT:
             self._checkSafetyContext(request)
