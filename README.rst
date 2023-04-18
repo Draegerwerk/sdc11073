@@ -2,7 +2,7 @@
 sdc11073
 ********
 
-|img1| |img2| |img3| |img4| |img5| |img6|
+|img1| |img2| |img3| |img4| |img5| |img6| |img7|
 
 .. |img1| image:: https://img.shields.io/pypi/pyversions/sdc11073
    :alt: pypi python version(s)
@@ -21,6 +21,10 @@ sdc11073
 
 .. |img6| image:: https://img.shields.io/badge/runs%20on-ubuntu%20%7C%20windows-blue
    :alt: runs on which operating systems
+
+.. |img7| image:: https://codecov.io/gh/Draegerwerk/sdc11073/branch/v1.1.x/graph/badge.svg?token=EPLCCZMWMM
+   :target: https://codecov.io/gh/Draegerwerk/sdc11073
+   :alt: test coverage
 
 .. image:: docs/sdc_social_preview.jpg
    :alt: sdc Picture
