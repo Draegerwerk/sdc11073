@@ -5,11 +5,11 @@ from io import BytesIO
 from lxml import etree as etree_
 
 from ..dispatch import DispatchKeyRegistry, DispatchKey
-from sdc11073.xml_types.addressing_types import EndpointReferenceType
-from sdc11073.xml_types.dpws_types import HostedServiceType
 from ..namespaces import EventingActions
 from ..namespaces import default_ns_helper as ns_hlp
 from ..xml_types import mex_types
+from ..xml_types.addressing_types import EndpointReferenceType
+from ..xml_types.dpws_types import HostedServiceType
 
 _wsdl_ns = ns_hlp.WSDL.namespace
 
@@ -84,7 +84,7 @@ class DPWSHostedService(_EventService):
 
         self._sdc_device = sdc_device
         self._mdib = sdc_device.mdib
-        self._port_type_impls = port_type_impls
+        self.port_type_impls = port_type_impls
         self._my_port_types = [p.port_type_string for p in port_type_impls]
         self._wsdl_string = self._mk_wsdl_string()
         self.register_post_handler(DispatchKey(f'{ns_hlp.WSX.namespace}/GetMetadata/Request',
@@ -103,11 +103,11 @@ class DPWSHostedService(_EventService):
         port_type_ns = self._mdib.sdc_definitions.PortTypeNamespace
         dpws_hosted = HostedServiceType()
         dpws_hosted.EndpointReference.extend(endpoint_references_list)
-        dpws_hosted.Types=[etree_.QName(port_type_ns, p) for p in self._my_port_types]
-        dpws_hosted.ServiceId=self._my_port_types[0]
+        dpws_hosted.Types = [etree_.QName(port_type_ns, p) for p in self._my_port_types]
+        dpws_hosted.ServiceId = self._my_port_types[0]
         return dpws_hosted
 
-    def _on_get_wsdl(self) -> str:
+    def _on_get_wsdl(self) -> bytes:
         """ return wsdl"""
         self._logger.debug('_onGetWsdl returns {}', self._wsdl_string)
         return self._wsdl_string
@@ -128,21 +128,21 @@ class DPWSHostedService(_EventService):
 
         types = etree_.SubElement(wsdl_definitions, etree_.QName(_wsdl_ns, 'types'))
         # remove annotations from schemas, this reduces wsdl size from 280kb to 100kb!
-        ext_schema_ = etree_from_file(sdc_definitions.SchemaFilePaths.ExtensionPointSchemaFile)
+        ext_schema_ = etree_from_file(ns_hlp.EXT.local_schema_file)
         ext_schema = self._remove_annotations(ext_schema_)
-        pm_schema_ = etree_from_file(sdc_definitions.SchemaFilePaths.ParticipantModelSchemaFile)
+        pm_schema_ = etree_from_file(ns_hlp.PM.local_schema_file)
         participant_schema = self._remove_annotations(pm_schema_)
-        bmm_schema_ = etree_from_file(sdc_definitions.SchemaFilePaths.MessageModelSchemaFile)
-        message_schema = self._remove_annotations(bmm_schema_)
+        mm_schema_ = etree_from_file(ns_hlp.MSG.local_schema_file)
+        message_schema = self._remove_annotations(mm_schema_)
         types.append(ext_schema)
         types.append(participant_schema)
         types.append(message_schema)
         # append all message nodes
-        for _port_type_impl in self._port_type_impls:
+        for _port_type_impl in self.port_type_impls:
             _port_type_impl.add_wsdl_messages(wsdl_definitions)
-        for _port_type_impl in self._port_type_impls:
+        for _port_type_impl in self.port_type_impls:
             _port_type_impl.add_wsdl_port_type(wsdl_definitions)
-        for _port_type_impl in self._port_type_impls:
+        for _port_type_impl in self.port_type_impls:
             _port_type_impl.add_wsdl_binding(wsdl_definitions, porttype_prefix)
         return etree_.tostring(wsdl_definitions, encoding='UTF-8', xml_declaration=True)
 
@@ -202,5 +202,4 @@ class DPWSHostedService(_EventService):
 
     def __repr__(self):
         return f'{self.__class__.__name__} path={self.path_element} ' \
-               f'port types={[dp.port_type_string for dp in self._port_type_impls]}'
-
+               f'port types={[dp.port_type_string for dp in self.port_type_impls]}'

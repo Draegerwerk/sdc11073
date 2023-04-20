@@ -1,11 +1,12 @@
 """ A helper for xml name space handling"""
 from collections import namedtuple
+import os
 from enum import Enum
 from typing import Optional, Type
 
 from lxml import etree as etree_
 
-_PrefixNamespaceTuple = namedtuple('_PrefixNamespaceTuple', 'prefix namespace')
+_PrefixNamespaceTuple = namedtuple('_PrefixNamespaceTuple', 'prefix namespace schema_location_url local_schema_file')
 
 
 class PrefixNamespace(_PrefixNamespaceTuple):
@@ -19,30 +20,82 @@ class PrefixNamespace(_PrefixNamespaceTuple):
         return localname
 
 
-# these are internally used namespaces, they are not all identical the ones that are used in sdc.
-# it is in the responsibility of the sdc definitions class(es) to convert between internal and external namespaces.
-# Originally this abstraction was needed, because during development of the sdc standard the namespaces changed.
-# Although the standard is meanwhile final, this abstraction might again be needed if in the future a new revision
-# of the standard appears.
+schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
+
 class PrefixesEnum(PrefixNamespace, Enum):
-    MSG = PrefixNamespace('msg', 'http://standards.ieee.org/downloads/11073/11073-10207-2017/message')
-    PM = PrefixNamespace('dom', 'http://standards.ieee.org/downloads/11073/11073-10207-2017/participant')
-    MDPWS = PrefixNamespace('mdpws', 'http://standards.ieee.org/downloads/11073/11073-20702-2016')
-    EXT = PrefixNamespace('ext', 'http://standards.ieee.org/downloads/11073/11073-10207-2017/extension')
-    SDC = PrefixNamespace('sdc', 'http://standards.ieee.org/downloads/11073/11073-20701-2018')
-    WSE = PrefixNamespace('wse', 'http://schemas.xmlsoap.org/ws/2004/08/eventing')
-    XSD = PrefixNamespace('xsd', 'http://www.w3.org/2001/XMLSchema')
-    XSI = PrefixNamespace('xsi', 'http://www.w3.org/2001/XMLSchema-instance')
-    WSA = PrefixNamespace('wsa', 'http://www.w3.org/2005/08/addressing')
-    WSX = PrefixNamespace('wsx', 'http://schemas.xmlsoap.org/ws/2004/09/mex')  # Meta Data Exchange
-    DPWS = PrefixNamespace('dpws', 'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01')
-    WSD = PrefixNamespace('wsd', 'http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01')
-    S12 = PrefixNamespace('s12', 'http://www.w3.org/2003/05/soap-envelope')
-    XML = PrefixNamespace('xml', 'http://www.w3.org/XML/1998/namespace')
-    WXF = PrefixNamespace('wxf', 'http://schemas.xmlsoap.org/ws/2004/09/transfer')  # ws-transfer
-    WSDL = PrefixNamespace('wsdl', 'http://schemas.xmlsoap.org/wsdl/')
-    WSDL12 = PrefixNamespace('wsdl12', 'http://schemas.xmlsoap.org/wsdl/soap12/')  # old soap 12 namespace, used in wsdl 1.1. only for wsdl
-    WSP = PrefixNamespace('wsp', 'http://www.w3.org/ns/ws-policy')
+
+    MSG = PrefixNamespace('msg',
+                          'http://standards.ieee.org/downloads/11073/11073-10207-2017/message',
+                          "http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd",
+                          os.path.join(schemaFolder, 'BICEPS_MessageModel.xsd'))
+    PM = PrefixNamespace('dom',
+                         'http://standards.ieee.org/downloads/11073/11073-10207-2017/participant',
+                         "http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_ParticipantModel.xsd",
+                         os.path.join(schemaFolder, 'BICEPS_ParticipantModel.xsd'))
+    EXT = PrefixNamespace('ext',
+                          'http://standards.ieee.org/downloads/11073/11073-10207-2017/extension',
+                          "http://standards.ieee.org/downloads/11073/11073-10207-2017/ExtensionPoint.xsd",
+                          os.path.join(schemaFolder, 'ExtensionPoint.xsd'))
+    MDPWS = PrefixNamespace('mdpws',
+                            'http://standards.ieee.org/downloads/11073/11073-20702-2016',
+                            None,
+                            None)
+    SDC = PrefixNamespace('sdc',
+                          'http://standards.ieee.org/downloads/11073/11073-20701-2018',
+                          None,
+                          None)
+    WSE = PrefixNamespace('wse',
+                          'http://schemas.xmlsoap.org/ws/2004/08/eventing',
+                          "http://schemas.xmlsoap.org/ws/2004/08/eventing",
+                          os.path.join(schemaFolder, 'eventing.xsd'))
+    XSD = PrefixNamespace('xsd',
+                          'http://www.w3.org/2001/XMLSchema',
+                          'http://www.w3.org/2001/xml.xsd',
+                          os.path.join(schemaFolder, 'xml.xsd'))
+    XSI = PrefixNamespace('xsi',
+                          'http://www.w3.org/2001/XMLSchema-instance',
+                          None,
+                          None)
+    WSA = PrefixNamespace('wsa',
+                          'http://www.w3.org/2005/08/addressing',
+                          'http://www.w3.org/2006/03/addressing/ws-addr.xsd',
+                          os.path.join(schemaFolder, 'ws-addr.xsd'))
+    WSX = PrefixNamespace('wsx',  # Meta Data Exchange
+                          'http://schemas.xmlsoap.org/ws/2004/09/mex',
+                          'http://schemas.xmlsoap.org/ws/2004/09/mex',
+                          os.path.join(schemaFolder, 'MetadataExchange.xsd'))
+    DPWS = PrefixNamespace('dpws',
+                           'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01',
+                           'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01',
+                           os.path.join(schemaFolder, 'wsdd-dpws-1.1-schema-os.xsd'))
+    WSD = PrefixNamespace('wsd',
+                          'http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01',
+                          'http://docs.oasis-open.org/ws-dd/discovery/1.1/os/wsdd-discovery-1.1-schema-os.xsd',
+                          os.path.join(schemaFolder, 'wsdd-discovery-1.1-schema-os.xsd'))
+    S12 = PrefixNamespace('s12',
+                          'http://www.w3.org/2003/05/soap-envelope',
+                          'http://www.w3.org/2003/05/soap-envelope',
+                          os.path.join(schemaFolder, 'soap-envelope.xsd'))
+    XML = PrefixNamespace('xml',
+                          'http://www.w3.org/XML/1998/namespace',
+                          None,
+                          None)
+    WXF = PrefixNamespace('wxf', # ws-transfer
+                          'http://schemas.xmlsoap.org/ws/2004/09/transfer',
+                          None,
+                          None)
+    WSDL = PrefixNamespace('wsdl',
+                           'http://schemas.xmlsoap.org/wsdl/',
+                           'http://schemas.xmlsoap.org/wsdl/',
+                           os.path.join(schemaFolder, 'wsdl.xsd'))
+    WSDL12 = PrefixNamespace('wsdl12',
+                             'http://schemas.xmlsoap.org/wsdl/soap12/',
+                             None,
+                             None)  # old soap 12 namespace, used in wsdl 1.1. only for wsdl
+    WSP = PrefixNamespace('wsp',
+                          'http://www.w3.org/ns/ws-policy',
+                          None,
+                          None)
 
 
 class NamespaceHelper:
@@ -56,10 +109,6 @@ class NamespaceHelper:
 
         self._prefix_map = dict((x.namespace, x.prefix) for x in self._lookup.values())  # map namespace to prefix
         self.ns_map = dict((x.prefix, x.namespace) for x in self._lookup.values())  # map prefix to namespace
-
-    @property
-    def nsmap(self) -> dict:
-        return self.ns_map
 
     @property
     def MSG(self) -> PrefixNamespace:
@@ -219,8 +268,6 @@ class NamespaceHelper:
 
 
 default_ns_helper = NamespaceHelper(PrefixesEnum) #, default_ns=PrefixesEnum.PM.namespace)
-
-nsmap = default_ns_helper.ns_map
 
 # some constants from ws-addressing
 WSA_ANONYMOUS = PrefixesEnum.WSA.namespace + '/anonymous'

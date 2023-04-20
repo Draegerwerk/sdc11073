@@ -6,7 +6,7 @@ from lxml import etree as etree_
 
 from sdc11073 import definitions_sdc
 from sdc11073 import loghelper
-from sdc11073 import namespaces
+from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.mdib import ClientMdibContainer
 from sdc11073.mdib.descriptorcontainers import RealTimeSampleArrayMetricDescriptorContainer
 from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
@@ -145,11 +145,11 @@ class TestClientWaveform(unittest.TestCase):
         # create dummy descriptors
         for handle in HANDLES:
             attributes = {'SamplePeriod': 'P0Y0M0DT0H0M0.0157S',  # use a unique sample period
-                          etree_.QName(namespaces.nsmap['xsi'],
+                          etree_.QName(ns_hlp.ns_map['xsi'],
                                        'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
                           'Handle': handle,
                           'DescriptorVersion': '2'}
-            element = etree_.Element('Metric', attrib=attributes, nsmap=namespaces.nsmap)
+            element = etree_.Element('Metric', attrib=attributes, nsmap=ns_hlp.ns_map)
             descr = RealTimeSampleArrayMetricDescriptorContainer.from_node(element, None) # None = no parent handle
             client_mdib.descriptions.add_object(descr)
             state = RealTimeSampleArrayMetricStateContainer(descr)

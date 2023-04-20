@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 from io import BytesIO
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, List, TYPE_CHECKING
 
 from lxml import etree as etree_
 
 from .msgreader import validate_node
 from .soapenvelope import Soap12Envelope
-from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from ..schema_resolver import SchemaResolver
 from ..schema_resolver import mk_schema_validator
+from ..xml_types.addressing_types import HeaderInformationBlock
 
 if TYPE_CHECKING:
-    from sdc11073.xml_types.msg_types import MessageType
+    from ..xml_types.msg_types import MessageType
+    from ..definitions_base import AbstractDataModel
+    from ..namespaces import PrefixNamespace
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
 
@@ -35,12 +36,15 @@ class MessageFactory:
      2) call the serialize method of the CreatedMessage instance to get the xml representation
      """
 
-    def __init__(self, sdc_definitions, logger, validate=True):
+    def __init__(self, schema_specs: List[PrefixNamespace],
+                 data_model: AbstractDataModel,
+                 logger,
+                 validate=True):
+        self.schema_specs = schema_specs
         self._logger = logger
-        self._sdc_definitions = sdc_definitions
-
+        self.ns_hlp = data_model.ns_helper
         self._validate = validate
-        self._xml_schema = mk_schema_validator(SchemaResolver(sdc_definitions))
+        self._xml_schema: etree_.XMLSchema = mk_schema_validator(schema_specs, self.ns_hlp)
 
     def serialize_message(self, message: CreatedMessage, pretty=False,
                           request_manipulator=None, validate=True) -> bytes:
@@ -53,7 +57,7 @@ class MessageFactory:
         :return: bytes
         """
         p_msg = message.p_msg
-        nsh = self._sdc_definitions.data_model.ns_helper
+        nsh = self.ns_hlp
         tmp = BytesIO()
         root = etree_.Element(nsh.s12Tag('Envelope'), nsmap=p_msg.nsmap)
 
@@ -63,10 +67,12 @@ class MessageFactory:
             header_node.extend(info_node[:])
         header_node.extend(p_msg.header_nodes)
         body_node = etree_.SubElement(root, nsh.s12Tag('Body'), nsmap=p_msg.nsmap)
-        if p_msg.payload_element is not None:
-            body_node.append(p_msg.payload_element)
         if validate:
-            self._validate_node(root)
+            self._validate_node(root, self._xml_schema)
+        if p_msg.payload_element is not None:
+            if validate:
+                self._validate_node(p_msg.payload_element, self._xml_schema)
+            body_node.append(p_msg.payload_element)
 
         doc = etree_.ElementTree(element=root)
         if hasattr(request_manipulator, 'manipulate_domtree'):
@@ -80,8 +86,8 @@ class MessageFactory:
                         header_info: HeaderInformationBlock,
                         payload: MessageType,
                         ns_list: Optional[list] = None,
-                        use_defaults =True):
-        nsh = self._sdc_definitions.data_model.ns_helper
+                        use_defaults=True):
+        nsh = self.ns_hlp
         if use_defaults:
             ns_set = {nsh.S12, nsh.WSA, nsh.MSG, nsh.PM}  # default
         else:
@@ -98,7 +104,7 @@ class MessageFactory:
     def mk_soap_message_etree_payload(self,
                                       header_info: HeaderInformationBlock,
                                       payload_element: Optional[etree_.Element] = None):
-        nsh = self._sdc_definitions.data_model.ns_helper
+        nsh = self.ns_hlp
         my_ns_map = nsh.partial_map(nsh.S12, nsh.WSE, nsh.WSA)
         soap_envelope = Soap12Envelope(my_ns_map)
         soap_envelope.set_header_info_block(header_info)
@@ -109,7 +115,7 @@ class MessageFactory:
                               request,
                               response_payload: MessageType,
                               ns_map: Optional[list] = None):
-        nsh = self._sdc_definitions.data_model.ns_helper
+        nsh = self.ns_hlp
         ns_set = {nsh.S12, nsh.WSA, nsh.MSG, nsh.PM}  # default
         ns_set.update(response_payload.additional_namespaces)
         if ns_map:
@@ -122,6 +128,6 @@ class MessageFactory:
         soap_envelope.payload_element = response_payload.as_etree_node(response_payload.NODETYPE, my_ns_map)
         return CreatedMessage(soap_envelope, self)
 
-    def _validate_node(self, node):
+    def _validate_node(self, node, xml_schema: etree_.XMLSchema):
         if self._validate:
-            validate_node(node, self._xml_schema, self._logger)
+            validate_node(node, xml_schema, self._logger)

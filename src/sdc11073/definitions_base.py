@@ -16,6 +16,7 @@ class ProtocolsRegistry(type):
             cls.protocols.append(new_cls)
         return new_cls
 
+
 class AbstractDataModel(ABC):
 
     @abstractmethod
@@ -89,18 +90,12 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     # set the following values in derived classes:
     MedicalDeviceType = None  # a QName, needed for types_match method
     ActionsNamespace = None  # needed for wsdl generation
-    PortTypeNamespace = None # needed for wsdl generation
+    PortTypeNamespace = None  # needed for wsdl generation
     MedicalDeviceTypesFilter = None  # list of QNames that are used / expected in "types" of wsdiscovery
     Actions = None
-    SchemaFilePaths = None
     data_model = None  # AbstractDataModel instance
-
 
     @classmethod
     def types_match(cls, types):
         """ This method checks if this definition can be used for the provided types."""
         return cls.MedicalDeviceType in types
-
-    @classmethod
-    def get_schema_file_path(cls, url):
-        return cls.SchemaFilePaths.schema_location_lookup.get(url)

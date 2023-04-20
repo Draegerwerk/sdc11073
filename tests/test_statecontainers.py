@@ -7,7 +7,6 @@ from math import isclose
 import sdc11073.xml_types.xml_structure as cp
 import sdc11073.mdib.descriptorcontainers as dc
 import sdc11073.mdib.statecontainers as sc
-import sdc11073.namespaces as namespaces
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.xml_types import pm_types, pm_qnames as pm
 from sdc11073.location import SdcLocation
@@ -20,7 +19,7 @@ _my_tag = pm.State
 class TestStateContainers(unittest.TestCase):
 
     def setUp(self):
-        self.ns_mapper = ns_hlp  #namespaces.DocNamespaceHelper()
+        self.ns_mapper = ns_hlp
         self.descr = dc.AbstractDescriptorContainer(handle='123', parent_handle='456')
         self.descr.DescriptorVersion = 42
 
@@ -355,7 +354,7 @@ class TestStateContainers(unittest.TestCase):
         # verify that initial pyValue is empty, and that no AllowedValues node is created
         self.assertEqual(state.AllowedValues.Value, [])
         node = state.mk_state_node(_my_tag, self.ns_mapper)
-        allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
+        allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=ns_hlp.ns_map)
         self.assertEqual(len(allowedValuesNodes), 0)
 
         state2 = sc.SetStringOperationStateContainer(descriptor_container=self.descr)
@@ -365,15 +364,15 @@ class TestStateContainers(unittest.TestCase):
         # verify that setting to None is identical to empty list
         state.AllowedValues.Value = []
         node = state.mk_state_node(_my_tag, self.ns_mapper)
-        allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
+        allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=ns_hlp.ns_map)
         self.assertEqual(len(allowedValuesNodes), 0)
 
         # verify that non-empty list creates values in xml and that same list appears in container created from that xml
         state.AllowedValues.Value = ['a', 'b', 'c']
         node = state.mk_state_node(_my_tag, self.ns_mapper)
-        allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
+        allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=ns_hlp.ns_map)
         self.assertEqual(len(allowedValuesNodes), 1)
-        valuesNodes = node.xpath('//dom:Value', namespaces=namespaces.nsmap)
+        valuesNodes = node.xpath('//dom:Value', namespaces=ns_hlp.ns_map)
         self.assertEqual(len(valuesNodes), 3)
         state2 = sc.SetStringOperationStateContainer(descriptor_container=self.descr)
         state2.update_from_other_container(state)
@@ -382,7 +381,7 @@ class TestStateContainers(unittest.TestCase):
         # verify that setting it back to None clears all data
         state.AllowedValues.Value = None
         node = state.mk_state_node(_my_tag, self.ns_mapper)
-        allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=namespaces.nsmap)
+        allowedValuesNodes = node.xpath('//dom:AllowedValues', namespaces=ns_hlp.ns_map)
         self.assertEqual(len(allowedValuesNodes), 0)
         state2 = sc.SetStringOperationStateContainer(descriptor_container=self.descr)
         self.assertEqual(state2.AllowedValues.Value, [])

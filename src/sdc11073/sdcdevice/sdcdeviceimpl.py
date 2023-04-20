@@ -7,22 +7,22 @@ from urllib.parse import SplitResult
 
 from .components import default_sdc_device_components
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
-from ..pysoap.soapclientpool import SoapClientPool
 from .waveforms import WaveformSender
 from .. import loghelper
 from .. import observableproperties as properties
-from sdc11073.xml_types.addressing_types import EndpointReferenceType
 from ..dispatch import DispatchKey, DispatchKeyRegistry
 from ..dispatch import PathElementRegistry
 from ..dispatch import RequestData, MessageConverterMiddleware
-from sdc11073.xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisModelType
 from ..exceptions import ApiUsageError
 from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..location import SdcLocation
-from ..xml_types import mex_types
-from ..xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
 from ..namespaces import WSA_ANONYMOUS
+from ..pysoap.soapclientpool import SoapClientPool
+from ..xml_types import mex_types
+from ..xml_types.addressing_types import EndpointReferenceType
+from ..xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisModelType
+from ..xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
 
 if TYPE_CHECKING:
     from ..pysoap.msgfactory import CreatedMessage
@@ -130,12 +130,19 @@ class SdcDevice:
         self._waveform_sender = None
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
 
-        self.msg_reader = self._components.msg_reader_class(self._mdib.sdc_definitions,
-                                                            self._logger,
+        schema_specs = [entry.value for entry in self._mdib.sdc_definitions.data_model.ns_helper.prefix_enum]
+        model = self._mdib.sdc_definitions.data_model
+        for hosted_service in self._components.hosted_services.values():
+            for port_type_impl in hosted_service.values():
+                schema_specs.extend(port_type_impl.additional_namespaces)
+        logger = loghelper.get_logger_adapter('sdc.device.msgreader', log_prefix)
+        self.msg_reader = self._components.msg_reader_class(schema_specs, model,
+                                                            logger,
                                                             self._log_prefix,
                                                             validate=validate)
+
         logger = loghelper.get_logger_adapter('sdc.device.msgfactory', log_prefix)
-        self.msg_factory = self._components.msg_factory_class(sdc_definitions=self._mdib.sdc_definitions,
+        self.msg_factory = self._components.msg_factory_class(schema_specs, model,
                                                               logger=logger,
                                                               validate=validate)
 
@@ -151,7 +158,7 @@ class SdcDevice:
         epr_type = EndpointReferenceType()
         epr_type.Address = self.epr_urn
         self.dpws_host = HostServiceType()
-        self.dpws_host.EndpointReference =  epr_type
+        self.dpws_host.EndpointReference = epr_type
         self.dpws_host.Types = self._mdib.sdc_definitions.MedicalDeviceTypesFilter
 
         self._hosted_service_dispatcher = _PathElementDispatcher()
@@ -214,8 +221,8 @@ class SdcDevice:
             self._sco_operations_registries[sco_descr.Handle] = sco_operations_registry
 
             product_roles = self._components.role_provider_class(self._mdib,
-                                                                  sco_operations_registry,
-                                                                  self._log_prefix)
+                                                                 sco_operations_registry,
+                                                                 self._log_prefix)
             self.product_roles_lookup[sco_descr.Handle] = product_roles
             product_roles.init_operations()
         # product roles might have added descriptors, set source mds for all
@@ -272,7 +279,6 @@ class SdcDevice:
         needed_namespaces = [_nsm.DPWS, _nsm.MDPWS]
         response = self.msg_factory.mk_reply_soap_message(request, probe_matches, needed_namespaces)
         response.p_msg.header_info_block.set_to(WSA_ANONYMOUS)
-        #response = self.msg_factory.mk_probe_matches_response_message(request.message_data, self.get_xaddrs())
         return response
 
     def set_location(self, location: SdcLocation,

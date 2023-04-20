@@ -1,44 +1,50 @@
+from __future__ import annotations
+
 import os
+from io import StringIO
+from typing import TYPE_CHECKING, List, Union
 from urllib import parse
 
 from lxml import etree as etree_
 
 from . import loghelper
-from .namespaces import default_ns_helper as ns_hlp
+
+if TYPE_CHECKING:
+    from .namespaces import PrefixNamespace, NamespaceHelper
 
 
-def mk_schema_validator(schema_resolver: etree_.Resolver) -> etree_.XMLSchema:
+def mk_schema_validator(namespaces: List[PrefixNamespace], ns_helper: NamespaceHelper,
+                        log_prefix=None) -> etree_.XMLSchema:
+    schema_resolver = SchemaResolver(namespaces)
     parser = etree_.XMLParser(resolve_entities=True)
     parser.resolvers.add(schema_resolver)
+    prefix_enum = ns_helper.prefix_enum
+    not_needed = [prefix_enum.XSD]
     # create a schema that includes all used schemas into a single one
-    all_included = f'''<?xml version="1.0" encoding="UTF-8"?>
-    <xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
-     <xsd:import namespace="http://www.w3.org/2003/05/soap-envelope" schemaLocation="http://www.w3.org/2003/05/soap-envelope"/>
-     <xsd:import namespace="http://schemas.xmlsoap.org/ws/2004/08/eventing" schemaLocation="http://schemas.xmlsoap.org/ws/2004/08/eventing"/>
-     <xsd:import namespace="http://schemas.xmlsoap.org/ws/2004/09/mex" schemaLocation="http://schemas.xmlsoap.org/ws/2004/09/mex"/>
-     <xsd:import namespace="http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01" schemaLocation="http://docs.oasis-open.org/ws-dd/discovery/1.1/os/wsdd-discovery-1.1-schema-os.xsd"/>
-     <xsd:import namespace="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01" schemaLocation="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01"/>
-     <xsd:import namespace="http://www.w3.org/2005/08/addressing" schemaLocation="http://www.w3.org/2006/03/addressing/ws-addr.xsd"/>
-     <xsd:import namespace="http://schemas.xmlsoap.org/wsdl/" schemaLocation="http://schemas.xmlsoap.org/wsdl/"/>
-     <xsd:import namespace="{ns_hlp.MSG.namespace}" schemaLocation="http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd"/>
-     </xsd:schema>'''.encode('utf-8')
+    tmp = StringIO()
+    tmp.write('<?xml version="1.0" encoding="UTF-8"?>')
+    tmp.write(f'<xsd:schema xmlns:xsd="{prefix_enum.XSD.namespace}" elementFormDefault="qualified">\n')
+    for entry in namespaces:
+        if entry.schema_location_url is not None and entry not in not_needed:
+            tmp.write(f'<xsd:import namespace="{entry.namespace}" schemaLocation="{entry.schema_location_url}"/>\n')
+    tmp.write('</xsd:schema>')
+    all_included = tmp.getvalue().encode('utf-8')
 
     elem_tree = etree_.fromstring(all_included, parser=parser, base_url='C://')
     return etree_.XMLSchema(etree=elem_tree)
 
 
-
 class SchemaResolver(etree_.Resolver):
 
-    def __init__(self, base_definitions, log_prefix=None):
+    def __init__(self, namespaces: List[PrefixNamespace], log_prefix=None):
         super().__init__()
-        self._base_definitions = base_definitions
+        self.namespaces = namespaces
         self._logger = loghelper.get_logger_adapter('sdc.schema_resolver', log_prefix)
 
     def resolve(self, url, id, context):  # pylint: disable=unused-argument, redefined-builtin, invalid-name
         # first check if there is a lookup defined
         self._logger.debug('try to resolve {}', url)
-        path = self._base_definitions.get_schema_file_path(url)
+        path = self._get_schema_file_path(url)
         if path:
             self._logger.debug('could resolve url {} via lookup to {}', url, path)
         else:
@@ -57,3 +63,14 @@ class SchemaResolver(etree_.Resolver):
         with open(path, 'rb') as my_file:
             xml_text = my_file.read()
         return self.resolve_string(xml_text, context, base_url=path)
+
+    def _get_schema_file_path(self, url: str) -> Union[str, None]:
+        """
+
+        :param url: url of the schema location
+        :return: str or None
+        """
+        for entry in self.namespaces:
+            if entry.schema_location_url == url:
+                return entry.local_schema_file
+        return None
