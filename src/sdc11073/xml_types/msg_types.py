@@ -6,10 +6,10 @@ from . import ext_qnames as ext
 from . import msg_qnames as msg
 from . import pm_qnames as pm
 from . import xml_structure as cp
+from .actions import Actions
 from .basetypes import MessageType
 from .dataconverters import UnsignedIntConverter, StringConverter, DecimalConverter
 from .pm_types import PropertyBasedPMType, LocalizedText, InstanceIdentifier, LocalizedTextWidth, ContainmentTree
-from ..definitions_sdc import SDC_v1_Definitions
 from ..mdib.descriptorcontainers import AbstractDescriptorContainer, MdsDescriptorContainer, VmdDescriptorContainer
 from ..mdib.descriptorcontainers import ChannelDescriptorContainer, AbstractMetricDescriptorContainer
 from ..mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
@@ -103,12 +103,12 @@ class AbstractMetricReport(AbstractReport):
 
 class EpisodicMetricReport(AbstractMetricReport):
     NODETYPE = msg.EpisodicMetricReport
-    action = SDC_v1_Definitions.Actions.EpisodicMetricReport
+    action = Actions.EpisodicMetricReport
 
 
 class PeriodicMetricReport(AbstractMetricReport):
     NODETYPE = msg.PeriodicMetricReport
-    action = SDC_v1_Definitions.Actions.PeriodicMetricReport
+    action = Actions.PeriodicMetricReport
 
 
 ##### Context Report ###
@@ -135,12 +135,12 @@ class AbstractContextReport(AbstractReport):
 
 class EpisodicContextReport(AbstractContextReport):
     NODETYPE = msg.EpisodicContextReport
-    action = SDC_v1_Definitions.Actions.EpisodicContextReport
+    action = Actions.EpisodicContextReport
 
 
 class PeriodicContextReport(AbstractContextReport):
     NODETYPE = msg.PeriodicContextReport
-    action = SDC_v1_Definitions.Actions.PeriodicContextReport
+    action = Actions.PeriodicContextReport
 
 
 ##### Operational State Report ###
@@ -167,12 +167,12 @@ class AbstractOperationalStateReport(AbstractReport):
 
 class EpisodicOperationalStateReport(AbstractOperationalStateReport):
     NODETYPE = msg.EpisodicOperationalStateReport
-    action = SDC_v1_Definitions.Actions.EpisodicOperationalStateReport
+    action = Actions.EpisodicOperationalStateReport
 
 
 class PeriodicOperationalStateReport(AbstractOperationalStateReport):
     NODETYPE = msg.PeriodicOperationalStateReport
-    action = SDC_v1_Definitions.Actions.PeriodicOperationalStateReport
+    action = Actions.PeriodicOperationalStateReport
 
 
 ##### Alert Report ###
@@ -199,12 +199,12 @@ class AbstractAlertReport(AbstractReport):
 
 class EpisodicAlertReport(AbstractAlertReport):
     NODETYPE = msg.EpisodicAlertReport
-    action = SDC_v1_Definitions.Actions.EpisodicAlertReport
+    action = Actions.EpisodicAlertReport
 
 
 class PeriodicAlertReport(AbstractAlertReport):
     NODETYPE = msg.PeriodicAlertReport
-    action = SDC_v1_Definitions.Actions.PeriodicAlertReport
+    action = Actions.PeriodicAlertReport
 
 
 ##### Component Report ###
@@ -231,12 +231,12 @@ class AbstractComponentReport(AbstractReport):
 
 class EpisodicComponentReport(AbstractComponentReport):
     NODETYPE = msg.EpisodicComponentReport
-    action = SDC_v1_Definitions.Actions.EpisodicComponentReport
+    action = Actions.EpisodicComponentReport
 
 
 class PeriodicComponentReport(AbstractComponentReport):
     NODETYPE = msg.PeriodicComponentReport
-    action = SDC_v1_Definitions.Actions.PeriodicComponentReport
+    action = Actions.PeriodicComponentReport
 
 
 ##### Operation Invoked Report ###
@@ -256,7 +256,7 @@ class InvocationInfo(PropertyBasedPMType):
                    f'InvocationErrorMessage={text}'
         return f'{self.__class__.__name__}(TransactionId={self.TransactionId}, InvocationState={self.InvocationState})'
 
-    def add_error_message(self, text: str, lang=None, ref=None, version=None, text_width=None ):
+    def add_error_message(self, text: str, lang=None, ref=None, version=None, text_width=None):
         self.InvocationErrorMessage.append(LocalizedText(text, lang, ref, version, text_width))
 
 
@@ -272,7 +272,7 @@ class OperationInvokedReportPart(AbstractReportPart):
 
 class OperationInvokedReport(AbstractReport):
     NODETYPE = msg.OperationInvokedReport
-    action = SDC_v1_Definitions.Actions.OperationInvokedReport
+    action = Actions.OperationInvokedReport
     ReportPart = cp.SubElementListProperty(msg.ReportPart, value_class=OperationInvokedReportPart)
     _props = ['ReportPart']
 
@@ -285,52 +285,53 @@ class AbstractSetResponse(MessageType):
     Extension = cp.ExtensionNodeProperty(ext.Extension)
     InvocationInfo = cp.SubElementProperty(msg.InvocationInfo,
                                            value_class=InvocationInfo,
-                                           default_py_value = InvocationInfo())
+                                           default_py_value=InvocationInfo())
     MdibVersion = cp.VersionCounterAttributeProperty('MdibVersion', implied_py_value=0)
     SequenceId = cp.AnyURIAttributeProperty('SequenceId', is_optional=False)
     InstanceId = cp.UnsignedIntAttributeProperty('InstanceId')
     _props = ['Extension', 'InvocationInfo', 'MdibVersion', 'SequenceId', 'InstanceId']
 
+
 class SetContextStateResponse(AbstractSetResponse):
     NODETYPE = msg.SetContextStateResponse
-    action = SDC_v1_Definitions.Actions.SetContextStateResponse
+    action = Actions.SetContextStateResponse
 
 
 class SetValueResponse(AbstractSetResponse):
     NODETYPE = msg.SetValueResponse
-    action = SDC_v1_Definitions.Actions.SetValueResponse
+    action = Actions.SetValueResponse
 
 
 class SetStringResponse(AbstractSetResponse):
     NODETYPE = msg.SetStringResponse
-    action = SDC_v1_Definitions.Actions.SetStringResponse
+    action = Actions.SetStringResponse
 
 
 class ActivateResponse(AbstractSetResponse):
     NODETYPE = msg.ActivateResponse
-    action = SDC_v1_Definitions.Actions.ActivateResponse
+    action = Actions.ActivateResponse
 
 
 class SetAlertStateResponse(AbstractSetResponse):
     NODETYPE = msg.SetAlertStateResponse
-    action = SDC_v1_Definitions.Actions.SetAlertStateResponse
+    action = Actions.SetAlertStateResponse
 
 
 class SetComponentStateResponse(AbstractSetResponse):
     NODETYPE = msg.SetComponentStateResponse
-    action = SDC_v1_Definitions.Actions.SetComponentStateResponse
+    action = Actions.SetComponentStateResponse
 
 
 class SetMetricStateResponse(AbstractSetResponse):
     NODETYPE = msg.SetMetricStateResponse
-    action = SDC_v1_Definitions.Actions.SetMetricStateResponse
+    action = Actions.SetMetricStateResponse
 
 
 ### WaveformStream ###
 # no report parts in this report!
 class WaveformStream(AbstractReport):
     NODETYPE = msg.WaveformStream
-    action = SDC_v1_Definitions.Actions.Waveform
+    action = Actions.Waveform
     State = cp.ContainerListProperty(msg.State,
                                      value_class=RealTimeSampleArrayMetricStateContainer,
                                      cls_getter=get_state_container_class,
@@ -357,7 +358,7 @@ class DescriptionModificationReportPart(AbstractReportPart):
 
 class DescriptionModificationReport(AbstractReport):
     NODETYPE = msg.DescriptionModificationReport
-    action = SDC_v1_Definitions.Actions.DescriptionModificationReport
+    action = Actions.DescriptionModificationReport
     ReportPart = cp.SubElementListProperty(msg.ReportPart, value_class=DescriptionModificationReportPart)
     _props = ['ReportPart']
 
@@ -449,55 +450,56 @@ class MdState(PropertyBasedPMType):
 
 class GetMdib(AbstractGet):
     NODETYPE = msg.GetMdib
-    action = SDC_v1_Definitions.Actions.GetMdib
+    action = Actions.GetMdib
 
 
 class GetMdibResponse(AbstractGetResponse):
     NODETYPE = msg.GetMdibResponse
-    action = SDC_v1_Definitions.Actions.GetMdibResponse
+    action = Actions.GetMdibResponse
     Mdib = cp.AnyEtreeNodeProperty(None)
     _props = ['Mdib']
 
 
 class GetMdDescription(AbstractGet):
     NODETYPE = msg.GetMdDescription
-    action = SDC_v1_Definitions.Actions.GetMdDescription
+    action = Actions.GetMdDescription
     HandleRef = cp.SubElementHandleRefListProperty(msg.HandleRef)
     _props = ['HandleRef']
 
 
 class GetMdDescriptionResponse(AbstractGetResponse):
     NODETYPE = msg.GetMdDescriptionResponse
-    action = SDC_v1_Definitions.Actions.GetMdDescriptionResponse
+    action = Actions.GetMdDescriptionResponse
     MdDescription = cp.SubElementProperty(msg.MdDescription,
                                           value_class=MdDescription,
                                           default_py_value=MdDescription())
     _props = ['MdDescription']
 
+
 class GetMdState(AbstractGet):
     NODETYPE = msg.GetMdState
-    action = SDC_v1_Definitions.Actions.GetMdState
+    action = Actions.GetMdState
     HandleRef = cp.SubElementHandleRefListProperty(msg.HandleRef)
     _props = ['HandleRef']
 
 
 class GetMdStateResponse(AbstractGetResponse):
     NODETYPE = msg.GetMdStateResponse
-    action = SDC_v1_Definitions.Actions.GetMdStateResponse
+    action = Actions.GetMdStateResponse
     MdState = cp.SubElementProperty(msg.MdState, value_class=MdState, default_py_value=MdState())
     _props = ['MdState']
 
 
 class GetDescriptor(AbstractGet):
     NODETYPE = msg.GetDescriptor
-    action = SDC_v1_Definitions.Actions.GetDescriptor
+    action = Actions.GetDescriptor
     HandleRef = cp.SubElementHandleRefListProperty(msg.HandleRef)
     _props = ['HandleRef']
 
 
 class GetDescriptorResponse(AbstractGetResponse):
     NODETYPE = msg.GetDescriptorResponse
-    action = SDC_v1_Definitions.Actions.GetDescriptorResponse
+    action = Actions.GetDescriptorResponse
     Descriptor = cp.ContainerListProperty(msg.Descriptor,
                                           value_class=AbstractDescriptorContainer,
                                           cls_getter=get_state_container_class,
@@ -508,28 +510,28 @@ class GetDescriptorResponse(AbstractGetResponse):
 
 class GetContainmentTree(AbstractGet):
     NODETYPE = msg.GetContainmentTree
-    action = SDC_v1_Definitions.Actions.GetContainmentTree
+    action = Actions.GetContainmentTree
     HandleRef = cp.SubElementHandleRefListProperty(msg.HandleRef)
     _props = ['HandleRef']
 
 
 class GetContainmentTreeResponse(AbstractGetResponse):
     NODETYPE = msg.GetContainmentTreeResponse
-    action = SDC_v1_Definitions.Actions.GetContainmentTreeResponse
+    action = Actions.GetContainmentTreeResponse
     ContainmentTree = cp.SubElementListProperty(msg.ContainmentTree, value_class=ContainmentTree)
     _props = ['ContainmentTree']
 
 
 class GetContextStates(AbstractGet):
     NODETYPE = msg.GetContextStates
-    action = SDC_v1_Definitions.Actions.GetContextStates
+    action = Actions.GetContextStates
     HandleRef = cp.SubElementHandleRefListProperty(msg.HandleRef)
     _props = ['HandleRef']
 
 
 class GetContextStatesResponse(AbstractGetResponse):
     NODETYPE = msg.GetContextStatesResponse
-    action = SDC_v1_Definitions.Actions.GetContextStatesResponse
+    action = Actions.GetContextStatesResponse
     ContextState = cp.ContainerListProperty(msg.ContextState,
                                             value_class=AbstractContextStateContainer,
                                             cls_getter=get_state_container_class,
@@ -540,7 +542,7 @@ class GetContextStatesResponse(AbstractGetResponse):
 
 class GetContextStatesByIdentification(AbstractGet):
     NODETYPE = msg.GetContextStatesByIdentification
-    action = SDC_v1_Definitions.Actions.GetContextStatesByIdentification
+    action = Actions.GetContextStatesByIdentification
     Identification = cp.SubElementListProperty(msg.Identification, value_class=InstanceIdentifier)
     ContextType = cp.QNameAttributeProperty('ContextType')
     _props = ['HandleRef']
@@ -548,7 +550,7 @@ class GetContextStatesByIdentification(AbstractGet):
 
 class GetContextStatesByIdentificationResponse(AbstractGetResponse):
     NODETYPE = msg.GetContextStatesByIdentificationResponse
-    action = SDC_v1_Definitions.Actions.GetContextStatesByIdentificationResponse
+    action = Actions.GetContextStatesByIdentificationResponse
     ContextState = cp.ContainerListProperty(msg.ContextState,
                                             value_class=AbstractContextStateContainer,
                                             cls_getter=get_state_container_class,
@@ -559,14 +561,14 @@ class GetContextStatesByIdentificationResponse(AbstractGetResponse):
 
 class GetContextStatesByFilter(AbstractGet):
     NODETYPE = msg.GetContextStatesByFilter
-    action = SDC_v1_Definitions.Actions.GetContextStatesByFilter
+    action = Actions.GetContextStatesByFilter
     Filter = cp.SubElementStringListProperty(msg.Filter)
     _props = ['HandleRef']
 
 
 class GetContextStatesByFilterResponse(AbstractGetResponse):
     NODETYPE = msg.GetContextStatesByFilterResponse
-    action = SDC_v1_Definitions.Actions.GetContextStatesByFilterResponse
+    action = Actions.GetContextStatesByFilterResponse
     ContextState = cp.ContainerListProperty(msg.ContextState,
                                             value_class=AbstractContextStateContainer,
                                             cls_getter=get_state_container_class,
@@ -577,19 +579,19 @@ class GetContextStatesByFilterResponse(AbstractGetResponse):
 
 class GetSupportedLanguages(AbstractGet):
     NODETYPE = msg.GetSupportedLanguages
-    action = SDC_v1_Definitions.Actions.GetSupportedLanguages
+    action = Actions.GetSupportedLanguages
 
 
 class GetSupportedLanguagesResponse(AbstractGetResponse):
     NODETYPE = msg.GetSupportedLanguagesResponse
-    action = SDC_v1_Definitions.Actions.GetSupportedLanguagesResponse
+    action = Actions.GetSupportedLanguagesResponse
     Lang = cp.SubElementStringListProperty(msg.Lang)
     _props = ['Lang']
 
 
 class GetLocalizedText(AbstractGet):
     NODETYPE = msg.GetLocalizedText
-    action = SDC_v1_Definitions.Actions.GetLocalizedText
+    action = Actions.GetLocalizedText
     Ref = cp.SubElementHandleRefListProperty(msg.Ref)
     Version = cp.NodeIntProperty(msg.Version, is_optional=True)
     Lang = cp.SubElementStringListProperty(msg.Lang)
@@ -600,14 +602,14 @@ class GetLocalizedText(AbstractGet):
 
 class GetLocalizedTextResponse(AbstractGetResponse):
     NODETYPE = msg.GetLocalizedTextResponse
-    action = SDC_v1_Definitions.Actions.GetLocalizedTextResponse
+    action = Actions.GetLocalizedTextResponse
     Text = cp.SubElementListProperty(msg.Text, value_class=LocalizedText)
     _props = ['Text']
 
 
 class SetContextState(AbstractSet):
     NODETYPE = msg.SetContextState
-    action = SDC_v1_Definitions.Actions.SetContextState
+    action = Actions.SetContextState
     ProposedContextState = cp.ContainerListProperty(msg.ProposedContextState,
                                                     value_class=AbstractContextStateContainer,
                                                     cls_getter=get_state_container_class,
@@ -621,7 +623,7 @@ class SetContextState(AbstractSet):
 
 class SetValue(AbstractSet):
     NODETYPE = msg.SetValue
-    action = SDC_v1_Definitions.Actions.SetValue
+    action = Actions.SetValue
     RequestedNumericValue = cp.NodeTextProperty(msg.RequestedNumericValue, value_converter=DecimalConverter)
     _props = ['RequestedNumericValue']
 
@@ -632,7 +634,7 @@ class SetValue(AbstractSet):
 
 class SetString(AbstractSet):
     NODETYPE = msg.SetString
-    action = SDC_v1_Definitions.Actions.SetString
+    action = Actions.SetString
     RequestedStringValue = cp.NodeTextProperty(msg.RequestedStringValue, value_converter=StringConverter)
     _props = ['RequestedStringValue']
 
@@ -643,7 +645,7 @@ class SetString(AbstractSet):
 
 class SetAlertState(AbstractSet):
     NODETYPE = msg.SetAlertState
-    action = SDC_v1_Definitions.Actions.SetAlertState
+    action = Actions.SetAlertState
     ProposedAlertState = cp.ContainerProperty(msg.ProposedAlertState,
                                               value_class=AbstractAlertStateContainer,
                                               cls_getter=get_state_container_class,
@@ -657,7 +659,7 @@ class SetAlertState(AbstractSet):
 
 class SetMetricState(AbstractSet):
     NODETYPE = msg.SetMetricState
-    action = SDC_v1_Definitions.Actions.SetMetricState
+    action = Actions.SetMetricState
     ProposedMetricState = cp.ContainerListProperty(msg.ProposedMetricState,
                                                    value_class=AbstractMetricStateContainer,
                                                    cls_getter=get_state_container_class,
@@ -676,7 +678,7 @@ class Argument(PropertyBasedPMType):
 
 class Activate(AbstractSet):
     NODETYPE = msg.Activate
-    action = SDC_v1_Definitions.Actions.Activate
+    action = Actions.Activate
     Argument = cp.SubElementListProperty(msg.Argument, value_class=Argument)
     _props = ['Argument']
 
@@ -692,7 +694,7 @@ class Activate(AbstractSet):
 
 class SetComponentState(AbstractSet):
     NODETYPE = msg.SetComponentState
-    action = SDC_v1_Definitions.Actions.SetComponentState
+    action = Actions.SetComponentState
     ProposedComponentState = cp.ContainerListProperty(msg.ProposedComponentState,
                                                       value_class=AbstractDeviceComponentStateContainer,
                                                       cls_getter=get_state_container_class,
