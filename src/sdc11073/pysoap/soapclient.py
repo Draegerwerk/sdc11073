@@ -3,13 +3,14 @@
 """Pythonic simple SOAP Client implementation
 Using lxml based SoapEnvelope."""
 from __future__ import annotations
-from http.client import HTTPConnection, HTTPSConnection
-from http.client import HTTPException, HTTPResponse
-from http.client import CannotSendRequest, BadStatusLine, NotConnected, UnknownTransferEncoding
+
 import socket
 import sys
 import time
 import traceback
+from http.client import CannotSendRequest, BadStatusLine, NotConnected, UnknownTransferEncoding
+from http.client import HTTPConnection, HTTPSConnection
+from http.client import HTTPException, HTTPResponse
 from threading import Lock
 from typing import List, Optional, TYPE_CHECKING
 
@@ -137,8 +138,7 @@ class SoapClient:
     def is_closed(self):
         return self._http_connection is None
 
-    def _prepare_message(self, created_message: CreatedMessage, request_manipulator):
-        validate = True
+    def _prepare_message(self, created_message: CreatedMessage, request_manipulator, validate):
         if hasattr(request_manipulator, 'manipulate_soapenvelope'):
             tmp = request_manipulator.manipulate_soapenvelope(created_message.p_msg)
             if tmp:
@@ -146,7 +146,7 @@ class SoapClient:
                 # in this case do not validate , because the manipulator might intentionally have created invalid xml.
                 validate = False
         xml_request = created_message.serialize(request_manipulator=request_manipulator,
-                                                        validate=validate)
+                                                validate=validate)
 
         if hasattr(request_manipulator, 'manipulate_string'):
             tmp = request_manipulator.manipulate_string(xml_request)
@@ -157,7 +157,9 @@ class SoapClient:
     def post_message_to(self, path: str,
                         created_message: CreatedMessage,
                         msg: Optional[str] = '',
-                        request_manipulator: Optional[RequestManipulator] = None):
+                        request_manipulator: Optional[RequestManipulator] = None,
+                        validate=True
+                        ):
         """
         :param path: url path component
         :param created_message: The message that shall be sent
@@ -166,7 +168,7 @@ class SoapClient:
         """
         if self.is_closed():
             self.connect()
-        xml_request = self._prepare_message(created_message, request_manipulator)
+        xml_request = self._prepare_message(created_message, request_manipulator, validate)
         started = time.perf_counter()
         try:
             http_response, xml_response = self._send_soap_request(path, xml_request, msg)
@@ -262,7 +264,7 @@ class SoapClient:
                 self._log.warning("{}: could not reopen the connection, error={}", msg, ex)
             except Exception as ex:
                 self._log.warning("{}: could not reopen the connection, error={!r}\n{}\ncall-stack ={}",
-                                msg, ex, traceback.format_exc(), ''.join(traceback.format_stack()))
+                                  msg, ex, traceback.format_exc(), ''.join(traceback.format_stack()))
             self._http_connection.close()
             raise NotConnected()
 
