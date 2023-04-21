@@ -27,12 +27,6 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: 'Alternatives'
-      description: 'Can you achieve the same result doing it in an alternative way? Is the alternative considerable? Why?'
-    validations:
-      required: true
-  - type: textarea
-    attributes:
       label: 'Implementation idea'
       description: 'Do you already have an idea how this could be implemented?'
     validations:

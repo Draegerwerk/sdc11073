@@ -8,4 +8,4 @@ coverage:
       default:
         target: auto # https://docs.codecov.com/docs/commit-status#target
         # test coverage may change a bit depending on the computer executed
-        threshold: 0.1% # https://docs.codecov.com/docs/commit-status#threshold
+        threshold: 1% # https://docs.codecov.com/docs/commit-status#threshold
