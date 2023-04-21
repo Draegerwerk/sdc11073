@@ -1,0 +1,87 @@
+name: 🐞 Bug Report
+description: File a new bug report
+title: 'bug: <title>'
+labels: [Bug, Needs Triage]
+body:
+  - type: markdown
+    attributes:
+      value: ':stop_sign: _For questions, please visit the [Q&A discussions](https://github.com/Draegerwerk/sdc11073/discussions/categories/q-a) instead._'
+  - type: checkboxes
+    attributes:
+      label: 'Is there an existing issue for this?'
+      description: 'Please [search :mag: the issues](https://github.com/Draegerwerk/sdc11073/issues) to check if this bug has already been reported.'
+      options:
+      - label: 'I have searched the existing issues'
+        required: true
+  - type: textarea
+    attributes:
+      label: 'Current Behavior'
+      description: 'Describe the problem you are experiencing. **Please do not paste your logs here.** Screenshots are welcome.'
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 'Expected Behavior'
+      description: 'Describe what you expect to happen instead.'
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 'Minimal Reproducible Example'
+      description: |
+        Please provide the _smallest, complete code snippet_ that sdc11073's maintainers can run to reproduce the issue ([read more about what this entails](https://stackoverflow.com/help/minimal-reproducible-example)).  Failing this, any sort of reproduction steps are better than nothing!
+
+        An easy way to get started is to copy [example code](https://github.com/Draegerwerk/sdc11073/tree/master/examples) and modify it accordingly.
+
+        If the result is more than a screenful of text _or_ requires multiple files, please:
+        
+        - _Attach_ (do not paste) it to this textarea, _or_
+        - Put it in a [Gist](https://gist.github.com) and paste the link, _or_
+        - Provide a link to a new or existing public repository exhibiting the issue
+    validations:
+      required: false
+  - type: input
+    attributes:
+      label: 'Python Version'
+      description: 'Get the python version with `python -V`'
+      placeholder: 3.x
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: 'Operating system'
+      description: 'Get the operating system with `python -c "import sys;print(sys.platform)"`'
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: 'Sdc11073 Version'
+      description: 'Get the sdc11073 version with `python -c "import sdc11073;print(sdc11073.__version__)"`'
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: 'Link to sdc11073 Logs'
+      description: |
+        Create a [Gist](https://gist.github.com)—which contains your _full_ sdc11073 logs—and link it here.  Alternatively, you can attach a logfile to this issue (drag it into the "Further Information" field below).
+        
+        :warning: _Remember to redact or remove any sensitive information!_
+      placeholder: 'https://gist.github.com/...'      
+  - type: textarea
+    attributes:
+      label: Further Information
+      description: |
+        Links? References? Anything that will give us more context about the issue you are encountering!
+
+        _Tip: You can attach images or log files by clicking this area to highlight it and then dragging files in._
+    validations:
+      required: false
+  - type: checkboxes
+    attributes:
+      label: Participation
+      options:
+        - label: I am willing to submit a pull request to fix this bug.
+          required: false
+  - type: markdown
+    attributes:
+      value: ':stop_sign: _For questions, please visit the [Q&A discussion](https://github.com/Draegerwerk/sdc11073/discussions/categories/q-a) instead._'
