@@ -37,13 +37,15 @@ from .xml_types.addressing_types import HeaderInformationBlock
 
 
 if TYPE_CHECKING:
-    from sdc11073.pysoap.msgreader import ReceivedMessage
+    from .pysoap.msgreader import ReceivedMessage
 
-schema_specs = [entry.value for entry in SDC_v1_Definitions.data_model.ns_helper.prefix_enum]
-model = SDC_v1_Definitions.data_model
-
-message_factory = MessageFactory(schema_specs, model, logger=logging.getLogger('sdc.discover.msg'))
-message_reader = MessageReader(schema_specs, model, logger=logging.getLogger('sdc.discover.msg'))
+# schema_specs = [entry.value for entry in SDC_v1_Definitions.data_model.ns_helper.prefix_enum]
+# model = SDC_v1_Definitions.data_model
+#
+# message_factory = MessageFactory(schema_specs, model, logger=logging.getLogger('sdc.discover.msg'))
+# message_reader = MessageReader(schema_specs, model, logger=logging.getLogger('sdc.discover.msg'))
+message_factory = MessageFactory(SDC_v1_Definitions, None, logger=logging.getLogger('sdc.discover.msg'))
+message_reader = MessageReader(SDC_v1_Definitions, None, logger=logging.getLogger('sdc.discover.msg'))
 
 BUFFER_SIZE = 0xffff
 APP_MAX_DELAY = 500  # miliseconds
@@ -710,10 +712,13 @@ class WSDiscoveryBase:
                 time.sleep(repeat_probe_interval)
             elif now < end:
                 time.sleep(end - now)
-        result = []
+        # prevent possible duplicates by adding them to a dictionary by epr
+        result = {}
         for _type in types_list:
-            result.extend(filter_services(self._remote_services.values(), _type, scopes))
-        return result
+            tmp = filter_services(self._remote_services.values(), _type, scopes)
+            for srv in tmp:
+                result[srv.epr] = srv
+        return list(result.values())
 
     def search_sdc_device_services_in_location(self, sdc_location, timeout=3):
         services = self.search_sdc_services(timeout=timeout)
