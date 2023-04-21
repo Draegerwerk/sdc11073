@@ -627,7 +627,6 @@ class SdcClient:
         self._notifications_splitter.on_notification(message_data)
 
     def _on_subscription_end(self, request_data):
-        # self.state_event_report = request_data.message_data.p_msg  # update observable
         subscription = self._subscription_mgr.on_subscription_end(request_data)  # subscription can be None
         self.subscription_end_data = SubscriptionEndData(subscription, request_data)
         return EmptyResponse()

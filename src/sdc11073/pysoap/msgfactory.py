@@ -70,10 +70,10 @@ class MessageFactory:
         header_node.extend(p_msg.header_nodes)
         body_node = etree_.SubElement(root, nsh.s12Tag('Body'), nsmap=p_msg.nsmap)
         if validate:
-            self._validate_node(root, self._xml_schema)
+            self._validate_node(root)
         if p_msg.payload_element is not None:
             if validate:
-                self._validate_node(p_msg.payload_element, self._xml_schema)
+                self._validate_node(p_msg.payload_element)
             body_node.append(p_msg.payload_element)
 
         doc = etree_.ElementTree(element=root)
@@ -130,6 +130,6 @@ class MessageFactory:
         soap_envelope.payload_element = response_payload.as_etree_node(response_payload.NODETYPE, my_ns_map)
         return CreatedMessage(soap_envelope, self)
 
-    def _validate_node(self, node, xml_schema: etree_.XMLSchema):
+    def _validate_node(self, node):
         if self._validate:
-            validate_node(node, xml_schema, self._logger)
+            validate_node(node, self._xml_schema, self._logger)

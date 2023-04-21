@@ -39,11 +39,6 @@ from .xml_types.addressing_types import HeaderInformationBlock
 if TYPE_CHECKING:
     from .pysoap.msgreader import ReceivedMessage
 
-# schema_specs = [entry.value for entry in SDC_v1_Definitions.data_model.ns_helper.prefix_enum]
-# model = SDC_v1_Definitions.data_model
-#
-# message_factory = MessageFactory(schema_specs, model, logger=logging.getLogger('sdc.discover.msg'))
-# message_reader = MessageReader(schema_specs, model, logger=logging.getLogger('sdc.discover.msg'))
 message_factory = MessageFactory(SDC_v1_Definitions, None, logger=logging.getLogger('sdc.discover.msg'))
 message_reader = MessageReader(SDC_v1_Definitions, None, logger=logging.getLogger('sdc.discover.msg'))
 
@@ -90,7 +85,6 @@ def types_info(types):
 
 def generate_instance_id():
     return str(random.randint(1, 0xFFFFFFFF))
-
 
 
 Scopes = wsd_types.ScopesType
@@ -209,7 +203,6 @@ def match_type(type1, type2):
     return type1.namespace == type2.namespace and type1.localname == type2.localname
 
 
-
 class _AddressMonitorThread(threading.Thread):
     """ This thread frequently checks the available Network adapters.
     Any change is reported vis wsd._network_address_removed or wsd._network_address_added
@@ -252,11 +245,13 @@ class _AddressMonitorThread(threading.Thread):
         """
         self._quit_event.set()
 
+
 @dataclass(frozen=True)
 class _Sockets:
     multi_in: socket.socket
     multi_out_uni_in: socket.socket
     uni_in: Union[socket.socket, None]
+
 
 class _NetworkingThreadBase:
     """ Has one thread for sending and one for receiving"""
