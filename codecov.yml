@@ -1,9 +1,11 @@
 codecov:
     notify:
-        after_n_builds: 12 # do not notify until at least 12 builds have been uploaded from the CI pipeline
+        # do not notify until at least 12 builds have been uploaded from the CI pipeline
+        after_n_builds: 12 # https://docs.codecov.com/docs/codecovyml-reference#codecovnotify
 coverage:
   status:
     project:
       default:
         target: auto # https://docs.codecov.com/docs/commit-status#target
-        threshold: 0.05% # https://docs.codecov.com/docs/commit-status#threshold
+        # test coverage may change a bit depending on the computer executed
+        threshold: 0.1% # https://docs.codecov.com/docs/commit-status#threshold
