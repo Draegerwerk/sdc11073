@@ -74,6 +74,8 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
         _MultikeyWithVersionLookup.__init__(self)
         self.addIndex('handle', multikey.UIndexDefinition(lambda obj: obj.handle))
         self.addIndex('parentHandle', multikey.IndexDefinition(lambda obj: obj.parentHandle))
+        # nodeName may differ but refers to the same type. use NODETYPE instead
+        self.addIndex('nodeName', multikey.IndexDefinition(lambda obj: obj.nodeName))
         self.addIndex('NODETYPE', multikey.IndexDefinition(lambda obj: obj.NODETYPE))
         self.addIndex('ConditionSignaled', multikey.IndexDefinition(lambda obj: obj.ConditionSignaled, indexNoneValues=False))
         # an index to find all alert conditions for a metric (AlertCondition is the only class that has a
