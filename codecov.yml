@@ -1,3 +1,9 @@
 codecov:
     notify:
         after_n_builds: 12 # do not notify until at least 12 builds have been uploaded from the CI pipeline
+coverage:
+  status:
+    project:
+      default:
+        target: auto # https://docs.codecov.com/docs/commit-status#target
+        threshold: 0.05% # https://docs.codecov.com/docs/commit-status#threshold
