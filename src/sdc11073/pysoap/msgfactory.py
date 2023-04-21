@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, Union, List, Type, TYPE_CHECKING
 
 from lxml import etree as etree_
 
@@ -12,7 +12,7 @@ from ..xml_types.addressing_types import HeaderInformationBlock
 
 if TYPE_CHECKING:
     from ..xml_types.msg_types import MessageType
-    from ..definitions_base import AbstractDataModel
+    from ..definitions_base import BaseDefinitions
     from ..namespaces import PrefixNamespace
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
@@ -36,15 +36,17 @@ class MessageFactory:
      2) call the serialize method of the CreatedMessage instance to get the xml representation
      """
 
-    def __init__(self, schema_specs: List[PrefixNamespace],
-                 data_model: AbstractDataModel,
+    def __init__(self, sdc_definitions: Type[BaseDefinitions],
+                 additional_schema_specs: Union[List[PrefixNamespace], None],
                  logger,
                  validate=True):
-        self.schema_specs = schema_specs
+        self.schema_specs = [entry.value for entry in sdc_definitions.data_model.ns_helper.prefix_enum]
+        if additional_schema_specs is not None:
+            self.schema_specs.extend(additional_schema_specs)
         self._logger = logger
-        self.ns_hlp = data_model.ns_helper
+        self.ns_hlp = sdc_definitions.data_model.ns_helper
         self._validate = validate
-        self._xml_schema: etree_.XMLSchema = mk_schema_validator(schema_specs, self.ns_hlp)
+        self._xml_schema: etree_.XMLSchema = mk_schema_validator(self.schema_specs, self.ns_hlp)
 
     def serialize_message(self, message: CreatedMessage, pretty=False,
                           request_manipulator=None, validate=True) -> bytes:

@@ -5,7 +5,7 @@ import traceback
 from collections import namedtuple
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Union, Optional, List, TYPE_CHECKING
+from typing import Union, Type, List, TYPE_CHECKING
 
 from lxml import etree as etree_
 
@@ -17,7 +17,7 @@ from ..xml_types.addressing_types import HeaderInformationBlock
 
 
 if TYPE_CHECKING:
-    from ..definitions_base import AbstractDataModel
+    from ..definitions_base import  BaseDefinitions
     from ..namespaces import PrefixNamespace
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
@@ -101,18 +101,18 @@ class PayloadData:
 class MessageReader:
     """ This class does all the conversions from DOM trees (body of SOAP messages) to MDIB objects."""
 
-    def __init__(self, schema_specs: List[PrefixNamespace],
-                 data_model: AbstractDataModel,
+    def __init__(self, sdc_definitions: Type[BaseDefinitions],
+                 additional_schema_specs: Union[List[PrefixNamespace], None],
                  logger,
-                 log_prefix='',
                  validate=True):
-        self.schema_specs = schema_specs
-        self._data_model = data_model
-        self.ns_hlp = data_model.ns_helper
+        self.schema_specs = [entry.value for entry in sdc_definitions.data_model.ns_helper.prefix_enum]
+        if additional_schema_specs is not None:
+            self.schema_specs.extend(additional_schema_specs)
         self._logger = logger
-        self._log_prefix = log_prefix
+        self._data_model = sdc_definitions.data_model
+        self.ns_hlp = sdc_definitions.data_model.ns_helper
         self._validate = validate
-        self._xml_schema: etree_.XMLSchema = mk_schema_validator(schema_specs, self.ns_hlp)
+        self._xml_schema: etree_.XMLSchema = mk_schema_validator(self.schema_specs, self.ns_hlp)
 
     @property
     def msg_names(self):
@@ -216,7 +216,7 @@ class MessageReader:
             try:
                 state_containers.append(self._mk_state_container_from_node(state_node))
             except MdibStructureError as ex:
-                self._logger.error('{}_read_md_state_node: cannot create: {}', self._log_prefix, ex)
+                self._logger.error('_read_md_state_node: cannot create: {}', ex)
         return state_containers
 
     def _mk_descriptor_container_from_node(self, node, parent_handle):
