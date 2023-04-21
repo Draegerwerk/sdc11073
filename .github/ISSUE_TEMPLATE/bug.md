@@ -16,7 +16,7 @@ body:
   - type: textarea
     attributes:
       label: 'Current Behavior'
-      description: 'Describe the problem you are experiencing.  **Please do not paste your logs here.**  Screenshots are welcome.'
+      description: 'Describe the problem you are experiencing. **Please do not paste your logs here.** Screenshots are welcome.'
     validations:
       required: true
   - type: textarea
@@ -39,7 +39,7 @@ body:
         - Put it in a [Gist](https://gist.github.com) and paste the link, _or_
         - Provide a link to a new or existing public repository exhibiting the issue
     validations:
-      required: true
+      required: false
   - type: input
     attributes:
       label: 'Python Version'
@@ -69,7 +69,7 @@ body:
       placeholder: 'https://gist.github.com/...'      
   - type: textarea
     attributes:
-      label: Futher Information
+      label: Further Information
       description: |
         Links? References? Anything that will give us more context about the issue you are encountering!
 
