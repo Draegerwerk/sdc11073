@@ -1,9 +1,10 @@
+from enum import Enum
 from ..namespaces import default_ns_helper as ns_hlp
 
 _ActionsNamespace = ns_hlp.SDC.namespace
 
 
-class Actions:
+class Actions(str, Enum):
     """ Central definition of all action strings used in BICEPS"""
     OperationInvokedReport = _ActionsNamespace + '/SetService/OperationInvokedReport'
     ContextOperationInvokedReport = _ActionsNamespace + '/ContextService/OperationInvokedReport'

@@ -13,8 +13,7 @@ if TYPE_CHECKING:
     from .namespaces import PrefixNamespace, NamespaceHelper
 
 
-def mk_schema_validator(namespaces: List[PrefixNamespace], ns_helper: NamespaceHelper,
-                        log_prefix=None) -> etree_.XMLSchema:
+def mk_schema_validator(namespaces: List[PrefixNamespace], ns_helper: NamespaceHelper) -> etree_.XMLSchema:
     schema_resolver = SchemaResolver(namespaces)
     parser = etree_.XMLParser(resolve_entities=True)
     parser.resolvers.add(schema_resolver)
@@ -70,7 +69,4 @@ class SchemaResolver(etree_.Resolver):
         :param url: url of the schema location
         :return: str or None
         """
-        for entry in self.namespaces:
-            if entry.schema_location_url == url:
-                return entry.local_schema_file
-        return None
+        return next((entry.local_schema_file for entry in self.namespaces if entry.schema_location_url == url), None)
