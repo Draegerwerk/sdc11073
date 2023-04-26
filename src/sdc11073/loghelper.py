@@ -3,13 +3,12 @@ import traceback
 
 
 def ensureLogStream():
-    """Method makes sure that the pysdc root Logger has a stream handler with the default format.
-    :return: pysdc root logger
+    """Method makes sure that the sdc logger has a handler.
+    :return: sdc logger
     """
     applog = logging.getLogger('sdc')
-    for handler in applog.handlers:
-        if isinstance(handler, logging.StreamHandler):
-            return
+    if applog.hasHandlers():
+        return
     ch = logging.StreamHandler()
     # create formatter
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
