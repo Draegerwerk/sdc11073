@@ -255,7 +255,7 @@ class SdcClient(object):
         return self._my_ipaddress
 
     def _findBestOwnIpAddress(self):
-        myIpAddresses = netconn.get_ipv4_addresses()
+        myIpAddresses = [str(adapter.ip) for adapter in netconn.get_adapters()]
 
         splitted = urlsplit(self._devicelocation)
         sortIPAddresses(myIpAddresses, splitted.hostname)

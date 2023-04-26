@@ -19,7 +19,7 @@ import queue
 from dataclasses import dataclass, field
 from typing import Any
 
-from .netconn import get_ipv4_addresses, get_ip_for_adapter, get_ipv4_ips
+from . import netconn
 
 try:
     from sdc11073.commlog import getCommunicationLogger
@@ -81,8 +81,6 @@ MATCH_BY_LDAP = NS_D + '/ldap'  # "http://docs.oasis-open.org/ws-dd/ns/discovery
 MATCH_BY_URI = NS_D + '/rfc3986'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/rfc3986"
 MATCH_BY_UUID = NS_D + '/uuid'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/uuid"
 MATCH_BY_STRCMP = NS_D + '/strcmp0'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/strcmp0"
-
-_IP_BLACKLIST = ('0.0.0.0', None)  # None can happen if an adapter does not have any IP address
 
 # these time constants control the send loop
 SEND_LOOP_IDLE_SLEEP = 0.1
@@ -700,7 +698,7 @@ class AddressMonitorThread(threading.Thread):
         self._updateAddrs()
 
     def _updateAddrs(self):
-        addrs = set(get_ipv4_addresses())
+        addrs = set(str(adapter.ip) for adapter in netconn.get_adapters())
 
         disappeared = self._addrs.difference(addrs)
         new = addrs.difference(self._addrs)
@@ -1112,10 +1110,9 @@ class Service:
         for xAddr in self._xAddrs:
             if '{ip}' in xAddr:
                 if ipAddrs is None:
-                    ipAddrs = get_ipv4_addresses()
+                    ipAddrs = (str(adapter.ip) for adapter in netconn.get_adapters())
                 for ipAddr in ipAddrs:
-                    if ipAddr not in _IP_BLACKLIST:
-                        ret.append(xAddr.format(ip=ipAddr))
+                    ret.append(xAddr.format(ip=ipAddr))
             else:
                 ret.append(xAddr)
         return ret
@@ -1744,20 +1741,23 @@ class WSDiscoverySingleAdapter(WSDiscoveryBase):
                                  If False, and only one Adapter exists, the one existing adapter is used. (localhost is ignored in this case).
         """
         super().__init__(logger, multicast_port)
-        self._my_ip_address = get_ip_for_adapter(adapterName)
-
-        if self._my_ip_address is None:
-            all_adapters = get_ipv4_ips()
-            all_adapter_names = [ip.nice_name for ip in all_adapters]
+        try:
+            self._my_ip_address = (str(netconn.get_adapter_by_name(adapterName).ip),)
+        except netconn.NetworkAdapterNotFoundError:
             if forceAdapterName:
-                raise RuntimeError(f'No adapter "{adapterName}" found. Having {all_adapter_names}')
+                raise
+
+            # all_adapters = netconn.get_adapters()
+            # all_adapter_names = [ip.name for ip in all_adapters]
+            # if forceAdapterName:
+            #     raise RuntimeError(f'No adapter "{adapterName}" found. Having {all_adapter_names}')
 
             # see if there is only one physical adapter. if yes, use it
-            adapters_not_localhost = [a for a in all_adapters if not a.ip.startswith('127.')]
+            adapters_not_localhost = [a for a in netconn.get_adapters() if not a.ip.is_loopback]
             if len(adapters_not_localhost) == 1:
                 self._my_ip_address = (adapters_not_localhost[0].ip,)  # a tuple
             else:
-                raise RuntimeError(f'No adapter "{adapterName}" found. Having {all_adapter_names}')
+                raise
 
     def _isAcceptedAddress(self, addr):
         """ check if any of the regular expressions matches the argument"""

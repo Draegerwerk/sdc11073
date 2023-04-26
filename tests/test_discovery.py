@@ -1,6 +1,6 @@
 import unittest
 from unittest import mock
-from sdc11073 import wsdiscovery
+from sdc11073 import wsdiscovery, netconn
 import logging
 import time
 import urllib
@@ -365,7 +365,7 @@ class TestDiscovery(unittest.TestCase):
                                                            multicast_port=self.MY_MULTICAST_PORT)
         wsd_service_all.start()
         time.sleep(0.1)
-        all_addresses = wsdiscovery.get_ipv4_addresses()
+        all_addresses = [str(adapter.ip) for adapter in netconn.get_adapters()]
         unicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             # wsd_service_all listens on all ports, all udp uni cast messages shall be handled
