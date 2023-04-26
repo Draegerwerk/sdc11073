@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - fixed an error where 'str' object has no attribute 'nice_name' [#128](https://github.com/Draegerwerk/sdc11073/issues/128)
 
+## [1.1.25] - 2023-04-21
+
+### Added
+
+- Added previously removed `nodeName` index
+
 ## [1.1.24] - 2023-04-16
 
 ### Added
