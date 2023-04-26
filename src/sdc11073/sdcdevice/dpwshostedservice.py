@@ -122,6 +122,9 @@ class DPWSHostedService(_EventService):
         my_nsmap['wsdl'] = _wsdl_ns
         my_nsmap['s12'] = WSDL_S12
         my_nsmap[_WSP_PREFIX] = WSP_NS
+        for port_type_impl in self.port_type_impls:
+            for entry in port_type_impl.additional_namespaces:
+                my_nsmap[entry.prefix] = entry.namespace
         wsdl_definitions = etree_.Element(etree_.QName(_wsdl_ns, 'definitions'),
                                           nsmap=my_nsmap,
                                           attrib={'targetNamespace': sdc_definitions.PortTypeNamespace})
