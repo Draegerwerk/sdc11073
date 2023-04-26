@@ -11,7 +11,8 @@ from ...exceptions import ApiUsageError
 from ...pysoap.msgreader import ReceivedMessage
 
 if TYPE_CHECKING:
-    from sdc11073.xml_types.addressing_types import EndpointReferenceType
+    from ...xml_types.addressing_types import EndpointReferenceType
+    from ...namespaces import PrefixNamespace
 
 
 class GetRequestResult:
@@ -49,6 +50,7 @@ class GetRequestResult:
 class HostedServiceClient:
     """ Base class of clients that call hosted services of a dpws device."""
     subscribeable_actions = tuple()
+    additional_namespaces: List[PrefixNamespace] = []  # for special namespaces
 
     def __init__(self, sdc_client, soap_client, dpws_hosted, port_type):
         """
@@ -100,8 +102,11 @@ class HostedServiceClient:
     def __repr__(self):
         return f'{self.__class__.__name__} "{self._porttype}" endpoint = {self.endpoint_reference}'
 
-    def post_message(self, created_message, msg=None, request_manipulator=None):
+    def post_message(self, created_message, msg=None,
+                     request_manipulator=None,
+                     validate=True):
         msg = msg or created_message.p_msg.payload_element.tag.split('}')[-1]
 
         return self.soap_client.post_message_to(self._url.path, created_message, msg=msg,
-                                                request_manipulator=request_manipulator)
+                                                request_manipulator=request_manipulator,
+                                                validate=validate)

@@ -163,7 +163,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             raise ValueError('cannot create instance, no known BICEPS schema version identified')
         mdib = cls(protocol_definition, log_prefix=log_prefix)
 
-        xml_msg_reader = xml_reader_class(protocol_definition, mdib._logger, log_prefix)
+        xml_msg_reader = xml_reader_class(protocol_definition, None, mdib._logger)
         message_data = xml_msg_reader.read_payload_data(xml_text)
         descriptor_containers, state_containers = xml_msg_reader.read_get_mdib_response(message_data)
 

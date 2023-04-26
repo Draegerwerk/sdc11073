@@ -44,7 +44,7 @@ class ContextService(ServiceWithOperations):
     def _on_set_context_state(self, request_data):
         data_model = self._sdc_definitions.data_model
         msg_node = request_data.message_data.p_msg.msg_node
-        set_context_state = self._sdc_device.msg_reader._msg_types.SetContextState.from_node(msg_node)
+        set_context_state = data_model.msg_types.SetContextState.from_node(msg_node)
         response = data_model.msg_types.ActivateResponse()
         return self._handle_operation_request(request_data, set_context_state, response)
 

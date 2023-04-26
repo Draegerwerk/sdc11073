@@ -5,18 +5,20 @@ import traceback
 from collections import namedtuple
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Union
+from typing import Union, Type, List, TYPE_CHECKING
 
 from lxml import etree as etree_
 
-from sdc11073.namespaces import QN_TYPE, text_to_qname, default_ns_helper
-from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from .soapenvelope import Fault, faultcodeEnum, ReceivedSoapMessage
 from ..exceptions import ValidationError
-from ..schema_resolver import SchemaResolver
+from ..namespaces import QN_TYPE, text_to_qname, default_ns_helper
 from ..schema_resolver import mk_schema_validator
+from ..xml_types.addressing_types import HeaderInformationBlock
 
-# pylint: disable=no-self-use
+
+if TYPE_CHECKING:
+    from ..definitions_base import  BaseDefinitions
+    from ..namespaces import PrefixNamespace
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
 
@@ -99,36 +101,40 @@ class PayloadData:
 class MessageReader:
     """ This class does all the conversions from DOM trees (body of SOAP messages) to MDIB objects."""
 
-    def __init__(self, sdc_definitions, logger, log_prefix='', validate=True):
-        self.sdc_definitions = sdc_definitions
-        self.ns_hlp = sdc_definitions.data_model.ns_helper  # shortcut for easier access
-        self.ns_map = self.ns_hlp.ns_map
+    def __init__(self, sdc_definitions: Type[BaseDefinitions],
+                 additional_schema_specs: Union[List[PrefixNamespace], None],
+                 logger,
+                 validate=True):
+        self.schema_specs = [entry.value for entry in sdc_definitions.data_model.ns_helper.prefix_enum]
+        if additional_schema_specs is not None:
+            self.schema_specs.extend(additional_schema_specs)
         self._logger = logger
-        self._log_prefix = log_prefix
+        self._data_model = sdc_definitions.data_model
+        self.ns_hlp = sdc_definitions.data_model.ns_helper
         self._validate = validate
-        self._xml_schema = mk_schema_validator(SchemaResolver(sdc_definitions))
+        self._xml_schema: etree_.XMLSchema = mk_schema_validator(self.schema_specs, self.ns_hlp)
 
     @property
-    def _msg_names(self):
-        return self.sdc_definitions.data_model.msg_names
+    def msg_names(self):
+        return self._data_model.msg_names
 
     @property
-    def _pm_names(self):
-        return self.sdc_definitions.data_model.pm_names
+    def pm_names(self):
+        return self._data_model.pm_names
 
     @property
-    def _pm_types(self):
-        return self.sdc_definitions.data_model.pm_types
+    def pm_types(self):
+        return self._data_model.pm_types
 
     @property
-    def _msg_types(self):
-        return self.sdc_definitions.data_model.msg_types
+    def msg_types(self):
+        return self._data_model.msg_types
 
     def get_descriptor_container_class(self, qname):
-        return self.sdc_definitions.data_model.get_descriptor_container_class(qname)
+        return self._data_model.get_descriptor_container_class(qname)
 
     def get_state_container_class(self, qname):
-        return self.sdc_definitions.data_model.get_state_container_class(qname)
+        return self._data_model.get_state_container_class(qname)
 
     def read_received_message(self, xml_text: bytes, validate: bool = True) -> ReceivedMessage:
         """Reads complete message with addressing, message_id, payload,..."""
@@ -171,8 +177,8 @@ class MessageReader:
         descriptors = []
         states = []
         mdib_node = received_message_data.p_msg.msg_node[0]
-        md_descr_node = mdib_node.find(self._pm_names.MdDescription)
-        md_state_node = mdib_node.find(self._pm_names.MdState)
+        md_descr_node = mdib_node.find(self.pm_names.MdDescription)
+        md_state_node = mdib_node.find(self.pm_names.MdState)
         if md_descr_node is not None:
             descriptors = self._read_md_description_node(md_descr_node)
         if md_state_node is not None:
@@ -191,7 +197,7 @@ class MessageReader:
                     add_children(child_node)
 
         # iterate over tree, collect all handles of vmds, channels and metric descriptors
-        all_mds = md_description_node.findall(self._pm_names.Mds)
+        all_mds = md_description_node.findall(self.pm_names.Mds)
         for mds_node in all_mds:
             mds = self._mk_descriptor_container_from_node(mds_node, None)
             descriptions.append(mds)
@@ -205,12 +211,12 @@ class MessageReader:
         :return: a list of state containers
         """
         state_containers = []
-        all_state_nodes = md_state_node.findall(self._pm_names.State)
+        all_state_nodes = md_state_node.findall(self.pm_names.State)
         for state_node in all_state_nodes:
             try:
                 state_containers.append(self._mk_state_container_from_node(state_node))
             except MdibStructureError as ex:
-                self._logger.error('{}_read_md_state_node: cannot create: {}', self._log_prefix, ex)
+                self._logger.error('_read_md_state_node: cannot create: {}', ex)
         return state_containers
 
     def _mk_descriptor_container_from_node(self, node, parent_handle):
@@ -244,9 +250,9 @@ class MessageReader:
         if st_cls is None:
             raise ValueError(f'body type {node_type} is not known')
 
-        if node.tag != self._pm_names.State:
+        if node.tag != self.pm_names.State:
             node = copy.copy(node)  # make a copy, do not modify the original report
-            node.tag = self._pm_names.State
+            node.tag = self.pm_names.State
         state = st_cls(descriptor_container)
         state.update_from_node(node)
         state.node = node

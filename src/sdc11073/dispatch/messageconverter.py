@@ -23,7 +23,6 @@ class MessageConverterMiddleware:
         self._msg_reader = msg_reader
         self._msg_factory = msg_factory
         self._dispatcher: RequestHandlerProtocol = dispatcher
-        self.sdc_definitions = msg_reader.sdc_definitions
 
     def do_post(self, headers: dict, path: str, peer_name: str, request_bytes: bytes) -> (int, str, str):
         http_status = 200

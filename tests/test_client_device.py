@@ -231,7 +231,7 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
     # verify that client also got a PeriodicMetricReport
     if test_periodic_reports:
         message_data = coll2.result(timeout=NOTIFICATION_TIMEOUT)
-        cls = message_data.msg_reader._msg_types.PeriodicMetricReport
+        cls = message_data.msg_reader.msg_types.PeriodicMetricReport
         report = cls.from_node(message_data.p_msg.msg_node)
         unit_test.assertGreaterEqual(len(report.ReportPart), 1)
 
@@ -559,9 +559,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         # verify that client also got a PeriodicAlertReport
         message_data = coll2.result(timeout=NOTIFICATION_TIMEOUT)
-        cls = message_data.msg_reader._msg_types.PeriodicAlertReport
+        cls = message_data.msg_reader.msg_types.PeriodicAlertReport
         report = cls.from_node(message_data.p_msg.msg_node)
-        #report = self.sdc_client.msg_reader.read_periodic_alert_report(message_data)
         self.assertGreaterEqual(len(report.ReportPart), 1)
 
     def test_set_patient_context_on_device(self):
@@ -1011,7 +1010,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.sdc_client.get_service_client.endpoint_reference.Address,
                 action_string,
                 method)
-            self.sdc_client.get_service_client.post_message(message)
+            # do not validate outgoing message, need the response from device
+            self.sdc_client.get_service_client.post_message(message, validate=False)
 
         except HTTPReturnCodeError as ex:
             self.assertEqual(ex.status, 400)

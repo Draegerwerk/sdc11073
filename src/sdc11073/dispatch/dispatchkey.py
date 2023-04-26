@@ -29,7 +29,7 @@ class DispatchKey:
 
 OnPostHandler = Callable[[RequestData], CreatedMessage]
 
-OnGetHandler = Callable[[RequestData], str]
+OnGetHandler = Callable[[RequestData], bytes]
 
 
 class RequestHandlerProtocol(Protocol):

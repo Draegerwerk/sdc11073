@@ -12,7 +12,7 @@ class OperationsManager:
         self._logger = loghelper.get_logger_adapter('sdc.client.op_mgr', log_prefix)
         self._transactions = {}
         self._transactions_lock = Lock()
-        msg_types = msg_reader.sdc_definitions.data_model.msg_types
+        msg_types = msg_reader.msg_types
         self.nonFinalOperationStates = (msg_types.InvocationState.WAIT, msg_types.InvocationState.START)
 
     def call_operation(self, hosted_service_client, message, request_manipulator=None):
@@ -29,7 +29,7 @@ class OperationsManager:
             message_data = hosted_service_client.post_message(message,
                                                               msg='call Operation',
                                                               request_manipulator=request_manipulator)
-            msg_types = self._msg_reader.sdc_definitions.data_model.msg_types
+            msg_types = self._msg_reader.msg_types
             abstract_set_response = msg_types.AbstractSetResponse.from_node(message_data.p_msg.msg_node)
             invocation_info = abstract_set_response.InvocationInfo
             if invocation_info.InvocationState in self.nonFinalOperationStates:
@@ -42,7 +42,7 @@ class OperationsManager:
         return ret
 
     def on_operation_invoked_report(self, message_data):
-        msg_types = self._msg_reader.sdc_definitions.data_model.msg_types
+        msg_types = self._msg_reader.msg_types
         operation_invoked_report = msg_types.OperationInvokedReport.from_node(message_data.p_msg.msg_node)
 
         for report_part in operation_invoked_report.ReportPart:

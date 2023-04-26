@@ -56,7 +56,7 @@ class ContextServiceClient(HostedServiceClient):
         inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
         message = self._msg_factory.mk_soap_message(inf, payload=request)
         received_message_data = self.post_message(message, request_manipulator=request_manipulator)
-        cls = received_message_data.msg_reader._msg_types.GetContextStatesResponse
+        cls = received_message_data.msg_reader.msg_types.GetContextStatesResponse
         report = cls.from_node(received_message_data.p_msg.msg_node)
         return GetRequestResult(received_message_data, report)
 

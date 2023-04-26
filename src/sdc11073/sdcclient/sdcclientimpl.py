@@ -12,7 +12,6 @@ from urllib.parse import urlparse, urlsplit
 
 from lxml import etree as etree_
 
-from sdc11073.dispatch.request import RequestData
 from .components import default_sdc_client_components
 from .request_handler_deferred import EmptyResponse
 from .subscription import ClSubscription
@@ -22,6 +21,7 @@ from .. import netconn
 from .. import observableproperties as properties
 from ..definitions_base import ProtocolsRegistry
 from ..dispatch import DispatchKey, MessageConverterMiddleware
+from ..dispatch.request import RequestData
 from ..exceptions import ApiUsageError
 from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase
@@ -79,7 +79,7 @@ class HostedServiceDescription:
             try:
                 encoding = wsdl_element_tree.docinfo.encoding or 'UTF-8'
             except AttributeError:
-                encoding ='UTF-8'
+                encoding = 'UTF-8'
             self.wsdl_string = self.wsdl_bytes.decode(encoding)
             commlog.get_communication_logger().log_wsdl(self.wsdl_string)
         except etree_.XMLSyntaxError as ex:
@@ -240,12 +240,21 @@ class SdcClient:
         self.peer_certificate = None
         self.binary_peer_certificate = None
         self.all_subscribed = False
-
+        # look for schemas added by services
+        additional_schema_specs = []
+        for handler_cls in self._components.service_handlers.values():
+            additional_schema_specs.extend(handler_cls.additional_namespaces)
         msg_reader_cls = self._components.msg_reader_class
-        self.msg_reader = msg_reader_cls(self.sdc_definitions, self._logger, 'msg_reader', validate=validate)
+        self.msg_reader = msg_reader_cls(self.sdc_definitions,
+                                         additional_schema_specs,
+                                         self._logger,
+                                         validate=validate)
 
         msg_factory_cls = self._components.msg_factory_class
-        self._msg_factory = msg_factory_cls(self.sdc_definitions, self._logger, validate=validate)
+        self._msg_factory = msg_factory_cls(self.sdc_definitions,
+                                            additional_schema_specs,
+                                            self._logger,
+                                            validate=validate)
 
         action_dispatcher_class = self._components.action_dispatcher_class
         self._services_dispatcher = action_dispatcher_class(log_prefix)
@@ -502,7 +511,6 @@ class SdcClient:
         del self._compression_methods[:]
         self._compression_methods.extend(compression_methods)
 
-
     def _get_metadata(self) -> mex_types.Metadata:
         _url = urlparse(self._device_location)
         wsc = self.get_soap_client(self._device_location)
@@ -535,7 +543,6 @@ class SdcClient:
         received_message_data = wsc.post_message_to(_url.path, message, msg='Probe')
         probe_matches = ProbeMatchesType.from_node(received_message_data.p_msg.msg_node)
         return probe_matches
-
 
     def get_soap_client(self, address):
         _url = urlparse(address)
@@ -620,7 +627,6 @@ class SdcClient:
         self._notifications_splitter.on_notification(message_data)
 
     def _on_subscription_end(self, request_data):
-        #self.state_event_report = request_data.message_data.p_msg  # update observable
         subscription = self._subscription_mgr.on_subscription_end(request_data)  # subscription can be None
         self.subscription_end_data = SubscriptionEndData(subscription, request_data)
         return EmptyResponse()

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 from lxml import etree as etree_
 
@@ -10,6 +10,7 @@ from ...namespaces import default_ns_helper as ns_hlp
 
 if TYPE_CHECKING:
     from ...pysoap.msgfactory import CreatedMessage
+    from ...namespaces import PrefixNamespace
 
 msg_prefix = ns_hlp.MSG.prefix
 
@@ -34,6 +35,7 @@ class DPWSPortTypeBase:
         Handlers are registered in the hosting service instance. """
     WSDLOperationBindings = ()  # overwrite in derived classes
     WSDLMessageDescriptions = ()  # overwrite in derived classes
+    additional_namespaces: List[PrefixNamespace] = []  # for special namespaces
 
     def __init__(self, port_type_string, sdc_device, log_prefix=None):
         """
