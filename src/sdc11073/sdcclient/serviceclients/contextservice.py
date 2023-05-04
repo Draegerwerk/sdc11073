@@ -1,14 +1,19 @@
 from concurrent.futures import Future
-from typing import List
+from typing import Optional
+
 from .serviceclientbase import HostedServiceClient, GetRequestResult
+from ...dispatch import DispatchKey
 from ...exceptions import ApiUsageError
+from ...xml_types import msg_qnames
+from ...xml_types.actions import Actions
 from ...xml_types.addressing_types import HeaderInformationBlock
 
 
 class ContextServiceClient(HostedServiceClient):
-    subscribeable_actions = ('EpisodicContextReport', 'PeriodicContextReport')
+    notifications = (DispatchKey(Actions.EpisodicContextReport, msg_qnames.EpisodicContextReport),
+                     DispatchKey(Actions.PeriodicContextReport, msg_qnames.PeriodicContextReport))
 
-    def mk_proposed_context_object(self, descriptor_handle, handle=None):
+    def mk_proposed_context_object(self, descriptor_handle: str, handle: Optional[str] = None):
         """
         Helper method that create a state that can be used in set_context_state operation
         :param descriptor_handle: the descriptor for which a state shall be created or updated
@@ -30,9 +35,14 @@ class ContextServiceClient(HostedServiceClient):
             obj = _obj.mk_copy()
         return obj
 
-    def set_context_state(self, operation_handle: str, proposed_context_states, request_manipulator=None) -> Future:
-        """
-        @return: a concurrent.futures.Future object
+    def set_context_state(self, operation_handle: str,
+                          proposed_context_states: list,
+                          request_manipulator=None) -> Future:
+        """ Calls a SetContextState operation
+        :param operation_handle: the descriptor for which a state shall be created or updated
+        :param proposed_context_states: list of context states
+        :param request_manipulator:
+        :return: a concurrent.futures.Future object
         """
         data_model = self._sdc_definitions.data_model
         tmp = ', '.join([f'{st.__class__.__name__}(DescriptorHandle={st.DescriptorHandle}, handle={st.Handle})'
@@ -45,9 +55,11 @@ class ContextServiceClient(HostedServiceClient):
         message = self._msg_factory.mk_soap_message(inf, payload=request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
-    def get_context_states(self, handles=None, request_manipulator=None) -> GetRequestResult:
+    def get_context_states(self, handles: Optional[list[str]] = None, request_manipulator=None) -> GetRequestResult:
         """
         :param handles: a list of handles
+        :param request_manipulator:
+        :return: result of the call
         """
         data_model = self._sdc_definitions.data_model
         request = data_model.msg_types.GetContextStates()
@@ -60,11 +72,13 @@ class ContextServiceClient(HostedServiceClient):
         report = cls.from_node(received_message_data.p_msg.msg_node)
         return GetRequestResult(received_message_data, report)
 
-    def get_context_state_by_identification(self, identifications, context_type=None,
+    def get_context_state_by_identification(self, identifications,
+                                            context_type=None,
                                             request_manipulator=None) -> GetRequestResult:
         """
         :param identifications: list of identifiers (type: InstanceIdentifier from pmtypes)
         :param context_type: Type to query
+        :param request_manipulator:
         :return:
         """
         data_model = self._sdc_definitions.data_model
@@ -79,11 +93,11 @@ class ContextServiceClient(HostedServiceClient):
         report = cls.from_node(received_message_data.p_msg.msg_node)
         return GetRequestResult(received_message_data, report)
 
-
-    def get_context_state_by_filter(self, filters: List[str],
+    def get_context_state_by_filter(self, filters: list[str],
                                     request_manipulator=None) -> GetRequestResult:
         """
         :param filters: list strings
+        :param request_manipulator:
         :return: GetRequestResult
         """
         data_model = self._sdc_definitions.data_model

@@ -13,6 +13,7 @@ from ...pysoap.msgreader import ReceivedMessage
 if TYPE_CHECKING:
     from ...xml_types.addressing_types import EndpointReferenceType
     from ...namespaces import PrefixNamespace
+    from ...xml_types.mex_types import HostedServiceType
 
 
 class GetRequestResult:
@@ -49,10 +50,12 @@ class GetRequestResult:
 
 class HostedServiceClient:
     """ Base class of clients that call hosted services of a dpws device."""
-    subscribeable_actions = tuple()
-    additional_namespaces: List[PrefixNamespace] = []  # for special namespaces
 
-    def __init__(self, sdc_client, soap_client, dpws_hosted, port_type):
+    additional_namespaces: List[PrefixNamespace] = []  # for special namespaces
+    # list of notifications that a HostedServiceClient handles (for dispatching of subscribed data):
+    notifications: tuple[DispatchKey] = tuple()
+
+    def __init__(self, sdc_client, soap_client, dpws_hosted: HostedServiceType, port_type):
         """
 
         :param sdc_client:
@@ -65,22 +68,14 @@ class HostedServiceClient:
         self._sdc_definitions = sdc_client.sdc_definitions
         self._msg_factory = sdc_client._msg_factory
         self.log_prefix = sdc_client.log_prefix
+        self.dpws_hosted: HostedServiceType = dpws_hosted
         self.endpoint_reference: EndpointReferenceType = dpws_hosted.EndpointReference[0]
         self._url = urlparse(self.endpoint_reference.Address)
         self._porttype = port_type
         self._logger = loghelper.get_logger_adapter(f'sdc.client.{port_type}', self.log_prefix)
         self._operations_manager = None
         self._mdib_wref = None
-        self._supported_actions = []
         ns_helper = self._sdc_definitions.data_model.ns_helper
-        msg_names = self._sdc_definitions.data_model.msg_names
-        for action in self.subscribeable_actions:
-            if isinstance(action, tuple):
-                action, msg_name = action
-            else:
-                msg_name = action
-            self._supported_actions.append(DispatchKey(getattr(self._sdc_definitions.Actions, action),
-                                                       getattr(msg_names, msg_name)))
         self._nsmapper = ns_helper
 
     def register_mdib(self, mdib):
@@ -95,9 +90,9 @@ class HostedServiceClient:
     def _call_operation(self, envelope, request_manipulator=None) -> Future:
         return self._operations_manager.call_operation(self, envelope, request_manipulator)
 
-    def get_subscribable_actions(self) -> List[DispatchKey]:
+    def get_subscribable_actions(self) -> tuple[DispatchKey]:
         """ action strings only predefined"""
-        return self._supported_actions
+        return self.notifications
 
     def __repr__(self):
         return f'{self.__class__.__name__} "{self._porttype}" endpoint = {self.endpoint_reference}'
