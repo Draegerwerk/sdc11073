@@ -923,13 +923,14 @@ class ProductionSpecification(PropertyBasedPMType):
 class BaseDemographics(PropertyBasedPMType):
     # pylint: disable=invalid-name
     NODETYPE = pm.BaseDemographics
+    ext_Extension = cp.ExtensionNodeProperty(ext.Extension)
     Givenname = cp.NodeStringProperty(pm.Givenname, is_optional=True)
     Middlename = cp.SubElementStringListProperty(pm.Middlename)
     Familyname = cp.NodeStringProperty(pm.Familyname, is_optional=True)
     Birthname = cp.NodeStringProperty(pm.Birthname, is_optional=True)
     Title = cp.NodeStringProperty(pm.Title, is_optional=True)
     # pylint: enable=invalid-name
-    _props = ('Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title')
+    _props = ('ext_Extension', 'Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title')
 
     def __init__(self, given_name=None, middle_names=None, family_name=None, birth_name=None, title=None):
         super().__init__()
