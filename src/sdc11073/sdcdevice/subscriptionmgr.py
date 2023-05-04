@@ -108,9 +108,7 @@ class SubscriptionBase:
         self._started = None
         self._expire_seconds = None
         self.renew(subscribe_request.Expires)  # sets self._started and self._expire_seconds
-        self.filters = None
-        if subscribe_request.Filter is not None:
-            self.filters = subscribe_request.Filter.text.split()
+        self.filter_type = subscribe_request.Filter
         self._accepted_encodings = accepted_encodings
         self._soap_client = None
 
@@ -168,13 +166,6 @@ class SubscriptionBase:
             return False
         return self.remaining_seconds > 0 and not self.has_delivery_failure
 
-    def matches(self, action):
-        action = action.strip()  # just to be sure there are no spaces....
-        for filter_string in self.filters:
-            if filter_string.endswith(action):
-                return True
-        return False
-
     def send_notification_end_message(self, code='SourceShuttingDown',
                                       reason='Event source going off line.'):
         url = self.base_urls[0]
@@ -226,9 +217,8 @@ class SubscriptionBase:
                     self.notify_ref_params)
         except TypeError:
             ref_ident = '<unknown>'
-        return f'Subscription(notify_to={self.notify_to_address} ident={ref_ident}, ' \
-               f'my identifier={self.identifier_uuid.hex}, expires={self.remaining_seconds}, ' \
-               f'filter={short_filter_string(self.filters)})'
+        return f'{self.__class__.__name__}(notify_to={self.notify_to_address} ident={ref_ident}, ' \
+               f'my identifier={self.identifier_uuid.hex}, expires={self.remaining_seconds})'
 
     def get_roundtrip_stats(self):
         if len(self.last_roundtrip_times) > 0:
@@ -243,7 +233,36 @@ class SubscriptionBase:
         return self._msg_factory.mk_soap_message_etree_payload(header_info, body_node)
 
 
-class DevSubscription(SubscriptionBase):
+class ActionBasedSubscription(SubscriptionBase):
+    """Subscription for specific actions"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.filters = None
+        if self.filter_type is not None:
+            self.filters = self.filter_type.text.split()
+
+    def matches(self, action):
+        action = action.strip()  # just to be sure there are no spaces....
+        for filter_string in self.filters:
+            if filter_string.endswith(action):
+                return True
+        return False
+
+    def __repr__(self):
+        try:
+            if self.notify_ref_params is None:
+                ref_ident = '<none>'
+            else:
+                ref_ident = str(
+                    self.notify_ref_params)
+        except TypeError:
+            ref_ident = '<unknown>'
+        return f'{self.__class__.__name__}(notify_to={self.notify_to_address} ident={ref_ident}, ' \
+               f'my identifier={self.identifier_uuid.hex}, expires={self.remaining_seconds}, ' \
+               f'filter={short_filter_string(self.filters)})'
+
+
+class DevSubscription(ActionBasedSubscription):
 
     def send_notification_report(self, body_node: etree_.Element, action: str):
         if not self.is_valid:

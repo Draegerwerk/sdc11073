@@ -249,6 +249,8 @@ class _ElementBase(_XmlStructureBaseProperty):
         return sub_node
 
     def remove_sub_element(self, node):
+        if self._sub_element_name is None:
+            return
         sub_node = node.find(self._sub_element_name)
         if sub_node is not None:
             node.remove(sub_node)

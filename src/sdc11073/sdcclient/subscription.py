@@ -1,15 +1,15 @@
+from __future__ import annotations
 import http.client
 import threading
 import time
 import traceback
 import uuid
-from typing import Optional, Union
+from typing import Optional, Union, TYPE_CHECKING
 from urllib.parse import urlparse
 
 from lxml import etree as etree_
 
 from .request_handler_deferred import EmptyResponse
-from .. import etc
 from .. import loghelper
 from .. import observableproperties as properties
 from ..namespaces import EventingActions
@@ -18,6 +18,10 @@ from ..pysoap.soapclient import HTTPReturnCodeError, HTTPException
 from ..pysoap.soapenvelope import SoapResponseException
 from ..xml_types.addressing_types import HeaderInformationBlock
 from ..xml_types import eventing_types as evt_types
+
+if TYPE_CHECKING:
+    from ..xml_types.eventing_types import FilterType
+    from ..xml_types.mex_types import HostedServiceType
 
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 
@@ -29,7 +33,8 @@ class ClSubscription:
     notification_data = properties.ObservableProperty()
     IDENT_TAG = etree_.QName('http.local.com', 'MyClIdentifier')
 
-    def __init__(self, msg_factory, data_model, get_soap_client_func, dpws_hosted, actions, notification_url,
+    def __init__(self, msg_factory, data_model, get_soap_client_func, dpws_hosted: HostedServiceType,
+                 filter_type: FilterType, notification_url,
                  end_to_url, log_prefix):
         """ A single Subscription
         """
@@ -37,8 +42,8 @@ class ClSubscription:
         self._data_model = data_model
         self._get_soap_client_func = get_soap_client_func
         self._dpws_hosted = dpws_hosted
-        self._actions = actions
-        self._filter = ' '.join(actions)
+        self._filter_type = filter_type
+        self._filter = filter_type.text
         self.is_subscribed = False
         self.end_status = None  # if device sent a SubscriptionEnd message, this contains the status from the message
         self.end_reason = None  # if device sent a SubscriptionEnd message, this contains the reason from the message
@@ -87,9 +92,7 @@ class ClSubscription:
         if expire_minutes is not None:
             subscribe_request.Expires = expire_minutes * 60
 
-        # Filter is optional
-        if self._filter is not None:
-            subscribe_request.set_filter(self._filter)
+        subscribe_request.Filter = self._filter_type
 
         # make an elementtree from subscribe_request and add any_elements and any_attributes if present
         nsh = self._data_model.ns_helper
@@ -225,7 +228,7 @@ class ClSubscription:
     def check_status(self, renew_limit: Union[int, float]):
         """ Calls get_status and updates internal data.
         :param renew_limit: a value in seconds. If remaining duration of subscription is less than this value, it renews the subscription.
-        @return: None
+        :return: None
         """
         if not self.is_subscribed:
             return
@@ -264,11 +267,22 @@ class ClSubscription:
 
     @property
     def short_filter_string(self):
-        return etc.short_filter_string(self._actions)
+        if  self._filter_type.text is not None:
+            elements = self._filter_type.text.split()
+            tmp = []
+            for element in elements:
+                tmp.append(element.split('/')[-1])
+            return ', '.join(tmp)
 
     def __str__(self):
-        return f'Subscription of "{self.short_filter_string}", is_subscribed={self.is_subscribed}, ' \
-               f'remaining time = {int(self.remaining_subscription_seconds)} sec., count={self.event_counter}'
+        if  self._filter_type.text is not None:
+            return f'Subscription of "{self.short_filter_string}", is_subscribed={self.is_subscribed}, ' \
+                   f'remaining time = {int(self.remaining_subscription_seconds)} sec., count={self.event_counter}'
+        else:
+            tmp = []
+            for any in self._filter_type.any:
+                tmp.append(str(any))
+            return ', '.join(tmp)
 
 
 class ClientSubscriptionManager(threading.Thread):
@@ -276,7 +290,7 @@ class ClientSubscriptionManager(threading.Thread):
      Factory for Subscription objects. It automatically renews expiring subscriptions.
     """
     all_subscriptions_okay = properties.ObservableProperty(True)  # a boolean
-    keep_alive_with_renew = True  # enable as workaround if checkstatus is not supported
+    keep_alive_with_renew = True  # enable as workaround if check status is not supported
 
     def __init__(self, msg_reader, msg_factory, data_model, get_soap_client_func, notification_url, end_to_url=None,
                  check_interval=None, log_prefix=''):
@@ -339,7 +353,7 @@ class ClientSubscriptionManager(threading.Thread):
         finally:
             self._logger.info('terminating subscriptions check loop! self._run={}', self._run)
 
-    def mk_subscription(self, dpws_hosted, filters):
+    def mk_subscription(self, dpws_hosted: HostedServiceType, filter_type: FilterType):
         sep = '' if self._notification_url.endswith('/') else '/'
         notification_url = f'{self._notification_url}{sep}subscr{self._counter}'
         sep = '' if self._end_to_url.endswith('/') else '/'
@@ -347,9 +361,9 @@ class ClientSubscriptionManager(threading.Thread):
         self._counter += 1
         subscription = ClSubscription(self._msg_factory, self._data_model,
                                       self._get_soap_client_func,
-                                      dpws_hosted, filters, notification_url,
+                                      dpws_hosted, filter_type, notification_url,
                                       end_to_url, self.log_prefix)
-        filter_ = ' '.join(filters)
+        filter_ = filter_type.text
         with self._subscriptions_lock:
             self.subscriptions[filter_] = subscription
         return subscription
@@ -404,11 +418,11 @@ class ClientSubscriptionManager(threading.Thread):
 
 
 class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):
-    def mk_subscription(self, dpws_hosted, filters):
+    def mk_subscription(self, dpws_hosted: HostedServiceType, filter_type: FilterType):
         subscription = ClSubscription(self._msg_factory,
                                       self._data_model,
                                       self._get_soap_client_func,
-                                      dpws_hosted, filters,
+                                      dpws_hosted, filter_type,
                                       self._notification_url,
                                       self._end_to_url, self.log_prefix)
         subscription.notify_to_identifier = etree_.Element(ClSubscription.IDENT_TAG)
@@ -416,7 +430,7 @@ class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):
         subscription.end_to_identifier = etree_.Element(ClSubscription.IDENT_TAG)
         subscription.end_to_identifier.text = uuid.uuid4().urn
 
-        filter_ = ' '.join(filters)
+        filter_ = filter_type.text
         with self._subscriptions_lock:
             self.subscriptions[filter_] = subscription
         return subscription

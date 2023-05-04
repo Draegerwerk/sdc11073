@@ -12,7 +12,7 @@ import aiohttp.client_exceptions
 from lxml import etree as etree_
 
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from .subscriptionmgr import SubscriptionsManagerBase, SubscriptionBase
+from .subscriptionmgr import SubscriptionsManagerBase, ActionBasedSubscription
 from .. import observableproperties
 from ..pysoap.soapclient import HTTPReturnCodeError
 from ..xml_types import eventing_types as evt_types
@@ -56,7 +56,7 @@ def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
     return None, path_suffix
 
 
-class DevSubscriptionAsync(SubscriptionBase):
+class DevSubscriptionAsync(ActionBasedSubscription):
 
     async def async_send_notification_report(self, body_node: etree_.Element, action: str):
         if not self.is_valid:
