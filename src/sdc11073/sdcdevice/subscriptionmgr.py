@@ -15,7 +15,7 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from .. import loghelper
 from .. import multikey
 from .. import observableproperties
-from ..etc import apply_map, short_filter_string
+from ..etc import apply_map
 from ..httpserver.compression import CompressionHandler
 from ..pysoap.soapclient import HTTPReturnCodeError
 from ..pysoap.soapenvelope import Fault, faultcodeEnum
@@ -225,9 +225,6 @@ class SubscriptionBase:
             return _RoundTripData(self.last_roundtrip_times, self.max_roundtrip_time)
         return _RoundTripData(None, None)
 
-    def short_filter_names(self):
-        return tuple([f.split('/')[-1] for f in self.filters])
-
     def _mk_notification_message(self, header_info: HeaderInformationBlock,
                                  body_node: etree_.Element) -> CreatedMessage:
         return self._msg_factory.mk_soap_message_etree_payload(header_info, body_node)
@@ -237,16 +234,19 @@ class ActionBasedSubscription(SubscriptionBase):
     """Subscription for specific actions"""
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.filters = None
+        self.actions_filter: list[str] = []
         if self.filter_type is not None:
-            self.filters = self.filter_type.text.split()
+            self.actions_filter.extend(self.filter_type.text.split())
 
     def matches(self, action):
         action = action.strip()  # just to be sure there are no spaces....
-        for filter_string in self.filters:
+        for filter_string in self.actions_filter:
             if filter_string.endswith(action):
                 return True
         return False
+
+    def short_filter_names(self) -> list[str]:
+        return [f.split('/')[-1] for f in self.actions_filter]
 
     def __repr__(self):
         try:
@@ -259,7 +259,7 @@ class ActionBasedSubscription(SubscriptionBase):
             ref_ident = '<unknown>'
         return f'{self.__class__.__name__}(notify_to={self.notify_to_address} ident={ref_ident}, ' \
                f'my identifier={self.identifier_uuid.hex}, expires={self.remaining_seconds}, ' \
-               f'filter={short_filter_string(self.filters)})'
+               f'filter={self.short_filter_names()})'
 
 
 class DevSubscription(ActionBasedSubscription):
@@ -325,12 +325,12 @@ class SubscriptionsManagerBase:
     def set_base_urls(self, base_urls):
         self.base_urls = base_urls
 
-    def _mk_subscription_instance(self, request_data: RequestData):
+    def _mk_subscription_instance(self, request_data: RequestData) -> ActionBasedSubscription:
         subscribe_request = evt_types.Subscribe.from_node(request_data.message_data.p_msg.msg_node)
         accepted_encodings = CompressionHandler.parse_header(request_data.http_header.get('Accept-Encoding'))
-        return DevSubscription(self, subscribe_request, accepted_encodings, self.base_urls, self._max_subscription_duration,
-                               self._soap_client_pool, msg_factory=self._msg_factory,
-                               log_prefix=self._logger.log_prefix)
+        return DevSubscription(self, subscribe_request, accepted_encodings, self.base_urls,
+                               self._max_subscription_duration, self._soap_client_pool,
+                               msg_factory=self._msg_factory, log_prefix=self._logger.log_prefix)
 
     def on_subscribe_request(self, request_data: RequestData) -> CreatedMessage:
         subscription = self._mk_subscription_instance(request_data)
@@ -353,7 +353,7 @@ class SubscriptionsManagerBase:
         return response
 
     def on_unsubscribe_request(self, request_data: RequestData) -> CreatedMessage:
-        subscription = self._get_subscription_for_request(request_data)
+        subscription: ActionBasedSubscription = self._get_subscription_for_request(request_data)
         nsh = self.sdc_definitions.data_model.ns_helper
         if subscription is None:
             fault = Fault()
@@ -365,9 +365,7 @@ class SubscriptionsManagerBase:
             subscription.close()
             with self._subscriptions.lock:
                 self._subscriptions.remove_object(subscription)
-            self._logger.info('unsubscribe: object found and removed (Xaddr = {}, filter = {})',
-                              subscription.notify_to_address,
-                              subscription.filters)
+            self._logger.info('unsubscribe: subscription found and removed {})', str(subscription))
             unsubscribe_response = evt_types.UnsubscribeResponse()
             response = self._msg_factory.mk_reply_soap_message(request_data, unsubscribe_response)
         return response
@@ -377,7 +375,7 @@ class SubscriptionsManagerBase:
         nsh = data_model.ns_helper
 
         self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.p_msg.raw_data)
-        subscription = self._get_subscription_for_request(request_data)
+        subscription: ActionBasedSubscription = self._get_subscription_for_request(request_data)
         if subscription is None:
             fault = Fault()
             fault.Code.Value = faultcodeEnum.RECEIVER
@@ -396,7 +394,7 @@ class SubscriptionsManagerBase:
         nsh = data_model.ns_helper
         renew = evt_types.Renew.from_node(request_data.message_data.p_msg.msg_node)
         expires = renew.Expires
-        subscription = self._get_subscription_for_request(request_data)
+        subscription: ActionBasedSubscription = self._get_subscription_for_request(request_data)
         if subscription is None:
             fault = Fault()
             fault.Code.Value = faultcodeEnum.RECEIVER
@@ -420,7 +418,7 @@ class SubscriptionsManagerBase:
                           self._subscriptions.objects)
             self._subscriptions.clear()
 
-    def _get_subscription_for_request(self, request_data: RequestData):
+    def _get_subscription_for_request(self, request_data: RequestData) -> ActionBasedSubscription:
         reference_parameters = request_data.message_data.p_msg.header_info_block.reference_parameters
         path_suffix = '/'.join(request_data.path_elements)  # not consumed path elements
         dispatch_identifier = _mk_dispatch_identifier(reference_parameters, path_suffix)

@@ -208,7 +208,7 @@ def mk_wsdl_two_way_operation(parent_node, operation_name, input_message_name=No
                               output_message_name=output_msg_name, fault=fault)
 
 
-def _mk_wsdl_one_way_operation(parent_node, operation_name, output_message_name=None, fault=None):
+def mk_wsdl_one_way_operation(parent_node, operation_name, output_message_name=None, fault=None):
     # has only output
     output_msg_name = output_message_name or operation_name  # defaults to operation name
     return _mk_wsdl_operation(parent_node, operation_name=operation_name, input_message_name=None,
