@@ -66,7 +66,7 @@ class ClSubscription:
 
     def subscribe(self, expire_minutes: int = 60,
                   any_elements: Optional[list] = None,
-                  any_attributes: Optional[dict] = None):
+                  any_attributes: Optional[dict] = None) -> None:
         s = self.short_filter_string
         if s is None:
             self._logger.info('start subscription')
