@@ -56,7 +56,7 @@ def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
     return None, path_suffix
 
 
-class DevSubscriptionAsync(ActionBasedSubscription):
+class BicepsSubscriptionAsync(ActionBasedSubscription):
 
     async def async_send_notification_report(self, body_node: etree_.Element, action: str):
         if not self.is_valid:
@@ -165,7 +165,7 @@ class SubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
     def _mk_subscription_instance(self, request_data: RequestData):
         subscribe_request = evt_types.Subscribe.from_node(request_data.message_data.p_msg.msg_node)
         accepted_encodings = request_data.http_header['Accept-Encoding']
-        return DevSubscriptionAsync(self, subscribe_request, accepted_encodings, self.base_urls,
+        return BicepsSubscriptionAsync(self, subscribe_request, accepted_encodings, self.base_urls,
                                     self._max_subscription_duration,
                                     self._soap_client_pool,
                                     msg_factory=self._msg_factory,
