@@ -258,6 +258,17 @@ class LocalizedText(PropertyBasedPMType):
         enum_text_width = LocalizedTextWidth(text_width) if text_width is not None else None
         return cls(text, lang, ref, version, enum_text_width)
 
+    def __repr__(self):
+        params = [f'"{self.text}"']
+        if self.Lang is not None:
+            params.append(f'Lang={self.Lang}')
+        if self.Ref is not None:
+            params.append(f'Ref={self.Ref}')
+        if self.Version is not None:
+            params.append(f'Version={self.Version}')
+        if self.TextWidth is not None:
+            params.append(f'TextWidth={self.TextWidth}')
+        return f'{self.__class__.__name__}({", ".join(params)})'
 
 DEFAULT_CODING_SYSTEM = 'urn:oid:1.2.840.10004.1.1.1.0.0.1'  # ISO/IEC 11073-10101
 
@@ -515,7 +526,12 @@ class InstanceIdentifier(PropertyBasedPMType):
         return ret
 
     def __repr__(self):
-        return f'InstanceIdentifier(root={self.Root!r}, Type={self.Type} ext={self.Extension!r})'
+        params = [f'root={self.Root!r}']
+        if self.Type is not None:
+            params.append(f'Type={self.Type}')
+        if len(self.IdentifierName) > 0:
+            params.append(f'IdentifierName={[str(n) for n in self.IdentifierName]}')
+        return f'InstanceIdentifier({", ".join(params)})'
 
 
 class OperatingJurisdiction(InstanceIdentifier):

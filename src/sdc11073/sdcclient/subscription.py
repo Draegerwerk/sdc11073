@@ -67,7 +67,11 @@ class ClSubscription:
     def subscribe(self, expire_minutes: int = 60,
                   any_elements: Optional[list] = None,
                   any_attributes: Optional[dict] = None):
-        self._logger.info('### startSubscription "{}" ###', self._filter)
+        s = self.short_filter_string
+        if s is None:
+            self._logger.info('start subscription')
+        else:
+            self._logger.info('start subscription "{}"', self.short_filter_string)
         self.event_counter = 0
         self.expire_minutes = expire_minutes  # saved for later renewal, we will use the same interval
 
@@ -107,7 +111,7 @@ class ClSubscription:
         inf = HeaderInformationBlock(action=EventingActions.Subscribe,
                                      addr_to=self._hosted_service_address)
         message = self._msg_factory.mk_soap_message_etree_payload(inf, body_node)
-        msg = f'subscribe {self._filter}'
+        msg = f'subscribe {self.short_filter_string}'
         try:
             soap_client = self._get_soap_client_func(self._hosted_service_address)
             message_data = soap_client.post_message_to(self._hosted_service_path, message, msg=msg)
@@ -182,7 +186,7 @@ class ClSubscription:
         response_action = received_message_data.action
         # check response: response does not contain explicit status. If action== UnsubscribeResponse all is fine.
         if response_action == EventingActions.UnsubscribeResponse:
-            self._logger.info('unsubscribe: end of subscription {} was confirmed.', self._filter)
+            self._logger.info('unsubscribe: end of subscription {} was confirmed.', self.notification_url)
         else:
             self._logger.error('unsubscribe: unexpected response action: {}', received_message_data.p_msg.raw_data)
             raise ValueError(f'unsubscribe: unexpected response action: {received_message_data.p_msg.raw_data}')
