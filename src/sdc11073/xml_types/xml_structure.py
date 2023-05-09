@@ -906,7 +906,7 @@ class ContainerListProperty(_ElementListProperty):
             for _node in nodes:
                 node_type_str = _node.get(QN_TYPE)
                 if node_type_str is not None:
-                    node_type = text_to_qname(node_type_str, node.nsmap)
+                    node_type = text_to_qname(node_type_str, _node.nsmap)
                     value_class = self._cls_getter(node_type)
                 else:
                     value_class = self.value_class
