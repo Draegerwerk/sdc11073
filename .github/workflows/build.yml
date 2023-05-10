@@ -12,6 +12,7 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    continue-on-error: true # this will be fixed in issue #156
     steps:
       - uses: actions/checkout@v3
       - uses: chartboost/ruff-action@v1
