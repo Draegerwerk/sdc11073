@@ -53,11 +53,17 @@ jobs:
           name: distributions
           path: dist
 
-      - name: Download Unittest report
+      - name: Download unittest reports
         uses: actions/download-artifact@v3
         with:
           name: unittest_reports
           path: pytest_reports/
+
+      - name: Zip unittest reports
+        uses: vimtor/action-zip@v1.1
+        with:
+          files: pytest_reports/unittest_report_*.html
+          dest: pytest_reports/test_reports.zip
 
       - name: Detect prerelease
         id: detect-prerelease
@@ -71,6 +77,6 @@ jobs:
           files: |
             CHANGELOG.md
             dist/*
-            pytest_reports/unittest_report_*.html
+            pytest_reports/test_reports.zip
           prerelease: ${{ env.DO_PRERELEASE == '1' }}
           body_path: CHANGELOG.md
