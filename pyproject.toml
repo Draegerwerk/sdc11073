@@ -110,9 +110,16 @@ extend-ignore = [# https://beta.ruff.rs/docs/settings/#extend-ignore
     "ANN101", # https://beta.ruff.rs/docs/rules/missing-type-self/
     "ANN102", # https://beta.ruff.rs/docs/rules/missing-type-cls/
     "ANN401", # https://beta.ruff.rs/docs/rules/any-type/
+    "C408", # https://beta.ruff.rs/docs/rules/unnecessary-collection-call/
+    "C409", # https://beta.ruff.rs/docs/rules/unnecessary-literal-within-tuple-call/
     "D107", # undocumented-public-init
     "D203", # one-blank-line-before-class
     "D213", # multi-line-summary-second-line
+    "Q000", # https://beta.ruff.rs/docs/rules/bad-quotes-inline-string/
+    "S101", # https://beta.ruff.rs/docs/rules/assert/
+    "SIM102", # collapsible-if
+    "T201", # https://beta.ruff.rs/docs/rules/print/
+
 ]
 line-length = 120  # https://beta.ruff.rs/docs/settings/#line-length
 target-version = "py39" # https://beta.ruff.rs/docs/settings/#target-version
