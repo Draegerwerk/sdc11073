@@ -12,7 +12,7 @@ import aiohttp.client_exceptions
 from lxml import etree as etree_
 
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from .subscriptionmgr import SubscriptionsManagerBase, ActionBasedSubscription
+from .subscriptionmgr_base import SubscriptionsManagerBase, ActionBasedSubscription, RoundTripData
 from .. import observableproperties
 from ..pysoap.soapclient import HTTPReturnCodeError
 from ..xml_types import eventing_types as evt_types
@@ -25,25 +25,6 @@ if TYPE_CHECKING:
     from ..dispatch import RequestData
 
 MAX_ROUNDTRIP_VALUES = 20
-
-
-class _RoundTripData:
-    def __init__(self, values, abs_max):
-        if values:
-            self.values = list(values)  # make a copy
-            self.min = min(values)
-            self.max = max(values)
-            self.avg = sum(values) / len(values)
-            self.abs_max = abs_max
-        else:
-            self.values = None
-            self.min = None
-            self.max = None
-            self.avg = None
-            self.abs_max = None
-
-    def __repr__(self):
-        return f'min={self.min:.4f} max={self.max:.4f} avg={self.avg:.4f} abs. max={self.abs_max:.4f}'
 
 
 def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
@@ -286,7 +267,7 @@ class SubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
                     tmp[subscription.notify_to_address].append(subscription.get_roundtrip_stats())
         for key, stats in tmp.items():
             all_values = [stat.values for stat in stats]
-            ret[key] = _RoundTripData(all_values, max([s.max for s in stats]), )
+            ret[key] = RoundTripData(all_values, max([s.max for s in stats]), )
         return ret
 
 

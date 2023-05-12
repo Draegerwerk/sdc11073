@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 MAX_ROUNDTRIP_VALUES = 20
 
 
-class _RoundTripData:
+class RoundTripData:
     def __init__(self, values, abs_max):
         if values:
             self.values = list(values)  # make a copy
@@ -239,8 +239,8 @@ class SubscriptionBase:
 
     def get_roundtrip_stats(self):
         if len(self.last_roundtrip_times) > 0:
-            return _RoundTripData(self.last_roundtrip_times, self.max_roundtrip_time)
-        return _RoundTripData(None, None)
+            return RoundTripData(self.last_roundtrip_times, self.max_roundtrip_time)
+        return RoundTripData(None, None)
 
     def _mk_notification_message(self, header_info: HeaderInformationBlock,
                                  body_node: etree_.Element) -> CreatedMessage:
