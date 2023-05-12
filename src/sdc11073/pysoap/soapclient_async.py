@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from ..pysoap.msgfactory import CreatedMessage
     from ..pysoap.msgreader import MessageReader
     from ..definitions_base import BaseDefinitions
-    from ..sdcclient.manipulator import RequestManipulator
+    from ..sdcclient.manipulator import RequestManipulatorProtocol
     from ..loghelper import LoggerAdapter
 
 
@@ -96,7 +96,7 @@ class SoapClientAsync:
     async def async_post_message_to(self, path: str,
                                     created_message: CreatedMessage,
                                     msg: Optional[str] = '',
-                                    request_manipulator: Optional[RequestManipulator] = None):
+                                    request_manipulator: Optional[RequestManipulatorProtocol] = None):
         """
         :param path: url path component
         :param created_message: The message that shall be sent

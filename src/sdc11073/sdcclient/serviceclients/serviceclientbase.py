@@ -3,7 +3,7 @@ from __future__ import annotations
 from urllib.parse import urlparse
 import weakref
 from concurrent.futures import Future
-from typing import Any, List, TYPE_CHECKING
+from typing import Any, List, TYPE_CHECKING, Optional
 
 from ... import loghelper
 from ...dispatch import DispatchKey
@@ -11,9 +11,10 @@ from ...exceptions import ApiUsageError
 from ...pysoap.msgreader import ReceivedMessage
 
 if TYPE_CHECKING:
-    from ...xml_types.addressing_types import EndpointReferenceType
     from ...namespaces import PrefixNamespace
+    from ...xml_types.addressing_types import EndpointReferenceType
     from ...xml_types.mex_types import HostedServiceType
+    from ..manipulator import RequestManipulatorProtocol
 
 
 class GetRequestResult:
@@ -87,7 +88,8 @@ class HostedServiceClient:
     def set_operations_manager(self, operations_manager):
         self._operations_manager = operations_manager
 
-    def _call_operation(self, envelope, request_manipulator=None) -> Future:
+    def _call_operation(self, envelope,
+                        request_manipulator: Optional[RequestManipulatorProtocol] = None) -> Future:
         return self._operations_manager.call_operation(self, envelope, request_manipulator)
 
     def get_subscribable_actions(self) -> tuple[DispatchKey]:
@@ -98,7 +100,7 @@ class HostedServiceClient:
         return f'{self.__class__.__name__} "{self._porttype}" endpoint = {self.endpoint_reference}'
 
     def post_message(self, created_message, msg=None,
-                     request_manipulator=None,
+                     request_manipulator: Optional[RequestManipulatorProtocol] = None,
                      validate=True):
         msg = msg or created_message.p_msg.payload_element.tag.split('}')[-1]
 

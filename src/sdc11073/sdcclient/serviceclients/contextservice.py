@@ -1,5 +1,6 @@
+from __future__ import annotations
 from concurrent.futures import Future
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from .serviceclientbase import HostedServiceClient, GetRequestResult
 from ...dispatch import DispatchKey
@@ -8,7 +9,8 @@ from ...xml_types import msg_qnames
 from ...xml_types.actions import Actions
 from ...xml_types.addressing_types import HeaderInformationBlock
 
-
+if TYPE_CHECKING:
+    from sdc11073.sdcclient.manipulator import RequestManipulatorProtocol
 class ContextServiceClient(HostedServiceClient):
     notifications = (DispatchKey(Actions.EpisodicContextReport, msg_qnames.EpisodicContextReport),
                      DispatchKey(Actions.PeriodicContextReport, msg_qnames.PeriodicContextReport))
@@ -18,7 +20,7 @@ class ContextServiceClient(HostedServiceClient):
         Helper method that create a state that can be used in set_context_state operation
         :param descriptor_handle: the descriptor for which a state shall be created or updated
         :param handle: if None, a new object with default values is created (INSERT operation).
-                       Otherwise a copy of an existing state with this handle is returned.
+                       Else a copy of an existing state with this handle is returned.
         :return: a context state instance
         """
         data_model = self._sdc_definitions.data_model
@@ -37,11 +39,11 @@ class ContextServiceClient(HostedServiceClient):
 
     def set_context_state(self, operation_handle: str,
                           proposed_context_states: list,
-                          request_manipulator=None) -> Future:
+                          request_manipulator: Optional[RequestManipulatorProtocol] = None) -> Future:
         """ Calls a SetContextState operation
         :param operation_handle: the descriptor for which a state shall be created or updated
         :param proposed_context_states: list of context states
-        :param request_manipulator:
+        :param request_manipulator: see documentation of RequestManipulatorProtocol
         :return: a concurrent.futures.Future object
         """
         data_model = self._sdc_definitions.data_model
@@ -55,10 +57,11 @@ class ContextServiceClient(HostedServiceClient):
         message = self._msg_factory.mk_soap_message(inf, payload=request)
         return self._call_operation(message, request_manipulator=request_manipulator)
 
-    def get_context_states(self, handles: Optional[list[str]] = None, request_manipulator=None) -> GetRequestResult:
+    def get_context_states(self, handles: Optional[list[str]] = None,
+                           request_manipulator: Optional[RequestManipulatorProtocol] = None) -> GetRequestResult:
         """
         :param handles: a list of handles
-        :param request_manipulator:
+        :param request_manipulator: see documentation of RequestManipulatorProtocol
         :return: result of the call
         """
         data_model = self._sdc_definitions.data_model
@@ -74,11 +77,11 @@ class ContextServiceClient(HostedServiceClient):
 
     def get_context_state_by_identification(self, identifications,
                                             context_type=None,
-                                            request_manipulator=None) -> GetRequestResult:
+                                            request_manipulator: Optional[RequestManipulatorProtocol] = None) -> GetRequestResult:
         """
         :param identifications: list of identifiers (type: InstanceIdentifier from pmtypes)
         :param context_type: Type to query
-        :param request_manipulator:
+        :param request_manipulator: see documentation of RequestManipulatorProtocol
         :return:
         """
         data_model = self._sdc_definitions.data_model
@@ -94,10 +97,10 @@ class ContextServiceClient(HostedServiceClient):
         return GetRequestResult(received_message_data, report)
 
     def get_context_state_by_filter(self, filters: list[str],
-                                    request_manipulator=None) -> GetRequestResult:
+                                    request_manipulator: Optional[RequestManipulatorProtocol] = None) -> GetRequestResult:
         """
         :param filters: list strings
-        :param request_manipulator:
+        :param request_manipulator: see documentation of RequestManipulatorProtocol
         :return: GetRequestResult
         """
         data_model = self._sdc_definitions.data_model

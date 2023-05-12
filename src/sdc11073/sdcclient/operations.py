@@ -1,9 +1,12 @@
+from __future__ import annotations
 import weakref
 from concurrent.futures import Future
 from threading import Lock
-
+from typing import TYPE_CHECKING, Optional
 from .. import loghelper
 
+if TYPE_CHECKING:
+    from ..sdcclient.manipulator import RequestManipulatorProtocol
 class OperationsManager:
 
     def __init__(self, msg_reader, log_prefix):
@@ -15,14 +18,17 @@ class OperationsManager:
         msg_types = msg_reader.msg_types
         self.nonFinalOperationStates = (msg_types.InvocationState.WAIT, msg_types.InvocationState.START)
 
-    def call_operation(self, hosted_service_client, message, request_manipulator=None):
+    def call_operation(self, hosted_service_client,
+                       message,
+                       request_manipulator: Optional[RequestManipulatorProtocol] = None):
         """ An operation call does not return the result of the operation directly. You get a transaction id,
         and will receive the status of this transaction as notification ("OperationInvokedReport").
         This method returns a "future" object.
         The future object has a result as soon as a final transaction state is received.
         :param hosted_service_client:
         :param message: the CreatedMessage to be sent
-        @return: a concurrent.futures.Future object
+        :param request_manipulator: see documentation of RequestManipulatorProtocol
+        :return: a concurrent.futures.Future object
         """
         ret = Future()
         with self._transactions_lock:

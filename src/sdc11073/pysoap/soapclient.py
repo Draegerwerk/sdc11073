@@ -12,7 +12,7 @@ from http.client import CannotSendRequest, BadStatusLine, NotConnected, UnknownT
 from http.client import HTTPConnection, HTTPSConnection
 from http.client import HTTPException, HTTPResponse
 from threading import Lock
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING, Union
 
 from .. import commlog
 from .. import observableproperties
@@ -26,8 +26,8 @@ if TYPE_CHECKING:
     from ..pysoap.msgfactory import CreatedMessage
     from ..pysoap.msgreader import MessageReader
     from ..definitions_base import BaseDefinitions
-    from ..sdcclient.manipulator import RequestManipulator
     from ..loghelper import LoggerAdapter
+    from ..sdcclient.manipulator import RequestManipulatorProtocol
 
 
 class HTTPConnectionNoDelay(HTTPConnection):
@@ -138,7 +138,9 @@ class SoapClient:
     def is_closed(self):
         return self._http_connection is None
 
-    def _prepare_message(self, created_message: CreatedMessage, request_manipulator, validate):
+    def _prepare_message(self, created_message: CreatedMessage,
+                         request_manipulator: Union[RequestManipulatorProtocol, None],
+                         validate):
         if hasattr(request_manipulator, 'manipulate_soapenvelope'):
             tmp = request_manipulator.manipulate_soapenvelope(created_message.p_msg)
             if tmp:
@@ -157,14 +159,15 @@ class SoapClient:
     def post_message_to(self, path: str,
                         created_message: CreatedMessage,
                         msg: Optional[str] = '',
-                        request_manipulator: Optional[RequestManipulator] = None,
-                        validate=True
+                        request_manipulator: Optional[RequestManipulatorProtocol] = None,
+                        validate: Optional[bool] =True
                         ):
         """
         :param path: url path component
         :param created_message: The message that shall be sent
         :param msg: used in logs, helps to identify the context in which the method was called
-        :param request_manipulator:
+        :param request_manipulator: see documentation of RequestManipulatorProtocol
+        :param validate: set to False if no schema validation shall be done
         """
         if self.is_closed():
             self.connect()
