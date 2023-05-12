@@ -57,7 +57,7 @@ def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
 
 
 class BicepsSubscriptionAsync(ActionBasedSubscription):
-
+    """An action based subscription manager that send notifications async."""
     async def async_send_notification_report(self, body_node: etree_.Element, action: str):
         if not self.is_valid:
             return
