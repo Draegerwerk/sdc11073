@@ -18,21 +18,22 @@ if TYPE_CHECKING:
 
 class ActionBasedSubscription(SubscriptionBase):
     """Subscription for specific actions.
-    Actions are a space separated list of strings in FilterType.text"""
-    supported_filter_dialect = DeviceEventingFilterDialectURI.ACTION
+    Actions are a space separated list of strings in FilterType.text. """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # split the filter sting into separate action strings and keep them
         self.actions_filter: list[str] = []
-
+        self._short_filter_names: list[str] = [] # helper for shorter log entries
         if self.filter_type is not None:
             self.actions_filter.extend(self.filter_type.text.split())
+            self._short_filter_names = [f.split('/')[-1] for f in self.actions_filter]
 
-    def matches(self, what: Any):
+    def matches(self, what: Any) -> bool:
         """
 
         :param what: this must be a string
-        :return:
+        :return: True if argument matches one of the strings in self.actions_filter, else False
         """
         action: str = what.strip()  # just to be sure there are no spaces
         for filter_string in self.actions_filter:
@@ -41,7 +42,7 @@ class ActionBasedSubscription(SubscriptionBase):
         return False
 
     def short_filter_names(self) -> list[str]:
-        return [f.split('/')[-1] for f in self.actions_filter]
+        return self._short_filter_names
 
     def __repr__(self):
         try:
@@ -54,7 +55,7 @@ class ActionBasedSubscription(SubscriptionBase):
             ref_ident = '<unknown>'
         return f'{self.__class__.__name__}(notify_to={self.notify_to_address} ident={ref_ident}, ' \
                f'my identifier={self.identifier_uuid.hex}, expires={self.remaining_seconds}, ' \
-               f'filter={self.short_filter_names()})'
+               f'filter={self._short_filter_names})'
 
 
 class BicepsSubscription(ActionBasedSubscription):

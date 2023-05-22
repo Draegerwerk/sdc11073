@@ -6,7 +6,7 @@ import time
 import traceback
 import uuid
 from collections import deque
-from typing import TYPE_CHECKING, List, Union, Any
+from typing import TYPE_CHECKING, List, Union, Any, Protocol
 from urllib.parse import urlparse
 
 from lxml import etree as etree_
@@ -20,7 +20,6 @@ from ..pysoap.soapclient import HTTPReturnCodeError
 from ..pysoap.soapenvelope import Fault, faultcodeEnum
 from ..xml_types import eventing_types as evt_types, isoduration
 from ..xml_types.basetypes import MessageType
-from ..xml_types.dpws_types import DeviceEventingFilterDialectURI
 
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
@@ -64,7 +63,6 @@ def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
 class SubscriptionBase:
     MAX_NOTIFY_ERRORS = 1
     IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
-    supported_filter_dialect = None  # must be set in derived classes
 
     def __init__(self, mgr,
                  subscribe_request: evt_types.Subscribe,
@@ -90,9 +88,6 @@ class SubscriptionBase:
         self.filter_type = subscribe_request.Filter
         if self.filter_type is None:
             raise ValueError(f'No filter provided for {self.__class__.__name__}')
-        if self.filter_type.Dialect != self.supported_filter_dialect:
-            raise ValueError(
-                f'Invalid filter dialect, got {self.filter_type.Dialect}, expect {self.supported_filter_dialect}')
 
         self.mode = subscribe_request.Delivery.Mode
         self.notify_to_address = subscribe_request.Delivery.NotifyTo.Address
@@ -250,7 +245,6 @@ class SubscriptionBase:
 class ActionBasedSubscription(SubscriptionBase):
     """Subscription for specific actions.
     Actions are a space separated list of strings in FilterType.text"""
-    supported_filter_dialect = DeviceEventingFilterDialectURI.ACTION
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -288,6 +282,33 @@ class ActionBasedSubscription(SubscriptionBase):
                f'filter={self.short_filter_names()})'
 
 
+class SubscriptionManagerProtocol(Protocol):
+
+    def set_base_urls(self, base_urls):
+        """A subscription manager must know its own address, it must be sent to subscribers in subscribe responses. """
+        ...
+
+    def on_subscribe_request(self, request_data: RequestData) -> CreatedMessage:
+        """Handler for a subscribe request."""
+        ...
+
+    def on_unsubscribe_request(self, request_data: RequestData) -> CreatedMessage:
+        """Handler for an unsubscribe request."""
+        ...
+
+    def on_get_status_request(self, request_data: RequestData) -> CreatedMessage:
+        """Handler for a get status request."""
+        ...
+
+    def on_renew_request(self, request_data: RequestData) -> CreatedMessage:
+        """Handler for a renew request."""
+        ...
+
+    def stop_all(self, send_subscription_end: bool):
+        """Called when a device is shut down. It can send subscription end messages to all subscribers."""
+        ...
+
+
 class SubscriptionsManagerBase:
     """This implementation uses ReferenceParameters to identify subscriptions."""
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
@@ -316,6 +337,7 @@ class SubscriptionsManagerBase:
         self.base_urls = None
 
     def set_base_urls(self, base_urls):
+        """A subscription manager must know its own address, it must be sent to subscribers in subscribe responses. """
         self.base_urls = base_urls
 
     def _mk_subscription_instance(self, request_data: RequestData) -> SubscriptionBase:
@@ -398,9 +420,9 @@ class SubscriptionsManagerBase:
         return response
 
     def stop_all(self, send_subscription_end: bool):
-        self.end_all_subscriptions(send_subscription_end)
+        self._end_all_subscriptions(send_subscription_end)
 
-    def end_all_subscriptions(self, send_subscription_end: bool):
+    def _end_all_subscriptions(self, send_subscription_end: bool):
         with self._subscriptions.lock:
             if send_subscription_end:
                 apply_map(lambda subscription: subscription.send_notification_end_message(),
@@ -476,6 +498,8 @@ class SubscriptionsManagerBase:
             return [s for s in self._subscriptions.objects if s.matches(action)]
 
     def on_unreachable_netloc(self, subscription):
+        """A subscription calls this method if it could not send a notification due to network issues.
+        The subscription manager can then remove all other subscriptions to the same location. """
         with self._subscriptions.lock:
             self._subscriptions.remove_object(subscription)
 

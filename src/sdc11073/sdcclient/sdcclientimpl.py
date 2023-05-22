@@ -483,16 +483,16 @@ class SdcClient:
                 subscribe_actions = {a for a in available_actions if a.action not in not_subscribed_actions_set}
                 if not subscribe_periodic_reports:
                     subscribe_actions = {a for a in subscribe_actions if a.action not in periodic_actions}
-                try:
-                    if len(subscribe_actions) > 0:
-                        filter_type = eventing_types.FilterType()
-                        filter_type.text = ' '.join((x.action for x in subscribe_actions))
-                        filter_type.Dialect = DeviceEventingFilterDialectURI.ACTION
+                if len(subscribe_actions) > 0:
+                    filter_type = eventing_types.FilterType()
+                    filter_type.text = ' '.join((x.action for x in subscribe_actions))
+                    filter_type.Dialect = DeviceEventingFilterDialectURI.ACTION
+                    try:
                         self.do_subscribe(dpws_hosted, filter_type, subscribe_actions)
-                except Exception:
-                    self.all_subscribed = False  # => do not log errors when mdib versions are missing in notifications
-                    self._logger.error('start_all: could not subscribe: error = {}, actions= {}',
-                                       traceback.format_exc(), subscribe_actions)
+                    except Exception:
+                        self.all_subscribed = False  # => do not log errors when mdib versions are missing in notifications
+                        self._logger.error('start_all: could not subscribe: error = {}, actions= {}',
+                                           traceback.format_exc(), subscribe_actions)
 
         # register callback for end of subscription
         self._services_dispatcher.register_post_handler(

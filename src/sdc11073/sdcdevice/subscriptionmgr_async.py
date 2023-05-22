@@ -21,10 +21,8 @@ from ..xml_types.basetypes import MessageType
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
     from ..pysoap.msgfactory import MessageFactory
-    from .subscriptionmgr import SoapClientPool
+    from ..pysoap.soapclientpool import SoapClientPool
     from ..dispatch import RequestData
-
-MAX_ROUNDTRIP_VALUES = 20
 
 
 def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
@@ -38,8 +36,14 @@ def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
 
 
 class BicepsSubscriptionAsync(ActionBasedSubscription):
-    """An action based subscription manager that send notifications async."""
+    """Async version of a single BICEPS subscription. It is used by BICEPSSubscriptionsManagerBaseAsync."""
     async def async_send_notification_report(self, body_node: etree_.Element, action: str):
+        """
+
+        :param body_node: The soap body node to be sent to the subscriber.
+        :param action: the action string
+        :return: None or an exception raises
+        """
         if not self.is_valid:
             return
         addr = HeaderInformationBlock(addr_to=self.notify_to_address,
@@ -124,9 +128,11 @@ class AsyncioEventLoopThread(Thread):
         self.running = False
 
 
-class SubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
-    """This implementation uses ReferenceParameters to identify subscriptions."""
-    DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
+class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
+    """This async version of a subscriptions manager sends a notification parallel to all subscribers
+    by using the async functionality. First all notifications are sent, then all http responses are collected.
+    This saves a lot of time compared to the synchronous version that sends the notification to the first subscriber,
+    waits for the response, then sends the notification to the second subscriber, and so on."""
 
     def __init__(self,
                  sdc_definitions: BaseDefinitions,
@@ -155,7 +161,7 @@ class SubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
     async def _coro_send_to_subscribers(self, tasks):
         return await asyncio.gather(*tasks, return_exceptions=True)
 
-    def end_all_subscriptions(self, send_subscription_end: bool):
+    def _end_all_subscriptions(self, send_subscription_end: bool):
         tasks = []
         with self._subscriptions.lock:
             all_subscriptions = self._subscriptions.objects
@@ -272,7 +278,7 @@ class SubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
 
 
 
-class SubscriptionsManagerPathAsync(SubscriptionsManagerBaseAsync):
+class SubscriptionsManagerPathAsync(BICEPSSubscriptionsManagerBaseAsync):
     """This implementation uses path dispatching to identify subscriptions."""
 
     def _mk_subscription_instance(self, request_data: RequestData):
@@ -281,7 +287,7 @@ class SubscriptionsManagerPathAsync(SubscriptionsManagerBaseAsync):
         return subscription
 
 
-class SubscriptionsManagerReferenceParamAsync(SubscriptionsManagerBaseAsync):
+class SubscriptionsManagerReferenceParamAsync(BICEPSSubscriptionsManagerBaseAsync):
     """This implementation uses reference parameters to identify subscriptions."""
 
     def _mk_subscription_instance(self, request_data: RequestData):

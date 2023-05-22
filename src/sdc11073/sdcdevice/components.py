@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from ..sdcdevice.servicesfactory import HostedServices
     from .sco import AbstractScoOperationsRegistry
     from ..mdib.devicemdib import DeviceMdibContainer
+    from .subscriptionmgr_base import SubscriptionManagerProtocol
 
 
 # pylint: enable=cyclic-import
@@ -48,7 +49,7 @@ class SdcDeviceComponents:
     services_factory: Callable[[Any, dict, Any], HostedServices] = None
     operation_cls_getter: Callable[[QName], type] = None
     sco_operations_registry_class: Type[AbstractScoOperationsRegistry] = None
-    subscriptions_manager_class: dict[str, Any] = None
+    subscriptions_manager_class: dict[str, SubscriptionManagerProtocol] = None
     role_provider_class: type = None
     scopes_factory: Callable[[DeviceMdibContainer], ScopesType] = None
     hosted_services: dict = None
