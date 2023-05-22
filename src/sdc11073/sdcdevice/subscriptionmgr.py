@@ -339,7 +339,7 @@ class SubscriptionsManagerBase:
         if subscription is None:
             fault = Fault()
             fault.Code.Value = faultcodeEnum.RECEIVER
-            fault.set_sub_code(nsh.wseTag('InvalidMessage'))
+            fault.set_sub_code(nsh.WSE.tag('InvalidMessage'))
             fault.add_reason_text('unknown Subscription identifier')
             response = self._msg_factory.mk_reply_soap_message(request_data, fault, ns_map=[nsh.WSE])
         else:
@@ -362,7 +362,7 @@ class SubscriptionsManagerBase:
         if subscription is None:
             fault = Fault()
             fault.Code.Value = faultcodeEnum.RECEIVER
-            fault.set_sub_code(nsh.wseTag('InvalidMessage'))
+            fault.set_sub_code(nsh.WSE.tag('InvalidMessage'))
             fault.add_reason_text('unknown Subscription identifier')
             response = self._msg_factory.mk_reply_soap_message(request_data, fault)
         else:
@@ -381,7 +381,7 @@ class SubscriptionsManagerBase:
         if subscription is None:
             fault = Fault()
             fault.Code.Value = faultcodeEnum.RECEIVER
-            fault.set_sub_code(nsh.wseTag('InvalidMessage'))
+            fault.set_sub_code(nsh.WSE.tag('InvalidMessage'))
             fault.add_reason_text('unknown Subscription identifier')
             response = self._msg_factory.mk_reply_soap_message(request_data, fault)
         else:

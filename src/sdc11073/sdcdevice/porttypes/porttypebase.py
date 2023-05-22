@@ -69,12 +69,12 @@ class DPWSPortTypeBase:
         if 'dt' in parent_node.nsmap:
             port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
                                           attrib={'name': self.port_type_string,
-                                                  ns_hlp.dpwsTag('DiscoveryType'): 'dt:ServiceProvider'})
+                                                  ns_hlp.DPWS.tag('DiscoveryType'): 'dt:ServiceProvider'})
         else:
             port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
                                           attrib={'name': self.port_type_string})
         if is_event_source:
-            port_type.attrib[ns_hlp.wseTag('EventSource')] = 'true'
+            port_type.attrib[ns_hlp.WSE.tag('EventSource')] = 'true'
         return port_type
 
     def __repr__(self):
@@ -224,6 +224,6 @@ def _add_policy_dpws_profile(parent_node):
           </wsp:Policy>
     """
     wsp_policy_node = etree_.SubElement(parent_node, etree_.QName(WSP_NS, 'Policy'), attrib=None)
-    _ = etree_.SubElement(wsp_policy_node, ns_hlp.dpwsTag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
-    _ = etree_.SubElement(wsp_policy_node, ns_hlp.mdpwsTag('Profile'),
+    _ = etree_.SubElement(wsp_policy_node, ns_hlp.DPWS.tag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
+    _ = etree_.SubElement(wsp_policy_node, ns_hlp.MDPWS.tag('Profile'),
                           attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})

@@ -1004,7 +1004,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.log_watcher.setPaused(True)
         self.sdc_client.get_service_client._validate = False  # want to send an invalid request
         try:
-            method = self.sdc_device.mdib.data_model.ns_helper.msgTag('Nonsense')
+            method = self.sdc_device.mdib.data_model.ns_helper.MSG.tag('Nonsense')
             action_string = 'Nonsense'
             message = self._mk_get_method_message(
                 self.sdc_client.get_service_client.endpoint_reference.Address,

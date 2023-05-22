@@ -6,7 +6,7 @@ from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.xml_types import pm_types, msg_qnames as msg
 from sdc11073.mdib import descriptorcontainers
 from tests.mockstuff import dec_list
-test_tag = ns_hlp.domTag('MyDescriptor')
+test_tag = ns_hlp.PM.tag('MyDescriptor')
 
 class TestDescriptorContainers(unittest.TestCase):
 
@@ -35,10 +35,10 @@ class TestDescriptorContainers(unittest.TestCase):
         dc.SafetyClassification = pm_types.SafetyClassification.MED_A
         dc.Type = pm_types.CodedValue('abc', 'def')
 
-        ext_node = etree_.Element(ns_hlp.msgTag('Whatever'))
+        ext_node = etree_.Element(ns_hlp.MSG.tag('Whatever'))
         etree_.SubElement(ext_node, 'foo', attrib={'some_attr': 'some_value'})
         etree_.SubElement(ext_node, 'bar', attrib={'another_attr': 'different_value'})
-        dc.Extension.value[ns_hlp.msgTag('Whatever')] = ext_node
+        dc.Extension.value[ns_hlp.MSG.tag('Whatever')] = ext_node
         retrievability = pm_types.Retrievability([pm_types.RetrievabilityInfo(pm_types.RetrievabilityMethod.GET),
                                                  pm_types.RetrievabilityInfo(pm_types.RetrievabilityMethod.PERIODIC,
                                                                             update_period=42.0),
@@ -51,7 +51,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc2.Type, dc.Type)
         self.assertEqual(dc.code_id, 'abc')
         self.assertEqual(dc.coding_system, 'def')
-        self.assertEqual(dc2.Extension.value[ns_hlp.msgTag('Whatever')], ext_node)
+        self.assertEqual(dc2.Extension.value[ns_hlp.MSG.tag('Whatever')], ext_node)
         self.assertEqual(dc2.Extension.value[msg.Retrievability], retrievability)
         self.assertEqual(dc2.retrievability, retrievability)
 
@@ -62,7 +62,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc3.Type, dc.Type)
         self.assertEqual(dc3.code_id, 'abc')
         self.assertEqual(dc3.coding_system, 'def')
-        self.assertEqual(dc3.Extension.value[ns_hlp.msgTag('Whatever')].tag, ext_node.tag)
+        self.assertEqual(dc3.Extension.value[ns_hlp.MSG.tag('Whatever')].tag, ext_node.tag)
         self.assertEqual(dc3.Extension.value[msg.Retrievability], retrievability)
         self.assertEqual(dc3.retrievability, retrievability)
 
@@ -187,7 +187,7 @@ class TestDescriptorContainers(unittest.TestCase):
         _cmp_ActivateOperationDescriptorContainer(dc, dc2)
 
         dc.Argument = [pm_types.ActivateOperationDescriptorArgument(arg_name=pm_types.CodedValue('abc', 'def'),
-                                                                   arg=ns_hlp.domTag('foo'))]
+                                                                   arg=ns_hlp.PM.tag('foo'))]
         dc2.update_from_other_container(dc)
         _cmp_ActivateOperationDescriptorContainer(dc, dc2)
 

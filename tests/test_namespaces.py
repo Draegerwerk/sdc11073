@@ -21,7 +21,7 @@ class TestNamespaces(unittest.TestCase):
         hlp = namespaces.NamespaceHelper(namespaces.PrefixesEnum, default_ns)
         self.assertEqual(hlp.MSG.prefix, 'msg')
 
-        bla_tag = hlp.msgTag('bla')
+        bla_tag = hlp.MSG.tag('bla')
         self.assertEqual('bla', bla_tag.localname)
         self.assertEqual(namespaces.PrefixesEnum.MSG.namespace, bla_tag.namespace)
 

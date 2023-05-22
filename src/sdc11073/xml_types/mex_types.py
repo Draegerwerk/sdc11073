@@ -6,9 +6,9 @@ from .pm_types import PropertyBasedPMType
 from ..namespaces import default_ns_helper
 
 ########## Meta Data Exchange #########
-wsx_tag = default_ns_helper.wsxTag  # shortcut
-dpws_tag = default_ns_helper.dpwsTag  # shortcut
-wsa_tag = default_ns_helper.wsaTag  # shortcut
+wsx_tag = default_ns_helper.WSX.tag  # shortcut
+dpws_tag = default_ns_helper.DPWS.tag  # shortcut
+wsa_tag = default_ns_helper.WSA.tag  # shortcut
 
 
 class GetMetadata(MessageType):

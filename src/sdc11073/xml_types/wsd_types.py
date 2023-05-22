@@ -4,8 +4,8 @@ from .addressing_types import EndpointReferenceType
 from ..namespaces import default_ns_helper
 
 ########## Meta Data Exchange #########
-wsa_tag = default_ns_helper.wsaTag  # shortcut
-wsd_tag = default_ns_helper.wsdTag  # shortcut
+wsa_tag = default_ns_helper.WSA.tag  # shortcut
+wsd_tag = default_ns_helper.WSD.tag  # shortcut
 
 class QNameListType(struct.NodeTextQNameListProperty):
     pass

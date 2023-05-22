@@ -71,8 +71,8 @@ class TestDevSubscription(DevSubscription):
     def __init__(self, filter_,
                  soap_client_pool: SoapClientPool,
                  msg_factory):
-        notify_ref_node = etree_.Element(ns_hlp.wseTag('References'))
-        identNode = etree_.SubElement(notify_ref_node, ns_hlp.wseTag('Identifier'))
+        notify_ref_node = etree_.Element(ns_hlp.WSE.tag('References'))
+        identNode = etree_.SubElement(notify_ref_node, ns_hlp.WSE.tag('Identifier'))
         identNode.text = self.notifyRef
         base_urls = [SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
         accepted_encodings = ['foo']  # not needed here

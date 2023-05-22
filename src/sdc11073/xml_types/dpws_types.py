@@ -46,22 +46,22 @@ class LocalizedStringTypeDict(dict):
 
 
 class HostServiceType(XMLTypeBase):
-    EndpointReference = cp.SubElementProperty(default_ns_helper.wsaTag('EndpointReference'),
+    EndpointReference = cp.SubElementProperty(default_ns_helper.WSA.tag('EndpointReference'),
                                               value_class=EndpointReferenceType)
-    Types = cp.NodeTextQNameListProperty(default_ns_helper.dpwsTag('Types'))
+    Types = cp.NodeTextQNameListProperty(default_ns_helper.DPWS.tag('Types'))
     _props = ['EndpointReference', 'Types']
 
 
 class HostedServiceType(XMLTypeBase):
-    EndpointReference = cp.SubElementListProperty(default_ns_helper.wsaTag('EndpointReference'),
+    EndpointReference = cp.SubElementListProperty(default_ns_helper.WSA.tag('EndpointReference'),
                                                   value_class=EndpointReferenceType)
-    Types = cp.NodeTextQNameListProperty(default_ns_helper.dpwsTag('Types'))
-    ServiceId = cp.AnyUriTextElement(default_ns_helper.dpwsTag('ServiceId'))
+    Types = cp.NodeTextQNameListProperty(default_ns_helper.DPWS.tag('Types'))
+    ServiceId = cp.AnyUriTextElement(default_ns_helper.DPWS.tag('ServiceId'))
     _props = ['EndpointReference', 'Types', 'ServiceId']
 
 
 class LocalizedStringType(ElementWithText):
-    lang = cp.StringAttributeProperty(default_ns_helper.xmlTag('lang'))
+    lang = cp.StringAttributeProperty(default_ns_helper.XML.tag('lang'))
     _props = ['lang']
 
     @classmethod
@@ -76,10 +76,10 @@ class ThisDeviceType(XMLTypeBase):
     """
     This class represents "ThisDeviceType" in dpws schema.
     """
-    FriendlyName = cp.SubElementListProperty(default_ns_helper.dpwsTag('FriendlyName'),
+    FriendlyName = cp.SubElementListProperty(default_ns_helper.DPWS.tag('FriendlyName'),
                                              value_class=LocalizedStringType)
-    FirmwareVersion = cp.NodeStringProperty(default_ns_helper.dpwsTag('FirmwareVersion'), is_optional=True)
-    SerialNumber = cp.NodeStringProperty(default_ns_helper.dpwsTag('SerialNumber'), is_optional=True)
+    FirmwareVersion = cp.NodeStringProperty(default_ns_helper.DPWS.tag('FirmwareVersion'), is_optional=True)
+    SerialNumber = cp.NodeStringProperty(default_ns_helper.DPWS.tag('SerialNumber'), is_optional=True)
     _props = ['FriendlyName', 'FirmwareVersion']
 
     def __init__(self, friendly_name: Union[str, LocalizedStringTypeDict, None] = None,
@@ -104,14 +104,14 @@ class ThisDeviceType(XMLTypeBase):
 
 
 class ThisModelType(XMLTypeBase):
-    Manufacturer = cp.SubElementListProperty(default_ns_helper.dpwsTag('Manufacturer'),
+    Manufacturer = cp.SubElementListProperty(default_ns_helper.DPWS.tag('Manufacturer'),
                                              value_class=LocalizedStringType)
-    ManufacturerUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('ManufacturerUrl'))
-    ModelName = cp.SubElementListProperty(default_ns_helper.dpwsTag('ModelName'),
+    ManufacturerUrl = cp.NodeStringProperty(default_ns_helper.DPWS.tag('ManufacturerUrl'))
+    ModelName = cp.SubElementListProperty(default_ns_helper.DPWS.tag('ModelName'),
                                           value_class=LocalizedStringType)
-    ModelNumber = cp.NodeStringProperty(default_ns_helper.dpwsTag('ModelNumber'), is_optional=True)
-    ModelUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('ModelUrl'), is_optional=True)
-    PresentationUrl = cp.NodeStringProperty(default_ns_helper.dpwsTag('PresentationUrl'), is_optional=True)
+    ModelNumber = cp.NodeStringProperty(default_ns_helper.DPWS.tag('ModelNumber'), is_optional=True)
+    ModelUrl = cp.NodeStringProperty(default_ns_helper.DPWS.tag('ModelUrl'), is_optional=True)
+    PresentationUrl = cp.NodeStringProperty(default_ns_helper.DPWS.tag('PresentationUrl'), is_optional=True)
     _props = ['Manufacturer', 'ManufacturerUrl', 'ModelName', 'ModelNumber', 'ModelUrl', 'PresentationUrl']
 
     def __init__(self,

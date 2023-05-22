@@ -153,7 +153,7 @@ class SdcDevice:
             DispatchKey(f'{nsh.WXF.namespace}/Get', None),
             self._on_get_metadata)
         self._host_dispatcher.register_post_handler(
-            DispatchKey(f'{nsh.WSD.namespace}/Probe', nsh.wsdTag('Probe')),
+            DispatchKey(f'{nsh.WSD.namespace}/Probe', nsh.WSD.tag('Probe')),
             self._on_probe_request)
         epr_type = EndpointReferenceType()
         epr_type.Address = self.epr_urn
@@ -272,8 +272,8 @@ class SdcDevice:
         _nsm = self._mdib.nsmapper
         probe_matches = ProbeMatchesType()
         probe_match = ProbeMatchType()
-        probe_match.Types.append(_nsm.dpwsTag('Device'))
-        probe_match.Types.append(_nsm.mdpwsTag('MedicalDevice'))
+        probe_match.Types.append(_nsm.DPWS.tag('Device'))
+        probe_match.Types.append(_nsm.MDPWS.tag('MedicalDevice'))
         probe_match.XAddrs.extend(self.get_xaddrs())
         probe_matches.ProbeMatch.append(probe_match)
         needed_namespaces = [_nsm.DPWS, _nsm.MDPWS]
