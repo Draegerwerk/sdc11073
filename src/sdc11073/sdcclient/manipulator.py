@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 class RequestManipulatorProtocol(Protocol):
     """
     A request manipulator can be used to inspect or manipulate output created by the sdc client.
-    Output creation is done in three steps: first a pysdc.pysoap.soapenvelope.Soap12Envelope is created,
+    Output creation is done in three steps: first a Soap12Envelope is created,
     then a (libxml) etree is created from its content, anf finally a bytestring is generated from the etree.
     The sdc client calls corresponding methods of the manipulator object after every step.
     If the method returns something different from None, this returned value will be used as input for the next step.
