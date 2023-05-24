@@ -472,12 +472,12 @@ class SdcClient:
         # start all subscriptions
         # group subscriptions per hosted service
         for dpws_hosted in self.host_description.relationship.Hosted:
-            available_actions = []
+            available_actions: list[DispatchKey] = []
             if dpws_hosted.Types is not None:
                 for port_type_qname in dpws_hosted.Types:
                     client = self.client(port_type_qname.localname)
                     if client is not None:
-                        available_actions.extend(client.get_subscribable_actions())
+                        available_actions.extend(client.get_available_subscriptions())
             if len(available_actions) > 0:
                 # subscribe_actions = set(available_actions) - not_subscribed_actions_set
                 subscribe_actions = {a for a in available_actions if a.action not in not_subscribed_actions_set}

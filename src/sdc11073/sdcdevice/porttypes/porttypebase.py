@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 from lxml import etree as etree_
 
@@ -180,7 +180,7 @@ class ServiceWithOperations(DPWSPortTypeBase):
         return self._sdc_device.msg_factory.mk_reply_soap_message(request_data, set_response)
 
 
-def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_message_name, fault):
+def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_message_name) -> etree_.Element:
     elem = etree_.SubElement(parent_node, _wsdl_operation, attrib={'name': operation_name})
     if input_message_name is not None:
         etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'input'),
@@ -190,29 +190,44 @@ def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_m
         etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'output'),
                           attrib={'message': f'tns:{output_message_name}',
                                   })
-    if fault is not None:
-        fault_name, message_name, _ = fault  # unpack 3 parameters
-        etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'fault'),
-                          attrib={'name': fault_name,
-                                  'message': f'tns:{message_name}',
-                                  })
     return elem
 
 
-def mk_wsdl_two_way_operation(parent_node, operation_name, input_message_name=None, output_message_name=None,
-                              fault=None):
-    # has input and output
+def mk_wsdl_two_way_operation(parent_node: etree_.Element,
+                              operation_name: str,
+                              input_message_name: Optional[str] = None,
+                              output_message_name: Optional[str] = None) -> etree_.Element:
+    """
+    A helper for wsdl generation. A two-way-operation defines a 'normal' request and response operation.
+    :param parent_node: info shall be added to this node
+    :param operation_name: a string
+    :param input_message_name: only needed if message name is not equal to operation_name
+    :param output_message_name: only needed if message name is not equal to operation_name + "Response"
+    :return:
+    """
     input_msg_name = input_message_name or operation_name  # defaults to operation name
     output_msg_name = output_message_name or operation_name + 'Response'  # defaults to operation name + "Response"
-    return _mk_wsdl_operation(parent_node, operation_name=operation_name, input_message_name=input_msg_name,
-                              output_message_name=output_msg_name, fault=fault)
+    return _mk_wsdl_operation(parent_node,
+                              operation_name=operation_name,
+                              input_message_name=input_msg_name,
+                              output_message_name=output_msg_name)
 
 
-def mk_wsdl_one_way_operation(parent_node, operation_name, output_message_name=None, fault=None):
-    # has only output
+def mk_wsdl_one_way_operation(parent_node: etree_.Element,
+                              operation_name: str,
+                              output_message_name: Optional[str] = None) -> etree_.Element:
+    """
+    A helper for wsdl generation. A one-way-operation is a subscription.
+    :param parent_node: info shall be added to this node
+    :param operation_name: a string
+    :param output_message_name: only needed if message name is not equal to operation_name
+    :return:
+    """
     output_msg_name = output_message_name or operation_name  # defaults to operation name
-    return _mk_wsdl_operation(parent_node, operation_name=operation_name, input_message_name=None,
-                              output_message_name=output_msg_name, fault=fault)
+    return _mk_wsdl_operation(parent_node,
+                              operation_name=operation_name,
+                              input_message_name=None,
+                              output_message_name=output_msg_name)
 
 
 def _add_policy_dpws_profile(parent_node):

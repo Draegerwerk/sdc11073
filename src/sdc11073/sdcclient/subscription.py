@@ -43,7 +43,7 @@ class ClSubscription:
         self._get_soap_client_func = get_soap_client_func
         self._dpws_hosted = dpws_hosted
         self._filter_type = filter_type
-        self._filter = filter_type.text
+        self._filter_text = filter_type.text
         self.is_subscribed = False
         self.end_status = None  # if device sent a SubscriptionEnd message, this contains the status from the message
         self.end_reason = None  # if device sent a SubscriptionEnd message, this contains the reason from the message
@@ -67,8 +67,7 @@ class ClSubscription:
     def subscribe(self, expire_minutes: int = 60,
                   any_elements: Optional[list] = None,
                   any_attributes: Optional[dict] = None) -> None:
-        s = self.short_filter_string
-        if s is None:
+        if self.short_filter_string is None:
             self._logger.info('start subscription')
         else:
             self._logger.info('start subscription "{}"', self.short_filter_string)
@@ -212,20 +211,19 @@ class ClSubscription:
             self._logger.error('could not get status: {}', ex)
         except (http.client.HTTPException, ConnectionError) as ex:
             self.is_subscribed = False
-            self._logger.warn('get_status: Connection Error {} for subscription {}', ex, self._filter)
+            self._logger.warn('get_status: Connection Error {} for subscription {}', ex, self._filter_text)
         except Exception as ex:
             self._logger.error('Exception in get_status: {}', ex)
             self.is_subscribed = False
         else:
             get_status_response = evt_types.GetStatusResponse.from_node(message_data.p_msg.msg_node)
             expire_seconds = get_status_response.Expires
-            # expire_seconds = message_data.msg_reader.read_get_status_response(message_data)
             if expire_seconds is None:
-                self._logger.warn('get_status for {}: Could not find "Expires" node! get_status={} ', self._filter,
+                self._logger.warn('get_status for {}: Could not find "Expires" node! get_status={} ', self._filter_text,
                                   message_data.p_msg.raw_data)
                 raise SoapResponseException(message_data.p_msg)
             self._logger.debug('get_status for {}: Expires in {} seconds, counter = {}',
-                               self._filter, expire_seconds, self.event_counter)
+                               self._filter_text, expire_seconds, self.event_counter)
             return expire_seconds
         return 0.0
 
@@ -270,23 +268,21 @@ class ClSubscription:
         return EmptyResponse()
 
     @property
-    def short_filter_string(self):
-        if  self._filter_type.text is not None:
-            elements = self._filter_type.text.split()
-            tmp = []
-            for element in elements:
-                tmp.append(element.split('/')[-1])
-            return ', '.join(tmp)
+    def short_filter_string(self) -> str:
+        """
+        Returns a shorter version of the filter list with only the last elements of the actions.
+        :return: a string with all last elements of actions, comma separated
+        """
+        if  self._filter_text is not None and len(self._filter_text) > 0:
+            return ', '.join(e.split('/')[-1] for e in self._filter_type.text.split())
+        return '<none>'
 
     def __str__(self):
-        if  self._filter_type.text is not None:
+        if self._filter_text is not None:
             return f'Subscription of "{self.short_filter_string}", is_subscribed={self.is_subscribed}, ' \
                    f'remaining time = {int(self.remaining_subscription_seconds)} sec., count={self.event_counter}'
         else:
-            tmp = []
-            for any in self._filter_type.any:
-                tmp.append(str(any))
-            return ', '.join(tmp)
+            return ', '.join(str(a) for a in self._filter_type.any)
 
 
 class ClientSubscriptionManager(threading.Thread):
@@ -414,7 +410,7 @@ class ClientSubscriptionManager(threading.Thread):
                     subscription.unsubscribe()
                 except HTTPException as ex:
                     self._logger.info('unsubscribe failed got HTTPException: {}', ex)
-                except Exception as ex:
+                except Exception:
                     self._logger.error('unsubscribe error: {}\n call stack:{} ', traceback.format_exc(),
                                        traceback.format_stack())
                     ret = False

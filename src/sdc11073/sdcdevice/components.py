@@ -16,7 +16,7 @@ from .porttypes.waveformserviceimpl import WaveformService
 from .sco import ScoOperationsRegistry
 from .scopesfactory import mk_scopes
 from .servicesfactory import mk_all_services
-from .subscriptionmgr import SubscriptionsManagerPath
+from .subscriptionmgr import PathDispatchingSubscriptionsManager
 from .subscriptionmgr_async import SubscriptionsManagerPathAsync
 from ..pysoap.msgfactory import MessageFactory
 from ..pysoap.msgreader import MessageReader
@@ -84,8 +84,8 @@ default_sdc_device_components_sync = SdcDeviceComponents(
     services_factory=mk_all_services,
     operation_cls_getter=get_operation_class,
     sco_operations_registry_class=ScoOperationsRegistry,
-    subscriptions_manager_class={'StateEvent': SubscriptionsManagerPath,
-                                 'Set': SubscriptionsManagerPath},
+    subscriptions_manager_class={'StateEvent': PathDispatchingSubscriptionsManager,
+                                 'Set': PathDispatchingSubscriptionsManager},
     role_provider_class=MinimalProduct,
     scopes_factory=mk_scopes,
     # this defines the structure of the services: top dict are the names of the dpws hosts,

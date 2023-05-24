@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from lxml import etree as etree_
 
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from .subscriptionmgr_base import SubscriptionBase, SubscriptionsManagerBase
+from .subscriptionmgr_base import ActionBasedSubscription, SubscriptionsManagerBase
 from .. import observableproperties
 from ..httpserver.compression import CompressionHandler
 from ..pysoap.soapclient import HTTPReturnCodeError
@@ -16,50 +16,9 @@ if TYPE_CHECKING:
     from ..dispatch import RequestData
 
 
-class ActionBasedSubscription(SubscriptionBase):
-    """Subscription for specific actions.
-    Actions are a space separated list of strings in FilterType.text. """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # split the filter sting into separate action strings and keep them
-        self.actions_filter: list[str] = []
-        self._short_filter_names: list[str] = [] # helper for shorter log entries
-        if self.filter_type is not None:
-            self.actions_filter.extend(self.filter_type.text.split())
-            self._short_filter_names = [f.split('/')[-1] for f in self.actions_filter]
-
-    def matches(self, what: Any) -> bool:
-        """
-
-        :param what: this must be a string
-        :return: True if argument matches one of the strings in self.actions_filter, else False
-        """
-        action: str = what.strip()  # just to be sure there are no spaces
-        for filter_string in self.actions_filter:
-            if filter_string.endswith(action):
-                return True
-        return False
-
-    def short_filter_names(self) -> list[str]:
-        return self._short_filter_names
-
-    def __repr__(self):
-        try:
-            if self.notify_ref_params is None:
-                ref_ident = '<none>'
-            else:
-                ref_ident = str(
-                    self.notify_ref_params)
-        except TypeError:
-            ref_ident = '<unknown>'
-        return f'{self.__class__.__name__}(notify_to={self.notify_to_address} ident={ref_ident}, ' \
-               f'my identifier={self.identifier_uuid.hex}, expires={self.remaining_seconds}, ' \
-               f'filter={self._short_filter_names})'
-
-
 class BicepsSubscription(ActionBasedSubscription):
-
+    """ This extends ActionBasedSubscription with the ability to send notifications.
+    The class is used by ActionBasedSubscriptionsManager."""
     def send_notification_report(self, body_node: etree_.Element, action: str):
         if not self.is_valid:
             return
@@ -92,6 +51,7 @@ class BicepsSubscription(ActionBasedSubscription):
 
 
 class ActionBasedSubscriptionsManager(SubscriptionsManagerBase):
+    """This is the synchronous version of the subscription manager for all BICEPS subscriptions."""
     supported_filter_dialect = DeviceEventingFilterDialectURI.ACTION
     subscription_cls = BicepsSubscription
 
@@ -110,7 +70,7 @@ class ActionBasedSubscriptionsManager(SubscriptionsManagerBase):
                                      msg_factory=self._msg_factory, log_prefix=self._logger.log_prefix)
 
 
-class SubscriptionsManagerPath(ActionBasedSubscriptionsManager):
+class PathDispatchingSubscriptionsManager(ActionBasedSubscriptionsManager):
     """This implementation uses path dispatching to identify subscriptions."""
 
     def _mk_subscription_instance(self, request_data: RequestData):
@@ -119,7 +79,7 @@ class SubscriptionsManagerPath(ActionBasedSubscriptionsManager):
         return subscription
 
 
-class SubscriptionsManagerReferenceParam(ActionBasedSubscriptionsManager):
+class ReferenceParamSubscriptionsManager(ActionBasedSubscriptionsManager):
     """This implementation uses reference parameters to identify subscriptions."""
 
     def _mk_subscription_instance(self, request_data: RequestData):

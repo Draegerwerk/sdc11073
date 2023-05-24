@@ -244,20 +244,22 @@ class SubscriptionBase:
 
 class ActionBasedSubscription(SubscriptionBase):
     """Subscription for specific actions.
-    Actions are a space separated list of strings in FilterType.text"""
+    Actions are a space separated list of strings in FilterType.text. """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # split the filter sting into separate action strings and keep them
         self.actions_filter: list[str] = []
-
+        self._short_filter_names: list[str] = [] # helper for shorter log entries
         if self.filter_type is not None:
             self.actions_filter.extend(self.filter_type.text.split())
+            self._short_filter_names = [f.split('/')[-1] for f in self.actions_filter]
 
-    def matches(self, what: Any):
+    def matches(self, what: Any) -> bool:
         """
 
         :param what: this must be a string
-        :return:
+        :return: True if argument matches one of the strings in self.actions_filter, else False
         """
         action: str = what.strip()  # just to be sure there are no spaces
         for filter_string in self.actions_filter:
@@ -266,7 +268,7 @@ class ActionBasedSubscription(SubscriptionBase):
         return False
 
     def short_filter_names(self) -> list[str]:
-        return [f.split('/')[-1] for f in self.actions_filter]
+        return self._short_filter_names
 
     def __repr__(self):
         try:
@@ -279,7 +281,7 @@ class ActionBasedSubscription(SubscriptionBase):
             ref_ident = '<unknown>'
         return f'{self.__class__.__name__}(notify_to={self.notify_to_address} ident={ref_ident}, ' \
                f'my identifier={self.identifier_uuid.hex}, expires={self.remaining_seconds}, ' \
-               f'filter={self.short_filter_names()})'
+               f'filter={self._short_filter_names})'
 
 
 class SubscriptionManagerProtocol(Protocol):
@@ -310,7 +312,6 @@ class SubscriptionManagerProtocol(Protocol):
 
 
 class SubscriptionsManagerBase:
-    """This implementation uses ReferenceParameters to identify subscriptions."""
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
     # observable has tuple(action, mdib_version_group, body_node)
     sent_to_subscribers = observableproperties.ObservableProperty(fire_only_on_changed_value=False)
@@ -364,7 +365,7 @@ class SubscriptionsManagerBase:
         return response
 
     def on_unsubscribe_request(self, request_data: RequestData) -> CreatedMessage:
-        subscription: ActionBasedSubscription = self._get_subscription_for_request(request_data)
+        subscription: SubscriptionBase = self._get_subscription_for_request(request_data)
         nsh = self.sdc_definitions.data_model.ns_helper
         if subscription is None:
             fault = Fault()
@@ -386,7 +387,7 @@ class SubscriptionsManagerBase:
         nsh = data_model.ns_helper
 
         self._logger.debug('on_get_status_request {}', lambda: request_data.message_data.p_msg.raw_data)
-        subscription: ActionBasedSubscription = self._get_subscription_for_request(request_data)
+        subscription: SubscriptionBase = self._get_subscription_for_request(request_data)
         if subscription is None:
             fault = Fault()
             fault.Code.Value = faultcodeEnum.RECEIVER
@@ -405,7 +406,7 @@ class SubscriptionsManagerBase:
         nsh = data_model.ns_helper
         renew = evt_types.Renew.from_node(request_data.message_data.p_msg.msg_node)
         expires = renew.Expires
-        subscription: ActionBasedSubscription = self._get_subscription_for_request(request_data)
+        subscription: SubscriptionBase = self._get_subscription_for_request(request_data)
         if subscription is None:
             fault = Fault()
             fault.Code.Value = faultcodeEnum.RECEIVER
@@ -429,7 +430,7 @@ class SubscriptionsManagerBase:
                           self._subscriptions.objects)
             self._subscriptions.clear()
 
-    def _get_subscription_for_request(self, request_data: RequestData) -> ActionBasedSubscription:
+    def _get_subscription_for_request(self, request_data: RequestData) -> SubscriptionBase:
         reference_parameters = request_data.message_data.p_msg.header_info_block.reference_parameters
         path_suffix = '/'.join(request_data.path_elements)  # not consumed path elements
         dispatch_identifier = _mk_dispatch_identifier(reference_parameters, path_suffix)

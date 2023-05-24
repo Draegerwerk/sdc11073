@@ -53,7 +53,8 @@ class HostedServiceClient:
     """ Base class of clients that call hosted services of a dpws device."""
 
     additional_namespaces: List[PrefixNamespace] = []  # for special namespaces
-    # list of notifications that a HostedServiceClient handles (for dispatching of subscribed data):
+    # notifications is a list of notifications that a HostedServiceClient handles (for dispatching of subscribed data).
+    # Derived classes will set this class variable accordingly:
     notifications: tuple[DispatchKey] = tuple()
 
     def __init__(self, sdc_client, soap_client, dpws_hosted: HostedServiceType, port_type):
@@ -92,8 +93,10 @@ class HostedServiceClient:
                         request_manipulator: Optional[RequestManipulatorProtocol] = None) -> Future:
         return self._operations_manager.call_operation(self, envelope, request_manipulator)
 
-    def get_subscribable_actions(self) -> tuple[DispatchKey]:
-        """ action strings only predefined"""
+    def get_available_subscriptions(self) -> tuple[DispatchKey]:
+        """ Returns the notifications that a service offers.
+        Each returned DispatchKey contains the action for the subscription and the message type that corresponds to it.
+        """
         return self.notifications
 
     def __repr__(self):
