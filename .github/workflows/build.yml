@@ -10,7 +10,15 @@ on:
       - v*
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    continue-on-error: true # this will be fixed in issue #156
+    steps:
+      - uses: actions/checkout@v3
+      - uses: chartboost/ruff-action@v1
+
   build:
+    needs: lint
     runs-on: ubuntu-latest
     outputs:
       WHL: ${{ steps.filenames.outputs.WHL }}
