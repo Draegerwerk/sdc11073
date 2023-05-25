@@ -67,10 +67,7 @@ class ClSubscription:
     def subscribe(self, expire_minutes: int = 60,
                   any_elements: Optional[list] = None,
                   any_attributes: Optional[dict] = None) -> None:
-        if self.short_filter_string is None:
-            self._logger.info('start subscription')
-        else:
-            self._logger.info('start subscription "{}"', self.short_filter_string)
+        self._logger.info('start subscription "{}"', self.short_filter_string)
         self.event_counter = 0
         self.expire_minutes = expire_minutes  # saved for later renewal, we will use the same interval
 
@@ -275,7 +272,7 @@ class ClSubscription:
         """
         if  self._filter_text is not None and len(self._filter_text) > 0:
             return ', '.join(e.split('/')[-1] for e in self._filter_type.text.split())
-        return '<none>'
+        return '<unknown>'
 
     def __str__(self):
         if self._filter_text is not None:
