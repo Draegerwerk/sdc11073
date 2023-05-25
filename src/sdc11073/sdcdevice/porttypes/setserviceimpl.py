@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, List, Protocol, runtime_checkable
 
 from .porttypebase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding
-from .porttypebase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation, msg_prefix
+from .porttypebase import mk_wsdl_two_way_operation, mk_wsdl_one_way_operation, msg_prefix
 from ...dispatch import DispatchKey
 
 if TYPE_CHECKING:
@@ -184,4 +184,4 @@ class SetService(ServiceWithOperations):
         mk_wsdl_two_way_operation(port_type, operation_name='SetAlertState')
         mk_wsdl_two_way_operation(port_type, operation_name='SetMetricState')
         mk_wsdl_two_way_operation(port_type, operation_name='SetValue')
-        _mk_wsdl_one_way_operation(port_type, operation_name='OperationInvokedReport')
+        mk_wsdl_one_way_operation(port_type, operation_name='OperationInvokedReport')

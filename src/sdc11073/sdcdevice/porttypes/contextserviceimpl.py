@@ -4,7 +4,7 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING, List
 from .stateeventserviceimpl import fill_episodic_report_body, fill_periodic_report_body
 from .porttypebase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding, msg_prefix
-from .porttypebase import mk_wsdl_two_way_operation, _mk_wsdl_one_way_operation
+from .porttypebase import mk_wsdl_two_way_operation, mk_wsdl_one_way_operation
 from ...dispatch import DispatchKey
 
 if TYPE_CHECKING:
@@ -95,8 +95,8 @@ class ContextService(ServiceWithOperations):
         port_type = self._mk_port_type_node(parent_node, True)
         mk_wsdl_two_way_operation(port_type, operation_name='SetContextState')
         mk_wsdl_two_way_operation(port_type, operation_name='GetContextStates')
-        _mk_wsdl_one_way_operation(port_type, operation_name='EpisodicContextReport')
-        _mk_wsdl_one_way_operation(port_type, operation_name='PeriodicContextReport')
+        mk_wsdl_one_way_operation(port_type, operation_name='EpisodicContextReport')
+        mk_wsdl_one_way_operation(port_type, operation_name='PeriodicContextReport')
 
     def send_episodic_context_report(self, states: List[AbstractStateContainer],
                                      mdib_version_group):

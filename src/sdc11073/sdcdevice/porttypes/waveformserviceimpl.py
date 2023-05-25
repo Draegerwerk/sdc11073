@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List
 
-from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, _mk_wsdl_one_way_operation
+from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_one_way_operation
 from .porttypebase import msg_prefix
 
 if TYPE_CHECKING:
@@ -16,7 +16,7 @@ class WaveformService(DPWSPortTypeBase):
 
     def add_wsdl_port_type(self, parent_node):
         port_type = self._mk_port_type_node(parent_node, True)
-        _mk_wsdl_one_way_operation(port_type, operation_name='Waveform')
+        mk_wsdl_one_way_operation(port_type, operation_name='Waveform')
 
     def _mk_offered_subscriptions(self):
         # unclear if this is needed, it seems wsdl uses Waveform name, action uses WaveformStream

@@ -16,7 +16,7 @@ from .porttypes.waveformserviceimpl import WaveformService
 from .sco import ScoOperationsRegistry
 from .scopesfactory import mk_scopes
 from .servicesfactory import mk_all_services
-from .subscriptionmgr import SubscriptionsManagerPath
+from .subscriptionmgr import PathDispatchingSubscriptionsManager
 from .subscriptionmgr_async import SubscriptionsManagerPathAsync
 from ..pysoap.msgfactory import MessageFactory
 from ..pysoap.msgreader import MessageReader
@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from ..sdcdevice.servicesfactory import HostedServices
     from .sco import AbstractScoOperationsRegistry
     from ..mdib.devicemdib import DeviceMdibContainer
+    from .subscriptionmgr_base import SubscriptionManagerProtocol
 
 
 # pylint: enable=cyclic-import
@@ -48,7 +49,7 @@ class SdcDeviceComponents:
     services_factory: Callable[[Any, dict, Any], HostedServices] = None
     operation_cls_getter: Callable[[QName], type] = None
     sco_operations_registry_class: Type[AbstractScoOperationsRegistry] = None
-    subscriptions_manager_class: dict[str, Any] = None
+    subscriptions_manager_class: dict[str, SubscriptionManagerProtocol] = None
     role_provider_class: type = None
     scopes_factory: Callable[[DeviceMdibContainer], ScopesType] = None
     hosted_services: dict = None
@@ -83,8 +84,8 @@ default_sdc_device_components_sync = SdcDeviceComponents(
     services_factory=mk_all_services,
     operation_cls_getter=get_operation_class,
     sco_operations_registry_class=ScoOperationsRegistry,
-    subscriptions_manager_class={'StateEvent': SubscriptionsManagerPath,
-                                 'Set': SubscriptionsManagerPath},
+    subscriptions_manager_class={'StateEvent': PathDispatchingSubscriptionsManager,
+                                 'Set': PathDispatchingSubscriptionsManager},
     role_provider_class=MinimalProduct,
     scopes_factory=mk_scopes,
     # this defines the structure of the services: top dict are the names of the dpws hosts,

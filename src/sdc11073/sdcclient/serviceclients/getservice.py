@@ -1,10 +1,14 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING, Optional
 from .serviceclientbase import HostedServiceClient, GetRequestResult
 from ...xml_types.addressing_types import HeaderInformationBlock
 
+if TYPE_CHECKING:
+    from ..manipulator import RequestManipulatorProtocol
 
 class GetServiceClient(HostedServiceClient):
 
-    def get_mdib(self, request_manipulator=None) -> GetRequestResult:
+    def get_mdib(self, request_manipulator: Optional[RequestManipulatorProtocol] = None) -> GetRequestResult:
         data_model = self._sdc_definitions.data_model
         request = data_model.msg_types.GetMdib()
         inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
@@ -14,9 +18,11 @@ class GetServiceClient(HostedServiceClient):
         result = received_message_data.msg_reader.read_get_mdib_response(received_message_data)
         return GetRequestResult(received_message_data, result)
 
-    def get_md_description(self, requested_handles=None, request_manipulator=None) -> GetRequestResult:
+    def get_md_description(self, requested_handles: Optional[list[str]] = None,
+                           request_manipulator: Optional[RequestManipulatorProtocol] = None) -> GetRequestResult:
         """
         :param requested_handles: None if all states shall be requested, otherwise a list of handles
+        :param request_manipulator: see documentation of RequestManipulatorProtocol
         """
         data_model = self._sdc_definitions.data_model
         request = data_model.msg_types.GetMdDescription()
@@ -30,9 +36,11 @@ class GetServiceClient(HostedServiceClient):
 
         return GetRequestResult(received_message_data, report)
 
-    def get_md_state(self, requested_handles=None, request_manipulator=None) -> GetRequestResult:
+    def get_md_state(self, requested_handles=None,
+                     request_manipulator: Optional[RequestManipulatorProtocol] = None) -> GetRequestResult:
         """
         :param requested_handles: None if all states shall be requested, otherwise a list of handles
+        :param request_manipulator: see documentation of RequestManipulatorProtocol
         """
         data_model = self._sdc_definitions.data_model
         request = data_model.msg_types.GetMdState()

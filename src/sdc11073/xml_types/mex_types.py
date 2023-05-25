@@ -86,8 +86,7 @@ dialect_lookup = {DeviceMetadataDialectURI.THIS_MODEL: (ThisModelMetadataSection
 
 class Metadata(MessageType):
     NODETYPE = wsx_tag('Metadata')
-    action = 'http://schemas.xmlsoap.org/ws/2004/09/mex/GetResponse'
-
+    action = f'{default_ns_helper.WXF.namespace}/GetResponse'
     MetadataSection = cp.SubElementListProperty(wsx_tag('MetadataSection'),
                                                 value_class=PropertyBasedPMType)
     _props = ['MetadataSection']

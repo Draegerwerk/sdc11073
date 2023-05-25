@@ -12,7 +12,7 @@ import aiohttp.client_exceptions
 from lxml import etree as etree_
 
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from .subscriptionmgr import SubscriptionsManagerBase, SubscriptionBase
+from .subscriptionmgr_base import SubscriptionsManagerBase, ActionBasedSubscription, RoundTripData
 from .. import observableproperties
 from ..pysoap.soapclient import HTTPReturnCodeError
 from ..xml_types import eventing_types as evt_types
@@ -21,29 +21,8 @@ from ..xml_types.basetypes import MessageType
 if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
     from ..pysoap.msgfactory import MessageFactory
-    from .subscriptionmgr import SoapClientPool
+    from ..pysoap.soapclientpool import SoapClientPool
     from ..dispatch import RequestData
-
-MAX_ROUNDTRIP_VALUES = 20
-
-
-class _RoundTripData:
-    def __init__(self, values, abs_max):
-        if values:
-            self.values = list(values)  # make a copy
-            self.min = min(values)
-            self.max = max(values)
-            self.avg = sum(values) / len(values)
-            self.abs_max = abs_max
-        else:
-            self.values = None
-            self.min = None
-            self.max = None
-            self.avg = None
-            self.abs_max = None
-
-    def __repr__(self):
-        return f'min={self.min:.4f} max={self.max:.4f} avg={self.avg:.4f} abs. max={self.abs_max:.4f}'
 
 
 def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
@@ -56,9 +35,15 @@ def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
     return None, path_suffix
 
 
-class DevSubscriptionAsync(SubscriptionBase):
-
+class BicepsSubscriptionAsync(ActionBasedSubscription):
+    """Async version of a single BICEPS subscription. It is used by BICEPSSubscriptionsManagerBaseAsync."""
     async def async_send_notification_report(self, body_node: etree_.Element, action: str):
+        """
+
+        :param body_node: The soap body node to be sent to the subscriber.
+        :param action: the action string
+        :return: None or an exception raises
+        """
         if not self.is_valid:
             return
         addr = HeaderInformationBlock(addr_to=self.notify_to_address,
@@ -143,9 +128,11 @@ class AsyncioEventLoopThread(Thread):
         self.running = False
 
 
-class SubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
-    """This implementation uses ReferenceParameters to identify subscriptions."""
-    DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
+class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
+    """This async version of a subscriptions manager sends a notification parallel to all subscribers
+    by using the async functionality. First all notifications are sent, then all http responses are collected.
+    This saves a lot of time compared to the synchronous version that sends the notification to the first subscriber,
+    waits for the response, then sends the notification to the second subscriber, and so on."""
 
     def __init__(self,
                  sdc_definitions: BaseDefinitions,
@@ -165,7 +152,7 @@ class SubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
     def _mk_subscription_instance(self, request_data: RequestData):
         subscribe_request = evt_types.Subscribe.from_node(request_data.message_data.p_msg.msg_node)
         accepted_encodings = request_data.http_header['Accept-Encoding']
-        return DevSubscriptionAsync(self, subscribe_request, accepted_encodings, self.base_urls,
+        return BicepsSubscriptionAsync(self, subscribe_request, accepted_encodings, self.base_urls,
                                     self._max_subscription_duration,
                                     self._soap_client_pool,
                                     msg_factory=self._msg_factory,
@@ -174,7 +161,7 @@ class SubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
     async def _coro_send_to_subscribers(self, tasks):
         return await asyncio.gather(*tasks, return_exceptions=True)
 
-    def end_all_subscriptions(self, send_subscription_end: bool):
+    def _end_all_subscriptions(self, send_subscription_end: bool):
         tasks = []
         with self._subscriptions.lock:
             all_subscriptions = self._subscriptions.objects
@@ -286,12 +273,12 @@ class SubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
                     tmp[subscription.notify_to_address].append(subscription.get_roundtrip_stats())
         for key, stats in tmp.items():
             all_values = [stat.values for stat in stats]
-            ret[key] = _RoundTripData(all_values, max([s.max for s in stats]), )
+            ret[key] = RoundTripData(all_values, max([s.max for s in stats]), )
         return ret
 
 
 
-class SubscriptionsManagerPathAsync(SubscriptionsManagerBaseAsync):
+class SubscriptionsManagerPathAsync(BICEPSSubscriptionsManagerBaseAsync):
     """This implementation uses path dispatching to identify subscriptions."""
 
     def _mk_subscription_instance(self, request_data: RequestData):
@@ -300,7 +287,7 @@ class SubscriptionsManagerPathAsync(SubscriptionsManagerBaseAsync):
         return subscription
 
 
-class SubscriptionsManagerReferenceParamAsync(SubscriptionsManagerBaseAsync):
+class SubscriptionsManagerReferenceParamAsync(BICEPSSubscriptionsManagerBaseAsync):
     """This implementation uses reference parameters to identify subscriptions."""
 
     def _mk_subscription_instance(self, request_data: RequestData):
