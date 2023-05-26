@@ -249,6 +249,8 @@ class _ElementBase(_XmlStructureBaseProperty):
         return sub_node
 
     def remove_sub_element(self, node):
+        if self._sub_element_name is None:
+            return
         sub_node = node.find(self._sub_element_name)
         if sub_node is not None:
             node.remove(sub_node)
@@ -904,7 +906,7 @@ class ContainerListProperty(_ElementListProperty):
             for _node in nodes:
                 node_type_str = _node.get(QN_TYPE)
                 if node_type_str is not None:
-                    node_type = text_to_qname(node_type_str, node.nsmap)
+                    node_type = text_to_qname(node_type_str, _node.nsmap)
                     value_class = self._cls_getter(node_type)
                 else:
                     value_class = self.value_class
@@ -1111,16 +1113,18 @@ class NodeTextQNameListProperty(_ElementListProperty):
                          is_optional=is_optional)
 
     def get_py_value_from_node(self, instance, node):
+        result = []
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
+            if sub_node is None:
+                return None
             if sub_node.text is not None:
-                result = []
                 for q_name_string in sub_node.text.split():
                     result.append(text_to_qname(q_name_string, sub_node.nsmap))
                 return result
         except ElementNotFoundException:
             pass
-        return self._default_py_value
+        return self._default_py_value or result
 
     def update_xml_value(self, instance, node):
         try:

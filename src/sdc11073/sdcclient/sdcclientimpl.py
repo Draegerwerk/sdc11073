@@ -7,7 +7,7 @@ import ssl
 import traceback
 import uuid
 from dataclasses import dataclass
-from typing import Optional, List, Union, Set
+from typing import Optional, List, Union, Set, TYPE_CHECKING
 from urllib.parse import urlparse, urlsplit
 
 from lxml import etree as etree_
@@ -27,8 +27,12 @@ from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..namespaces import EventingActions
 from ..xml_types import mex_types
+from ..xml_types import eventing_types
 from ..xml_types.addressing_types import HeaderInformationBlock
 from ..xml_types.wsd_types import ProbeType, ProbeMatchesType
+from ..xml_types.dpws_types import DeviceEventingFilterDialectURI
+if TYPE_CHECKING:
+    from ..xml_types.mex_types import HostedServiceType
 
 
 class HostDescription:
@@ -317,21 +321,24 @@ class SdcClient:
         sort_ip_addresses(my_addresses, device_addr)
         return my_addresses[0]
 
-    def mk_subscription(self, dpws_hosted, actions: List[DispatchKey]) -> ClSubscription:
+    def mk_subscription(self, dpws_hosted: HostedServiceType,
+                        filter_type: eventing_types.FilterType,
+                        actions: List[DispatchKey]) -> ClSubscription:
         """ creates a subscription object and registers it in dispatcher
         :param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
                            This is the target for all subscribe/unsubscribe ... messages
-        :param actions: a list of filters. this (joined) string is sent to the sdc server in the Subscribe message
+        :param filter_type: the filter that is sent to device
+        :param actions: a list of DispatchKey that this subscription shall handle.
         :return: a subscription object
         """
-        tmp = [d.action for d in actions]
-        subscription = self._subscription_mgr.mk_subscription(dpws_hosted, tmp)
+        subscription = self._subscription_mgr.mk_subscription(dpws_hosted, filter_type)
         # direct subscribed notifications to this subscription
         for action in actions:
             self._services_dispatcher.register_post_handler(action, subscription.on_notification)
         return subscription
 
-    def do_subscribe(self, dpws_hosted,
+    def do_subscribe(self, dpws_hosted: HostedServiceType,
+                     filter_type: eventing_types.FilterType,
                      actions: Union[List[DispatchKey], Set[DispatchKey]],
                      expire_minutes: Optional[int] = 60,
                      any_elements: Optional[list] = None,
@@ -339,13 +346,14 @@ class SdcClient:
         """ creates a subscription object and registers it in
         :param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
                            This is the target for all subscribe/unsubscribe ... messages
-        :param actions: a list of filters. this (joined) string is sent to the sdc server in the Subscribe message
+        :param filter_type: the filter that is sent to device
+        :param actions: a list of DispatchKeys that this subscription shall handle
         :param expire_minutes: defaults to 1 hour
         :param any_elements: optional list of etree.Element objects
         :param any_attributes: optional dictionary of name:str - value:str pairs
         :return: a subscription object that has callback already registered
         """
-        subscription = self.mk_subscription(dpws_hosted, actions)
+        subscription = self.mk_subscription(dpws_hosted, filter_type, actions)
         properties.bind(subscription, notification_data=self._on_notification)
         subscription.subscribe(expire_minutes, any_elements, any_attributes)
         return subscription
@@ -464,22 +472,27 @@ class SdcClient:
         # start all subscriptions
         # group subscriptions per hosted service
         for dpws_hosted in self.host_description.relationship.Hosted:
-            available_actions = []
+            available_actions: list[DispatchKey] = []
             if dpws_hosted.Types is not None:
                 for port_type_qname in dpws_hosted.Types:
                     client = self.client(port_type_qname.localname)
                     if client is not None:
-                        available_actions.extend(client.get_subscribable_actions())
+                        available_actions.extend(client.get_available_subscriptions())
             if len(available_actions) > 0:
-                subscribe_actions = set(available_actions) - not_subscribed_actions_set
+                # subscribe_actions = set(available_actions) - not_subscribed_actions_set
+                subscribe_actions = {a for a in available_actions if a.action not in not_subscribed_actions_set}
                 if not subscribe_periodic_reports:
-                    subscribe_actions -= set(periodic_actions)
-                try:
-                    self.do_subscribe(dpws_hosted, subscribe_actions)
-                except Exception:
-                    self.all_subscribed = False  # => do not log errors when mdib versions are missing in notifications
-                    self._logger.error('start_all: could not subscribe: error = {}, actions= {}',
-                                       traceback.format_exc(), subscribe_actions)
+                    subscribe_actions = {a for a in subscribe_actions if a.action not in periodic_actions}
+                if len(subscribe_actions) > 0:
+                    filter_type = eventing_types.FilterType()
+                    filter_type.text = ' '.join((x.action for x in subscribe_actions))
+                    filter_type.Dialect = DeviceEventingFilterDialectURI.ACTION
+                    try:
+                        self.do_subscribe(dpws_hosted, filter_type, subscribe_actions)
+                    except Exception:
+                        self.all_subscribed = False  # => do not log errors when mdib versions are missing in notifications
+                        self._logger.error('start_all: could not subscribe: error = {}, actions= {}',
+                                           traceback.format_exc(), subscribe_actions)
 
         # register callback for end of subscription
         self._services_dispatcher.register_post_handler(

@@ -1,6 +1,7 @@
 import time
 import traceback
 import os
+from decimal import Decimal
 from collections import defaultdict
 from sdc11073 import observableproperties
 from sdc11073.definitions_sdc import SDC_v1_Definitions
@@ -190,7 +191,7 @@ def run_ref_test():
                 continue
             print('setNumericValue Op ={}'.format(s))
             try:
-                fut = client.set_service_client.set_numeric_value(s.Handle, 42)
+                fut = client.set_service_client.set_numeric_value(s.Handle, Decimal('42'))
                 try:
                     res = fut.result(timeout=10)
                     print(res)

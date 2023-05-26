@@ -31,7 +31,7 @@ from sdc11073.sdcclient.components import SdcClientComponents
 from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.components import SdcDeviceComponents, default_sdc_device_components_async
-from sdc11073.sdcdevice.subscriptionmgr import SubscriptionsManagerReferenceParam
+from sdc11073.sdcdevice.subscriptionmgr import ReferenceParamSubscriptionsManager
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.namespaces import default_ns_helper
 from tests.mockstuff import SomeDevice, dec_list
@@ -1208,7 +1208,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
 
         specific_components = SdcDeviceComponents(
-            subscriptions_manager_class={'StateEvent': SubscriptionsManagerReferenceParam},
+            subscriptions_manager_class={'StateEvent': ReferenceParamSubscriptionsManager},
             soap_client_class=SoapClientAsync
         )
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='<Final> ',

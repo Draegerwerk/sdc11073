@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List
 
-from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, _mk_wsdl_one_way_operation
+from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_one_way_operation
 from .porttypebase import msg_prefix
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ class DescriptionEventService(DPWSPortTypeBase):
 
     def add_wsdl_port_type(self, parent_node):
         port_type = self._mk_port_type_node(parent_node, True)
-        _mk_wsdl_one_way_operation(port_type, operation_name='DescriptionModificationReport')
+        mk_wsdl_one_way_operation(port_type, operation_name='DescriptionModificationReport')
 
     def send_descriptor_updates(self, updated: List[AbstractDescriptorContainer],
                                 created: List[AbstractDescriptorContainer],

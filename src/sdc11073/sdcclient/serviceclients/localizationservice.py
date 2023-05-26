@@ -1,10 +1,14 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING, Optional
 from .serviceclientbase import HostedServiceClient, GetRequestResult
 from ...xml_types.addressing_types import HeaderInformationBlock
+if TYPE_CHECKING:
+    from ..manipulator import RequestManipulatorProtocol
 
 class LocalizationServiceClient(HostedServiceClient):
 
     def get_localized_texts(self, refs=None, version=None, langs=None, text_widths=None, number_of_lines=None,
-                            request_manipulator=None) -> GetRequestResult:
+                            request_manipulator: Optional[RequestManipulatorProtocol] = None) -> GetRequestResult:
         data_model = self._sdc_definitions.data_model
         request = data_model.msg_types.GetLocalizedText()
         if refs is not None:
@@ -25,7 +29,8 @@ class LocalizationServiceClient(HostedServiceClient):
 
         return GetRequestResult(received_message_data, result)
 
-    def get_supported_languages(self, request_manipulator=None) -> GetRequestResult:
+    def get_supported_languages(self,
+                                request_manipulator: Optional[RequestManipulatorProtocol] = None) -> GetRequestResult:
         data_model = self._sdc_definitions.data_model
         request = data_model.msg_types.GetSupportedLanguages()
         inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)

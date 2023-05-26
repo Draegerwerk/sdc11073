@@ -12,7 +12,7 @@ from lxml import etree as etree_
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.sdcdevice import SdcDevice
-from sdc11073.sdcdevice.subscriptionmgr import DevSubscription
+from sdc11073.sdcdevice.subscriptionmgr import BicepsSubscription
 from sdc11073.xml_types import pm_types, pm_qnames as pm
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.dpws_types import ThisModelType, ThisDeviceType
@@ -60,7 +60,7 @@ class MockWsDiscovery(object):
         _logger.info('clear_service "{}"'.format(epr))
 
 
-class TestDevSubscription(DevSubscription):
+class TestDevSubscription(BicepsSubscription):
     """ Can be used instead of real Subscription objects"""
     mode = 'SomeMode'
     notify_to = 'http://self.com:123'

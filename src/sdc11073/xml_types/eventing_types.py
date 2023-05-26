@@ -1,8 +1,9 @@
+from . import xml_structure
 from . import xml_structure as cp
 from .addressing_types import EndpointReferenceType
+from .basetypes import XMLTypeBase, ElementWithText, MessageType
 from .dataconverters import DurationConverter
 from .dpws_types import DeviceEventingFilterDialectURI
-from .basetypes import XMLTypeBase, ElementWithText, MessageType
 from ..namespaces import EventingActions
 from ..namespaces import default_ns_helper
 
@@ -22,7 +23,8 @@ class DeliveryType(XMLTypeBase):
 
 class FilterType(ElementWithText):
     Dialect = cp.AnyURIAttributeProperty('Dialect')
-    _props = ['Dialect']
+    any = xml_structure.AnyEtreeNodeListProperty(None, is_optional=True)
+    _props = ['Dialect', 'any']
 
 
 class Subscribe(MessageType):
