@@ -45,7 +45,7 @@ class TestDeviceServices(unittest.TestCase):
         nsm = self.sdc_device.mdib.nsmapper  # shortcut
 
         action = '{}/{}/{}'.format(name_space, port_type, method)
-        body_node = etree_.Element(nsm.msgTag(method))
+        body_node = etree_.Element(nsm.MSG.tag(method))
         soap_envelope = Soap12Envelope(nsm.partial_map(nsm.S12, nsm.WSA, nsm.MSG))
         soap_envelope.set_header_info_block(HeaderInformationBlock(action=action, addr_to=path))
         soap_envelope.payload_element = body_node

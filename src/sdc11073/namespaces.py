@@ -1,6 +1,6 @@
 """ A helper for xml name space handling"""
-from collections import namedtuple
 import os
+from collections import namedtuple
 from enum import Enum
 from typing import Optional, Type
 
@@ -22,8 +22,8 @@ class PrefixNamespace(_PrefixNamespaceTuple):
 
 schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
 
-class PrefixesEnum(PrefixNamespace, Enum):
 
+class PrefixesEnum(PrefixNamespace, Enum):
     MSG = PrefixNamespace('msg',
                           'http://standards.ieee.org/downloads/11073/11073-10207-2017/message',
                           "http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd",
@@ -80,7 +80,7 @@ class PrefixesEnum(PrefixNamespace, Enum):
                           'http://www.w3.org/XML/1998/namespace',
                           None,
                           None)
-    WXF = PrefixNamespace('wxf', # ws-transfer
+    WXF = PrefixNamespace('wxf',  # ws-transfer
                           'http://schemas.xmlsoap.org/ws/2004/09/transfer',
                           None,
                           None)
@@ -99,7 +99,7 @@ class PrefixesEnum(PrefixNamespace, Enum):
 
 
 class NamespaceHelper:
-    def __init__(self, prefixes_enum: Type[PrefixesEnum], default_ns:Optional[str]=None):
+    def __init__(self, prefixes_enum: Type[PrefixesEnum], default_ns: Optional[str] = None):
         self.prefix_enum = prefixes_enum
         self._lookup = {}
         for enum_item in prefixes_enum:
@@ -114,22 +114,13 @@ class NamespaceHelper:
     def MSG(self) -> PrefixNamespace:
         return self._lookup['MSG']
 
-    def msgTag(self, tag_name) -> etree_.QName:
-        return self._tag(self.MSG, tag_name)
-
     @property
     def PM(self) -> PrefixNamespace:
         return self._lookup['PM']
 
-    def domTag(self, tag_name) -> etree_.QName:
-        return self._tag(self.PM, tag_name)
-
     @property
     def EXT(self) -> PrefixNamespace:
         return self._lookup['EXT']
-
-    def extTag(self, tag_name) -> etree_.QName:
-        return self.EXT.tag(tag_name)
 
     @property
     def SDC(self) -> PrefixNamespace:
@@ -139,88 +130,49 @@ class NamespaceHelper:
     def WSE(self) -> PrefixNamespace:
         return self._lookup['WSE']
 
-    def wseTag(self, tag_name) -> etree_.QName:
-        return self.WSE.tag(tag_name)
-
     @property
     def XSI(self) -> PrefixNamespace:
         return self._lookup['XSI']
-
-    def xsiTag(self, tag_name) -> etree_.QName:
-        return self.XSI.tag(tag_name)
 
     @property
     def WSA(self) -> PrefixNamespace:
         return self._lookup['WSA']
 
-    def wsaTag(self, tag_name) -> etree_.QName:
-        return self.WSA.tag(tag_name)
-
     @property
     def WSX(self) -> PrefixNamespace:
         return self._lookup['WSX']
-
-    def wsxTag(self, tag_name) -> etree_.QName:
-        return self.WSX.tag(tag_name)
 
     @property
     def DPWS(self) -> PrefixNamespace:
         return self._lookup['DPWS']
 
-    def dpwsTag(self, tag_name) -> etree_.QName:
-        return self.DPWS.tag(tag_name)
-
     @property
     def MDPWS(self) -> PrefixNamespace:
         return self._lookup['MDPWS']
-
-    def mdpwsTag(self, tag_name) -> etree_.QName:
-        return self.MDPWS.tag(tag_name)
-
-    def siTag(self, tag_name) -> etree_.QName:
-        return self.MDPWS.tag(tag_name)  # maps to MDPWS
 
     @property
     def WSD(self) -> PrefixNamespace:
         return self._lookup['WSD']
 
-    def wsdTag(self, tag_name) -> etree_.QName:
-        return self.WSD.tag(tag_name)
-
     @property
     def S12(self) -> PrefixNamespace:
         return self._lookup['S12']
-
-    def s12Tag(self, tag_name) -> etree_.QName:
-        return self.S12.tag(tag_name)
 
     @property
     def XML(self) -> PrefixNamespace:
         return self._lookup['XML']
 
-    def xmlTag(self, tag_name) -> etree_.QName:
-        return self.XML.tag(tag_name)
-
     @property
     def WSDL(self) -> PrefixNamespace:
         return self._lookup['WSDL']
-
-    def wsdlTag(self, tag_name) -> etree_.QName:
-        return self.WSDL.tag(tag_name)
 
     @property
     def WSDL12(self) -> PrefixNamespace:
         return self._lookup['WSDL12']
 
-    def wsdl12Tag(self, tag_name) -> etree_.QName:
-        return self.WSDL12.tag(tag_name)
-
     @property
     def WSP(self) -> PrefixNamespace:
         return self._lookup['WSP']
-
-    def wspTag(self, tag_name) -> etree_.QName:
-        return self.WSP.tag(tag_name)
 
     @property
     def WXF(self) -> PrefixNamespace:
@@ -263,11 +215,8 @@ class NamespaceHelper:
         except KeyError as ex:
             raise KeyError(f'Cannot make QName for {text}, prefix is not in nsmap: {ns_map.keys()}') from ex
 
-    def _tag(self, prefix_namespace: PrefixNamespace, localname: str) -> etree_.QName:
-        return etree_.QName(prefix_namespace.namespace, localname)
 
-
-default_ns_helper = NamespaceHelper(PrefixesEnum) #, default_ns=PrefixesEnum.PM.namespace)
+default_ns_helper = NamespaceHelper(PrefixesEnum)
 
 # some constants from ws-addressing
 WSA_ANONYMOUS = PrefixesEnum.WSA.namespace + '/anonymous'

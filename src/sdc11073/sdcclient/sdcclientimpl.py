@@ -497,7 +497,7 @@ class SdcClient:
         # register callback for end of subscription
         self._services_dispatcher.register_post_handler(
             DispatchKey(EventingActions.SubscriptionEnd,
-                        self.sdc_definitions.data_model.ns_helper.wseTag('SubscriptionEnd')),
+                        self.sdc_definitions.data_model.ns_helper.WSE.tag('SubscriptionEnd')),
             self._on_subscription_end)
 
         # connect self.is_connected observable to all_subscriptions_okay observable in subscriptions manager

@@ -819,7 +819,7 @@ class WSDiscoveryBase:
         act = received_message.action
         self._logger.debug('handle_received_message: received %s from %s', act.split('/')[-1], addr)
 
-        app_sequence_node = received_message.p_msg.header_node.find(nsh.wsdTag('AppSequence'))
+        app_sequence_node = received_message.p_msg.header_node.find(nsh.WSD.tag('AppSequence'))
 
         if act == wsd_types.ProbeMatchesType.action:
             app_sequence = wsd_types.AppSequenceType.from_node(app_sequence_node)
@@ -875,7 +875,7 @@ class WSDiscoveryBase:
             epr = hello.EndpointReference.Address
             # check if it is from a discovery proxy
             relates_to = received_message.p_msg.header_info_block.RelatesTo
-            if relates_to is not None and relates_to.RelationshipType == nsh.wsdTag('Suppression'):
+            if relates_to is not None and relates_to.RelationshipType == nsh.WSD.tag('Suppression'):
                 x_addr = hello.XAddrs[0]
                 if x_addr.startswith("soap.udp:"):
                     self._disco_proxy_active = True
@@ -928,7 +928,7 @@ class WSDiscoveryBase:
         app_sequence.MessageNumber = service.message_number
 
         created_message = _mk_wsd_soap_message(inf, payload)
-        created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.wsdTag('AppSequence'),
+        created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'),
                                                                             ns_map=nsh.partial_map(nsh.WSD)))
         self._networking_thread.add_unicast_message(created_message, addr[0], addr[1], random.randint(0, APP_MAX_DELAY))
 
@@ -960,7 +960,7 @@ class WSDiscoveryBase:
             app_sequence.MessageNumber = msg_number
 
             created_message = _mk_wsd_soap_message(inf, payload)
-            created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.wsdTag('AppSequence'),
+            created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'),
                                                                                 ns_map=nsh.partial_map(nsh.WSD)))
             self._networking_thread.add_unicast_message(created_message, addr[0], addr[1],
                                                         random.randint(0, APP_MAX_DELAY))
@@ -1012,7 +1012,7 @@ class WSDiscoveryBase:
         inf = HeaderInformationBlock(action=payload.action, addr_to=ADDRESS_ALL)
 
         created_message = _mk_wsd_soap_message(inf, payload)
-        created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.wsdTag('AppSequence'),
+        created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'),
                                                                             ns_map=nsh.partial_map(nsh.WSD)))
         self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port,
                                                       random.randint(0, APP_MAX_DELAY))
@@ -1030,7 +1030,7 @@ class WSDiscoveryBase:
         app_sequence.MessageNumber = service.message_number
 
         created_message = _mk_wsd_soap_message(inf, bye)
-        created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.wsdTag('AppSequence'),
+        created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'),
                                                                             ns_map=nsh.partial_map(nsh.WSD)))
         self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)
 

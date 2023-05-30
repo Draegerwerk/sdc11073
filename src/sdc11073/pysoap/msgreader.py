@@ -31,7 +31,7 @@ def validate_node(node, xml_schema, logger):
         logger.warning(etree_.tostring(node, pretty_print=True).decode('utf-8'))
         fault = Fault()
         fault.Code.Value = faultcodeEnum.SENDER
-        fault.set_sub_code(default_ns_helper.wseTag('InvalidMessage'))
+        fault.set_sub_code(default_ns_helper.WSE.tag('InvalidMessage'))
         fault.add_reason_text(f'validation error: {ex}')
 
         raise ValidationError(reason='document invalid', soap_fault=fault) from ex

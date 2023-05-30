@@ -106,7 +106,6 @@ if __name__ == '__main__':
     sdcDevice.set_location(loc, validators)
     pm = my_mdib.data_model.pm_names
     pm_types = my_mdib.data_model.pm_types
-    #patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get(domTag('PatientContextDescriptor'))[0].handle
     patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor)[0].Handle
     with my_mdib.transaction_manager() as mgr:
         patientContainer = mgr.mk_context_state(patientDescriptorHandle)

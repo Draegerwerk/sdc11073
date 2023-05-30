@@ -87,8 +87,8 @@ class ReceivedSoapMessage:
     def __init__(self, xml_string, doc_root):
         self.raw_data = xml_string
         self._doc_root = doc_root
-        self.header_node = self._doc_root.find(ns_hlp.s12Tag('Header'))
-        self.body_node = self._doc_root.find(ns_hlp.s12Tag('Body'))
+        self.header_node = self._doc_root.find(ns_hlp.S12.tag('Header'))
+        self.body_node = self._doc_root.find(ns_hlp.S12.tag('Body'))
         self.header_info_block = None
         try:
             self.msg_node = self.body_node[0]
@@ -108,36 +108,36 @@ class faultcodeEnum(StringEnum):
 
 
 class reasontext(ElementWithText):
-    lang = struct.StringAttributeProperty(ns_hlp.xmlTag('lang'), default_py_value='en-US')
+    lang = struct.StringAttributeProperty(ns_hlp.XML.tag('lang'), default_py_value='en-US')
     _props = ['lang']
 
 
 class faultreason(XMLTypeBase):
-    Text = struct.SubElementListProperty(ns_hlp.s12Tag('Text'), value_class=reasontext)
+    Text = struct.SubElementListProperty(ns_hlp.S12.tag('Text'), value_class=reasontext)
     _props = ['Text']
 
 
 class subcode(XMLTypeBase):
-    Value = struct.NodeTextQNameProperty(ns_hlp.s12Tag('Value'))
+    Value = struct.NodeTextQNameProperty(ns_hlp.S12.tag('Value'))
     # optional Subcode Element intentionally omitted, it is of type subcode => recursion, bad idea!
     _props = ['Value']
 
 
 class faultcode(XMLTypeBase):
-    Value = struct.NodeEnumTextProperty(ns_hlp.s12Tag('Value'), faultcodeEnum)
-    Subcode = struct.SubElementProperty(ns_hlp.s12Tag('Subcode'), value_class=subcode, is_optional=True)
+    Value = struct.NodeEnumTextProperty(ns_hlp.S12.tag('Value'), faultcodeEnum)
+    Subcode = struct.SubElementProperty(ns_hlp.S12.tag('Subcode'), value_class=subcode, is_optional=True)
     _props = ['Value', 'Subcode']
 
 
 class Fault(MessageType):
-    NODETYPE = ns_hlp.s12Tag('Fault')
+    NODETYPE = ns_hlp.S12.tag('Fault')
     action = f'{ns_hlp.WSA.namespace}/fault'
-    Code = struct.SubElementProperty(ns_hlp.s12Tag('Code'), value_class=faultcode, default_py_value=faultcode())
-    Reason = struct.SubElementProperty(ns_hlp.s12Tag('Reason'), value_class=faultreason, default_py_value=faultreason())
-    Node = struct.AnyUriTextElement(ns_hlp.s12Tag('Node'), is_optional=True)
-    Role = struct.AnyUriTextElement(ns_hlp.s12Tag('Role'), is_optional=True)
+    Code = struct.SubElementProperty(ns_hlp.S12.tag('Code'), value_class=faultcode, default_py_value=faultcode())
+    Reason = struct.SubElementProperty(ns_hlp.S12.tag('Reason'), value_class=faultreason, default_py_value=faultreason())
+    Node = struct.AnyUriTextElement(ns_hlp.S12.tag('Node'), is_optional=True)
+    Role = struct.AnyUriTextElement(ns_hlp.S12.tag('Role'), is_optional=True)
     # Schema says Detail is an "any" type. Here it is modelled as a string that becomes the text of the Detail node
-    Detail = struct.NodeStringProperty(ns_hlp.s12Tag('Detail'), is_optional=True)
+    Detail = struct.NodeStringProperty(ns_hlp.S12.tag('Detail'), is_optional=True)
     _props = ['Code', 'Reason', 'Node', 'Role', 'Detail']
     additional_namespaces = [ns_hlp.XML, ns_hlp.WSE]
 

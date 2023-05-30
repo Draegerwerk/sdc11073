@@ -61,14 +61,14 @@ class MessageFactory:
         p_msg = message.p_msg
         nsh = self.ns_hlp
         tmp = BytesIO()
-        root = etree_.Element(nsh.s12Tag('Envelope'), nsmap=p_msg.nsmap)
+        root = etree_.Element(nsh.S12.tag('Envelope'), nsmap=p_msg.nsmap)
 
-        header_node = etree_.SubElement(root, nsh.s12Tag('Header'))
+        header_node = etree_.SubElement(root, nsh.S12.tag('Header'))
         if p_msg.header_info_block:
             info_node = p_msg.header_info_block.as_etree_node('tmp', {})
             header_node.extend(info_node[:])
         header_node.extend(p_msg.header_nodes)
-        body_node = etree_.SubElement(root, nsh.s12Tag('Body'), nsmap=p_msg.nsmap)
+        body_node = etree_.SubElement(root, nsh.S12.tag('Body'), nsmap=p_msg.nsmap)
         if validate:
             self._validate_node(root)
         if p_msg.payload_element is not None:

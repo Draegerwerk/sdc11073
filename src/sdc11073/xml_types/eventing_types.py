@@ -7,14 +7,15 @@ from .dpws_types import DeviceEventingFilterDialectURI
 from ..namespaces import EventingActions
 from ..namespaces import default_ns_helper
 
-
+wse_tag = default_ns_helper.WSE.tag
+xml_tag = default_ns_helper.XML.tag
 ### classes that correspond to types in eventing standard
 
 
 class DeliveryType(XMLTypeBase):
     Mode = cp.AnyURIAttributeProperty("Mode")
     # in ws-eventing NotifyTo is not a mandatory element, but in sdc it is always used.
-    NotifyTo = cp.SubElementProperty(default_ns_helper.wseTag('NotifyTo'),
+    NotifyTo = cp.SubElementProperty(wse_tag('NotifyTo'),
                                      value_class=EndpointReferenceType,
                                      default_py_value=EndpointReferenceType())
     _props = ['Mode', 'NotifyTo']
@@ -27,16 +28,16 @@ class FilterType(ElementWithText):
 
 
 class Subscribe(MessageType):
-    NODETYPE = default_ns_helper.wseTag('Subscribe')
+    NODETYPE = wse_tag('Subscribe')
     action = EventingActions.Subscribe
-    EndTo = cp.SubElementProperty(default_ns_helper.wseTag('EndTo'),
+    EndTo = cp.SubElementProperty(wse_tag('EndTo'),
                                   value_class=EndpointReferenceType,
                                   is_optional=True)
-    Delivery = cp.SubElementProperty(default_ns_helper.wseTag('Delivery'),
+    Delivery = cp.SubElementProperty(wse_tag('Delivery'),
                                      value_class=DeliveryType,
                                      default_py_value=DeliveryType())
-    Expires = cp.NodeTextProperty(default_ns_helper.wseTag('Expires'), value_converter=DurationConverter)
-    Filter = cp.SubElementProperty(default_ns_helper.wseTag('Filter'),
+    Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
+    Filter = cp.SubElementProperty(wse_tag('Filter'),
                                    value_class=FilterType,
                                    is_optional=True)
     _props = ['EndTo', 'Delivery', 'Expires', 'Filter']
@@ -52,24 +53,24 @@ class Subscribe(MessageType):
 
 
 class SubscribeResponse(MessageType):
-    NODETYPE = default_ns_helper.wseTag('SubscribeResponse')
+    NODETYPE = wse_tag('SubscribeResponse')
     action = EventingActions.SubscribeResponse
-    SubscriptionManager = cp.SubElementProperty(default_ns_helper.wseTag('SubscriptionManager'),
+    SubscriptionManager = cp.SubElementProperty(wse_tag('SubscriptionManager'),
                                                 value_class=EndpointReferenceType,
                                                 default_py_value=EndpointReferenceType())
-    Expires = cp.NodeTextProperty(default_ns_helper.wseTag('Expires'), value_converter=DurationConverter)
+    Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
     _props = ['SubscriptionManager', 'Expires']
     additional_namespaces = [default_ns_helper.WSE]
 
 
 class Unsubscribe(MessageType):
-    NODETYPE = default_ns_helper.wseTag('Unsubscribe')
+    NODETYPE = wse_tag('Unsubscribe')
     action = EventingActions.Unsubscribe
     additional_namespaces = [default_ns_helper.WSE]
 
 
 class UnsubscribeResponse(MessageType):
-    NODETYPE = default_ns_helper.wseTag('UnsubscribeResponse')
+    NODETYPE = wse_tag('UnsubscribeResponse')
     action = EventingActions.UnsubscribeResponse
     additional_namespaces = [default_ns_helper.WSE]
 
@@ -79,18 +80,18 @@ class UnsubscribeResponse(MessageType):
 
 
 class LanguageSpecificStringType(ElementWithText):
-    lang = cp.StringAttributeProperty(attribute_name=default_ns_helper.xmlTag('lang'))
+    lang = cp.StringAttributeProperty(attribute_name=xml_tag('lang'))
     _props = ['lang']
 
 
 class SubscriptionEnd(MessageType):
-    NODETYPE = default_ns_helper.wseTag('SubscriptionEnd')
+    NODETYPE = wse_tag('SubscriptionEnd')
     action = EventingActions.SubscriptionEnd
-    SubscriptionManager = cp.SubElementProperty(default_ns_helper.wseTag('SubscriptionManager'),
+    SubscriptionManager = cp.SubElementProperty(wse_tag('SubscriptionManager'),
                                                 value_class=EndpointReferenceType,
                                                 default_py_value=EndpointReferenceType())
-    Status = cp.NodeStringProperty(default_ns_helper.wseTag('Status'))
-    Reason = cp.SubElementListProperty(default_ns_helper.wseTag('Reason'),
+    Status = cp.NodeStringProperty(wse_tag('Status'))
+    Reason = cp.SubElementListProperty(wse_tag('Reason'),
                                        value_class=LanguageSpecificStringType)
     _props = ['SubscriptionManager', 'Status', 'Reason']
     additional_namespaces = [default_ns_helper.WSE]
@@ -103,30 +104,30 @@ class SubscriptionEnd(MessageType):
 
 
 class Renew(MessageType):
-    NODETYPE = default_ns_helper.wseTag('Renew')
+    NODETYPE = wse_tag('Renew')
     action = EventingActions.Renew
-    Expires = cp.NodeTextProperty(default_ns_helper.wseTag('Expires'), value_converter=DurationConverter)
+    Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
     _props = ['Expires']
     additional_namespaces = [default_ns_helper.WSE]
 
 
 class RenewResponse(MessageType):
-    NODETYPE = default_ns_helper.wseTag('RenewResponse')
+    NODETYPE = wse_tag('RenewResponse')
     action = EventingActions.RenewResponse
-    Expires = cp.NodeTextProperty(default_ns_helper.wseTag('Expires'), value_converter=DurationConverter)
+    Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
     _props = ['Expires']
     additional_namespaces = [default_ns_helper.WSE]
 
 
 class GetStatus(MessageType):
-    NODETYPE = default_ns_helper.wseTag('GetStatus')
+    NODETYPE = wse_tag('GetStatus')
     action = EventingActions.GetStatus
     additional_namespaces = [default_ns_helper.WSE]
 
 
 class GetStatusResponse(MessageType):
-    NODETYPE = default_ns_helper.wseTag('GetStatusResponse')
+    NODETYPE = wse_tag('GetStatusResponse')
     action = EventingActions.GetStatusResponse
-    Expires = cp.NodeTextProperty(default_ns_helper.wseTag('Expires'), value_converter=DurationConverter)
+    Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
     _props = ['Expires']
     additional_namespaces = [default_ns_helper.WSE]

@@ -13,9 +13,9 @@ if TYPE_CHECKING:
 
 
 class EndpointReferenceType(XMLTypeBase):
-    Address = struct.NodeStringProperty(nsh.wsaTag('Address'))
-    ReferenceParameters = struct.AnyEtreeNodeListProperty(nsh.wsaTag('ReferenceParameters'), is_optional=True)
-    PortType = struct.NodeTextQNameProperty(nsh.wsaTag('PortType'), is_optional=True)
+    Address = struct.NodeStringProperty(nsh.WSA.tag('Address'))
+    ReferenceParameters = struct.AnyEtreeNodeListProperty(nsh.WSA.tag('ReferenceParameters'), is_optional=True)
+    PortType = struct.NodeTextQNameProperty(nsh.WSA.tag('PortType'), is_optional=True)
     _props = ['Address', 'ReferenceParameters', 'PortType']
 
 
@@ -25,7 +25,7 @@ class Relationship(ElementWithText):
 
 
 class MustUnderStandTextElement(ElementWithText):
-    _must_understand = struct.BooleanAttributeProperty(nsh.s12Tag('mustUnderstand'), default_py_value=True)
+    _must_understand = struct.BooleanAttributeProperty(nsh.S12.tag('mustUnderstand'), default_py_value=True)
     _props = ['_must_understand']
 
     def __init__(self, text: Optional[str] = None):
@@ -34,17 +34,17 @@ class MustUnderStandTextElement(ElementWithText):
 
 
 class HeaderInformationBlock(XMLTypeBase):
-    MessageID = struct.AnyUriTextElement(nsh.wsaTag('MessageID'))
-    RelatesTo = struct.SubElementProperty(nsh.wsaTag('RelatesTo'),
+    MessageID = struct.AnyUriTextElement(nsh.WSA.tag('MessageID'))
+    RelatesTo = struct.SubElementProperty(nsh.WSA.tag('RelatesTo'),
                                           value_class=Relationship,
                                           is_optional=True)
-    To = struct.SubElementProperty(nsh.wsaTag('To'),
+    To = struct.SubElementProperty(nsh.WSA.tag('To'),
                                    value_class=MustUnderStandTextElement,
                                    is_optional=True)
-    Action = struct.SubElementProperty(nsh.wsaTag('Action'),
+    Action = struct.SubElementProperty(nsh.WSA.tag('Action'),
                                        value_class=MustUnderStandTextElement,
                                        is_optional=True)
-    From = struct.SubElementProperty(nsh.wsaTag('From'),
+    From = struct.SubElementProperty(nsh.WSA.tag('From'),
                                      value_class=EndpointReferenceType,
                                      is_optional=True)
     _props = ['MessageID', 'RelatesTo', 'To', 'Action', 'From']

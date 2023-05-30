@@ -36,13 +36,13 @@ class _EventService(DispatchKeyRegistry):
         self._msg_reader = sdc_device.msg_reader
         self._subscriptions_manager = subscriptions_manager
         self._offered_subscriptions = offered_subscriptions
-        self.register_post_handler(DispatchKey(EventingActions.Subscribe, ns_hlp.wseTag('Subscribe')),
+        self.register_post_handler(DispatchKey(EventingActions.Subscribe, ns_hlp.WSE.tag('Subscribe')),
                                    self._on_subscribe)
-        self.register_post_handler(DispatchKey(EventingActions.Unsubscribe, ns_hlp.wseTag('Unsubscribe')),
+        self.register_post_handler(DispatchKey(EventingActions.Unsubscribe, ns_hlp.WSE.tag('Unsubscribe')),
                                    self._on_unsubscribe)
-        self.register_post_handler(DispatchKey(EventingActions.GetStatus, ns_hlp.wseTag('GetStatus')),
+        self.register_post_handler(DispatchKey(EventingActions.GetStatus, ns_hlp.WSE.tag('GetStatus')),
                                    self._on_get_status)
-        self.register_post_handler(DispatchKey(EventingActions.Renew, ns_hlp.wseTag('Renew')),
+        self.register_post_handler(DispatchKey(EventingActions.Renew, ns_hlp.WSE.tag('Renew')),
                                    self._on_renew_status)
 
     @property
@@ -88,7 +88,7 @@ class DPWSHostedService(_EventService):
         self._my_port_types = [p.port_type_string for p in port_type_impls]
         self._wsdl_string = self._mk_wsdl_string()
         self.register_post_handler(DispatchKey(f'{ns_hlp.WSX.namespace}/GetMetadata/Request',
-                                               ns_hlp.wsxTag('GetMetadata')),
+                                               ns_hlp.WSX.tag('GetMetadata')),
                                    self._on_get_metadata)
         self.register_get_handler('?wsdl', self._on_get_wsdl)
         for port_type_impl in port_type_impls:
