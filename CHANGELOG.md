@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [master]
 
-## [2.0.0a1] - 2023-05-26
+## [2.0.0a1] - 2023-06-01
 
 ### Changed
 - Code follows PEP8 style (mostly)
