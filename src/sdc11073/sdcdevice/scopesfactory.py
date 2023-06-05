@@ -12,6 +12,7 @@ def mk_scopes(mdib) -> ScopesType:
     """
     pm_types = mdib.data_model.pm_types
     pm_names = mdib.data_model.pm_names
+    scope = ScopesType()
     locations = mdib.context_states.NODETYPE.get(pm_names.LocationContextState, [])
     assoc_loc = [l for l in locations if l.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
     if len(assoc_loc) == 1:
@@ -19,23 +20,23 @@ def mk_scopes(mdib) -> ScopesType:
         det = loc.LocationDetail
         dr_loc = SdcLocation(fac=det.Facility, poc=det.PoC, bed=det.Bed, bld=det.Building,
                              flr=det.Floor, rm=det.Room)
-        scope = ScopesType(dr_loc.scope_string)
+        scope.text.append(dr_loc.scope_string)
 
-        for nodetype, scheme in ((pm_names.OperatorContextDescriptor, 'sdc.ctxt.opr'),
-                                 (pm_names.EnsembleContextDescriptor, 'sdc.ctxt.ens'),
-                                 (pm_names.WorkflowContextDescriptor, 'sdc.ctxt.wfl'),
-                                 (pm_names.MeansContextDescriptor, 'sdc.ctxt.mns')):
-            descriptors = mdib.descriptions.NODETYPE.get(nodetype, [])
-            for descriptor in descriptors:
-                states = mdib.context_states.descriptorHandle.get(descriptor.Handle, [])
-                assoc_st = [s for s in states if s.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
-                for state in assoc_st:
-                    for ident in state.Identification:
-                        scope.text.append(f'{scheme}:/{quote_plus(ident.Root)}/{quote_plus(ident.Extension)}')
+    for nodetype, scheme in ((pm_names.OperatorContextDescriptor, 'sdc.ctxt.opr'),
+                             (pm_names.EnsembleContextDescriptor, 'sdc.ctxt.ens'),
+                             (pm_names.WorkflowContextDescriptor, 'sdc.ctxt.wfl'),
+                             (pm_names.MeansContextDescriptor, 'sdc.ctxt.mns')):
+        descriptors = mdib.descriptions.NODETYPE.get(nodetype, [])
+        for descriptor in descriptors:
+            states = mdib.context_states.descriptorHandle.get(descriptor.Handle, [])
+            assoc_st = [s for s in states if s.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
+            for state in assoc_st:
+                for ident in state.Identification:
+                    scope.text.append(f'{scheme}:/{quote_plus(ident.Root)}/{quote_plus(ident.Extension)}')
 
-        scope.text.extend(_get_device_component_based_scopes(mdib))
-        scope.text.append('sdc.mds.pkp:1.2.840.10004.20701.1.1')  # key purpose Service provider
-        return scope
+    scope.text.extend(_get_device_component_based_scopes(mdib))
+    scope.text.append('sdc.mds.pkp:1.2.840.10004.20701.1.1')  # key purpose Service provider
+    return scope
 
 
 def _get_device_component_based_scopes(mdib):

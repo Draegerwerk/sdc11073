@@ -15,14 +15,6 @@ class ScopesType(ElementWithTextList):
     MatchBy = struct.AnyURIAttributeProperty('MatchBy')
     _props = ['MatchBy']
 
-    def __init__(self, value=None, match_by=None):
-        super().__init__()
-        if isinstance(value, str):
-            self.text = [value]
-        else:
-            self.text = value
-        self.MatchBy = match_by
-
 
 class HelloType(MessageType):
     NODETYPE = wsd_tag('Hello')
