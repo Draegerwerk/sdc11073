@@ -2,6 +2,7 @@ from . import xml_structure as struct
 from .basetypes import XMLTypeBase, MessageType, ElementWithTextList
 from .addressing_types import EndpointReferenceType
 from ..namespaces import default_ns_helper
+from typing import Optional
 
 ########## Meta Data Exchange #########
 wsa_tag = default_ns_helper.WSA.tag  # shortcut
@@ -15,12 +16,10 @@ class ScopesType(ElementWithTextList):
     MatchBy = struct.AnyURIAttributeProperty('MatchBy')
     _props = ['MatchBy']
 
-    def __init__(self, value=None, match_by=None):
+    def __init__(self, value: Optional[str] = None, match_by: Optional[str] = None):
         super().__init__()
-        if isinstance(value, str):
-            self.text = [value]
-        else:
-            self.text = value
+        if value is not None:
+            self.text.append(value)
         self.MatchBy = match_by
 
 
