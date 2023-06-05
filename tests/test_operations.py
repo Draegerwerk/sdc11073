@@ -14,10 +14,10 @@ from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ClientMdibContainer
 from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.roles.nomenclature import NomenclatureCodes as nc
-from sdc11073.sdcclient import SdcClient
+from sdc11073.consumer import SdcConsumer
 from sdc11073.sdcdevice import waveforms
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
-from sdc11073.sdcclient.components import SdcClientComponents
+from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import DispatchKeyRegistry
 from tests.mockstuff import SomeDevice
 
@@ -78,10 +78,10 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         x_addr = self.sdc_device.get_xaddrs()
         # no deferred action handling for easier debugging
-        specific_components = SdcClientComponents(
+        specific_components = SdcConsumerComponents(
             action_dispatcher_class=DispatchKeyRegistry
         )
-        self.sdc_client = SdcClient(x_addr[0],
+        self.sdc_client = SdcConsumer(x_addr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
@@ -345,10 +345,10 @@ class Test_BuiltinOperations(unittest.TestCase):
         # connect a 2nd client
         x_addr = self.sdc_device.get_xaddrs()
         # no deferred action handling for easier debugging
-        specific_components = SdcClientComponents(
+        specific_components = SdcConsumerComponents(
             action_dispatcher_class=DispatchKeyRegistry
         )
-        sdc_client2 = SdcClient(x_addr[0],
+        sdc_client2 = SdcConsumer(x_addr[0],
                                 sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                 ssl_context=None,
                                 validate=CLIENT_VALIDATE,

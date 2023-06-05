@@ -3,14 +3,15 @@ import unittest
 import uuid
 from decimal import Decimal
 
+from sdc11073.consumer import SdcConsumer
 from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.location import SdcLocation
+from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.mdib.clientmdib import ClientMdibContainer
 from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.providerbase import ProviderRole
-from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice.components import SdcDeviceComponents
 from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist, WSDiscoverySingleAdapter
@@ -18,7 +19,6 @@ from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.xml_types.wsd_types import ScopesType
-from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 
 loopback_adapter = 'Loopback Pseudo-Interface 1' if os.name == 'nt' else 'lo'
 
@@ -265,7 +265,7 @@ class Test_Tutorial(unittest.TestCase):
         services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)  # both devices found
 
-        my_client = SdcClient.from_wsd_service(services[0], ssl_context=None)
+        my_client = SdcConsumer.from_wsd_service(services[0], ssl_context=None)
         self.my_clients.append(my_client)
         my_client.start_all()
         ############# Mdib usage ##############################
@@ -306,7 +306,7 @@ class Test_Tutorial(unittest.TestCase):
         services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)  # both devices found
 
-        my_client = SdcClient.from_wsd_service(services[0], ssl_context=None)
+        my_client = SdcConsumer.from_wsd_service(services[0], ssl_context=None)
         self.my_clients.append(my_client)
         my_client.start_all()
         my_mdib = ClientMdibContainer(my_client)
@@ -362,7 +362,8 @@ class Test_Tutorial(unittest.TestCase):
         services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
 
-        my_client = SdcClient.from_wsd_service(services[0], ssl_context=None)
+        self.service = SdcConsumer.from_wsd_service(services[0], ssl_context=None)
+        my_client = self.service
         self.my_clients.append(my_client)
         my_client.start_all()
         my_mdib = ClientMdibContainer(my_client)

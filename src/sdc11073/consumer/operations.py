@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Optional
 from .. import loghelper
 
 if TYPE_CHECKING:
-    from ..sdcclient.manipulator import RequestManipulatorProtocol
+    from ..sdcconsumer.manipulator import RequestManipulatorProtocol
 class OperationsManager:
 
     def __init__(self, msg_reader, log_prefix):

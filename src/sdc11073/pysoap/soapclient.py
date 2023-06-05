@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from ..pysoap.msgreader import MessageReader
     from ..definitions_base import BaseDefinitions
     from ..loghelper import LoggerAdapter
-    from ..sdcclient.manipulator import RequestManipulatorProtocol
+    from ..consumer.manipulator import RequestManipulatorProtocol
 
 
 class HTTPConnectionNoDelay(HTTPConnection):

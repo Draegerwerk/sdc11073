@@ -115,7 +115,7 @@ class _BufferedData:
 
 class ClientMdibContainer(mdibbase.MdibContainer):
     """ This mdib is meant to be read-only.
-    Only update source is an SdcClient."""
+    Only update source is an SdcConsumer."""
 
     MDIB_VERSION_CHECK_DISABLED = False  # for testing purpose you can disable checking of mdib version, so that every notification is accepted.
 
@@ -131,7 +131,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                  max_realtime_samples=100):
         """
 
-        :param sdc_client: a SdcClient instance
+        :param sdc_client: a SdcConsumer instance
         :param max_realtime_samples: determines how many real time samples are stored per RealtimeSampleArray
         """
         super().__init__(sdc_client.sdc_definitions)

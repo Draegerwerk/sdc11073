@@ -5,11 +5,11 @@ import unittest
 
 from sdc11073 import commlog
 from sdc11073 import loghelper
-from sdc11073.xml_types import pm_types
+from sdc11073.consumer import SdcConsumer
 from sdc11073.location import SdcLocation
 from sdc11073.mdib.clientmdib import ClientMdibContainer
-from sdc11073.sdcclient import SdcClient
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.xml_types import pm_types
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
@@ -36,7 +36,7 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         self.wsd.start()
         location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
         my_uuid = None  # let device create one
-        #self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_tns.xml')
+        # self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_tns.xml')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_two_mds.xml')
 
         self.sdc_device.start_all()
@@ -46,10 +46,10 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcClient(x_addr[0],
-                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                    ssl_context=None,
-                                    validate=CLIENT_VALIDATE)
+        self.sdc_client = SdcConsumer(x_addr[0],
+                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                      ssl_context=None,
+                                      validate=CLIENT_VALIDATE)
 
         self.sdc_client.start_all()
 
@@ -84,7 +84,7 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
     def test_allowed_values(self):
         cl_mdib = ClientMdibContainer(self.sdc_client)
         cl_mdib.init_mdib()
-        descr_handle = 'enumstring.ch0.vmd0'  #  this has an empty string as AllowedValue.Value in enumeration
+        descr_handle = 'enumstring.ch0.vmd0'  # this has an empty string as AllowedValue.Value in enumeration
         # set an alarm condition and start local signal
         enum_descr = cl_mdib.descriptions.handle.get_one(descr_handle)
         for allowed_value in enum_descr.AllowedValue:
@@ -94,4 +94,3 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
             time.sleep(1)
             received_state = cl_mdib.states.descriptorHandle.get_one(descr_handle)
             self.assertEqual(allowed_value.Value, received_state.MetricValue.Value)
-

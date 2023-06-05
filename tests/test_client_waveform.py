@@ -6,12 +6,12 @@ from lxml import etree as etree_
 
 from sdc11073 import definitions_sdc
 from sdc11073 import loghelper
-from sdc11073.namespaces import default_ns_helper as ns_hlp
+from sdc11073.consumer import SdcConsumer
 from sdc11073.mdib import ClientMdibContainer
 from sdc11073.mdib.descriptorcontainers import RealTimeSampleArrayMetricDescriptorContainer
 from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
+from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.xml_types.pm_types import Coding
-from sdc11073.sdcclient import SdcClient
 
 DEV_ADDRESS = 'http://169.254.0.200:10000'
 CLIENT_VALIDATE = True
@@ -104,10 +104,10 @@ class TestClientWaveform(unittest.TestCase):
     def setUp(self):
         loghelper.basic_logging_setup()
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
-        self.sdc_client = SdcClient(DEV_ADDRESS,
-                                    sdc_definitions=definitions_sdc.SDC_v1_Definitions,
-                                    ssl_context=None,
-                                    validate=CLIENT_VALIDATE)
+        self.sdc_client = SdcConsumer(DEV_ADDRESS,
+                                      sdc_definitions=definitions_sdc.SDC_v1_Definitions,
+                                      ssl_context=None,
+                                      validate=CLIENT_VALIDATE)
 
     def tearDown(self):
         sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
@@ -150,7 +150,7 @@ class TestClientWaveform(unittest.TestCase):
                           'Handle': handle,
                           'DescriptorVersion': '2'}
             element = etree_.Element('Metric', attrib=attributes, nsmap=ns_hlp.ns_map)
-            descr = RealTimeSampleArrayMetricDescriptorContainer.from_node(element, None) # None = no parent handle
+            descr = RealTimeSampleArrayMetricDescriptorContainer.from_node(element, None)  # None = no parent handle
             client_mdib.descriptions.add_object(descr)
             state = RealTimeSampleArrayMetricStateContainer(descr)
             state.StateVersion = 41

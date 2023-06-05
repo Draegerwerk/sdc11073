@@ -1,12 +1,14 @@
-import unittest
 import time
-from tests.mockstuff import SomeDevice
+import unittest
+
 from lxml import etree
-from sdc11073.sdcclient import SdcClient
-from sdc11073.xml_types.pm_types import InstanceIdentifier
+
+from sdc11073.consumer import SdcConsumer
 from sdc11073.httpserver import compression
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.location import SdcLocation
+from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.xml_types.pm_types import InstanceIdentifier
+from tests.mockstuff import SomeDevice
 
 XML_REQ = '<?xml version=\'1.0\' encoding=\'UTF-8\'?> \
 <s12:Envelope xmlns:dom="__BICEPS_ParticipantModel__" xmlns:dpws="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01"' \
@@ -22,6 +24,7 @@ XML_REQ = '<?xml version=\'1.0\' encoding=\'UTF-8\'?> \
 
 GZIP = compression.GzipCompressionHandler.algorithms[0]
 LZ4 = compression.Lz4CompressionHandler.algorithms[0]
+
 
 class Test_Compression(unittest.TestCase):
 
@@ -57,10 +60,10 @@ class Test_Compression(unittest.TestCase):
 
         # Connect a new client to the device
         x_addr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcClient(x_addr[0],
-                                         sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                         ssl_context=None,
-                                         )
+        self.sdc_client = SdcConsumer(x_addr[0],
+                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                      ssl_context=None,
+                                      )
         if compression_flag is None:
             self.sdc_client.set_used_compression()
         else:
@@ -154,6 +157,7 @@ class Test_Compression(unittest.TestCase):
         except:
             self.fail("Wrong xml syntax. Msg {}".format(content))
 
+
 class Test_Compression_ParseHeader(unittest.TestCase):
 
     def test_parseHeader(self):
@@ -171,6 +175,3 @@ class Test_Compression_ParseHeader(unittest.TestCase):
         self.assertEqual(result, ['lz4', 'gzip'])
         result = compression.CompressionHandler.parse_header('gzip,lz4; q=0.9')
         self.assertEqual(result, ['gzip', 'lz4'])
-
-
-

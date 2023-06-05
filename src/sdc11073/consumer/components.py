@@ -13,7 +13,7 @@ from .serviceclients.localizationservice import LocalizationServiceClient
 from .serviceclients.setservice import SetServiceClient
 from .serviceclients.stateeventservice import StateEventClient
 from .serviceclients.waveformservice import WaveformClient
-from .subscription import ClientSubscriptionManager
+from .subscription import ConsumerSubscriptionManager
 from ..pysoap.msgfactory import MessageFactory
 from ..pysoap.msgreader import MessageReader
 from ..pysoap.soapclient import SoapClient
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 # Dependency injection: This class defines which component implementations the sdc client will use.
 @dataclass()
-class SdcClientComponents:
+class SdcConsumerComponents:
     soap_client_class: Type[Any] = None
     msg_factory_class: Type[MessageFactory] = None
     msg_reader_class: Type[MessageReader] = None
@@ -53,12 +53,12 @@ class SdcClientComponents:
                 self.service_handlers[key] = value
 
 
-default_sdc_client_components = SdcClientComponents(
+default_sdc_consumer_components = SdcConsumerComponents(
     soap_client_class=SoapClient,
     msg_factory_class=MessageFactory,
     msg_reader_class=MessageReader,
     action_dispatcher_class = DispatchKeyRegistryDeferred, # defaults to deferred handling
-    subscription_manager_class=ClientSubscriptionManager,
+    subscription_manager_class=ConsumerSubscriptionManager,
     operations_manager_class=OperationsManager,
     service_handlers={'ContainmentTreeService': CTreeServiceClient,
                       'GetService': GetServiceClient,

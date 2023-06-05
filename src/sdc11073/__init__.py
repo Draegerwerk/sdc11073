@@ -2,7 +2,7 @@ from . import pysoap
 from . import namespaces
 from . import mdib
 from . import location
-from . import sdcclient
+from . import consumer
 from . import sdcdevice
 from . import commlog
 

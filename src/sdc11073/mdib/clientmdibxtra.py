@@ -221,7 +221,7 @@ class ClientMdibMethods:
                     self._mdib.context_states.remove_object_no_lock(obj)
 
     def bind_to_client_observables(self):
-        # get notifications from sdcClient
+        # get notifications from sdc consumer
         if PROFILING:
             properties.bind(self._sdc_client, waveform_report=self._on_waveform_report_profiled)
         else:

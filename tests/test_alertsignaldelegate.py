@@ -9,7 +9,7 @@ from sdc11073.xml_types import pm_types, msg_types
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib.clientmdib import ClientMdibContainer
-from sdc11073.sdcclient import SdcClient
+from sdc11073.consumer import SdcConsumer
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from tests.mockstuff import SomeDevice
 
@@ -49,7 +49,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         xAddr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcClient(xAddr[0],
+        self.sdc_client = SdcConsumer(xAddr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,

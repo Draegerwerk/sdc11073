@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 
 
-class ClSubscription:
+class ConsumerSubscription:
     """ This class handles a subscription to an event source.
     It stores all key data of the subscription and can renew and unsubscribe this subscription."""
     notification_msg = properties.ObservableProperty()
@@ -282,7 +282,7 @@ class ClSubscription:
             return ', '.join(str(a) for a in self._filter_type.any)
 
 
-class ClientSubscriptionManager(threading.Thread):
+class ConsumerSubscriptionManager(threading.Thread):
     """
      Factory for Subscription objects. It automatically renews expiring subscriptions.
     """
@@ -356,10 +356,10 @@ class ClientSubscriptionManager(threading.Thread):
         sep = '' if self._end_to_url.endswith('/') else '/'
         end_to_url = f'{self._end_to_url}{sep}subscr{self._counter}_e'
         self._counter += 1
-        subscription = ClSubscription(self._msg_factory, self._data_model,
-                                      self._get_soap_client_func,
-                                      dpws_hosted, filter_type, notification_url,
-                                      end_to_url, self.log_prefix)
+        subscription = ConsumerSubscription(self._msg_factory, self._data_model,
+                                            self._get_soap_client_func,
+                                            dpws_hosted, filter_type, notification_url,
+                                            end_to_url, self.log_prefix)
         filter_ = filter_type.text
         with self._subscriptions_lock:
             self.subscriptions[filter_] = subscription
@@ -372,7 +372,7 @@ class ClientSubscriptionManager(threading.Thread):
         self._logger.warn('{}: have no subscription for identifier = {}', log_prefix, request_data.current)
         return None
 
-    def on_subscription_end(self, request_data) -> [ClSubscription, None]:
+    def on_subscription_end(self, request_data) -> [ConsumerSubscription, None]:
         subscription_end = evt_types.SubscriptionEnd.from_node(request_data.message_data.p_msg.msg_node)
         if subscription_end.Status:
             info = f' status={subscription_end.Status} '
@@ -414,17 +414,17 @@ class ClientSubscriptionManager(threading.Thread):
         return ret
 
 
-class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):
+class ClientSubscriptionManagerReferenceParams(ConsumerSubscriptionManager):
     def mk_subscription(self, dpws_hosted: HostedServiceType, filter_type: FilterType):
-        subscription = ClSubscription(self._msg_factory,
-                                      self._data_model,
-                                      self._get_soap_client_func,
-                                      dpws_hosted, filter_type,
-                                      self._notification_url,
-                                      self._end_to_url, self.log_prefix)
-        subscription.notify_to_identifier = etree_.Element(ClSubscription.IDENT_TAG)
+        subscription = ConsumerSubscription(self._msg_factory,
+                                            self._data_model,
+                                            self._get_soap_client_func,
+                                            dpws_hosted, filter_type,
+                                            self._notification_url,
+                                            self._end_to_url, self.log_prefix)
+        subscription.notify_to_identifier = etree_.Element(ConsumerSubscription.IDENT_TAG)
         subscription.notify_to_identifier.text = uuid.uuid4().urn
-        subscription.end_to_identifier = etree_.Element(ClSubscription.IDENT_TAG)
+        subscription.end_to_identifier = etree_.Element(ConsumerSubscription.IDENT_TAG)
         subscription.end_to_identifier.text = uuid.uuid4().urn
 
         filter_ = filter_type.text
@@ -433,7 +433,7 @@ class ClientSubscriptionManagerReferenceParams(ClientSubscriptionManager):
         return subscription
 
     def _find_subscription(self, request_data, reference_parameters, log_prefix):
-        subscr_ident_list = request_data.message_data.p_msg.header_node.findall(ClSubscription.IDENT_TAG,
+        subscr_ident_list = request_data.message_data.p_msg.header_node.findall(ConsumerSubscription.IDENT_TAG,
                                                                                 namespaces=ns_hlp.ns_map)
         if not subscr_ident_list:
             return None

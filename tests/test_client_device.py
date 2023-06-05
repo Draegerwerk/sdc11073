@@ -26,9 +26,9 @@ from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from sdc11073.sdcclient import SdcClient
-from sdc11073.sdcclient.components import SdcClientComponents
-from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
+from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.components import SdcConsumerComponents
+from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.components import SdcDeviceComponents, default_sdc_device_components_async
 from sdc11073.sdcdevice.subscriptionmgr import ReferenceParamSubscriptionsManager
@@ -254,12 +254,12 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         time.sleep(0.5)  # allow init of devices to complete
         # no deferred action handling for easier debugging
-        specific_components = SdcClientComponents(
+        specific_components = SdcConsumerComponents(
             action_dispatcher_class=DispatchKeyRegistry
         )
 
         x_addr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcClient(x_addr[0],
+        self.sdc_client = SdcConsumer(x_addr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
@@ -484,10 +484,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
         sdc_client = None
         try:
             # no deferred action handling for easier debugging
-            specific_components = SdcClientComponents(
+            specific_components = SdcConsumerComponents(
                 action_dispatcher_class=DispatchKeyRegistry
             )
-            sdc_client = SdcClient(x_addr[0],
+            sdc_client = SdcConsumer(x_addr[0],
                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                    ssl_context=None,
                                    validate=CLIENT_VALIDATE,
@@ -1089,7 +1089,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device_1.get_xaddrs()
-        self.sdc_client_1 = SdcClient(x_addr[0],
+        self.sdc_client_1 = SdcConsumer(x_addr[0],
                                       sdc_definitions=self.sdc_device_1.mdib.sdc_definitions,
                                       ssl_context=None,
                                       epr="client1",
@@ -1098,7 +1098,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         self.sdc_client_1.start_all(shared_http_server=self.httpserver)
 
         x_addr = self.sdc_device_2.get_xaddrs()
-        self.sdc_client_2 = SdcClient(x_addr[0],
+        self.sdc_client_2 = SdcConsumer(x_addr[0],
                                       sdc_definitions=self.sdc_device_2.mdib.sdc_definitions,
                                       ssl_context=None,
                                       epr="client2",
@@ -1167,7 +1167,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcClient(x_addr[0],
+        self.sdc_client = SdcConsumer(x_addr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
@@ -1222,8 +1222,8 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device.get_xaddrs()
-        specific_components = SdcClientComponents(subscription_manager_class=ClientSubscriptionManagerReferenceParams)
-        self.sdc_client = SdcClient(x_addr[0],
+        specific_components = SdcConsumerComponents(subscription_manager_class=ClientSubscriptionManagerReferenceParams)
+        self.sdc_client = SdcConsumer(x_addr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
@@ -1309,7 +1309,7 @@ class Test_Client_SomeDevice_async(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcClient(x_addr[0],
+        self.sdc_client = SdcConsumer(x_addr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
