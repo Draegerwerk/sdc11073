@@ -130,7 +130,7 @@ class AgeStatistics:
             return _AgeData(mean_data, std_deviation, min_value, max_value)
 
 
-class ClientMdibMethods:
+class ConsumerMdibMethods:
     DETERMINATIONTIME_WARN_LIMIT = 1.0  # in seconds
 
     def __init__(self, client_mdib, logger):

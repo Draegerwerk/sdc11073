@@ -19,7 +19,7 @@ from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
-from sdc11073.mdib import ClientMdibContainer
+from sdc11073.mdib import ConsumerMdibContainer
 from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
@@ -103,7 +103,7 @@ def runtest_directed_probe(unit_test, sdc_client, sdc_device):
 def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
     # a random number for maxRealtimeSamples, not too big, otherwise we have to wait too long.
     # But wait long enough to have at least one full waveform period in buffer for annotations.
-    client_mdib = ClientMdibContainer(sdc_client, max_realtime_samples=297)
+    client_mdib = ConsumerMdibContainer(sdc_client, max_realtime_samples=297)
     client_mdib.init_mdib()
     client_mdib.xtra.set_calculate_wf_age_stats(True)
     time.sleep(3.5)  # Wait long enough to make the rt_buffers full.
@@ -177,7 +177,7 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
 
 def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_periodic_reports=True):
     """ verify that the client receives correct EpisodicMetricReports and PeriodicMetricReports"""
-    cl_mdib = ClientMdibContainer(sdc_client)
+    cl_mdib = ConsumerMdibContainer(sdc_client)
     cl_mdib.init_mdib()
     # wait for the next EpisodicMetricReport
     coll = observableproperties.SingleValueCollector(sdc_client, 'episodic_metric_report')
@@ -338,7 +338,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_client_stop(self):
         """ verify that sockets get closed"""
-        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdibContainer(self.sdc_client)
         cl_mdib.init_mdib()
 
         services = [s for s in self.sdc_device.hosted_services.dpws_hosted_services.values()
@@ -373,7 +373,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_device_stop(self):
         """ verify that sockets get closed"""
-        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdibContainer(self.sdc_client)
         cl_mdib.init_mdib()
         services = [s for s in self.sdc_device.hosted_services.dpws_hosted_services.values()
                     if s.subscriptions_manager is not None]
@@ -407,7 +407,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_client_stop_no_unsubscribe(self):
         self.log_watcher.setPaused(True)  # this test will have error logs, no check
-        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdibContainer(self.sdc_client)
         cl_mdib.init_mdib()
         services = [s for s in self.sdc_device.hosted_services.dpws_hosted_services.values()
                     if s.subscriptions_manager is not None]
@@ -473,7 +473,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def test_instance_id(self):
         """ verify that the client receives correct EpisodicMetricReports and PeriodicMetricReports"""
         self.assertIsNone(self.sdc_device.mdib.instance_id)
-        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdibContainer(self.sdc_client)
         cl_mdib.init_mdib()
         self.assertEqual(self.sdc_device.mdib.sequence_id, cl_mdib.sequence_id)
         self.assertEqual(self.sdc_device.mdib.instance_id, cl_mdib.instance_id)
@@ -494,7 +494,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                    specific_components=specific_components)
             sdc_client.start_all(subscribe_periodic_reports=True)
 
-            cl_mdib = ClientMdibContainer(sdc_client)
+            cl_mdib = ConsumerMdibContainer(sdc_client)
             cl_mdib.init_mdib()
             self.assertEqual(self.sdc_device.mdib.instance_id, cl_mdib.instance_id)
         finally:
@@ -509,7 +509,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_alert_reports(self):
         """ verify that the client receives correct EpisodicAlertReports and PeriodicAlertReports"""
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
 
         # wait for the next PeriodicAlertReport
@@ -566,7 +566,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def test_set_patient_context_on_device(self):
         """device updates patient.
          verify that a notification device->client updates the client mdib."""
-        clientMdib = ClientMdibContainer(self.sdc_client)
+        clientMdib = ConsumerMdibContainer(self.sdc_client)
         clientMdib.init_mdib()
 
         patientDescriptorContainer = self.sdc_device.mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
@@ -716,7 +716,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             st.MetricValue.Value = first_value
             st.MetricValue.MetricQuality.Validity = pm_types.MeasurementValidity.VALID
 
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
 
         descriptor_container = client_mdib.descriptions.handle.get_one(descriptor_handle)
@@ -783,7 +783,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         alert_descriptor_handle = '0xD3C00100'
         limit_alert_descriptor_handle = '0xD3C00108'
 
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
 
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
@@ -851,7 +851,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 mds_descriptor.MetaData.SerialNumber.append('pmDCBA-4321')
                 mds_descriptor.MetaData.ModelNumber = '1.09'
 
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
 
         cl_mds_descriptors = client_mdib.descriptions.NODETYPE.get(pm.MdsDescriptor)
@@ -862,7 +862,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def test_remove_mds(self):
         self.sdc_device.stop_realtime_sample_loop()
         time.sleep(0.1)
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
         dev_descriptor_count1 = len(self.sdc_device.mdib.descriptions.objects)
         descr_handles = list(self.sdc_device.mdib.descriptions.handle.keys())
@@ -896,7 +896,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(dev_state_count2, cl_state_count2)
 
     def test_client_mdib_observables(self):
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
 
         # wait for the next EpisodicMetricReport
@@ -1038,7 +1038,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     return False
             return True
 
-        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdibContainer(self.sdc_client)
         cl_mdib.init_mdib()
         for cl_descriptor in cl_mdib.descriptions.objects:
             dev_descriptor = self.sdc_device.mdib.descriptions.handle.get_one(cl_descriptor.Handle)

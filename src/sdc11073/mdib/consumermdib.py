@@ -8,7 +8,7 @@ from decimal import Decimal
 from enum import Enum
 
 from . import mdibbase
-from .clientmdibxtra import ClientMdibMethods
+from .consumermdibxtra import ConsumerMdibMethods
 from .. import loghelper
 from ..exceptions import ApiUsageError
 
@@ -33,7 +33,7 @@ class RtSampleContainer:
         return f'RtSample value="{self.value_string}" validity="{self.validity}" time={self.determination_time}'
 
 
-class ClientRtBuffer:
+class ConsumerRtBuffer:
     """Collects data of one real time stream."""
 
     def __init__(self,
@@ -113,7 +113,7 @@ class _BufferedData:
     handler: callable
 
 
-class ClientMdibContainer(mdibbase.MdibContainer):
+class ConsumerMdibContainer(mdibbase.MdibContainer):
     """ This mdib is meant to be read-only.
     Only update source is an SdcConsumer."""
 
@@ -138,10 +138,10 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self._logger = loghelper.get_logger_adapter('sdc.client.mdib', sdc_client.log_prefix)
         self._sdc_client = sdc_client
         if extras_cls is None:
-            extras_cls = ClientMdibMethods
+            extras_cls = ConsumerMdibMethods
         self._xtra = extras_cls(self, self._logger)
         self._is_initialized = False
-        self.rt_buffers = {}  # key  is a handle, value is a ClientRtBuffer
+        self.rt_buffers = {}  # key  is a handle, value is a ConsumerRtBuffer
         self._max_realtime_samples = max_realtime_samples
         self._last_wf_age_log = time.time()
         self._context_mdib_version = None
@@ -169,7 +169,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         :return:
         """
         if self._is_initialized:
-            raise ApiUsageError('ClientMdibContainer is already initialized')
+            raise ApiUsageError('ConsumerMdibContainer is already initialized')
         # first start receiving notifications, then call get_mdib.
         # Otherwise, we might miss notifications.
         self._xtra.bind_to_client_observables()
@@ -480,7 +480,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                         if descriptor_container is not None:
                             # read sample period
                             sample_period = descriptor_container.SamplePeriod or 0
-                        rt_buffer = ClientRtBuffer(sample_period=sample_period, max_samples=self._max_realtime_samples)
+                        rt_buffer = ConsumerRtBuffer(sample_period=sample_period, max_samples=self._max_realtime_samples)
                         self.rt_buffers[d_handle] = rt_buffer
                     rt_sample_containers = rt_buffer.mk_rt_sample_containers(state_container)
                     rt_buffer.add_rt_sample_containers(rt_sample_containers)

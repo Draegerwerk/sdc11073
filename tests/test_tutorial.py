@@ -9,7 +9,7 @@ from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import DeviceMdibContainer
-from sdc11073.mdib.clientmdib import ClientMdibContainer
+from sdc11073.mdib.consumermdib import ConsumerMdibContainer
 from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.sdcdevice.components import SdcDeviceComponents
@@ -273,7 +273,7 @@ class Test_Tutorial(unittest.TestCase):
         # The mdib collects all data and makes it easily available for the test
         # The MdibContainer wraps data in "container" objects.
         # The basic idea is that every node that has a handle becomes directly accessible via its handle.
-        my_mdib = ClientMdibContainer(my_client)
+        my_mdib = ConsumerMdibContainer(my_client)
         my_mdib.init_mdib()  # my_mdib keeps itself now updated
 
         # now query some data
@@ -309,7 +309,7 @@ class Test_Tutorial(unittest.TestCase):
         my_client = SdcConsumer.from_wsd_service(services[0], ssl_context=None)
         self.my_clients.append(my_client)
         my_client.start_all()
-        my_mdib = ClientMdibContainer(my_client)
+        my_mdib = ConsumerMdibContainer(my_client)
         my_mdib.init_mdib()
 
         # we want to set a patient.
@@ -366,7 +366,7 @@ class Test_Tutorial(unittest.TestCase):
         my_client = self.service
         self.my_clients.append(my_client)
         my_client.start_all()
-        my_mdib = ClientMdibContainer(my_client)
+        my_mdib = ConsumerMdibContainer(my_client)
         my_mdib.init_mdib()
 
         sco_handle = 'sco.mds0'

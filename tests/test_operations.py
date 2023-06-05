@@ -11,7 +11,7 @@ from sdc11073 import observableproperties
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
-from sdc11073.mdib import ClientMdibContainer
+from sdc11073.mdib import ConsumerMdibContainer
 from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.consumer import SdcConsumer
@@ -112,7 +112,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         """client calls corresponding operation of GenericContextProvider.
         - verify that operation is successful.
          verify that a notification device->client also updates the client mdib."""
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
         patient_descriptor_container = client_mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
         # initially the device shall not have any patient
@@ -247,7 +247,7 @@ class Test_BuiltinOperations(unittest.TestCase):
     def test_location_context(self):
         # initially the device shall have one location, and the client must have it in its mdib
         device_mdib = self.sdc_device.mdib
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
 
         dev_locations = device_mdib.context_states.NODETYPE.get(pm.LocationContextState)
@@ -300,7 +300,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertGreater(len(alert_system_descriptors), 0)
 
         set_service = self.sdc_client.client('Set')
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
         coding = pm_types.Coding(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
         operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
@@ -339,7 +339,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertGreater(len(alert_system_descriptors), 0)
 
         set_service = self.sdc_client.client('Set')
-        client_mdib1 = ClientMdibContainer(self.sdc_client)
+        client_mdib1 = ConsumerMdibContainer(self.sdc_client)
         client_mdib1.init_mdib()
 
         # connect a 2nd client
@@ -354,7 +354,7 @@ class Test_BuiltinOperations(unittest.TestCase):
                                 validate=CLIENT_VALIDATE,
                                 specific_components=specific_components)
         sdc_client2.start_all(subscribe_periodic_reports=True)
-        client_mdib2 = ClientMdibContainer(sdc_client2)
+        client_mdib2 = ConsumerMdibContainer(sdc_client2)
         client_mdib2.init_mdib()
         clients = (self.sdc_client, sdc_client2)
         coding = pm_types.Coding(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
@@ -392,7 +392,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
     def test_set_ntp_server(self):
         set_service = self.sdc_client.client('Set')
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
         coding = pm_types.Coding(nc.MDC_OP_SET_TIME_SYNC_REF_SRC)
         my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
@@ -423,7 +423,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
     def test_set_time_zone(self):
         set_service = self.sdc_client.client('Set')
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
 
         coding = pm_types.Coding(nc.MDC_ACT_SET_TIME_ZONE)
@@ -473,7 +473,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         sco.register_operation(op)
         self.sdc_device.mdib.xtra.mk_state_containers_for_all_descriptors()
         setService = self.sdc_client.client('Set')
-        clientMdib = ClientMdibContainer(self.sdc_client)
+        clientMdib = ConsumerMdibContainer(self.sdc_client)
         clientMdib.init_mdib()
 
         operation_handle = my_operation_descriptor.Handle
@@ -512,7 +512,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         sco.register_operation(op)
         self.sdc_device.mdib.xtra.mk_state_containers_for_all_descriptors()
         set_service = self.sdc_client.client('Set')
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdibContainer(self.sdc_client)
         client_mdib.init_mdib()
 
         operation_handle = my_operation_descriptor.Handle
