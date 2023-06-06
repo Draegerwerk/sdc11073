@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [master]
 ### Fixed
 - fixed bug that mk_scopes only created a scope if a location was associated.
-- fixed bug in subscriptionsmanager_base, fault message generation.
+- fixed broken fault message generation in subscriptionsmanager_base. A previously removed method of 
+namespace helper was still used. 
 
 ## [2.0.0a1] - 2023-06-01
 
