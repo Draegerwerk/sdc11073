@@ -29,9 +29,9 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.consumer import SdcConsumer
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
-from sdc11073.sdcdevice import waveforms
-from sdc11073.sdcdevice.components import SdcDeviceComponents, default_sdc_device_components_async
-from sdc11073.sdcdevice.subscriptionmgr import ReferenceParamSubscriptionsManager
+from sdc11073.provider import waveforms
+from sdc11073.provider.components import SdcDeviceComponents, default_sdc_device_components_async
+from sdc11073.provider.subscriptionmgr import ReferenceParamSubscriptionsManager
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.namespaces import default_ns_helper
 from tests.mockstuff import SomeDevice, dec_list

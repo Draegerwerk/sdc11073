@@ -10,10 +10,10 @@ from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.mdib.consumermdib import ConsumerMdibContainer
+from sdc11073.provider import SdcProvider
+from sdc11073.provider.components import SdcDeviceComponents
 from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.providerbase import ProviderRole
-from sdc11073.sdcdevice.components import SdcDeviceComponents
-from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist, WSDiscoverySingleAdapter
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
@@ -42,12 +42,12 @@ def createGenericDevice(wsdiscovery_instance, location, mdib_path, specific_comp
     this_device = ThisDeviceType(friendly_name='TestDevice',
                                  firmware_version='Version1',
                                  serial_number='12345')
-    sdc_device = SdcDevice(wsdiscovery_instance,
-                           this_model,
-                           this_device,
-                           my_mdib,
-                           epr=my_epr,
-                           specific_components=specific_components)
+    sdc_device = SdcProvider(wsdiscovery_instance,
+                             this_model,
+                             this_device,
+                             my_mdib,
+                             epr=my_epr,
+                             specific_components=specific_components)
     for desc in sdc_device.mdib.descriptions.objects:
         desc.SafetyClassification = pm_types.SafetyClassification.MED_A
     sdc_device.start_all(start_rtsample_loop=False)

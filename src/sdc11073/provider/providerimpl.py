@@ -50,7 +50,7 @@ class _PathElementDispatcher(PathElementRegistry):
 
 
 class WsDiscoveryProtocol(Protocol):
-    """This is the interface that SdcDevice expects"""
+    """This is the interface that SdcProvider expects"""
 
     def publish_service(self, epr: str, types: list, scopes: ScopesType, x_addrs: list):
         ...
@@ -62,7 +62,7 @@ class WsDiscoveryProtocol(Protocol):
         ...
 
 
-class SdcDevice:
+class SdcProvider:
     DEFAULT_CONTEXTSTATES_IN_GETMDIB = True  # defines weather get_mdib and getMdStates contain context states or not.
 
     def __init__(self, ws_discovery: WsDiscoveryProtocol,

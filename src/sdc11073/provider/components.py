@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from lxml.etree import QName
     from ..xml_types.wsd_types import ScopesType
     from ..pysoap.msgfactory import MessageFactory
-    from ..sdcdevice.servicesfactory import HostedServices
+    from ..provider.servicesfactory import HostedServices
     from .sco import AbstractScoOperationsRegistry
     from ..mdib.devicemdib import DeviceMdibContainer
     from .subscriptionmgr_base import SubscriptionManagerProtocol

@@ -15,7 +15,7 @@ from sdc11073.mdib import ConsumerMdibContainer
 from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.consumer import SdcConsumer
-from sdc11073.sdcdevice import waveforms
+from sdc11073.provider import waveforms
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import DispatchKeyRegistry

@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from decimal import Context
 from typing import Iterable, List, Type, Union
 
-from ..sdcdevice.waveforms import WaveformGeneratorBase
+from ..provider.waveforms import WaveformGeneratorBase
 
 
 class RtSampleArray:

@@ -15,7 +15,7 @@ from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import DeviceMdibContainer, ClientMdibContainer
 from sdc11073.sdcclient import SdcClient
-from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
+from sdc11073.provider.sdcdeviceimpl import SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist, Scopes
 
 here = os.path.dirname(__file__)

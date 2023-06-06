@@ -11,8 +11,8 @@ from lxml import etree as etree_
 
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.namespaces import default_ns_helper as ns_hlp
-from sdc11073.sdcdevice import SdcDevice
-from sdc11073.sdcdevice.subscriptionmgr import BicepsSubscription
+from sdc11073.provider import SdcProvider
+from sdc11073.provider.subscriptionmgr import BicepsSubscription
 from sdc11073.xml_types import pm_types, pm_qnames as pm
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.dpws_types import ThisModelType, ThisDeviceType
@@ -106,7 +106,7 @@ class TestDevSubscription(BicepsSubscription):
         pass
 
 
-class SomeDevice(SdcDevice):
+class SomeDevice(SdcProvider):
     """A device used for unit tests
 
     """
@@ -116,12 +116,12 @@ class SomeDevice(SdcDevice):
                  validate=True, ssl_context=None, log_prefix='',
                  default_components=None, specific_components=None,
                  chunked_messages=False):
-        model = ThisModelType(manufacturer='Draeger CoC Systems',
-                              manufacturer_url='www.draeger.com',
+        model = ThisModelType(manufacturer='Example Manufacturer',
+                              manufacturer_url='www.example-manufacturer.com',
                               model_name='SomeDevice',
                               model_number='1.0',
-                              model_url='www.draeger.com/whatever/you/want/model',
-                              presentation_url='www.draeger.com/whatever/you/want/presentation')
+                              model_url='www.example-manufacturer.com/whatever/you/want/model',
+                              presentation_url='www.example-manufacturer.com/whatever/you/want/presentation')
         device = ThisDeviceType(friendly_name='Py SomeDevice',
                                 firmware_version='0.99',
                                 serial_number='12345')
@@ -131,7 +131,7 @@ class SomeDevice(SdcDevice):
         mdsDescriptors = device_mdib_container.descriptions.NODETYPE.get(pm.MdsDescriptor)
         for mdsDescriptor in mdsDescriptors:
             if mdsDescriptor.MetaData is not None:
-                mdsDescriptor.MetaData.Manufacturer.append(pm_types.LocalizedText(u'Dräger'))
+                mdsDescriptor.MetaData.Manufacturer.append(pm_types.LocalizedText('Example Manufacturer'))
                 mdsDescriptor.MetaData.ModelName.append(pm_types.LocalizedText(model.ModelName[0].text))
                 mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')
                 mdsDescriptor.MetaData.ModelNumber = '0.99'

@@ -42,7 +42,7 @@ class DeviceMdibMethods:
     def set_location(self, sdc_location, validators=None, set_associated=True):
         """
         This method updates only the mdib internal data!
-        use the SdcDevice.set_location method if you want to publish the address on the network.
+        use the SdcProvider.set_location method if you want to publish the address on the network.
         :param sdc_location: a pysdc.location.SdcLocation instance
         :param validators: a list of pysdc.pmtypes.InstanceIdentifier objects or None
         :param set_associated: if True, BindingTime, BindingMdibVersion and ContextAssociation are set

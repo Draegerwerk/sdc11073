@@ -6,7 +6,7 @@ from sdc11073.xml_types import pm_types
 from sdc11073.xml_types.dpws_types import ThisModelType, ThisDeviceType
 from sdc11073.mdib import descriptorcontainers as dc
 from sdc11073.mdib.devicewaveform import Annotator
-from sdc11073.sdcdevice import waveforms
+from sdc11073.provider import waveforms
 from sdc11073.pysoap.soapclientpool import SoapClientPool
 from tests import mockstuff
 
@@ -111,7 +111,7 @@ class TestDeviceWaveform(unittest.TestCase):
         waveform_provider.register_annotation_generator(annotator)
 
         wsd = mockstuff.MockWsDiscovery(['5.6.7.8'])
-        self.sdc_device = sdc11073.sdcdevice.SdcDevice(wsd, this_model, this_device, self.mdib)
+        self.sdc_device = sdc11073.provider.SdcProvider(wsd, this_model, this_device, self.mdib)
         self.sdc_device.start_all()
         test_subscription = mockstuff.TestDevSubscription([self.sdc_device.mdib.sdc_definitions.Actions.Waveform],
                                                           self._soap_client_pool,

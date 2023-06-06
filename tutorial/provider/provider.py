@@ -2,7 +2,7 @@ import uuid
 import time
 from sdc11073.xml_types import pm_types
 from sdc11073.xml_types import pm_qnames as pm
-from sdc11073.sdcdevice import SdcDevice
+from sdc11073.provider import SdcDevice
 from sdc11073.mdib import DeviceMdibContainer
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.location import SdcLocation
