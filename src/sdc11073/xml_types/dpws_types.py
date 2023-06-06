@@ -65,7 +65,13 @@ class LocalizedStringType(ElementWithText):
     _props = ['lang']
 
     @classmethod
-    def init(cls, lang, text):
+    def init(cls, text: str, lang: Optional[str] = None):
+        """
+        This class represents the LocalizedStringType in DPWS.
+        :param text: the text
+        :param lang: if given, the actual language
+        :return:
+        """
         instance = cls()
         instance.lang = lang
         instance.text = text
@@ -95,10 +101,10 @@ class ThisDeviceType(XMLTypeBase):
         """
         super().__init__()
         if isinstance(friendly_name, str):
-            self.FriendlyName.append(LocalizedStringType.init('', friendly_name))
+            self.FriendlyName.append(LocalizedStringType.init(friendly_name))
         elif isinstance(friendly_name, LocalizedStringTypeDict):
             for lang, text in friendly_name.items():
-                self.FriendlyName.append(LocalizedStringType.init(lang, text))
+                self.FriendlyName.append(LocalizedStringType.init(text, lang))
         self.FirmwareVersion = firmware_version
         self.SerialNumber = serial_number
 
@@ -123,16 +129,16 @@ class ThisModelType(XMLTypeBase):
                  presentation_url: Optional[str] = None):
         super().__init__()
         if isinstance(manufacturer, str):
-            self.Manufacturer.append(LocalizedStringType.init(None, manufacturer))
+            self.Manufacturer.append(LocalizedStringType.init(manufacturer))
         elif isinstance(manufacturer, LocalizedStringTypeDict):
-            for lang, value in manufacturer.items():
-                self.Manufacturer.append(LocalizedStringType.init(lang, value))
+            for lang, text in manufacturer.items():
+                self.Manufacturer.append(LocalizedStringType.init(text, lang))
         self.ManufacturerUrl = manufacturer_url
         if isinstance(model_name, str):
-            self.ModelName.append(LocalizedStringType.init(None, model_name))
+            self.ModelName.append(LocalizedStringType.init(model_name))
         elif isinstance(model_name, LocalizedStringTypeDict):
-            for lang, value in model_name.items():
-                self.ModelName.append(LocalizedStringType.init(lang, value))
+            for lang, text in model_name.items():
+                self.ModelName.append(LocalizedStringType.init(text, lang))
         self.ModelNumber = model_number
         self.ModelUrl = model_url
         self.PresentationUrl = presentation_url
