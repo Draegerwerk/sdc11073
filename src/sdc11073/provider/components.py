@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from ..pysoap.msgfactory import MessageFactory
     from ..provider.servicesfactory import HostedServices
     from .sco import AbstractScoOperationsRegistry
-    from ..mdib.devicemdib import DeviceMdibContainer
+    from ..mdib.providermdib import ProviderMdibContainer
     from .subscriptionmgr_base import SubscriptionManagerProtocol
 
 
@@ -51,7 +51,7 @@ class SdcDeviceComponents:
     sco_operations_registry_class: Type[AbstractScoOperationsRegistry] = None
     subscriptions_manager_class: dict[str, SubscriptionManagerProtocol] = None
     role_provider_class: type = None
-    scopes_factory: Callable[[DeviceMdibContainer], ScopesType] = None
+    scopes_factory: Callable[[ProviderMdibContainer], ScopesType] = None
     hosted_services: dict = None
 
     def merge(self, other):

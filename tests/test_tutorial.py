@@ -8,7 +8,7 @@ from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
-from sdc11073.mdib import DeviceMdibContainer
+from sdc11073.mdib import ProviderMdibContainer
 from sdc11073.mdib.consumermdib import ConsumerMdibContainer
 from sdc11073.provider import SdcProvider
 from sdc11073.provider.components import SdcDeviceComponents
@@ -30,7 +30,7 @@ my_mdib_path = os.path.join(here, '70041_MDIB_Final.xml')
 
 
 def createGenericDevice(wsdiscovery_instance, location, mdib_path, specific_components=None):
-    my_mdib = DeviceMdibContainer.from_mdib_file(mdib_path)
+    my_mdib = ProviderMdibContainer.from_mdib_file(mdib_path)
     my_epr = uuid.uuid4().hex
     this_model = ThisModelType(manufacturer='Draeger',
                                manufacturer_url='www.draeger.com',

@@ -26,7 +26,7 @@ from ..xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
 
 if TYPE_CHECKING:
     from ..pysoap.msgfactory import CreatedMessage
-    from ..mdib.devicemdib import DeviceMdibContainer
+    from ..mdib.providermdib import ProviderMdibContainer
     from .components import SdcDeviceComponents
     from ssl import SSLContext
     from ..xml_types.wsd_types import ScopesType
@@ -68,7 +68,7 @@ class SdcProvider:
     def __init__(self, ws_discovery: WsDiscoveryProtocol,
                  this_model: ThisModelType,
                  this_device: ThisDeviceType,
-                 device_mdib_container: DeviceMdibContainer,
+                 device_mdib_container: ProviderMdibContainer,
                  epr: Union[str, uuid.UUID, None] = None,
                  validate: bool = True,
                  ssl_context: Optional[SSLContext] = None,
@@ -82,7 +82,7 @@ class SdcProvider:
         :param ws_discovery: a WsDiscovers instance
         :param this_model: a ThisModelType instance
         :param this_device: a ThisDeviceType instance
-        :param device_mdib_container: a DeviceMdibContainer instance
+        :param device_mdib_container: a ProviderMdibContainer instance
         :param epr: something that serves as a unique identifier of this device for discovery.
                     If epr is a string, it must be usable as a path element in an url (no spaces, ...)
         :param validate: bool

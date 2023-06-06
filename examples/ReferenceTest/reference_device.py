@@ -10,7 +10,7 @@ from sdc11073 import wsdiscovery
 from sdc11073.location import SdcLocation
 from sdc11073.provider import SdcDevice
 from sdc11073.xml_types import pm_types
-from sdc11073.mdib import DeviceMdibContainer
+from sdc11073.mdib import ProviderMdibContainer
 from sdc11073.certloader import mk_ssl_context_from_folder
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.loghelper import LoggerAdapter
@@ -67,7 +67,7 @@ if __name__ == '__main__':
     logger.info('{}', 'start')
     wsd = wsdiscovery.WSDiscoveryWhitelist([adapter_ip])
     wsd.start()
-    my_mdib = DeviceMdibContainer.from_mdib_file(mdib_path)
+    my_mdib = ProviderMdibContainer.from_mdib_file(mdib_path)
     my_uuid = UUID(My_UUID_str)
     print("UUID for this device is {}".format(my_uuid))
     loc = SdcLocation(ref_fac, ref_poc, ref_bed)

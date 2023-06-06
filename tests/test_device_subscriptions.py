@@ -4,7 +4,7 @@ import unittest
 from decimal import Decimal
 
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
-from sdc11073.mdib import DeviceMdibContainer
+from sdc11073.mdib import ProviderMdibContainer
 from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import waveforms, SdcProvider
@@ -32,7 +32,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
         self.logger = get_logger_adapter('sdc.test')
-        self.mdib = DeviceMdibContainer.from_mdib_file(os.path.join(mdib_folder, '70041_MDIB_Final.xml'))
+        self.mdib = ProviderMdibContainer.from_mdib_file(os.path.join(mdib_folder, '70041_MDIB_Final.xml'))
 
         this_model = ThisModelType(manufacturer='ABCDEFG GmbH',
                                    manufacturer_url='www.abcdefg.com',

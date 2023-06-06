@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Union
 
 from lxml import etree as etree_
 
-from sdc11073.mdib import DeviceMdibContainer
+from sdc11073.mdib import ProviderMdibContainer
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import SdcProvider
 from sdc11073.provider.subscriptionmgr import BicepsSubscription
@@ -126,7 +126,7 @@ class SomeDevice(SdcProvider):
                                 firmware_version='0.99',
                                 serial_number='12345')
 
-        device_mdib_container = DeviceMdibContainer.from_string(mdib_xml_string, log_prefix=log_prefix)
+        device_mdib_container = ProviderMdibContainer.from_string(mdib_xml_string, log_prefix=log_prefix)
         # set Metadata
         mdsDescriptors = device_mdib_container.descriptions.NODETYPE.get(pm.MdsDescriptor)
         for mdsDescriptor in mdsDescriptors:

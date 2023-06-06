@@ -12,7 +12,7 @@ from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ConsumerMdibContainer
-from sdc11073.mdib.devicewaveform import Annotator
+from sdc11073.mdib.providerwaveform import Annotator
 from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.consumer import SdcConsumer
 from sdc11073.provider import waveforms

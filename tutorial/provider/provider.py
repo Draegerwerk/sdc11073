@@ -3,7 +3,7 @@ import time
 from sdc11073.xml_types import pm_types
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.provider import SdcDevice
-from sdc11073.mdib import DeviceMdibContainer
+from sdc11073.mdib import ProviderMdibContainer
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.location import SdcLocation
 from sdc11073.wsdiscovery import WSDiscoverySingleAdapter
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     # start the discovery
     myDiscovery.start()
     # create a local mdib that will be sent out on the network, the mdib is based on a XML file
-    my_mdib = DeviceMdibContainer.from_mdib_file("mdib.xml")
+    my_mdib = ProviderMdibContainer.from_mdib_file("mdib.xml")
     print ("My UUID is {}".format(my_uuid))
     # set a location context to allow easy discovery
     my_location = SdcLocation(fac='HOSP', poc='CU2', bed='BedSim')

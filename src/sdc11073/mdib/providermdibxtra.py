@@ -1,11 +1,11 @@
 import time
 import uuid
 
-from .devicewaveform import DefaultWaveformSource
+from .providerwaveform import DefaultWaveformSource
 from sdc11073.xml_types.pm_types import RetrievabilityMethod
 
 
-class DeviceMdibMethods:
+class ProvicerMdibMethods:
     waveform_provider_cls = DefaultWaveformSource
 
     def __init__(self, device_mdib):

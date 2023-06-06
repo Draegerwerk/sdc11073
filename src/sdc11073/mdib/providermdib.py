@@ -7,7 +7,7 @@ from threading import Lock
 from typing import Type, TYPE_CHECKING, Optional
 
 from . import mdibbase
-from .devicemdibxtra import DeviceMdibMethods
+from .providermdibxtra import ProvicerMdibMethods
 from .transactions import RtDataMdibUpdateTransaction, MdibUpdateTransaction
 from .. import loghelper
 from ..definitions_base import ProtocolsRegistry
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
 
 
-class DeviceMdibContainer(mdibbase.MdibContainer):
+class ProviderMdibContainer(mdibbase.MdibContainer):
     """Device side implementation of a mdib.
      Do not modify containers directly, use transactions for that purpose.
      Transactions keep track of changes and initiate sending of update notifications to clients."""
@@ -42,7 +42,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             sdc_definitions = SDC_v1_Definitions
         super().__init__(sdc_definitions)
         if extras_cls is None:
-            extras_cls = DeviceMdibMethods
+            extras_cls = ProvicerMdibMethods
         self._xtra = extras_cls(self)
         self._logger = loghelper.get_logger_adapter('sdc.device.mdib', log_prefix)
         self._tr_lock = Lock()  # transaction lock
