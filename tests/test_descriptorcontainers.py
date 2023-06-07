@@ -57,6 +57,7 @@ class TestDescriptorContainers(unittest.TestCase):
 
         node = dc.mk_node(test_tag, self.ns_mapper)
         dc3 = descriptorcontainers.AbstractDescriptorContainer.from_node(node=node, parent_handle='467')
+        self.assertIsNotNone(dc3.node)
         self.assertEqual(dc3.DescriptorVersion, 42)
         self.assertEqual(dc3.SafetyClassification, 'MedA')
         self.assertEqual(dc3.Type, dc.Type)
@@ -65,6 +66,8 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc3.Extension.value[ns_hlp.MSG.tag('Whatever')].tag, ext_node.tag)
         self.assertEqual(dc3.Extension.value[msg.Retrievability], retrievability)
         self.assertEqual(dc3.retrievability, retrievability)
+
+
 
     def test_AbstractMetricDescriptorContainer(self):
         dc = descriptorcontainers.AbstractMetricDescriptorContainer(handle='123', parent_handle='456')

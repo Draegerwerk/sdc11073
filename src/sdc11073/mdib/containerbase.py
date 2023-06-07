@@ -1,6 +1,6 @@
 import copy
 import inspect
-from typing import Optional, List
+from typing import Optional, List, Union
 
 from lxml import etree as etree_
 
@@ -20,11 +20,11 @@ class ContainerBase:
     # This is according to the inheritance in BICEPS xml schema
 
     def __init__(self):
-        self.node = None
+        self.node: Optional[etree_.Element] = None  # set in update_from_node
         for dummy_name, cprop in self.sorted_container_properties():
             cprop.init_instance_data(self)
 
-    def get_actual_value(self, attr_name):
+    def get_actual_value(self, attr_name: str):
         """ ignores default value and implied value, e.g. returns None if value is not present in xml"""
         return getattr(self.__class__, attr_name).get_actual_value(self)
 
@@ -57,12 +57,13 @@ class ContainerBase:
             prop.update_xml_value(self, node)
         return node
 
-    def update_from_node(self, node):
+    def update_from_node(self, node: etree_.Element):
         """ update members.
         :param node: node to be updated
         """
         for dummy_name, cprop in self.sorted_container_properties():
             cprop.update_from_node(self, node)
+        self.node = node
 
     def _update_from_other(self, other_container, skipped_properties):
         # update all ContainerProperties
@@ -79,7 +80,7 @@ class ContainerBase:
             copied.node = copy.deepcopy(self.node)
         return copied
 
-    def sorted_container_properties(self):
+    def sorted_container_properties(self) -> list:
         """
         :return: a list of (name, object) tuples of all GenericProperties ( and subclasses), base class properties first.
         """
@@ -96,7 +97,7 @@ class ContainerBase:
                     ret.append((name, obj))
         return ret
 
-    def diff(self, other, ignore_property_names: Optional[List[str]]=None):
+    def diff(self, other, ignore_property_names: Optional[List[str]]=None) -> Union[None, str]:
         """ compares all properties (except to be ignored ones).
         :param other: the object to compare with
         :param ignore_property_names: list of properties that shall be excluded from diff calculation
@@ -132,5 +133,5 @@ class ContainerBase:
             ret.append(f'other has more data elements:{surplus_names}')
         return None if len(ret) == 0 else ret
 
-    def is_equal(self, other):
+    def is_equal(self, other) -> bool:
         return len(self.diff(other)) == 0
