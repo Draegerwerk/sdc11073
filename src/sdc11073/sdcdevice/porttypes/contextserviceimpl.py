@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from typing import TYPE_CHECKING, List
-from .stateeventserviceimpl import fill_episodic_report_body, fill_periodic_report_body
+
 from .porttypebase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding, msg_prefix
 from .porttypebase import mk_wsdl_two_way_operation, mk_wsdl_one_way_operation
+from .stateeventserviceimpl import fill_episodic_report_body, fill_periodic_report_body
 from ...dispatch import DispatchKey
+from ...namespaces import PrefixesEnum
 
 if TYPE_CHECKING:
     from ...mdib.statecontainers import AbstractStateContainer
@@ -13,6 +15,7 @@ if TYPE_CHECKING:
 
 
 class ContextService(ServiceWithOperations):
+    port_type_name = PrefixesEnum.SDC.tag('ContextService')
     WSDLMessageDescriptions = (WSDLMessageDescription('SetContextState',
                                                       (f'{msg_prefix}:SetContextState',)),
                                WSDLMessageDescription('SetContextStateResponse',

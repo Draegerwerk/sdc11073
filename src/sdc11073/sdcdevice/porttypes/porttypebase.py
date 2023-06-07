@@ -6,18 +6,18 @@ from typing import TYPE_CHECKING, List, Optional
 from lxml import etree as etree_
 
 from ... import loghelper
-from ...namespaces import default_ns_helper as ns_hlp
+from ...namespaces import PrefixesEnum
 
 if TYPE_CHECKING:
     from ...pysoap.msgfactory import CreatedMessage
     from ...namespaces import PrefixNamespace
 
-msg_prefix = ns_hlp.MSG.prefix
+msg_prefix = PrefixesEnum.MSG.prefix
 
-WSP_NS = ns_hlp.WSP.namespace
-WSDL_S12 = ns_hlp.WSDL12.namespace  # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
+WSP_NS = PrefixesEnum.WSP.namespace
+WSDL_S12 = PrefixesEnum.WSDL12.namespace  # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
 
-_wsdl_ns = ns_hlp.WSDL.namespace
+_wsdl_ns = PrefixesEnum.WSDL.namespace
 _wsdl_message = etree_.QName(_wsdl_ns, 'message')
 _wsdl_part = etree_.QName(_wsdl_ns, 'part')
 _wsdl_operation = etree_.QName(_wsdl_ns, 'operation')
@@ -33,17 +33,16 @@ class DPWSPortTypeBase:
         - handling of messages
         - creation of wsdl information.
         Handlers are registered in the hosting service instance. """
+    port_type_name: Optional[etree_.QName] = None
     WSDLOperationBindings = ()  # overwrite in derived classes
     WSDLMessageDescriptions = ()  # overwrite in derived classes
     additional_namespaces: List[PrefixNamespace] = []  # for special namespaces
 
-    def __init__(self, port_type_string, sdc_device, log_prefix=None):
+    def __init__(self, sdc_device, log_prefix: Optional[str] = None):
         """
-        :param port_type_string: port type without namespace, e.g 'Get'
-        :param sdc_device:
-        :param log_prefix:
+        :param sdc_device: the sdc device
+        :param log_prefix: optional string
         """
-        self.port_type_string = port_type_string
         self._sdc_device = sdc_device
         self._mdib = sdc_device.mdib
         self._sdc_definitions = self._mdib.sdc_definitions
@@ -68,17 +67,17 @@ class DPWSPortTypeBase:
     def _mk_port_type_node(self, parent_node, is_event_source=False):
         if 'dt' in parent_node.nsmap:
             port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                          attrib={'name': self.port_type_string,
-                                                  ns_hlp.DPWS.tag('DiscoveryType'): 'dt:ServiceProvider'})
+                                          attrib={'name': self.port_type_name.localname,
+                                                  PrefixesEnum.DPWS.tag('DiscoveryType'): 'dt:ServiceProvider'})
         else:
             port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                          attrib={'name': self.port_type_string})
+                                          attrib={'name': self.port_type_name.localname})
         if is_event_source:
-            port_type.attrib[ns_hlp.WSE.tag('EventSource')] = 'true'
+            port_type.attrib[PrefixesEnum.WSE.tag('EventSource')] = 'true'
         return port_type
 
     def __repr__(self):
-        return f'{self.__class__.__name__} Porttype={self.port_type_string}'
+        return f'{self.__class__.__name__} Porttype={str(self.port_type_name)}'
 
     def add_wsdl_messages(self, parent_node):
         """
@@ -119,9 +118,10 @@ class DPWSPortTypeBase:
         :return:
         """
         v_ref = self._sdc_device.mdib.sdc_definitions
+        p_type = self.port_type_name.localname
         wsdl_binding = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'binding'),
-                                         attrib={'name': self.port_type_string + 'Binding',
-                                                 'type': f'{porttype_prefix}:{self.port_type_string}'})
+                                         attrib={'name': p_type + 'Binding',
+                                                 'type': f'{porttype_prefix}:{p_type}'})
         etree_.SubElement(wsdl_binding, etree_.QName(WSDL_S12, 'binding'),
                           attrib={'style': 'document', 'transport': 'http://schemas.xmlsoap.org/soap/http'})
         _add_policy_dpws_profile(wsdl_binding)
@@ -129,7 +129,7 @@ class DPWSPortTypeBase:
             wsdl_operation = etree_.SubElement(wsdl_binding, etree_.QName(_wsdl_ns, 'operation'),
                                                attrib={'name': wsdl_op.name})
             etree_.SubElement(wsdl_operation, etree_.QName(WSDL_S12, 'operation'),
-                              attrib={'soapAction': f'{v_ref.ActionsNamespace}/{self.port_type_string}/{wsdl_op.name}'})
+                              attrib={'soapAction': f'{v_ref.ActionsNamespace}/{p_type}/{wsdl_op.name}'})
             if wsdl_op.input is not None:
                 wsdl_input = etree_.SubElement(wsdl_operation, etree_.QName(_wsdl_ns, 'input'))
                 etree_.SubElement(wsdl_input, etree_.QName(WSDL_S12, 'body'), attrib={'use': wsdl_op.input})
@@ -239,6 +239,7 @@ def _add_policy_dpws_profile(parent_node):
           </wsp:Policy>
     """
     wsp_policy_node = etree_.SubElement(parent_node, etree_.QName(WSP_NS, 'Policy'), attrib=None)
-    _ = etree_.SubElement(wsp_policy_node, ns_hlp.DPWS.tag('Profile'), attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
-    _ = etree_.SubElement(wsp_policy_node, ns_hlp.MDPWS.tag('Profile'),
+    _ = etree_.SubElement(wsp_policy_node, PrefixesEnum.DPWS.tag('Profile'),
+                          attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
+    _ = etree_.SubElement(wsp_policy_node, PrefixesEnum.MDPWS.tag('Profile'),
                           attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})

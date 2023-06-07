@@ -246,7 +246,7 @@ class SdcClient:
         self.all_subscribed = False
         # look for schemas added by services
         additional_schema_specs = []
-        for handler_cls in self._components.service_handlers.values():
+        for handler_cls in self._components.service_handlers:
             additional_schema_specs.extend(handler_cls.additional_namespaces)
         msg_reader_cls = self._components.msg_reader_class
         self.msg_reader = msg_reader_cls(self.sdc_definitions,
@@ -597,7 +597,7 @@ class SdcClient:
             self.hosted_services[hosted.ServiceId] = h_descr
             h_descr.read_metadata(soap_client)
             for port_type in hosted.Types:
-                hosted_service_client = self._mk_hosted_service_client(port_type.localname,
+                hosted_service_client = self._mk_hosted_service_client(port_type,
                                                                        soap_client,
                                                                        hosted)
                 if hosted_service_client is not None:
@@ -607,10 +607,10 @@ class SdcClient:
                     self._logger.warning('Unknown port type {}', port_type.localname)
 
     def _mk_hosted_service_client(self, port_type, soap_client, hosted):
-        cls = self._components.service_handlers.get(port_type)
-        if cls is None:
-            return
-        return cls(self, soap_client, hosted, port_type)
+        for cls in self._components.service_handlers:
+            if cls.port_type_name == port_type:
+                return cls(self, soap_client, hosted, port_type)
+        return
 
     def _start_event_sink(self, shared_http_server):
         if shared_http_server is None:

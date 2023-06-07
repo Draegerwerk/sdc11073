@@ -85,7 +85,6 @@ class DPWSHostedService(_EventService):
         self._sdc_device = sdc_device
         self._mdib = sdc_device.mdib
         self.port_type_impls = port_type_impls
-        self._my_port_types = [p.port_type_string for p in port_type_impls]
         self._wsdl_string = self._mk_wsdl_string()
         self.register_post_handler(DispatchKey(f'{ns_hlp.WSX.namespace}/GetMetadata/Request',
                                                ns_hlp.WSX.tag('GetMetadata')),
@@ -100,11 +99,10 @@ class DPWSHostedService(_EventService):
             epr_type = EndpointReferenceType()
             epr_type.Address = f'{addr.geturl()}/{self.path_element}'
             endpoint_references_list.append(epr_type)
-        port_type_ns = self._mdib.sdc_definitions.PortTypeNamespace
         dpws_hosted = HostedServiceType()
         dpws_hosted.EndpointReference.extend(endpoint_references_list)
-        dpws_hosted.Types = [etree_.QName(port_type_ns, p) for p in self._my_port_types]
-        dpws_hosted.ServiceId = self._my_port_types[0]
+        dpws_hosted.Types = [p.port_type_name for p in self.port_type_impls]
+        dpws_hosted.ServiceId = self.path_element  # value seems to be not important as long as it is unique
         return dpws_hosted
 
     def _on_get_wsdl(self) -> bytes:

@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Type, Any, TYPE_CHECKING
 
-from .request_handler_deferred import DispatchKeyRegistryDeferred
 from .operations import OperationsManager
+from .request_handler_deferred import DispatchKeyRegistryDeferred
 from .serviceclients.containmenttreeservice import CTreeServiceClient
 from .serviceclients.contextservice import ContextServiceClient
 from .serviceclients.descriptioneventservice import DescriptionEventClient
@@ -35,7 +35,7 @@ class SdcClientComponents:
     action_dispatcher_class: type = None
     subscription_manager_class: type = None
     operations_manager_class: type = None
-    service_handlers: dict = None
+    service_handlers: list = None
 
     def merge(self, other):
         def _merge(attr_name):
@@ -57,16 +57,16 @@ default_sdc_client_components = SdcClientComponents(
     soap_client_class=SoapClient,
     msg_factory_class=MessageFactory,
     msg_reader_class=MessageReader,
-    action_dispatcher_class = DispatchKeyRegistryDeferred, # defaults to deferred handling
+    action_dispatcher_class=DispatchKeyRegistryDeferred,  # defaults to deferred handling
     subscription_manager_class=ClientSubscriptionManager,
     operations_manager_class=OperationsManager,
-    service_handlers={'ContainmentTreeService': CTreeServiceClient,
-                      'GetService': GetServiceClient,
-                      'StateEventService': StateEventClient,
-                      'ContextService': ContextServiceClient,
-                      'WaveformService': WaveformClient,
-                      'SetService': SetServiceClient,
-                      'DescriptionEventService': DescriptionEventClient,
-                      'LocalizationService': LocalizationServiceClient,
-                      }
+    service_handlers=[CTreeServiceClient,
+                      GetServiceClient,
+                      StateEventClient,
+                      ContextServiceClient,
+                      WaveformClient,
+                      SetServiceClient,
+                      DescriptionEventClient,
+                      LocalizationServiceClient,
+                      ]
 )

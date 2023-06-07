@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List
 
+from ...namespaces import PrefixesEnum
 from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_one_way_operation
 from .porttypebase import msg_prefix
 
@@ -11,6 +12,7 @@ if TYPE_CHECKING:
     from lxml import etree as etree_
 
 class DescriptionEventService(DPWSPortTypeBase):
+    port_type_name = PrefixesEnum.SDC.tag('DescriptionEventService')
     WSDLMessageDescriptions = (
         WSDLMessageDescription('DescriptionModificationReport',
                                (f'{msg_prefix}:DescriptionModificationReport',)),

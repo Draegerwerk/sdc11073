@@ -1,9 +1,11 @@
 from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_two_way_operation
 from .porttypebase import msg_prefix
 from ...dispatch import DispatchKey
+from ...namespaces import PrefixesEnum
 
 
 class GetService(DPWSPortTypeBase):
+    port_type_name = PrefixesEnum.SDC.tag('GetService')
     WSDLMessageDescriptions = (WSDLMessageDescription('GetMdState',
                                                       (f'{msg_prefix}:GetMdState',)),
                                WSDLMessageDescription('GetMdStateResponse',

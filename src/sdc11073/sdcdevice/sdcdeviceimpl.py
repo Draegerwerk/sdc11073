@@ -132,7 +132,7 @@ class SdcDevice:
         # look for schemas added by services
         additional_schema_specs = []
         for hosted_service in self._components.hosted_services.values():
-            for port_type_impl in hosted_service.values():
+            for port_type_impl in hosted_service:
                 additional_schema_specs.extend(port_type_impl.additional_namespaces)
         logger = loghelper.get_logger_adapter('sdc.device.msgreader', log_prefix)
         self.msg_reader = self._components.msg_reader_class(self._mdib.sdc_definitions,

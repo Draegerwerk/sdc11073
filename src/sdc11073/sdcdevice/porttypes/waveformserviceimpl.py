@@ -4,12 +4,14 @@ from typing import TYPE_CHECKING, List
 
 from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_one_way_operation
 from .porttypebase import msg_prefix
+from ...namespaces import PrefixesEnum
 
 if TYPE_CHECKING:
     from ...mdib.statecontainers import AbstractStateContainer
 
 
 class WaveformService(DPWSPortTypeBase):
+    port_type_name = PrefixesEnum.SDC.tag('WaveformService')
     WSDLMessageDescriptions = (WSDLMessageDescription('Waveform',
                                                       (f'{msg_prefix}:WaveformStreamReport',)),)
     WSDLOperationBindings = (WSDLOperationBinding('Waveform', None, 'literal'),)
