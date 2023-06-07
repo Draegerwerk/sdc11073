@@ -507,6 +507,23 @@ class Test_Client_SomeDevice(unittest.TestCase):
         logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)
         runtest_metric_reports(self, self.sdc_device, self.sdc_client, self.logger)
 
+    def test_roundtrip_times(self):
+        # run a test that sens notifications
+        runtest_metric_reports(self, self.sdc_device, self.sdc_client, self.logger)
+        # expect at least one subscription with roundtrip stats and reasonable values
+        found = False
+        for mgr in self.sdc_device._subscriptions_managers.values():
+            for subscription in mgr._subscriptions.objects:
+                stats = subscription.get_roundtrip_stats()
+                if stats.values is not None:
+                    found = True
+                    self.assertTrue(stats.abs_max > 0)
+                    self.assertTrue(stats.avg > 0)
+                    self.assertTrue(stats.max > 0)
+                    self.assertTrue(stats.min >= 0)
+        self.assertTrue(found)
+
+
     def test_alert_reports(self):
         """ verify that the client receives correct EpisodicAlertReports and PeriodicAlertReports"""
         client_mdib = ClientMdibContainer(self.sdc_client)
