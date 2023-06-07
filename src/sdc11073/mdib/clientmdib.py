@@ -29,6 +29,10 @@ class RtSampleContainer:
     def dec_value(self):
         return Decimal(self.value_string)
 
+    @property
+    def age(self):
+        return time.time() - self.determination_time
+
     def __repr__(self):
         return f'RtSample value="{self.value_string}" validity="{self.validity}" time={self.determination_time}'
 
