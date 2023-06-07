@@ -23,10 +23,12 @@ class RtSampleContainer:
 
     @property
     def value(self) -> float:
+        """Returns the value of the Sample as float"""
         return float(self.value_string)
 
     @property
     def dec_value(self) -> Decimal:
+        """Returns the value of the Sample as Decimal"""
         return Decimal(self.value_string)
 
     @property
