@@ -22,15 +22,16 @@ class RtSampleContainer:
     annotations: list
 
     @property
-    def value(self):
+    def value(self) -> float:
         return float(self.value_string)
 
     @property
-    def dec_value(self):
+    def dec_value(self) -> Decimal:
         return Decimal(self.value_string)
 
     @property
-    def age(self):
+    def age(self) -> float:
+        """Returns the age of the Sample in seconds"""
         return time.time() - self.determination_time
 
     def __repr__(self):
