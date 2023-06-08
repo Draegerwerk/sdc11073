@@ -7,7 +7,7 @@ import ssl
 import traceback
 import uuid
 from dataclasses import dataclass
-from typing import Optional, List, Union, Set, TYPE_CHECKING
+from typing import Optional, List, Union, Set, Any, TYPE_CHECKING
 from urllib.parse import urlparse, urlsplit
 
 from lxml import etree as etree_
@@ -26,11 +26,12 @@ from ..exceptions import ApiUsageError
 from ..httpserver import compression
 from ..httpserver.httpserverimpl import HttpServerThreadBase
 from ..namespaces import EventingActions
-from ..xml_types import mex_types
 from ..xml_types import eventing_types
+from ..xml_types import mex_types
 from ..xml_types.addressing_types import HeaderInformationBlock
-from ..xml_types.wsd_types import ProbeType, ProbeMatchesType
 from ..xml_types.dpws_types import DeviceEventingFilterDialectURI
+from ..xml_types.wsd_types import ProbeType, ProbeMatchesType
+
 if TYPE_CHECKING:
     from ..xml_types.mex_types import HostedServiceType
 
@@ -411,15 +412,18 @@ class SdcClient:
     def subscription_mgr(self):
         return self._subscription_mgr
 
-    def start_all(self, not_subscribed_actions=None,
-                  subscriptions_check_interval=None,
-                  subscribe_periodic_reports=False,
-                  shared_http_server=None):
+    def start_all(self, not_subscribed_actions: Optional[list[str]] = None,
+                  subscriptions_check_interval: Optional[float] = None,
+                  subscribe_periodic_reports: bool = False,
+                  shared_http_server: Optional[Any] = None,
+                  check_get_service: bool = True) -> None:
         """
         :param not_subscribed_actions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
         :param subscriptions_check_interval: an interval in seconds or None
         :param subscribe_periodic_reports:
         :param shared_http_server: if provided, use this http server, else client creates its own.
+        :param check_get_service: if True (default) it checks that a GetService is detected,
+               which is the minimal requirement for a sdc provider.
         :return: None
         """
         if self.host_description is None:
@@ -431,7 +435,7 @@ class SdcClient:
         self._logger.debug('Services: {}', self._service_clients.keys())
 
         # only GetService is mandatory!!!
-        if self.get_service_client is None:
+        if check_get_service and self.get_service_client is None:
             raise RuntimeError(f'GetService not detected! found services = {list(self._service_clients.keys())}')
 
         self._start_event_sink(shared_http_server)
@@ -604,7 +608,7 @@ class SdcClient:
                     self._service_clients[port_type.localname] = hosted_service_client
                     h_descr.services[port_type.localname] = hosted_service_client
                 else:
-                    self._logger.warning('Unknown port type {}', port_type.localname)
+                    self._logger.warning('Unknown port type {}', str(port_type))
 
     def _mk_hosted_service_client(self, port_type, soap_client, hosted):
         for cls in self._components.service_handlers:
