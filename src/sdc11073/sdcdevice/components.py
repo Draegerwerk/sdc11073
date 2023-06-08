@@ -88,16 +88,16 @@ default_sdc_device_components_sync = SdcDeviceComponents(
                                  'Set': PathDispatchingSubscriptionsManager},
     role_provider_class=MinimalProduct,
     scopes_factory=mk_scopes,
-    # this defines the structure of the services: top dict are the names of the dpws hosts,
-    # 2nd level the hosted services with name and dpws service class
-    hosted_services={'Get': {'GetService': GetService,
-                             'LocalizationService': LocalizationService},
-                     'StateEvent': {'StateEventService': StateEventService,
-                                    'ContextService': ContextService,
-                                    'DescriptionEventService': DescriptionEventService,
-                                    'WaveformService': WaveformService},
-                     'Set': {'SetService': SetService},
-                     'ContainmentTree': {'ContainmentTreeService': ContainmentTreeService}},
+    # this defines the structure of the services: keys are the names of the dpws hosts,
+    # value is a list of port type implementation classes
+    hosted_services={'Get': [GetService,
+                             LocalizationService],
+                     'StateEvent': [StateEventService,
+                                    ContextService,
+                                    DescriptionEventService,
+                                    WaveformService],
+                     'Set': [SetService],
+                     'ContainmentTree': [ContainmentTreeService]}
 )
 
 # async variant

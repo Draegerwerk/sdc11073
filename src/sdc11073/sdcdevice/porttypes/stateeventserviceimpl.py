@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, List
 
 from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_one_way_operation
 from .porttypebase import msg_prefix
+from ...namespaces import PrefixesEnum
 
 if TYPE_CHECKING:
     from ...mdib.statecontainers import AbstractStateContainer
@@ -12,6 +13,7 @@ if TYPE_CHECKING:
 
 
 class StateEventService(DPWSPortTypeBase):
+    port_type_name = PrefixesEnum.SDC.tag('StateEventService')
     WSDLMessageDescriptions = (
         WSDLMessageDescription('EpisodicAlertReport',
                                (f'{msg_prefix}:EpisodicAlertReport',)),

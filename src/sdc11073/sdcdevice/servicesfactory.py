@@ -25,12 +25,12 @@ class HostedServices:
 def mk_dpws_hosts(sdc_device, components, dpws_hosted_service_cls, subscription_managers: dict) -> (dict, dict):
     dpws_services = {}
     services_by_name = {}
-    for host_name, service_cls_dict in components.hosted_services.items():
+    for host_name, service_cls_list in components.hosted_services.items():
         services = []
-        for service_name, service_cls in service_cls_dict.items():
-            service = service_cls(service_name, sdc_device)
+        for service_cls in service_cls_list:
+            service = service_cls(sdc_device)
             services.append(service)
-            services_by_name[service_name] = service
+            services_by_name[service.port_type_name.localname] = service
         subscription_manager = subscription_managers.get(host_name)
         hosted = dpws_hosted_service_cls(sdc_device, subscription_manager, host_name, services)
         dpws_services[host_name] = hosted

@@ -5,6 +5,7 @@ from .porttypebase import DPWSPortTypeBase
 from .porttypebase import WSDLMessageDescription, WSDLOperationBinding
 from .porttypebase import mk_wsdl_two_way_operation, msg_prefix
 from ...dispatch import DispatchKey
+from ...namespaces import PrefixesEnum
 
 if TYPE_CHECKING:
     from ...xml_types.pm_types import LocalizedText
@@ -196,6 +197,7 @@ class LocalizationStorage:
 
 
 class LocalizationService(DPWSPortTypeBase):
+    port_type_name = PrefixesEnum.SDC.tag('LocalizationService')
     WSDLMessageDescriptions = (WSDLMessageDescription('GetLocalizedText',
                                                       (f'{msg_prefix}:GetLocalizedText',)),
                                WSDLMessageDescription('GetLocalizedTextResponse',

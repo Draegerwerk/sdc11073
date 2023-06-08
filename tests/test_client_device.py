@@ -23,7 +23,7 @@ from sdc11073.mdib import ClientMdibContainer
 from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
-from sdc11073.pysoap.soapenvelope import Soap12Envelope
+from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.sdcclient import SdcClient
@@ -506,6 +506,23 @@ class Test_Client_SomeDevice(unittest.TestCase):
         logging.getLogger('sdc.client.subscrMgr').setLevel(logging.DEBUG)
         logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)
         runtest_metric_reports(self, self.sdc_device, self.sdc_client, self.logger)
+
+    def test_roundtrip_times(self):
+        # run a test that sens notifications
+        runtest_metric_reports(self, self.sdc_device, self.sdc_client, self.logger)
+        # expect at least one subscription with roundtrip stats and reasonable values
+        found = False
+        for mgr in self.sdc_device._subscriptions_managers.values():
+            for subscription in mgr._subscriptions.objects:
+                stats = subscription.get_roundtrip_stats()
+                if stats.values is not None:
+                    found = True
+                    self.assertTrue(stats.abs_max > 0)
+                    self.assertTrue(stats.avg > 0)
+                    self.assertTrue(stats.max > 0)
+                    self.assertTrue(stats.min >= 0)
+        self.assertTrue(found)
+
 
     def test_alert_reports(self):
         """ verify that the client receives correct EpisodicAlertReports and PeriodicAlertReports"""
@@ -1015,7 +1032,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         except HTTPReturnCodeError as ex:
             self.assertEqual(ex.status, 400)
-            self.assertEqual(ex.soap_fault.Code.Value, 's12:Sender')
+            self.assertEqual(ex.soap_fault.Code.Value, faultcodeEnum.SENDER)
         else:
             self.fail('HTTPReturnCodeError not raised')
 

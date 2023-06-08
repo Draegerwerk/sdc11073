@@ -1,12 +1,12 @@
 from io import BytesIO
 from typing import Optional, List
-
+from enum import Enum
 from lxml import etree as etree_
 
 from ..exceptions import ApiUsageError
 from ..namespaces import default_ns_helper as ns_hlp
 from ..xml_types import xml_structure as struct
-from ..xml_types.basetypes import XMLTypeBase, StringEnum, MessageType, ElementWithText
+from ..xml_types.basetypes import XMLTypeBase, MessageType, ElementWithText
 
 CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
 
@@ -99,12 +99,12 @@ class ReceivedSoapMessage:
 
 
 # the following classes are named exactly like the types in soap schema, which looks weird sometimes.
-class faultcodeEnum(StringEnum):
-    DATAENC = f'{ns_hlp.S12.prefix}:DataEncodingUnknown'
-    MUSTUNSERSTAND = f'{ns_hlp.S12.prefix}:MustUnderstand'
-    RECEIVER = f'{ns_hlp.S12.prefix}:Receiver'
-    SENDER = f'{ns_hlp.S12.prefix}:Sender'
-    VERSION_MM = f'{ns_hlp.S12.prefix}:VersionMismatch'
+class faultcodeEnum(Enum):
+    DATAENC = ns_hlp.S12.tag('DataEncodingUnknown')
+    MUSTUNSERSTAND = ns_hlp.S12.tag('MustUnderstand')
+    RECEIVER = ns_hlp.S12.tag('Receiver')
+    SENDER = ns_hlp.S12.tag('Sender')
+    VERSION_MM = ns_hlp.S12.tag('VersionMismatch')
 
 
 class reasontext(ElementWithText):
@@ -124,7 +124,7 @@ class subcode(XMLTypeBase):
 
 
 class faultcode(XMLTypeBase):
-    Value = struct.NodeEnumTextProperty(ns_hlp.S12.tag('Value'), faultcodeEnum)
+    Value = struct.NodeEnumQNameProperty(ns_hlp.S12.tag('Value'), faultcodeEnum)
     Subcode = struct.SubElementProperty(ns_hlp.S12.tag('Subcode'), value_class=subcode, is_optional=True)
     _props = ['Value', 'Subcode']
 
