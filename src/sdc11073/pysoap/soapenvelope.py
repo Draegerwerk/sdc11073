@@ -100,11 +100,11 @@ class ReceivedSoapMessage:
 
 # the following classes are named exactly like the types in soap schema, which looks weird sometimes.
 class faultcodeEnum(StringEnum):
-    DATAENC = f'{ns_hlp.S12.prefix}:DataEncodingUnknown'
-    MUSTUNSERSTAND = f'{ns_hlp.S12.prefix}:MustUnderstand'
-    RECEIVER = f'{ns_hlp.S12.prefix}:Receiver'
-    SENDER = f'{ns_hlp.S12.prefix}:Sender'
-    VERSION_MM = f'{ns_hlp.S12.prefix}:VersionMismatch'
+    DATAENC = ns_hlp.S12.tag('DataEncodingUnknown')
+    MUSTUNSERSTAND = ns_hlp.S12.tag('MustUnderstand')
+    RECEIVER = ns_hlp.S12.tag('Receiver')
+    SENDER = ns_hlp.S12.tag('Sender')
+    VERSION_MM = ns_hlp.S12.tag('VersionMismatch')
 
 
 class reasontext(ElementWithText):
@@ -124,9 +124,13 @@ class subcode(XMLTypeBase):
 
 
 class faultcode(XMLTypeBase):
-    Value = struct.NodeEnumTextProperty(ns_hlp.S12.tag('Value'), faultcodeEnum)
+    Value = struct.NodeEnumQNameProperty(ns_hlp.S12.tag('Value'), faultcodeEnum)
     Subcode = struct.SubElementProperty(ns_hlp.S12.tag('Subcode'), value_class=subcode, is_optional=True)
     _props = ['Value', 'Subcode']
+
+    def update_from_node(self, node: etree_.Element):
+        for dummy, prop in self.sorted_container_properties():
+            prop.update_from_node(self, node)
 
 
 class Fault(MessageType):

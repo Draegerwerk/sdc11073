@@ -9,9 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.0.0a3] - 2023-06-08
 
+### Added
+- SdcClient.start_all has optional parameter "check_get_service"
+- 
 ### Changed
 - moved port type name declaration from components.py to implementation classes [#176](https://github.com/Draegerwerk/sdc11073/issues/176)
 
+### Fixed
+- fixed bug in handling of soap faults (faultcodeEnum must be QNames, not strings)
 
 ## [2.0.0a2] - 2023-06-07
 

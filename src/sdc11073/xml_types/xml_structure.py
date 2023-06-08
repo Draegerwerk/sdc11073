@@ -577,6 +577,25 @@ class NodeEnumTextProperty(NodeTextProperty):
         self.enum_cls = enum_cls
 
 
+class NodeEnumQNameProperty(NodeTextProperty):
+    """Python representation is an Enum of QName, XML is prefix:localname."""
+
+    def __init__(self, sub_element_name, enum_cls, default_py_value=None, implied_py_value=None, is_optional=False):
+        super().__init__(sub_element_name, EnumConverter(enum_cls), default_py_value, implied_py_value,
+                         is_optional, min_length=1)
+        self.enum_cls = enum_cls
+
+    def get_py_value_from_node(self, instance, node):
+        try:
+            sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
+            prefix, localname = sub_node.text.split(':')
+            namespace = node.nsmap[prefix]
+            q_name = etree_.QName(namespace, localname)
+            return self._converter.to_py(q_name)
+        except ElementNotFoundException:
+            return self._default_py_value
+
+
 class NodeIntProperty(NodeTextProperty):
     """Python representation is a string."""
 
