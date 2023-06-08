@@ -49,8 +49,10 @@ class SdcClientComponents:
         _merge('subscription_manager_class')
         _merge('operations_manager_class')
         if other.service_handlers:
-            for key, value in other.service_handlers.items():
-                self.service_handlers[key] = value
+            # append handlers that are not yet present
+            for handler in other.service_handlers:
+                if handler not in self.service_handlers:
+                    self.service_handlers.append(handler)
 
 
 default_sdc_client_components = SdcClientComponents(

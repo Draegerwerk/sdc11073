@@ -64,7 +64,15 @@ class DPWSPortTypeBase:
     def add_wsdl_port_type(self, parent_node):
         raise NotImplementedError
 
-    def _mk_port_type_node(self, parent_node, is_event_source=False):
+    def _mk_port_type_node(self, parent_node: etree_.Element, is_event_source: bool =False) -> etree_.Element:
+        """ Needed for wsdl message
+        :param parent_node: where to add data
+        :param is_event_source: true if port type provides notification
+        :return: the new created node (is already child of parent_node)
+        """
+        if self.port_type_name is None:
+            raise ValueError('self.port_type_name is not set, cannot create port type node')
+
         if 'dt' in parent_node.nsmap:
             port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
                                           attrib={'name': self.port_type_name.localname,
