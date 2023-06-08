@@ -1,12 +1,12 @@
 from io import BytesIO
 from typing import Optional, List
-
+from enum import Enum
 from lxml import etree as etree_
 
 from ..exceptions import ApiUsageError
 from ..namespaces import default_ns_helper as ns_hlp
 from ..xml_types import xml_structure as struct
-from ..xml_types.basetypes import XMLTypeBase, StringEnum, MessageType, ElementWithText
+from ..xml_types.basetypes import XMLTypeBase, MessageType, ElementWithText
 
 CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
 
@@ -99,7 +99,7 @@ class ReceivedSoapMessage:
 
 
 # the following classes are named exactly like the types in soap schema, which looks weird sometimes.
-class faultcodeEnum(StringEnum):
+class faultcodeEnum(Enum):
     DATAENC = ns_hlp.S12.tag('DataEncodingUnknown')
     MUSTUNSERSTAND = ns_hlp.S12.tag('MustUnderstand')
     RECEIVER = ns_hlp.S12.tag('Receiver')

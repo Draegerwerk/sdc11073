@@ -595,6 +595,35 @@ class NodeEnumQNameProperty(NodeTextProperty):
         except ElementNotFoundException:
             return self._default_py_value
 
+    def update_xml_value(self, instance, node):
+        try:
+            py_value = getattr(instance, self._local_var_name)
+        except AttributeError:  # set to None (it is in the responsibility of the called method to do the right thing)
+            py_value = None
+        if py_value is None:
+            if MANDATORY_VALUE_CHECKING and not self.is_optional and self._min_length:
+                raise ValueError(f'mandatory value {self._sub_element_name} missing')
+
+            if not self._sub_element_name:
+                # update text of this element
+                node.text = ''
+            else:
+                if self.is_optional:
+                    sub_node = node.find(self._sub_element_name)
+                    if sub_node is not None:
+                        node.remove(sub_node)
+                else:
+                    sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
+                    sub_node.text = None
+        else:
+            sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
+            for prefix, namespace in sub_node.nsmap.items():
+                if namespace == py_value.value.namespace:
+                    value = f'{prefix}:{py_value.value.localname}'
+                    sub_node.text = self._converter.to_xml(value)
+                    return
+            raise ValueError(f'no prefix for namespace "{namespace}"')
+
 
 class NodeIntProperty(NodeTextProperty):
     """Python representation is a string."""
