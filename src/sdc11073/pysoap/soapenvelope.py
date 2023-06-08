@@ -128,10 +128,6 @@ class faultcode(XMLTypeBase):
     Subcode = struct.SubElementProperty(ns_hlp.S12.tag('Subcode'), value_class=subcode, is_optional=True)
     _props = ['Value', 'Subcode']
 
-    def update_from_node(self, node: etree_.Element):
-        for dummy, prop in self.sorted_container_properties():
-            prop.update_from_node(self, node)
-
 
 class Fault(MessageType):
     NODETYPE = ns_hlp.S12.tag('Fault')
