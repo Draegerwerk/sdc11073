@@ -1349,6 +1349,13 @@ class MeasurementValidity(StringEnum):
     NA = 'NA'
 
 
+class ChargeStatus(StringEnum):
+    FUL = 'Ful'  #  Full
+    CHB = 'ChB'  #  Charging Battery
+    DISCHB = 'DisChB'  # Discharging Battery
+    DEB = 'DEB'  # Discharged Empty Battery
+
+
 class InvocationState(StringEnum):  # a namespace class
     WAIT = 'Wait'  # Wait = Waiting. The operation has been queued and waits for execution.
     START = 'Start'  # Start = Started. The execution of the operation has been started

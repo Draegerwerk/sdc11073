@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Option to configure the time to wait until the http server is started [#142](https://github.com/Draegerwerk/sdc11073/issues/142)
+- Enum for ChargeStatus of battery state [#165](https://github.com/Draegerwerk/sdc11073/issues/165).
 
 ## [1.1.25] - 2023-04-21
 
