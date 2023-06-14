@@ -4,12 +4,10 @@ import sys
 import time
 import unittest
 from urllib.parse import urlparse, urlsplit
-
+from lxml.etree import QName
 from sdc11073 import loghelper
 from sdc11073 import wsdiscovery
 from sdc11073.xml_types.wsd_types import ScopesType
-
-QName = wsdiscovery.QName
 
 test_log = logging.getLogger("unittest")
 
