@@ -1,10 +1,8 @@
-from __future__ import annotations
-
 import logging
 
-from ..definitions_sdc import SDC_v1_Definitions
-from ..pysoap.msgfactory import MessageFactory
-from ..pysoap.msgreader import MessageReader
+from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.pysoap.msgfactory import MessageFactory
+from sdc11073.pysoap.msgreader import MessageReader
 
 message_factory = MessageFactory(SDC_v1_Definitions, None, logger=logging.getLogger('sdc.discover.msg'))
 message_reader = MessageReader(SDC_v1_Definitions, None, logger=logging.getLogger('sdc.discover.msg'))

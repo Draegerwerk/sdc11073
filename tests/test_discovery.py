@@ -63,10 +63,10 @@ class TestDiscovery(unittest.TestCase):
         test_log.debug('setUp {}'.format(self._testMethodName))
 
         # give them different logger names so that output can be distinguished
-        self.wsd_client = wsdiscovery.WSDiscoveryWhitelist(accepted_adapter_addresses=['127.0.0.1'],
+        self.wsd_client = wsdiscovery.WSDiscovery('127.0.0.1',
                                                            logger=loghelper.get_logger_adapter('wsd_client'),
                                                            multicast_port=self.MY_MULTICAST_PORT)
-        self.wsd_service = wsdiscovery.WSDiscoveryWhitelist(accepted_adapter_addresses=['127.0.0.1'],
+        self.wsd_service = wsdiscovery.WSDiscovery('127.0.0.1',
                                                             logger=loghelper.get_logger_adapter('wsd_service'),
                                                             multicast_port=self.MY_MULTICAST_PORT)
         self.log_watcher_client = loghelper.LogWatcher(logging.getLogger('wsd_client'), level=logging.ERROR)
@@ -91,6 +91,9 @@ class TestDiscovery(unittest.TestCase):
             raise
 
         test_log.debug('tearDown done {}'.format(self._testMethodName))
+
+    def test_invalid_address(self):
+        self.assertRaises(RuntimeError, wsdiscovery.WSDiscovery, '128.0.0.1')
 
     def test_discover(self):
         test_log.info('starting client...')
@@ -387,7 +390,6 @@ class TestDiscovery(unittest.TestCase):
             self.assertTrue(self.wsd_service._networking_thread._recv_thread.is_alive())
             self.assertTrue(self.wsd_service._networking_thread._qread_thread.is_alive())
             self.assertTrue(self.wsd_service._networking_thread._send_thread.is_alive())
-            self.assertTrue(self.wsd_service._addrs_monitor_thread.is_alive())
 
         self.wsd_service.start()
         time.sleep(0.1)

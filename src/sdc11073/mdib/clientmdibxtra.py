@@ -3,6 +3,7 @@ from collections import namedtuple, deque
 from concurrent import futures
 from statistics import mean, stdev
 from threading import Lock
+from typing import Union
 
 from .. import observableproperties as properties
 from ..exceptions import ApiUsageError
@@ -331,9 +332,10 @@ class ClientMdibMethods:
                 now = time.time()
                 if now - self._last_wf_age_log >= LOG_WF_AGE_INTERVAL:
                     age_data = self.get_wf_age_stdev()
-                    self._logger.info('waveform mean age={:.1f}ms., stdev={:.2f}ms. min={:.1f}ms., max={}',
-                                      age_data.mean_age * 1000., age_data.stdev * 1000.,
-                                      age_data.min_age * 1000., age_data.max_age * 1000.)
+                    if age_data is not None:
+                        self._logger.info('waveform mean age={:.1f}ms., stdev={:.2f}ms. min={:.1f}ms., max={}',
+                                          age_data.mean_age * 1000., age_data.stdev * 1000.,
+                                          age_data.min_age * 1000., age_data.max_age * 1000.)
                     self._last_wf_age_log = now
 
     def _on_episodic_context_report(self, received_message_data):
@@ -367,7 +369,10 @@ class ClientMdibMethods:
                 self._age_statistics[st.DescriptorHandle] = age_stat
             age_stat.process_state(st)
 
-    def get_wf_age_stdev(self):
+    def get_wf_age_stdev(self) -> Union[_AgeData, None]:
+        if len(self._age_statistics) == 0:
+            return None
+
         means = []
         stdevs = []
         mins = []

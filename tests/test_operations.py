@@ -16,7 +16,7 @@ from sdc11073.mdib.devicewaveform import Annotator
 from sdc11073.roles.nomenclature import NomenclatureCodes as nc
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice import waveforms
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.sdcclient.components import SdcClientComponents
 from sdc11073.dispatch import DispatchKeyRegistry
 from tests.mockstuff import SomeDevice
@@ -64,7 +64,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')

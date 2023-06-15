@@ -14,7 +14,7 @@ class Test_Device(unittest.TestCase):
 
     def setUp(self):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = wsdiscovery.WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1',
                                poc='CU1',
