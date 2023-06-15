@@ -153,11 +153,6 @@ class WSDiscovery:
         self._server_started = False
         self._remote_services = {}
         self._local_services = {}
-
-        self._disco_proxy_active = False  # True if discovery proxy detected (is not relevant in sdc context)
-        self.__disco_proxy_address = None
-        self._disco_proxy_epr = None
-
         self._remote_service_hello_callback = None
         self._remote_service_hello_callback_types_filter = None
         self._remote_service_hello_callback_scopes_filter = None
@@ -378,15 +373,6 @@ class WSDiscovery:
         app_sequence = wsd_types.AppSequenceType.from_node(app_sequence_node)
         hello = wsd_types.HelloType.from_node(received_message.p_msg.msg_node)
         epr = hello.EndpointReference.Address
-        # check if it is from a discovery proxy
-        relates_to = received_message.p_msg.header_info_block.RelatesTo
-        if relates_to is not None and relates_to.RelationshipType == nsh.WSD.tag('Suppression'):
-            x_addr = hello.XAddrs[0]
-            if x_addr.startswith("soap.udp:"):
-                self._disco_proxy_active = True
-                tmp = urlsplit(hello.XAddrs[0])
-                self.__disco_proxy_address = (tmp.hostname, tmp.port)
-                self._disco_proxy_epr = epr
         scopes = hello.Scopes
         service = Service(hello.Types, scopes, hello.XAddrs, epr,
                           app_sequence.InstanceId, metadata_version=hello.MetadataVersion)
@@ -453,12 +439,6 @@ class WSDiscovery:
     def _handle_received_bye(self, received_message: ReceivedMessage, addr_from: str):
         bye = wsd_types.ByeType.from_node(received_message.p_msg.msg_node)
         epr = bye.EndpointReference.Address
-        # if the bye is from discovery proxy... we switch back to multicasting
-        if self._disco_proxy_active and self._disco_proxy_epr == epr:
-            self._disco_proxy_active = False
-            self.__disco_proxy_address = None
-            self._disco_proxy_epr = None
-
         self._remove_remote_service(epr)
         if self._remote_service_bye_callback is not None:
             self._remote_service_bye_callback(addr_from, epr)
@@ -544,12 +524,7 @@ class WSDiscovery:
 
         inf = HeaderInformationBlock(action=payload.action, addr_to=ADDRESS_ALL)
         created_message = _mk_wsd_soap_message(inf, payload)
-
-        if self._disco_proxy_active:
-            self._networking_thread.add_unicast_message(created_message, self.__disco_proxy_address[0],
-                                                        self.__disco_proxy_address[1])
-        else:
-            self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)
+        self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)
 
     def _send_resolve(self, epr: str):
         self._logger.debug('sending resolve on %s', epr)
@@ -558,13 +533,7 @@ class WSDiscovery:
 
         inf = HeaderInformationBlock(action=payload.action, addr_to=ADDRESS_ALL)
         created_message = _mk_wsd_soap_message(inf, payload)
-
-        if self._disco_proxy_active:
-            self._networking_thread.add_unicast_message(created_message,
-                                                        self.__disco_proxy_address[0],
-                                                        self.__disco_proxy_address[1])
-        else:
-            self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)
+        self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)
 
     def _send_hello(self, service: Service):
         self._logger.info('sending hello on %s', service)
