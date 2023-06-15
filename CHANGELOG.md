@@ -7,13 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [master]
 
+## [2.0.0a4] - 2023-06-15
+
 ### Changed
 - reworked wsdiscovery. Wsdiscovery can now only bind to a single ip address. 
   The only available classes are "WsDiscovery" and "WsDiscoverySingleAdapter".
 
 ### Fixed
 - fixed bug that roundtrip statistics raises an exception when no data is available.
-- 
+ 
 ## [2.0.0a3] - 2023-06-08
 
 ### Added
