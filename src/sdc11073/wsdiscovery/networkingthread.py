@@ -11,7 +11,7 @@ import traceback
 from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import IntEnum
 from typing import TYPE_CHECKING, Any
 
 from lxml.etree import XMLSyntaxError
@@ -40,7 +40,8 @@ class _UdpRepeatParams:
     repeat: int  # number of repeated sends
     min_delay_ms: int  # minimum delay for first repetition in ms
     max_delay_ms: int  # maximal delay for first repetition in ms
-    upper_delay_ms: int  # max. delay between repetitions in ms (gap is doubled for each further repetition, but not more than this value)
+    upper_delay_ms: int  # max. delay between repetitions in ms
+                         # (gap is doubled for each further repetition, but not more than this value)
 
 
 unicast_repeat_params = _UdpRepeatParams(500, 2, 50, 250, 500)
@@ -51,14 +52,14 @@ SEND_LOOP_IDLE_SLEEP = 0.1
 SEND_LOOP_BUSY_SLEEP = 0.01
 
 
-class _MessageType(Enum):
+class _MessageType(IntEnum):
     MULTICAST = 1
     UNICAST = 2
 
 
 @dataclass(frozen=True)
 class OutgoingMessage:
-    """OutgoingMessage instances contain a soap envelope plus the destination address and the multicast / unicast information."""
+    """OutgoingMessage instances contain a soap envelope, destination address and multicast / unicast information."""
 
     created_message: CreatedMessage
     addr: str
@@ -178,7 +179,7 @@ class _NetworkingThreadBase(ABC):
         while not self._quit_recv_event.is_set():
             try:
                 self._recv_messages()
-            except:
+            except:  # use bare except here, this is a catch-all that keeps thread running.
                 if not self._quit_recv_event.is_set():  # only log error if it does not happen during stop
                     self._logger.error('_run_recv:%s', traceback.format_exc())
 
@@ -195,7 +196,7 @@ class _NetworkingThreadBase(ABC):
     def _recv_messages(self):
         """For performance reasons this thread only writes to a queue, no parsing etc."""
         for key, _ in self._full_selector.select(timeout=0.1):
-            sock = key.fileobj
+            sock: socket.SocketType = key.fileobj
             try:
                 data, addr = sock.recvfrom(BUFFER_SIZE)
             except OSError as exc:

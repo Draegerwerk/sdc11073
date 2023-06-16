@@ -74,6 +74,12 @@ Notices
 
 The sdc11073 python library is not intended for use in medical products, clinical trials, clinical studies, or in clinical routine.
 
+Limitations
+===========
+
+The wsdiscovery module only works with a single ip address. Publishing a device on multiple networks it not supported.
+The same is valid for searching.
+
 ISO 9001
 --------
 

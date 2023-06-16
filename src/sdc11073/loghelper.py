@@ -1,5 +1,5 @@
 import logging
-import logging.handlers
+from logging import handlers as logging_handlers
 import traceback
 
 
@@ -43,7 +43,7 @@ def basic_logging_setup(root_logger_name='sdc', level=logging.INFO, log_file_nam
     reset_handlers(root_logger_name)
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     if log_file_name:
-        file_handler = logging.handlers.RotatingFileHandler(log_file_name,
+        file_handler = logging_handlers.RotatingFileHandler(log_file_name,
                                                             maxBytes=5000000,
                                                             backupCount=2)
         file_handler.setFormatter(formatter)

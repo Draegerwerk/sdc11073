@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import uuid
 from typing import Optional, List, TYPE_CHECKING
-
 from sdc11073.namespaces import default_ns_helper as nsh
 from . import xml_structure as struct
 from .basetypes import XMLTypeBase, ElementWithText
@@ -11,6 +10,7 @@ from .basetypes import XMLTypeBase, ElementWithText
 if TYPE_CHECKING:
     from lxml.etree import QName, Element
 
+_is_reference_parameter = nsh.WSA.tag('IsReferenceParameter')
 
 class EndpointReferenceType(XMLTypeBase):
     Address = struct.NodeStringProperty(nsh.WSA.tag('Address'))
@@ -96,7 +96,7 @@ class HeaderInformationBlock(XMLTypeBase):
         node = super().as_etree_node(q_name, ns_map)
         for param in self.reference_parameters:
             tmp = copy.deepcopy(param)
-            tmp.set('IsReferenceParameter', 'true')
+            tmp.set(_is_reference_parameter, 'true')
             node.append(tmp)
         return node
 
@@ -107,7 +107,7 @@ class HeaderInformationBlock(XMLTypeBase):
         obj.update_from_node(node)
         # collect reference parameter child nodes
         for child in node:
-            is_reference_parameter = child.attrib.get('IsReferenceParameter', 'false')
+            is_reference_parameter = child.attrib.get(_is_reference_parameter, 'false')
             if is_reference_parameter.lower() == 'true':
                 obj.reference_parameters.append(child)
         return obj

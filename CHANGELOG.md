@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - fixed bug that roundtrip statistics raises an exception when no data is available.
 - fixed possible exception that "_short_filter_names" does not exist
+- fixed missing namespace for IsReferenceParameter attribute
  
 ## [2.0.0a3] - 2023-06-08
 

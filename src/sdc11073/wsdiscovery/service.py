@@ -20,10 +20,8 @@ class Service:
                  x_addrs: list[str] | None,
                  epr: str,
                  instance_id: str,
-                 metadata_version=1):
+                 metadata_version: int = 1):
         self.types = types
-        if scopes is not None:
-            assert isinstance(scopes, wsd_types.ScopesType)
         self.scopes = scopes
         self._x_addrs = x_addrs
         self.epr = epr

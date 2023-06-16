@@ -4,6 +4,7 @@ import logging
 import platform
 import random
 import time
+from enum import Enum
 from typing import TYPE_CHECKING, Callable
 from urllib.parse import unquote, urlsplit
 
@@ -19,38 +20,42 @@ from .networkingthread import NetworkingThreadPosix, NetworkingThreadWindows
 from .service import Service
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from logging import Logger
 
     from lxml.etree import QName
 
-    from sdc11073.pysoap.msgreader import ReceivedMessage
-    from sdc11073.pysoap.msgfactory import CreatedMessage
-    from sdc11073.xml_types.msg_types import MessageType
     from sdc11073.location import SdcLocation
-    from collections.abc import Iterable
-
+    from sdc11073.pysoap.msgfactory import CreatedMessage
+    from sdc11073.pysoap.msgreader import ReceivedMessage
+    from sdc11073.xml_types.msg_types import MessageType
 
 WSA_ANONYMOUS = nsh.WSA.namespace + '/anonymous'
 ADDRESS_ALL = "urn:docs-oasis-open-org:ws-dd:ns:discovery:2009:01"  # format acc to RFC 2141
 
 NS_D = nsh.WSD.namespace
-MATCH_BY_LDAP = NS_D + '/ldap'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/ldap"
-MATCH_BY_URI = NS_D + '/rfc3986'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/rfc3986"
-MATCH_BY_UUID = NS_D + '/uuid'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/uuid"
-MATCH_BY_STRCMP = NS_D + '/strcmp0'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/strcmp0"
 
 
-def types_info(types: list[QName]) -> list[str]:
+class MatchBy(str, Enum):
+    """Different Match Options."""
+
+    ldap = NS_D + '/ldap'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/ldap"
+    uri = NS_D + '/rfc3986'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/rfc3986"
+    uuid = NS_D + '/uuid'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/uuid"
+    strcmp = NS_D + '/strcmp0'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/strcmp0"
+
+
+def types_info(types: Iterable[QName] | None) -> list[str] | None:
     """Make printable strings from list of QNames (helper method for logging)."""
     return [str(t) for t in types] if types else types
 
 
-def match_scope(my_scope: str, other_scope: str, match_by: str) -> bool:
+def match_scope(my_scope: str, other_scope: str, match_by: MatchBy | str | None) -> bool:
     """match_scope checks if my_scope matches other_scope by applying the algorithm defined by match_by.
 
     match_scope correctly handles "%2F" (== '/') encoded values.
     """
-    if match_by in (MATCH_BY_LDAP, MATCH_BY_URI, MATCH_BY_UUID, '', None):
+    if match_by in (MatchBy.ldap, MatchBy.uri, MatchBy.uuid, '', None):
         my_scope = urlsplit(my_scope)
         other_scope = urlsplit(other_scope)
         if my_scope.scheme.lower() != other_scope.scheme.lower() \
@@ -65,7 +70,7 @@ def match_scope(my_scope: str, other_scope: str, match_by: str) -> bool:
         if len(src_path_elements) > len(target_path_elements):
             return False
         return all(target_path_elements[i] == elem for i, elem in enumerate(src_path_elements))
-    if match_by == MATCH_BY_STRCMP:
+    if match_by == MatchBy.strcmp:
         return my_scope == other_scope
     return False
 
@@ -89,41 +94,24 @@ def _is_scope_in_list(uri: str, match_by: str, srv_sc: wsd_types.ScopesType) -> 
 
 def matches_filter(service: Service,
                    types: list[QName] | None,
-                   scopes: wsd_types.ScopesType | None,
-                   logger: Logger | None = None) -> bool:
+                   scopes: wsd_types.ScopesType | None) -> bool:
     """Check if service matches the types and scopes."""
     if types is not None and len(types) > 0:
-        srv_ty = service.types
         for ttype in types:
-            if not _is_type_in_list(ttype, srv_ty):
-                if logger:
-                    logger.debug('types not matching: %r is not in types list %r', ttype, srv_ty)
+            if not _is_type_in_list(ttype, service.types):
                 return False
-        if logger:
-            logger.debug('matching types')
     if scopes is not None:
-        srv_sc = service.scopes
         for uri in scopes.text:
-            if not _is_scope_in_list(uri, scopes.MatchBy, srv_sc):
-                if logger:
-                    logger.debug('scope not matching: %s is not in scopes list %r', uri, srv_sc)
+            if not _is_scope_in_list(uri, scopes.MatchBy, service.scopes):
                 return False
-        if logger:
-            logger.debug('matching scopes')
     return True
 
 
 def filter_services(services: Iterable[Service],
                     types: list[QName] | None,
-                    scopes: wsd_types.ScopesType | None,
-                    logger: Logger | None = None) -> list[Service]:
+                    scopes: wsd_types.ScopesType | None) -> list[Service]:
     """Filter services that match types and scopes."""
-    return [service for service in services if matches_filter(service, types, scopes, logger)]
-
-
-def generate_instance_id() -> str:
-    """Return a random number."""
-    return str(random.randint(1, 0xFFFFFFFF))
+    return [service for service in services if matches_filter(service, types, scopes)]
 
 
 def _mk_wsd_soap_message(header_info: HeaderInformationBlock,
@@ -143,7 +131,14 @@ class WSDiscovery:
     PROBEMATCH_XADDRS = True
 
     def __init__(self, my_ip_address: str, logger: Logger | None = None, multicast_port: int = MULTICAST_PORT):
-        """:param logger: use this logger. if None a logger 'sdc.discover' is created."""
+        """Create a WsDiscovery instance.
+
+        :param my_ip_address: the address to bind to, eg. 127.0.0.1
+        :param logger: use this logger. if None a logger 'sdc.discover' is created.
+        :param multicast_port: defaults to MULTICAST_PORT.
+               If port is changed, instance will not be able to communicate with implementations
+               that use the correct port!
+        """
         active_addresses = get_ipv4_addresses()
         if my_ip_address not in active_addresses:
             raise RuntimeError(f'selected address {my_ip_address} is not in {active_addresses}')
@@ -162,7 +157,6 @@ class WSDiscovery:
 
         self._logger = logger or logging.getLogger('sdc.discover')
         self.multicast_port = multicast_port
-        random.seed(int(time.time() * 1000000))
 
     def start(self):
         """Start the discovery server - should be called before using other functions."""
@@ -273,7 +267,8 @@ class WSDiscovery:
             raise ApiUsageError("Server not started")
 
         metadata_version = self._local_services[epr].metadata_version + 1 if epr in self._local_services else 1
-        service = Service(types, scopes, x_addrs, epr, generate_instance_id(), metadata_version=metadata_version)
+        instance_id = str(random.randint(1, 0xFFFFFFFF))
+        service = Service(types, scopes, x_addrs, epr, instance_id, metadata_version=metadata_version)
         self._logger.info('publishing %r', service)
         self._local_services[epr] = service
         self._send_hello(service)
@@ -486,7 +481,8 @@ class WSDiscovery:
     def _send_probe_match(self, services: list[Service], relates_to: str, addr: str):
         self._logger.info('sending probe match to %s for %d services', addr, len(services))
         msg_number = 1
-        # send one match response for every service, dpws explorer can't handle telegram otherwise if too many devices reported
+        # send one match response for every service.
+        # dpws explorer can't handle telegram otherwise if too many devices reported
         for service in services:
             payload = wsd_types.ProbeMatchesType()
 
@@ -515,7 +511,7 @@ class WSDiscovery:
                                                                                 ns_map=nsh.partial_map(nsh.WSD)))
             self._networking_thread.add_unicast_message(created_message, addr[0], addr[1])
 
-    def _send_probe(self, types: list[QName] | None =None, scopes: wsd_types.ScopesType | None = None):
+    def _send_probe(self, types: list[QName] | None = None, scopes: wsd_types.ScopesType | None = None):
         self._logger.debug('sending probe types=%r scopes=%r', types_info(types), scopes)
         payload = wsd_types.ProbeType()
         payload.Types = types
