@@ -250,10 +250,10 @@ class ActionBasedSubscription(SubscriptionBase):
         # split the filter sting into separate action strings and keep them
         self.actions_filter: list[str] = []
         self._short_filter_names: list[str] = [] # helper for shorter log entries
+        super().__init__(*args, **kwargs)
         if self.filter_type is not None:
             self.actions_filter.extend(self.filter_type.text.split())
             self._short_filter_names = [f.split('/')[-1] for f in self.actions_filter]
-        super().__init__(*args, **kwargs)
 
     def matches(self, what: Any) -> bool:
         """
