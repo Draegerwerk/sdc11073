@@ -103,14 +103,14 @@ class TestDiscovery(unittest.TestCase):
         self.wsd_client.start()
         time.sleep(0.1)
 
-        ttype1 = QName("abc", "def")
+        ttype1 = [QName("abc", "def")]
         scopes1 = ScopesType("http://myscope")
-        ttype2 = QName("namespace", "myOtherTestService_type1")
+        ttype2 = [QName("namespace", "myOtherTestService_type1")]
         scopes2 = ScopesType("http://other_scope")
 
         addresses = ["http://localhost:8080/abc", 'http://{ip}/device_service']
         epr = 'my_epr'
-        self.wsd_service.publish_service(epr, types=[ttype1], scopes=scopes1, x_addrs=addresses)
+        self.wsd_service.publish_service(epr, types=ttype1, scopes=scopes1, x_addrs=addresses)
         time.sleep(1)
 
         # test that unfiltered search delivers at least my service
@@ -121,7 +121,7 @@ class TestDiscovery(unittest.TestCase):
 
         # test that filtered search (types) delivers only my service
         test_log.info('starting search types filter...')
-        services = self.wsd_client.search_services(types=[ttype1], timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(types=ttype1, timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
         myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
@@ -135,14 +135,14 @@ class TestDiscovery(unittest.TestCase):
 
         # test that filtered search (scopes+types) delivers only my service
         test_log.info('starting search scopes+types filter...')
-        services = self.wsd_client.search_services(types=[ttype1], scopes=scopes1, timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(types=ttype1, scopes=scopes1, timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
         myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
 
         # test that filtered search (wrong type) finds no service
         test_log.info('starting search types filter...')
-        services = self.wsd_client.search_services(types=[ttype2], timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(types=ttype2, timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 0)
 
         # test that filtered search (wrong scope) finds no service
@@ -152,13 +152,40 @@ class TestDiscovery(unittest.TestCase):
 
         # test that filtered search (correct scopes+ wrong types) finds no service
         test_log.info('starting search scopes+types filter...')
-        services = self.wsd_client.search_services(types=[ttype2], scopes=scopes1, timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(types=ttype2, scopes=scopes1, timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 0)
 
         # test that filtered search (wrong scopes + wrong types) finds no service
         test_log.info('starting search scopes+types filter...')
-        services = self.wsd_client.search_services(types=[ttype1], scopes=scopes2, timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(types=ttype1, scopes=scopes2, timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 0)
+
+        # test search_multiple_types
+        test_log.info('starting search scopes+types filter...')
+        services = self.wsd_client.search_multiple_types(types_list=[ttype1, ttype2], timeout=self.SEARCH_TIMEOUT)
+        self.assertEqual(len(services), 1)
+
+        addresses2 = ["http://localhost:8080/def"]
+        epr = 'my_epr2'
+        self.wsd_service.publish_service(epr, types=ttype2, scopes=scopes2, x_addrs=addresses2)
+        time.sleep(1)
+
+        ttype3 = [QName("namespace", "something_different")]
+        scopes3 = ScopesType("http://still_another_scope")
+        addresses3 = ["http://localhost:8080/xxx"]
+        epr = 'my_epr3'
+        self.wsd_service.publish_service(epr, types=ttype3, scopes=scopes3, x_addrs=addresses3)
+        time.sleep(1)
+
+        # test search_multiple_types
+        test_log.info('starting search scopes+types filter...')
+        services = self.wsd_client.search_multiple_types(types_list=[ttype1, ttype2], timeout=self.SEARCH_TIMEOUT)
+        self.assertEqual(len(services), 2)
+
+        # test search_multiple_types
+        test_log.info('starting search scopes+types filter...')
+        services = self.wsd_client.search_multiple_types(types_list=[ttype1, ttype2, ttype3], timeout=self.SEARCH_TIMEOUT)
+        self.assertEqual(len(services), 3)
 
     def test_discover_serviceFirst(self):
         test_log.info('starting service...')
