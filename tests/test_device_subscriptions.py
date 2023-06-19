@@ -11,7 +11,7 @@ from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.sdcdevice import waveforms, SdcDevice
 from sdc11073.sdcdevice.components import default_sdc_device_components_sync
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.wsdiscovery import WSDiscovery
 from tests import mockstuff
 
 mdib_folder = os.path.dirname(__file__)
@@ -44,7 +44,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
                                      firmware_version='0.99',
                                      serial_number='123serial')
 
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_device = SdcDevice(self.wsd, this_model, this_device, self.mdib,
                                     default_components=default_sdc_device_components_sync)

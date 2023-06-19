@@ -32,7 +32,7 @@ from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferencePa
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.components import SdcDeviceComponents, default_sdc_device_components_async
 from sdc11073.sdcdevice.subscriptionmgr import ReferenceParamSubscriptionsManager
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.namespaces import default_ns_helper
 from tests.mockstuff import SomeDevice, dec_list
 
@@ -242,7 +242,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.logger = get_logger_adapter('sdc.test')
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041)
@@ -1078,7 +1078,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         self.logger = get_logger_adapter('sdc.test')
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -1169,7 +1169,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         basic_logging_setup()
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='<Final> ',
@@ -1220,7 +1220,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         basic_logging_setup()
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
 
@@ -1313,7 +1313,7 @@ class Test_Client_SomeDevice_async(unittest.TestCase):
         self.logger = get_logger_adapter('sdc.test')
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='',

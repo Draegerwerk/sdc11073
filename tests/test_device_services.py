@@ -13,7 +13,7 @@ from sdc11073.xml_types.pm_types import AlertConditionPriority
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapenvelope import Soap12Envelope
 from sdc11073.dispatch.request import RequestData
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.wsdiscovery import WSDiscovery
 from tests import mockstuff
 
 _sdc_ns = ns_hlp.SDC.namespace
@@ -25,7 +25,7 @@ class TestDeviceServices(unittest.TestCase):
         basic_logging_setup()
         ''' validate test data'''
         print('############### setUp {}... ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         my_uuid = None  # let device create one
         self.sdc_device = mockstuff.SomeDevice.from_mdib_file(self.wsd, my_uuid, '70041_MDIB_Final.xml')

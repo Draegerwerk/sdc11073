@@ -355,7 +355,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
     def _update_alert_system_state_current_alerts(self):
         """ updates AlertSystemState present alarms list"""
         states_needing_update = self._get_alert_system_states_needing_update()
-        self._logger.debug(f'{len(states_needing_update)} states_needing_update')
         if len(states_needing_update) > 0:
             try:
                 with self._mdib.transaction_manager() as mgr:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
-from typing import Type, Callable, Any, TYPE_CHECKING
+from typing import Callable, Any, TYPE_CHECKING
 
 from .operations import get_operation_class
 from .porttypes.containmenttreeserviceimpl import ContainmentTreeService
@@ -41,15 +41,15 @@ if TYPE_CHECKING:
 # Dependency injection: This class defines which component implementations the sdc device will use.
 @dataclass()
 class SdcDeviceComponents:
-    soap_client_class: Type[Any] = None
-    msg_factory_class: Type[MessageFactory] = None
-    msg_reader_class: Type[MessageReader] = None
-    client_msg_reader_class: Type[MessageReader] = None  # the corresponding reader for client
-    xml_reader_class: Type[MessageReader] = None  # needed to read xml based mdib files
+    soap_client_class: type[Any] = None
+    msg_factory_class: type[MessageFactory] = None
+    msg_reader_class: type[MessageReader] = None
+    client_msg_reader_class: type[MessageReader] = None  # the corresponding reader for client
+    xml_reader_class: type[MessageReader] = None  # needed to read xml based mdib files
     services_factory: Callable[[Any, dict, Any], HostedServices] = None
     operation_cls_getter: Callable[[QName], type] = None
-    sco_operations_registry_class: Type[AbstractScoOperationsRegistry] = None
-    subscriptions_manager_class: dict[str, SubscriptionManagerProtocol] = None
+    sco_operations_registry_class: type[AbstractScoOperationsRegistry] = None
+    subscriptions_manager_class: dict[str, type[SubscriptionManagerProtocol]] = None
     role_provider_class: type = None
     scopes_factory: Callable[[DeviceMdibContainer], ScopesType] = None
     hosted_services: dict = None
@@ -65,7 +65,6 @@ class SdcDeviceComponents:
         _merge('services_factory')
         _merge('operation_cls_getter')
         _merge('sco_operations_registry_class')
-        # _merge('subscriptions_manager_class')
         _merge('role_provider_class')
         _merge('scopes_factory')
         if other.hosted_services is not None:

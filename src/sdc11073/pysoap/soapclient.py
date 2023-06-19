@@ -8,6 +8,7 @@ import socket
 import sys
 import time
 import traceback
+from lxml.etree import XMLSyntaxError
 from http.client import CannotSendRequest, BadStatusLine, NotConnected, UnknownTransferEncoding
 from http.client import HTTPConnection, HTTPSConnection
 from http.client import HTTPException, HTTPResponse
@@ -298,9 +299,13 @@ class SoapClient:
                 self._log.error(
                     "{}: POST to netloc='{}' path='{}': could not send request, HTTP response={}\ncontent='{}'", msg,
                     self._netloc, path, response.status, content.decode('utf-8'))
-                tmp = self._msg_reader.read_received_message(content)
-                soap_fault = Fault.from_node(tmp.p_msg.msg_node)
-                raise HTTPReturnCodeError(response.status, response.reason, soap_fault)
+                try:
+                    tmp = self._msg_reader.read_received_message(content)
+                except XMLSyntaxError as ex:
+                    raise HTTPReturnCodeError(response.status, response.reason, None) from ex
+                else:
+                    soap_fault = Fault.from_node(tmp.p_msg.msg_node)
+                    raise HTTPReturnCodeError(response.status, response.reason, soap_fault)
 
             response_headers = {k.lower(): v for k, v in response.getheaders()}
 

@@ -22,7 +22,7 @@ class Test_Device_PeriodicReports(unittest.TestCase):
         basic_logging_setup()
         logging.getLogger('sdc.device.pReports').setLevel(logging.DEBUG)
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = wsdiscovery.WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='tklx',
                                poc='CU1',

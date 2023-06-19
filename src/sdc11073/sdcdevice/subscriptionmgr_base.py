@@ -247,10 +247,10 @@ class ActionBasedSubscription(SubscriptionBase):
     Actions are a space separated list of strings in FilterType.text. """
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
         # split the filter sting into separate action strings and keep them
         self.actions_filter: list[str] = []
         self._short_filter_names: list[str] = [] # helper for shorter log entries
+        super().__init__(*args, **kwargs)
         if self.filter_type is not None:
             self.actions_filter.extend(self.filter_type.text.split())
             self._short_filter_names = [f.split('/')[-1] for f in self.actions_filter]

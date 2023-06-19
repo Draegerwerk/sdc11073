@@ -664,7 +664,7 @@ class SdcClient:
         :param specific_components: a SdcClientComponents instance or None
         :return:
         """
-        device_locations = wsd_service.get_x_addrs()
+        device_locations = wsd_service.x_addrs
         if not device_locations:
             raise RuntimeError(f'discovered Service has no address!{wsd_service}')
         device_location = device_locations[0]

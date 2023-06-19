@@ -13,7 +13,7 @@ from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice.components import SdcDeviceComponents
 from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist, WSDiscoverySingleAdapter
+from sdc11073.wsdiscovery import WSDiscovery, WSDiscoverySingleAdapter
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.xml_types.pm_types import CodedValue
@@ -194,7 +194,7 @@ class Test_Tutorial(unittest.TestCase):
     def test_createDevice(self):
         # A WsDiscovery instance is needed to publish devices on the network.
         # In this case we want to publish them only on localhost 127.0.0.1.
-        my_ws_discovery = WSDiscoveryWhitelist(['127.0.0.1'])
+        my_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
@@ -204,7 +204,7 @@ class Test_Tutorial(unittest.TestCase):
 
     def test_searchDevice(self):
         # create one discovery and two device that we can then search for
-        my_ws_discovery = WSDiscoveryWhitelist(['127.0.0.1'])
+        my_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
@@ -248,14 +248,14 @@ class Test_Tutorial(unittest.TestCase):
 
     def test_createClient(self):
         # create one discovery and one device that we can then search for
-        my_ws_discovery = WSDiscoveryWhitelist(['127.0.0.1'])
+        my_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
         my_generic_device1 = createGenericDevice(my_ws_discovery, self.my_location, my_mdib_path)
         self.my_devices.append(my_generic_device1)
 
-        my_client_ws_discovery = WSDiscoveryWhitelist(['127.0.0.1'])
+        my_client_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_client_ws_discovery)
         my_client_ws_discovery.start()
 
@@ -289,14 +289,14 @@ class Test_Tutorial(unittest.TestCase):
 
     def test_callOperation(self):
         # create one discovery and one device that we can then search for
-        my_ws_discovery = WSDiscoveryWhitelist(['127.0.0.1'])
+        my_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
         my_generic_device1 = createGenericDevice(my_ws_discovery, self.my_location, my_mdib_path)
         self.my_devices.append(my_generic_device1)
 
-        my_client_ws_discovery = WSDiscoveryWhitelist(['127.0.0.1'])
+        my_client_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_client_ws_discovery)
         my_client_ws_discovery.start()
 
@@ -339,7 +339,7 @@ class Test_Tutorial(unittest.TestCase):
         """
         # Create a device like in the examples above, but provide an own role provider.
         # This role provider is used instead of the default one.
-        my_ws_discovery = WSDiscoveryWhitelist(['127.0.0.1'])
+        my_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
@@ -355,7 +355,7 @@ class Test_Tutorial(unittest.TestCase):
         self.my_devices.append(my_generic_device)
 
         # connect a client to this device:
-        my_client_ws_discovery = WSDiscoveryWhitelist(['127.0.0.1'])
+        my_client_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_client_ws_discovery)
         my_client_ws_discovery.start()
 
