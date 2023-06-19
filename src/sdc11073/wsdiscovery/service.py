@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sdc11073.xml_types import wsd_types
-
 if TYPE_CHECKING:
     from lxml.etree import QName
+
+    from sdc11073.xml_types import wsd_types
 
 
 class Service:
@@ -29,11 +29,13 @@ class Service:
         self.message_number = 0
         self.metadata_version = metadata_version
 
-    def get_x_addrs(self) -> list[str]:
+    @property
+    def x_addrs(self) -> list[str]:
         """Get the addresses of the service."""
         return self._x_addrs or []
 
-    def set_x_addrs(self, x_addrs: list[str]) -> None:
+    @x_addrs.setter
+    def x_addrs(self, x_addrs: list[str]):
         """Set the addresses of the service."""
         self._x_addrs = x_addrs
 

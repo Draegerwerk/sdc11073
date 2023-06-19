@@ -179,7 +179,8 @@ class _NetworkingThreadBase(ABC):
         while not self._quit_recv_event.is_set():
             try:
                 self._recv_messages()
-            except:  # use bare except here, this is a catch-all that keeps thread running.
+            except:  # noqa: E722
+                # use bare except here, this is a catch-all that keeps thread running.
                 if not self._quit_recv_event.is_set():  # only log error if it does not happen during stop
                     self._logger.error('_run_recv:%s', traceback.format_exc())
 

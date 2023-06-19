@@ -205,7 +205,7 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('search done.')
 
         for service in services:
-            test_log.info(f'found service: {service.epr} : {service.get_x_addrs()}')
+            test_log.info(f'found service: {service.epr} : {service.x_addrs}')
         myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
 
@@ -255,7 +255,7 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('search done.')
 
         for service in services:
-            test_log.info(f'found service: {service.epr} : {service.get_x_addrs()}')
+            test_log.info(f'found service: {service.epr} : {service.x_addrs}')
         myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
         self.assertEqual(myServices[0].types, [ttype])
@@ -282,7 +282,7 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('search done.')
 
         for service in services:
-            test_log.info(f'found service: {service.epr} : {service.get_x_addrs()}')
+            test_log.info(f'found service: {service.epr} : {service.x_addrs}')
         myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
         self.assertEqual(myServices[0].types, [ttype])
@@ -310,7 +310,7 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('search done.')
 
         for service in services:
-            test_log.info(f'found service: {service.epr} : {service.get_x_addrs()}')
+            test_log.info(f'found service: {service.epr} : {service.x_addrs}')
         myServices = [s for s in services if s.epr == epr]
         self.assertEqual(len(myServices), 1)
         self.assertEqual(myServices[0].types, [ttype])
@@ -372,7 +372,7 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('search done.')
 
         for service in services:
-            test_log.info(f'found service: {service.epr} : {service.get_x_addrs()}')
+            test_log.info(f'found service: {service.epr} : {service.x_addrs}')
         myServices = [s for s in services if 'my_epr' in s.epr]  # there might be other devices in the network
         self.assertEqual(len(myServices), deviceCount)
 

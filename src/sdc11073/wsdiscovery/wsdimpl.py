@@ -137,7 +137,7 @@ class WSDiscovery:
         :param logger: use this logger. if None a logger 'sdc.discover' is created.
         :param multicast_port: defaults to MULTICAST_PORT.
                If port is changed, instance will not be able to communicate with implementations
-               that use the correct port!
+               that use the correct port (which is the default MULTICAST_PORT)!
         """
         active_addresses = get_ipv4_addresses()
         if my_ip_address not in active_addresses:
@@ -343,8 +343,8 @@ class WSDiscovery:
         if service.metadata_version == already_known_service.metadata_version:
             self._logger.debug('update remote service: remote Service %s; MetadataVersion: %d',
                                service.epr, service.metadata_version)
-            if len(service.get_x_addrs()) > len(already_known_service.get_x_addrs()):
-                already_known_service.set_x_addrs(service.get_x_addrs())
+            if len(service.x_addrs) > len(already_known_service.x_addrs):
+                already_known_service.x_addrs = service.x_addrs
             if service.scopes is not None:
                 already_known_service.scopes = service.scopes
             if service.types is not None:
@@ -418,7 +418,7 @@ class WSDiscovery:
             service = self._local_services[epr]
             self._send_resolve_match(service, received_message.p_msg.header_info_block.MessageID, addr_from)
 
-    def _handle_received_resolve_matches(self, received_message: ReceivedMessage, addr_from: str):
+    def _handle_received_resolve_matches(self, received_message: ReceivedMessage, addr_from: str): # noqa ARG002
         app_sequence_node = received_message.p_msg.header_node.find(nsh.WSD.tag('AppSequence'))
         app_sequence = wsd_types.AppSequenceType.from_node(app_sequence_node)
         resolve_matches = wsd_types.ResolveMatchesType.from_node(received_message.p_msg.msg_node)
@@ -465,7 +465,7 @@ class WSDiscovery:
         payload.ResolveMatch.MetadataVersion = service.metadata_version
         payload.ResolveMatch.Types = service.types
         payload.ResolveMatch.Scopes = service.scopes
-        payload.ResolveMatch.XAddrs.extend(service.get_x_addrs())
+        payload.ResolveMatch.XAddrs.extend(service.x_addrs)
         inf = HeaderInformationBlock(action=payload.action,
                                      addr_to=WSA_ANONYMOUS,
                                      relates_to=relates_to)
@@ -490,7 +490,7 @@ class WSDiscovery:
             epr = service.epr if self.PROBEMATCH_EPR else ''
             types = service.types if self.PROBEMATCH_TYPES else []
             scopes = service.scopes if self.PROBEMATCH_SCOPES else None
-            xaddrs = service.get_x_addrs() if self.PROBEMATCH_XADDRS else []
+            xaddrs = service.x_addrs if self.PROBEMATCH_XADDRS else []
 
             probe_match = wsd_types.ProbeMatchType()
             probe_match.EndpointReference.Address = epr
@@ -541,7 +541,7 @@ class WSDiscovery:
         payload = wsd_types.HelloType()
         payload.Types = service.types
         payload.Scopes = service.scopes
-        payload.XAddrs = service.get_x_addrs()
+        payload.XAddrs = service.x_addrs
         payload.EndpointReference.Address = service.epr
 
         inf = HeaderInformationBlock(action=payload.action, addr_to=ADDRESS_ALL)
