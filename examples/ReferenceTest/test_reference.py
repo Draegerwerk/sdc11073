@@ -9,14 +9,14 @@ from concurrent import futures
 from decimal import Decimal
 
 from sdc11073 import observableproperties
-from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.definitions_sdc import SDC_v1_Definitions
-from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import DeviceMdibContainer, ClientMdibContainer
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist, Scopes
+from sdc11073.wsdiscovery import WSDiscovery, ScopesType
+from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
+from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 
 here = os.path.dirname(__file__)
 default_mdib_path = os.path.join(here, 'reference_mdib.xml')
@@ -166,7 +166,7 @@ class Test_Reference(unittest.TestCase):
         # This test creates its own device and runs the tests against it
         # A WsDiscovery instance is needed to publish devices on the network.
         # In this case we want to publish them only on localhost 127.0.0.1.
-        my_device_wsDiscovery = WSDiscoveryWhitelist([adapter_ip])
+        my_device_wsDiscovery = WSDiscovery(adapter_ip)
         self.my_wsdiscoveries.append(my_device_wsDiscovery)
         my_device_wsDiscovery.start()
 
@@ -188,13 +188,13 @@ class Test_Reference(unittest.TestCase):
         """sequence of client actions"""
         errors = []
         passed = []
-        my_client_wsDiscovery = WSDiscoveryWhitelist([adapter_ip])
+        my_client_wsDiscovery = WSDiscovery(adapter_ip)
         self.my_wsdiscoveries.append(my_client_wsDiscovery)
         my_client_wsDiscovery.start()
 
         print('looking for device with scope {}'.format(self.my_location.scope_string))
         services = my_client_wsDiscovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
-                                                         scopes=Scopes(self.my_location.scope_string))
+                                                         scopes=ScopesType(self.my_location.scope_string))
         print('found {} services {}'.format(len(services), ', '.join([s.epr for s in services])))
         for s in services:
             print(s.epr)
@@ -332,7 +332,6 @@ class Test_Reference(unittest.TestCase):
         print('Test step 10: call SetValue operation')
         setvalue_operations = mdib.descriptions.NODETYPE.get(pm.SetValueOperationDescriptor,
                                                              [])
-        #    print('setvalue_operations', setvalue_operations)
         setval_handle = 'numeric.ch0.vmd1_sco_0'
         if len(setvalue_operations) == 0:
             print('Test step 10 failed, no SetValue operation found')
