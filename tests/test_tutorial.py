@@ -13,11 +13,10 @@ from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice.components import SdcDeviceComponents
 from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
-from sdc11073.wsdiscovery import WSDiscovery, WSDiscoverySingleAdapter
+from sdc11073.wsdiscovery import WSDiscovery, WSDiscoverySingleAdapter, ScopesType
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.xml_types.pm_types import CodedValue
-from sdc11073.xml_types.wsd_types import ScopesType
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 
 loopback_adapter = 'Loopback Pseudo-Interface 1' if os.name == 'nt' else 'lo'
