@@ -187,12 +187,11 @@ class _AttributeBase(_XmlStructureBaseProperty):
 
     def get_py_value_from_node(self, instance, node):
         value = self._default_py_value
-        try:
-            xml_value = node.attrib.get(self._attribute_name)
-            if xml_value is not None:
-                value = self._converter.to_py(xml_value)
-        except ElementNotFoundException:
-            pass
+        if node is None:
+            return value
+        xml_value = node.attrib.get(self._attribute_name)
+        if xml_value is not None:
+            value = self._converter.to_py(xml_value)
         return value
 
     def update_xml_value(self, instance, node: etree_.Element):
@@ -394,12 +393,11 @@ class QNameAttributeProperty(_AttributeBase):
         :return: None or a QName
         """
         value = self._default_py_value
-        try:
-            xml_value = node.attrib.get(self._attribute_name)
-            if xml_value is not None:
-                value = text_to_qname(xml_value, node.nsmap)
-        except ElementNotFoundException:
-            pass
+        if node is None:
+            return value
+        xml_value = node.attrib.get(self._attribute_name)
+        if xml_value is not None:
+            value = text_to_qname(xml_value, node.nsmap)
         return value
 
     def update_xml_value(self, instance, node):
@@ -445,13 +443,12 @@ class _AttributeListBase(_AttributeBase):
 
     def get_py_value_from_node(self, instance, node):
         values = self._default_py_value
-        try:
-            xml_value = node.attrib.get(self._attribute_name)
-            if xml_value is not None:
-                split_result = xml_value.split(' ')
-                values = [self._converter.elem_to_py(val) for val in split_result if val]
-        except ElementNotFoundException:
-            pass
+        if node is None:
+            return values
+        xml_value = node.attrib.get(self._attribute_name)
+        if xml_value is not None:
+            split_result = xml_value.split(' ')
+            values = [self._converter.elem_to_py(val) for val in split_result if val]
         return values
 
     def update_xml_value(self, instance, node):
