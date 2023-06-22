@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - improved error handling when reading attribute values from xml element
 
+### Added
+- added switch to allow disabling strict checking for AppSequence.
+
 ## [2.0.0a4] - 2023-06-16
 
 ### Changed
