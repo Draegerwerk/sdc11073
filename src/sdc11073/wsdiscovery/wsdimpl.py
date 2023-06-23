@@ -35,6 +35,11 @@ ADDRESS_ALL = "urn:docs-oasis-open-org:ws-dd:ns:discovery:2009:01"  # format acc
 
 NS_D = nsh.WSD.namespace
 
+# AppSequence node is mandatory acc. to text is wsdicovery spec, but in reality this is sometimes missing.
+# An application can decide to modify this value if it seems appropriate.
+# If allow_missing_app_sequence is True, the message is accepted and an InstanceId of 0 is used.
+# If allow_missing_app_sequence is False and the element is missing, the whole message will be ignored.
+allow_missing_app_sequence = False
 
 class MatchBy(str, Enum):
     """Different Match Options."""
@@ -267,7 +272,7 @@ class WSDiscovery:
             raise ApiUsageError("Server not started")
 
         metadata_version = self._local_services[epr].metadata_version + 1 if epr in self._local_services else 1
-        instance_id = str(random.randint(1, 0xFFFFFFFF))
+        instance_id = str(random.randint(1, 0xFFFFFFFF))  # Noqa: S311
         service = Service(types, scopes, x_addrs, epr, instance_id, metadata_version=metadata_version)
         self._logger.info('publishing %r', service)
         self._local_services[epr] = service
@@ -365,12 +370,20 @@ class WSDiscovery:
 
     def _handle_received_hello(self, received_message: ReceivedMessage, addr_from: str):
         app_sequence_node = received_message.p_msg.header_node.find(nsh.WSD.tag('AppSequence'))
-        app_sequence = wsd_types.AppSequenceType.from_node(app_sequence_node)
+        if app_sequence_node is None:
+            if allow_missing_app_sequence:
+                instance_id = 0
+            else:
+                self._logger.debug('received Hello from %r without AppSequence, ignoring it', addr_from)
+                return
+        else:
+            app_sequence = wsd_types.AppSequenceType.from_node(app_sequence_node)
+            instance_id = app_sequence.InstanceId
         hello = wsd_types.HelloType.from_node(received_message.p_msg.msg_node)
         epr = hello.EndpointReference.Address
         scopes = hello.Scopes
         service = Service(hello.Types, scopes, hello.XAddrs, epr,
-                          app_sequence.InstanceId, metadata_version=hello.MetadataVersion)
+                          instance_id, metadata_version=hello.MetadataVersion)
         self._add_remote_service(service)
         if not hello.XAddrs:  # B.D.
             self._logger.debug('%s(%s) has no Xaddr, sending resolve message', epr, addr_from)
@@ -392,14 +405,22 @@ class WSDiscovery:
 
     def _handle_received_probe_matches(self, received_message: ReceivedMessage, addr_from: str):
         app_sequence_node = received_message.p_msg.header_node.find(nsh.WSD.tag('AppSequence'))
-        app_sequence = wsd_types.AppSequenceType.from_node(app_sequence_node)
+        if app_sequence_node is None:
+            if allow_missing_app_sequence:
+                instance_id = 0
+            else:
+                self._logger.debug('received ProbeMatches from %r without AppSequence, ignoring it', addr_from)
+                return
+        else:
+            app_sequence = wsd_types.AppSequenceType.from_node(app_sequence_node)
+            instance_id = app_sequence.InstanceId
         probe_matches = wsd_types.ProbeMatchesType.from_node(received_message.p_msg.msg_node)
         self._logger.debug('handle_received_message: len(ProbeMatch) = %d', len(probe_matches.ProbeMatch))
         for match in probe_matches.ProbeMatch:
             epr = match.EndpointReference.Address
             scopes = match.Scopes
             service = Service(match.Types, scopes, match.XAddrs, epr,
-                              app_sequence.InstanceId, metadata_version=match.MetadataVersion)
+                              instance_id, metadata_version=match.MetadataVersion)
             self._add_remote_service(service)
             if match.XAddrs is None or len(match.XAddrs) == 0:
                 self._logger.info('%s(%s) has no Xaddr, sending resolve message', epr, addr_from)
@@ -420,13 +441,21 @@ class WSDiscovery:
 
     def _handle_received_resolve_matches(self, received_message: ReceivedMessage, addr_from: str): # noqa ARG002
         app_sequence_node = received_message.p_msg.header_node.find(nsh.WSD.tag('AppSequence'))
-        app_sequence = wsd_types.AppSequenceType.from_node(app_sequence_node)
+        if app_sequence_node is None:
+            if allow_missing_app_sequence:
+                instance_id = 0
+            else:
+                self._logger.debug('received ResolveMatches from %r without AppSequence, ignoring it', addr_from)
+                return
+        else:
+            app_sequence = wsd_types.AppSequenceType.from_node(app_sequence_node)
+            instance_id = app_sequence.InstanceId
         resolve_matches = wsd_types.ResolveMatchesType.from_node(received_message.p_msg.msg_node)
         match = resolve_matches.ResolveMatch
         epr = match.EndpointReference.Address
         scopes = match.Scopes
         service = Service(match.Types, scopes, match.XAddrs, epr,
-                          app_sequence.InstanceId, metadata_version=match.MetadataVersion)
+                          instance_id, metadata_version=match.MetadataVersion)
         self._add_remote_service(service)
         if self._remote_service_resolve_match_callback is not None:
             self._remote_service_resolve_match_callback(service)
