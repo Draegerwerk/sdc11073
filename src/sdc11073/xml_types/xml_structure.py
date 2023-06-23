@@ -44,7 +44,7 @@ STRICT_TYPES = True  # if True, only the expected types are excepted.
 MANDATORY_VALUE_CHECKING = True  # checks if mandatory values are present when xml is generated
 
 
-class ElementNotFoundException(Exception):  # Noqa D101
+class ElementNotFoundError(Exception):  # Noqa: D101
     pass
 
 
@@ -232,7 +232,7 @@ class _AttributeBase(_XmlStructureBaseProperty):
             try:
                 if self._attribute_name in node.attrib:
                     del node.attrib[self._attribute_name]
-            except ElementNotFoundException:
+            except ElementNotFoundError:
                 return
         else:
             xml_value = self._converter.to_xml(py_value)
@@ -252,8 +252,8 @@ class _ElementBase(_XmlStructureBaseProperty, ABC):
                  is_optional: bool = False):
         """Construct the representation of a (sub) element in xml.
 
-        :param sub_element_name: a QName or None
-                                if None, the property represents the node itself, otherwise the sub node with given name.
+        :param sub_element_name: a QName or None. If None, the property represents the node itself,
+                                 otherwise the sub node with given name.
         :param value_converter: see base class doc.
         :param default_py_value: see base class doc.
         :param implied_py_value: see base class doc.
@@ -275,7 +275,7 @@ class _ElementBase(_XmlStructureBaseProperty, ABC):
         sub_node = node.find(sub_element_name)
         if sub_node is None:
             if not create_missing_nodes:
-                raise ElementNotFoundException(f'Element {sub_element_name} not found in {node.tag}')
+                raise ElementNotFoundError(f'Element {sub_element_name} not found in {node.tag}')
             sub_node = etree_.SubElement(node, sub_element_name)  # create this node
         return sub_node
 
@@ -453,7 +453,7 @@ class BooleanAttributeProperty(_AttributeBase):
 
 
 class QNameAttributeProperty(_AttributeBase):
-    """Represents a Qualifies name attribut.
+    """Represents a qualified name attribute.
 
     XML Representation is a prefix:name string, Python representation is a QName.
     """
@@ -484,7 +484,7 @@ class QNameAttributeProperty(_AttributeBase):
             try:
                 if self._attribute_name in node.attrib:
                     del node.attrib[self._attribute_name]
-            except ElementNotFoundException:
+            except ElementNotFoundError:
                 return
         else:
             xml_value = docname_from_qname(py_value, node.nsmap)
@@ -495,7 +495,7 @@ class _AttributeListBase(_AttributeBase):
     """Base class for a list of values as attribute.
 
     XML Representation is a string which is a space separated list.
-    Python representation is a list of strings if value_converter is None,
+    Python representation is a list of Any (type depends on ListConverter),
     else a list of converted values.
     """
 
@@ -535,7 +535,7 @@ class _AttributeListBase(_AttributeBase):
             try:
                 if self._attribute_name in node.attrib:
                     del node.attrib[self._attribute_name]
-            except ElementNotFoundException:
+            except ElementNotFoundError:
                 return
         else:
             if py_value is None:
@@ -606,7 +606,7 @@ class NodeTextProperty(_ElementBase):
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
             return self._converter.to_py(sub_node.text)
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             return self._default_py_value
 
     def update_xml_value(self, instance: Any, node: etree_.Element):
@@ -698,7 +698,7 @@ class NodeEnumQNameProperty(NodeTextProperty):
             namespace = node.nsmap[prefix]
             q_name = etree_.QName(namespace, localname)
             return self._converter.to_py(q_name)
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             return self._default_py_value
 
     def update_xml_value(self, instance: Any, node: etree_.Element):
@@ -760,7 +760,7 @@ class NodeTextQNameProperty(_ElementBase):
             if xml_value is not None:
                 value = text_to_qname(xml_value, sub_node.nsmap)
                 return value
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             pass
         return self._default_py_value
 
@@ -824,7 +824,7 @@ class ExtensionNodeProperty(_ElementBase):
         """Read value from node."""
         try:
             extension_nodes = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             return None
         values = OrderedDict()
         for extension_node in extension_nodes:
@@ -873,7 +873,7 @@ class AnyEtreeNodeProperty(_ElementBase):
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             return None
         return sub_node[:]  # all children
 
@@ -889,10 +889,8 @@ class AnyEtreeNodeProperty(_ElementBase):
                 sub_node = node.find(self._sub_element_name)
                 if sub_node is not None:
                     node.remove(sub_node)
-            else:
-                if MANDATORY_VALUE_CHECKING and not self.is_optional:
-                    raise ValueError(f'mandatory value {self._sub_element_name} missing')
-                sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
+            elif MANDATORY_VALUE_CHECKING:
+                raise ValueError(f'mandatory value {self._sub_element_name} missing')
         else:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
             if isinstance(py_value, etree_._Element):  # Noqa: SLF001
@@ -920,7 +918,7 @@ class SubElementProperty(_ElementBase):
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
             value_class = self.value_class.value_class_from_node(sub_node)
             value = value_class.from_node(sub_node)
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             pass
         return value
 
@@ -946,11 +944,11 @@ class SubElementProperty(_ElementBase):
 
 
 class ContainerProperty(_ElementBase):
-    """ContainerProperty is a property that supports xsi:type information from xml and instantiates value accordingly."""
+    """ContainerProperty supports xsi:type information from xml and instantiates value accordingly."""
 
     def __init__(self, sub_element_name: etree_.QName | None,  # Noqa: PLR0913
                  value_class: Any,
-                 cls_getter: Callable,
+                 cls_getter: Callable[[etree_.QName], type],
                  ns_helper: NamespaceHelper,
                  is_optional: bool = False):
         """Construct a ContainerProperty.
@@ -958,7 +956,7 @@ class ContainerProperty(_ElementBase):
         :param sub_element_name: see doc of base class
         :param value_class: Default value class if no xsi:type is found
         :param cls_getter: function that returns a class for xsi:type QName
-        :param ns_helper: name space helper thatknows current prefixes
+        :param ns_helper: name space helper that knows current prefixes
         :param is_optional: see doc of base class
         """
         super().__init__(sub_element_name, ClassCheckConverter(value_class), is_optional=is_optional)
@@ -978,7 +976,7 @@ class ContainerProperty(_ElementBase):
             else:
                 value_class = self.value_class
             value = value_class.from_node(sub_node)
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             pass
         return value
 
@@ -1040,7 +1038,7 @@ class SubElementListProperty(_ElementListProperty):
                 value = value_class.from_node(_node)
                 objects.append(value)
             return objects
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             return objects
 
     def update_xml_value(self, instance: Any, node: etree_.Element):
@@ -1071,7 +1069,7 @@ class ContainerListProperty(_ElementListProperty):
 
     def __init__(self, sub_element_name: etree_.QName | None,  # Noqa: PLR0913
                  value_class: Any,
-                 cls_getter: Callable,
+                 cls_getter: Callable[[etree_.QName], type],
                  ns_helper: NamespaceHelper,
                  is_optional: bool = True):
         """Construct a list of Containers.
@@ -1079,7 +1077,7 @@ class ContainerListProperty(_ElementListProperty):
         :param sub_element_name: see doc of base class
         :param value_class: Default value class if no xsi:type is found
         :param cls_getter: function that returns a class for xsi:type QName
-        :param ns_helper: name space helper thatknows current prefixes
+        :param ns_helper: name space helper that knows current prefixes
         :param is_optional: see doc of base class
         """
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
@@ -1102,7 +1100,7 @@ class ContainerListProperty(_ElementListProperty):
                 value = value_class.from_node(_node)
                 objects.append(value)
             return objects
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             return objects
 
     def update_xml_value(self, instance: Any, node: etree_.Element):
@@ -1147,7 +1145,7 @@ class SubElementTextListProperty(_ElementListProperty):
             for _node in nodes:
                 objects.append(_node.text)
             return objects
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             return objects
 
     def update_xml_value(self, instance: Any, node: etree_.Element):
@@ -1240,7 +1238,7 @@ class AnyEtreeNodeListProperty(_ElementListProperty):
             if sub_node is None:
                 return []
             return sub_node[:]
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             return objects
 
     def update_xml_value(self, instance: Any, node: etree_.Element):
@@ -1277,7 +1275,7 @@ class NodeTextListProperty(_ElementListProperty):
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
             if sub_node.text is not None:
                 return sub_node.text.split()
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             pass
         return self._default_py_value
 
@@ -1328,7 +1326,7 @@ class NodeTextQNameListProperty(_ElementListProperty):
                 for q_name_string in sub_node.text.split():
                     result.append(text_to_qname(q_name_string, sub_node.nsmap))
                 return result
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             pass
         return self._default_py_value or result
 
@@ -1380,7 +1378,8 @@ class DateOfBirthProperty(_ElementBase):
     xsd:time is hh:mm:ss format, e.g. 9:30:10, 9:30:10.5. All components are required.
     Time zone handling is identical to date type
 
-    The corresponding Python types are datetime.Date (=> not time point available) or datetime.Datetime (with time point attribute)
+    The corresponding Python types are datetime.Date (=> not time point available)
+    or datetime.Datetime (with time point attribute).
     """
 
     def __init__(self, sub_element_name: etree_.QName | None,
@@ -1397,7 +1396,7 @@ class DateOfBirthProperty(_ElementBase):
             if sub_node is not None:
                 date_string = sub_node.text
                 return isoduration.parse_date_time(date_string)
-        except ElementNotFoundException:
+        except ElementNotFoundError:
             pass
         return None
 
