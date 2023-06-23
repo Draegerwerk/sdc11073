@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [master]
 ### Fixed
 - improved error handling when reading attribute values from xml element
+- fixed possible exception in calculation of waveform age
 
 ### Added
 - added switch to allow disabling strict checking for AppSequence.
