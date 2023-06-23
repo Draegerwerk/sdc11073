@@ -499,6 +499,7 @@ class _AttributeListBase(_AttributeBase):
     else a list of converted values.
     """
 
+    _converter: ListConverter
     def __init__(self, attribute_name: str,
                  value_converter: ListConverter,
                  is_optional: bool = True):
