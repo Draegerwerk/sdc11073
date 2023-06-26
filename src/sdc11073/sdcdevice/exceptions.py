@@ -1,6 +1,12 @@
-from ..pysoap.soapenvelope import SoapFault, SoapFaultCode, AdressingFault
+from ..pysoap.soapenvelope import AdressingFault
+from ..pysoap.soapenvelope import MODE_PUSH
+from ..pysoap.soapenvelope import SoapFault
+from ..pysoap.soapenvelope import SoapFaultCode
+
+
 class HTTPRequestHandlingError(Exception):
     """ This class is used to communicate errors from http request handlers back to http server."""
+
     def __init__(self, status, reason, soapfault):
         """
         @param status: integer, e.g. 404
@@ -37,4 +43,25 @@ class InvalidPathError(HTTPRequestHandlingError):
         fault = AdressingFault(request,
                                code=SoapFaultCode.SENDER,
                                reason='invalid path {}'.format(path))
+        super().__init__(400, 'Bad Request', fault.as_xml())
+
+
+class InvalidMessageError(HTTPRequestHandlingError):
+    def __init__(self, request, detail):
+        fault = AdressingFault(request,
+                               code=SoapFaultCode.SENDER,
+                               reason='The message is not valid and cannot be processed.',
+                               details='Detail: {} - The invalid message: {}'.format(detail,
+                                                                                     request.rawdata.decode("utf-8")))
+        super().__init__(400, 'Bad Request', fault.as_xml())
+
+
+class DeliveryModeRequestedUnavailableError(HTTPRequestHandlingError):
+    def __init__(self, request, detail=None):
+        if detail is None:
+            detail = f"The only supported mode: {MODE_PUSH}"
+        fault = AdressingFault(request,
+                               code=SoapFaultCode.SENDER,
+                               reason='The requested delivery mode is not supported.',
+                               details=detail)
         super().__init__(400, 'Bad Request', fault.as_xml())

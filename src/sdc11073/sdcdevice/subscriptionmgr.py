@@ -1,22 +1,32 @@
-import uuid
-import time
 import copy
-import socket
-import traceback
-from collections import deque, defaultdict
-import urllib
 import http.client
+import socket
+import time
+import traceback
+import urllib
+import uuid
+from collections import defaultdict
+from collections import deque
 
 from lxml import etree as etree_
-from ..namespaces import xmlTag, wseTag, wsaTag, msgTag, nsmap, DocNamespaceHelper
-from ..namespaces import Prefix_Namespace as Prefix
-from .. import pysoap
+
+from .exceptions import DeliveryModeRequestedUnavailableError
+from .exceptions import InvalidMessageError
 from .. import isoduration
-from .. import xmlparsing
-from .. import observableproperties
-from .. import multikey
 from .. import loghelper
+from .. import multikey
+from .. import observableproperties
+from .. import pysoap
+from .. import xmlparsing
 from ..compression import CompressionHandler
+from ..namespaces import DocNamespaceHelper
+from ..namespaces import Prefix_Namespace as Prefix
+from ..namespaces import msgTag
+from ..namespaces import nsmap
+from ..namespaces import wsaTag
+from ..namespaces import wseTag
+from ..namespaces import xmlTag
+
 
 WsAddress = pysoap.soapenvelope.WsAddress
 Soap12Envelope = pysoap.soapenvelope.Soap12Envelope
@@ -258,24 +268,31 @@ class _DevSubscription(object):
         endToAddresses = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:EndTo', namespaces=nsmap)
         if len(endToAddresses) == 1:
             endToNode = endToAddresses[0]
-            endToAddress = endToNode.xpath('wsa:Address/text()', namespaces=nsmap)[0]
+            endToAddress = endToNode.xpath('wsa:Address/text()', namespaces=nsmap)
+            if not endToAddress:
+                raise InvalidMessageError(request=soapEnvelope, detail="wse:Subscribe/wse:EndTo/wsa:Address not set")
+            endToAddress = endToAddress[0]
             endToRefNode = endToNode.find('wsa:ReferenceParameters', namespaces=nsmap)
 
         # determine (mandatory) notification address
         deliveryNode = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:Delivery', namespaces=nsmap)[0]
         notifyToNode = deliveryNode.find('wse:NotifyTo', namespaces=nsmap)
+        if notifyToNode is None:
+            raise InvalidMessageError(request=soapEnvelope, detail="wse:Subscribe/wse:Delivery/wse:NotifyTo not set")
         notifyToAddress = notifyToNode.xpath('wsa:Address/text()', namespaces=nsmap)[0]
         notifyRefNode = notifyToNode.find('wsa:ReferenceParameters', namespaces=nsmap)
 
-        mode = deliveryNode.get('Mode')  # mandatory attribute
+        mode = deliveryNode.get('Mode', pysoap.soapenvelope.MODE_PUSH)
+        if mode != pysoap.soapenvelope.MODE_PUSH:
+            raise DeliveryModeRequestedUnavailableError(request=soapEnvelope)
 
         expiresNodes = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:Expires/text()', namespaces=nsmap)
-        if len(expiresNodes) == 0:
-            expires = None
-        else:
-            expires = isoduration.parse_duration(str(expiresNodes[0]))
+        expires = isoduration.parse_duration(str(expiresNodes[0])) if expiresNodes else None
 
-        filter_ = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:Filter/text()', namespaces=nsmap)[0]
+        filter_ = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:Filter/text()', namespaces=nsmap)
+        if not filter_:
+            raise InvalidMessageError(request=soapEnvelope, detail="wse:Subscribe/wse:Filter not set")
+        filter_ = filter_[0]
 
         return cls(str(mode), base_urls, notifyToAddress, notifyRefNode, endToAddress, endToRefNode,
                    expires, max_subscription_duration, str(filter_), sslContext, acceptedEncodings)

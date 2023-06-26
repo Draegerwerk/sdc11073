@@ -288,7 +288,7 @@ class SdcClient(object):
         """ returns the client for the given port type name.
         WDP and SDC use different port type names, e.g. WPF="Get", SDC="GetService".
         If the port type is not found directly, it tries also with or without "Service" in name.
-        :param porttypename: string, e.g "Get", or "GetService", ...
+        @param porttypename: string, e.g "Get", or "GetService", ...
         """
         client = self._serviceClients.get(porttypename)
         if client is None and porttypename.endswith('Service'):
@@ -338,22 +338,24 @@ class SdcClient(object):
         return self._subscriptionMgr
 
     def startAll(self, notSubscribedActions=None, subscriptionsCheckInterval=None, async_dispatch=True,
-                 subscribe_periodic_reports=False):
+                 subscribe_periodic_reports=False, dispatcher_timeout=15.0):
         """
-        :param notSubscribedActions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
-        :param subscriptionsCheckInterval: an interval in seconds or None
-        :param async_dispatch: if True, incoming requests are queued and response is sent immediately (processing is done later).
+        @param notSubscribedActions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
+        @param subscriptionsCheckInterval: an interval in seconds or None
+        @param async_dispatch: if True, incoming requests are queued and response is sent immediately (processing is done later).
                                 if False, response is sent after the complete processing is done.
-        :param subscribe_periodic_reports: boolean
-        :return: None
+        @param subscribe_periodic_reports: boolean
+        @param dispatcher_timeout: time to wait for the event sink aka. dispatcher thread to be started, if timeout is
+                                   exceeded a RuntimeError is raised
+        @return: None
         """
         self.discoverHostedServices()
-        self._startEventSink(async_dispatch)
-        periodic_actions = set([self.sdc_definitions.Actions.PeriodicMetricReport,
-                                self.sdc_definitions.Actions.PeriodicAlertReport,
-                                self.sdc_definitions.Actions.PeriodicComponentReport,
-                                self.sdc_definitions.Actions.PeriodicContextReport,
-                                self.sdc_definitions.Actions.PeriodicOperationalStateReport])
+        self._startEventSink(async_dispatch, dispatcher_timeout=dispatcher_timeout)
+        periodic_actions = {self.sdc_definitions.Actions.PeriodicMetricReport,
+                            self.sdc_definitions.Actions.PeriodicAlertReport,
+                            self.sdc_definitions.Actions.PeriodicComponentReport,
+                            self.sdc_definitions.Actions.PeriodicContextReport,
+                            self.sdc_definitions.Actions.PeriodicOperationalStateReport}
         # start subscription manager
         self._subscriptionMgr = subscription.SubscriptionManager(self._notificationsDispatcherThread.base_url,
                                                                  log_prefix=self.log_prefix,
@@ -508,7 +510,7 @@ class SdcClient(object):
         cls = self._servicesLookup.get(porttype, HostedServiceClient)
         return cls(soapClient, hosted, porttype, self.sdc_definitions, self.log_prefix)
 
-    def _startEventSink(self, async_dispatch):
+    def _startEventSink(self, async_dispatch, dispatcher_timeout=15.0):
         if self._sslEvents == 'auto':
             sslContext = self._sslContext if self._device_uses_https else None
         elif self._sslEvents:  # True
@@ -527,7 +529,11 @@ class SdcClient(object):
             async_dispatch=async_dispatch)
 
         self._notificationsDispatcherThread.start()
-        self._notificationsDispatcherThread.started_evt.wait(timeout=5)
+        event_is_set = self._notificationsDispatcherThread.started_evt.wait(timeout=dispatcher_timeout)
+        if not event_is_set:
+            self._logger.error('Cannot start consumer, start event of EventSink not set.')
+            raise RuntimeError('Cannot start consumer, start event of EventSink not set.')
+
         self._logger.info('serving EventSink on {}', self._notificationsDispatcherThread.base_url)
 
     def _stopEventSink(self, closeAllConnections):
