@@ -209,10 +209,10 @@ class WsAddress(object):
 
 
 _LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
+MODE_PUSH = '{}/DeliveryModes/Push'.format(Prefix.WSE.namespace)
 
 
 class WsSubscribe(object):
-    MODE_PUSH = '{}/DeliveryModes/Push'.format(Prefix.WSE.namespace)
     __slots__ = ('delivery_mode', 'notifyTo',  'endTo', 'expires', 'filter')
     def __init__(self, notifyTo,
                        expires,
@@ -223,9 +223,9 @@ class WsSubscribe(object):
         @param notifyTo: a WsaEndpointReferenceType
         @param expires: duration in seconds ( absolute date not supported)
         @param endTo: a WsaEndpointReferenceType or None
-        @param delivery_mode: defaults to self.MODE_PUSH
+        @param delivery_mode: defaults to MODE_PUSH
         """
-        self.delivery_mode = delivery_mode or self.MODE_PUSH
+        self.delivery_mode = delivery_mode or MODE_PUSH
         self.notifyTo = notifyTo
         self.endTo = endTo
         self.expires = expires
