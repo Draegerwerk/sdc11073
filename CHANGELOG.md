@@ -6,8 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- On consumer side: Option to configure the time to wait until the event sink is started,
+  this avoids invalid subscription requests [#147](https://github.com/Draegerwerk/sdc11073/issues/147)
+
 ### Changed
-- error handling for invalid subscription requests - sending faults specified in WS-Eventing
+- Error handling for invalid subscription requests - sending faults specified in WS-Eventing [#147](https://github.com/Draegerwerk/sdc11073/issues/147)
 
 ## [1.1.26] - 2023-06-08
 
