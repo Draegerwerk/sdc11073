@@ -310,36 +310,37 @@ class ClientMdibMethods:
         now = time.time()
         for state_container in accepted_states.values():
             rt_sample_containers = self._mdib.rt_buffers[state_container.DescriptorHandle].rt_data
-            waveform_age[state_container.DescriptorHandle] = now - rt_sample_containers[-1].determination_time
+            if len(rt_sample_containers) > 0:
+                waveform_age[state_container.DescriptorHandle] = now - rt_sample_containers[-1].determination_time
 
-            if len(waveform_age) > 0:
-                min_age = min(waveform_age.values())
-                max_age = max(waveform_age.values())
-                shall_log = self.waveform_time_warner.get_out_of_determination_time_log_state(
-                    min_age, max_age, self.DETERMINATIONTIME_WARN_LIMIT)
-                if shall_log != A_NO_LOG:
-                    tmp = ', '.join(f'"{k}": {v:.3f}sec.' for k, v in waveform_age.items())
-                    if shall_log == A_OUT_OF_RANGE:
-                        self._logger.warning(
-                            '_on_waveform_report mdib_version {}: age of samples outside limit of {} sec.: {}',
-                            self._mdib.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
-                    elif shall_log == A_STILL_OUT_OF_RANGE:
-                        self._logger.warning(
-                            '_on_waveform_report mdib_version {}: age of samples still outside limit of {} sec.: {}',
-                            self._mdib.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
-                    elif shall_log == A_BACK_IN_RANGE:
-                        self._logger.info(
-                            '_on_waveform_report mdib_version {}: age of samples back in limit of {} sec.: {}',
-                            self._mdib.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
-            if LOG_WF_AGE_INTERVAL:
-                now = time.time()
-                if now - self._last_wf_age_log >= LOG_WF_AGE_INTERVAL:
-                    age_data = self.get_wf_age_stdev()
-                    if age_data is not None:
-                        self._logger.info('waveform mean age={:.1f}ms., stdev={:.2f}ms. min={:.1f}ms., max={}',
-                                          age_data.mean_age * 1000., age_data.stdev * 1000.,
-                                          age_data.min_age * 1000., age_data.max_age * 1000.)
-                    self._last_wf_age_log = now
+        if len(waveform_age) > 0:
+            min_age = min(waveform_age.values())
+            max_age = max(waveform_age.values())
+            shall_log = self.waveform_time_warner.get_out_of_determination_time_log_state(
+                min_age, max_age, self.DETERMINATIONTIME_WARN_LIMIT)
+            if shall_log != A_NO_LOG:
+                tmp = ', '.join(f'"{k}": {v:.3f}sec.' for k, v in waveform_age.items())
+                if shall_log == A_OUT_OF_RANGE:
+                    self._logger.warning(
+                        '_on_waveform_report mdib_version {}: age of samples outside limit of {} sec.: {}',
+                        self._mdib.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
+                elif shall_log == A_STILL_OUT_OF_RANGE:
+                    self._logger.warning(
+                        '_on_waveform_report mdib_version {}: age of samples still outside limit of {} sec.: {}',
+                        self._mdib.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
+                elif shall_log == A_BACK_IN_RANGE:
+                    self._logger.info(
+                        '_on_waveform_report mdib_version {}: age of samples back in limit of {} sec.: {}',
+                        self._mdib.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
+        if LOG_WF_AGE_INTERVAL:
+            now = time.time()
+            if now - self._last_wf_age_log >= LOG_WF_AGE_INTERVAL:
+                age_data = self.get_wf_age_stdev()
+                if age_data is not None:
+                    self._logger.info('waveform mean age={:.1f}ms., stdev={:.2f}ms. min={:.1f}ms., max={}',
+                                      age_data.mean_age * 1000., age_data.stdev * 1000.,
+                                      age_data.min_age * 1000., age_data.max_age * 1000.)
+                self._last_wf_age_log = now
 
     def _on_episodic_context_report(self, received_message_data):
         cls = self._mdib.data_model.msg_types.EpisodicContextReport
