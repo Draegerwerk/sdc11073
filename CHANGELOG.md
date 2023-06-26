@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- error handling for invalid subscription requests - sending faults specified in WS-Eventing
+
 ## [1.1.26] - 2023-06-08
 
 ### Added
