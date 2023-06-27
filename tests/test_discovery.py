@@ -7,7 +7,7 @@ from urllib.parse import urlparse, urlsplit
 
 from lxml.etree import QName
 
-from sdc11073 import loghelper, wsdiscovery
+from sdc11073 import loghelper, wsdiscovery, network
 from sdc11073.wsdiscovery.wsdimpl import MatchBy, match_scope
 from sdc11073.xml_types.wsd_types import ScopesType
 
@@ -91,7 +91,7 @@ class TestDiscovery(unittest.TestCase):
         test_log.debug(f'tearDown done {self._testMethodName}')
 
     def test_invalid_address(self):
-        self.assertRaises(RuntimeError, wsdiscovery.WSDiscovery, '128.0.0.1')
+        self.assertRaises(network.NetworkAdapterNotFoundError, wsdiscovery.WSDiscovery, '128.0.0.1')
 
     def test_discover(self):
         test_log.info('starting client...')

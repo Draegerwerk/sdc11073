@@ -627,16 +627,16 @@ class WSDiscovery:
 class WSDiscoverySingleAdapter(WSDiscovery):
     """Bind to a single adapter, identified by name."""
 
-    def __init__(self, adapter: str, logger: Logger | None = None, multicast_port: int = MULTICAST_PORT):
+    def __init__(self, adapter_name: str, logger: Logger | None = None, multicast_port: int = MULTICAST_PORT):
         """WSDiscoverySingleAdapter uses an adapter name to determine the ip address.
 
-        :param adapter: name of the network adapter on which the discovery is to be performed
+        :param adapter_name: name of the network adapter on which the discovery is to be performed
         :param logger: use this logger. If None, 'sdc.discover' is used.
         :param multicast_port: multicast port
         """
-        adapters = [adapter for adapter in network.get_adapters() if adapter.name == adapter]
+        adapters = [adapter for adapter in network.get_adapters() if adapter.name == adapter_name]
         if not adapters:
-            raise RuntimeError(f'Found no adapter named "{adapter}"')
+            raise RuntimeError(f'No adapter named "{adapter_name}"')
         if len(adapters) > 1:
-            raise RuntimeError(f'Found multiple possible ip addresses on adapter "{adapter}"')
+            raise RuntimeError(f'Found multiple possible ip addresses on adapter "{adapter_name}"')
         super().__init__(adapters[0].ip, logger, multicast_port)
