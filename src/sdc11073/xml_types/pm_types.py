@@ -1,4 +1,6 @@
 """ Implementation of data types used in Participant Model"""
+from __future__ import annotations
+
 import inspect
 import sys
 from dataclasses import dataclass
@@ -6,12 +8,13 @@ from decimal import Decimal
 from typing import Optional, Union
 
 from lxml import etree as etree_
-from .basetypes import StringEnum, XMLTypeBase
+
+from ..namespaces import QN_TYPE, text_to_qname
 from . import ext_qnames as ext
 from . import msg_qnames as msg
 from . import pm_qnames as pm
 from . import xml_structure as cp
-from ..namespaces import QN_TYPE, text_to_qname
+from .basetypes import StringEnum, XMLTypeBase
 
 
 class SafetyClassification(StringEnum):
@@ -1072,24 +1075,41 @@ class RelatedMeasurement(PropertyBasedPMType):
         # pylint: enable=invalid-name
 
 
+class CriticalityEnum(StringEnum):
+    Low = 'Lo'
+    High = 'Hi'
+
+
 class ClinicalInfo(PropertyBasedPMType):
     # pylint: disable=invalid-name
     NODETYPE = pm.ClinicalInfo
-    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue)  # optional
+    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue, is_optional=True)
+    Code = cp.SubElementProperty(pm.Type, value_class=CodedValue, is_optional=True)
+    Criticality = cp.NodeEnumTextProperty(pm.Criticality, CriticalityEnum,
+                                          is_optional=True, implied_py_value=CriticalityEnum.Low)
     Description = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)  # 0...n
     RelatedMeasurement = cp.SubElementListProperty(pm.RelatedMeasurement, value_class=Measurement)  # 0...n
     # pylint: enable=invalid-name
-    _props = ['Type', 'Description', 'RelatedMeasurement']
+    _props = ['Type', 'Code', 'Criticality', 'Description', 'RelatedMeasurement']
 
-    def __init__(self, type_code=None, descriptions=None, related_measurements=None):
-        """
-        :param type_code: a CodedValue Instance
+    def __init__(self, type_: CodedValue | None = None,
+                 code: CodedValue | None = None,
+                 criticality: CriticalityEnum | None = None,
+                 descriptions: list[LocalizedText] | None=None,
+                 related_measurements: list[Measurement] | None = None):
+        """Potential clinical harm if this clinical information is not considered while treating the patient.
+
+        :param type_: a CodedValue instance
+        :param code: a CodedValue instance
+        :param criticality: a CriticalityEnum iInstance
         :param descriptions: a list of LocalizedText objects
         :param related_measurements: a list of Measurement objects
         """
         super().__init__()
         # pylint: disable=invalid-name
-        self.Type = type_code
+        self.Type = type_
+        self.Code = code
+        self.Criticality = criticality
         if descriptions:
             self.Description = descriptions
         if related_measurements:
