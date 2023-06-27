@@ -25,8 +25,8 @@ class AbstractStateContainer(ContainerBase):
 
     Extension = cp.ExtensionNodeProperty(ext.Extension)
     DescriptorHandle = cp.HandleRefAttributeProperty('DescriptorHandle', is_optional=False)
-    DescriptorVersion = cp.ReferencedVersionAttributeProperty('DescriptorVersion', default_py_value=0)
-    StateVersion = cp.VersionCounterAttributeProperty('StateVersion', default_py_value=0)
+    DescriptorVersion = cp.ReferencedVersionAttributeProperty('DescriptorVersion', implied_py_value=0)
+    StateVersion = cp.VersionCounterAttributeProperty('StateVersion', implied_py_value=0)
     _props = ('Extension', 'DescriptorHandle', 'DescriptorVersion', 'StateVersion')
 
     def __init__(self, descriptor_container):
@@ -227,7 +227,7 @@ class MdsStateContainer(AbstractComplexDeviceComponentStateContainer):
                                                   value_class=pm_types.OperatingJurisdiction,
                                                   is_optional=True)
     OperatingMode = cp.EnumAttributeProperty('OperatingMode',
-                                             default_py_value=pm_types.MdsOperatingMode.NORMAL,
+                                             implied_py_value=pm_types.MdsOperatingMode.NORMAL,
                                              enum_cls=pm_types.MdsOperatingMode)
     Lang = cp.StringAttributeProperty('Lang', default_py_value='en')
     _props = ('OperatingJurisdiction', 'OperatingMode', 'Lang')
