@@ -1,3 +1,5 @@
+"""implementation of ws discovery."""
+
 from __future__ import annotations
 
 import logging
@@ -8,10 +10,10 @@ from enum import Enum
 from typing import TYPE_CHECKING, Callable
 from urllib.parse import unquote, urlsplit
 
+from sdc11073 import network
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.namespaces import default_ns_helper as nsh
-from sdc11073.netconn import get_ip_for_adapter, get_ipv4_addresses, get_ipv4_ips
 from sdc11073.xml_types import wsd_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 
@@ -20,6 +22,7 @@ from .networkingthread import NetworkingThreadPosix, NetworkingThreadWindows
 from .service import Service
 
 if TYPE_CHECKING:
+    import ipaddress
     from collections.abc import Iterable
     from logging import Logger
 
@@ -40,6 +43,7 @@ NS_D = nsh.WSD.namespace
 # If allow_missing_app_sequence is True, the message is accepted and an InstanceId of 0 is used.
 # If allow_missing_app_sequence is False and the element is missing, the whole message will be ignored.
 allow_missing_app_sequence = False
+
 
 class MatchBy(str, Enum):
     """Different Match Options."""
@@ -135,19 +139,19 @@ class WSDiscovery:
     PROBEMATCH_SCOPES = True
     PROBEMATCH_XADDRS = True
 
-    def __init__(self, my_ip_address: str, logger: Logger | None = None, multicast_port: int = MULTICAST_PORT):
+    def __init__(self,
+                 ip_address: str | ipaddress.IPv4Address,
+                 logger: Logger | None = None,
+                 multicast_port: int = MULTICAST_PORT):
         """Create a WsDiscovery instance.
 
-        :param my_ip_address: the address to bind to, eg. 127.0.0.1
+        :param ip_address: network adapter to bind to
         :param logger: use this logger. if None a logger 'sdc.discover' is created.
         :param multicast_port: defaults to MULTICAST_PORT.
                If port is changed, instance will not be able to communicate with implementations
                that use the correct port (which is the default MULTICAST_PORT)!
         """
-        active_addresses = get_ipv4_addresses()
-        if my_ip_address not in active_addresses:
-            raise RuntimeError(f'selected address {my_ip_address} is not in {active_addresses}')
-        self._my_ip_address = my_ip_address
+        self._adapter = network.get_adapter_containing_ip(ip_address)
         self._networking_thread = None
         self._addrs_monitor_thread = None
         self._server_started = False
@@ -296,7 +300,8 @@ class WSDiscovery:
 
     def get_active_addresses(self) -> list[str]:
         """Get active addresses."""
-        return [self._my_ip_address]
+        # TODO: do not return list
+        return [str(self._adapter.ip)]
 
     def set_remote_service_hello_callback(self,
                                           callback: Callable,
@@ -439,7 +444,7 @@ class WSDiscovery:
             service = self._local_services[epr]
             self._send_resolve_match(service, received_message.p_msg.header_info_block.MessageID, addr_from)
 
-    def _handle_received_resolve_matches(self, received_message: ReceivedMessage, addr_from: str): # noqa ARG002
+    def _handle_received_resolve_matches(self, received_message: ReceivedMessage, addr_from: str):  # ARG002
         app_sequence_node = received_message.p_msg.header_node.find(nsh.WSD.tag('AppSequence'))
         if app_sequence_node is None:
             if allow_missing_app_sequence:
@@ -601,10 +606,10 @@ class WSDiscovery:
         if self._networking_thread is not None:
             return
         if platform.system() != 'Windows':
-            self._networking_thread = NetworkingThreadPosix(self._my_ip_address, self, self._logger,
+            self._networking_thread = NetworkingThreadPosix(str(self._adapter.ip), self, self._logger,
                                                             self.multicast_port)
         else:
-            self._networking_thread = NetworkingThreadWindows(self._my_ip_address, self, self._logger,
+            self._networking_thread = NetworkingThreadWindows(str(self._adapter.ip), self, self._logger,
                                                               self.multicast_port)
         self._networking_thread.start()
 
@@ -619,27 +624,19 @@ class WSDiscovery:
         self._networking_thread = None
 
 
-def get_ip_address_of_adapter(adapter_name: str) -> str:
-    """Get the ip address associated with an ethernet adapter."""
-    all_adapters = get_ipv4_ips()
-    all_adapter_names = [ip.nice_name for ip in all_adapters]
-    if adapter_name not in all_adapter_names:
-        raise RuntimeError(f'No adapter "{adapter_name}" found. Having {all_adapter_names}')
-
-    my_ip_address = get_ip_for_adapter(adapter_name)
-    if my_ip_address is None:
-        raise RuntimeError(f'could not get an active address for adapter {adapter_name}')
-    return my_ip_address
-
-
 class WSDiscoverySingleAdapter(WSDiscovery):
     """Bind to a single adapter, identified by name."""
 
-    def __init__(self, adapter_name: str, logger: Logger | None = None, multicast_port: int = MULTICAST_PORT):
+    def __init__(self, adapter: str, logger: Logger | None = None, multicast_port: int = MULTICAST_PORT):
         """WSDiscoverySingleAdapter uses an adapter name to determine the ip address.
 
-        :param adapter_name: a string,  e.g. 'local area connection'.
+        :param adapter: name of the network adapter on which the discovery is to be performed
         :param logger: use this logger. If None, 'sdc.discover' is used.
-        :param multicast_port
+        :param multicast_port: multicast port
         """
-        super().__init__(get_ip_address_of_adapter(adapter_name), logger, multicast_port)
+        adapters = [adapter for adapter in network.get_adapters() if adapter.name == adapter]
+        if not adapters:
+            raise RuntimeError(f'Found no adapter named "{adapter}"')
+        if len(adapters) > 1:
+            raise RuntimeError(f'Found multiple possible ip addresses on adapter "{adapter}"')
+        super().__init__(adapters[0].ip, logger, multicast_port)

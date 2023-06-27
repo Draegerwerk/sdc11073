@@ -15,9 +15,8 @@ from lxml import etree as etree_
 from .components import default_sdc_client_components
 from .request_handler_deferred import EmptyResponse
 from .subscription import ClSubscription
-from .. import commlog
+from .. import commlog, network
 from .. import loghelper
-from .. import netconn
 from .. import observableproperties as properties
 from ..definitions_base import ProtocolsRegistry
 from ..dispatch import DispatchKey, MessageConverterMiddleware
@@ -188,7 +187,7 @@ class SdcClient:
 
     SSL_CIPHERS = None  # None : use SSL default
 
-    def __init__(self, device_location, sdc_definitions, ssl_context,
+    def __init__(self, device_location: str, sdc_definitions, ssl_context,
                  epr: Union[str, uuid.UUID, None] = None,
                  validate=True,
                  log_prefix='',
@@ -219,8 +218,8 @@ class SdcClient:
         self.log_prefix = log_prefix
         self.chunked_requests = chunked_requests
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
-        self._my_ipaddress = self._find_best_own_ip_address()
-        self._logger.info('SdcClient for {} uses own IP Address {}', self._device_location, self._my_ipaddress)
+        self._network_adapter = self._get_host_adapter_by_device_location()
+        self._logger.info('SdcClient for {} uses own IP Address {}', self._device_location, self._network_adapter)
         self.host_description: Optional[mex_types.Metadata] = None
         self.hosted_services = {}  # lookup by service id
         self._validate = validate
@@ -285,8 +284,9 @@ class SdcClient:
         return self._mdib
 
     @property
-    def my_ipaddress(self):
-        return self._my_ipaddress
+    def network_adapter(self) -> network.NetworkAdapter:
+        """The network adapter used by this consumer."""
+        return self._network_adapter
 
     @property
     def _epr_urn(self):
@@ -308,19 +308,17 @@ class SdcClient:
     def base_url(self):
         # replace servers ip address with own ip address (server might have 0.0.0.0)
         p = urlparse(self._http_server.base_url)
-        tmp = f'{p.scheme}://{self._my_ipaddress}:{p.port}{p.path}'
+        tmp = f'{p.scheme}://{self._network_adapter.ip}:{p.port}{p.path}'
         sep = '' if tmp.endswith('/') else '/'
         tmp = f'{tmp}{sep}{self.path_prefix}/'
         return tmp
 
-    def _find_best_own_ip_address(self):
-        my_addresses = netconn.get_ipv4_addresses()
+    def _get_host_adapter_by_device_location(self) -> network.NetworkAdapter:
         split_result = urlsplit(self._device_location)
         device_addr = split_result.hostname
         if device_addr is None:
             device_addr = split_result.netloc.split(':')[0]  # without port
-        sort_ip_addresses(my_addresses, device_addr)
-        return my_addresses[0]
+        return network.get_adapter_containing_ip(device_addr)
 
     def mk_subscription(self, dpws_hosted: HostedServiceType,
                         filter_type: eventing_types.FilterType,
@@ -622,7 +620,7 @@ class SdcClient:
             ssl_context = self._ssl_context if self._device_uses_https else None
             logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', self.log_prefix)
             self._http_server = HttpServerThreadBase(
-                self._my_ipaddress,
+                str(self._network_adapter.ip),
                 ssl_context,
                 logger=logger,
                 supported_encodings=self._compression_methods
