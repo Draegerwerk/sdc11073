@@ -6,9 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [master]
+## [2.0.0a5] - 2023-06-27
+
 ### Fixed
 - improved error handling when reading attribute values from xml element
 - fixed possible exception in calculation of waveform age
+- fixed some places where default_py_value should be implied_py_value
+- fixed incomplete modeling of ClinicalInfo class
 
 ### Added
 - added switch to allow disabling strict checking for AppSequence.
