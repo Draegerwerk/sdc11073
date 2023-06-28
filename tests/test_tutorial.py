@@ -3,6 +3,7 @@ import unittest
 import uuid
 from decimal import Decimal
 
+from sdc11073 import network
 from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.location import SdcLocation
@@ -19,7 +20,7 @@ from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 
-loopback_adapter = 'Loopback Pseudo-Interface 1' if os.name == 'nt' else 'lo'
+loopback_adapter = next(adapter for adapter in network.get_adapters() if adapter.is_loopback)
 
 SEARCH_TIMEOUT = 2  # in real world applications this timeout is too short, 10 seconds is a good value.
 # Here this short timeout is used to accelerate the test.
@@ -218,7 +219,7 @@ class Test_Tutorial(unittest.TestCase):
         # create a new discovery instance for searching.
         # (technically this would not be necessary, but it makes things much clearer in our example)
         # for searching we use again localhost adapter. For demonstration purpose a WSDiscoverySingleAdapter is used
-        my_client_ws_discovery = WSDiscoverySingleAdapter(loopback_adapter)
+        my_client_ws_discovery = WSDiscoverySingleAdapter(loopback_adapter.name)
         self.my_ws_discoveries.append(my_client_ws_discovery)
         my_client_ws_discovery.start()
 

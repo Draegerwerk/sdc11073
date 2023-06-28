@@ -112,6 +112,7 @@ extend-ignore = [# https://beta.ruff.rs/docs/settings/#extend-ignore
     "ANN401", # https://beta.ruff.rs/docs/rules/any-type/
     "C408", # https://beta.ruff.rs/docs/rules/unnecessary-collection-call/
     "C409", # https://beta.ruff.rs/docs/rules/unnecessary-literal-within-tuple-call/
+    "D105", # undocumented-magic-method
     "D107", # undocumented-public-init
     "D203", # one-blank-line-before-class
     "D213", # multi-line-summary-second-line

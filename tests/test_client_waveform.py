@@ -13,7 +13,7 @@ from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContaine
 from sdc11073.xml_types.pm_types import Coding
 from sdc11073.sdcclient import SdcClient
 
-DEV_ADDRESS = 'http://169.254.0.200:10000'
+DEV_ADDRESS = f'http://127.0.0.1:10000'
 CLIENT_VALIDATE = True
 
 # data that is used in report

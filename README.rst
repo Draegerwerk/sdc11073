@@ -77,7 +77,7 @@ The sdc11073 python library is not intended for use in medical products, clinica
 Limitations
 ===========
 
-The wsdiscovery module only works with a single ip address. Publishing a device on multiple networks it not supported.
+The wsdiscovery module only works with a single ipv4 address. Publishing a device on multiple networks it not supported.
 The same is valid for searching.
 
 ISO 9001

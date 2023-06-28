@@ -1,7 +1,7 @@
 name: 🐞 Bug Report
 description: File a new bug report
 title: 'bug: <title>'
-labels: [Bug, Needs Triage]
+labels: [bug]
 body:
   - type: markdown
     attributes:
