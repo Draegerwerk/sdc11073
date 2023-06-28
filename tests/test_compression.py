@@ -1,12 +1,12 @@
-import time
 import unittest
+import time
 
 from lxml import etree
 
 from sdc11073.consumer import SdcConsumer
 from sdc11073.httpserver import compression
+from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.location import SdcLocation
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from sdc11073.xml_types.pm_types import InstanceIdentifier
 from tests.mockstuff import SomeDevice
 
@@ -30,7 +30,7 @@ class Test_Compression(unittest.TestCase):
 
     def setUp(self):
         # Start discovery
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         # Create a new device
         self.location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')

@@ -16,9 +16,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
     def __init__(self, mdib, log_prefix):
         super().__init__(mdib, log_prefix)
 
-        # some time stamps for handling of delegable alert signals
-        # self._last_set_alert_signal_state = {}  # a lookup by alert signal handle , value = time of last call
-
         self._stop_worker = Event()
         self._worker_thread = None
 
@@ -355,7 +352,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
     def _update_alert_system_state_current_alerts(self):
         """ updates AlertSystemState present alarms list"""
         states_needing_update = self._get_alert_system_states_needing_update()
-        self._logger.debug(f'{len(states_needing_update)} states_needing_update')
         if len(states_needing_update) > 0:
             try:
                 with self._mdib.transaction_manager() as mgr:

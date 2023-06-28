@@ -102,7 +102,7 @@ class AbstractDescriptorContainer(ContainerBase):
     Handle = cp.HandleAttributeProperty('Handle', is_optional=False)
     Extension = cp.ExtensionNodeProperty(ext.Extension)
     DescriptorVersion = cp.VersionCounterAttributeProperty('DescriptorVersion',
-                                                           default_py_value=0)
+                                                           implied_py_value=0)
     SafetyClassification = cp.EnumAttributeProperty('SafetyClassification',
                                                     implied_py_value=pm_types.SafetyClassification.INF,
                                                     enum_cls=pm_types.SafetyClassification)

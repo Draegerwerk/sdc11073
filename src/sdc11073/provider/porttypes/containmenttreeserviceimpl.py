@@ -2,10 +2,12 @@ from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperatio
 from .porttypebase import msg_prefix
 from ...dispatch import DispatchKey
 from ...exceptions import FunctionNotImplementedError
+from ...namespaces import PrefixesEnum
 from ...pysoap.soapenvelope import Fault, faultcodeEnum
 
 
 class ContainmentTreeService(DPWSPortTypeBase):
+    port_type_name = PrefixesEnum.SDC.tag('ContainmentTreeService')
     WSDLMessageDescriptions = (WSDLMessageDescription('GetDescriptor',
                                                       (f'{msg_prefix}:GetDescriptor',)),
                                WSDLMessageDescription('GetDescriptorResponse',

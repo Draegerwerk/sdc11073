@@ -8,7 +8,7 @@ from sdc11073 import loghelper
 from sdc11073.consumer import SdcConsumer
 from sdc11073.location import SdcLocation
 from sdc11073.mdib.consumermdib import ConsumerMdibContainer
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types
 from tests.mockstuff import SomeDevice
 
@@ -32,7 +32,7 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
 
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
         my_uuid = None  # let device create one

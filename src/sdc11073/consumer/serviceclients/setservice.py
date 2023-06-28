@@ -1,11 +1,14 @@
 from __future__ import annotations
+
 from concurrent.futures import Future
 from typing import Union, Optional, TYPE_CHECKING
+
 from .serviceclientbase import HostedServiceClient
-from ...xml_types.addressing_types import HeaderInformationBlock
-from ...xml_types.actions import Actions
-from ...xml_types import msg_qnames
 from ...dispatch import DispatchKey
+from ...namespaces import PrefixesEnum
+from ...xml_types import msg_qnames
+from ...xml_types.actions import Actions
+from ...xml_types.addressing_types import HeaderInformationBlock
 
 if TYPE_CHECKING:
     from decimal import Decimal
@@ -13,6 +16,7 @@ if TYPE_CHECKING:
 
 
 class SetServiceClient(HostedServiceClient):
+    port_type_name = PrefixesEnum.SDC.tag('SetService')
     notifications = (DispatchKey(Actions.OperationInvokedReport, msg_qnames.OperationInvokedReport),)
 
     def set_numeric_value(self, operation_handle: str,
@@ -93,7 +97,7 @@ class SetServiceClient(HostedServiceClient):
         return self._call_operation(message, request_manipulator=request_manipulator)
 
     def activate(self, operation_handle: str,
-                 arguments: Optional[list]=None,
+                 arguments: Optional[list] = None,
                  request_manipulator: Optional[RequestManipulatorProtocol] = None) -> Future:
         """ an activate call does not return the result of the operation directly. Instead you get a transaction id,
         and will receive the status of this transaction as notification ("OperationInvokedReport").

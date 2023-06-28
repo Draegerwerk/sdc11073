@@ -1,9 +1,10 @@
+from __future__ import annotations
 import time
 import traceback
 from collections import deque
 from dataclasses import dataclass
 from threading import Lock
-from typing import List, Any
+from typing import List, Any, TYPE_CHECKING
 from decimal import Decimal
 from enum import Enum
 
@@ -12,22 +13,34 @@ from .consumermdibxtra import ConsumerMdibMethods
 from .. import loghelper
 from ..exceptions import ApiUsageError
 
+if TYPE_CHECKING:
+    from .statecontainers import RealTimeSampleArrayMetricStateContainer
+    from ..consumer import SdcConsumer
+
 
 @dataclass
 class RtSampleContainer:
-    """Contains a single Value"""
+    """RtSampleContainer contains a single value."""
+
     value_string: str
     determination_time: float
     validity: Enum
     annotations: list
 
     @property
-    def value(self):
+    def value(self) -> float:
+        """Return the value of the sample as float."""
         return float(self.value_string)
 
     @property
-    def dec_value(self):
+    def dec_value(self) -> Decimal:
+        """Return the value of the sample as Decimal."""
         return Decimal(self.value_string)
+
+    @property
+    def age(self) -> float:
+        """Return the age of the Sample in seconds."""
+        return time.time() - self.determination_time
 
     def __repr__(self):
         return f'RtSample value="{self.value_string}" validity="{self.validity}" time={self.determination_time}'
@@ -39,7 +52,8 @@ class ConsumerRtBuffer:
     def __init__(self,
                  sample_period: float,
                  max_samples: int):
-        """
+        """Construct a ConsumerRtBuffer.
+
         :param sample_period: float value, in seconds.
                               When an incoming real time sample array is split into single RtSampleContainers, this is used to calculate the individual time stamps.
                               Value can be zero if correct value is not known. In this case all Containers will have the observation time of the sample array.
@@ -52,8 +66,9 @@ class ConsumerRtBuffer:
         self._lock = Lock()
         self.last_sc = None  # last state container that was handled
 
-    def mk_rt_sample_containers(self, realtime_sample_array_container) -> List[RtSampleContainer]:
-        """
+    def mk_rt_sample_containers(self, realtime_sample_array_container: RealTimeSampleArrayMetricStateContainer) \
+            -> list[RtSampleContainer]:
+        """Create a list of RtSampleContainer from a RealTimeSampleArrayMetricStateContainer.
 
         :param realtime_sample_array_container: a RealTimeSampleArrayMetricStateContainer instance
         :return: a list of RtSampleContainer
@@ -87,8 +102,8 @@ class ConsumerRtBuffer:
         return rt_sample_containers
 
     def add_rt_sample_containers(self, rt_sample_containers: List[RtSampleContainer]) -> None:
-        """
-        Updates self.rt_data with the new rt_sample_containers
+        """Update self.rt_data with the new rt_sample_containers.
+
         :param rt_sample_containers: a list of RtSampleContainer
         :return: None
         """
@@ -98,8 +113,10 @@ class ConsumerRtBuffer:
             self.rt_data.extend(rt_sample_containers)
 
     def read_rt_data(self) -> List[RtSampleContainer]:
-        """ This read method consumes all currently buffered data.
-        @return: a list of RtSampleContainer objects"""
+        """Consume all currently buffered data and return it.
+
+        :return: a list of RtSampleContainer objects
+        """
         with self._lock:
             ret = list(self.rt_data)
             self.rt_data.clear()
@@ -114,8 +131,7 @@ class _BufferedData:
 
 
 class ConsumerMdibContainer(mdibbase.MdibContainer):
-    """ This mdib is meant to be read-only.
-    Only update source is an SdcConsumer."""
+    """ConsumerMdibContainer is a mirror of a provider mdib. Updates are performed by an SdcConsumer."""
 
     MDIB_VERSION_CHECK_DISABLED = False  # for testing purpose you can disable checking of mdib version, so that every notification is accepted.
 
@@ -126,7 +142,7 @@ class ConsumerMdibContainer(mdibbase.MdibContainer):
     INITIAL_NOTIFICATION_BUFFERING = True
 
     def __init__(self,
-                 sdc_client,
+                 sdc_client: SdcConsumer,
                  extras_cls=None,
                  max_realtime_samples=100):
         """
@@ -163,10 +179,10 @@ class ConsumerMdibContainer(mdibbase.MdibContainer):
         return self._is_initialized
 
     def init_mdib(self):
-        """
-        Binds own notification handlers to observables of sdc client and calls GetMdib.
+        """Binds own notification handlers to observables of sdc client and calls GetMdib.
+
         Client mdib is initialized from GetMdibResponse, and from then on updated from incoming notifications.
-        :return:
+        :return: None
         """
         if self._is_initialized:
             raise ApiUsageError('ConsumerMdibContainer is already initialized')
@@ -178,10 +194,10 @@ class ConsumerMdibContainer(mdibbase.MdibContainer):
         self._logger.info('initializing mdib done')
 
     def reload_all(self):
-        """
-        Deletes all data and reloads everything. Useful e.g. after sequence id change.
-        This is not called automatically, the application has to take care.
-        :return:
+        """Delete all data and reloads everything. Useful e.g. after sequence id change.
+
+        This method is not called automatically, the application has to take care.
+        :return: None
         """
         self._is_initialized = False
         self._sequence_id_changed_flag = False
@@ -225,9 +241,9 @@ class ConsumerMdibContainer(mdibbase.MdibContainer):
             del self._buffered_notifications[:]
             self._is_initialized = True
 
-    def _buffer_data(self, mdib_version_group, data, func):
-        """
-        Write notification to a temporary buffer, as long as mdib is not initialized.
+    def _buffer_data(self, mdib_version_group, data, func) -> bool:
+        """Write notification to a temporary buffer, as long as mdib is not initialized.
+
         :param mdib_version_group:
         :param data:
         :param func: the callable that shall be called later for delayed handling of report
@@ -248,7 +264,7 @@ class ConsumerMdibContainer(mdibbase.MdibContainer):
                 return True
             return False
 
-    def _get_context_states(self, handles=None):
+    def _get_context_states(self, handles: list[str] | None = None):
         try:
             self._logger.debug('new Query, handles={}', handles)
             time.sleep(0.001)

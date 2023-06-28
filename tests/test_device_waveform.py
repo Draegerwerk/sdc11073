@@ -110,7 +110,7 @@ class TestDeviceWaveform(unittest.TestCase):
                               annotated_handles=[HANDLES[0], HANDLES[1], HANDLES[2]])
         waveform_provider.register_annotation_generator(annotator)
 
-        wsd = mockstuff.MockWsDiscovery(['5.6.7.8'])
+        wsd = mockstuff.MockWsDiscovery('5.6.7.8')
         self.sdc_device = sdc11073.provider.SdcProvider(wsd, this_model, this_device, self.mdib)
         self.sdc_device.start_all()
         test_subscription = mockstuff.TestDevSubscription([self.sdc_device.mdib.sdc_definitions.Actions.Waveform],

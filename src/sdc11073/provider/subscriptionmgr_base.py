@@ -247,10 +247,10 @@ class ActionBasedSubscription(SubscriptionBase):
     Actions are a space separated list of strings in FilterType.text. """
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
         # split the filter sting into separate action strings and keep them
         self.actions_filter: list[str] = []
         self._short_filter_names: list[str] = [] # helper for shorter log entries
+        super().__init__(*args, **kwargs)
         if self.filter_type is not None:
             self.actions_filter.extend(self.filter_type.text.split())
             self._short_filter_names = [f.split('/')[-1] for f in self.actions_filter]
@@ -370,7 +370,7 @@ class SubscriptionsManagerBase:
         if subscription is None:
             fault = Fault()
             fault.Code.Value = faultcodeEnum.RECEIVER
-            fault.set_sub_code(nsh.wseTag('InvalidMessage'))
+            fault.set_sub_code(nsh.WSE.tag('InvalidMessage'))
             fault.add_reason_text('unknown Subscription identifier')
             response = self._msg_factory.mk_reply_soap_message(request_data, fault, ns_map=[nsh.WSE])
         else:
@@ -391,7 +391,7 @@ class SubscriptionsManagerBase:
         if subscription is None:
             fault = Fault()
             fault.Code.Value = faultcodeEnum.RECEIVER
-            fault.set_sub_code(nsh.wseTag('InvalidMessage'))
+            fault.set_sub_code(nsh.WSE.tag('InvalidMessage'))
             fault.add_reason_text('unknown Subscription identifier')
             response = self._msg_factory.mk_reply_soap_message(request_data, fault)
         else:
@@ -410,7 +410,7 @@ class SubscriptionsManagerBase:
         if subscription is None:
             fault = Fault()
             fault.Code.Value = faultcodeEnum.RECEIVER
-            fault.set_sub_code(nsh.wseTag('InvalidMessage'))
+            fault.set_sub_code(nsh.WSE.tag('InvalidMessage'))
             fault.add_reason_text('unknown Subscription identifier')
             response = self._msg_factory.mk_reply_soap_message(request_data, fault)
         else:

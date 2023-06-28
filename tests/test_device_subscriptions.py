@@ -3,13 +3,15 @@ import time
 import unittest
 from decimal import Decimal
 
+from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
+from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ProviderMdibContainer
 from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import waveforms, SdcProvider
 from sdc11073.provider.components import default_sdc_device_components_sync
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from tests import mockstuff
@@ -44,7 +46,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
                                      firmware_version='0.99',
                                      serial_number='123serial')
 
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_device = SdcProvider(self.wsd, this_model, this_device, self.mdib,
                                       default_components=default_sdc_device_components_sync)

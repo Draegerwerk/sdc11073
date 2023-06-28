@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass
-from typing import Type, Callable, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
+
+from sdc11073.pysoap.msgfactory import MessageFactory
+from sdc11073.pysoap.msgreader import MessageReader
+from sdc11073.pysoap.soapclient import SoapClient
+from sdc11073.pysoap.soapclient_async import SoapClientAsync
+from sdc11073.roles.product import MinimalProduct
 
 from .operations import get_operation_class
 from .porttypes.containmenttreeserviceimpl import ContainmentTreeService
@@ -18,20 +24,16 @@ from .scopesfactory import mk_scopes
 from .servicesfactory import mk_all_services
 from .subscriptionmgr import PathDispatchingSubscriptionsManager
 from .subscriptionmgr_async import SubscriptionsManagerPathAsync
-from ..pysoap.msgfactory import MessageFactory
-from ..pysoap.msgreader import MessageReader
-from ..pysoap.soapclient import SoapClient
-from ..pysoap.soapclient_async import SoapClientAsync
-from ..roles.product import MinimalProduct
 
 # pylint: disable=cyclic-import
 if TYPE_CHECKING:
     from lxml.etree import QName
-    from ..xml_types.wsd_types import ScopesType
-    from ..pysoap.msgfactory import MessageFactory
-    from ..provider.servicesfactory import HostedServices
+
+    from sdc11073.mdib.providermdib import ProviderMdibContainer
+    from sdc11073.provider.servicesfactory import HostedServices
+    from sdc11073.xml_types.wsd_types import ScopesType
+
     from .sco import AbstractScoOperationsRegistry
-    from ..mdib.providermdib import ProviderMdibContainer
     from .subscriptionmgr_base import SubscriptionManagerProtocol
 
 
@@ -41,21 +43,25 @@ if TYPE_CHECKING:
 # Dependency injection: This class defines which component implementations the sdc device will use.
 @dataclass()
 class SdcDeviceComponents:
-    soap_client_class: Type[Any] = None
-    msg_factory_class: Type[MessageFactory] = None
-    msg_reader_class: Type[MessageReader] = None
-    client_msg_reader_class: Type[MessageReader] = None  # the corresponding reader for client
-    xml_reader_class: Type[MessageReader] = None  # needed to read xml based mdib files
+    """Dependency injection: This class defines which component implementations the sdc provider will use."""
+
+    soap_client_class: type[Any] = None
+    msg_factory_class: type[MessageFactory] = None
+    msg_reader_class: type[MessageReader] = None
+    client_msg_reader_class: type[MessageReader] = None  # the corresponding reader for client
+    xml_reader_class: type[MessageReader] = None  # needed to read xml based mdib files
     services_factory: Callable[[Any, dict, Any], HostedServices] = None
     operation_cls_getter: Callable[[QName], type] = None
-    sco_operations_registry_class: Type[AbstractScoOperationsRegistry] = None
-    subscriptions_manager_class: dict[str, SubscriptionManagerProtocol] = None
+    sco_operations_registry_class: type[AbstractScoOperationsRegistry] = None
+    subscriptions_manager_class: dict[str, type[SubscriptionManagerProtocol]] = None
     role_provider_class: type = None
     scopes_factory: Callable[[ProviderMdibContainer], ScopesType] = None
     hosted_services: dict = None
 
-    def merge(self, other):
-        def _merge(attr_name):
+    def merge(self, other: SdcDeviceComponents):
+        """Add data from other to self."""
+
+        def _merge(attr_name: str):
             other_value = getattr(other, attr_name)
             if other_value:
                 setattr(self, attr_name, other_value)
@@ -65,7 +71,6 @@ class SdcDeviceComponents:
         _merge('services_factory')
         _merge('operation_cls_getter')
         _merge('sco_operations_registry_class')
-        # _merge('subscriptions_manager_class')
         _merge('role_provider_class')
         _merge('scopes_factory')
         if other.hosted_services is not None:
@@ -88,16 +93,16 @@ default_sdc_device_components_sync = SdcDeviceComponents(
                                  'Set': PathDispatchingSubscriptionsManager},
     role_provider_class=MinimalProduct,
     scopes_factory=mk_scopes,
-    # this defines the structure of the services: top dict are the names of the dpws hosts,
-    # 2nd level the hosted services with name and dpws service class
-    hosted_services={'Get': {'GetService': GetService,
-                             'LocalizationService': LocalizationService},
-                     'StateEvent': {'StateEventService': StateEventService,
-                                    'ContextService': ContextService,
-                                    'DescriptionEventService': DescriptionEventService,
-                                    'WaveformService': WaveformService},
-                     'Set': {'SetService': SetService},
-                     'ContainmentTree': {'ContainmentTreeService': ContainmentTreeService}},
+    # this defines the structure of the services: keys are the names of the dpws hosts,
+    # value is a list of port type implementation classes
+    hosted_services={'Get': [GetService,
+                             LocalizationService],
+                     'StateEvent': [StateEventService,
+                                    ContextService,
+                                    DescriptionEventService,
+                                    WaveformService],
+                     'Set': [SetService],
+                     'ContainmentTree': [ContainmentTreeService]},
 )
 
 # async variant

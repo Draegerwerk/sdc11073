@@ -7,7 +7,7 @@ import ssl
 import traceback
 import uuid
 from dataclasses import dataclass
-from typing import Optional, List, Union, Set, TYPE_CHECKING
+from typing import Optional, List, Union, Set, Any, TYPE_CHECKING
 from urllib.parse import urlparse, urlsplit
 
 from lxml import etree as etree_
@@ -247,7 +247,7 @@ class SdcConsumer:
         self.all_subscribed = False
         # look for schemas added by services
         additional_schema_specs = []
-        for handler_cls in self._components.service_handlers.values():
+        for handler_cls in self._components.service_handlers:
             additional_schema_specs.extend(handler_cls.additional_namespaces)
         msg_reader_cls = self._components.msg_reader_class
         self.msg_reader = msg_reader_cls(self.sdc_definitions,
@@ -412,15 +412,18 @@ class SdcConsumer:
     def subscription_mgr(self):
         return self._subscription_mgr
 
-    def start_all(self, not_subscribed_actions=None,
-                  subscriptions_check_interval=None,
-                  subscribe_periodic_reports=False,
-                  shared_http_server=None):
+    def start_all(self, not_subscribed_actions: Optional[list[str]] = None,
+                  subscriptions_check_interval: Optional[float] = None,
+                  subscribe_periodic_reports: bool = False,
+                  shared_http_server: Optional[Any] = None,
+                  check_get_service: bool = True) -> None:
         """
         :param not_subscribed_actions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
         :param subscriptions_check_interval: an interval in seconds or None
         :param subscribe_periodic_reports:
         :param shared_http_server: if provided, use this http server, else client creates its own.
+        :param check_get_service: if True (default) it checks that a GetService is detected,
+               which is the minimal requirement for a sdc provider.
         :return: None
         """
         if self.host_description is None:
@@ -432,7 +435,7 @@ class SdcConsumer:
         self._logger.debug('Services: {}', self._service_clients.keys())
 
         # only GetService is mandatory!!!
-        if self.get_service_client is None:
+        if check_get_service and self.get_service_client is None:
             raise RuntimeError(f'GetService not detected! found services = {list(self._service_clients.keys())}')
 
         self._start_event_sink(shared_http_server)
@@ -598,20 +601,20 @@ class SdcConsumer:
             self.hosted_services[hosted.ServiceId] = h_descr
             h_descr.read_metadata(soap_client)
             for port_type in hosted.Types:
-                hosted_service_client = self._mk_hosted_service_client(port_type.localname,
+                hosted_service_client = self._mk_hosted_service_client(port_type,
                                                                        soap_client,
                                                                        hosted)
                 if hosted_service_client is not None:
                     self._service_clients[port_type.localname] = hosted_service_client
                     h_descr.services[port_type.localname] = hosted_service_client
                 else:
-                    self._logger.warning('Unknown port type {}', port_type.localname)
+                    self._logger.warning('Unknown port type {}', str(port_type))
 
     def _mk_hosted_service_client(self, port_type, soap_client, hosted):
-        cls = self._components.service_handlers.get(port_type)
-        if cls is None:
-            return
-        return cls(self, soap_client, hosted, port_type)
+        for cls in self._components.service_handlers:
+            if cls.port_type_name == port_type:
+                return cls(self, soap_client, hosted, port_type)
+        return
 
     def _start_event_sink(self, shared_http_server):
         if shared_http_server is None:
@@ -661,7 +664,7 @@ class SdcConsumer:
         :param specific_components: a SdcConsumerComponents instance or None
         :return:
         """
-        device_locations = wsd_service.get_x_addrs()
+        device_locations = wsd_service.x_addrs
         if not device_locations:
             raise RuntimeError(f'discovered Service has no address!{wsd_service}')
         device_location = device_locations[0]

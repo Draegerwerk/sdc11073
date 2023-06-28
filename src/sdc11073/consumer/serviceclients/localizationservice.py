@@ -1,11 +1,17 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING, Optional
+
 from .serviceclientbase import HostedServiceClient, GetRequestResult
+from ...namespaces import PrefixesEnum
 from ...xml_types.addressing_types import HeaderInformationBlock
+
 if TYPE_CHECKING:
     from ..manipulator import RequestManipulatorProtocol
 
+
 class LocalizationServiceClient(HostedServiceClient):
+    port_type_name = PrefixesEnum.SDC.tag('LocalizationService')
 
     def get_localized_texts(self, refs=None, version=None, langs=None, text_widths=None, number_of_lines=None,
                             request_manipulator: Optional[RequestManipulatorProtocol] = None) -> GetRequestResult:

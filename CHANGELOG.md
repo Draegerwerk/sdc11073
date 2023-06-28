@@ -6,6 +6,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [master]
+## [2.0.0a5] - 2023-06-27
+
+### Fixed
+- improved error handling when reading attribute values from xml element
+- fixed possible exception in calculation of waveform age
+- fixed some places where default_py_value should be implied_py_value
+- fixed incomplete modeling of ClinicalInfo class
+
+### Added
+- added switch to allow disabling strict checking for AppSequence.
+
+## [2.0.0a4] - 2023-06-16
+
+### Changed
+- reworked wsdiscovery. Wsdiscovery can now only bind to a single ip address. 
+  The only available classes are "WsDiscovery" and "WsDiscoverySingleAdapter".
+
+### Fixed
+- fixed bug that roundtrip statistics raises an exception when no data is available.
+- fixed possible exception that "_short_filter_names" does not exist
+- fixed missing namespace for IsReferenceParameter attribute
+ 
+## [2.0.0a3] - 2023-06-08
+
+### Added
+- SdcClient.start_all has optional parameter "check_get_service"
+- 
+### Changed
+- moved port type name declaration from components.py to implementation classes [#176](https://github.com/Draegerwerk/sdc11073/issues/176)
+
+### Fixed
+- fixed bug in handling of soap faults (faultcodeEnum must be QNames, not strings)
+
+## [2.0.0a2] - 2023-06-07
+
+### Fixed
+- fixed bug that mk_scopes only created a scope if a location was associated.
+- fixed broken fault message generation in subscriptionsmanager_base. A previously removed method of 
+namespace helper was still used. 
+- fixed bug in constructor of dpws_types.ThisDeviceType. This could cause an invalid xml:lang attribute. 
+- fixed bug that ContainerBase.node was not set in update_from_node
 
 ## [2.0.0a1] - 2023-06-01
 

@@ -7,7 +7,7 @@ from sdc11073 import observableproperties
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from concurrent import futures
 from sdc11073.certloader import mk_ssl_context_from_folder
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.sdcclient import SdcClient
 from sdc11073.mdib.clientmdib import ClientMdibContainer
 from sdc11073.mdib.clientmdibxtra import ClientMdibMethods
@@ -34,7 +34,7 @@ def run_ref_test():
     results = []
     print(f'using adapter address {adapter_ip}')
     print('Test step 1: discover device which endpoint ends with "{}"'.format(search_epr))
-    wsd = WSDiscoveryWhitelist([adapter_ip])
+    wsd = WSDiscovery(adapter_ip)
     wsd.start()
     my_service = None
     while my_service is None:

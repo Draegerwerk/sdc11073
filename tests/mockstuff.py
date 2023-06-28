@@ -50,11 +50,11 @@ def _findServer(netloc):
 
 
 class MockWsDiscovery(object):
-    def __init__(self, ipaddresses):
-        self._ipaddresses = ipaddresses
+    def __init__(self, ipaddress):
+        self._ipaddress = ipaddress
 
     def get_active_addresses(self):
-        return self._ipaddresses
+        return [self._ipaddress]
 
     def clear_service(self, epr):
         _logger.info('clear_service "{}"'.format(epr))

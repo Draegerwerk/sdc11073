@@ -23,7 +23,7 @@ from sdc11073.mdib import ConsumerMdibContainer
 from sdc11073.mdib.providerwaveform import Annotator
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
-from sdc11073.pysoap.soapenvelope import Soap12Envelope
+from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.consumer import SdcConsumer
@@ -32,7 +32,7 @@ from sdc11073.consumer.subscription import ClientSubscriptionManagerReferencePar
 from sdc11073.provider import waveforms
 from sdc11073.provider.components import SdcDeviceComponents, default_sdc_device_components_async
 from sdc11073.provider.subscriptionmgr import ReferenceParamSubscriptionsManager
-from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.namespaces import default_ns_helper
 from tests.mockstuff import SomeDevice, dec_list
 
@@ -242,7 +242,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.logger = get_logger_adapter('sdc.test')
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041)
@@ -506,6 +506,23 @@ class Test_Client_SomeDevice(unittest.TestCase):
         logging.getLogger('sdc.client.subscrMgr').setLevel(logging.DEBUG)
         logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)
         runtest_metric_reports(self, self.sdc_device, self.sdc_client, self.logger)
+
+    def test_roundtrip_times(self):
+        # run a test that sens notifications
+        runtest_metric_reports(self, self.sdc_device, self.sdc_client, self.logger)
+        # expect at least one subscription with roundtrip stats and reasonable values
+        found = False
+        for mgr in self.sdc_device._subscriptions_managers.values():
+            for subscription in mgr._subscriptions.objects:
+                stats = subscription.get_roundtrip_stats()
+                if stats.values is not None:
+                    found = True
+                    self.assertTrue(stats.abs_max > 0)
+                    self.assertTrue(stats.avg > 0)
+                    self.assertTrue(stats.max > 0)
+                    self.assertTrue(stats.min >= 0)
+        self.assertTrue(found)
+
 
     def test_alert_reports(self):
         """ verify that the client receives correct EpisodicAlertReports and PeriodicAlertReports"""
@@ -1015,7 +1032,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         except HTTPReturnCodeError as ex:
             self.assertEqual(ex.status, 400)
-            self.assertEqual(ex.soap_fault.Code.Value, 's12:Sender')
+            self.assertEqual(ex.soap_fault.Code.Value, faultcodeEnum.SENDER)
         else:
             self.fail('HTTPReturnCodeError not raised')
 
@@ -1061,7 +1078,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         self.logger = get_logger_adapter('sdc.test')
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -1152,7 +1169,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         basic_logging_setup()
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='<Final> ',
@@ -1203,7 +1220,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         basic_logging_setup()
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
 
@@ -1296,7 +1313,7 @@ class Test_Client_SomeDevice_async(unittest.TestCase):
         self.logger = get_logger_adapter('sdc.test')
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='',

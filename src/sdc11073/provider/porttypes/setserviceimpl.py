@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional, List, Protocol, runtime_checkable
 from .porttypebase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding
 from .porttypebase import mk_wsdl_two_way_operation, mk_wsdl_one_way_operation, msg_prefix
 from ...dispatch import DispatchKey
+from ...namespaces import PrefixesEnum
 
 if TYPE_CHECKING:
     from ..sco import OperationDefinition
@@ -24,6 +25,7 @@ class SetServiceProtocol(Protocol):
 
 
 class SetService(ServiceWithOperations):
+    port_type_name = PrefixesEnum.SDC.tag('SetService')
     WSDLMessageDescriptions = (WSDLMessageDescription('Activate',
                                                       (f'{msg_prefix}:Activate',)),
                                WSDLMessageDescription('ActivateResponse',

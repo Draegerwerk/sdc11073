@@ -48,6 +48,13 @@ class TestStateContainers(unittest.TestCase):
         state2.update_from_other_container(state)
         self._verifyAbstractStateContainerDataEqual(state, state2)
 
+        # also check update via xml node
+        node = state.mk_state_node(_my_tag, self.ns_mapper)
+        state3 = sc.AbstractStateContainer(descriptor_container=self.descr)
+        state3.update_from_node(node)
+        self.assertIsNotNone(state3.node)
+
+
     def _verifyAbstractStateContainerDataEqual(self, state1, state2):
         self.assertEqual(state1.DescriptorVersion, state2.DescriptorVersion)
         self.assertEqual(state1.StateVersion, state2.StateVersion)

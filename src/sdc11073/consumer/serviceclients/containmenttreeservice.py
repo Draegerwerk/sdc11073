@@ -1,6 +1,9 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING, Optional
+
 from .serviceclientbase import HostedServiceClient, GetRequestResult
+from ...namespaces import PrefixesEnum
 from ...xml_types.addressing_types import HeaderInformationBlock
 
 if TYPE_CHECKING:
@@ -8,6 +11,7 @@ if TYPE_CHECKING:
 
 
 class CTreeServiceClient(HostedServiceClient):
+    port_type_name = PrefixesEnum.SDC.tag('ContainmentTreeService')
 
     def get_descriptor(self, handles,
                        request_manipulator: Optional[RequestManipulatorProtocol] = None) -> GetRequestResult:
@@ -42,7 +46,7 @@ class CTreeServiceClient(HostedServiceClient):
         inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
         message = self._msg_factory.mk_soap_message(inf, payload=request)
 
-        received_message_data = self.post_message(message,request_manipulator=request_manipulator)
+        received_message_data = self.post_message(message, request_manipulator=request_manipulator)
         cls = data_model.msg_types.GetContainmentTreeResponse
         report = cls.from_node(received_message_data.p_msg.msg_node)
         return GetRequestResult(received_message_data, report)

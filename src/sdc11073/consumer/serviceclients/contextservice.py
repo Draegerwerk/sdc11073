@@ -1,10 +1,12 @@
 from __future__ import annotations
+
 from concurrent.futures import Future
 from typing import Optional, TYPE_CHECKING
 
 from .serviceclientbase import HostedServiceClient, GetRequestResult
 from ...dispatch import DispatchKey
 from ...exceptions import ApiUsageError
+from ...namespaces import PrefixesEnum
 from ...xml_types import msg_qnames
 from ...xml_types.actions import Actions
 from ...xml_types.addressing_types import HeaderInformationBlock
@@ -12,6 +14,7 @@ from ...xml_types.addressing_types import HeaderInformationBlock
 if TYPE_CHECKING:
     from sdc11073.consumer.manipulator import RequestManipulatorProtocol
 class ContextServiceClient(HostedServiceClient):
+    port_type_name = PrefixesEnum.SDC.tag('ContextService')
     notifications = (DispatchKey(Actions.EpisodicContextReport, msg_qnames.EpisodicContextReport),
                      DispatchKey(Actions.PeriodicContextReport, msg_qnames.PeriodicContextReport))
 
@@ -77,7 +80,8 @@ class ContextServiceClient(HostedServiceClient):
 
     def get_context_state_by_identification(self, identifications,
                                             context_type=None,
-                                            request_manipulator: Optional[RequestManipulatorProtocol] = None) -> GetRequestResult:
+                                            request_manipulator: Optional[
+                                                RequestManipulatorProtocol] = None) -> GetRequestResult:
         """
         :param identifications: list of identifiers (type: InstanceIdentifier from pmtypes)
         :param context_type: Type to query
@@ -97,7 +101,8 @@ class ContextServiceClient(HostedServiceClient):
         return GetRequestResult(received_message_data, report)
 
     def get_context_state_by_filter(self, filters: list[str],
-                                    request_manipulator: Optional[RequestManipulatorProtocol] = None) -> GetRequestResult:
+                                    request_manipulator: Optional[
+                                        RequestManipulatorProtocol] = None) -> GetRequestResult:
         """
         :param filters: list strings
         :param request_manipulator: see documentation of RequestManipulatorProtocol
