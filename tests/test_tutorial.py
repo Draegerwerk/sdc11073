@@ -3,6 +3,7 @@ import unittest
 import uuid
 from decimal import Decimal
 
+from sdc11073 import network
 from sdc11073.consumer import SdcConsumer
 from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SDC_v1_Definitions
@@ -15,13 +16,13 @@ from sdc11073.provider.components import SdcDeviceComponents
 from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.wsdiscovery import WSDiscovery, WSDiscoverySingleAdapter
-from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
+from sdc11073.xml_types import msg_types, pm_types
+from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.xml_types.wsd_types import ScopesType
-from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 
-loopback_adapter = 'Loopback Pseudo-Interface 1' if os.name == 'nt' else 'lo'
+loopback_adapter = next(adapter for adapter in network.get_adapters() if adapter.is_loopback)
 
 SEARCH_TIMEOUT = 2  # in real world applications this timeout is too short, 10 seconds is a good value.
 # Here this short timeout is used to accelerate the test.
@@ -64,8 +65,10 @@ MY_CODE_3_TARGET = CodedValue('196274')  # this is the operation target for MY_C
 
 
 class MyProvider1(ProviderRole):
-    """ This provider handles operations with code == MY_CODE_1 and MY_CODE_2.
-    Operations with these codes already exist in the mdib that is used for this test. """
+    """This provider handles operations with code == MY_CODE_1 and MY_CODE_2.
+
+    Operations with these codes already exist in the mdib that is used for this test.
+    """
 
     def __init__(self, mdib, log_prefix):
         super().__init__(mdib, log_prefix)
@@ -75,8 +78,9 @@ class MyProvider1(ProviderRole):
         self.operation2_args = None
 
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
-        """ if the role provider is responsible for handling of calls to this operation_descriptor_container,
-         it creates an operation instance and returns it, otherwise it returns None"""
+        """If the role provider is responsible for handling of calls to this operation_descriptor_container,
+        it creates an operation instance and returns it, otherwise it returns None.
+        """
         if operation_descriptor_container.coding == MY_CODE_1.coding:
             # This is a very simple check that only checks the code of the operation.
             # Depending on your use case, you could also check the operation target is the correct one,
@@ -88,13 +92,12 @@ class MyProvider1(ProviderRole):
                                                                      operation_cls_getter,
                                                                      current_argument_handler=self._handle_operation_1)
             return operation
-        elif operation_descriptor_container.coding == MY_CODE_2.coding:
+        if operation_descriptor_container.coding == MY_CODE_2.coding:
             operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                      operation_cls_getter,
                                                                      current_argument_handler=self._handle_operation_2)
             return operation
-        else:
-            return None
+        return None
 
     def _handle_operation_1(self, operation_instance, argument):
         """This operation does not manipulate the mdib at all, it only registers the call."""
@@ -115,8 +118,9 @@ class MyProvider1(ProviderRole):
 
 
 class MyProvider2(ProviderRole):
-    """ This provider handles operations with code == MY_CODE_3.
-    Operations with these codes already exist in the mdib that is used for this test. """
+    """This provider handles operations with code == MY_CODE_3.
+    Operations with these codes already exist in the mdib that is used for this test.
+    """
 
     def __init__(self, mdib, log_prefix):
         super().__init__(mdib, log_prefix)
@@ -151,7 +155,8 @@ class MyProductImpl(BaseProduct):
     """This class provides all handlers of the fictional product.
     It instantiates 2 role providers.
     The number of role providers does not matter, it is a question of how the code is organized.
-    Each role provider should handle one specific role, e.g. audio pause provider, clock provider, ..."""
+    Each role provider should handle one specific role, e.g. audio pause provider, clock provider, ...
+    """
 
     def __init__(self, mdib, sco, log_prefix=None):
         super().__init__(mdib, sco, log_prefix)
@@ -162,7 +167,7 @@ class MyProductImpl(BaseProduct):
 
 
 class Test_Tutorial(unittest.TestCase):
-    """ run tutorial examples as unit tests, so that broken examples are automatically detected"""
+    """run tutorial examples as unit tests, so that broken examples are automatically detected."""
 
     def setUp(self) -> None:
         self.my_location = SdcLocation(fac='ODDS',
@@ -220,7 +225,7 @@ class Test_Tutorial(unittest.TestCase):
         # create a new discovery instance for searching.
         # (technically this would not be necessary, but it makes things much clearer in our example)
         # for searching we use again localhost adapter. For demonstration purpose a WSDiscoverySingleAdapter is used
-        my_client_ws_discovery = WSDiscoverySingleAdapter(loopback_adapter)
+        my_client_ws_discovery = WSDiscoverySingleAdapter(loopback_adapter.name)
         self.my_ws_discoveries.append(my_client_ws_discovery)
         my_client_ws_discovery.start()
 
@@ -335,7 +340,7 @@ class Test_Tutorial(unittest.TestCase):
         self.assertEqual(result.InvocationInfo.InvocationState, msg_types.InvocationState.FINISHED)
 
     def test_operation_handler(self):
-        """ This example shows how to implement own handlers for operations, and it shows multiple ways how a client can
+        """This example shows how to implement own handlers for operations, and it shows multiple ways how a client can
         find the desired operation.
         """
         # Create a device like in the examples above, but provide an own role provider.
@@ -344,7 +349,6 @@ class Test_Tutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        # my_product_impl = MyProductImpl(log_prefix='p1')
         specific_components = SdcDeviceComponents(role_provider_class=MyProductImpl)
         # use the minimalistic mdib from reference test:
         mdib_path = os.path.join(here, '../examples/ReferenceTest/reference_mdib.xml')

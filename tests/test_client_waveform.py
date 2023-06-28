@@ -4,8 +4,7 @@ import unittest
 
 from lxml import etree as etree_
 
-from sdc11073 import definitions_sdc
-from sdc11073 import loghelper
+from sdc11073 import definitions_sdc, loghelper
 from sdc11073.consumer import SdcConsumer
 from sdc11073.mdib import ConsumerMdibContainer
 from sdc11073.mdib.descriptorcontainers import RealTimeSampleArrayMetricDescriptorContainer
@@ -13,7 +12,7 @@ from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContaine
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.xml_types.pm_types import Coding
 
-DEV_ADDRESS = 'http://169.254.0.200:10000'
+DEV_ADDRESS = 'http://127.0.0.1:10000'
 CLIENT_VALIDATE = True
 
 # data that is used in report
@@ -22,7 +21,7 @@ SAMPLES = {"0x34F05506": (5.566406, 5.712891, 5.712891, 5.712891, 5.800781),
            "0x34F05501": (0.1, -0.1, 1.0, 2.0, 3.0),
            "0x34F05500": (3.198242, 3.198242, 3.198242, 3.198242, 3.163574, 1.1)}
 
-wf_report_template = '''<?xml version="1.0" encoding="utf-8"?>
+wf_report_template = """<?xml version="1.0" encoding="utf-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
 xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding"
 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -81,7 +80,7 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
     </msg:WaveformStream>
   </SOAP-ENV:Body>
 </SOAP-ENV:Envelope>
-'''
+"""
 
 
 def _mk_wf_report(observation_time_ms: int, mdib_version: int, state_version: int) -> str:
@@ -95,7 +94,7 @@ def _mk_wf_report(observation_time_ms: int, mdib_version: int, state_version: in
         ext='http://standards.ieee.org/downloads/11073/11073-10207-2017/extension',
         dom='http://standards.ieee.org/downloads/11073/11073-10207-2017/participant',
         mdib_version=mdib_version,
-        state_version=state_version
+        state_version=state_version,
     )
 
 
@@ -110,7 +109,7 @@ class TestClientWaveform(unittest.TestCase):
                                       validate=CLIENT_VALIDATE)
 
     def tearDown(self):
-        sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
         self.log_watcher.setPaused(True)
         self.sdc_client.stop_all()
         try:
@@ -118,11 +117,10 @@ class TestClientWaveform(unittest.TestCase):
         except loghelper.LogWatchException as ex:
             sys.stderr.write(repr(ex))
             raise
-        sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
 
     def test_basic_handling(self):
-        """ call _onWaveformReport method directly. Verify that observable is a WaveformStream Element"""
-
+        """Call _onWaveformReport method directly. Verify that observable is a WaveformStream Element."""
         cl = self.sdc_client
         observation_time_ms = 1467596359152
 
@@ -131,8 +129,10 @@ class TestClientWaveform(unittest.TestCase):
         cl._on_notification(data)
 
     def test_stream_handling(self):
-        """ Connect a mdib with client. Call _onWaveformReport method directly.
-        Verify that observable is a WaveformStream Element"""
+        """Connect a mdib with client. Call _onWaveformReport method directly.
+
+        Verify that observable is a WaveformStream Element.
+        """
         observation_time_ms = 1467596359152  # something in a plausible range
         observation_time = observation_time_ms / 1000.0
 

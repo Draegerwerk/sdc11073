@@ -5,7 +5,18 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [master]
+## [Unreleased]
+
+## Fixed
+- possible choosing wrong ipaddress/network interface [#187](https://github.com/Draegerwerk/sdc11073/issues/187)
+
+## Added
+- `network` module to handle network adapter stuff of the host computer
+
+## Changed
+- when creating a `SdcClient` with a `device_location` or `WsDiscovery` containing an ip where no suitable host network adapter could be determined from, an `NetworkAdapterNotFoundError` is raised
+- removed `netconn` module
+
 ## [2.0.0a5] - 2023-06-27
 
 ### Fixed

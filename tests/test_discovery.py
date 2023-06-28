@@ -7,7 +7,7 @@ from urllib.parse import urlparse, urlsplit
 
 from lxml.etree import QName
 
-from sdc11073 import loghelper, wsdiscovery
+from sdc11073 import loghelper, network, wsdiscovery
 from sdc11073.wsdiscovery.wsdimpl import MatchBy, match_scope
 from sdc11073.xml_types.wsd_types import ScopesType
 
@@ -62,11 +62,11 @@ class TestDiscovery(unittest.TestCase):
 
         # give them different logger names so that output can be distinguished
         self.wsd_client = wsdiscovery.WSDiscovery('127.0.0.1',
-                                                           logger=loghelper.get_logger_adapter('wsd_client'),
-                                                           multicast_port=self.MY_MULTICAST_PORT)
+                                                  logger=loghelper.get_logger_adapter('wsd_client'),
+                                                  multicast_port=self.MY_MULTICAST_PORT)
         self.wsd_service = wsdiscovery.WSDiscovery('127.0.0.1',
-                                                            logger=loghelper.get_logger_adapter('wsd_service'),
-                                                            multicast_port=self.MY_MULTICAST_PORT)
+                                                   logger=loghelper.get_logger_adapter('wsd_service'),
+                                                   multicast_port=self.MY_MULTICAST_PORT)
         self.log_watcher_client = loghelper.LogWatcher(logging.getLogger('wsd_client'), level=logging.ERROR)
         self.log_watcher_service = loghelper.LogWatcher(logging.getLogger('wsd_service'), level=logging.ERROR)
 
@@ -91,7 +91,7 @@ class TestDiscovery(unittest.TestCase):
         test_log.debug(f'tearDown done {self._testMethodName}')
 
     def test_invalid_address(self):
-        self.assertRaises(RuntimeError, wsdiscovery.WSDiscovery, '128.0.0.1')
+        self.assertRaises(network.NetworkAdapterNotFoundError, wsdiscovery.WSDiscovery, '128.0.0.1')
 
     def test_discover(self):
         test_log.info('starting client...')
@@ -182,7 +182,8 @@ class TestDiscovery(unittest.TestCase):
 
         # test search_multiple_types
         test_log.info('starting search scopes+types filter...')
-        services = self.wsd_client.search_multiple_types(types_list=[ttype1, ttype2, ttype3], timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_multiple_types(types_list=[ttype1, ttype2, ttype3],
+                                                         timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 3)
 
     def test_discover_serviceFirst(self):
@@ -192,7 +193,7 @@ class TestDiscovery(unittest.TestCase):
         ttype = QName("abc", "def")
         scopes = ScopesType("http://other_scope")
 
-        addresses = ["localhost:8080/abc" ]
+        addresses = ["localhost:8080/abc"]
         epr = 'my_epr'
         self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=addresses)
         time.sleep(2)
@@ -218,7 +219,7 @@ class TestDiscovery(unittest.TestCase):
         ttype = QName("abc", "def")
         scopes = ScopesType("http://other_scope")
 
-        addresses = ["localhost:8080/abc" ]
+        addresses = ["localhost:8080/abc"]
         epr = 'my_epr'
         self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=addresses)
         time.sleep(5)  # make sure hello messages are all sent before client discovery starts
@@ -241,7 +242,7 @@ class TestDiscovery(unittest.TestCase):
         ttype = QName("abc", "def")
         scopes = ScopesType("http://other_scope")
 
-        addresses = ["localhost:8080/abc" ]
+        addresses = ["localhost:8080/abc"]
         epr = 'my_epr'
         test_log.info('publish_service...')
         self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=addresses)
@@ -269,7 +270,7 @@ class TestDiscovery(unittest.TestCase):
         ttype = QName("abc", "def")
         scopes = ScopesType("http://other_scope")
 
-        addresses = ["localhost:8080/abc" ]
+        addresses = ["localhost:8080/abc"]
         epr = 'my_epr'
         self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=addresses)
         time.sleep(2)
@@ -296,7 +297,7 @@ class TestDiscovery(unittest.TestCase):
         ttype = QName("abc", "def")
         scopes = ScopesType("http://other_scope")
 
-        addresses = ["localhost:8080/abc" ]
+        addresses = ["localhost:8080/abc"]
         epr = 'my_epr'
         test_log.info('publish_service...')
         self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=addresses)
@@ -356,8 +357,8 @@ class TestDiscovery(unittest.TestCase):
     def test_publishManyServices_lateStartedClient(self):
         test_log.info('starting service...')
         self.wsd_service.start()
-        deviceCount = 20
-        for i in range(deviceCount):
+        device_count = 20
+        for i in range(device_count):
             ttype1 = QName("namespace", "myOtherTestService_type1")
             scopes1 = ScopesType("http://other_scope")
 
@@ -373,8 +374,8 @@ class TestDiscovery(unittest.TestCase):
 
         for service in services:
             test_log.info(f'found service: {service.epr} : {service.x_addrs}')
-        myServices = [s for s in services if 'my_epr' in s.epr]  # there might be other devices in the network
-        self.assertEqual(len(myServices), deviceCount)
+        my_services = [s for s in services if 'my_epr' in s.epr]  # there might be other devices in the network
+        self.assertEqual(len(my_services), device_count)
 
     def test_publishManyServices_earlyStartedClient(self):
         # verify if client keeps track of all devices that appeared / disappeared after start without searching.
@@ -383,8 +384,8 @@ class TestDiscovery(unittest.TestCase):
         time.sleep(0.01)
         test_log.info('starting service...')
         self.wsd_service.start()
-        deviceCount = 20
-        for i in range(deviceCount):
+        device_count = 20
+        for i in range(device_count):
             ttype1 = QName("namespace", "myOtherTestService_type1")
             scopes1 = ScopesType("http://other_scope")
 
@@ -393,7 +394,7 @@ class TestDiscovery(unittest.TestCase):
             self.wsd_service.publish_service(epr, types=[ttype1], scopes=scopes1, x_addrs=addresses)
 
         time.sleep(2.02)
-        self.assertEqual(len(self.wsd_client._remote_services), deviceCount)
+        self.assertEqual(len(self.wsd_client._remote_services), device_count)
         test_log.info('stopping service...')
         test_log.info('clear_local_services...')
         self.wsd_service.clear_local_services()
@@ -422,4 +423,3 @@ class TestDiscovery(unittest.TestCase):
         finally:
             unicast_sock.close()
             self.log_watcher_service.setPaused(False)
-
