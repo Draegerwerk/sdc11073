@@ -17,7 +17,7 @@ HANDLES = ("0x34F05506", "0x34F05501", "0x34F05500")
 class TestDeviceWaveform(unittest.TestCase):
 
     def setUp(self):
-        self.mdib = sdc11073.mdib.ProviderMdibContainer()
+        self.mdib = sdc11073.mdib.ProviderMdib()
         self._soap_client_pool = SoapClientPool(soap_client_factory=None, log_prefix="")
 
         # this structure is not realistic, but sufficient for what we need here.

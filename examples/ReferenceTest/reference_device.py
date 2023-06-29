@@ -8,13 +8,13 @@ from decimal import Decimal
 
 from sdc11073 import wsdiscovery
 from sdc11073.location import SdcLocation
-from sdc11073.provider import SdcDevice
+from sdc11073.provider import SdcProvider
 from sdc11073.xml_types import pm_types
-from sdc11073.mdib import ProviderMdibContainer
+from sdc11073.mdib import ProviderMdib
 from sdc11073.certloader import mk_ssl_context_from_folder
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.loghelper import LoggerAdapter
-from sdc11073.provider.components import SdcDeviceComponents
+from sdc11073.provider.components import SdcProviderComponents, default_sdc_provider_components_sync
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.provider.servicesfactory import DPWSHostedService
@@ -67,7 +67,7 @@ if __name__ == '__main__':
     logger.info('{}', 'start')
     wsd = wsdiscovery.WSDiscovery(adapter_ip)
     wsd.start()
-    my_mdib = ProviderMdibContainer.from_mdib_file(mdib_path)
+    my_mdib = ProviderMdib.from_mdib_file(mdib_path)
     my_uuid = UUID(My_UUID_str)
     print("UUID for this device is {}".format(my_uuid))
     loc = SdcLocation(ref_fac, ref_poc, ref_bed)
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     dpwsDevice = ThisDeviceType(friendly_name='TestDevice',
                             firmware_version='Version1',
                             serial_number='12345')
-    if ca_folder:
+    if False: #ca_folder:
         ssl_context = mk_ssl_context_from_folder(ca_folder,
                                                  private_key='user_private_key_encrypted.pem',
                                                  certificate='user_certificate_root_signed.pem',
@@ -95,13 +95,13 @@ if __name__ == '__main__':
         # specific_components = SdcDeviceComponents(subscriptions_manager_class= {'StateEvent':SubscriptionsManagerReferenceParamAsync},
         #                                           services_factory=mk_all_services_except_localization,
         #                                           soap_client_class=SoapClientAsync)
-        specific_components = SdcDeviceComponents(subscriptions_manager_class= {'StateEvent':ReferenceParamSubscriptionsManager},
+        specific_components = SdcProviderComponents(subscriptions_manager_class= {'StateEvent':SubscriptionsManagerReferenceParamAsync},
                                                   services_factory=mk_all_services_except_localization)
     else:
         specific_components = None # SdcDeviceComponents(services_factory=mk_all_services_except_localization)
-    sdcDevice = SdcDevice(wsd, dpwsModel, dpwsDevice, my_mdib, my_uuid,
+    sdcDevice = SdcProvider(wsd, dpwsModel, dpwsDevice, my_mdib, my_uuid,
                                                            ssl_context=ssl_context,
-                          default_components=default_sdc_device_components_sync,
+                          default_components=default_sdc_provider_components_sync,
                                                            specific_components=specific_components)
     sdcDevice.start_all()
 

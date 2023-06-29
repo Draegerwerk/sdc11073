@@ -13,10 +13,10 @@ from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.location import SdcLocation
-from sdc11073.mdib import ProviderMdibContainer, ClientMdibContainer
-from sdc11073.sdcclient import SdcClient
-from sdc11073.provider.sdcdeviceimpl import SdcDevice
-from sdc11073.wsdiscovery import WSDiscovery, Scopes
+from sdc11073.mdib import ProviderMdib, ConsumerMdib
+from sdc11073.consumer import SdcConsumer
+from sdc11073.provider import SdcProvider
+from sdc11073.wsdiscovery import WSDiscovery, ScopesType
 
 here = os.path.dirname(__file__)
 default_mdib_path = os.path.join(here, 'reference_mdib.xml')
@@ -97,7 +97,7 @@ class DeviceActivity(threading.Thread):
 
 
 def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
-    my_mdib = ProviderMdibContainer.from_mdib_file(mdibPath)
+    my_mdib = ProviderMdib.from_mdib_file(mdibPath)
     my_uuid = uuid.UUID(My_Dev_UUID_str)
     dpwsModel = ThisModelType(manufacturer='sdc11073',
                               manufacturer_url='www.sdc11073.com',
@@ -109,7 +109,7 @@ def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
     dpwsDevice = ThisDeviceType(friendly_name='TestDevice',
                                 firmware_version='Version1',
                                 serial_number='12345')
-    sdcDevice = SdcDevice(wsdiscovery_instance,
+    sdcDevice = SdcProvider(wsdiscovery_instance,
                           dpwsModel,
                           dpwsDevice,
                           my_mdib,
@@ -203,14 +203,14 @@ class Test_Reference(unittest.TestCase):
         print('Test step 1 successful: device discovered')
 
         print('Test step 2: connect to device...')
-        client = SdcClient.from_wsd_service(my_service, ssl_context=None)
+        client = SdcConsumer.from_wsd_service(my_service, ssl_context=None)
         self.my_clients.append(client)
         client.start_all()
         self.assertTrue(client.is_connected)
         print('Test step 2 successful: connected to device')
 
         print('Test step 3&4: get mdib and subscribe...')
-        mdib = ClientMdibContainer(client)
+        mdib = ConsumerMdib(client)
         mdib.init_mdib()
         self.assertGreater(len(mdib.descriptions.objects), 0)  # at least one descriptor
         self.assertTrue(client._subscription_mgr.all_subscriptions_okay)  # at least one descriptor

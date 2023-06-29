@@ -6,11 +6,11 @@ from decimal import Decimal
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
-from sdc11073.mdib import ProviderMdibContainer
+from sdc11073.mdib import ProviderMdib
 from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import waveforms, SdcProvider
-from sdc11073.provider.components import default_sdc_device_components_sync
+from sdc11073.provider.components import default_sdc_provider_components_sync
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
@@ -34,7 +34,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
         self.logger = get_logger_adapter('sdc.test')
-        self.mdib = ProviderMdibContainer.from_mdib_file(os.path.join(mdib_folder, '70041_MDIB_Final.xml'))
+        self.mdib = ProviderMdib.from_mdib_file(os.path.join(mdib_folder, '70041_MDIB_Final.xml'))
 
         this_model = ThisModelType(manufacturer='ABCDEFG GmbH',
                                    manufacturer_url='www.abcdefg.com',
@@ -49,7 +49,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_device = SdcProvider(self.wsd, this_model, this_device, self.mdib,
-                                      default_components=default_sdc_device_components_sync)
+                                      default_components=default_sdc_provider_components_sync)
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self.logger.info('############### setUp done {} ##############'.format(self._testMethodName))
 

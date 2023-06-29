@@ -2,41 +2,51 @@ from __future__ import annotations
 
 import copy
 import uuid
-from typing import TYPE_CHECKING, Optional, Union, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import SplitResult
 
-from .components import default_sdc_device_components
+from sdc11073 import loghelper
+from sdc11073 import observableproperties as properties
+from sdc11073.dispatch import (
+    DispatchKey,
+    DispatchKeyRegistry,
+    MessageConverterMiddleware,
+    PathElementRegistry,
+    RequestData,
+)
+from sdc11073.exceptions import ApiUsageError
+from sdc11073.httpserver import compression
+from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
+from sdc11073.namespaces import WSA_ANONYMOUS
+from sdc11073.pysoap.soapclientpool import SoapClientPool
+from sdc11073.xml_types import mex_types
+from sdc11073.xml_types.addressing_types import EndpointReferenceType
+from sdc11073.xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisModelType
+from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
+
+from .components import default_sdc_provider_components
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 from .waveforms import WaveformSender
-from .. import loghelper
-from .. import observableproperties as properties
-from ..dispatch import DispatchKey, DispatchKeyRegistry
-from ..dispatch import PathElementRegistry
-from ..dispatch import RequestData, MessageConverterMiddleware
-from ..exceptions import ApiUsageError
-from ..httpserver import compression
-from ..httpserver.httpserverimpl import HttpServerThreadBase
-from ..location import SdcLocation
-from ..namespaces import WSA_ANONYMOUS
-from ..pysoap.soapclientpool import SoapClientPool
-from ..xml_types import mex_types
-from ..xml_types.addressing_types import EndpointReferenceType
-from ..xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisModelType
-from ..xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
 
 if TYPE_CHECKING:
-    from ..pysoap.msgfactory import CreatedMessage
-    from ..mdib.providermdib import ProviderMdibContainer
-    from .components import SdcDeviceComponents
     from ssl import SSLContext
-    from ..xml_types.wsd_types import ScopesType
+
+    from sdc11073.location import SdcLocation
+    from sdc11073.mdib.providermdib import ProviderMdib
+    from sdc11073.pysoap.msgfactory import CreatedMessage
+    from sdc11073.xml_types.wsd_types import ScopesType
+    from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
+
+    from .components import SdcProviderComponents
 
 
 class _PathElementDispatcher(PathElementRegistry):
-    """ Dispatch to one of the registered instances, based on path element.
-    Implements RequestHandlerProtocol"""
+    """Dispatch to one of the registered instances, based on path element.
 
-    def register_instance(self, path_element: Union[str, None], instance: DispatchKeyRegistry):
+    Implements RequestHandlerProtocol.
+    """
+
+    def register_instance(self, path_element: str | None, instance: DispatchKeyRegistry):
         super().register_instance(path_element, instance)
 
     def on_post(self, request_data: RequestData) -> CreatedMessage:
@@ -50,50 +60,50 @@ class _PathElementDispatcher(PathElementRegistry):
 
 
 class WsDiscoveryProtocol(Protocol):
-    """This is the interface that SdcProvider expects"""
+    """WsDiscoveryProtocol is the interface that SdcProvider expects."""
 
-    def publish_service(self, epr: str, types: list, scopes: ScopesType, x_addrs: list):
+    def publish_service(self, epr: str, types: list, scopes: ScopesType, x_addrs: list):  # noqa D102
         ...
 
-    def get_active_addresses(self) -> list:
+    def get_active_addresses(self) -> list:  # noqa D102
         ...
 
-    def clear_service(self, epr: str):
+    def clear_service(self, epr: str):  # noqa D102
         ...
 
 
 class SdcProvider:
+    """SdcProvider is the host for sdc services, subscription manager etc."""
+
     DEFAULT_CONTEXTSTATES_IN_GETMDIB = True  # defines weather get_mdib and getMdStates contain context states or not.
 
     def __init__(self, ws_discovery: WsDiscoveryProtocol,
                  this_model: ThisModelType,
                  this_device: ThisDeviceType,
-                 device_mdib_container: ProviderMdibContainer,
-                 epr: Union[str, uuid.UUID, None] = None,
+                 device_mdib_container: ProviderMdib,
+                 epr: str | uuid.UUID | None = None,
                  validate: bool = True,
-                 ssl_context: Optional[SSLContext] = None,
+                 ssl_context: SSLContext | None = None,
                  max_subscription_duration: int = 7200,
                  log_prefix: str = '',
-                 default_components: Optional[SdcDeviceComponents] = None,
-                 specific_components: Optional[SdcDeviceComponents] = None,
+                 default_components: SdcProviderComponents | None = None,
+                 specific_components: SdcProviderComponents | None = None,
                  chunked_messages: bool = False):
-        """
+        """Construct an SdcProvider.
 
         :param ws_discovery: a WsDiscovers instance
         :param this_model: a ThisModelType instance
         :param this_device: a ThisDeviceType instance
-        :param device_mdib_container: a ProviderMdibContainer instance
+        :param device_mdib_container: a ProviderMdib instance
         :param epr: something that serves as a unique identifier of this device for discovery.
                     If epr is a string, it must be usable as a path element in an url (no spaces, ...)
         :param validate: bool
         :param ssl_context: if not None, this context is used and https url is used, otherwise http
         :param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
         :param log_prefix: a string
-        :param specific_components: a SdcDeviceComponents instance
+        :param specific_components: a SdcProviderComponents instance
         :param chunked_messages: bool
         """
-        # ssl protocol handling itself is delegated to a handler.
-        # Specific protocol versions or behaviours are implemented there.
         self._wsdiscovery = ws_discovery
         self.model = this_model
         self.device = this_device
@@ -107,7 +117,7 @@ class SdcProvider:
         self._max_subscription_duration = max_subscription_duration
         self._log_prefix = log_prefix
         if default_components is None:
-            default_components = default_sdc_device_components
+            default_components = default_sdc_provider_components
         self._components = copy.deepcopy(default_components)
         if specific_components is not None:
             # merge specific stuff into _components
@@ -180,17 +190,16 @@ class SdcProvider:
         properties.bind(device_mdib_container, transaction=self._send_episodic_reports)
         properties.bind(device_mdib_container, rt_updates=self._send_rt_notifications)
 
-    def _mk_soap_client(self, netloc, accepted_encodings):
+    def _mk_soap_client(self, netloc: str, accepted_encodings: list[str]) -> Any:
         cls = self._components.soap_client_class
-        soap_client = cls(netloc,
-                          loghelper.get_logger_adapter('sdc.device.soap', self._log_prefix),
-                          ssl_context=self._ssl_context,
-                          sdc_definitions=self._mdib.sdc_definitions,
-                          msg_reader=self.msg_reader,
-                          supported_encodings=self._compression_methods,
-                          request_encodings=accepted_encodings,
-                          chunked_requests=self.chunked_messages)
-        return soap_client
+        return cls(netloc,
+                   loghelper.get_logger_adapter('sdc.device.soap', self._log_prefix),
+                   ssl_context=self._ssl_context,
+                   sdc_definitions=self._mdib.sdc_definitions,
+                   msg_reader=self.msg_reader,
+                   supported_encodings=self._compression_methods,
+                   request_encodings=accepted_encodings,
+                   chunked_requests=self.chunked_messages)
 
     def _setup_components(self):
         self._subscriptions_managers = {}
@@ -199,7 +208,7 @@ class SdcProvider:
                       self.msg_factory,
                       self._soap_client_pool,
                       self._max_subscription_duration,
-                      log_prefix=self._log_prefix
+                      log_prefix=self._log_prefix,
                       )
             self._subscriptions_managers[name] = mgr
 
@@ -229,7 +238,8 @@ class SdcProvider:
         self._mdib.xtra.set_all_source_mds()
 
     @property
-    def localization_storage(self):
+    def localization_storage(self) -> LocalizationStorage | None:
+        """Convenience method for easier access to LocalizationStorage."""
         if self.hosted_services.localization_service is not None:
             return self.hosted_services.localization_service.localization_storage
         return None
@@ -265,8 +275,7 @@ class SdcProvider:
             for e in _nsm.prefix_enum:
                 if e.namespace == q_name.namespace and e not in needed_namespaces:
                     needed_namespaces.append(e)
-        response = self.msg_factory.mk_reply_soap_message(request_data, metadata, needed_namespaces)
-        return response
+        return self.msg_factory.mk_reply_soap_message(request_data, metadata, needed_namespaces)
 
     def _on_probe_request(self, request):
         _nsm = self._mdib.nsmapper
@@ -284,8 +293,7 @@ class SdcProvider:
     def set_location(self, location: SdcLocation,
                      validators=None,
                      publish_now: bool = True):
-        """
-        :param location: an SdcLocation instance
+        """:param location: an SdcLocation instance
         :param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
         :param publish_now: if True, the device is published via its wsdiscovery reference.
         """
@@ -299,8 +307,7 @@ class SdcProvider:
             self.publish()
 
     def publish(self):
-        """
-        publish device on the network (sends HELLO message)
+        """Publish device on the network (sends HELLO message)
         :return:
         """
         scopes = self._components.scopes_factory(self._mdib)
@@ -342,6 +349,7 @@ class SdcProvider:
             has_this_operation = sco.get_operation_by_handle(operation.handle) is not None
             if has_this_operation:
                 return sco.enqueue_operation(operation, request, operation_request)
+        return None
 
     def get_toplevel_sco_list(self) -> list:
         pm_names = self._mdib.data_model.pm_names
@@ -353,9 +361,7 @@ class SdcProvider:
         return ret
 
     def start_all(self, start_rtsample_loop=True, periodic_reports_interval=None, shared_http_server=None):
-        """
-
-        :param start_rtsample_loop: flag
+        """:param start_rtsample_loop: flag
         :param periodic_reports_interval: if provided, a value in seconds
         :param shared_http_server: if provided, use this http server, else device creates its own.
         :return:
@@ -364,7 +370,6 @@ class SdcProvider:
             self._logger.info('starting PeriodicReportsHandler')
             self._periodic_reports_handler = PeriodicReportsHandler(self._mdib,
                                                                     self.hosted_services,
-                                                                    # self._subscriptions_managers['StateEvent'],
                                                                     periodic_reports_interval)
             self._periodic_reports_handler.start()
         else:
@@ -376,7 +381,7 @@ class SdcProvider:
             self.start_rt_sample_loop()
 
     def _start_services(self, shared_http_server=None):
-        """ start the services"""
+        """Start the services."""
         self._logger.info('starting services, addr = {}', self._wsdiscovery.get_active_addresses())
         for sco in self._sco_operations_registries.values():
             sco.start_worker()

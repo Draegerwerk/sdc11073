@@ -29,7 +29,7 @@ from .subscriptionmgr_async import SubscriptionsManagerPathAsync
 if TYPE_CHECKING:
     from lxml.etree import QName
 
-    from sdc11073.mdib.providermdib import ProviderMdibContainer
+    from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.provider.servicesfactory import HostedServices
     from sdc11073.xml_types.wsd_types import ScopesType
 
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 
 # Dependency injection: This class defines which component implementations the sdc device will use.
 @dataclass()
-class SdcDeviceComponents:
+class SdcProviderComponents:
     """Dependency injection: This class defines which component implementations the sdc provider will use."""
 
     soap_client_class: type[Any] = None
@@ -55,10 +55,10 @@ class SdcDeviceComponents:
     sco_operations_registry_class: type[AbstractScoOperationsRegistry] = None
     subscriptions_manager_class: dict[str, type[SubscriptionManagerProtocol]] = None
     role_provider_class: type = None
-    scopes_factory: Callable[[ProviderMdibContainer], ScopesType] = None
+    scopes_factory: Callable[[ProviderMdib], ScopesType] = None
     hosted_services: dict = None
 
-    def merge(self, other: SdcDeviceComponents):
+    def merge(self, other: SdcProviderComponents):
         """Add data from other to self."""
 
         def _merge(attr_name: str):
@@ -80,7 +80,7 @@ class SdcDeviceComponents:
                 self.subscriptions_manager_class[key] = value
 
 
-default_sdc_device_components_sync = SdcDeviceComponents(
+default_sdc_provider_components_sync = SdcProviderComponents(
     soap_client_class=SoapClient,
     msg_factory_class=MessageFactory,
     msg_reader_class=MessageReader,
@@ -106,10 +106,10 @@ default_sdc_device_components_sync = SdcDeviceComponents(
 )
 
 # async variant
-default_sdc_device_components_async = copy.deepcopy(default_sdc_device_components_sync)
-default_sdc_device_components_async.soap_client_class = SoapClientAsync
-default_sdc_device_components_async.subscriptions_manager_class = {'StateEvent': SubscriptionsManagerPathAsync,
+default_sdc_provider_components_async = copy.deepcopy(default_sdc_provider_components_sync)
+default_sdc_provider_components_async.soap_client_class = SoapClientAsync
+default_sdc_provider_components_async.subscriptions_manager_class = {'StateEvent': SubscriptionsManagerPathAsync,
                                                                    'Set': SubscriptionsManagerPathAsync}
 
 # set default to sync or async variant
-default_sdc_device_components = default_sdc_device_components_async
+default_sdc_provider_components = default_sdc_provider_components_async

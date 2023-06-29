@@ -9,10 +9,10 @@ from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
-from sdc11073.mdib import ProviderMdibContainer
-from sdc11073.mdib.consumermdib import ConsumerMdibContainer
+from sdc11073.mdib import ProviderMdib
+from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.provider import SdcProvider
-from sdc11073.provider.components import SdcDeviceComponents
+from sdc11073.provider.components import SdcProviderComponents
 from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.wsdiscovery import WSDiscovery, WSDiscoverySingleAdapter
@@ -32,7 +32,7 @@ my_mdib_path = os.path.join(here, '70041_MDIB_Final.xml')
 
 
 def createGenericDevice(wsdiscovery_instance, location, mdib_path, specific_components=None):
-    my_mdib = ProviderMdibContainer.from_mdib_file(mdib_path)
+    my_mdib = ProviderMdib.from_mdib_file(mdib_path)
     my_epr = uuid.uuid4().hex
     this_model = ThisModelType(manufacturer='Draeger',
                                manufacturer_url='www.draeger.com',
@@ -277,9 +277,9 @@ class Test_Tutorial(unittest.TestCase):
         ############# Mdib usage ##############################
         # In data oriented tests a mdib instance is very handy:
         # The mdib collects all data and makes it easily available for the test
-        # The MdibContainer wraps data in "container" objects.
+        # The MdibBase wraps data in "container" objects.
         # The basic idea is that every node that has a handle becomes directly accessible via its handle.
-        my_mdib = ConsumerMdibContainer(my_client)
+        my_mdib = ConsumerMdib(my_client)
         my_mdib.init_mdib()  # my_mdib keeps itself now updated
 
         # now query some data
@@ -315,7 +315,7 @@ class Test_Tutorial(unittest.TestCase):
         my_client = SdcConsumer.from_wsd_service(services[0], ssl_context=None)
         self.my_clients.append(my_client)
         my_client.start_all()
-        my_mdib = ConsumerMdibContainer(my_client)
+        my_mdib = ConsumerMdib(my_client)
         my_mdib.init_mdib()
 
         # we want to set a patient.
@@ -349,7 +349,7 @@ class Test_Tutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        specific_components = SdcDeviceComponents(role_provider_class=MyProductImpl)
+        specific_components = SdcProviderComponents(role_provider_class=MyProductImpl)
         # use the minimalistic mdib from reference test:
         mdib_path = os.path.join(here, '../examples/ReferenceTest/reference_mdib.xml')
         my_generic_device = createGenericDevice(my_ws_discovery,
@@ -371,7 +371,7 @@ class Test_Tutorial(unittest.TestCase):
         my_client = self.service
         self.my_clients.append(my_client)
         my_client.start_all()
-        my_mdib = ConsumerMdibContainer(my_client)
+        my_mdib = ConsumerMdib(my_client)
         my_mdib.init_mdib()
 
         sco_handle = 'sco.mds0'

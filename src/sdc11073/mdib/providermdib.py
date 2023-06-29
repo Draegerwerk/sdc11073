@@ -4,47 +4,53 @@ import uuid
 from collections import defaultdict
 from contextlib import contextmanager
 from threading import Lock
-from typing import Type, TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
+
+from sdc11073 import loghelper
+from sdc11073.definitions_base import ProtocolsRegistry
+from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.observableproperties import ObservableProperty
+from sdc11073.pysoap.msgreader import MessageReader
 
 from . import mdibbase
-from .providermdibxtra import ProvicerMdibMethods
-from .transactions import RtDataMdibUpdateTransaction, MdibUpdateTransaction
-from .. import loghelper
-from ..definitions_base import ProtocolsRegistry
-from ..definitions_sdc import SDC_v1_Definitions
-from ..observableproperties import ObservableProperty
-from ..pysoap.msgreader import MessageReader
+from .providermdibxtra import ProviderMdibMethods
+from .transactions import MdibUpdateTransaction, RtDataMdibUpdateTransaction
 
 if TYPE_CHECKING:
-    from ..definitions_base import BaseDefinitions
+    from sdc11073.definitions_base import BaseDefinitions
+    from .transactions import TransactionManagerProtocol
 
 
-class ProviderMdibContainer(mdibbase.MdibContainer):
+class ProviderMdib(mdibbase.MdibBase):
     """Device side implementation of a mdib.
-     Do not modify containers directly, use transactions for that purpose.
-     Transactions keep track of changes and initiate sending of update notifications to clients."""
+
+    Do not modify containers directly, use transactions for that purpose.
+    Transactions keep track of changes and initiate sending of update notifications to clients.
+    """
+
     transaction = ObservableProperty(fire_only_on_changed_value=False)
     rt_updates = ObservableProperty(fire_only_on_changed_value=False)  # different observable for performance
 
     def __init__(self,
-                 sdc_definitions: Optional[Type[BaseDefinitions]] = None,
-                 log_prefix: Optional[str] = None,
-                 extras_cls=None,
-                 transaction_cls = None
+                 sdc_definitions: type[BaseDefinitions] | None = None,
+                 log_prefix: str | None = None,
+                 extra_functionality: type | None  = None,
+                 transaction_cls: type[TransactionManagerProtocol] | None = None,
                  ):
-        """
+        """Construct a ProviderMdib.
+
         :param sdc_definitions: defaults to sdc11073.definitions_sdc.SDC_v1_Definitions
         :param log_prefix: a string
-        :param extras_cls: class for extra functionality
-        :param transaction_cls: runs the transaction
+        :param extra_functionality: class for extra functionality, default is ProviderMdibMethods
+        :param transaction_cls: runs the transaction, default is MdibUpdateTransaction
         """
         if sdc_definitions is None:
             sdc_definitions = SDC_v1_Definitions
-        super().__init__(sdc_definitions)
-        if extras_cls is None:
-            extras_cls = ProvicerMdibMethods
-        self._xtra = extras_cls(self)
-        self._logger = loghelper.get_logger_adapter('sdc.device.mdib', log_prefix)
+        super().__init__(sdc_definitions,
+                         loghelper.get_logger_adapter('sdc.device.mdib', log_prefix))
+        if extra_functionality is None:
+            extra_functionality = ProviderMdibMethods
+        self._xtra = extra_functionality(self)
         self._tr_lock = Lock()  # transaction lock
 
         self.sequence_id = uuid.uuid4().urn  # this uuid identifies this mdib instance
@@ -60,48 +66,46 @@ class ProviderMdibContainer(mdibbase.MdibContainer):
         self.retrievability_periodic = defaultdict(list)
 
     @property
-    def xtra(self):
+    def xtra(self) -> type:
         return self._xtra
 
     @contextmanager
-    def transaction_manager(self, set_determination_time=True):
+    def transaction_manager(self, set_determination_time: bool = True):
         # pylint: disable=protected-access
-        with self._tr_lock:
-            with self.mdib_lock:
-                try:
-                    self._current_transaction = self._transaction_cls(self, self.logger)
-                    yield self._current_transaction
-                    if callable(self.pre_commit_handler):
-                        self.pre_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
-                    if self._current_transaction._error:
-                        self._logger.info('transaction_manager: transaction without updates!')
-                    else:
-                        processor = self._current_transaction.process_transaction(set_determination_time)
-                        self.transaction = processor  # update observable
-                        self._current_transaction.mdib_version = self.mdib_version
+        with self._tr_lock, self.mdib_lock:
+            try:
+                self._current_transaction = self._transaction_cls(self, self.logger)
+                yield self._current_transaction
+                if callable(self.pre_commit_handler):
+                    self.pre_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
+                if self._current_transaction._error:
+                    self._logger.info('transaction_manager: transaction without updates!')
+                else:
+                    processor = self._current_transaction.process_transaction(set_determination_time)
+                    self.transaction = processor  # update observable
+                    self._current_transaction.mdib_version = self.mdib_version
 
-                        if callable(self.post_commit_handler):
-                            self.post_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
-                finally:
-                    self._current_transaction = None
+                    if callable(self.post_commit_handler):
+                        self.post_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
+            finally:
+                self._current_transaction = None
 
     @contextmanager
     def _rt_sample_transaction(self):
-        with self._tr_lock:
-            with self.mdib_lock:
-                try:
-                    self._current_transaction = RtDataMdibUpdateTransaction(self, self._logger)
-                    yield self._current_transaction
-                    if callable(self.pre_commit_handler):
-                        self.pre_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
-                    if self._current_transaction.error:
-                        self._logger.info('_rt_sample_transaction: transaction without updates!')
-                    else:
-                        self._process_internal_rt_transaction()
-                        if callable(self.post_commit_handler):
-                            self.post_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
-                finally:
-                    self._current_transaction = None
+        with self._tr_lock, self.mdib_lock:
+            try:
+                self._current_transaction = RtDataMdibUpdateTransaction(self, self._logger)
+                yield self._current_transaction
+                if callable(self.pre_commit_handler):
+                    self.pre_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
+                if self._current_transaction.error:
+                    self._logger.info('_rt_sample_transaction: transaction without updates!')
+                else:
+                    self._process_internal_rt_transaction()
+                    if callable(self.post_commit_handler):
+                        self.post_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
+            finally:
+                self._current_transaction = None
 
     def _process_internal_rt_transaction(self):
         mgr = self._current_transaction
@@ -120,16 +124,15 @@ class ProviderMdibContainer(mdibbase.MdibContainer):
     @classmethod
     def from_mdib_file(cls,
                        path: str,
-                       protocol_definition: Optional[Type[BaseDefinitions]] = None,
-                       xml_reader_class: Optional[Type[MessageReader]] = MessageReader,
-                       log_prefix: Optional[str] = None):
-        """
-        An alternative constructor for the class
+                       protocol_definition: type[BaseDefinitions] | None = None,
+                       xml_reader_class: type[MessageReader] | None = MessageReader,
+                       log_prefix: str | None = None):
+        """An alternative constructor for the class
         :param path: the input file path for creating the mdib
         :param protocol_definition: an optional object derived from BaseDefinitions, forces usage of this definition
         :param xml_reader_class: class that is used to read mdib xml file
         :param log_prefix: a string or None
-        :return: instance
+        :return: instance.
         """
         with open(path, 'rb') as the_file:
             xml_text = the_file.read()
@@ -141,16 +144,15 @@ class ProviderMdibContainer(mdibbase.MdibContainer):
     @classmethod
     def from_string(cls,
                     xml_text: bytes,
-                    protocol_definition: Optional[Type[BaseDefinitions]] = None,
-                    xml_reader_class: Optional[Type[MessageReader]] = MessageReader,
-                    log_prefix: Optional[str] = None):
-        """
-        An alternative constructor for the class
+                    protocol_definition: type[BaseDefinitions] | None = None,
+                    xml_reader_class: type[MessageReader] | None = MessageReader,
+                    log_prefix: str | None = None):
+        """An alternative constructor for the class
         :param xml_text: the input string for creating the mdib
         :param protocol_definition: an optional object derived from BaseDefinitions, forces usage of this definition
         :param xml_reader_class: class that is used to read mdib xml file
         :param log_prefix: a string or None
-        :return: instance
+        :return: instance.
         """
         # get protocol definition that matches xml_text
         if protocol_definition is None:

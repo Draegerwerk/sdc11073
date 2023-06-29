@@ -8,13 +8,13 @@ from sdc11073.definitions_sdc import SDC_v1_Definitions
 from concurrent import futures
 from sdc11073.certloader import mk_ssl_context_from_folder
 from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.sdcclient import SdcClient
-from sdc11073.mdib.clientmdib import ClientMdibContainer
-from sdc11073.mdib.clientmdibxtra import ClientMdibMethods
+from sdc11073.consumer import SdcConsumer
+from sdc11073.mdib.consumermdib import ConsumerMdib
+from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods
 from sdc11073.xml_types.msg_types import InvocationState
 from sdc11073 import commlog
 
-ClientMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0
+ConsumerMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0
 
 adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
 ca_folder = os.getenv('ref_ca')
@@ -60,7 +60,7 @@ def run_ref_test():
                                                      )
         else:
             ssl_context = None
-        client = SdcClient.from_wsd_service(my_service,
+        client = SdcConsumer.from_wsd_service(my_service,
                                                                ssl_context=ssl_context,
                                                                validate=True)
         client.start_all()
@@ -73,7 +73,7 @@ def run_ref_test():
 
     print('Test step 3&4: get mdib and subscribe...')
     try:
-        mdib = ClientMdibContainer(client)
+        mdib = ConsumerMdib(client)
         mdib.init_mdib()
         print('Test step 3&4 successful')
         results.append('### Test 3 ### passed')

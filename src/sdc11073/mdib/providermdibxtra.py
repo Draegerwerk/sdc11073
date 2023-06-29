@@ -5,7 +5,7 @@ from .providerwaveform import DefaultWaveformSource
 from sdc11073.xml_types.pm_types import RetrievabilityMethod
 
 
-class ProvicerMdibMethods:
+class ProviderMdibMethods:
     waveform_provider_cls = DefaultWaveformSource
 
     def __init__(self, device_mdib):

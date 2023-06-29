@@ -7,7 +7,7 @@ from sdc11073 import commlog
 from sdc11073 import loghelper
 from sdc11073.consumer import SdcConsumer
 from sdc11073.location import SdcLocation
-from sdc11073.mdib.consumermdib import ConsumerMdibContainer
+from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types
 from tests.mockstuff import SomeDevice
@@ -74,7 +74,7 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
 
     def test_BasicConnect(self):
         # simply check that all descriptors are available in client after init_mdib
-        cl_mdib = ConsumerMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         all_cl_handles = set(cl_mdib.descriptions.handle.keys())
         all_dev_handles = set(self.sdc_device.mdib.descriptions.handle.keys())
@@ -82,7 +82,7 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         self.assertEqual(len(cl_mdib.states.objects), len(self.sdc_device.mdib.states.objects))
 
     def test_allowed_values(self):
-        cl_mdib = ConsumerMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         descr_handle = 'enumstring.ch0.vmd0'  # this has an empty string as AllowedValue.Value in enumeration
         # set an alarm condition and start local signal
