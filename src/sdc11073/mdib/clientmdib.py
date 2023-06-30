@@ -408,10 +408,22 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if showsuccesslog:
             self._logger.info('{}: _waitUntilInitialized took {} seconds', log_prefix, delay)
 
+    @staticmethod
+    def _copy_report_node(report_node: etree_._Element) -> etree_._Element:
+        """
+        Copy and keep complete namespace. See https://github.com/Draegerwerk/sdc11073/issues/191
+
+        :param report_node: report node to be copied
+        :return: new report node
+        """
+        new_parent = etree_.Element(report_node.tag, nsmap=report_node.nsmap)
+        new_report_node = copy.deepcopy(report_node)
+        new_parent.append(new_report_node)
+        return new_report_node
 
     def _onEpisodicMetricReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = self._copy_report_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicMetricReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -480,7 +492,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     def _onEpisodicAlertReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = self._copy_report_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicAlertReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -518,7 +530,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     def _onOperationalStateReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = self._copy_report_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onOperationalStateReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -569,7 +581,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     def _onWaveformReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = self._copy_report_node(reportNode)
         #pylint:disable=too-many-locals
         # reportNode contains a list of msg:State nodes
         if not is_buffered_report and self._bufferNotification(reportNode, self._onWaveformReport):
@@ -652,7 +664,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     def _onEpisodicContextReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = self._copy_report_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicContextReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -693,7 +705,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         Components are MDSs, VMDs, Channels. Not metrics and alarms
         """
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = self._copy_report_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicComponentReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '1'))
@@ -739,7 +751,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         It consists of 1...n DescriptionModificationReportParts.
         """
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = self._copy_report_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onDescriptionModificationReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
