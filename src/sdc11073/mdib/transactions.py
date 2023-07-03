@@ -460,7 +460,8 @@ class MdibUpdateTransaction(_TransactionBase):
         if set_associated:
             new_state_container.BindingMdibVersion = self._device_mdib_container.mdib_version
             new_state_container.BindingStartTime = time.time()
-            new_state_container.ContextAssociation = self._device_mdib_container.data_model.pm_types.ContextAssociation.ASSOCIATED
+            new_state_container.ContextAssociation = \
+                self._device_mdib_container.data_model.pm_types.ContextAssociation.ASSOCIATED
         if context_state_handle is not None and adjust_state_version:
             self._device_mdib_container.context_states.set_version(new_state_container)
 
@@ -505,9 +506,9 @@ class TransactionProcessor:
     """The transaction processor, used internally by device mdib."""
 
     def __init__(self, mdib: ProviderMdib,
-                 transaction: TransactionManagerProtocol,
-                 set_determination_time: bool, logger:
-            LoggerAdapter):
+                 transaction: MdibUpdateTransaction,
+                 set_determination_time: bool,
+                 logger: LoggerAdapter):
         self._mdib = mdib
         self._mgr = transaction
         self._logger = logger
@@ -587,8 +588,9 @@ class TransactionProcessor:
                     self._remove_corresponding_state(orig_descriptor)
                 if orig_descriptor is None:
                     # this is a create operation
-                    self._logger.debug('transaction_manager: new descriptor Handle={}, DescriptorVersion={}',
-                                       new_descriptor.Handle, new_descriptor.DescriptorVersion)
+                    self._logger.debug(  # noqa PLE1205
+                        'transaction_manager: new descriptor Handle={}, DescriptorVersion={}',
+                        new_descriptor.Handle, new_descriptor.DescriptorVersion)
                     self.descr_created.append(new_descriptor.mk_copy())
                     self._mdib.descriptions.add_object_no_lock(new_descriptor)
                     # R0033: A SERVICE PROVIDER SHALL increment pm:AbstractDescriptor/@DescriptorVersion by one if a direct child descriptor is added or deleted.
@@ -597,8 +599,9 @@ class TransactionProcessor:
                         self._increment_parent_descriptor_version(new_descriptor)
                 elif new_descriptor is None:
                     # this is a delete operation
-                    self._logger.debug('transaction_manager: rm descriptor Handle={}, DescriptorVersion={}',
-                                       orig_descriptor.Handle, orig_descriptor.DescriptorVersion)
+                    self._logger.debug(  # noqa PLE1205
+                        'transaction_manager: rm descriptor Handle={}, DescriptorVersion={}',
+                        orig_descriptor.Handle, orig_descriptor.DescriptorVersion)
                     all_descriptors = self._mdib.get_all_descriptors_in_subtree(orig_descriptor)
                     self._mdib.rm_descriptors_and_states(all_descriptors)
                     self.descr_deleted.extend([d.mk_copy() for d in all_descriptors])
@@ -609,15 +612,17 @@ class TransactionProcessor:
                 else:
                     # this is an update operation
                     self.descr_updated.append(new_descriptor)
-                    self._logger.debug('transaction_manager: update descriptor Handle={}, DescriptorVersion={}',
-                                       new_descriptor.Handle, new_descriptor.DescriptorVersion)
+                    self._logger.debug(  # noqa PLE1205
+                        'transaction_manager: update descriptor Handle={}, DescriptorVersion={}',
+                        new_descriptor.Handle, new_descriptor.DescriptorVersion)
                     self._mdib.descriptions.replace_object_no_lock(new_descriptor)
 
     def _handle_metric_states(self):
         if self._mgr.metric_state_updates:
-            self._logger.debug('transaction_manager: mdib version={}, metric updates = {}',
-                               self._mdib.mdib_version,
-                               self._mgr.metric_state_updates)
+            self._logger.debug(  # noqa PLE1205
+                'transaction_manager: mdib version={}, metric updates = {}',
+                self._mdib.mdib_version,
+                self._mgr.metric_state_updates)
             if self._set_determination_time:
                 for tr_item in self._mgr.metric_state_updates.values():
                     state = tr_item.new
@@ -629,7 +634,8 @@ class TransactionProcessor:
 
     def _handle_alert_updates(self):
         if self._mgr.alert_state_updates:
-            self._logger.debug('transaction_manager: alert State updates = {}', self._mgr.alert_state_updates)
+            self._logger.debug(  # noqa PLE1205
+                'transaction_manager: alert State updates = {}', self._mgr.alert_state_updates)
             if self._set_determination_time:
                 for tr_item in self._mgr.alert_state_updates.values():
                     new_state = tr_item.new
@@ -644,24 +650,28 @@ class TransactionProcessor:
 
     def _handle_component_states(self):
         if self._mgr.component_state_updates:
-            self._logger.debug('transaction_manager: component State updates = {}',
-                               self._mgr.component_state_updates)
+            self._logger.debug(  # noqa PLE1205
+                'transaction_manager: component State updates = {}',
+                self._mgr.component_state_updates)
             self.comp_updates.extend(self._handle_updates(self._mgr.component_state_updates))
 
     def _handle_context_state_updates(self):
         if self._mgr.context_state_updates:
-            self._logger.debug('transaction_manager: contextState updates = {}', self._mgr.context_state_updates)
+            self._logger.debug(  # noqa PLE1205
+                'transaction_manager: contextState updates = {}', self._mgr.context_state_updates)
             self.ctxt_updates.extend(self._handle_updates(self._mgr.context_state_updates, True))
 
     def _handle_operational_state_updates(self):
         if self._mgr.operational_state_updates:
-            self._logger.debug('transaction_manager: operationalState updates = {}',
-                               self._mgr.operational_state_updates)
+            self._logger.debug(  # noqa PLE1205
+                'transaction_manager: operationalState updates = {}',
+                self._mgr.operational_state_updates)
             self.op_updates.extend(self._handle_updates(self._mgr.operational_state_updates))
 
     def _handle_rt_value_updates(self):
         if self._mgr.rt_sample_state_updates:
-            self._logger.debug('transaction_manager: rtSample updates = {}', self._mgr.rt_sample_state_updates)
+            self._logger.debug(  # noqa PLE1205
+                'transaction_manager: rtSample updates = {}', self._mgr.rt_sample_state_updates)
             self.rt_updates.extend(self._handle_updates(self._mgr.rt_sample_state_updates))
 
     def _handle_updates(self, mgr_state_updates_dict: dict, is_context_states_update: bool = False) -> list[_TrItem]:

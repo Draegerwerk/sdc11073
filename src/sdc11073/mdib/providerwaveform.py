@@ -1,24 +1,39 @@
-"""
-This module contains the default implementation for waveform handling of the device.
+"""The providerwaveform module contains the default implementation for waveform handling of the device.
+
 The sdc device periodically calls mdib.update_all_rt_samples method, which itself calls same method
 of its waveform source. It is the responsibility of this method to update the RealtimeSampleArrayStates
 of the mdib.
 """
+from __future__ import annotations
+
 import time
 from abc import ABC, abstractmethod
 from decimal import Context
-from typing import Iterable, List, Type, Union
+from typing import TYPE_CHECKING, Protocol
 
-from ..provider.waveforms import WaveformGeneratorBase
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
+    from sdc11073.definitions_base import DataModelProtocol
+    from sdc11073.provider.waveforms import WaveformGeneratorBase
+    from sdc11073.xml_types.pm_types import ComponentActivation, Annotation
+    from .providermdib import ProviderMdib
+    from .transactions import RtDataMdibUpdateTransaction
+    from .statecontainers import RealTimeSampleArrayMetricStateContainer
 
 class RtSampleArray:
-    """ This class contains a list of waveform values plus time stamps and annotations.
-    It is used to create Waveform notifications."""
+    """RtSampleArray contains a list of waveform values plus time stamps and annotations.
 
-    def __init__(self, model, determination_time: Union[float, None], sample_period: float,
-                 samples: List[float], activation_state):
-        """
+    It is used to create Waveform notifications.
+    """
+
+    def __init__(self, model: DataModelProtocol,
+                 determination_time: float | None,
+                 sample_period: float,
+                 samples: list[float],
+                 activation_state: ComponentActivation):
+        """Construct a RtSampleArray.
+
         :param determination_time: the time stamp of the first value in samples, can be None if not active
         :param sample_period: the time difference between two samples
         :param samples: a list of 2-tuples (value (float or int), flag annotation_trigger)
@@ -32,7 +47,7 @@ class RtSampleArray:
         self.annotations = []
         self.apply_annotations = []
 
-    def _nearest_index(self, timestamp: float):
+    def _nearest_index(self, timestamp: float) -> int | None:
         # first check if timestamp is outside the range of this sample array. Accept 0.5*sample period as tolerance.
         if self.determination_time is None:  # when deactivated, determinationTime is None
             return None
@@ -43,9 +58,9 @@ class RtSampleArray:
         pos = (timestamp - self.determination_time) / self.sample_period
         return int(pos) + 1 if pos % 1 >= 0.5 else int(pos)
 
-    def add_annotations_at(self, annotation, timestamps: Iterable[float]):
-        """
-        :param annotation: a pmtypes.Annotation instance
+    def add_annotations_at(self, annotation: Annotation, timestamps: Iterable[float]):
+        """Add annotation at the waveform samples nearest to timestamps.
+
         :param timestamps: a list of time stamps (time.time based)
         """
         applied = False
@@ -59,46 +74,50 @@ class RtSampleArray:
             self.annotations.append(annotation)
 
 
-class AbstractAnnotator(ABC):
-    def __init__(self, annotation, trigger_handle: str, annotated_handles: List[str]):
+class AnnotatorProtocol(Protocol):
+    """An Annotator adds Annotations to waveforms. It mimics things like start of inspiration cycle etc."""
+
+    annotation: Annotation
+    trigger_handle: str
+    annotated_handles: list[str]
+
+    def __init__(self, annotation: Annotation, trigger_handle: str, annotated_handles: list[str]):
+        """Construct an annotator.
+
+        :param annotation:  a Annotation instance
+        :param trigger_handle: the handle of the state that triggers an annotation
+        :param annotated_handles: list of handles that get annotated
         """
 
-        :param annotation:  a pmtypes.Annotation instance
+    @abstractmethod
+    def get_annotation_timestamps(self, rt_sample_array: RtSampleArray) -> list[float]:
+        """Analyze the rt_sample_array and return timestamps for annotations.
+
+        :param rt_sample_array: the RtSampleArray that is checked
+        :return: list of timestamps, can be empty.
+        """
+
+
+class Annotator:
+    """Annotator is a sample of how to apply annotations.
+
+    This annotator triggers an annotation when the value changes from <= 0 to > 0.
+    """
+
+    def __init__(self, annotation: Annotation, trigger_handle: str, annotated_handles: list[str]):
+        """Construct an annotator.
+
+        :param annotation:: Annotation
         :param trigger_handle: the handle of the state that triggers an annotation
         :param annotated_handles: list of handles that get annotated
         """
         self.annotation = annotation
         self.trigger_handle = trigger_handle
         self.annotated_handles = annotated_handles
-
-    @abstractmethod
-    def get_annotation_timestamps(self, rt_sample_array: RtSampleArray) -> List[float]:
-        """
-        Analyzes the rt_sample_array and returns timestamps for annotations
-        :param rt_sample_array: the RtSampleArray that is checked
-        :return: list of timestamps, can be empty
-        """
-        pass
-
-
-class Annotator(AbstractAnnotator):
-    """
-    This is sample of how to apply annotations. This annotator triggers an annotation when the value
-    changes from <= 0 to > 0.
-    """
-
-    def __init__(self, annotation, trigger_handle: str, annotated_handles: List[str]):
-        """
-
-        :param annotation:: pmtypes.Annotation
-        :param trigger_handle: the handle of the state that triggers an annotation
-        :param annotated_handles: list of handles that get annotated
-        """
-        super().__init__(annotation, trigger_handle, annotated_handles)
         self._last_value = 0.0
 
-    def get_annotation_timestamps(self, rt_sample_array: RtSampleArray) -> List[float]:
-        """
+    def get_annotation_timestamps(self, rt_sample_array: RtSampleArray) -> list[float]:
+        """Analyze the rt_sample_array and return timestamps for annotations..
 
         :param rt_sample_array:
         :return:
@@ -112,9 +131,11 @@ class Annotator(AbstractAnnotator):
 
 
 class _SampleArrayGenerator:
-    """Wraps a waveform generator and makes RtSampleArray objects"""
+    """Wraps a waveform generator and makes RtSampleArray objects."""
 
-    def __init__(self, model, descriptor_handle: str, generator: WaveformGeneratorBase):
+    def __init__(self, model: DataModelProtocol,
+                 descriptor_handle: str,
+                 generator: WaveformGeneratorBase):
         self._model = model
         self._descriptor_handle = descriptor_handle
         self._last_timestamp = None
@@ -122,18 +143,22 @@ class _SampleArrayGenerator:
         self._generator = generator
         self.current_rt_sample_array = None
 
-    def set_activation_state(self, component_activation_state):
-        """
-        :param component_activation_state: one of pmtypes.ComponentActivation values
+    def set_activation_state(self, component_activation_state: ComponentActivation):
+        """Set activation state of generator.
+
+        If component_activation_state is not "ON", the generator will not generate values.
+        :param component_activation_state: one of pmtypes.ComponentActivation values.
         """
         self._activation_state = component_activation_state
         if component_activation_state == self._model.pm_types.ComponentActivation.ON:
             self._last_timestamp = time.time()
 
     def get_next_sample_array(self) -> RtSampleArray:
-        """ Read sample values from waveform generator and calculate determination time.
+        """Read sample values from waveform generator and calculate determination time.
+
         If activation state is not 'On', no samples are returned.
-        @return: RtSampleArray instance"""
+        @return: RtSampleArray instance.
+        """
         if self._activation_state != self._model.pm_types.ComponentActivation.ON:
             self.current_rt_sample_array = RtSampleArray(
                 self._model, None, self._generator.sampleperiod, [], self._activation_state)
@@ -147,54 +172,55 @@ class _SampleArrayGenerator:
                 self._model, observation_time, self._generator.sampleperiod, samples, self._activation_state)
         return self.current_rt_sample_array
 
-    def set_waveform_generator(self, generator):
+    def set_waveform_generator(self, generator: WaveformGeneratorBase):
         self._generator = generator
 
     @property
-    def is_active(self):
+    def is_active(self) -> bool:
         return self._activation_state == self._model.pm_types.ComponentActivation.ON
 
 
-class AbstractWaveformSource(ABC):
-    """The methods declared by this abstract class are used by mdib. """
+class WaveformSourceProtocol(Protocol):
+    """The methods declared by this abstract class are used by mdib."""
 
-    def __init__(self, mdib):
+    def __init__(self, mdib: ProviderMdib):
+        ...
+
+    def update_all_realtime_samples(self, transaction: RtDataMdibUpdateTransaction):
+        """Update all realtime sample states that have a waveform generator registered."""
+
+    def register_waveform_generator(self, descriptor_handle: str, wf_generator: WaveformGeneratorBase):
+        """Add wf_generator to waveform sources."""
+
+    def set_activation_state(self, descriptor_handle: str, component_activation_state: ComponentActivation):
+        """Set the activation state of waveform generator and of Metric state in mdib."""
+
+
+class DefaultWaveformSource:
+    """Implements basic mechanism that reads data from waveform sources and applies it to mdib.
+
+    Method 'update_all_realtime_samples' must be called periodically.
+    """
+
+    def __init__(self, mdib: ProviderMdib):
         self._mdib = mdib
-
-    @abstractmethod
-    def update_all_realtime_samples(self, transaction):
-        pass
-
-    @abstractmethod
-    def register_waveform_generator(self, descriptor_handle, wf_generator):
-        pass
-
-    @abstractmethod
-    def set_activation_state(self, descriptor_handle, component_activation_state):
-        pass
-
-
-class DefaultWaveformSource(AbstractWaveformSource):
-    """ This is the basic mechanism that reads data from waveform sources and applies it to mdib
-    via real time transaction.
-    Method 'update_all_realtime_samples' must be called periodically."""
-
-    def __init__(self, mdib):
-        super().__init__(mdib)
         self._waveform_generators = {}
         self._annotators = {}
 
-    def update_all_realtime_samples(self, transaction):
-        """ update all realtime sample states that have a waveform generator registered.
-        On transaction commit the mdib will call the appropriate send method of the sdc device."""
+    def update_all_realtime_samples(self, transaction: RtDataMdibUpdateTransaction):
+        """Update all realtime sample states that have a waveform generator registered.
+
+        On transaction commit the mdib will call the appropriate send method of the sdc device.
+        """
         for descriptor_handle, wf_generator in self._waveform_generators.items():
             if wf_generator.is_active:
                 state = transaction.get_real_time_sample_array_metric_state(descriptor_handle)
                 self._update_rt_samples(state)
         self._add_all_annotations()
 
-    def register_waveform_generator(self, descriptor_handle, wf_generator):
-        """
+    def register_waveform_generator(self, descriptor_handle: str, wf_generator: WaveformGeneratorBase):
+        """Add wf_generator to waveform sources.
+
         :param descriptor_handle: the handle of the RealtimeSampleArray that shall accept this data
         :param wf_generator: a waveforms.WaveformGenerator instance
         """
@@ -212,11 +238,8 @@ class DefaultWaveformSource(AbstractWaveformSource):
                                                                                  descriptor_handle,
                                                                                  wf_generator)
 
-    def set_activation_state(self, descriptor_handle, component_activation_state):
-        """
-        :param descriptor_handle: a handle string
-        :param component_activation_state: one of pmtypes.ComponentActivation values
-        """
+    def set_activation_state(self, descriptor_handle: str, component_activation_state: ComponentActivation):
+        """Set the activation state of waveform generator and of Metric state in mdib."""
         wf_generator = self._waveform_generators[descriptor_handle]
         wf_generator.set_activation_state(component_activation_state)
         with self._mdib.transaction_manager() as mgr:
@@ -226,11 +249,12 @@ class DefaultWaveformSource(AbstractWaveformSource):
             if not wf_generator.is_active:
                 state.MetricValue = None
 
-    def register_annotation_generator(self, annotator: Type[AbstractAnnotator]):
+    def register_annotation_generator(self, annotator: AnnotatorProtocol):
+        """Add annotator to list of annotators."""
         self._annotators[annotator.trigger_handle] = annotator
 
-    def _update_rt_samples(self, state):
-        """ update waveforms state from waveform generator (if available)"""
+    def _update_rt_samples(self, state: RealTimeSampleArrayMetricStateContainer):
+        """Update waveforms state from waveform generator (if available)."""
         ctxt = Context(prec=10)
         wf_generator = self._waveform_generators.get(state.DescriptorHandle)
         if wf_generator:
@@ -245,7 +269,7 @@ class DefaultWaveformSource(AbstractWaveformSource):
             state.ActivationState = rt_sample_array.activation_state
 
     def _add_all_annotations(self):
-        """ add annotations to all current RtSampleArrays """
+        """Add annotations to all current RtSampleArrays."""
         rt_sample_arrays = {handle: g.current_rt_sample_array for (handle, g) in self._waveform_generators.items()}
         for src_handle, _annotator in self._annotators.items():
             if src_handle in rt_sample_arrays:
