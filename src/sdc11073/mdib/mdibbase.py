@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from .statecontainers import AbstractMultiStateContainer, AbstractStateContainer
 
 
+
 @dataclass
 class MdibVersionGroup:
     """These 3 values define an mdib version."""
@@ -308,13 +309,13 @@ class MdibBase:
         descriptor_container = self.descriptions.handle.get_one(state_container.DescriptorHandle,
                                                                 allow_none=True)
         if descriptor_container is None:
-            self._logger.warning(
+            self._logger.warning(  # noqa PLE1205
                 'state "{}" (type={}) has no descriptor in mdib!',
                 state_container.DescriptorHandle, state_container.NODETYPE)
         elif descriptor_container.DescriptorVersion == state_container.DescriptorVersion:
             state_container.descriptor_container = descriptor_container
         else:
-            self._logger.warning(
+            self._logger.warning(  # noqa PLE1205
                 'state "{}" (type={}) : descriptor version expect "{}", found "{}"',
                 state_container.DescriptorHandle, state_container.NODETYPE,
                 descriptor_container.DescriptorVersion, state_container.DescriptorVersion)
@@ -333,10 +334,10 @@ class MdibBase:
                 my_multikey.add_object(state_container)
             except KeyError as ex:
                 if state_container.is_context_state:
-                    self._logger.error('add_state_containers: {}, Handle={}; {}',
+                    self._logger.error('add_state_containers: {}, Handle={}; {}',  # noqa PLE1205
                                        ex, state_container.Handle, traceback.format_exc())
                 else:
-                    self._logger.error('add_state_containers: {}, DescriptorHandle={}; {}',
+                    self._logger.error('add_state_containers: {}, DescriptorHandle={}; {}', # noqa PLE1205
                                        ex, state_container.DescriptorHandle, traceback.format_exc())
 
     def _reconstruct_md_description(self) -> etree_.Element:
@@ -535,7 +536,7 @@ class MdibBase:
         deleted_descriptors = {}
         deleted_states = {}
         for descriptor_container in descriptor_containers:
-            self._logger.debug('rm Descriptor node {} handle {}',
+            self._logger.debug('rm Descriptor node {} handle {}', # noqa PLE1205
                                descriptor_container.NODETYPE, descriptor_container.Handle)
             self.descriptions.remove_object(descriptor_container)
             deleted_descriptors[descriptor_container.Handle] = descriptor_container
@@ -544,7 +545,7 @@ class MdibBase:
                 if state_containers is not None:
                     # make a copy, otherwise remove_objects will manipulate same list in place
                     state_containers = state_containers[:]
-                    self._logger.debug('rm {} states(s) associated to descriptor {} ',
+                    self._logger.debug('rm {} states(s) associated to descriptor {} ', # noqa PLE1205
                                        len(state_containers), descriptor_container.Handle)
                     m_key.remove_objects(state_containers)
                     deleted_states[descriptor_container.Handle] = state_containers

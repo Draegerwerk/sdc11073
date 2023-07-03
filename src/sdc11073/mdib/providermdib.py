@@ -4,7 +4,7 @@ import uuid
 from collections import defaultdict
 from contextlib import contextmanager
 from threading import Lock
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sdc11073 import loghelper
 from sdc11073.definitions_base import ProtocolsRegistry
@@ -66,12 +66,13 @@ class ProviderMdib(mdibbase.MdibBase):
         self.retrievability_periodic = defaultdict(list)
 
     @property
-    def xtra(self) -> type:
+    def xtra(self) -> Any:
+        """Give access to extended functionality."""
         return self._xtra
 
     @contextmanager
     def transaction_manager(self, set_determination_time: bool = True):
-        # pylint: disable=protected-access
+        """Start a transaction, return a new transaction manager."""
         with self._tr_lock, self.mdib_lock:
             try:
                 self._current_transaction = self._transaction_cls(self, self.logger)
@@ -113,7 +114,8 @@ class ProviderMdib(mdibbase.MdibBase):
         if len(mgr.rt_sample_state_updates) > 0:
             self.mdib_version += 1
             updates = []
-            self._logger.debug('transaction_manager: rtSample updates = {}', mgr.rt_sample_state_updates)
+            self._logger.debug('transaction_manager: rtSample updates = {}', # noqa PLE1205
+                               mgr.rt_sample_state_updates)
             for transaction_item in mgr.rt_sample_state_updates.values():
                 updates.append(transaction_item.new)
             # makes copies of all states for sending, so that they can't be affected by transactions after this one
@@ -126,8 +128,9 @@ class ProviderMdib(mdibbase.MdibBase):
                        path: str,
                        protocol_definition: type[BaseDefinitions] | None = None,
                        xml_reader_class: type[MessageReader] | None = MessageReader,
-                       log_prefix: str | None = None):
-        """An alternative constructor for the class
+                       log_prefix: str | None = None) -> ProviderMdib:
+        """Construct mdib from a file.
+
         :param path: the input file path for creating the mdib
         :param protocol_definition: an optional object derived from BaseDefinitions, forces usage of this definition
         :param xml_reader_class: class that is used to read mdib xml file
@@ -146,8 +149,9 @@ class ProviderMdib(mdibbase.MdibBase):
                     xml_text: bytes,
                     protocol_definition: type[BaseDefinitions] | None = None,
                     xml_reader_class: type[MessageReader] | None = MessageReader,
-                    log_prefix: str | None = None):
-        """An alternative constructor for the class
+                    log_prefix: str | None = None) -> ProviderMdib:
+        """Construct mdib from a string.
+
         :param xml_text: the input string for creating the mdib
         :param protocol_definition: an optional object derived from BaseDefinitions, forces usage of this definition
         :param xml_reader_class: class that is used to read mdib xml file
