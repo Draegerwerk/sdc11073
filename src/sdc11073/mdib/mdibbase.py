@@ -102,9 +102,6 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
     def add_object_no_lock(self, obj: AbstractDescriptorContainer):
         """Append object without locking."""
         super().add_object_no_lock(obj)
-        parent = None if obj.parent_handle is None else self.handle.get_one(obj.parent_handle, allow_none=True)
-        if parent is not None:
-            parent.add_child(obj)
 
     def add_objects(self, objects: list[AbstractDescriptorContainer]):
         """Append objects with locking."""
@@ -126,9 +123,6 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
     def remove_object_no_lock(self, obj: AbstractDescriptorContainer):
         """Remove object from table without locking."""
         super().remove_object_no_lock(obj)
-        parent = self.handle.get_one(obj.parent_handle, allow_none=True)
-        if parent is not None:
-            parent.rm_child(obj)
 
     def remove_objects(self, objects: list[AbstractDescriptorContainer]):
         """Remove objects from table with locking."""
@@ -349,12 +343,37 @@ class MdibBase:
                                              attrib={'DescriptionVersion': str(self.mddescription_version)},
                                              nsmap=doc_nsmap)
         for root_container in root_containers:
-            node = root_container.mk_descriptor_node(tag=pm.Mds,
-                                                     nsmapper=self.nsmapper,
-                                                     set_xsi_type=False,
-                                                     connect_child_descriptors=True)
+            node = self.make_descriptor_node(root_container, tag=pm.Mds, set_xsi_type=False)
             md_description_node.append(node)
         return md_description_node
+
+    def make_descriptor_node(self,
+                             descriptor_container: AbstractDescriptorContainer,
+                             tag: etree_.QName,
+                             set_xsi_type: bool = True) -> etree_.Element:
+        """Create a lxml etree node with subtree from instance data.
+
+        :param descriptor_container: a descriptor container instance
+        :param ns_helper:  namespaces.NamespaceHelper instance
+        :param set_xsi_type: if true, the NODETYPE will be used to set the xsi:type attribute of the node
+        :param tag: tag of node
+        :param connect_child_descriptors: if True, the whole subtree is included
+        :return: an etree node.
+        """
+        ns_map = self.nsmapper.partial_map(self.nsmapper.PM, self.nsmapper.XSI) \
+            if set_xsi_type else self.nsmapper.partial_map(self.nsmapper.PM)
+        node = etree_.Element(tag,
+                              attrib={'Handle': descriptor_container.Handle},
+                              nsmap=ns_map)
+        descriptor_container.update_node(node, self.nsmapper, set_xsi_type)  # create all
+        child_list = self.descriptions.parent_handle.get(descriptor_container.Handle, [])
+        # append all child containers, then bring all child elements in correct order
+        for child in child_list:
+            child_tag, set_xsi = descriptor_container.tag_name_for_child_descriptor(child.NODETYPE)
+            child_node = self.make_descriptor_node(child, child_tag, set_xsi)
+            node.append(child_node)
+        descriptor_container.sort_child_nodes(node)
+        return node
 
     def _reconstruct_mdib(self, add_context_states: bool) -> etree_.Element:
         """Build dom tree of mdib from current data.
