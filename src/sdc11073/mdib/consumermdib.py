@@ -28,7 +28,7 @@ if TYPE_CHECKING:
         OperationInvokedReport,
     )
 
-    from .mdibbase import MdibVersionGroup
+    from sdc11073.pysoap.msgreader import MdibVersionGroupReader
     from .statecontainers import AbstractStateContainer, RealTimeSampleArrayMetricStateContainer
 
 
@@ -139,7 +139,7 @@ class ConsumerRtBuffer:
 
 @dataclass
 class _BufferedData:
-    mdib_version_group: MdibVersionGroup
+    mdib_version_group: MdibVersionGroupReader
     data: AbstractReport
     handler: callable
 
@@ -254,7 +254,7 @@ class ConsumerMdib(mdibbase.MdibBase):
             del self._buffered_notifications[:]
             self._is_initialized = True
 
-    def _buffer_data(self, mdib_version_group: MdibVersionGroup,
+    def _buffer_data(self, mdib_version_group: MdibVersionGroupReader,
                      data: Any,
                      func: Callable) -> bool:
         """Write notification to a temporary buffer, as long as mdib is not initialized.
@@ -348,7 +348,7 @@ class ConsumerMdib(mdibbase.MdibBase):
             self.sequence_id = sequence_id
         return self._sequence_id_changed_flag
 
-    def _update_from_mdib_version_group(self, mdib_version_group: MdibVersionGroup):
+    def _update_from_mdib_version_group(self, mdib_version_group: MdibVersionGroupReader):
         if mdib_version_group.mdib_version != self.mdib_version:
             self.mdib_version = mdib_version_group.mdib_version
         if mdib_version_group.sequence_id != self.sequence_id:
@@ -381,7 +381,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                 states_by_handle[state_container.DescriptorHandle] = state_container
         return states_by_handle
 
-    def _process_incoming_states_report(self, report_type: str,
+    def process_incoming_states_report(self, report_type: str,
                                         report: EpisodicMetricReport | EpisodicAlertReport | OperationInvokedReport | EpisodicContextReport | EpisodicComponentReport,
                                         is_buffered_report: bool) -> dict:
         """Update mdib with incoming states."""
@@ -418,7 +418,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                     states_by_handle[state_container.DescriptorHandle] = state_container
         return states_by_handle
 
-    def process_incoming_metric_states_report(self, mdib_version_group: MdibVersionGroup,
+    def process_incoming_metric_states_report(self, mdib_version_group: MdibVersionGroupReader,
                                               report: EpisodicMetricReport,
                                               is_buffered_report: bool = False):
         """Add data from EpisodicMetricReport to mdib."""
@@ -432,12 +432,12 @@ class ConsumerMdib(mdibbase.MdibBase):
                                                 'metric states'):
                     return
                 self._update_from_mdib_version_group(mdib_version_group)
-                states_by_handle = self._process_incoming_states_report(
+                states_by_handle = self.process_incoming_states_report(
                     'metric states', report, is_buffered_report)
         finally:
             self.metrics_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def process_incoming_alert_states_report(self, mdib_version_group: MdibVersionGroup,
+    def process_incoming_alert_states_report(self, mdib_version_group: MdibVersionGroupReader,
                                              report: EpisodicAlertReport,
                                              is_buffered_report: bool = False):
         """Add data from EpisodicAlertReport to mdib."""
@@ -451,12 +451,12 @@ class ConsumerMdib(mdibbase.MdibBase):
                                                 'alert states'):
                     return
                 self._update_from_mdib_version_group(mdib_version_group)
-                states_by_handle = self._process_incoming_states_report(
+                states_by_handle = self.process_incoming_states_report(
                     'alert states', report, is_buffered_report)
         finally:
             self.alert_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def process_incoming_operational_states_report(self, mdib_version_group: MdibVersionGroup,
+    def process_incoming_operational_states_report(self, mdib_version_group: MdibVersionGroupReader,
                                                    report: OperationInvokedReport,
                                                    is_buffered_report: bool = False):
         """Add data from OperationInvokedReport to mdib."""
@@ -471,12 +471,12 @@ class ConsumerMdib(mdibbase.MdibBase):
                                                 'operational states'):
                     return
                 self._update_from_mdib_version_group(mdib_version_group)
-                states_by_handle = self._process_incoming_states_report(
+                states_by_handle = self.process_incoming_states_report(
                     'operational states', report, is_buffered_report)
         finally:
             self.operation_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def process_incoming_waveform_states(self, mdib_version_group: MdibVersionGroup,
+    def process_incoming_waveform_states(self, mdib_version_group: MdibVersionGroupReader,
                                          state_containers: list[RealTimeSampleArrayMetricStateContainer],
                                          is_buffered_report: bool = False) -> dict[
                                                                                   str, RealTimeSampleArrayMetricStateContainer] | None:
@@ -515,7 +515,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                 self.waveform_by_handle = states_by_handle
         return states_by_handle
 
-    def process_incoming_context_states_report(self, mdib_version_group: MdibVersionGroup,
+    def process_incoming_context_states_report(self, mdib_version_group: MdibVersionGroupReader,
                                                report: EpisodicContextReport,
                                                is_buffered_report: bool = False):
         """Add data from EpisodicContextReport to mdib."""
@@ -529,12 +529,12 @@ class ConsumerMdib(mdibbase.MdibBase):
                                                 'context states'):
                     return
                 self._update_from_mdib_version_group(mdib_version_group)
-                states_by_handle = self._process_incoming_states_report(
+                states_by_handle = self.process_incoming_states_report(
                     'context states', report, is_buffered_report)
         finally:
             self.context_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def process_incoming_component_states_report(self, mdib_version_group: MdibVersionGroup,
+    def process_incoming_component_states_report(self, mdib_version_group: MdibVersionGroupReader,
                                                  report: EpisodicComponentReport,
                                                  is_buffered_report: bool = False):
         """Add data from EpisodicComponentReport to mdib."""
@@ -548,12 +548,12 @@ class ConsumerMdib(mdibbase.MdibBase):
                                                 'component states'):
                     return
                 self._update_from_mdib_version_group(mdib_version_group)
-                states_by_handle = self._process_incoming_states_report(
+                states_by_handle = self.process_incoming_states_report(
                     'component states', report, is_buffered_report)
         finally:
             self.component_by_handle = states_by_handle  # used by wait_metric_matches method
 
-    def process_incoming_description_modifications(self, mdib_version_group: MdibVersionGroup,
+    def process_incoming_description_modifications(self, mdib_version_group: MdibVersionGroupReader,
                                                    report: DescriptionModificationReport,
                                                    is_buffered_report: bool = False):
         """Add data from DescriptionModificationReport to mdib."""

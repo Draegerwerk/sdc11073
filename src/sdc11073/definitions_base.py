@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from types import ModuleType
+    from .mdib.statecontainers import AbstractStateProtocol
+    from .mdib.descriptorcontainers import AbstractDescriptorProtocol
 
     from lxml.etree import QName
     from .namespaces import NamespaceHelper
@@ -25,7 +27,7 @@ class ProtocolsRegistry(type):
 class DataModelProtocol(Protocol):
     """DataModel contains all information about the BICEPS implementation."""
 
-    def get_descriptor_container_class(self, type_qname: QName) -> type:
+    def get_descriptor_container_class(self, type_qname: QName) -> type[AbstractDescriptorProtocol]:
         """Get the class that represents a BICEPS descriptor entity with given QName."""
 
     def mk_descriptor_container(self, type_qname: QName, handle: str, parent_descriptor: Any) -> Any:
@@ -34,7 +36,8 @@ class DataModelProtocol(Protocol):
     def get_state_container_class(self, type_qname: QName) -> type:
         """Get the class that represents a BICEPS state entity with given QName."""
 
-    def get_state_class_for_descriptor(self, descriptor_container: Any) -> type:
+    def get_state_class_for_descriptor(self,
+                                       descriptor_container: AbstractDescriptorProtocol) -> type[AbstractStateProtocol]:
         """Get the corresponding state class for a descriptor."""
 
     def mk_state_container(self, descriptor_container: Any) -> Any:

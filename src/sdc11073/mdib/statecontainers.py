@@ -1,13 +1,44 @@
+from __future__ import annotations
+
 import inspect
 import sys
 import time
 import uuid
+from typing import TYPE_CHECKING, Protocol
+
+from sdc11073.xml_types import ext_qnames as ext
+from sdc11073.xml_types import pm_qnames as pm
+from sdc11073.xml_types import pm_types
+from sdc11073.xml_types import xml_structure as cp
 
 from .containerbase import ContainerBase
-from ..xml_types import pm_types
-from ..xml_types import xml_structure as cp
-from ..xml_types import pm_qnames as pm
-from ..xml_types import ext_qnames as ext
+
+if TYPE_CHECKING:
+    from lxml.etree import QName
+    from .descriptorcontainers import AbstractDescriptorProtocol
+
+
+class AbstractStateProtocol(Protocol):
+    """The common Interface of all states."""
+
+    NODETYPE: QName
+    is_state_container: bool
+    is_realtime_sample_array_metric_state: bool
+    is_metric_state: bool
+    is_operational_state: bool
+    is_component_state: bool
+    is_alert_state: bool
+    is_alert_signal: bool
+    is_alert_condition: bool
+    is_multi_state: bool
+    is_context_state: bool
+
+    DescriptorHandle: str
+    DescriptorVersion: int
+    StateVersion: int
+
+    def __init__(self, descriptor_container: AbstractDescriptorProtocol):
+        ...
 
 
 class AbstractStateContainer(ContainerBase):
@@ -29,7 +60,7 @@ class AbstractStateContainer(ContainerBase):
     StateVersion = cp.VersionCounterAttributeProperty('StateVersion', implied_py_value=0)
     _props = ('Extension', 'DescriptorHandle', 'DescriptorVersion', 'StateVersion')
 
-    def __init__(self, descriptor_container):
+    def __init__(self, descriptor_container: AbstractDescriptorProtocol):
         super().__init__()
         self.descriptor_container = descriptor_container
         if descriptor_container is not None:
@@ -67,7 +98,7 @@ class AbstractStateContainer(ContainerBase):
     def source_mds(self):
         return self.descriptor_container.source_mds
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" StateVersion={self.StateVersion}'
 
     @classmethod
@@ -182,7 +213,7 @@ class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
             return self.MetricValue
         raise ValueError(f'State (descriptor handle="{self.DescriptorHandle}") already has a metric value')
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         samples_count = 0
         if self.MetricValue is not None and self.MetricValue.Samples is not None:
             samples_count = len(self.MetricValue.Samples)
@@ -253,7 +284,6 @@ class ChannelStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = pm.ChannelState
 
 
-
 class ClockStateContainer(AbstractDeviceComponentStateContainer):
     NODETYPE = pm.ClockState
     ActiveSyncProtocol = cp.SubElementProperty(pm.ActiveSyncProtocol, value_class=pm_types.CodedValue, is_optional=True)
@@ -317,7 +347,7 @@ class AlertSystemStateContainer(AbstractAlertStateContainer):
     _props = ('SystemSignalActivation', 'LastSelfCheck', 'SelfCheckCount', 'PresentPhysiologicalAlarmConditions',
               'PresentTechnicalAlarmConditions')
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" ' \
                f'StateVersion={self.StateVersion} LastSelfCheck={self.LastSelfCheck} ' \
                f'SelfCheckCount={self.SelfCheckCount} Activation={self.ActivationState}'
@@ -338,7 +368,7 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
         super().__init__(*args, **kwargs)
         self.last_updated = time.time()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" ' \
                f'StateVersion={self.StateVersion} Location={self.Location} ' \
                f'Activation={self.ActivationState} Presence={self.Presence}'
@@ -354,7 +384,7 @@ class AlertConditionStateContainer(AbstractAlertStateContainer):
     Presence = cp.BooleanAttributeProperty('Presence', implied_py_value=False)
     _props = ('ActualConditionGenerationDelay', 'ActualPriority', 'Rank', 'DeterminationTime', 'Presence')
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__} descriptorHandle="{self.DescriptorHandle}" ' \
                f'StateVersion={self.StateVersion} ' \
                f'Activation={self.ActivationState} Presence={self.Presence}'
@@ -376,7 +406,7 @@ class AbstractMultiStateContainer(AbstractStateContainer):
     is_multi_state = True
     Category = cp.SubElementProperty(pm.Category, value_class=pm_types.CodedValue, is_optional=True)
     Handle = cp.HandleAttributeProperty('Handle', is_optional=False)
-    _props = ('Category', 'Handle',)
+    _props = ('Category', 'Handle')
 
     def __init__(self, descriptor_container, handle=None):
         super().__init__(descriptor_container)
@@ -394,7 +424,7 @@ class AbstractMultiStateContainer(AbstractStateContainer):
             self.Handle = uuid.uuid4().hex
         return super().mk_state_node(tag, nsmapper, set_xsi_type)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.__class__.__name__} DescriptorHandle="{self.DescriptorHandle}" ' \
                f'Handle="{self.Handle}" type={self.NODETYPE}'
 
@@ -490,12 +520,11 @@ classes = inspect.getmembers(sys.modules[__name__],
                              lambda member: inspect.isclass(member) and member.__module__ == __name__)
 classes_with_NODETYPE = [c[1] for c in classes if hasattr(c[1], 'NODETYPE') and c[1].NODETYPE is not None]
 # make a dictionary from found classes: (Key is NODETYPE, value is the class itself
-# _state_lookup_by_type = dict([(c.NODETYPE, c) for c in classes_with_NODETYPE])
 _state_lookup_by_type = {c.NODETYPE: c for c in classes_with_NODETYPE}
 
 
 def get_container_class(type_qname):
-    """ Returns class for given type
-    :param type_qname: the QName of the expected NODETYPE
+    """Returns class for given type
+    :param type_qname: the QName of the expected NODETYPE.
     """
     return _state_lookup_by_type.get(type_qname)

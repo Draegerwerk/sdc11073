@@ -55,7 +55,6 @@ class ProviderMdib(mdibbase.MdibBase):
 
         self.sequence_id = uuid.uuid4().urn  # this uuid identifies this mdib instance
 
-        self._current_location = None
         self._annotators = {}
         self._current_transaction = None
 

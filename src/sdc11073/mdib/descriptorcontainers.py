@@ -1,8 +1,11 @@
+from __future__ import  annotations
+
+from typing import TYPE_CHECKING
 import inspect
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Protocol
 
 from lxml import etree as etree_
 
@@ -14,6 +17,7 @@ from ..xml_types import msg_qnames as msg
 from ..xml_types import pm_qnames
 from ..xml_types import pm_types
 from ..xml_types import xml_structure as cp
+
 
 
 @dataclass(frozen=True)
@@ -78,10 +82,36 @@ def make_descriptor_node(descriptor_container, tag: etree_.QName, ns_helper: Nam
     return node
 
 
+class AbstractDescriptorProtocol(Protocol):
+    """The common Interface of all descriptors."""
+
+    NODETYPE: etree_.QName
+    is_descriptor_container: bool
+    is_system_context_descriptor: bool
+    is_realtime_sample_array_metric_descriptor: bool
+    is_metric_descriptor: bool
+    is_operational_descriptor: bool
+    is_component_descriptor: bool
+    is_alert_descriptor: bool
+    is_alert_signal_descriptor: bool
+    is_alert_condition_descriptor: bool
+    is_context_descriptor: bool
+    is_leaf: bool  # determines if children can be added
+    Handle: str
+    DescriptorVersion: int
+    SafetyClassification: pm_types.SafetyClassification
+    Type: pm_types.CodedValue
+
+    def __init__(self, handle: str, parent_handle: str | None):
+        ...
+
+    def set_source_mds(self, handle: str):
+        ...
+
+
 class AbstractDescriptorContainer(ContainerBase):
-    """
-    This class represents the AbstractDescriptor
-    """
+    """AbstractDescriptorContainer represents the AbstractDescriptor of BICEPS."""
+
     # these class variables allow easy type-checking. Derived classes will set corresponding values to True
     # pylint: disable=invalid-name
     is_descriptor_container = True
@@ -113,7 +143,8 @@ class AbstractDescriptorContainer(ContainerBase):
     STATE_QNAME = None
     extension_class_lookup = {msg.Retrievability: pm_types.Retrievability}
 
-    def __init__(self, handle, parent_handle):
+    def __init__(self, handle: str, parent_handle: str | None):
+        """Parent Handle can only be None for a Mds Descriptor. every other descriptor has a parent."""
         super().__init__()
         self._parent_handle = parent_handle
         self.Handle = handle

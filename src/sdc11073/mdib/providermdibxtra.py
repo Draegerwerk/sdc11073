@@ -1,18 +1,38 @@
+from __future__ import annotations
+
 import time
 import uuid
+from typing import TYPE_CHECKING, Any
+
+from sdc11073.xml_types.pm_types import RetrievabilityMethod
 
 from .providerwaveform import DefaultWaveformSource
-from sdc11073.xml_types.pm_types import RetrievabilityMethod
+
+if TYPE_CHECKING:
+    from sdc11073.location import SdcLocation
+    from sdc11073.xml_types.pm_types import (
+        CodedValue,
+        InstanceIdentifier,
+        MetricAvailability,
+        MetricCategory,
+        SafetyClassification,
+    )
+
+    from .descriptorcontainers import AbstractDescriptorProtocol
+    from .providermdib import ProviderMdib
+    from .statecontainers import AbstractStateProtocol
 
 
 class ProviderMdibMethods:
+    """Extra methods for provider mdib tht are not core functionality."""
+
     waveform_provider_cls = DefaultWaveformSource
 
-    def __init__(self, device_mdib):
-        self._mdib = device_mdib
-        self.waveform_provider = self.waveform_provider_cls(device_mdib)
-        self.descriptor_factory = DescriptorFactory(device_mdib)
-        self.default_instance_identifiers = (device_mdib.data_model.pm_types.InstanceIdentifier(
+    def __init__(self, provider_mdib: ProviderMdib):
+        self._mdib = provider_mdib
+        self.waveform_provider = self.waveform_provider_cls(provider_mdib)
+        self.descriptor_factory = DescriptorFactory(provider_mdib)
+        self.default_instance_identifiers = (provider_mdib.data_model.pm_types.InstanceIdentifier(
             root='rootWithNoMeaning', extension_string='System'),)
 
     def ensure_location_context_descriptor(self):
@@ -39,11 +59,14 @@ class ProviderMdibMethods:
             descr_container.SafetyClassification = mdib.data_model.pm_types.SafetyClassification.INF
             mdib.descriptions.add_object(descr_container)
 
-    def set_location(self, sdc_location, validators=None, set_associated=True):
-        """
+    def set_location(self, sdc_location: SdcLocation,
+                     validators: list[InstanceIdentifier] | None = None,
+                     set_associated: bool = True):
+        """Create a location context state.
+
         This method updates only the mdib internal data!
         use the SdcProvider.set_location method if you want to publish the address on the network.
-        :param sdc_location: a pysdc.location.SdcLocation instance
+        :param sdc_location: a sdc11073.location.SdcLocation instance
         :param validators: a list of pysdc.pmtypes.InstanceIdentifier objects or None
         :param set_associated: if True, BindingTime, BindingMdibVersion and ContextAssociation are set
         """
@@ -52,8 +75,8 @@ class ProviderMdibMethods:
         with mdib.transaction_manager() as mgr:
             all_location_contexts = mdib.context_states.NODETYPE.get(pm.LocationContextState, [])
             # set all to currently associated Locations to Disassociated
-            associated_locations = [l for l in all_location_contexts if
-                                    l.ContextAssociation == mdib.data_model.pm_types.ContextAssociation.ASSOCIATED]
+            associated_locations = [loc for loc in all_location_contexts if
+                                    loc.ContextAssociation == mdib.data_model.pm_types.ContextAssociation.ASSOCIATED]
             for location in associated_locations:
                 location_context = mgr.get_context_state(location.Handle)
                 location_context.ContextAssociation = mdib.data_model.pm_types.ContextAssociation.DISASSOCIATED
@@ -61,16 +84,15 @@ class ProviderMdibMethods:
                 location_context.UnbindingMdibVersion = mdib.mdib_version + 1
             descriptor_container = mdib.descriptions.NODETYPE.get_one(pm.LocationContextDescriptor)
 
-            mdib._current_location = mgr.mk_context_state(
-                descriptor_container.Handle, set_associated=set_associated)  # this creates a new location state
-            mdib._current_location.update_from_sdc_location(sdc_location)
+            new_location = mgr.mk_context_state(descriptor_container.Handle, set_associated=set_associated)
+            new_location.update_from_sdc_location(sdc_location)
             if validators is not None:
-                mdib._current_location.Validator = validators
+                new_location.Validator = validators
 
     def mk_state_containers_for_all_descriptors(self):
-        """The model requires that there is a state for every descriptor (exception: multi-states)
-        Call this method to create missing states
-        :return:
+        """Create a state container for every descriptor that is missing a state in mdib.
+
+        The model requires that there is a state for every descriptor (exception: multi-states)
         """
         mdib = self._mdib
         pm = mdib.data_model.pm_names
@@ -84,33 +106,37 @@ class ProviderMdibMethods:
                     # add some initial values where needed
                     if state.is_alert_condition:
                         state.DeterminationTime = time.time()
-                    elif state.NODETYPE == pm.AlertSystemState:
+                    elif state.NODETYPE == pm.AlertSystemState:  # noqa SIM300
                         state.LastSelfCheck = time.time()
                         state.SelfCheckCount = 1
-                    elif state.NODETYPE == pm.ClockState:
+                    elif state.NODETYPE == pm.ClockState:  # noqa SIM300
                         state.LastSet = time.time()
-                    if mdib._current_transaction is not None:
-                        mdib._current_transaction.add_state(state)
+                    if mdib._current_transaction is not None:  # noqa SLF001
+                        mdib._current_transaction.add_state(state)  # noqa SLF001
                     else:
                         mdib.states.add_object(state)
 
     def update_retrievability_lists(self):
-        """This method updates internal lists, based on current mdib descriptors. """
+        """Update internal lists, based on current mdib descriptors."""
         mdib = self._mdib
         with mdib.mdib_lock:
-            del mdib._retrievability_episodic[:]
+            del mdib._retrievability_episodic[:]  # noqa SLF001
             mdib.retrievability_periodic.clear()
             for descr in mdib.descriptions.objects:
                 if descr.retrievability is not None:
                     for r_by in descr.retrievability.By:
                         if r_by.Method == RetrievabilityMethod.EPISODIC:
-                            mdib._retrievability_episodic.append(descr.Handle)
+                            mdib._retrievability_episodic.append(descr.Handle)  # noqa SLF001
                         elif r_by.Method == RetrievabilityMethod.PERIODIC:
                             period_float = r_by.UpdatePeriod
                             period_ms = int(period_float * 1000.0)
                             mdib.retrievability_periodic[period_ms].append(descr.Handle)
 
     def set_all_source_mds(self):
+        """Set the source mds member of all descriptors.
+
+        This makes handling of SourceMds separation in messages less demanding on CPU.
+        """
         pm_qnames = self._mdib.data_model.pm_names
         all_mds_descriptors = self._mdib.descriptions.NODETYPE.get(pm_qnames.MdsDescriptor)
         for mds_descriptor in all_mds_descriptors:
@@ -118,39 +144,50 @@ class ProviderMdibMethods:
                 descr.set_source_mds(mds_descriptor.Handle)
 
     def update_all_rt_samples(self):
+        """Update all waveforms, by calling waveform_provider."""
         if self.waveform_provider is None:
             return
-        with self._mdib._rt_sample_transaction() as transaction:
+        with self._mdib._rt_sample_transaction() as transaction:  # noqa SLF001
             self.waveform_provider.update_all_realtime_samples(transaction)
 
-    def get_mds_descriptor(self, container):
+    def get_mds_descriptor(self, container: AbstractDescriptorProtocol | AbstractStateProtocol) \
+            -> AbstractDescriptorProtocol | None:
+        """Get the parent mds descriptor for a given descriptor or state."""
         tmp = container
         if tmp.is_state_container:
             tmp = self._mdib.descriptions.handle.get_one(tmp.DescriptorHandle)
         mds_descr = None
         expected_type = self._mdib.data_model.pm_names.MdsDescriptor
         while mds_descr is None:
-            if tmp.NODETYPE == expected_type:
+            if tmp.NODETYPE == expected_type:  # noqa SIM300
                 return tmp
             parent_handle = tmp.parent_handle
             tmp = self._mdib.descriptions.handle.get_one(parent_handle, allow_none=True)
             if tmp is None:
-                if self._mdib._current_transaction:
-                    tmp = self._mdib._current_transaction.get_descriptor_in_transaction(parent_handle)
+                if self._mdib._current_transaction:  # noqa SLF001
+                    tmp = self._mdib._current_transaction.get_descriptor_in_transaction(parent_handle)  # noqa SLF001
             if tmp is None:
                 raise KeyError(f'could not find mds descriptor for handle {container.Handle}')
+        return None
 
-    def set_source_mds(self, descriptor_container):
+    def set_source_mds(self, descriptor_container: AbstractDescriptorProtocol):
+        """Find the parent mds for descriptor_container and set source mds of descriptor_container."""
         mds = self.get_mds_descriptor(descriptor_container)
         descriptor_container.set_source_mds(mds.Handle)
 
 
 class DescriptorFactory:
-    def __init__(self, mdib):
+    """DescriptorFactory provides some methods to make creation of descriptors easier."""
+
+    def __init__(self, mdib: ProviderMdib):
         self._mdib = mdib
 
     @staticmethod
-    def _create_descriptor_container(container_cls, handle, parent_handle, coded_value, safety_classification):
+    def _create_descriptor_container(container_cls: type,
+                                     handle: str,
+                                     parent_handle: str,
+                                     coded_value: CodedValue,
+                                     safety_classification: SafetyClassification) -> AbstractDescriptorProtocol:
         obj = container_cls(handle=handle, parent_handle=parent_handle)
         obj.SafetyClassification = safety_classification
         obj.Type = coded_value
@@ -159,10 +196,10 @@ class DescriptorFactory:
     def create_vmd_descriptor_container(self,
                                         handle: str,
                                         parent_handle: str,
-                                        coded_value,
-                                        safety_classification):
-        """
-        This method creates an VmdDescriptorContainer with the given properties.
+                                        coded_value: CodedValue,
+                                        safety_classification: SafetyClassification) -> AbstractDescriptorProtocol:
+        """Create an VmdDescriptorContainer with the given properties.
+
         :param handle: Handle of the new container
         :param parent_handle: Handle of the parent
         :param coded_value: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
@@ -176,10 +213,10 @@ class DescriptorFactory:
     def create_channel_descriptor_container(self,
                                             handle: str,
                                             parent_handle: str,
-                                            coded_value,
-                                            safety_classification):
-        """
-        This method creates a ChannelDescriptorContainer with the given properties.
+                                            coded_value: CodedValue,
+                                            safety_classification: SafetyClassification) -> AbstractDescriptorProtocol:
+        """Create a ChannelDescriptorContainer with the given properties.
+
         :param handle: Handle of the new container.
         :param parent_handle: Handle of the parent.
         :param coded_value: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
@@ -190,16 +227,16 @@ class DescriptorFactory:
         cls = model.get_descriptor_container_class(model.pm_names.ChannelDescriptor)
         return self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
 
-    def create_string_metric_descriptor_container(self,
+    def create_string_metric_descriptor_container(self,  # noqa PLR0913
                                                   handle: str,
                                                   parent_handle: str,
-                                                  coded_value,
-                                                  safety_classification,
-                                                  unit,
-                                                  metric_availability,
-                                                  metric_category):
-        """
-        This method creates a StringMetricDescriptorContainer with the given properties.
+                                                  coded_value: CodedValue,
+                                                  safety_classification: SafetyClassification,
+                                                  unit: CodedValue,
+                                                  metric_availability: MetricAvailability,
+                                                  metric_category: MetricCategory) -> AbstractDescriptorProtocol:
+        """Create a StringMetricDescriptorContainer with the given properties.
+
         :param handle: Handle of the new container
         :param parent_handle: Handle of the parent
         :param coded_value: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
@@ -217,17 +254,17 @@ class DescriptorFactory:
         obj.MetricCategory = metric_category
         return obj
 
-    def create_enum_string_metric_descriptor_container(self,
+    def create_enum_string_metric_descriptor_container(self,  # noqa PLR0913
                                                        handle: str,
                                                        parent_handle: str,
-                                                       coded_value,
-                                                       safety_classification,
-                                                       unit,
-                                                       allowed_values,
-                                                       metric_availability,
-                                                       metric_category):
-        """
-        This method creates an EnumStringMetricDescriptorContainer with the given properties.
+                                                       coded_value: CodedValue,
+                                                       safety_classification: SafetyClassification,
+                                                       unit: CodedValue,
+                                                       allowed_values: Any,
+                                                       metric_availability: MetricAvailability,
+                                                       metric_category: MetricCategory) -> AbstractDescriptorProtocol:
+        """Create an EnumStringMetricDescriptorContainer with the given properties.
+
         :param handle: Handle of the new container
         :param parent_handle: Handle of the parent
         :param coded_value: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
@@ -236,7 +273,7 @@ class DescriptorFactory:
         :param allowed_values:
         :param metric_availability: pmtypes.MetricAvailability
         :param metric_category: pmtypes.MetricCategory
-        :return: the created object
+        :return: the created object.
         """
         model = self._mdib.data_model
         cls = model.get_descriptor_container_class(model.pm_names.EnumStringMetricDescriptor)
@@ -250,15 +287,15 @@ class DescriptorFactory:
     def create_clock_descriptor_container(self,
                                           handle: str,
                                           parent_handle: str,
-                                          coded_value,
-                                          safety_classification):
-        """
-        This method creates a ClockDescriptorContainer with the given properties.
+                                          coded_value: CodedValue,
+                                          safety_classification: SafetyClassification) -> AbstractDescriptorProtocol:
+        """Create a ClockDescriptorContainer with the given properties.
+
         :param handle: Handle of the new container
         :param parent_handle: Handle of the parent
         :param coded_value: a pmtypes.CodedValue instance that defines what this object represents in medical terms.
         :param safety_classification: a pmtypes.SafetyClassification value
-        :return: the created object
+        :return: the created object.
         """
         model = self._mdib.data_model
         cls = model.get_descriptor_container_class(model.pm_names.ClockDescriptor)
