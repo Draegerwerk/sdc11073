@@ -7,8 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Fixed
-- possible choosing wrong ipaddress/network interface [#187](https://github.com/Draegerwerk/sdc11073/issues/187)
+## [2.0.0a6] - 2023-07-04
 
 ## Added
 - `network` module to handle network adapter stuff of the host computer
@@ -16,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Changed
 - when creating a `SdcClient` with a `device_location` or `WsDiscovery` containing an ip where no suitable host network adapter could be determined from, an `NetworkAdapterNotFoundError` is raised
 - removed `netconn` module
+- renamed Device with Provider in order to be more compliant with sdc11073 names: 
+  sdc11073.sdcdevice.SdcDevice becomes sdc11073.provider.SdcProvider,
+  sdc11073.mdib.devicemdib.DeviceMdibContainer becomes sdc11073.mdib.providermdib.ProviderMdib, etc.
+- renamed Client with Consumer: sdc11073.sdcclient.SdcClient becomes sdc11073.consumer.SdcConsumer,
+  sdc11073.mdib.clientmdib.ClientMdibContainer becomes sdc11073.mdib.consumermdib.ConsumerMdib, etc.
 
 ## [2.0.0a5] - 2023-06-27
 
