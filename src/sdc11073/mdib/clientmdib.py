@@ -416,10 +416,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         :param report_node: report node to be copied
         :return: new report node
         """
-        new_parent = etree_.Element(report_node.tag, nsmap=report_node.nsmap)
-        new_report_node = copy.deepcopy(report_node)
-        new_parent.append(new_report_node)
-        return new_report_node
+        new_report = copy.deepcopy(report_node.getroottree().getroot())
+        index = report_node.getparent().index(report_node)
+        return new_report.xpath('/s12:Envelope/s12:Body', namespaces=report_node.nsmap)[0].getchildren()[index]
 
     def _onEpisodicMetricReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
