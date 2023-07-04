@@ -5,6 +5,7 @@ from sdc11073 import pmtypes
 from lxml import etree as etree_
 
 from sdc11073.mdib import ClientMdibContainer
+from sdc11073 import xmlparsing
 
 mdibFolder = os.path.dirname(__file__)
 
@@ -67,7 +68,8 @@ class TestMdib(unittest.TestCase):
         def test_xml(raw_xml: bytes):
             body = etree_.fromstring(raw_xml)[1]
             for report in body:
-                new_report = ClientMdibContainer._copy_report_node(report)
+                new_report = xmlparsing.copy_node(report)
+                assert new_report != report  # check reference
                 assert new_report.nsmap == report.nsmap
                 assert etree_.tostring(new_report) == etree_.tostring(report)
 
@@ -107,6 +109,7 @@ class TestMdib(unittest.TestCase):
               xmlns:wsa="http://www.w3.org/2005/08/addressing"
               xmlns:s12="http://www.w3.org/2003/05/soap-envelope"
               xmlns:msg="http://standards.ieee.org/downloads/11073/11073-10207-2017/message"
+              xmlns="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
               xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
               xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
@@ -128,6 +131,15 @@ class TestMdib(unittest.TestCase):
                                 ActivationState="On" LastSelfCheck="1688025072995" SelfCheckCount="8"
                                 PresentPhysiologicalAlarmConditions="" PresentTechnicalAlarmConditions=""
                                 DescriptorHandle="ASYS0"/>
+            </msg:ReportPart>
+        </msg:EpisodicAlertReport>
+        <msg:EpisodicAlertReport MdibVersion="10"
+                                 SequenceId="urn:uuid:2d6bfcf5-a29c-42e4-99e3-99ce4a4e0234">
+            <msg:ReportPart>
+                <msg:AlertState xsi:type="pm:AlertSystemState" DescriptorVersion="0" StateVersion="7"
+                                ActivationState="On" LastSelfCheck="1688025072995" SelfCheckCount="8"
+                                PresentPhysiologicalAlarmConditions="" PresentTechnicalAlarmConditions=""
+                                DescriptorHandle="ASYS1"/>
             </msg:ReportPart>
         </msg:EpisodicAlertReport>
         <msg:EpisodicMetricReport MdibVersion="1180245"

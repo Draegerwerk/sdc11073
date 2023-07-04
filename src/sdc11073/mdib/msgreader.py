@@ -1,6 +1,6 @@
 from lxml import etree as etree_
 import copy
-from .. import namespaces
+from .. import namespaces, xmlparsing
 from .. import pmtypes
 
 
@@ -149,7 +149,7 @@ class MessageReader(object):
                 descriptorContainer = correspondingDescriptors[0]
         cls = self._mdib.getStateContainerClass(nodeType)
         if node.tag != namespaces.domTag('State'):
-            node = copy.copy(node)  # make a copy, do not modify the original report
+            node = xmlparsing.copy_node(node)  # make a copy, do not modify the original report
             node.tag = namespaces.domTag('State')
         return cls(self._mdib.nsmapper, descriptorContainer, node)
 

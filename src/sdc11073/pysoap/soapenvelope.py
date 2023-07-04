@@ -5,7 +5,7 @@ from lxml import etree as etree_
 
 from sdc11073.namespaces import wsaTag, wseTag, dpwsTag, s12Tag, xmlTag, nsmap, WSA_ANONYMOUS, docNameFromQName
 from sdc11073.namespaces import Prefix_Namespace as Prefix
-from .. import isoduration
+from .. import isoduration, xmlparsing
 
 CHECK_NAMESPACES = False   # can be used to enable additional checks for too many namespaces or undefined namespaces
 
@@ -98,7 +98,7 @@ class WsaEndpointReferenceType(object):
         node  = etree_.SubElement(rootNode, wsaTag('Address'))
         node.text = self.address
         if self.referenceParametersNode is not None:
-            rootNode.append(copy.copy(self.referenceParametersNode))
+            rootNode.append(xmlparsing.copy_node(self.referenceParametersNode))
         if self.metaDataNode is not None:
             rootNode.append(self.metaDataNode)
 
@@ -168,7 +168,7 @@ class WsAddress(object):
                 node.set('RelationshipType', self.relationshipType)
 
         if self.referenceParametersNode:
-            rootNode.append(copy.copy(self.referenceParametersNode))
+            rootNode.append(xmlparsing.copy_node(self.referenceParametersNode))
 
     
     @classmethod

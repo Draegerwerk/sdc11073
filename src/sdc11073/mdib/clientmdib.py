@@ -2,6 +2,7 @@ import logging
 import threading
 import traceback
 import time
+
 from threading import Lock
 from collections import deque
 from collections import namedtuple
@@ -15,6 +16,7 @@ from .. import namespaces
 from .. import pmtypes
 from concurrent import futures
 from .. import loghelper
+from .. import xmlparsing
 
 _global_nsmap = namespaces.nsmap
 
@@ -408,21 +410,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if showsuccesslog:
             self._logger.info('{}: _waitUntilInitialized took {} seconds', log_prefix, delay)
 
-    @staticmethod
-    def _copy_report_node(report_node: etree_._Element) -> etree_._Element:
-        """
-        Copy and keep complete namespace. See https://github.com/Draegerwerk/sdc11073/issues/191
-
-        :param report_node: report node to be copied
-        :return: new report node
-        """
-        new_report = copy.deepcopy(report_node.getroottree().getroot())
-        index = report_node.getparent().index(report_node)
-        return new_report.xpath('/s12:Envelope/s12:Body', namespaces=report_node.nsmap)[0].getchildren()[index]
-
     def _onEpisodicMetricReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = self._copy_report_node(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicMetricReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -491,7 +481,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     def _onEpisodicAlertReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = self._copy_report_node(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicAlertReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -529,7 +519,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     def _onOperationalStateReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = self._copy_report_node(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onOperationalStateReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -580,7 +570,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     def _onWaveformReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = self._copy_report_node(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         #pylint:disable=too-many-locals
         # reportNode contains a list of msg:State nodes
         if not is_buffered_report and self._bufferNotification(reportNode, self._onWaveformReport):
@@ -663,7 +653,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     def _onEpisodicContextReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = self._copy_report_node(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicContextReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -704,7 +694,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         Components are MDSs, VMDs, Channels. Not metrics and alarms
         """
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = self._copy_report_node(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicComponentReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '1'))
@@ -750,7 +740,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         It consists of 1...n DescriptionModificationReportParts.
         """
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = self._copy_report_node(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onDescriptionModificationReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))

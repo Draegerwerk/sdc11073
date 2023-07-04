@@ -161,11 +161,6 @@ class AbstractMetricStateContainer_Base(AbstractStateContainer):
         else:
             raise RuntimeError('State (handle="{}") already has a metric value'.format(self.handle))
 
-    def mkCopy(self, copy_node=True):
-        copied = super().mkCopy(copy_node)
-        copied._MetricValue = copy.deepcopy(self._MetricValue)
-        return copied
-
 
 class AbstractMetricStateContainer(AbstractMetricStateContainer_Base):
     BodySite = cp.SubElementListProperty([domTag('BodySite')], cls=pmtypes.CodedValue)
