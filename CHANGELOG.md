@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- nsmap is not fully copied when copying report node in client mdib [#191](https://github.com/Draegerwerk/sdc11073/issues/191)
+- nsmap not being fully copied when a report node is being copied in the client mdib [#191](https://github.com/Draegerwerk/sdc11073/issues/191)
 
 ## [1.1.27] - 2023-06-29
 
