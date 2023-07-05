@@ -16,7 +16,7 @@ body:
   - type: textarea
     attributes:
       label: 'Current Behavior'
-      description: 'Describe the problem you are experiencing. **Please do not paste your logs here.** Screenshots are welcome.'
+      description: 'Describe the problem you are experiencing. **Please do not paste your logs here.**'
     validations:
       required: true
   - type: textarea
@@ -29,7 +29,7 @@ body:
     attributes:
       label: 'Minimal Reproducible Example'
       description: |
-        Please provide the _smallest, complete code snippet_ that sdc11073's maintainers can run to reproduce the issue ([read more about what this entails](https://stackoverflow.com/help/minimal-reproducible-example)).  Failing this, any sort of reproduction steps are better than nothing!
+        Please provide the _smallest, complete code snippet_ that sdc11073's maintainers can run to reproduce the issue ([read more about what this entails](https://stackoverflow.com/help/minimal-reproducible-example)). Failing this, any sort of reproduction steps are better than nothing!
 
         An easy way to get started is to copy [example code](https://github.com/Draegerwerk/sdc11073/tree/master/examples) and modify it accordingly.
 
@@ -38,6 +38,12 @@ body:
         - _Attach_ (do not paste) it to this textarea, _or_
         - Put it in a [Gist](https://gist.github.com) and paste the link, _or_
         - Provide a link to a new or existing public repository exhibiting the issue
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: 'Solution proposal'
+      description: 'Do you already have an idea how this bug can be fixed? Propose your solution here.'
     validations:
       required: false
   - type: input
@@ -63,10 +69,10 @@ body:
     attributes:
       label: 'Link to sdc11073 Logs'
       description: |
-        Create a [Gist](https://gist.github.com)—which contains your _full_ sdc11073 logs—and link it here.  Alternatively, you can attach a logfile to this issue (drag it into the "Further Information" field below).
+        Create a [Gist](https://gist.github.com)—which contains your _full_ sdc11073 logs—and link it here. Alternatively, you can attach a logfile to this issue (drag it into the "Further Information" field below).
         
         :warning: _Remember to redact or remove any sensitive information!_
-      placeholder: 'https://gist.github.com/...'      
+      placeholder: 'https://gist.github.com/...'
   - type: textarea
     attributes:
       label: Further Information
