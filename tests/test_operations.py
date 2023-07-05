@@ -314,7 +314,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertTrue(alert_system_descriptors is not None)
         self.assertGreater(len(alert_system_descriptors), 0)
         for alert_system_descriptor in alert_system_descriptors:
-            state = self.sdc_client.mdib.states.descriptorHandle.get_one(alert_system_descriptor.Handle)
+            state = self.sdc_client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
             # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
             self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
 
@@ -330,7 +330,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertTrue(alert_system_descriptors is not None)
         self.assertGreater(len(alert_system_descriptors), 0)
         for alert_system_descriptor in alert_system_descriptors:
-            state = self.sdc_client.mdib.states.descriptorHandle.get_one(alert_system_descriptor.Handle)
+            state = self.sdc_client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
             self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.ON)
 
     def test_audio_pause_two_clients(self):
@@ -370,7 +370,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertGreater(len(alert_system_descriptors), 0)
         for alert_system_descriptor in alert_system_descriptors:
             for client in clients:
-                state = client.mdib.states.descriptorHandle.get_one(alert_system_descriptor.Handle)
+                state = client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
                 # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
                 self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
 
@@ -387,7 +387,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertGreater(len(alert_system_descriptors), 0)
         for alert_system_descriptor in alert_system_descriptors:
             for client in clients:
-                state = client.mdib.states.descriptorHandle.get_one(alert_system_descriptor.Handle)
+                state = client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
                 self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.ON)
 
     def test_set_ntp_server(self):
@@ -412,13 +412,13 @@ class Test_BuiltinOperations(unittest.TestCase):
             self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
             # verify that the corresponding state has been updated
-            state = client_mdib.states.descriptorHandle.get_one(my_operation_descriptor.OperationTarget)
+            state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
             if state.NODETYPE == pm.MdsState:
                 # look for the ClockState child
                 clock_descriptors = client_mdib.descriptions.NODETYPE.get(pm.ClockDescriptor, [])
-                clock_descriptors = [c for c in clock_descriptors if c.descriptor_handle == state.descriptorHandle]
+                clock_descriptors = [c for c in clock_descriptors if c.descriptor_handle == state.descriptor_handle]
                 if len(clock_descriptors) == 1:
-                    state = client_mdib.states.descriptorHandle.get_one(clock_descriptors[0].Handle)
+                    state = client_mdib.states.descriptor_handle.get_one(clock_descriptors[0].Handle)
             self.assertEqual(state.ReferenceSource[0], value)
 
     def test_set_time_zone(self):
@@ -444,13 +444,13 @@ class Test_BuiltinOperations(unittest.TestCase):
             self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
             # verify that the corresponding state has been updated
-            state = client_mdib.states.descriptorHandle.get_one(my_operation_descriptor.OperationTarget)
+            state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
             if state.NODETYPE == pm.MdsState:
                 # look for the ClockState child
                 clock_descriptors = client_mdib.descriptions.NODETYPE.get(pm.ClockDescriptor, [])
                 clock_descriptors = [c for c in clock_descriptors if c.parent_handle == state.DescriptorHandle]
                 if len(clock_descriptors) == 1:
-                    state = client_mdib.states.descriptorHandle.get_one(clock_descriptors[0].Handle)
+                    state = client_mdib.states.descriptor_handle.get_one(clock_descriptors[0].Handle)
             self.assertEqual(state.TimeZone, value)
 
     def test_set_metric_state(self):
@@ -489,7 +489,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
         self.assertIsNone(result.InvocationInfo.InvocationError)
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
-        updated_metric_state = clientMdib.states.descriptorHandle.get_one(operation_target_handle)
+        updated_metric_state = clientMdib.states.descriptor_handle.get_one(operation_target_handle)
         self.assertEqual(updated_metric_state.StateVersion, before_state_version + 1)
         self.assertAlmostEqual(updated_metric_state.LifeTimePeriod, newLifeTimePeriod)
 
@@ -529,7 +529,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
         self.assertIsNone(result.InvocationInfo.InvocationError)
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
-        updated_component_state = client_mdib.states.descriptorHandle.get_one(operation_target_handle)
+        updated_component_state = client_mdib.states.descriptor_handle.get_one(operation_target_handle)
         self.assertEqual(updated_component_state.StateVersion, before_state_version + 1)
         self.assertEqual(updated_component_state.OperatingHours, new_operating_hours)
 

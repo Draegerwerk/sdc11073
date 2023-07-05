@@ -112,7 +112,7 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
     # now verify that we have real time samples
     for d_handle in d_handles:
         # check content of state container
-        container = client_mdib.states.descriptorHandle.get_one(d_handle)
+        container = client_mdib.states.descriptor_handle.get_one(d_handle)
         unit_test.assertEqual(container.ActivationState, pm_types.ComponentActivation.ON)
         unit_test.assertIsNotNone(container.MetricValue)
         unit_test.assertAlmostEqual(container.MetricValue.DeterminationTime, time.time(), delta=0.5)
@@ -142,7 +142,7 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
     waveform_provider = sdc_device.mdib.xtra.waveform_provider
     waveform_provider.set_activation_state(d_handle, pm_types.ComponentActivation.OFF)
     time.sleep(0.5)
-    container = client_mdib.states.descriptorHandle.get_one(d_handle)
+    container = client_mdib.states.descriptor_handle.get_one(d_handle)
     unit_test.assertEqual(container.ActivationState, pm_types.ComponentActivation.OFF)
     unit_test.assertTrue(container.MetricValue is None)
 
@@ -205,7 +205,7 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
 
     # verify that client automatically got the state (via EpisodicMetricReport )
     coll.result(timeout=NOTIFICATION_TIMEOUT)
-    cl_state1 = cl_mdib.states.descriptorHandle.get_one(descriptor_handle)
+    cl_state1 = cl_mdib.states.descriptor_handle.get_one(descriptor_handle)
     unit_test.assertEqual(cl_state1.MetricValue.Value, first_value)
     unit_test.assertAlmostEqual(cl_state1.MetricValue.DeterminationTime, now, delta=0.01)
     unit_test.assertEqual(cl_state1.MetricValue.MetricQuality.Validity, pm_types.MeasurementValidity.VALID)
@@ -224,7 +224,7 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
 
     # verify that client automatically got the state (via EpisodicMetricReport )
     coll.result(timeout=NOTIFICATION_TIMEOUT)
-    cl_state1 = cl_mdib.states.descriptorHandle.get_one(descriptor_handle)
+    cl_state1 = cl_mdib.states.descriptor_handle.get_one(descriptor_handle)
     unit_test.assertEqual(cl_state1.MetricValue.Value, new_value)
     unit_test.assertEqual(cl_state1.StateVersion, 2)  # this is the 2nd state update after init
 
@@ -549,7 +549,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.ActualPriority = _actual_priority
                 st.Presence = _presence
             coll.result(timeout=NOTIFICATION_TIMEOUT)
-            client_state_container = client_mdib.states.descriptorHandle.get_one(
+            client_state_container = client_mdib.states.descriptor_handle.get_one(
                 descriptor_handle)  # this shall be updated by notification
             self.assertEqual(client_state_container.diff(st), None)
 
@@ -570,7 +570,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.Location = _location
                 st.Slot = _slot
             coll.result(timeout=NOTIFICATION_TIMEOUT)
-            client_state_container = client_mdib.states.descriptorHandle.get_one(
+            client_state_container = client_mdib.states.descriptor_handle.get_one(
                 descriptor_handle)  # this shall be updated by notification
             self.assertEqual(client_state_container.diff(st), None)
 
@@ -739,7 +739,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         descriptor_container = client_mdib.descriptions.handle.get_one(descriptor_handle)
         initial_descriptor_version = descriptor_container.DescriptorVersion
 
-        state_container = client_mdib.states.descriptorHandle.get_one(descriptor_handle)
+        state_container = client_mdib.states.descriptor_handle.get_one(descriptor_handle)
         self.assertEqual(state_container.DescriptorVersion, initial_descriptor_version)
 
         # now update something and  wait for the next DescriptionModificationReport
@@ -756,14 +756,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
         # verify that devices mdib contains the updated descriptor_container
         # plus an updated state wit correct DescriptorVersion
         descriptor_container = device_mdib.descriptions.handle.get_one(descriptor_handle)
-        state_container = device_mdib.states.descriptorHandle.get_one(descriptor_handle)
+        state_container = device_mdib.states.descriptor_handle.get_one(descriptor_handle)
         self.assertEqual(descriptor_container.DescriptorVersion, expected_descriptor_version)
         self.assertEqual(descriptor_container.DeterminationPeriod, new_determination_period)
         self.assertEqual(state_container.DescriptorVersion, expected_descriptor_version)
 
         # verify that client got updates
         descriptor_container = client_mdib.descriptions.handle.get_one(descriptor_handle)
-        state_container = client_mdib.states.descriptorHandle.get_one(descriptor_handle)
+        state_container = client_mdib.states.descriptor_handle.get_one(descriptor_handle)
         self.assertEqual(descriptor_container.DescriptorVersion, expected_descriptor_version)
         self.assertEqual(descriptor_container.DeterminationPeriod, new_determination_period)
         self.assertEqual(state_container.DescriptorVersion, expected_descriptor_version)
@@ -837,17 +837,17 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for update in client
         # verify that state updates are transported to client
-        client_alert_state = client_mdib.states.descriptorHandle.get_one(alert_descriptor_handle)
+        client_alert_state = client_mdib.states.descriptor_handle.get_one(alert_descriptor_handle)
         self.assertEqual(client_alert_state.ActualPriority, pm_types.AlertConditionPriority.HIGH)
         self.assertEqual(client_alert_state.Presence, True)
 
         # verify that alert system state is also updated
         alert_system_descr = client_mdib.descriptions.handle.get_one(client_alert_descriptor.parent_handle)
-        alert_system_state = client_mdib.states.descriptorHandle.get_one(alert_system_descr.Handle)
+        alert_system_state = client_mdib.states.descriptor_handle.get_one(alert_system_descr.Handle)
         self.assertTrue(alert_descriptor_handle in alert_system_state.PresentPhysiologicalAlarmConditions)
         self.assertGreater(alert_system_state.SelfCheckCount, 0)
 
-        client_limit_alert_state = client_mdib.states.descriptorHandle.get_one(limit_alert_descriptor_handle)
+        client_limit_alert_state = client_mdib.states.descriptor_handle.get_one(limit_alert_descriptor_handle)
         self.assertEqual(client_limit_alert_state.ActualPriority, pm_types.AlertConditionPriority.MEDIUM)
         self.assertEqual(client_limit_alert_state.Limits, pm_types.Range(upper=Decimal(3)))
         self.assertEqual(client_limit_alert_state.Presence, False)
@@ -883,7 +883,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         client_mdib.init_mdib()
         dev_descriptor_count1 = len(self.sdc_device.mdib.descriptions.objects)
         descr_handles = list(self.sdc_device.mdib.descriptions.handle.keys())
-        state_descriptor_handles = list(self.sdc_device.mdib.states.descriptorHandle.keys())
+        state_descriptor_handles = list(self.sdc_device.mdib.states.descriptor_handle.keys())
         context_state_handles = list(self.sdc_device.mdib.context_states.handle.keys())
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
         with self.sdc_device.mdib.transaction_manager() as mgr:

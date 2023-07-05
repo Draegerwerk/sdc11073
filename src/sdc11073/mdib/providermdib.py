@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
+from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Any
 
@@ -18,6 +19,7 @@ from .transactions import MdibUpdateTransaction, RtDataMdibUpdateTransaction
 
 if TYPE_CHECKING:
     from sdc11073.definitions_base import BaseDefinitions
+
     from .transactions import TransactionManagerProtocol
 
 
@@ -34,7 +36,7 @@ class ProviderMdib(mdibbase.MdibBase):
     def __init__(self,
                  sdc_definitions: type[BaseDefinitions] | None = None,
                  log_prefix: str | None = None,
-                 extra_functionality: type | None  = None,
+                 extra_functionality: type | None = None,
                  transaction_cls: type[TransactionManagerProtocol] | None = None,
                  ):
         """Construct a ProviderMdib.
@@ -70,15 +72,15 @@ class ProviderMdib(mdibbase.MdibBase):
         return self._xtra
 
     @contextmanager
-    def transaction_manager(self, set_determination_time: bool = True):
+    def transaction_manager(self, set_determination_time: bool = True) -> TransactionManagerProtocol:
         """Start a transaction, return a new transaction manager."""
         with self._tr_lock, self.mdib_lock:
             try:
                 self._current_transaction = self._transaction_cls(self, self.logger)
                 yield self._current_transaction
                 if callable(self.pre_commit_handler):
-                    self.pre_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
-                if self._current_transaction._error:
+                    self.pre_commit_handler(self, self._current_transaction)
+                if self._current_transaction.error:
                     self._logger.info('transaction_manager: transaction without updates!')
                 else:
                     processor = self._current_transaction.process_transaction(set_determination_time)
@@ -113,7 +115,7 @@ class ProviderMdib(mdibbase.MdibBase):
         if len(mgr.rt_sample_state_updates) > 0:
             self.mdib_version += 1
             updates = []
-            self._logger.debug('transaction_manager: rtSample updates = {}', # noqa PLE1205
+            self._logger.debug('transaction_manager: rtSample updates = {}',  # noqa PLE1205
                                mgr.rt_sample_state_updates)
             for transaction_item in mgr.rt_sample_state_updates.values():
                 updates.append(transaction_item.new)
@@ -136,7 +138,7 @@ class ProviderMdib(mdibbase.MdibBase):
         :param log_prefix: a string or None
         :return: instance.
         """
-        with open(path, 'rb') as the_file:
+        with Path(path).open('rb') as the_file:
             xml_text = the_file.read()
         return cls.from_string(xml_text,
                                protocol_definition,
@@ -168,7 +170,7 @@ class ProviderMdib(mdibbase.MdibBase):
             raise ValueError('cannot create instance, no known BICEPS schema version identified')
         mdib = cls(protocol_definition, log_prefix=log_prefix)
 
-        xml_msg_reader = xml_reader_class(protocol_definition, None, mdib._logger)
+        xml_msg_reader = xml_reader_class(protocol_definition, None, mdib.logger)
         message_data = xml_msg_reader.read_payload_data(xml_text)
         descriptor_containers, state_containers = xml_msg_reader.read_get_mdib_response(message_data)
 

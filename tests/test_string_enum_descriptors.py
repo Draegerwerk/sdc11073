@@ -92,5 +92,5 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
                 enum_state = mgr.get_state(descr_handle)
                 enum_state.MetricValue.Value = allowed_value.Value
             time.sleep(1)
-            received_state = cl_mdib.states.descriptorHandle.get_one(descr_handle)
+            received_state = cl_mdib.states.descriptor_handle.get_one(descr_handle)
             self.assertEqual(allowed_value.Value, received_state.MetricValue.Value)

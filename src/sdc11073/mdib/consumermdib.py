@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from enum import Enum
 
     from sdc11073.consumer import SdcConsumer
+    from sdc11073.pysoap.msgreader import MdibVersionGroupReader
     from sdc11073.xml_types.msg_types import (
         AbstractReport,
         DescriptionModificationReport,
@@ -28,7 +29,6 @@ if TYPE_CHECKING:
         OperationInvokedReport,
     )
 
-    from sdc11073.pysoap.msgreader import MdibVersionGroupReader
     from .statecontainers import AbstractStateContainer, RealTimeSampleArrayMetricStateContainer
 
 
@@ -95,7 +95,7 @@ class ConsumerRtBuffer:
                                realtime_sample_array_container.DescriptorHandle)
             return []
         determination_time = metric_value.DeterminationTime
-        annotations = metric_value.Annotations
+        annots = metric_value.Annotations
         apply_annotations = metric_value.ApplyAnnotations
         rt_sample_containers = []
         if metric_value.Samples is not None:
@@ -106,7 +106,7 @@ class ConsumerRtBuffer:
                         if apply_annotation.SampleIndex == i:
                             # there is an annotation for this sample:
                             ann_index = apply_annotation.AnnotationIndex
-                            annotation = annotations[ann_index]  # index is zero-based
+                            annotation = annots[ann_index]  # index is zero-based
                             applied_annotations.append(annotation)
                 rt_sample_time = determination_time + i * self.sample_period
                 rt_sample_containers.append(RtSampleContainer(sample,
@@ -148,7 +148,6 @@ class ConsumerMdib(mdibbase.MdibBase):
     """ConsumerMdib is a mirror of a provider mdib. Updates are performed by an SdcConsumer."""
 
     MDIB_VERSION_CHECK_DISABLED = False  # for testing purpose you can disable checking of mdib version, so that every notification is accepted.
-
 
     def __init__(self,
                  sdc_client: SdcConsumer,
@@ -363,8 +362,8 @@ class ConsumerMdib(mdibbase.MdibBase):
         states_by_handle = {}
         for state_container in state_containers:
             src = self.states
-            old_state_container = src.descriptorHandle.get_one(state_container.DescriptorHandle,
-                                                               allow_none=True)
+            old_state_container = src.descriptor_handle.get_one(state_container.DescriptorHandle,
+                                                                allow_none=True)
             if old_state_container is not None:
                 if self._has_new_state_usable_state_version(old_state_container, state_container,
                                                             report_type,
@@ -382,8 +381,8 @@ class ConsumerMdib(mdibbase.MdibBase):
         return states_by_handle
 
     def process_incoming_states_report(self, report_type: str,
-                                        report: EpisodicMetricReport | EpisodicAlertReport | OperationInvokedReport | EpisodicContextReport | EpisodicComponentReport,
-                                        is_buffered_report: bool) -> dict:
+                                       report: EpisodicMetricReport | EpisodicAlertReport | OperationInvokedReport | EpisodicContextReport | EpisodicComponentReport,
+                                       is_buffered_report: bool) -> dict:
         """Update mdib with incoming states."""
         states_by_handle = {}
         for report_part in report.ReportPart:
@@ -394,8 +393,8 @@ class ConsumerMdib(mdibbase.MdibBase):
                                                              allow_none=True)
                 else:
                     src = self.states
-                    old_state_container = src.descriptorHandle.get_one(state_container.DescriptorHandle,
-                                                                       allow_none=True)
+                    old_state_container = src.descriptor_handle.get_one(state_container.DescriptorHandle,
+                                                                        allow_none=True)
                 if old_state_container is not None:
                     if self._has_new_state_usable_state_version(old_state_container, state_container,
                                                                 report_type,
@@ -606,8 +605,8 @@ class ConsumerMdib(mdibbase.MdibBase):
                             if descriptor_container.is_context_descriptor:
                                 updated_handles = {s.Handle for s in updated_state_containers
                                                    if
-                                                   s.descriptorHandle == descriptor_container.Handle}  # set comprehension
-                                my_handles = {s.Handle for s in self.context_states.descriptorHandle.get(
+                                                   s.DescriptorHandle == descriptor_container.Handle}
+                                my_handles = {s.Handle for s in self.context_states.descriptor_handle.get(
                                     descriptor_container.Handle, [])}  # set comprehension
                                 to_be_deleted = my_handles - updated_handles
                                 for handle in to_be_deleted:
@@ -620,7 +619,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                                 old_state_container = my_multi_key.handle.get_one(state_container.Handle,
                                                                                   allow_none=True)
                             else:
-                                old_state_container = my_multi_key.descriptorHandle.get_one(
+                                old_state_container = my_multi_key.descriptor_handle.get_one(
                                     state_container.DescriptorHandle, allow_none=True)
                                 if old_state_container is None:
                                     self._logger.error(  # noqa PLE1205

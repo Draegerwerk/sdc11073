@@ -64,8 +64,8 @@ class ProviderMdibMethods:
                      set_associated: bool = True):
         """Create a location context state.
 
-        This method updates only the mdib internal data!
-        use the SdcProvider.set_location method if you want to publish the address on the network.
+        This method updates only the mdib data!
+        Use the SdcProvider.set_location method if you want to publish the address on the network.
         :param sdc_location: a sdc11073.location.SdcLocation instance
         :param validators: a list of pysdc.pmtypes.InstanceIdentifier objects or None
         :param set_associated: if True, BindingTime, BindingMdibVersion and ContextAssociation are set
@@ -97,7 +97,8 @@ class ProviderMdibMethods:
         mdib = self._mdib
         pm = mdib.data_model.pm_names
         for descr in mdib.descriptions.objects:
-            if descr.Handle not in mdib.states.descriptorHandle and descr.Handle not in mdib.context_states.descriptorHandle:
+            if descr.Handle not in mdib.states.descriptor_handle \
+                    and descr.Handle not in mdib.context_states.descriptor_handle:
                 state_cls = mdib.data_model.get_state_class_for_descriptor(descr)
                 if state_cls.is_multi_state:
                     pass  # nothing to do, it is allowed to have no state

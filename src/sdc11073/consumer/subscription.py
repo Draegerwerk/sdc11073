@@ -5,7 +5,7 @@ import threading
 import time
 import traceback
 import uuid
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Protocol
 from urllib.parse import urlparse
 
 from lxml import etree as etree_
@@ -22,16 +22,23 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from .request_handler_deferred import EmptyResponse
 
 if TYPE_CHECKING:
-    from sdc11073.definitions_base import DataModelProtocol
+    from sdc11073.definitions_base import AbstractDataModel
     from sdc11073.dispatch import RequestData
     from sdc11073.pysoap.msgfactory import MessageFactory
-    from sdc11073.pysoap.msgreader import MessageReader
+    from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
     from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.xml_types.eventing_types import FilterType
     from sdc11073.xml_types.mex_types import HostedServiceType
 
+
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 
+class SoapClientProtocol(Protocol):
+    """The expected interface of a soap client."""
+
+    def post_message_to(self, hosted_service_path: str, message: CreatedMessage, msg: str) -> ReceivedMessage | None:
+        """Send the message and return None if the response is empty else the received response."""
+        ...
 
 class ConsumerSubscription:
     """ConsumerSubscription handles a subscription to an event source.
@@ -44,8 +51,8 @@ class ConsumerSubscription:
     IDENT_TAG = etree_.QName('http.local.com', 'MyClIdentifier')
 
     def __init__(self, msg_factory: MessageFactory,
-                 data_model: DataModelProtocol,
-                 get_soap_client_func: Callable,
+                 data_model: AbstractDataModel,
+                 get_soap_client_func: Callable[[str], SoapClientProtocol],
                  dpws_hosted: HostedServiceType,
                  filter_type: FilterType,
                  notification_url: str,
@@ -312,8 +319,8 @@ class ConsumerSubscriptionManager(threading.Thread):
 
     def __init__(self, msg_reader: MessageReader,
                  msg_factory: MessageFactory,
-                 data_model: DataModelProtocol,
-                 get_soap_client_func: Callable,
+                 data_model: AbstractDataModel,
+                 get_soap_client_func: Callable[[str], SoapClientProtocol],
                  notification_url: str,
                  end_to_url: str | None = None,
                  check_interval: int | None = None,

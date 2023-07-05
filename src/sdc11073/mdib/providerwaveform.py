@@ -7,14 +7,13 @@ of the mdib.
 from __future__ import annotations
 
 import time
-from abc import ABC, abstractmethod
 from decimal import Context
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from sdc11073.definitions_base import DataModelProtocol
+    from sdc11073.definitions_base import AbstractDataModel
     from sdc11073.provider.waveforms import WaveformGeneratorBase
     from sdc11073.xml_types.pm_types import ComponentActivation, Annotation
     from .providermdib import ProviderMdib
@@ -27,7 +26,7 @@ class RtSampleArray:
     It is used to create Waveform notifications.
     """
 
-    def __init__(self, model: DataModelProtocol,
+    def __init__(self, model: AbstractDataModel,
                  determination_time: float | None,
                  sample_period: float,
                  samples: list[float],
@@ -82,14 +81,8 @@ class AnnotatorProtocol(Protocol):
     annotated_handles: list[str]
 
     def __init__(self, annotation: Annotation, trigger_handle: str, annotated_handles: list[str]):
-        """Construct an annotator.
+        """Construct an annotator."""
 
-        :param annotation:  a Annotation instance
-        :param trigger_handle: the handle of the state that triggers an annotation
-        :param annotated_handles: list of handles that get annotated
-        """
-
-    @abstractmethod
     def get_annotation_timestamps(self, rt_sample_array: RtSampleArray) -> list[float]:
         """Analyze the rt_sample_array and return timestamps for annotations.
 
@@ -133,7 +126,7 @@ class Annotator:
 class _SampleArrayGenerator:
     """Wraps a waveform generator and makes RtSampleArray objects."""
 
-    def __init__(self, model: DataModelProtocol,
+    def __init__(self, model: AbstractDataModel,
                  descriptor_handle: str,
                  generator: WaveformGeneratorBase):
         self._model = model

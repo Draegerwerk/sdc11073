@@ -13,13 +13,13 @@ from sdc11073.etc import apply_map
 from sdc11073.xml_types.pm_types import Coding, have_matching_codes
 
 if TYPE_CHECKING:
+    from lxml.etree import QName
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.xml_types.pm_types import CodedValue
 
     from .descriptorcontainers import AbstractDescriptorContainer, AbstractOperationDescriptorContainer
     from .statecontainers import AbstractMultiStateContainer, AbstractStateContainer
-
 
 
 @dataclass
@@ -71,6 +71,13 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
      - condition_signaled is the index for descriptor.ConditionSignaled, it finds only AlertSignalDescriptors.
      - source is the index for descriptor.Source, it finds only AlertConditionDescriptors.
     """
+
+    handle: multikey.UIndexDefinition[str, list[AbstractDescriptorContainer]]
+    parent_handle: multikey.IndexDefinition[str, list[AbstractDescriptorContainer]]
+    NODETYPE: multikey.IndexDefinition[QName, list[AbstractDescriptorContainer]]
+    coding: multikey.IndexDefinition[Coding, list[AbstractDescriptorContainer]]
+    condition_signaled: multikey.IndexDefinition[str, list[AbstractDescriptorContainer]]
+    source: multikey.IndexDefinition[str, list[AbstractDescriptorContainer]]
 
     def __init__(self):
         super().__init__()
@@ -147,15 +154,18 @@ class StatesLookup(_MultikeyWithVersionLookup):
     """StatesLookup is the table-like storage for states.
 
     It has search indices:
-     - descriptorHandle is the index for descriptor.DescriptorHandle.
+     - descriptor_handle is the index for descriptor.DescriptorHandle.
      - NODETYPE is the index for descriptor.NODETYPE. It finds all children of a queried type.
        This index works only for exact matches, class hierarchy is unknown here. E.g. AlertState only returns
        AlertState objects, not LimitAlertState!
     """
 
+    descriptor_handle: multikey.UIndexDefinition[str, list[AbstractDescriptorContainer]]
+    NODETYPE: multikey.IndexDefinition[QName, list[AbstractDescriptorContainer]]
+
     def __init__(self):
         super().__init__()
-        self.add_index('descriptorHandle', multikey.UIndexDefinition(lambda obj: obj.DescriptorHandle))
+        self.add_index('descriptor_handle', multikey.UIndexDefinition(lambda obj: obj.DescriptorHandle))
         self.add_index('NODETYPE', multikey.IndexDefinition(lambda obj: obj.NODETYPE, index_none_values=False))
 
     def _save_version(self, obj: AbstractStateContainer):
@@ -178,16 +188,20 @@ class MultiStatesLookup(_MultikeyWithVersionLookup):
     """MultiStatesLookup is the table-like storage for multi-states.
 
     It has search indices:
-     - descriptorHandle is the index for descriptor.DescriptorHandle.
+     - descriptor_handle is the index for descriptor.DescriptorHandle.
      - handle is the index for descriptor.Handle.
      - NODETYPE is the index for descriptor.NODETYPE. It finds all children of a queried type.
        This index works only for exact matches, class hierarchy is unknown here.
        AlertDescriptor objects, not LimitAlertDescriptor!
     """
 
+    descriptor_handle: multikey.IndexDefinition[str, list[AbstractMultiStateContainer]]
+    handle: multikey.UIndexDefinition[str, list[AbstractMultiStateContainer]]
+    NODETYPE: multikey.IndexDefinition[QName, list[AbstractMultiStateContainer]]
+
     def __init__(self):
         super().__init__()
-        self.add_index('descriptorHandle', multikey.IndexDefinition(lambda obj: obj.DescriptorHandle))
+        self.add_index('descriptor_handle', multikey.IndexDefinition(lambda obj: obj.DescriptorHandle))
         self.add_index('handle',
                        multikey.UIndexDefinition(lambda obj: obj.Handle, index_none_values=False))
         self.add_index('NODETYPE',
@@ -354,10 +368,8 @@ class MdibBase:
         """Create a lxml etree node with subtree from instance data.
 
         :param descriptor_container: a descriptor container instance
-        :param ns_helper:  namespaces.NamespaceHelper instance
-        :param set_xsi_type: if true, the NODETYPE will be used to set the xsi:type attribute of the node
         :param tag: tag of node
-        :param connect_child_descriptors: if True, the whole subtree is included
+        :param set_xsi_type: if true, the NODETYPE will be used to set the xsi:type attribute of the node
         :return: an etree node.
         """
         ns_map = self.nsmapper.partial_map(self.nsmapper.PM, self.nsmapper.XSI) \
@@ -560,7 +572,7 @@ class MdibBase:
             self.descriptions.remove_object(descriptor_container)
             deleted_descriptors[descriptor_container.Handle] = descriptor_container
             for m_key in (self.states, self.context_states):
-                state_containers = m_key.descriptorHandle.get(descriptor_container.Handle)
+                state_containers = m_key.descriptor_handle.get(descriptor_container.Handle)
                 if state_containers is not None:
                     # make a copy, otherwise remove_objects will manipulate same list in place
                     state_containers = state_containers[:]
@@ -584,13 +596,13 @@ class MdibBase:
     def get_entity(self, handle: str) -> Entity:
         """Return descriptor and state as Entity."""
         descr = self.descriptions.handle.get_one(handle)
-        state = self.states.descriptorHandle.get_one(handle)
+        state = self.states.descriptor_handle.get_one(handle)
         return Entity(descr, state)
 
     def get_context_entity(self, handle: str) -> MultiStateEntity:
         """Return descriptor and states as MultiStateEntity."""
         descr = self.descriptions.handle.get_one(handle)
-        states = self.context_states.descriptorHandle.get(handle)
+        states = self.context_states.descriptor_handle.get(handle)
         return MultiStateEntity(descr, states)
 
     def has_multiple_mds(self) -> bool:

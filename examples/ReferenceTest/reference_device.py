@@ -82,7 +82,7 @@ if __name__ == '__main__':
     dpwsDevice = ThisDeviceType(friendly_name='TestDevice',
                             firmware_version='Version1',
                             serial_number='12345')
-    if False: #ca_folder:
+    if ca_folder:
         ssl_context = mk_ssl_context_from_folder(ca_folder,
                                                  private_key='user_private_key_encrypted.pem',
                                                  certificate='user_certificate_root_signed.pem',

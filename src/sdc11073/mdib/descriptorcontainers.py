@@ -9,13 +9,17 @@ from sdc11073 import observableproperties as properties
 from sdc11073.xml_types import ext_qnames as ext
 from sdc11073.xml_types import msg_qnames as msg
 from sdc11073.xml_types import pm_qnames, pm_types
-from sdc11073.xml_types import xml_structure as cp
+from sdc11073.xml_types import xml_structure as x_struct
 
 from .containerbase import ContainerBase
 
 if TYPE_CHECKING:
+    from decimal import Decimal
+
     from lxml import etree as etree_
+
     from sdc11073.namespaces import NamespaceHelper
+    from sdc11073.xml_types.xml_structure import ExtensionLocalValue
 
 
 @dataclass(frozen=True)
@@ -53,6 +57,7 @@ class AbstractDescriptorProtocol(Protocol):
     """The common Interface of all descriptors."""
 
     NODETYPE: etree_.QName
+    STATE_QNAME: etree_.QName
     is_descriptor_container: bool
     is_system_context_descriptor: bool
     is_realtime_sample_array_metric_descriptor: bool
@@ -67,7 +72,7 @@ class AbstractDescriptorProtocol(Protocol):
     Handle: str
     DescriptorVersion: int
     SafetyClassification: pm_types.SafetyClassification
-    Type: pm_types.CodedValue
+    Type: pm_types.CodedValue | None
     source_mds: str
 
     def __init__(self, handle: str, parent_handle: str | None):
@@ -95,17 +100,18 @@ class AbstractDescriptorContainer(ContainerBase):
     is_context_descriptor = False
 
     is_leaf = True  # determines if children can be added
-
     node = properties.ObservableProperty()  # the etree node
 
-    Handle = cp.HandleAttributeProperty('Handle', is_optional=False)
-    Extension = cp.ExtensionNodeProperty(ext.Extension)
-    DescriptorVersion = cp.VersionCounterAttributeProperty('DescriptorVersion',
-                                                           implied_py_value=0)
-    SafetyClassification = cp.EnumAttributeProperty('SafetyClassification',
-                                                    implied_py_value=pm_types.SafetyClassification.INF,
-                                                    enum_cls=pm_types.SafetyClassification)
-    Type = cp.SubElementProperty(pm_qnames.Type, value_class=pm_types.CodedValue, is_optional=True)
+    Handle: str = x_struct.HandleAttributeProperty('Handle', is_optional=False)
+    Extension: ExtensionLocalValue = x_struct.ExtensionNodeProperty(ext.Extension)
+    DescriptorVersion: int = x_struct.VersionCounterAttributeProperty('DescriptorVersion',
+                                                                      implied_py_value=0)
+    SafetyClassification: pm_types.SafetyClassification = x_struct.EnumAttributeProperty('SafetyClassification',
+                                                                                         implied_py_value=pm_types.SafetyClassification.INF,
+                                                                                         enum_cls=pm_types.SafetyClassification)
+    Type: pm_types.CodedValue | None = x_struct.SubElementProperty(pm_qnames.Type,
+                                                                   value_class=pm_types.CodedValue,
+                                                                   is_optional=True)
     # pylint: enable=invalid-name
     _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'Extension', 'Type')
     _child_elements_order = (ext.Extension, pm_qnames.Type)  # child elements in BICEPS order
@@ -188,7 +194,7 @@ class AbstractDescriptorContainer(ContainerBase):
         return None if len(ret) == 0 else ret
 
     def mk_descriptor_node(self, tag: etree_.QName,
-                           ns_helper: NamespaceHelper, set_xsi_type: bool =True) -> etree_.Element:
+                           ns_helper: NamespaceHelper, set_xsi_type: bool = True) -> etree_.Element:
         """Create a lxml etree node from instance data.
 
         :param tag: tag of node
@@ -265,8 +271,9 @@ class AbstractDeviceComponentDescriptorContainer(AbstractDescriptorContainer):
 
     is_component_descriptor = True
     is_leaf = False
-    ProductionSpecification = cp.SubElementListProperty(pm_qnames.ProductionSpecification,
-                                                        value_class=pm_types.ProductionSpecification)
+    ProductionSpecification: list[pm_types.ProductionSpecification] = x_struct.SubElementListProperty(
+        pm_qnames.ProductionSpecification,
+        value_class=pm_types.ProductionSpecification)
     _props = ('ProductionSpecification',)
     _child_elements_order = (pm_qnames.ProductionSpecification,)
 
@@ -285,10 +292,11 @@ class MdsDescriptorContainer(AbstractComplexDeviceComponentDescriptorContainer):
 
     NODETYPE = pm_qnames.MdsDescriptor
     STATE_QNAME = pm_qnames.MdsState
-    MetaData = cp.SubElementProperty(pm_qnames.MetaData, value_class=pm_types.MetaData, is_optional=True)
-    ApprovedJurisdictions = cp.SubElementProperty(pm_qnames.ApprovedJurisdictions,
-                                                  value_class=pm_types.ApprovedJurisdictions,
-                                                  is_optional=True)
+    MetaData = x_struct.SubElementProperty(pm_qnames.MetaData, value_class=pm_types.MetaData, is_optional=True)
+    ApprovedJurisdictions: pm_types.ApprovedJurisdictions | None = x_struct.SubElementProperty(
+        pm_qnames.ApprovedJurisdictions,
+        value_class=pm_types.ApprovedJurisdictions,
+        is_optional=True)
     _props = ('MetaData', 'ApprovedJurisdictions')
     _child_elements_order = (pm_qnames.MetaData,
                              pm_qnames.SystemContext,
@@ -310,9 +318,10 @@ class VmdDescriptorContainer(AbstractComplexDeviceComponentDescriptorContainer):
     NODETYPE = pm_qnames.VmdDescriptor
     STATE_QNAME = pm_qnames.VmdState
 
-    ApprovedJurisdictions = cp.SubElementProperty(pm_qnames.ApprovedJurisdictions,
-                                                  value_class=pm_types.ApprovedJurisdictions,
-                                                  is_optional=True)
+    ApprovedJurisdictions: pm_types.ApprovedJurisdictions | None = x_struct.SubElementProperty(
+        pm_qnames.ApprovedJurisdictions,
+        value_class=pm_types.ApprovedJurisdictions,
+        is_optional=True)
     _props = ('ApprovedJurisdictions',)
     _child_elements_order = (pm_qnames.ApprovedJurisdictions,
                              pm_qnames.Channel)
@@ -343,8 +352,9 @@ class ClockDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
 
     NODETYPE = pm_qnames.ClockDescriptor
     STATE_QNAME = pm_qnames.ClockState
-    TimeProtocol = cp.SubElementListProperty(pm_qnames.TimeProtocol, value_class=pm_types.CodedValue)
-    Resolution = cp.DurationAttributeProperty('Resolution')  # optional,  xsd:duration
+    TimeProtocol: list[pm_types.CodedValue] = x_struct.SubElementListProperty(pm_qnames.TimeProtocol,
+                                                                              value_class=pm_types.CodedValue)
+    Resolution: x_struct.DurationType | None = x_struct.DurationAttributeProperty('Resolution')
     _props = ('TimeProtocol', 'Resolution')
     _child_elements_order = (pm_qnames.TimeProtocol,)
 
@@ -355,15 +365,15 @@ class BatteryDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     NODETYPE = pm_qnames.BatteryDescriptor
     STATE_QNAME = pm_qnames.BatteryState
     # pylint: disable=invalid-name
-    CapacityFullCharge = cp.SubElementProperty(pm_qnames.CapacityFullCharge,
-                                               value_class=pm_types.Measurement,
-                                               is_optional=True)
-    CapacitySpecified = cp.SubElementProperty(pm_qnames.CapacitySpecified,
-                                              value_class=pm_types.Measurement,
-                                              is_optional=True)
-    VoltageSpecified = cp.SubElementProperty(pm_qnames.VoltageSpecified,
-                                             value_class=pm_types.Measurement,
-                                             is_optional=True)
+    CapacityFullCharge: pm_types.Measurement | None = x_struct.SubElementProperty(pm_qnames.CapacityFullCharge,
+                                                                                  value_class=pm_types.Measurement,
+                                                                                  is_optional=True)
+    CapacitySpecified: pm_types.Measurement | None = x_struct.SubElementProperty(pm_qnames.CapacitySpecified,
+                                                                                 value_class=pm_types.Measurement,
+                                                                                 is_optional=True)
+    VoltageSpecified: pm_types.Measurement | None = x_struct.SubElementProperty(pm_qnames.VoltageSpecified,
+                                                                                value_class=pm_types.Measurement,
+                                                                                is_optional=True)
     # pylint: enable=invalid-name
     _props = ('CapacityFullCharge', 'CapacitySpecified', 'VoltageSpecified')
     _child_elements_order = (pm_qnames.CapacityFullCharge,
@@ -394,25 +404,30 @@ class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
     """Represents AbstractMetricDescriptor in BICEPS."""
 
     is_metric_descriptor = True
-    Unit = cp.SubElementProperty(pm_qnames.Unit, value_class=pm_types.CodedValue)
-    BodySite = cp.SubElementListProperty(pm_qnames.BodySite, value_class=pm_types.CodedValue)
-    Relation = cp.SubElementListProperty(pm_qnames.Relation, value_class=pm_types.Relation)  # o...n
-    MetricCategory = cp.EnumAttributeProperty('MetricCategory',
-                                              enum_cls=pm_types.MetricCategory,
-                                              default_py_value=pm_types.MetricCategory.UNSPECIFIED)  # required
-    DerivationMethod = cp.EnumAttributeProperty('DerivationMethod', enum_cls=pm_types.DerivationMethod)  # optional
+    Unit: pm_types.CodedValue = x_struct.SubElementProperty(pm_qnames.Unit, value_class=pm_types.CodedValue)
+    BodySite: list[pm_types.CodedValue] = x_struct.SubElementListProperty(pm_qnames.BodySite,
+                                                                          value_class=pm_types.CodedValue)
+    Relation: list[pm_types.Relation] = x_struct.SubElementListProperty(pm_qnames.Relation,
+                                                                        value_class=pm_types.Relation)
+    MetricCategory: pm_types.MetricCategory = x_struct.EnumAttributeProperty('MetricCategory',
+                                                                             enum_cls=pm_types.MetricCategory,
+                                                                             default_py_value=pm_types.MetricCategory.UNSPECIFIED,
+                                                                             is_optional=False)
+    DerivationMethod: pm_types.DerivationMethod | None = x_struct.EnumAttributeProperty('DerivationMethod',
+                                                                                        enum_cls=pm_types.DerivationMethod)
     #  There is an implied value defined, but it is complicated, therefore here not implemented:
     # - If pm:AbstractDescriptor/@MetricCategory is "Set" or "Preset", then the default value of DerivationMethod is "Man"
     # - If pm:AbstractDescriptor/@MetricCategory is "Clc", "Msrmt", "Rcmm", then the default value of DerivationMethod is "Auto"
     # - If pm:AbstractDescriptor/@MetricCategory is "Unspec", then no default value is being implied</xsd:documentation>
-    MetricAvailability = cp.EnumAttributeProperty('MetricAvailability',
-                                                  enum_cls=pm_types.MetricAvailability,
-                                                  default_py_value=pm_types.MetricAvailability.CONTINUOUS)  # required
-    MaxMeasurementTime = cp.DurationAttributeProperty('MaxMeasurementTime')  # optional,  xsd:duration
-    MaxDelayTime = cp.DurationAttributeProperty('MaxDelayTime')  # optional,  xsd:duration
-    DeterminationPeriod = cp.DurationAttributeProperty('DeterminationPeriod')  # optional,  xsd:duration
-    LifeTimePeriod = cp.DurationAttributeProperty('LifeTimePeriod')  # optional,  xsd:duration
-    ActivationDuration = cp.DurationAttributeProperty('ActivationDuration')  # optional,  xsd:duration
+    MetricAvailability: pm_types.MetricAvailability = x_struct.EnumAttributeProperty('MetricAvailability',
+                                                                                     enum_cls=pm_types.MetricAvailability,
+                                                                                     default_py_value=pm_types.MetricAvailability.CONTINUOUS,
+                                                                                     is_optional=False)
+    MaxMeasurementTime: x_struct.DurationType | None = x_struct.DurationAttributeProperty('MaxMeasurementTime')
+    MaxDelayTime: x_struct.DurationType | None = x_struct.DurationAttributeProperty('MaxDelayTime')
+    DeterminationPeriod: x_struct.DurationType | None = x_struct.DurationAttributeProperty('DeterminationPeriod')
+    LifeTimePeriod: x_struct.DurationType | None = x_struct.DurationAttributeProperty('LifeTimePeriod')
+    ActivationDuration: x_struct.DurationType | None = x_struct.DurationAttributeProperty('ActivationDuration')
     _props = (
         'Unit', 'BodySite', 'Relation', 'MetricCategory', 'DerivationMethod', 'MetricAvailability',
         'MaxMeasurementTime',
@@ -427,9 +442,10 @@ class NumericMetricDescriptorContainer(AbstractMetricDescriptorContainer):
 
     NODETYPE = pm_qnames.NumericMetricDescriptor
     STATE_QNAME = pm_qnames.NumericMetricState
-    TechnicalRange = cp.SubElementListProperty(pm_qnames.TechnicalRange, value_class=pm_types.Range)
-    Resolution = cp.DecimalAttributeProperty('Resolution', is_optional=False)
-    AveragingPeriod = cp.DurationAttributeProperty('AveragingPeriod')  # optional
+    TechnicalRange: list[pm_types.Range] = x_struct.SubElementListProperty(pm_qnames.TechnicalRange,
+                                                                           value_class=pm_types.Range)
+    Resolution: Decimal = x_struct.DecimalAttributeProperty('Resolution', is_optional=False)
+    AveragingPeriod: x_struct.DurationType | None = x_struct.DurationAttributeProperty('AveragingPeriod')
     _props = ('TechnicalRange', 'Resolution', 'AveragingPeriod')
     _child_elements_order = (pm_qnames.TechnicalRange,)
 
@@ -446,7 +462,8 @@ class EnumStringMetricDescriptorContainer(StringMetricDescriptorContainer):
 
     NODETYPE = pm_qnames.EnumStringMetricDescriptor
     STATE_QNAME = pm_qnames.EnumStringMetricState
-    AllowedValue = cp.SubElementListProperty(pm_qnames.AllowedValue, value_class=pm_types.AllowedValue)
+    AllowedValue: list[pm_types.AllowedValue] = x_struct.SubElementListProperty(pm_qnames.AllowedValue,
+                                                                                value_class=pm_types.AllowedValue)
     _props = ('AllowedValue',)
     _child_elements_order = (pm_qnames.AllowedValue,)
 
@@ -457,9 +474,10 @@ class RealTimeSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorConta
     is_realtime_sample_array_metric_descriptor = True
     NODETYPE = pm_qnames.RealTimeSampleArrayMetricDescriptor
     STATE_QNAME = pm_qnames.RealTimeSampleArrayMetricState
-    TechnicalRange = cp.SubElementListProperty(pm_qnames.TechnicalRange, value_class=pm_types.Range)
-    Resolution = cp.DecimalAttributeProperty('Resolution', is_optional=False)
-    SamplePeriod = cp.DurationAttributeProperty('SamplePeriod', is_optional=False)
+    TechnicalRange: list[pm_types.Range] = x_struct.SubElementListProperty(pm_qnames.TechnicalRange,
+                                                                           value_class=pm_types.Range)
+    Resolution: Decimal = x_struct.DecimalAttributeProperty('Resolution', is_optional=False)
+    SamplePeriod: x_struct.DurationType = x_struct.DurationAttributeProperty('SamplePeriod', is_optional=False)
     _props = ('TechnicalRange', 'Resolution', 'SamplePeriod')
     _child_elements_order = (pm_qnames.TechnicalRange,)
 
@@ -469,10 +487,13 @@ class DistributionSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorC
 
     NODETYPE = pm_qnames.DistributionSampleArrayMetricDescriptor
     STATE_QNAME = pm_qnames.DistributionSampleArrayMetricState
-    TechnicalRange = cp.SubElementListProperty(pm_qnames.TechnicalRange, value_class=pm_types.Range)
-    DomainUnit = cp.SubElementProperty(pm_qnames.DomainUnit, value_class=pm_types.CodedValue)
-    DistributionRange = cp.SubElementProperty(pm_qnames.DistributionRange, value_class=pm_types.Range)
-    Resolution = cp.DecimalAttributeProperty('Resolution', is_optional=False)
+    TechnicalRange: list[pm_types.Range] = x_struct.SubElementListProperty(pm_qnames.TechnicalRange,
+                                                                           value_class=pm_types.Range)
+    DomainUnit: pm_types.CodedValue = x_struct.SubElementProperty(pm_qnames.DomainUnit, value_class=pm_types.CodedValue)
+    DistributionRange: pm_types.Range = x_struct.SubElementProperty(pm_qnames.DistributionRange,
+                                                                    value_class=pm_types.Range,
+                                                                    default_py_value=pm_types.Range())
+    Resolution: Decimal = x_struct.DecimalAttributeProperty('Resolution', is_optional=False)
     _props = ('TechnicalRange', 'DomainUnit', 'DistributionRange', 'Resolution')
     _child_elements_order = (pm_qnames.TechnicalRange,
                              pm_qnames.DomainUnit,
@@ -483,12 +504,14 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
     """Represents AbstractOperationDescriptor in BICEPS."""
 
     is_operational_descriptor = True
-    OperationTarget = cp.HandleRefAttributeProperty('OperationTarget', is_optional=False)
-    MaxTimeToFinish = cp.DurationAttributeProperty('MaxTimeToFinish')  # optional  xsd:duration
-    InvocationEffectiveTimeout = cp.DurationAttributeProperty('InvocationEffectiveTimeout')  # optional  xsd:duration
-    Retriggerable = cp.BooleanAttributeProperty('Retriggerable', implied_py_value=True)  # optional
-    AccessLevel = cp.EnumAttributeProperty('AccessLevel', implied_py_value=pm_types.T_AccessLevel.USER,
-                                           enum_cls=pm_types.T_AccessLevel)
+    OperationTarget: str = x_struct.HandleRefAttributeProperty('OperationTarget', is_optional=False)
+    MaxTimeToFinish: x_struct.DurationType | None = x_struct.DurationAttributeProperty('MaxTimeToFinish')
+    InvocationEffectiveTimeout: x_struct.DurationType | None = x_struct.DurationAttributeProperty(
+        'InvocationEffectiveTimeout')
+    Retriggerable: bool = x_struct.BooleanAttributeProperty('Retriggerable', implied_py_value=True)
+    AccessLevel: pm_types.T_AccessLevel = x_struct.EnumAttributeProperty('AccessLevel',
+                                                                         implied_py_value=pm_types.T_AccessLevel.USER,
+                                                                         enum_cls=pm_types.T_AccessLevel)
     _props = ('OperationTarget', 'MaxTimeToFinish', 'InvocationEffectiveTimeout', 'Retriggerable', 'AccessLevel')
 
 
@@ -504,14 +527,14 @@ class SetStringOperationDescriptorContainer(AbstractOperationDescriptorContainer
 
     NODETYPE = pm_qnames.SetStringOperationDescriptor
     STATE_QNAME = pm_qnames.SetStringOperationState
-    MaxLength = cp.IntegerAttributeProperty('MaxLength')
+    MaxLength: int | None = x_struct.IntegerAttributeProperty('MaxLength')
     _props = ('MaxLength',)
 
 
 class AbstractSetStateOperationDescriptorContainer(AbstractOperationDescriptorContainer):
     """Represents AbstractSetStateOperationDescriptor in BICEPS."""
 
-    ModifiableData = cp.SubElementStringListProperty(pm_qnames.ModifiableData)
+    ModifiableData: list[str] = x_struct.SubElementStringListProperty(pm_qnames.ModifiableData)
     _props = ('ModifiableData',)
     _child_elements_order = (pm_qnames.ModifiableData,)
 
@@ -549,7 +572,8 @@ class ActivateOperationDescriptorContainer(AbstractSetStateOperationDescriptorCo
 
     NODETYPE = pm_qnames.ActivateOperationDescriptor
     STATE_QNAME = pm_qnames.ActivateOperationState
-    Argument = cp.SubElementListProperty(pm_qnames.Argument, value_class=pm_types.ActivateOperationDescriptorArgument)
+    Argument: list[pm_types.ActivateOperationDescriptorArgument] = x_struct.SubElementListProperty(
+        pm_qnames.Argument, value_class=pm_types.ActivateOperationDescriptorArgument)
     _props = ('Argument',)
     _child_elements_order = (pm_qnames.Argument,)
 
@@ -572,9 +596,9 @@ class AlertSystemDescriptorContainer(AbstractAlertDescriptorContainer):
 
     NODETYPE = pm_qnames.AlertSystemDescriptor
     STATE_QNAME = pm_qnames.AlertSystemState
-    MaxPhysiologicalParallelAlarms = cp.UnsignedIntAttributeProperty('MaxPhysiologicalParallelAlarms')
-    MaxTechnicalParallelAlarms = cp.UnsignedIntAttributeProperty('MaxTechnicalParallelAlarms')
-    SelfCheckPeriod = cp.DurationAttributeProperty('SelfCheckPeriod')
+    MaxPhysiologicalParallelAlarms: int | None = x_struct.UnsignedIntAttributeProperty('MaxPhysiologicalParallelAlarms')
+    MaxTechnicalParallelAlarms: int | None = x_struct.UnsignedIntAttributeProperty('MaxTechnicalParallelAlarms')
+    SelfCheckPeriod: x_struct.DurationType | None = x_struct.DurationAttributeProperty('SelfCheckPeriod')
     _props = ('MaxPhysiologicalParallelAlarms', 'MaxTechnicalParallelAlarms', 'SelfCheckPeriod')
     _child_elements_order = (pm_qnames.AlertCondition,
                              pm_qnames.AlertSignal)
@@ -597,16 +621,25 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
     is_alert_condition_descriptor = True
     NODETYPE = pm_qnames.AlertConditionDescriptor
     STATE_QNAME = pm_qnames.AlertConditionState
-    Source = cp.SubElementHandleRefListProperty(pm_qnames.Source)  # a list of 0...n pm:HandleRef elements
-    CauseInfo = cp.SubElementListProperty(pm_qnames.CauseInfo, value_class=pm_types.CauseInfo)
-    Kind = cp.EnumAttributeProperty('Kind', default_py_value=pm_types.AlertConditionKind.OTHER,
-                                    enum_cls=pm_types.AlertConditionKind, is_optional=False)
-    Priority = cp.EnumAttributeProperty('Priority', default_py_value=pm_types.AlertConditionPriority.NONE,
-                                        enum_cls=pm_types.AlertConditionPriority, is_optional=False)
-    DefaultConditionGenerationDelay = cp.DurationAttributeProperty('DefaultConditionGenerationDelay',
-                                                                   implied_py_value=0)
-    CanEscalate = cp.EnumAttributeProperty('CanEscalate', enum_cls=pm_types.CanEscalateAlertConditionPriority)
-    CanDeescalate = cp.EnumAttributeProperty('CanDeescalate', enum_cls=pm_types.CanDeEscalateAlertConditionPriority)
+    Source: list[str] = x_struct.SubElementHandleRefListProperty(
+        pm_qnames.Source)  # a list of 0...n pm:HandleRef elements
+    CauseInfo: list[pm_types.CauseInfo] = x_struct.SubElementListProperty(pm_qnames.CauseInfo,
+                                                                          value_class=pm_types.CauseInfo)
+    Kind: pm_types.AlertConditionKind = x_struct.EnumAttributeProperty('Kind',
+                                                                       default_py_value=pm_types.AlertConditionKind.OTHER,
+                                                                       enum_cls=pm_types.AlertConditionKind,
+                                                                       is_optional=False)
+    Priority: pm_types.AlertConditionPriority = x_struct.EnumAttributeProperty('Priority',
+                                                                               default_py_value=pm_types.AlertConditionPriority.NONE,
+                                                                               enum_cls=pm_types.AlertConditionPriority,
+                                                                               is_optional=False)
+    DefaultConditionGenerationDelay: x_struct.DurationType = x_struct.DurationAttributeProperty(
+        'DefaultConditionGenerationDelay',
+        implied_py_value=0)
+    CanEscalate: pm_types.CanEscalateAlertConditionPriority | None = x_struct.EnumAttributeProperty(
+        'CanEscalate', enum_cls=pm_types.CanEscalateAlertConditionPriority)
+    CanDeescalate: pm_types.CanDeEscalateAlertConditionPriority | None = x_struct.EnumAttributeProperty(
+        'CanDeescalate', enum_cls=pm_types.CanDeEscalateAlertConditionPriority)
     _props = ('Source', 'CauseInfo', 'Kind', 'Priority', 'DefaultConditionGenerationDelay',
               'CanEscalate', 'CanDeescalate')
     _child_elements_order = (pm_qnames.Source,
@@ -618,9 +651,10 @@ class LimitAlertConditionDescriptorContainer(AlertConditionDescriptorContainer):
 
     NODETYPE = pm_qnames.LimitAlertConditionDescriptor
     STATE_QNAME = pm_qnames.LimitAlertConditionState
-    MaxLimits = cp.SubElementProperty(pm_qnames.MaxLimits, value_class=pm_types.Range,
-                                      default_py_value=pm_types.Range())
-    AutoLimitSupported = cp.BooleanAttributeProperty('AutoLimitSupported', implied_py_value=False)
+    MaxLimits: pm_types.Range() = x_struct.SubElementProperty(pm_qnames.MaxLimits,
+                                                              value_class=pm_types.Range,
+                                                              default_py_value=pm_types.Range())
+    AutoLimitSupported: bool = x_struct.BooleanAttributeProperty('AutoLimitSupported', implied_py_value=False)
     _props = ('MaxLimits', 'AutoLimitSupported')
     _child_elements_order = (pm_qnames.MaxLimits,)
 
@@ -631,16 +665,23 @@ class AlertSignalDescriptorContainer(AbstractAlertDescriptorContainer):
     is_alert_signal_descriptor = True
     NODETYPE = pm_qnames.AlertSignalDescriptor
     STATE_QNAME = pm_qnames.AlertSignalState
-    ConditionSignaled = cp.HandleRefAttributeProperty('ConditionSignaled')
-    Manifestation = cp.EnumAttributeProperty('Manifestation', enum_cls=pm_types.AlertSignalManifestation,
-                                             is_optional=False)
-    Latching = cp.BooleanAttributeProperty('Latching', default_py_value=False, is_optional=False)
-    DefaultSignalGenerationDelay = cp.DurationAttributeProperty('DefaultSignalGenerationDelay', implied_py_value=0)
-    MinSignalGenerationDelay = cp.DurationAttributeProperty('MinSignalGenerationDelay')
-    MaxSignalGenerationDelay = cp.DurationAttributeProperty('MaxSignalGenerationDelay')
-    SignalDelegationSupported = cp.BooleanAttributeProperty('SignalDelegationSupported', implied_py_value=False)
-    AcknowledgementSupported = cp.BooleanAttributeProperty('AcknowledgementSupported', implied_py_value=False)
-    AcknowledgeTimeout = cp.DurationAttributeProperty('AcknowledgeTimeout')  # optional
+    ConditionSignaled: str = x_struct.HandleRefAttributeProperty('ConditionSignaled')
+    Manifestation: pm_types.AlertSignalManifestation = x_struct.EnumAttributeProperty('Manifestation',
+                                                                                      enum_cls=pm_types.AlertSignalManifestation,
+                                                                                      is_optional=False)
+    Latching: bool = x_struct.BooleanAttributeProperty('Latching', default_py_value=False, is_optional=False)
+    DefaultSignalGenerationDelay: x_struct.DurationType = x_struct.DurationAttributeProperty(
+        'DefaultSignalGenerationDelay',
+        implied_py_value=0)
+    MinSignalGenerationDelay: x_struct.DurationType | None = x_struct.DurationAttributeProperty(
+        'MinSignalGenerationDelay')
+    MaxSignalGenerationDelay: x_struct.DurationType | None = x_struct.DurationAttributeProperty(
+        'MaxSignalGenerationDelay')
+    SignalDelegationSupported: bool = x_struct.BooleanAttributeProperty('SignalDelegationSupported',
+                                                                        implied_py_value=False)
+    AcknowledgementSupported: bool = x_struct.BooleanAttributeProperty('AcknowledgementSupported',
+                                                                       implied_py_value=False)
+    AcknowledgeTimeout: x_struct.DurationType | None = x_struct.DurationAttributeProperty('AcknowledgeTimeout')
     _props = ('ConditionSignaled', 'Manifestation', 'Latching', 'DefaultSignalGenerationDelay',
               'MinSignalGenerationDelay', 'MaxSignalGenerationDelay',
               'SignalDelegationSupported', 'AcknowledgementSupported', 'AcknowledgeTimeout')

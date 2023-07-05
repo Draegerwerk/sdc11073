@@ -1,4 +1,6 @@
 import unittest
+from decimal import Decimal
+
 from sdc11073.xml_types.isoduration import parse_duration, duration_string
 from sdc11073.xml_types.isoduration import parse_date_time, date_time_string, GYearMonth, GYear, UTC
 from datetime import date, datetime
@@ -13,10 +15,13 @@ class TestIsoDate(unittest.TestCase):
         self.assertEqual('-P0Y0M3DT5H13M17S', duration_string((3600*24*3 +3600*5 + 60*13 +17)*-1))
         self.assertEqual('PT0H0M0.1S', duration_string(0.1))
         self.assertEqual('-PT0H0M0.000001S', duration_string(-0.000001))
+        self.assertEqual('PT0H0M1S', duration_string(Decimal('1')))
+        self.assertEqual('PT0H0M1.1S', duration_string(Decimal('1.1')))
 
 
     def test_parseDuration(self):
         self.assertEqual(parse_duration('P0Y0M0DT0H0M1S'), 1)
+        # self.assertEqual(parse_duration('P0Y0M2DT1H0M1.1S'), 1.1)
         self.assertEqual(parse_duration('P0Y0M0DT0H1M0S'), 60)
         self.assertEqual(parse_duration('P0Y0M0DT0H1M1S'), 61)
         self.assertEqual(parse_duration('P0Y0M0DT0H1M61S'), 121)

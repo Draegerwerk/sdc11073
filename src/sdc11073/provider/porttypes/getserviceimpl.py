@@ -60,11 +60,11 @@ class GetService(DPWSPortTypeBase):
                             state_containers.append(self._mdib.context_states.handle.get_one(handle))
                         except (KeyError, ValueError):
                             # If a HANDLE reference does match a descriptor HANDLE, all states that belong to the corresponding descriptor SHALL be included in the result list
-                            state_containers.extend(self._mdib.states.descriptorHandle.get(handle, []))
-                            state_containers.extend(self._mdib.context_states.descriptorHandle.get(handle, []))
+                            state_containers.extend(self._mdib.states.descriptor_handle.get(handle, []))
+                            state_containers.extend(self._mdib.context_states.descriptor_handle.get(handle, []))
                 else:
                     for handle in requested_handles:
-                        state_containers.extend(self._mdib.states.descriptorHandle.get(handle, []))
+                        state_containers.extend(self._mdib.states.descriptor_handle.get(handle, []))
 
                 self._logger.debug('_on_get_md_state requested Handles:{} found {} states', requested_handles,
                                    len(state_containers))

@@ -23,13 +23,13 @@ def setLocalEnsembleContext(mdib, ensemble):
     if not descriptorContainer:
         print("No ensemble contexts in mdib")
         return
-    allEnsembleContexts = mdib.contextStates.descriptorHandle.get(descriptorContainer.handle, [])
+    allEnsembleContexts = mdib.contextStates.descriptor_handle.get(descriptorContainer.handle, [])
     with mdib.mdibUpdateTransaction() as mgr:
         # set all to currently associated Locations to Disassociated
         associatedEnsembles = [l for l in allEnsembleContexts if
                                l.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
         for l in associatedEnsembles:
-            ensembleContext = mgr.getContextState(l.descriptorHandle, l.Handle)
+            ensembleContext = mgr.getContextState(l.DescriptorHandle, l.Handle)
             ensembleContext.ContextAssociation = pm_types.ContextAssociation.DISASSOCIATED
             ensembleContext.UnbindingMdibVersion = mdib.mdibVersion  # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
 

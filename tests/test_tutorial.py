@@ -289,11 +289,11 @@ class Test_Tutorial(unittest.TestCase):
         location_context_descriptor_containers = my_mdib.descriptions.NODETYPE.get(pm.LocationContextDescriptor)
         self.assertEqual(len(location_context_descriptor_containers), 1)
         # we can look for the corresponding state by handle:
-        location_context_state_containers = my_mdib.context_states.descriptorHandle.get(
+        location_context_state_containers = my_mdib.context_states.descriptor_handle.get(
             location_context_descriptor_containers[0].Handle)
         self.assertEqual(len(location_context_state_containers), 1)
 
-    def test_callOperation(self):
+    def test_call_operation(self):
         # create one discovery and one device that we can then search for
         my_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_ws_discovery)
@@ -405,7 +405,7 @@ class Test_Tutorial(unittest.TestCase):
             result = future.result()
             print(result)
             self.assertEqual(my_product_impl.my_provider_1.operation2_args, value)
-            state = my_mdib.states.descriptorHandle.get_one(op.OperationTarget)
+            state = my_mdib.states.descriptor_handle.get_one(op.OperationTarget)
             self.assertEqual(state.MetricValue.Value, value)
         self.assertEqual(my_product_impl.my_provider_1.operation2_called, 2)
 
@@ -417,5 +417,5 @@ class Test_Tutorial(unittest.TestCase):
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_2.operation3_args, 42)
-        state = my_mdib.states.descriptorHandle.get_one(op.OperationTarget)
+        state = my_mdib.states.descriptor_handle.get_one(op.OperationTarget)
         self.assertEqual(state.MetricValue.Value, 42)

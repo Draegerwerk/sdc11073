@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from sdc11073.pysoap.msgreader import ReceivedMessage
 
     from .consumermdib import ConsumerMdib
-    from .statecontainers import AbstractMetricStateContainer, AbstractStateContainer
+    from .statecontainers import AbstractMetricStateContainer, AbstractStateProtocol
 
 
 
@@ -228,7 +228,7 @@ class ConsumerMdibMethods:
 
     def mk_proposed_state(self, descriptor_handle: str,
                           copy_current_state: bool = True,
-                          handle: str | None = None) -> AbstractStateContainer:
+                          handle: str | None = None) -> AbstractStateProtocol:
         """Create a new state that can be used as proposed state in according operations.
 
         The new state is not part of mdib!.
@@ -248,7 +248,7 @@ class ConsumerMdibMethods:
                     return new_state
                 old_state = lookup.handle.get_one(handle)
             else:
-                old_state = lookup.descriptorHandle.get_one(descriptor_handle)
+                old_state = lookup.descriptor_handle.get_one(descriptor_handle)
             new_state.update_from_other_container(old_state)
         return new_state
 

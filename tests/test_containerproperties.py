@@ -12,7 +12,7 @@ from sdc11073.xml_types.xml_structure import SubElementWithSubElementListPropert
 from sdc11073.xml_types.xml_structure import HandleRefListAttributeProperty
 from sdc11073.xml_types.xml_structure import StringAttributeProperty, IntegerAttributeProperty, EnumAttributeProperty
 from sdc11073.xml_types.xml_structure import DecimalListAttributeProperty
-from sdc11073.mdib.statecontainers import T_AllowedValues
+from sdc11073.mdib.statecontainers import AllowedValuesType
 from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.xml_types import pm_qnames as pm
 
@@ -94,8 +94,8 @@ class DummySubElement(DummyBase):
 
 class DummySubElementList(DummyBase):
     sub_elem = SubElementWithSubElementListProperty(etree_.QName('pref', 'sub_elem'),
-                                                    default_py_value=T_AllowedValues(),
-                                                    value_class=T_AllowedValues)
+                                                    default_py_value=AllowedValuesType(),
+                                                    value_class=AllowedValuesType)
 
     def props(self):
         yield self.__class__.sub_elem

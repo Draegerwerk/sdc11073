@@ -13,7 +13,8 @@ import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, Callable
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Callable, NewType, Union
 
 from lxml import etree as etree_
 
@@ -35,10 +36,9 @@ from .dataconverters import (
 )
 
 if TYPE_CHECKING:
-    from decimal import Decimal
-    from .dataconverters import DataConverterProtocol
-
     from sdc11073.namespaces import NamespaceHelper
+
+    from .dataconverters import DataConverterProtocol
 
 STRICT_TYPES = True  # if True, only the expected types are excepted.
 MANDATORY_VALUE_CHECKING = True  # checks if mandatory values are present when xml is generated
@@ -245,7 +245,7 @@ class _AttributeBase(_XmlStructureBaseProperty):
 class _ElementBase(_XmlStructureBaseProperty, ABC):
     """_ElementBase represents an XML Element."""
 
-    def __init__(self, sub_element_name: etree_.QName | None, # Noqa: PLR0913
+    def __init__(self, sub_element_name: etree_.QName | None,  # Noqa: PLR0913
                  value_converter: DataConverterProtocol,
                  default_py_value: Any = None,
                  implied_py_value: Any = None,
@@ -334,7 +334,7 @@ class TimeZoneAttributeProperty(StringAttributeProperty):
 class EnumAttributeProperty(_AttributeBase):
     """Base class for enum attributes."""
 
-    def __init__(self, attribute_name: str, # Noqa: PLR0913
+    def __init__(self, attribute_name: str,  # Noqa: PLR0913
                  enum_cls: Any,
                  default_py_value: Any = None,
                  implied_py_value: Any = None,
@@ -389,6 +389,9 @@ class QualityIndicatorAttributeProperty(DecimalAttributeProperty):
     """Represents a QualityIndicator attribute, a value between 0 and 1."""
 
 
+DurationType = NewType('DurationType', Union[Decimal, int, float])
+
+
 class DurationAttributeProperty(_AttributeBase):
     """Represents a Duration attribute.
 
@@ -397,8 +400,8 @@ class DurationAttributeProperty(_AttributeBase):
     """
 
     def __init__(self, attribute_name: str,
-                 default_py_value: float | None = None,
-                 implied_py_value: float | None = None,
+                 default_py_value: DurationType | None = None,
+                 implied_py_value: DurationType | None = None,
                  is_optional: bool = True):
         super().__init__(attribute_name, value_converter=DurationConverter,
                          default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
@@ -500,6 +503,7 @@ class _AttributeListBase(_AttributeBase):
     """
 
     _converter: ListConverter
+
     def __init__(self, attribute_name: str,
                  value_converter: ListConverter,
                  is_optional: bool = True):
@@ -593,7 +597,7 @@ class NodeTextProperty(_ElementBase):
     Python representation depends on value converter.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None, # Noqa: PLR0913
+    def __init__(self, sub_element_name: etree_.QName | None,  # Noqa: PLR0913
                  value_converter: DataConverterProtocol,
                  default_py_value: Any | None = None,
                  implied_py_value: Any | None = None,
@@ -644,7 +648,7 @@ class NodeStringProperty(NodeTextProperty):
     Python representation is a string.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None = None, # Noqa: PLR0913
+    def __init__(self, sub_element_name: etree_.QName | None = None,  # Noqa: PLR0913
                  default_py_value: str | None = None,
                  implied_py_value: str | None = None,
                  is_optional: bool = False,
@@ -791,11 +795,11 @@ class NodeTextQNameProperty(_ElementBase):
             sub_node.text = value
 
 
-class _ExtensionLocalValue:
+class ExtensionLocalValue:
     def __init__(self, value: Any):
         self.value = value or OrderedDict()
 
-    def __eq__(self, other: _ExtensionLocalValue) -> bool:
+    def __eq__(self, other: ExtensionLocalValue) -> bool:
         if other is None:
             return len(self.value) == 0
         return self.value == other.value
@@ -805,7 +809,7 @@ class ExtensionNodeProperty(_ElementBase):
     """Represents an ext:Extension Element that contains xml tree of any kind."""
 
     def __init__(self, sub_element_name: etree_.QName | None, default_py_value: Any | None = None):
-        super().__init__(sub_element_name, ClassCheckConverter(_ExtensionLocalValue), default_py_value,
+        super().__init__(sub_element_name, ClassCheckConverter(ExtensionLocalValue), default_py_value,
                          is_optional=True)
 
     def __get__(self, instance, owner):  # Noqa ANN001
@@ -817,7 +821,7 @@ class ExtensionNodeProperty(_ElementBase):
         except AttributeError:
             value = None
         if value is None:
-            value = _ExtensionLocalValue(None)
+            value = ExtensionLocalValue(None)
             setattr(instance, self._local_var_name, value)
         return value
 
@@ -837,7 +841,7 @@ class ExtensionNodeProperty(_ElementBase):
                 values[extension_node.tag] = cls.from_node(extension_node)
             else:
                 values[extension_node.tag] = extension_node
-        return _ExtensionLocalValue(values)
+        return ExtensionLocalValue(values)
 
     def update_xml_value(self, instance: Any, node: etree_.Element):
         """Write value to node."""

@@ -69,7 +69,7 @@ class TestMdibTransaction(unittest.TestCase):
         self.assertEqual(1, len(tr.descr_updated))
         self.assertEqual(2, len(tr.all_states()))
         descr = self.mdib.descriptions.handle.get_one("testHandle", allow_none=True)
-        state = self.mdib.states.descriptorHandle.get_one("testHandle", allow_none=True)
+        state = self.mdib.states.descriptor_handle.get_one("testHandle", allow_none=True)
         self.assertIsNotNone(descr)
         self.assertIsNotNone(state)
 
@@ -81,7 +81,7 @@ class TestMdibTransaction(unittest.TestCase):
         self.assertEqual(1, len(tr.all_states()))
 
         descr = self.mdib.descriptions.handle.get_one("testHandle", allow_none=True)
-        state = self.mdib.states.descriptorHandle.get_one("testHandle", allow_none=True)
+        state = self.mdib.states.descriptor_handle.get_one("testHandle", allow_none=True)
         self.assertIsNone(descr)
         self.assertIsNone(state)
 

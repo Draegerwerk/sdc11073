@@ -12,18 +12,22 @@ if TYPE_CHECKING:
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.multikey import MultiKeyLookup
 
-    from .containerbase import ContainerBase
-    from .descriptorcontainers import AbstractDescriptorContainer
+    from .descriptorcontainers import AbstractDescriptorContainer, AbstractDescriptorProtocol
     from .providermdib import ProviderMdib
-    from .statecontainers import AbstractContextStateContainer, AbstractStateContainer
+    from .statecontainers import (
+        AbstractContextStateContainer,
+        AbstractStateContainer,
+        AbstractStateProtocol,
+        AbstractMultiStateProtocol
+    )
 
 
 @dataclass(frozen=True)
 class _TrItem:
     """Transaction Item with old and new container."""
 
-    old: ContainerBase | None
-    new: ContainerBase | None
+    old: AbstractStateProtocol| AbstractDescriptorProtocol | None
+    new: AbstractStateProtocol| AbstractDescriptorProtocol | None
 
 
 class TransactionManagerProtocol(Protocol):
@@ -99,7 +103,7 @@ class _TransactionBase:
         self._current_update_dict = None  # used to check for data type
         self.is_descriptor_update = False
 
-    def get_descriptor_in_transaction(self, descriptor_handle: str) -> AbstractDescriptorContainer:
+    def get_descriptor_in_transaction(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
         """Look for new or updated descriptor in current transaction and in mdib."""
         tr_container = self.descriptor_updates.get(descriptor_handle)
         if tr_container is not None:
@@ -108,22 +112,22 @@ class _TransactionBase:
             return tr_container.new
         return self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
 
-    def _get_state_container(self, descriptor_handle: str) -> tuple[AbstractStateContainer | None,
-                                                                    AbstractStateContainer | None]:
+    def _get_state_container(self, descriptor_handle: str) -> tuple[AbstractStateProtocol,
+                                                                    AbstractStateProtocol]:
         """Return old state, new state."""
         descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
-        old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.Handle,
-                                                                                          allow_none=False)
+        old_state_container = self._device_mdib_container.states.descriptor_handle.get_one(descriptor_container.Handle,
+                                                                                           allow_none=False)
         new_state_container = old_state_container.mk_copy()
         new_state_container.increment_state_version()
         return old_state_container, new_state_container
 
     def _mk_state_container(self, descriptor_handle: str, adjust_state_version: bool = True) \
-            -> tuple[AbstractStateContainer | None, AbstractStateContainer | None]:
+            -> tuple[AbstractStateProtocol | None, AbstractStateProtocol | None]:
         """Return old container, new container."""
         descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
-        old_state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_container.Handle,
-                                                                                          allow_none=True)
+        old_state_container = self._device_mdib_container.states.descriptor_handle.get_one(descriptor_container.Handle,
+                                                                                           allow_none=True)
         if old_state_container is None:
             # create a new state object
             new_state_container = self._device_mdib_container.data_model.mk_state_container(descriptor_container)
@@ -149,7 +153,7 @@ class _TransactionBase:
         elif self._current_update_dict is not update_dict:
             raise ApiUsageError('Mix of data types in transaction is not allowed!')
 
-    def _get_states_update(self, container: AbstractStateContainer | AbstractDescriptorContainer) -> dict:
+    def _get_states_update(self, container: AbstractStateProtocol | AbstractDescriptorProtocol) -> dict:
         if container.is_state_container:
             if container.is_realtime_sample_array_metric_state:
                 return self.rt_sample_state_updates
@@ -176,13 +180,13 @@ class _TransactionBase:
                 return self.context_state_updates
         raise NotImplementedError(f'unhandled case {container}')
 
-    def _get_states_storage(self, state_container: AbstractStateContainer) -> MultiKeyLookup:
+    def _get_states_storage(self, state_container: AbstractStateProtocol | AbstractMultiStateProtocol) -> MultiKeyLookup:
         if state_container.is_context_state:
             return self._device_mdib_container.context_states
         return self._device_mdib_container.states
 
     @property
-    def error(self):
+    def error(self) -> bool:
         return self._error
 
 
@@ -220,8 +224,8 @@ class RtDataMdibUpdateTransaction(_TransactionBase):
         """
         if descriptor_handle in self.rt_sample_state_updates:
             raise ValueError(f'DescriptorHandle {descriptor_handle} already in updated set!')
-        state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_handle,
-                                                                                      allow_none=True)
+        state_container = self._device_mdib_container.states.descriptor_handle.get_one(descriptor_handle,
+                                                                                       allow_none=True)
         if state_container is None:
             raise ValueError(f'state {descriptor_handle} not found!')
 
@@ -258,7 +262,7 @@ class MdibUpdateTransaction(_TransactionBase):
         self.new_descriptors = []  # handles
 
     @tr_method_wrapper
-    def add_descriptor(self, descriptor_container: AbstractDescriptorContainer,
+    def add_descriptor(self, descriptor_container: AbstractDescriptorProtocol,
                        adjust_descriptor_version: bool = True,
                        state_container: AbstractStateContainer | None = None):
         """Add a new descriptor to mdib.
@@ -333,7 +337,7 @@ class MdibUpdateTransaction(_TransactionBase):
         return None
 
     @tr_method_wrapper
-    def add_state(self, state_container: AbstractStateContainer | AbstractContextStateContainer,
+    def add_state(self, state_container: AbstractStateProtocol | AbstractMultiStateProtocol,
                   adjust_state_version: bool = True):
         """Add a new state to mdib.
 
@@ -365,7 +369,7 @@ class MdibUpdateTransaction(_TransactionBase):
             my_multi_key.set_version(state_container)
         my_updates[my_handle] = _TrItem(None, state_container)
 
-    def unget_state(self, state_container: AbstractStateContainer | AbstractContextStateContainer):
+    def unget_state(self, state_container: AbstractStateProtocol | AbstractMultiStateProtocol):
         """Forget a state that was provided before by a get_state or add_state call."""
         updates_dict = self._get_states_update(state_container)
         if state_container.is_context_state:
@@ -375,7 +379,7 @@ class MdibUpdateTransaction(_TransactionBase):
             del updates_dict[state_container.DescriptorHandle]
 
     @tr_method_wrapper
-    def get_state(self, descriptor_handle: str) -> AbstractStateContainer:
+    def get_state(self, descriptor_handle: str) -> AbstractStateProtocol:
         """Read a state from mdib and add it to the transaction.
 
         If there is no state with the given handle in the mdib, a ValueError is thrown.
@@ -429,7 +433,7 @@ class MdibUpdateTransaction(_TransactionBase):
     def mk_context_state(self, descriptor_handle: str,
                          context_state_handle: str | None = None,
                          adjust_state_version: bool = True,
-                         set_associated: bool = False) -> AbstractContextStateContainer:
+                         set_associated: bool = False) -> AbstractStateProtocol:
         """Create a new ContextStateContainer.
 
         If context_state_handle is None, a unique handle will be created.
@@ -478,13 +482,13 @@ class MdibUpdateTransaction(_TransactionBase):
         return processor
 
     def _get_real_time_sample_array_metric_state(self,
-                                                 descriptor_container: AbstractDescriptorContainer) -> AbstractStateContainer:
+                                                 descriptor_container: AbstractDescriptorProtocol) -> AbstractStateProtocol:
         descriptor_handle = descriptor_container.Handle
         self._verify_correct_update_dict(self.rt_sample_state_updates)
         if descriptor_handle in self.rt_sample_state_updates:
             raise ValueError(f'DescriptorHandle {descriptor_handle} already in updated set!')
-        state_container = self._device_mdib_container.states.descriptorHandle.get_one(descriptor_handle,
-                                                                                      allow_none=True)
+        state_container = self._device_mdib_container.states.descriptor_handle.get_one(descriptor_handle,
+                                                                                       allow_none=True)
         if state_container is None:
             descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
             new_state = self._device_mdib_container.data_model.mk_state_container(descriptor_container)
@@ -712,7 +716,7 @@ class TransactionProcessor:
             raise NotImplementedError(f'do not know how to handle {descriptor_container.__class__.__name__}')
         if descriptor_container.is_context_descriptor:
             update_dict = self._mgr.context_state_updates
-            all_context_states = self._mdib.context_states.descriptorHandle.get(
+            all_context_states = self._mdib.context_states.descriptor_handle.get(
                 descriptor_container.Handle, [])
             for context_states in all_context_states:
                 key = (descriptor_container.Handle, context_states.handle)
@@ -740,7 +744,7 @@ class TransactionProcessor:
                         f'state deleted? that should not be possible! handle = {descriptor_container.Handle}')
                 tr_item.new.update_descriptor_version()
             else:
-                old_state = self._mdib.states.descriptorHandle.get_one(
+                old_state = self._mdib.states.descriptor_handle.get_one(
                     descriptor_container.Handle, allow_none=True)
                 if old_state is not None:
                     new_state = old_state.mk_copy()
@@ -758,8 +762,8 @@ class TransactionProcessor:
 
     def _remove_corresponding_state(self, descriptor_container: AbstractDescriptorContainer):
         if descriptor_container.is_context_descriptor:
-            for state in self._mdib.context_states.descriptorHandle.get(descriptor_container.Handle, [])[:]:
+            for state in self._mdib.context_states.descriptor_handle.get(descriptor_container.Handle, [])[:]:
                 self._mdib.context_states.remove_object_no_lock(state)
         else:
-            state = self._mdib.states.descriptorHandle.get_one(descriptor_container.Handle, allow_none=True)
+            state = self._mdib.states.descriptor_handle.get_one(descriptor_container.Handle, allow_none=True)
             self._mdib.states.remove_object_no_lock(state)

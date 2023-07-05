@@ -214,8 +214,8 @@ class TestStateContainers(unittest.TestCase):
             self.assertEqual(copied.OperatingCycles, origin.OperatingCycles)
             self._verifyAbstractStateContainerDataEqual(copied, origin)
 
-        state = sc.AbstractDeviceComponentStateContainer(descriptor_container=self.descr, )
-        self.assertEqual(state.ActivationState, None)
+        state = sc.AbstractDeviceComponentStateContainer(descriptor_container=self.descr)
+        self.assertEqual(state.ActivationState, pm_types.ComponentActivation.ON)
         self.assertEqual(state.OperatingHours, None)
         self.assertEqual(state.OperatingCycles, None)
         self.assertEqual(state.PhysicalConnector, None)

@@ -96,7 +96,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
             local_alert_signal_state.ActivationState = pm_types.AlertActivation.ON
             local_alert_signal_state.Presence = pm_types.AlertSignalPresence.ON
         # verify that remote signal is still off
-        remote_alert_signal_state = self.sdc_device.mdib.states.descriptorHandle.get_one('as0.mds0_rem')
+        remote_alert_signal_state = self.sdc_device.mdib.states.descriptor_handle.get_one('as0.mds0_rem')
         self.assertEqual(pm_types.AlertSignalPresence.OFF, remote_alert_signal_state.Presence)
         self.assertEqual(pm_types.AlertActivation.OFF, remote_alert_signal_state.ActivationState)
 
@@ -111,8 +111,8 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
 
         # verify that now remote signal in on and local signal is off
-        local_alert_signal_state = cl_mdib.states.descriptorHandle.get_one('as0.mds0')
-        remote_alert_signal_state = cl_mdib.states.descriptorHandle.get_one('as0.mds0_rem')
+        local_alert_signal_state = cl_mdib.states.descriptor_handle.get_one('as0.mds0')
+        remote_alert_signal_state = cl_mdib.states.descriptor_handle.get_one('as0.mds0_rem')
         self.assertEqual(pm_types.AlertActivation.PAUSED, local_alert_signal_state.ActivationState)
         self.assertEqual(pm_types.AlertActivation.ON, remote_alert_signal_state.ActivationState)
         time.sleep(5)

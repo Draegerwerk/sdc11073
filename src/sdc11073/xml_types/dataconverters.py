@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from decimal import Decimal
 from typing import Protocol
 
@@ -70,31 +72,31 @@ class EnumConverter(NullConverter):
         else:
             return py_value
 
-    def check_valid(self, py_value):
+    def check_valid(self, py_value) -> bool:
         if STRICT_VALUE_CHECK and py_value is not None:
             if not isinstance(py_value, self._klass):
                 raise ValueError(f'Value can only be {self._klass.__name__}, got {type(py_value)}')
 
 
 class StringConverter(NullConverter):
-    """Strings need no conversion, only type checking"""
+    """Strings need no conversion, only type checking."""
 
     @staticmethod
-    def check_valid(py_value):
+    def check_valid(py_value) -> bool:
         if STRICT_VALUE_CHECK and py_value is not None:
             if not isinstance(py_value, str):
                 raise ValueError(f'Value can only be str, got {type(py_value)}')
 
 
 class ListConverter(NullConverter):
-    """Each element in list is checked and converted with provided element_converter"""
+    """Each element in list is checked and converted with provided element_converter."""
 
     def __init__(self, element_converter):
         if not hasattr(element_converter, 'check_valid'):
             raise TypeError
         self._element_converter = element_converter
 
-    def check_valid(self, py_value):
+    def check_valid(self, py_value) -> bool:
         if STRICT_VALUE_CHECK and py_value is not None:
             if not isinstance(py_value, (list, tuple)):
                 raise ValueError(f'Value must be list or a tuple, got {type(py_value)}')
@@ -115,20 +117,21 @@ class ListConverter(NullConverter):
 
 
 class TimestampConverter(NullConverter):
-    """ XML representation: integer, representing timestamp in milliseconds
+    """BICEPS Timestamp.
+
+     XML representation: integer, representing timestamp in milliseconds
      Python representation: float in seconds
     """
 
     @classmethod
-    def to_py(cls, xml_value):
+    def to_py(cls, xml_value: str) -> float | None:
         if xml_value is None:
             return None
-        return float(xml_value) / 1000.0
+        return int(xml_value) / 1000
 
     @staticmethod
-    def to_xml(py_value):
-        ms_value = int(py_value * 1000)
-        return str(ms_value)
+    def to_xml(py_value) -> str:
+        return str(int(py_value * 1000))
 
     @staticmethod
     def check_valid(py_value):
@@ -254,13 +257,13 @@ class BooleanConverter(NullConverter):
 
 class DurationConverter(NullConverter):
     @staticmethod
-    def to_py(xml_value):
+    def to_py(xml_value)-> int | float | None:
         if xml_value is None:
             return None
         return isoduration.parse_duration(xml_value)
 
     @staticmethod
-    def to_xml(py_value):
+    def to_xml(py_value) -> str:
         return isoduration.duration_string(py_value)
 
     @staticmethod
