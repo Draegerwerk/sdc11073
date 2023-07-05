@@ -126,7 +126,7 @@ class TestMdib(unittest.TestCase):
         <msg:EpisodicAlertReport MdibVersion="10"
                                  SequenceId="urn:uuid:2d6bfcf5-a29c-42e4-99e3-99ce4a4e0233">
             <msg:ReportPart>
-                <msg:AlertState xsi:type="pm:AlertSystemState" DescriptorVersion="0" StateVersion="7"
+                <msg:AlertState xsi:type="AlertSystemState" DescriptorVersion="0" StateVersion="7"
                                 ActivationState="On" LastSelfCheck="1688025072995" SelfCheckCount="8"
                                 PresentPhysiologicalAlarmConditions="" PresentTechnicalAlarmConditions=""
                                 DescriptorHandle="ASYS0"/>
