@@ -66,7 +66,9 @@ class ContainerBase(object):
             cprop.updateFromNode(self, node)
 
     def mkCopy(self):
-        return copy.copy(self)  # no deepcopy because of TypeError: cannot pickle 'lxml.etree.QName' object
+        new = copy.copy(self)  # no deepcopy because of TypeError: cannot pickle 'lxml.etree.QName' object
+        new.node = None
+        return new
 
     def _sortedContainerProperties(self):
         """

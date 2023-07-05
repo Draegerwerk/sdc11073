@@ -4,7 +4,6 @@ from sdc11073 import mdib
 from sdc11073 import pmtypes
 from lxml import etree as etree_
 
-from sdc11073.mdib import ClientMdibContainer
 from sdc11073 import xmlparsing
 
 mdibFolder = os.path.dirname(__file__)
@@ -69,9 +68,9 @@ class TestMdib(unittest.TestCase):
             body = etree_.fromstring(raw_xml)[1]
             for report in body:
                 new_report = xmlparsing.copy_node(report)
-                assert new_report != report  # check reference
-                assert new_report.nsmap == report.nsmap
-                assert etree_.tostring(new_report) == etree_.tostring(report)
+                self.assertNotEqual(id(report), id(new_report))
+                self.assertEqual(report.nsmap, new_report.nsmap)
+                self.assertEqual(etree_.tostring(report), etree_.tostring(new_report))
 
         test_xml(b"""<?xml version='1.0' encoding='UTF-8'?>
 <s12:Envelope xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"
