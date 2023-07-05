@@ -70,3 +70,4 @@ class SchemaResolver(etree_.Resolver):
         :return: str or None
         """
         return next((entry.local_schema_file for entry in self.namespaces if entry.schema_location_url == url), None)
+# test change
