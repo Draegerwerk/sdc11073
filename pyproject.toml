@@ -148,6 +148,9 @@ allow-dict-calls-with-keyword-arguments = true  # https://beta.ruff.rs/docs/sett
 [tool.ruff.pycodestyle]
 max-doc-length = 120 # https://beta.ruff.rs/docs/settings/#max-doc-length
 
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["D104"]
+
 [tool.mypy]
 python_version = 3.9 # https://mypy.readthedocs.io/en/stable/config_file.html#confval-python_version
 strict = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-strict
