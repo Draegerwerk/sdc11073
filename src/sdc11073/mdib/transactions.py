@@ -462,7 +462,8 @@ class MdibUpdateTransaction(_TransactionBase):
         new_state_container = self._device_mdib_container.data_model.mk_state_container(descriptor_container)
         new_state_container.Handle = context_state_handle or uuid.uuid4().hex
         if set_associated:
-            new_state_container.BindingMdibVersion = self._device_mdib_container.mdib_version
+            # bind to mdib version AFTER this transaction
+            new_state_container.BindingMdibVersion = self._device_mdib_container.mdib_version + 1
             new_state_container.BindingStartTime = time.time()
             new_state_container.ContextAssociation = \
                 self._device_mdib_container.data_model.pm_types.ContextAssociation.ASSOCIATED
