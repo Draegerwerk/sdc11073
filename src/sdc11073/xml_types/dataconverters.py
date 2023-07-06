@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Protocol
+from typing import Protocol, Any
 
 from . import isoduration
 
@@ -9,16 +9,16 @@ STRICT_VALUE_CHECK = True
 
 
 class DataConverterProtocol(Protocol):
-    def to_py(self, xml_value):
+    def to_py(self, xml_value: str):
         ...
 
-    def to_xml(self, py_value):
+    def to_xml(self, py_value: Any) -> str:
         ...
 
-    def check_valid(self, py_value):
+    def check_valid(self, py_value: Any):
         ...
 
-    def elem_to_py(self, xml_value):
+    def elem_to_py(self, xml_value: str) -> Any:
         ...
 
 
@@ -146,7 +146,7 @@ class DecimalConverter(NullConverter):
     USE_DECIMAL_TYPE = True
 
     @classmethod
-    def to_py(cls, xml_value):
+    def to_py(cls, xml_value: str) -> Decimal | int | float:
         if xml_value is None:
             return None
         if cls.USE_DECIMAL_TYPE:
@@ -156,7 +156,7 @@ class DecimalConverter(NullConverter):
         return int(xml_value)
 
     @staticmethod
-    def _float_to_xml(py_value):
+    def _float_to_xml(py_value: Decimal | int | float) -> str:
         # round value to handle float inaccuracies
         if abs(py_value) >= 100:
             xml_value = f'{round(py_value, 1):.1f}'
@@ -207,13 +207,13 @@ class DecimalConverter(NullConverter):
 
 class IntegerConverter(NullConverter):
     @staticmethod
-    def to_py(xml_value):
+    def to_py(xml_value: str) -> int:
         if xml_value is None:
             return None
         return int(xml_value)
 
     @staticmethod
-    def to_xml(py_value):
+    def to_xml(py_value: int) -> str:
         return str(py_value)
 
     @staticmethod
@@ -239,11 +239,11 @@ class UnsignedLongConverter(IntegerConverter):
 
 class BooleanConverter(NullConverter):
     @staticmethod
-    def to_py(xml_value):
+    def to_py(xml_value: str) -> bool:
         return xml_value in ('true', '1')
 
     @staticmethod
-    def to_xml(py_value):
+    def to_xml(py_value: bool) -> str:
         if py_value:
             return 'true'
         return 'false'
@@ -257,17 +257,17 @@ class BooleanConverter(NullConverter):
 
 class DurationConverter(NullConverter):
     @staticmethod
-    def to_py(xml_value)-> int | float | None:
+    def to_py(xml_value: str)-> isoduration.ParsedDurationType | None:
         if xml_value is None:
             return None
         return isoduration.parse_duration(xml_value)
 
     @staticmethod
-    def to_xml(py_value) -> str:
+    def to_xml(py_value: isoduration.DurationType) -> str:
         return isoduration.duration_string(py_value)
 
     @staticmethod
-    def check_valid(py_value):
+    def check_valid(py_value: Any):
         if STRICT_VALUE_CHECK and py_value is not None:
-            if not isinstance(py_value, (int, float)):
+            if not isinstance(py_value, (int, float, Decimal)):
                 raise ValueError(f'expected a boolean, got {type(py_value)}')

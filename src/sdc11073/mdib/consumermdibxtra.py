@@ -13,8 +13,6 @@ from sdc11073 import observableproperties as properties
 from sdc11073.exceptions import ApiUsageError
 
 if TYPE_CHECKING:
-    from lxml.etree import Element
-
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.pysoap.msgreader import ReceivedMessage
 
@@ -325,11 +323,11 @@ class ConsumerMdibMethods:
         report = self._msg_reader.process_incoming_states_report(received_message_data)
         self._mdib.process_incoming_operational_states_report(received_message_data.mdib_version_group, report)
 
-    def _on_waveform_report_profiled(self, report_node: Element):
+    def _on_waveform_report_profiled(self, received_message_data: ReceivedMessage):
         """Handle waveform report and print profiling information to stdout."""
         reference_count_print_limit = 50
         self.prof.enable()
-        self._on_waveform_report(report_node)
+        self._on_waveform_report(received_message_data)
         self.prof.disable()
         str_io = StringIO()
         stats = pstats.Stats(self.prof, stream=str_io).sort_stats('cumulative')

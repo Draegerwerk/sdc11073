@@ -81,7 +81,7 @@ class ProviderMdibMethods:
                 location_context = mgr.get_context_state(location.Handle)
                 location_context.ContextAssociation = mdib.data_model.pm_types.ContextAssociation.DISASSOCIATED
                 # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
-                location_context.UnbindingMdibVersion = mdib.mdib_version + 1
+                location_context.UnbindingMdibVersion = mdib.mdib_version
             descriptor_container = mdib.descriptions.NODETYPE.get_one(pm.LocationContextDescriptor)
 
             new_location = mgr.mk_context_state(descriptor_container.Handle, set_associated=set_associated)

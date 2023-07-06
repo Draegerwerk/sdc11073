@@ -4,6 +4,7 @@ import re
 from collections import namedtuple
 from datetime import date, datetime, timedelta, tzinfo
 from decimal import Decimal
+from typing import NewType, Union
 
 ISO8601_PERIOD_REGEX = re.compile(
     r"^(?P<sign>[+-])?"
@@ -16,11 +17,13 @@ ISO8601_PERIOD_REGEX = re.compile(
     r"(?P<minutes>[0-9]+([,.][0-9]+)?M)?"
     r"(?P<seconds>[0-9]+([,.][0-9]+)?S)?)?$")
 
-
 # regular expression to parse ISO duration strings.
 
+DurationType = NewType('DurationType', Union[Decimal, int, float])  # input types for duration string creation
+ParsedDurationType = NewType('ParsedDurationType', Union[int, float])  # output types for parsed duration string
 
-def parse_duration(date_string: str) -> int | float:
+
+def parse_duration(date_string: str) -> ParsedDurationType:
     """Parse an ISO 8601 durations into a float value containing seconds.
 
     The following duration formats are supported:
@@ -54,7 +57,7 @@ def parse_duration(date_string: str) -> int | float:
     return ret.total_seconds()
 
 
-def duration_string(seconds: Decimal | float | int) -> str:
+def duration_string(seconds: DurationType) -> str:
     """Create an ISO 8601 durations value containing seconds."""
     sign = '-' if seconds < 0 else ''
     fraction = abs(seconds - int(seconds))
@@ -83,7 +86,7 @@ ZERO = timedelta(0)
 class UTC(tzinfo):
     """Fixed offset in minutes east from UTC."""
 
-    def __init__(self, offset_minutes, tzname=None):
+    def __init__(self, offset_minutes: int, tzname: str | None = None):
         self._offset = timedelta(minutes=offset_minutes)
         self._tzname = tzname
 

@@ -4,7 +4,7 @@ import copy
 import inspect
 from typing import Any
 
-from lxml.etree import Element, QName
+from lxml.etree import Element, ElementBase, QName
 
 from sdc11073 import observableproperties as properties
 from sdc11073.namespaces import QN_TYPE, NamespaceHelper
@@ -33,7 +33,7 @@ class ContainerBase:
         """Ignore default value and implied value, e.g. return None if value is not present in xml."""
         return getattr(self.__class__, attr_name).get_actual_value(self)
 
-    def mk_node(self, tag: QName, ns_helper: NamespaceHelper, set_xsi_type: bool = False) -> Element:
+    def mk_node(self, tag: QName, ns_helper: NamespaceHelper, set_xsi_type: bool = False) -> ElementBase:
         """Create an etree node from instance data.
 
         :param tag: tag of the newly created node
@@ -48,9 +48,9 @@ class ContainerBase:
         self.update_node(node, ns_helper, set_xsi_type)
         return node
 
-    def update_node(self, node: Element,
+    def update_node(self, node: ElementBase,
                     ns_helper: NamespaceHelper,
-                    set_xsi_type: bool = False) -> Element:
+                    set_xsi_type: bool = False) -> ElementBase:
         """Update node with own data.
 
         :param node: node to be updated
@@ -64,7 +64,7 @@ class ContainerBase:
             prop.update_xml_value(self, node)
         return node
 
-    def update_from_node(self, node: Element):
+    def update_from_node(self, node: ElementBase):
         """Update members from node."""
         for _, cprop in self.sorted_container_properties():
             cprop.update_from_node(self, node)

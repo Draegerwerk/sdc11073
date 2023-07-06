@@ -37,7 +37,7 @@ class XMLTypeBase:
         self.update_node(node)
         return node
 
-    def update_node(self, node: etree_.Element):
+    def update_node(self, node: etree_.ElementBase):
         for prop_name, prop in self.sorted_container_properties():
             try:
                 prop.update_xml_value(self, node)
@@ -46,7 +46,7 @@ class XMLTypeBase:
                 raise ValueError(
                     f'In {self.__class__.__name__}.{prop_name}, {str(prop)} could not update: {traceback.format_exc()}') from ex
 
-    def update_from_node(self, node: etree_.Element):
+    def update_from_node(self, node: etree_.ElementBase):
         for dummy, prop in self.sorted_container_properties():
             prop.update_from_node(self, node)
 

@@ -321,7 +321,7 @@ class SdcConsumer:
         :param filter_type: the filter that is sent to device
         :param actions: a list of DispatchKeys that this subscription shall handle
         :param expire_minutes: defaults to 1 hour
-        :param any_elements: optional list of etree.Element objects
+        :param any_elements: optional list of etree.ElementBase objects
         :param any_attributes: optional dictionary of name:str - value:str pairs
         :return: a subscription object that has callback already registered.
         """

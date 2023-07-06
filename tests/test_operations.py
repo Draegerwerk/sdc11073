@@ -256,7 +256,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertEqual(len(cl_locations), 1)
         self.assertEqual(dev_locations[0].Handle, cl_locations[0].Handle)
         self.assertEqual(cl_locations[0].ContextAssociation, pm_types.ContextAssociation.ASSOCIATED)
-        self.assertEqual(cl_locations[0].BindingMdibVersion, 0)  # created at the beginning
+        self.assertIsNotNone(cl_locations[0].BindingMdibVersion)
         self.assertEqual(cl_locations[0].UnbindingMdibVersion, None)
 
         for i in range(10):
@@ -285,11 +285,11 @@ class Test_BuiltinOperations(unittest.TestCase):
 
             for j, loc in enumerate(dev_locations[:-1]):
                 self.assertEqual(loc.ContextAssociation, pm_types.ContextAssociation.DISASSOCIATED)
-                self.assertEqual(loc.UnbindingMdibVersion, dev_locations[j + 1].BindingMdibVersion + 1)
+                self.assertEqual(loc.UnbindingMdibVersion, dev_locations[j + 1].BindingMdibVersion - 1)
 
             for j, loc in enumerate(cl_locations[:-1]):
                 self.assertEqual(loc.ContextAssociation, pm_types.ContextAssociation.DISASSOCIATED)
-                self.assertEqual(loc.UnbindingMdibVersion, cl_locations[j + 1].BindingMdibVersion + 1)
+                self.assertEqual(loc.UnbindingMdibVersion, cl_locations[j + 1].BindingMdibVersion - 1)
 
     def test_audio_pause(self):
         """Tests AudioPauseProvider

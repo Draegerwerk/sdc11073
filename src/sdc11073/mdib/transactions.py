@@ -16,9 +16,9 @@ if TYPE_CHECKING:
     from .providermdib import ProviderMdib
     from .statecontainers import (
         AbstractContextStateContainer,
+        AbstractMultiStateProtocol,
         AbstractStateContainer,
         AbstractStateProtocol,
-        AbstractMultiStateProtocol
     )
 
 
@@ -26,8 +26,8 @@ if TYPE_CHECKING:
 class _TrItem:
     """Transaction Item with old and new container."""
 
-    old: AbstractStateProtocol| AbstractDescriptorProtocol | None
-    new: AbstractStateProtocol| AbstractDescriptorProtocol | None
+    old: AbstractStateProtocol | AbstractDescriptorProtocol | None
+    new: AbstractStateProtocol | AbstractDescriptorProtocol | None
 
 
 class TransactionManagerProtocol(Protocol):
@@ -180,7 +180,8 @@ class _TransactionBase:
                 return self.context_state_updates
         raise NotImplementedError(f'unhandled case {container}')
 
-    def _get_states_storage(self, state_container: AbstractStateProtocol | AbstractMultiStateProtocol) -> MultiKeyLookup:
+    def _get_states_storage(self,
+                            state_container: AbstractStateProtocol | AbstractMultiStateProtocol) -> MultiKeyLookup:
         if state_container.is_context_state:
             return self._device_mdib_container.context_states
         return self._device_mdib_container.states

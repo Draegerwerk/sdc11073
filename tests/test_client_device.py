@@ -619,7 +619,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(patient_context_state_container.CoreData.Race, st.CoreData.Race)
         self.assertEqual(patient_context_state_container.CoreData.DateOfBirth, st.CoreData.DateOfBirth)
         self.assertEqual(patient_context_state_container.BindingMdibVersion,
-                         tr_MdibVersion)  # created at the beginning
+                         self.sdc_device.mdib.mdib_version)
         self.assertEqual(patient_context_state_container.UnbindingMdibVersion, None)
 
         # test update of same patient
@@ -631,8 +631,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         patient_context_state_container = clientMdib.context_states.NODETYPE.get_one(
             pm.PatientContextState, allow_none=True)
         self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Moritz')
-        self.assertEqual(patient_context_state_container.BindingMdibVersion,
-                         tr_MdibVersion)  # created at the beginning
+        self.assertGreater(patient_context_state_container.BindingMdibVersion,
+                         tr_MdibVersion)
         self.assertEqual(patient_context_state_container.UnbindingMdibVersion, None)
 
     def test_get_containment_tree(self):

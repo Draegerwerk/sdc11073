@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Protocol, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from lxml.etree import Element
+    from lxml.etree import ElementBase
     from sdc11073.pysoap.soapenvelope import Soap12Envelope
 
 
@@ -18,7 +18,7 @@ class RequestManipulatorProtocol(Protocol):
     def manipulate_soapenvelope(self, soap_envelope: Soap12Envelope) -> Union[Soap12Envelope, None]:
         ...
 
-    def manipulate_domtree(self, domtree: Element) -> Union[Element, None]:
+    def manipulate_domtree(self, domtree: ElementBase) -> Union[ElementBase, None]:
         ...
 
     def manipulate_string(self, xml_string: str) -> Union[str,None]:

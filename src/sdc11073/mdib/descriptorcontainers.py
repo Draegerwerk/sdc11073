@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
     from sdc11073.namespaces import NamespaceHelper
     from sdc11073.xml_types.xml_structure import ExtensionLocalValue
+    from sdc11073.xml_types.isoduration import DurationType
 
 
 @dataclass(frozen=True)
@@ -194,7 +195,7 @@ class AbstractDescriptorContainer(ContainerBase):
         return None if len(ret) == 0 else ret
 
     def mk_descriptor_node(self, tag: etree_.QName,
-                           ns_helper: NamespaceHelper, set_xsi_type: bool = True) -> etree_.Element:
+                           ns_helper: NamespaceHelper, set_xsi_type: bool = True) -> etree_.ElementBase:
         """Create a lxml etree node from instance data.
 
         :param tag: tag of node
@@ -219,7 +220,7 @@ class AbstractDescriptorContainer(ContainerBase):
                 return child.child_qname, set_xsi_type
         raise ValueError(f'{node_type} not known in child declarations of {self.__class__.__name__}')
 
-    def sort_child_nodes(self, node: etree_.Element) -> None:
+    def sort_child_nodes(self, node: etree_.ElementBase) -> None:
         """Bring all child elements of node in correct order (BICEPS schema).
 
         raises a ValueError if a child node exist that is not listed in ordered_tags
@@ -258,7 +259,7 @@ class AbstractDescriptorContainer(ContainerBase):
                 f'parent={self.parent_handle}')
 
     @classmethod
-    def from_node(cls, node: etree_.Element, parent_handle: str | None = None) -> AbstractDescriptorContainer:
+    def from_node(cls, node: etree_.ElementBase, parent_handle: str | None = None) -> AbstractDescriptorContainer:
         """Create class and init its properties fron the node."""
         obj = cls(handle=None,  # will be determined in constructor from node value
                   parent_handle=parent_handle)
@@ -354,7 +355,7 @@ class ClockDescriptorContainer(AbstractDeviceComponentDescriptorContainer):
     STATE_QNAME = pm_qnames.ClockState
     TimeProtocol: list[pm_types.CodedValue] = x_struct.SubElementListProperty(pm_qnames.TimeProtocol,
                                                                               value_class=pm_types.CodedValue)
-    Resolution: x_struct.DurationType | None = x_struct.DurationAttributeProperty('Resolution')
+    Resolution: DurationType | None = x_struct.DurationAttributeProperty('Resolution')
     _props = ('TimeProtocol', 'Resolution')
     _child_elements_order = (pm_qnames.TimeProtocol,)
 
@@ -423,11 +424,11 @@ class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
                                                                                      enum_cls=pm_types.MetricAvailability,
                                                                                      default_py_value=pm_types.MetricAvailability.CONTINUOUS,
                                                                                      is_optional=False)
-    MaxMeasurementTime: x_struct.DurationType | None = x_struct.DurationAttributeProperty('MaxMeasurementTime')
-    MaxDelayTime: x_struct.DurationType | None = x_struct.DurationAttributeProperty('MaxDelayTime')
-    DeterminationPeriod: x_struct.DurationType | None = x_struct.DurationAttributeProperty('DeterminationPeriod')
-    LifeTimePeriod: x_struct.DurationType | None = x_struct.DurationAttributeProperty('LifeTimePeriod')
-    ActivationDuration: x_struct.DurationType | None = x_struct.DurationAttributeProperty('ActivationDuration')
+    MaxMeasurementTime: DurationType | None = x_struct.DurationAttributeProperty('MaxMeasurementTime')
+    MaxDelayTime: DurationType | None = x_struct.DurationAttributeProperty('MaxDelayTime')
+    DeterminationPeriod: DurationType | None = x_struct.DurationAttributeProperty('DeterminationPeriod')
+    LifeTimePeriod: DurationType | None = x_struct.DurationAttributeProperty('LifeTimePeriod')
+    ActivationDuration: DurationType | None = x_struct.DurationAttributeProperty('ActivationDuration')
     _props = (
         'Unit', 'BodySite', 'Relation', 'MetricCategory', 'DerivationMethod', 'MetricAvailability',
         'MaxMeasurementTime',
@@ -445,7 +446,7 @@ class NumericMetricDescriptorContainer(AbstractMetricDescriptorContainer):
     TechnicalRange: list[pm_types.Range] = x_struct.SubElementListProperty(pm_qnames.TechnicalRange,
                                                                            value_class=pm_types.Range)
     Resolution: Decimal = x_struct.DecimalAttributeProperty('Resolution', is_optional=False)
-    AveragingPeriod: x_struct.DurationType | None = x_struct.DurationAttributeProperty('AveragingPeriod')
+    AveragingPeriod: DurationType | None = x_struct.DurationAttributeProperty('AveragingPeriod')
     _props = ('TechnicalRange', 'Resolution', 'AveragingPeriod')
     _child_elements_order = (pm_qnames.TechnicalRange,)
 
@@ -477,7 +478,7 @@ class RealTimeSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorConta
     TechnicalRange: list[pm_types.Range] = x_struct.SubElementListProperty(pm_qnames.TechnicalRange,
                                                                            value_class=pm_types.Range)
     Resolution: Decimal = x_struct.DecimalAttributeProperty('Resolution', is_optional=False)
-    SamplePeriod: x_struct.DurationType = x_struct.DurationAttributeProperty('SamplePeriod', is_optional=False)
+    SamplePeriod: DurationType = x_struct.DurationAttributeProperty('SamplePeriod', is_optional=False)
     _props = ('TechnicalRange', 'Resolution', 'SamplePeriod')
     _child_elements_order = (pm_qnames.TechnicalRange,)
 
@@ -505,8 +506,8 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
 
     is_operational_descriptor = True
     OperationTarget: str = x_struct.HandleRefAttributeProperty('OperationTarget', is_optional=False)
-    MaxTimeToFinish: x_struct.DurationType | None = x_struct.DurationAttributeProperty('MaxTimeToFinish')
-    InvocationEffectiveTimeout: x_struct.DurationType | None = x_struct.DurationAttributeProperty(
+    MaxTimeToFinish: DurationType | None = x_struct.DurationAttributeProperty('MaxTimeToFinish')
+    InvocationEffectiveTimeout: DurationType | None = x_struct.DurationAttributeProperty(
         'InvocationEffectiveTimeout')
     Retriggerable: bool = x_struct.BooleanAttributeProperty('Retriggerable', implied_py_value=True)
     AccessLevel: pm_types.T_AccessLevel = x_struct.EnumAttributeProperty('AccessLevel',
@@ -598,7 +599,7 @@ class AlertSystemDescriptorContainer(AbstractAlertDescriptorContainer):
     STATE_QNAME = pm_qnames.AlertSystemState
     MaxPhysiologicalParallelAlarms: int | None = x_struct.UnsignedIntAttributeProperty('MaxPhysiologicalParallelAlarms')
     MaxTechnicalParallelAlarms: int | None = x_struct.UnsignedIntAttributeProperty('MaxTechnicalParallelAlarms')
-    SelfCheckPeriod: x_struct.DurationType | None = x_struct.DurationAttributeProperty('SelfCheckPeriod')
+    SelfCheckPeriod: DurationType | None = x_struct.DurationAttributeProperty('SelfCheckPeriod')
     _props = ('MaxPhysiologicalParallelAlarms', 'MaxTechnicalParallelAlarms', 'SelfCheckPeriod')
     _child_elements_order = (pm_qnames.AlertCondition,
                              pm_qnames.AlertSignal)
@@ -633,7 +634,7 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
                                                                                default_py_value=pm_types.AlertConditionPriority.NONE,
                                                                                enum_cls=pm_types.AlertConditionPriority,
                                                                                is_optional=False)
-    DefaultConditionGenerationDelay: x_struct.DurationType = x_struct.DurationAttributeProperty(
+    DefaultConditionGenerationDelay: DurationType = x_struct.DurationAttributeProperty(
         'DefaultConditionGenerationDelay',
         implied_py_value=0)
     CanEscalate: pm_types.CanEscalateAlertConditionPriority | None = x_struct.EnumAttributeProperty(
@@ -651,7 +652,7 @@ class LimitAlertConditionDescriptorContainer(AlertConditionDescriptorContainer):
 
     NODETYPE = pm_qnames.LimitAlertConditionDescriptor
     STATE_QNAME = pm_qnames.LimitAlertConditionState
-    MaxLimits: pm_types.Range() = x_struct.SubElementProperty(pm_qnames.MaxLimits,
+    MaxLimits: pm_types.Range = x_struct.SubElementProperty(pm_qnames.MaxLimits,
                                                               value_class=pm_types.Range,
                                                               default_py_value=pm_types.Range())
     AutoLimitSupported: bool = x_struct.BooleanAttributeProperty('AutoLimitSupported', implied_py_value=False)
@@ -670,18 +671,18 @@ class AlertSignalDescriptorContainer(AbstractAlertDescriptorContainer):
                                                                                       enum_cls=pm_types.AlertSignalManifestation,
                                                                                       is_optional=False)
     Latching: bool = x_struct.BooleanAttributeProperty('Latching', default_py_value=False, is_optional=False)
-    DefaultSignalGenerationDelay: x_struct.DurationType = x_struct.DurationAttributeProperty(
+    DefaultSignalGenerationDelay: DurationType = x_struct.DurationAttributeProperty(
         'DefaultSignalGenerationDelay',
         implied_py_value=0)
-    MinSignalGenerationDelay: x_struct.DurationType | None = x_struct.DurationAttributeProperty(
+    MinSignalGenerationDelay: DurationType | None = x_struct.DurationAttributeProperty(
         'MinSignalGenerationDelay')
-    MaxSignalGenerationDelay: x_struct.DurationType | None = x_struct.DurationAttributeProperty(
+    MaxSignalGenerationDelay: DurationType | None = x_struct.DurationAttributeProperty(
         'MaxSignalGenerationDelay')
     SignalDelegationSupported: bool = x_struct.BooleanAttributeProperty('SignalDelegationSupported',
                                                                         implied_py_value=False)
     AcknowledgementSupported: bool = x_struct.BooleanAttributeProperty('AcknowledgementSupported',
                                                                        implied_py_value=False)
-    AcknowledgeTimeout: x_struct.DurationType | None = x_struct.DurationAttributeProperty('AcknowledgeTimeout')
+    AcknowledgeTimeout: DurationType | None = x_struct.DurationAttributeProperty('AcknowledgeTimeout')
     _props = ('ConditionSignaled', 'Manifestation', 'Latching', 'DefaultSignalGenerationDelay',
               'MinSignalGenerationDelay', 'MaxSignalGenerationDelay',
               'SignalDelegationSupported', 'AcknowledgementSupported', 'AcknowledgeTimeout')

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Any
@@ -72,7 +72,8 @@ class ProviderMdib(mdibbase.MdibBase):
         return self._xtra
 
     @contextmanager
-    def transaction_manager(self, set_determination_time: bool = True) -> TransactionManagerProtocol:
+    def transaction_manager(self, set_determination_time: bool = True) -> AbstractContextManager[
+        TransactionManagerProtocol]:
         """Start a transaction, return a new transaction manager."""
         with self._tr_lock, self.mdib_lock:
             try:

@@ -9,18 +9,19 @@ from typing import TYPE_CHECKING, Protocol
 from sdc11073.xml_types import ext_qnames as ext
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types import pm_types
-from sdc11073.xml_types import xml_structure as cp
+from sdc11073.xml_types import xml_structure as x_struct
 
 from .containerbase import ContainerBase
 
 if TYPE_CHECKING:
     from decimal import Decimal
 
-    from lxml.etree import Element, QName
+    from lxml.etree import ElementBase,  QName
 
     from sdc11073.location import SdcLocation
     from sdc11073.namespaces import NamespaceHelper
-
+    from sdc11073.xml_types.xml_structure import ExtensionLocalValue
+    from sdc11073.xml_types.isoduration import DurationType
     from .descriptorcontainers import AbstractDescriptorProtocol
 
 
@@ -66,10 +67,10 @@ class AbstractStateContainer(ContainerBase):
     is_multi_state = False
     is_context_state = False
 
-    Extension = cp.ExtensionNodeProperty(ext.Extension)
-    DescriptorHandle: str = cp.HandleRefAttributeProperty('DescriptorHandle', is_optional=False)
-    DescriptorVersion: int = cp.ReferencedVersionAttributeProperty('DescriptorVersion', implied_py_value=0)
-    StateVersion: int = cp.VersionCounterAttributeProperty('StateVersion', implied_py_value=0)
+    Extension: ExtensionLocalValue = x_struct.ExtensionNodeProperty(ext.Extension)
+    DescriptorHandle: str = x_struct.HandleRefAttributeProperty('DescriptorHandle', is_optional=False)
+    DescriptorVersion: int = x_struct.ReferencedVersionAttributeProperty('DescriptorVersion', implied_py_value=0)
+    StateVersion: int = x_struct.VersionCounterAttributeProperty('StateVersion', implied_py_value=0)
     _props = ('Extension', 'DescriptorHandle', 'DescriptorVersion', 'StateVersion')
 
     def __init__(self, descriptor_container: AbstractDescriptorProtocol):
@@ -83,7 +84,7 @@ class AbstractStateContainer(ContainerBase):
 
     def mk_state_node(self, tag: QName,
                       nsmapper: NamespaceHelper,
-                      set_xsi_type: bool = True) -> Element:
+                      set_xsi_type: bool = True) -> ElementBase:
         """Create an etree node from instance data."""
         return super().mk_node(tag, nsmapper, set_xsi_type=set_xsi_type)
 
@@ -117,7 +118,7 @@ class AbstractStateContainer(ContainerBase):
         return f'{self.__class__.__name__} DescriptorHandle="{self.DescriptorHandle}" StateVersion={self.StateVersion}'
 
     @classmethod
-    def from_node(cls, node: Element,
+    def from_node(cls, node: ElementBase,
                   descriptor_container: AbstractDescriptorProtocol | None = None) -> AbstractStateContainer:
         """Create an instance from XML node."""
         obj = cls(descriptor_container)
@@ -130,9 +131,9 @@ class AbstractOperationStateContainer(AbstractStateContainer):
 
     NODETYPE = pm.AbstractOperationState
     is_operational_state = True
-    OperatingMode: pm_types.OperatingMode = cp.EnumAttributeProperty('OperatingMode',
-                                                                     default_py_value=pm_types.OperatingMode.ENABLED,
-                                                                     enum_cls=pm_types.OperatingMode)
+    OperatingMode: pm_types.OperatingMode = x_struct.EnumAttributeProperty('OperatingMode',
+                                                                           default_py_value=pm_types.OperatingMode.ENABLED,
+                                                                           enum_cls=pm_types.OperatingMode)
     _props = ('OperatingMode',)
 
 
@@ -140,14 +141,14 @@ class SetValueOperationStateContainer(AbstractOperationStateContainer):
     """Represents SetValueOperationState in BICEPS."""
 
     NODETYPE = pm.SetValueOperationState
-    AllowedRange: pm_types.Range = cp.SubElementListProperty(pm.AllowedRange, value_class=pm_types.Range)
+    AllowedRange: list[pm_types.Range] = x_struct.SubElementListProperty(pm.AllowedRange, value_class=pm_types.Range)
     _props = ('AllowedRange',)
 
 
 class AllowedValuesType(pm_types.PropertyBasedPMType):  # pylint: disable=invalid-name
     """Represents a list of values, in xml it is a list of pm.Value elements with one value as text."""
 
-    Value: list[str] = cp.SubElementStringListProperty(pm.Value)
+    Value: list[str] = x_struct.SubElementStringListProperty(pm.Value)
     _props = ['Value']
 
     def is_empty(self) -> bool:
@@ -159,9 +160,9 @@ class SetStringOperationStateContainer(AbstractOperationStateContainer):
     """Represents SetStringOperationState in BICEPS."""
 
     NODETYPE = pm.SetStringOperationState
-    AllowedValues: AllowedValuesType = cp.SubElementWithSubElementListProperty(pm.AllowedValues,
-                                                                               default_py_value=AllowedValuesType(),
-                                                                               value_class=AllowedValuesType)
+    AllowedValues: AllowedValuesType = x_struct.SubElementWithSubElementListProperty(pm.AllowedValues,
+                                                                                     default_py_value=AllowedValuesType(),
+                                                                                     value_class=AllowedValuesType)
     _props = ('AllowedValues',)
 
 
@@ -199,14 +200,15 @@ class AbstractMetricStateContainer(AbstractStateContainer):
     """Represents AbstractMetricState in BICEPS."""
 
     is_metric_state = True
-    BodySite: pm_types.CodedValue = cp.SubElementListProperty(pm.BodySite, value_class=pm_types.CodedValue)
-    PhysicalConnector: pm_types.PhysicalConnectorInfo = cp.SubElementProperty(pm.PhysicalConnector,
-                                                                              value_class=pm_types.PhysicalConnectorInfo,
-                                                                              is_optional=True)
-    ActivationState: pm_types.ComponentActivation | None = cp.EnumAttributeProperty(
+    BodySite: list[pm_types.CodedValue] = x_struct.SubElementListProperty(pm.BodySite, value_class=pm_types.CodedValue)
+    PhysicalConnector: pm_types.PhysicalConnectorInfo = x_struct.SubElementProperty(pm.PhysicalConnector,
+                                                                                    value_class=pm_types.PhysicalConnectorInfo,
+                                                                                    is_optional=True)
+    ActivationState: pm_types.ComponentActivation | None = x_struct.EnumAttributeProperty(
         'ActivationState', implied_py_value=pm_types.ComponentActivation.ON, enum_cls=pm_types.ComponentActivation)
-    ActiveDeterminationPeriod: float | None = cp.DurationAttributeProperty('ActiveDeterminationPeriod')
-    LifeTimePeriod: float | None = cp.DurationAttributeProperty('LifeTimePeriod')
+    ActiveDeterminationPeriod: DurationType | None = x_struct.DurationAttributeProperty(
+        'ActiveDeterminationPeriod')
+    LifeTimePeriod: DurationType | None = x_struct.DurationAttributeProperty('LifeTimePeriod')
     _props = ('BodySite', 'PhysicalConnector', 'ActivationState', 'ActiveDeterminationPeriod', 'LifeTimePeriod')
 
 
@@ -214,12 +216,12 @@ class NumericMetricStateContainer(AbstractMetricStateContainer):
     """Represents NumericMetricState in BICEPS."""
 
     NODETYPE = pm.NumericMetricState
-    MetricValue: pm_types.NumericMetricValue | None = cp.SubElementProperty(pm.MetricValue,
-                                                                            value_class=pm_types.NumericMetricValue,
-                                                                            is_optional=True)
-    PhysiologicalRange: list[pm_types.Range] = cp.SubElementListProperty(pm.PhysiologicalRange,
-                                                                         value_class=pm_types.Range)
-    ActiveAveragingPeriod: float | None = cp.DurationAttributeProperty('ActiveAveragingPeriod')
+    MetricValue: pm_types.NumericMetricValue | None = x_struct.SubElementProperty(pm.MetricValue,
+                                                                                  value_class=pm_types.NumericMetricValue,
+                                                                                  is_optional=True)
+    PhysiologicalRange: list[pm_types.Range] = x_struct.SubElementListProperty(pm.PhysiologicalRange,
+                                                                               value_class=pm_types.Range)
+    ActiveAveragingPeriod: DurationType | None = x_struct.DurationAttributeProperty('ActiveAveragingPeriod')
     _props = ('MetricValue', 'PhysiologicalRange', 'ActiveAveragingPeriod')
 
     def mk_metric_value(self) -> pm_types.NumericMetricValue:
@@ -234,9 +236,9 @@ class StringMetricStateContainer(AbstractMetricStateContainer):
     """Represents StringMetricState in BICEPS."""
 
     NODETYPE = pm.StringMetricState
-    MetricValue: pm_types.StringMetricValue | None = cp.SubElementProperty(pm.MetricValue,
-                                                                           value_class=pm_types.StringMetricValue,
-                                                                           is_optional=True)
+    MetricValue: pm_types.StringMetricValue | None = x_struct.SubElementProperty(pm.MetricValue,
+                                                                                 value_class=pm_types.StringMetricValue,
+                                                                                 is_optional=True)
     _props = ('MetricValue',)
 
     def mk_metric_value(self) -> pm_types.StringMetricValue:
@@ -258,11 +260,11 @@ class RealTimeSampleArrayMetricStateContainer(AbstractMetricStateContainer):
 
     NODETYPE = pm.RealTimeSampleArrayMetricState
     is_realtime_sample_array_metric_state = True
-    MetricValue: pm_types.SampleArrayValue | None = cp.SubElementProperty(pm.MetricValue,
-                                                                          value_class=pm_types.SampleArrayValue,
-                                                                          is_optional=True)
-    PhysiologicalRange: list[pm_types.Range] = cp.SubElementListProperty(pm.PhysiologicalRange,
-                                                                         value_class=pm_types.Range)
+    MetricValue: pm_types.SampleArrayValue | None = x_struct.SubElementProperty(pm.MetricValue,
+                                                                                value_class=pm_types.SampleArrayValue,
+                                                                                is_optional=True)
+    PhysiologicalRange: list[pm_types.Range] = x_struct.SubElementListProperty(pm.PhysiologicalRange,
+                                                                               value_class=pm_types.Range)
     _props = ('MetricValue', 'PhysiologicalRange')
 
     def mk_metric_value(self) -> pm_types.SampleArrayValue:
@@ -284,9 +286,9 @@ class DistributionSampleArrayMetricStateContainer(AbstractMetricStateContainer):
     """Represents DistributionSampleArrayMetricState in BICEPS."""
 
     NODETYPE = pm.DistributionSampleArrayMetricState
-    _metric_value = cp.SubElementProperty(pm.MetricValue, value_class=pm_types.SampleArrayValue, is_optional=True)
-    PhysiologicalRange: list[pm_types.Range] = cp.SubElementListProperty(pm.PhysiologicalRange,
-                                                                         value_class=pm_types.Range)
+    _metric_value = x_struct.SubElementProperty(pm.MetricValue, value_class=pm_types.SampleArrayValue, is_optional=True)
+    PhysiologicalRange: list[pm_types.Range] = x_struct.SubElementListProperty(pm.PhysiologicalRange,
+                                                                               value_class=pm_types.Range)
     _props = ('_metric_value', 'PhysiologicalRange')
 
 
@@ -294,21 +296,21 @@ class AbstractDeviceComponentStateContainer(AbstractStateContainer):
     """Represents AbstractDeviceComponentState in BICEPS."""
 
     is_component_state = True
-    CalibrationInfo: pm_types.CalibrationInfo | None = cp.SubElementProperty(pm.CalibrationInfo,
-                                                                             value_class=pm_types.CalibrationInfo,
-                                                                             is_optional=True)
-    NextCalibration: pm_types.CalibrationInfo | None = cp.SubElementProperty(pm.NextCalibration,
-                                                                             value_class=pm_types.CalibrationInfo,
-                                                                             is_optional=True)
-    PhysicalConnector: pm_types.PhysicalConnectorInfo | None = cp.SubElementProperty(pm.PhysicalConnector,
-                                                                                     value_class=pm_types.PhysicalConnectorInfo,
-                                                                                     is_optional=True)
+    CalibrationInfo: pm_types.CalibrationInfo | None = x_struct.SubElementProperty(pm.CalibrationInfo,
+                                                                                   value_class=pm_types.CalibrationInfo,
+                                                                                   is_optional=True)
+    NextCalibration: pm_types.CalibrationInfo | None = x_struct.SubElementProperty(pm.NextCalibration,
+                                                                                   value_class=pm_types.CalibrationInfo,
+                                                                                   is_optional=True)
+    PhysicalConnector: pm_types.PhysicalConnectorInfo | None = x_struct.SubElementProperty(pm.PhysicalConnector,
+                                                                                           value_class=pm_types.PhysicalConnectorInfo,
+                                                                                           is_optional=True)
 
-    ActivationState: pm_types.ComponentActivation = cp.EnumAttributeProperty('ActivationState',
-                                                                             enum_cls=pm_types.ComponentActivation,
-                                                                             implied_py_value=pm_types.ComponentActivation.ON)
-    OperatingHours: int | None = cp.UnsignedIntAttributeProperty('OperatingHours')
-    OperatingCycles: int | None = cp.UnsignedIntAttributeProperty('OperatingCycles')
+    ActivationState: pm_types.ComponentActivation = x_struct.EnumAttributeProperty('ActivationState',
+                                                                                   enum_cls=pm_types.ComponentActivation,
+                                                                                   implied_py_value=pm_types.ComponentActivation.ON)
+    OperatingHours: int | None = x_struct.UnsignedIntAttributeProperty('OperatingHours')
+    OperatingCycles: int | None = x_struct.UnsignedIntAttributeProperty('OperatingCycles')
     _props = (
         'CalibrationInfo', 'NextCalibration', 'PhysicalConnector', 'ActivationState', 'OperatingHours',
         'OperatingCycles')
@@ -324,13 +326,13 @@ class MdsStateContainer(AbstractComplexDeviceComponentStateContainer):
     """Represents MdsState in BICEPS."""
 
     NODETYPE = pm.MdsState
-    OperatingJurisdiction: pm_types.OperatingJurisdiction | None = cp.SubElementProperty(pm.OperatingJurisdiction,
-                                                                                         value_class=pm_types.OperatingJurisdiction,
-                                                                                         is_optional=True)
-    Lang: str = cp.StringAttributeProperty('Lang', implied_py_value='en')
-    OperatingMode: pm_types.MdsOperatingMode = cp.EnumAttributeProperty('OperatingMode',
-                                                                        implied_py_value=pm_types.MdsOperatingMode.NORMAL,
-                                                                        enum_cls=pm_types.MdsOperatingMode)
+    OperatingJurisdiction: pm_types.OperatingJurisdiction | None = x_struct.SubElementProperty(pm.OperatingJurisdiction,
+                                                                                               value_class=pm_types.OperatingJurisdiction,
+                                                                                               is_optional=True)
+    Lang: str = x_struct.StringAttributeProperty('Lang', implied_py_value='en')
+    OperatingMode: pm_types.MdsOperatingMode = x_struct.EnumAttributeProperty('OperatingMode',
+                                                                              implied_py_value=pm_types.MdsOperatingMode.NORMAL,
+                                                                              enum_cls=pm_types.MdsOperatingMode)
     _props = ('OperatingJurisdiction', 'OperatingMode', 'Lang')
 
 
@@ -338,10 +340,10 @@ class ScoStateContainer(AbstractDeviceComponentStateContainer):
     """Represents ScoState in BICEPS."""
 
     NODETYPE = pm.ScoState
-    OperationGroup: list[pm_types.OperationGroup] = cp.SubElementListProperty(pm.OperationGroup,
-                                                                              value_class=pm_types.OperationGroup)
-    InvocationRequested: list[str] | None = cp.OperationRefListAttributeProperty('InvocationRequested')
-    InvocationRequired: list[str] | None = cp.OperationRefListAttributeProperty('InvocationRequired')
+    OperationGroup: list[pm_types.OperationGroup] = x_struct.SubElementListProperty(pm.OperationGroup,
+                                                                                    value_class=pm_types.OperationGroup)
+    InvocationRequested: list[str] | None = x_struct.OperationRefListAttributeProperty('InvocationRequested')
+    InvocationRequired: list[str] | None = x_struct.OperationRefListAttributeProperty('InvocationRequired')
     _props = ('OperationGroup', 'InvocationRequested', 'InvocationRequired')
 
 
@@ -349,9 +351,9 @@ class VmdStateContainer(AbstractComplexDeviceComponentStateContainer):
     """Represents VmdState in BICEPS."""
 
     NODETYPE = pm.VmdState
-    OperatingJurisdiction: pm_types.OperatingJurisdiction = cp.SubElementProperty(pm.OperatingJurisdiction,
-                                                                                  value_class=pm_types.OperatingJurisdiction,
-                                                                                  is_optional=True)
+    OperatingJurisdiction: pm_types.OperatingJurisdiction = x_struct.SubElementProperty(pm.OperatingJurisdiction,
+                                                                                        value_class=pm_types.OperatingJurisdiction,
+                                                                                        is_optional=True)
     _props = ('OperatingJurisdiction',)
 
 
@@ -365,16 +367,16 @@ class ClockStateContainer(AbstractDeviceComponentStateContainer):
     """Represents ClockState in BICEPS."""
 
     NODETYPE = pm.ClockState
-    ActiveSyncProtocol: pm_types.CodedValue | None = cp.SubElementProperty(pm.ActiveSyncProtocol,
-                                                                           value_class=pm_types.CodedValue,
-                                                                           is_optional=True)
-    ReferenceSource: list[str] = cp.SubElementStringListProperty(pm.ReferenceSource)
-    DateAndTime: float = cp.CurrentTimestampAttributeProperty('DateAndTime')
-    RemoteSync: bool = cp.BooleanAttributeProperty('RemoteSync', default_py_value=True, is_optional=False)
-    Accuracy: Decimal | None = cp.DecimalAttributeProperty('Accuracy')
-    LastSet: float | None = cp.TimestampAttributeProperty('LastSet')
-    TimeZone: str | None = cp.TimeZoneAttributeProperty('TimeZone')
-    CriticalUse: bool = cp.BooleanAttributeProperty('CriticalUse', implied_py_value=False)
+    ActiveSyncProtocol: pm_types.CodedValue | None = x_struct.SubElementProperty(pm.ActiveSyncProtocol,
+                                                                                 value_class=pm_types.CodedValue,
+                                                                                 is_optional=True)
+    ReferenceSource: list[str] = x_struct.SubElementStringListProperty(pm.ReferenceSource)
+    DateAndTime: float = x_struct.CurrentTimestampAttributeProperty('DateAndTime')
+    RemoteSync: bool = x_struct.BooleanAttributeProperty('RemoteSync', default_py_value=True, is_optional=False)
+    Accuracy: Decimal | None = x_struct.DecimalAttributeProperty('Accuracy')
+    LastSet: float | None = x_struct.TimestampAttributeProperty('LastSet')
+    TimeZone: str | None = x_struct.TimeZoneAttributeProperty('TimeZone')
+    CriticalUse: bool = x_struct.BooleanAttributeProperty('CriticalUse', implied_py_value=False)
     _props = ('ActiveSyncProtocol', 'ReferenceSource', 'DateAndTime', 'RemoteSync', 'Accuracy', 'LastSet', 'TimeZone',
               'CriticalUse')
 
@@ -397,23 +399,24 @@ class BatteryStateContainer(AbstractDeviceComponentStateContainer):
         EMPTY = 'DEB'
 
     NODETYPE = pm.BatteryState
-    CapacityRemaining: pm_types.Measurement | None = cp.SubElementProperty(pm.CapacityRemaining,
+    CapacityRemaining: pm_types.Measurement | None = x_struct.SubElementProperty(pm.CapacityRemaining,
+                                                                                 value_class=pm_types.Measurement,
+                                                                                 is_optional=True)
+    Voltage: pm_types.Measurement | None = x_struct.SubElementProperty(pm.Voltage,
+                                                                       value_class=pm_types.Measurement,
+                                                                       is_optional=True)
+    Current: pm_types.Measurement | None = x_struct.SubElementProperty(pm.Current,
+                                                                       value_class=pm_types.Measurement,
+                                                                       is_optional=True)
+    Temperature: pm_types.Measurement | None = x_struct.SubElementProperty(pm.Temperature,
                                                                            value_class=pm_types.Measurement,
                                                                            is_optional=True)
-    Voltage: pm_types.Measurement | None = cp.SubElementProperty(pm.Voltage,
-                                                                 value_class=pm_types.Measurement,
-                                                                 is_optional=True)
-    Current: pm_types.Measurement | None = cp.SubElementProperty(pm.Current,
-                                                                 value_class=pm_types.Measurement,
-                                                                 is_optional=True)
-    Temperature: pm_types.Measurement | None = cp.SubElementProperty(pm.Temperature,
-                                                                     value_class=pm_types.Measurement,
-                                                                     is_optional=True)
-    RemainingBatteryTime: pm_types.Measurement | None = cp.SubElementProperty(pm.RemainingBatteryTime,
-                                                                              value_class=pm_types.Measurement,
-                                                                              is_optional=True)
-    ChargeStatus: ChargeStatusEnum | None = cp.EnumAttributeProperty('ChargeStatus', enum_cls=ChargeStatusEnum)
-    ChargeCycles: int | None = cp.UnsignedIntAttributeProperty('ChargeCycles')  # Number of charge/discharge cycles.
+    RemainingBatteryTime: pm_types.Measurement | None = x_struct.SubElementProperty(pm.RemainingBatteryTime,
+                                                                                    value_class=pm_types.Measurement,
+                                                                                    is_optional=True)
+    ChargeStatus: ChargeStatusEnum | None = x_struct.EnumAttributeProperty('ChargeStatus', enum_cls=ChargeStatusEnum)
+    ChargeCycles: int | None = x_struct.UnsignedIntAttributeProperty(
+        'ChargeCycles')  # Number of charge/discharge cycles.
     _props = (
         'CapacityRemaining', 'Voltage', 'Current', 'Temperature', 'RemainingBatteryTime', 'ChargeStatus',
         'ChargeCycles')
@@ -423,10 +426,10 @@ class AbstractAlertStateContainer(AbstractStateContainer):
     """Represents AbstractAlertState in BICEPS."""
 
     is_alert_state = True
-    ActivationState: pm_types.AlertActivation = cp.EnumAttributeProperty('ActivationState',
-                                                                         default_py_value=pm_types.AlertActivation.ON,
-                                                                         enum_cls=pm_types.AlertActivation,
-                                                                         is_optional=False)
+    ActivationState: pm_types.AlertActivation = x_struct.EnumAttributeProperty('ActivationState',
+                                                                               default_py_value=pm_types.AlertActivation.ON,
+                                                                               enum_cls=pm_types.AlertActivation,
+                                                                               is_optional=False)
     _props = ('ActivationState',)
 
 
@@ -434,13 +437,14 @@ class AlertSystemStateContainer(AbstractAlertStateContainer):
     """Represents AlertSystemState in BICEPS."""
 
     NODETYPE = pm.AlertSystemState
-    SystemSignalActivation: list[pm_types.SystemSignalActivation] = cp.SubElementListProperty(pm.SystemSignalActivation,
-                                                                                              value_class=pm_types.SystemSignalActivation)
-    LastSelfCheck: float | None = cp.TimestampAttributeProperty('LastSelfCheck')
-    SelfCheckCount: int | None = cp.IntegerAttributeProperty('SelfCheckCount')
-    PresentPhysiologicalAlarmConditions: list[str] | None = cp.AlertConditionRefListAttributeProperty(
+    SystemSignalActivation: list[pm_types.SystemSignalActivation] = x_struct.SubElementListProperty(
+        pm.SystemSignalActivation,
+        value_class=pm_types.SystemSignalActivation)
+    LastSelfCheck: float | None = x_struct.TimestampAttributeProperty('LastSelfCheck')
+    SelfCheckCount: int | None = x_struct.IntegerAttributeProperty('SelfCheckCount')
+    PresentPhysiologicalAlarmConditions: list[str] | None = x_struct.AlertConditionRefListAttributeProperty(
         'PresentPhysiologicalAlarmConditions')
-    PresentTechnicalAlarmConditions: list[str] | None = cp.AlertConditionRefListAttributeProperty(
+    PresentTechnicalAlarmConditions: list[str] | None = x_struct.AlertConditionRefListAttributeProperty(
         'PresentTechnicalAlarmConditions')
     _props = ('SystemSignalActivation', 'LastSelfCheck', 'SelfCheckCount', 'PresentPhysiologicalAlarmConditions',
               'PresentTechnicalAlarmConditions')
@@ -456,14 +460,15 @@ class AlertSignalStateContainer(AbstractAlertStateContainer):
 
     is_alert_signal = True
     NODETYPE = pm.AlertSignalState
-    ActualSignalGenerationDelay: float | None = cp.DurationAttributeProperty('ActualSignalGenerationDelay')
-    Presence: pm_types.AlertSignalPresence = cp.EnumAttributeProperty('Presence',
-                                                                      implied_py_value=pm_types.AlertSignalPresence.OFF,
-                                                                      enum_cls=pm_types.AlertSignalPresence)
-    Location: pm_types.AlertSignalPrimaryLocation = cp.EnumAttributeProperty('Location',
-                                                                             implied_py_value=pm_types.AlertSignalPrimaryLocation.LOCAL,
-                                                                             enum_cls=pm_types.AlertSignalPrimaryLocation)
-    Slot: int | None = cp.UnsignedIntAttributeProperty('Slot')
+    ActualSignalGenerationDelay: DurationType | None = x_struct.DurationAttributeProperty(
+        'ActualSignalGenerationDelay')
+    Presence: pm_types.AlertSignalPresence = x_struct.EnumAttributeProperty('Presence',
+                                                                            implied_py_value=pm_types.AlertSignalPresence.OFF,
+                                                                            enum_cls=pm_types.AlertSignalPresence)
+    Location: pm_types.AlertSignalPrimaryLocation = x_struct.EnumAttributeProperty('Location',
+                                                                                   implied_py_value=pm_types.AlertSignalPrimaryLocation.LOCAL,
+                                                                                   enum_cls=pm_types.AlertSignalPrimaryLocation)
+    Slot: int | None = x_struct.UnsignedIntAttributeProperty('Slot')
     _props = ('ActualSignalGenerationDelay', 'Presence', 'Location', 'Slot')
 
     def __init__(self, descriptor_container: AbstractDescriptorProtocol):
@@ -481,12 +486,13 @@ class AlertConditionStateContainer(AbstractAlertStateContainer):
 
     is_alert_condition = True
     NODETYPE = pm.AlertConditionState
-    ActualConditionGenerationDelay: float | None = cp.DurationAttributeProperty('ActualConditionGenerationDelay')
-    ActualPriority: pm_types.AlertConditionPriority | None = cp.EnumAttributeProperty('ActualPriority',
-                                                                                      enum_cls=pm_types.AlertConditionPriority)
-    Rank: int | None = cp.IntegerAttributeProperty('Rank')
-    DeterminationTime: float | None = cp.TimestampAttributeProperty('DeterminationTime')
-    Presence: bool = cp.BooleanAttributeProperty('Presence', implied_py_value=False)
+    ActualConditionGenerationDelay: DurationType | None = x_struct.DurationAttributeProperty(
+        'ActualConditionGenerationDelay')
+    ActualPriority: pm_types.AlertConditionPriority | None = x_struct.EnumAttributeProperty('ActualPriority',
+                                                                                            enum_cls=pm_types.AlertConditionPriority)
+    Rank: int | None = x_struct.IntegerAttributeProperty('Rank')
+    DeterminationTime: float | None = x_struct.TimestampAttributeProperty('DeterminationTime')
+    Presence: bool = x_struct.BooleanAttributeProperty('Presence', implied_py_value=False)
     _props = ('ActualConditionGenerationDelay', 'ActualPriority', 'Rank', 'DeterminationTime', 'Presence')
 
     def __repr__(self) -> str:
@@ -499,15 +505,17 @@ class LimitAlertConditionStateContainer(AlertConditionStateContainer):
     """Represents LimitAlertConditionState in BICEPS."""
 
     NODETYPE = pm.LimitAlertConditionState
-    Limits: pm_types.Range = cp.SubElementProperty(pm.Limits,
-                                                   value_class=pm_types.Range,
-                                                   default_py_value=pm_types.Range())
-    MonitoredAlertLimits: pm_types.AlertConditionMonitoredLimits = cp.EnumAttributeProperty('MonitoredAlertLimits',
-                                                                                            default_py_value=pm_types.AlertConditionMonitoredLimits.NONE,
-                                                                                            enum_cls=pm_types.AlertConditionMonitoredLimits,
-                                                                                            is_optional=False)
-    AutoLimitActivationState: pm_types.AlertActivation | None = cp.EnumAttributeProperty('AutoLimitActivationState',
-                                                                                         enum_cls=pm_types.AlertActivation)
+    Limits: pm_types.Range = x_struct.SubElementProperty(pm.Limits,
+                                                         value_class=pm_types.Range,
+                                                         default_py_value=pm_types.Range())
+    MonitoredAlertLimits: pm_types.AlertConditionMonitoredLimits = x_struct.EnumAttributeProperty(
+        'MonitoredAlertLimits',
+        default_py_value=pm_types.AlertConditionMonitoredLimits.NONE,
+        enum_cls=pm_types.AlertConditionMonitoredLimits,
+        is_optional=False)
+    AutoLimitActivationState: pm_types.AlertActivation | None = x_struct.EnumAttributeProperty(
+        'AutoLimitActivationState',
+        enum_cls=pm_types.AlertActivation)
     _props = ('Limits', 'MonitoredAlertLimits', 'AutoLimitActivationState')
 
 
@@ -516,14 +524,15 @@ class AbstractMultiStateProtocol(AbstractStateProtocol):
 
     Handle: str
 
+
 class AbstractMultiStateContainer(AbstractStateContainer):
     """Represents AbstractMultiState in BICEPS."""
 
     is_multi_state = True
-    Category: pm_types.CodedValue | None = cp.SubElementProperty(pm.Category,
-                                                                 value_class=pm_types.CodedValue,
-                                                                 is_optional=True)
-    Handle: str = cp.HandleAttributeProperty('Handle', is_optional=False)
+    Category: pm_types.CodedValue | None = x_struct.SubElementProperty(pm.Category,
+                                                                       value_class=pm_types.CodedValue,
+                                                                       is_optional=True)
+    Handle: str = x_struct.HandleAttributeProperty('Handle', is_optional=False)
     _props = ('Category', 'Handle')
 
     def __init__(self, descriptor_container: AbstractDescriptorProtocol, handle: str | None = None):
@@ -540,7 +549,7 @@ class AbstractMultiStateContainer(AbstractStateContainer):
                 f'Update from a node with different handle is not possible! Have "{self.Handle}", got "{other.Handle}"')
         super().update_from_other_container(other, skipped_properties)
 
-    def mk_state_node(self, tag: QName, nsmapper: NamespaceHelper, set_xsi_type: bool = True) -> AbstractStateProtocol:
+    def mk_state_node(self, tag: QName, nsmapper: NamespaceHelper, set_xsi_type: bool = True) -> ElementBase:
         """Create an etree node from instance data."""
         if self.Handle is None:
             self.Handle = uuid.uuid4().hex
@@ -555,17 +564,17 @@ class AbstractContextStateContainer(AbstractMultiStateContainer):
     """Represents AbstractContextState in BICEPS."""
 
     is_context_state = True
-    Validator: list[pm_types.InstanceIdentifier] = cp.SubElementListProperty(pm.Validator,
-                                                                             value_class=pm_types.InstanceIdentifier)
-    Identification: list[pm_types.InstanceIdentifier] = cp.SubElementListProperty(pm.Identification,
-                                                                                  value_class=pm_types.InstanceIdentifier)
-    ContextAssociation: pm_types.ContextAssociation = cp.EnumAttributeProperty('ContextAssociation',
-                                                                               enum_cls=pm_types.ContextAssociation,
-                                                                               implied_py_value=pm_types.ContextAssociation.NO_ASSOCIATION)
-    BindingMdibVersion: int | None = cp.ReferencedVersionAttributeProperty('BindingMdibVersion')
-    UnbindingMdibVersion: int | None = cp.ReferencedVersionAttributeProperty('UnbindingMdibVersion')
-    BindingStartTime: float | None = cp.TimestampAttributeProperty('BindingStartTime')
-    BindingEndTime: float | None = cp.TimestampAttributeProperty('BindingEndTime')
+    Validator: list[pm_types.InstanceIdentifier] = x_struct.SubElementListProperty(pm.Validator,
+                                                                                   value_class=pm_types.InstanceIdentifier)
+    Identification: list[pm_types.InstanceIdentifier] = x_struct.SubElementListProperty(pm.Identification,
+                                                                                        value_class=pm_types.InstanceIdentifier)
+    ContextAssociation: pm_types.ContextAssociation = x_struct.EnumAttributeProperty('ContextAssociation',
+                                                                                     enum_cls=pm_types.ContextAssociation,
+                                                                                     implied_py_value=pm_types.ContextAssociation.NO_ASSOCIATION)
+    BindingMdibVersion: int | None = x_struct.ReferencedVersionAttributeProperty('BindingMdibVersion')
+    UnbindingMdibVersion: int | None = x_struct.ReferencedVersionAttributeProperty('UnbindingMdibVersion')
+    BindingStartTime: float | None = x_struct.TimestampAttributeProperty('BindingStartTime')
+    BindingEndTime: float | None = x_struct.TimestampAttributeProperty('BindingEndTime')
     _props = ('Validator', 'Identification', 'ContextAssociation', 'BindingMdibVersion', 'UnbindingMdibVersion',
               'BindingStartTime', 'BindingEndTime')
 
@@ -578,10 +587,10 @@ class LocationContextStateContainer(AbstractContextStateContainer):
     # but it makes it much easier for users if LocationDetail always exists.
     # The consequence is a difference in generated xml: The LocationDetail node will always exist, even if nothing was set.
     # To circumvent this you can set LocationDetail to None.
-    LocationDetail: pm_types.LocationDetail = cp.SubElementProperty(pm.LocationDetail,
-                                                                    value_class=pm_types.LocationDetail,
-                                                                    default_py_value=pm_types.LocationDetail(),
-                                                                    is_optional=True)
+    LocationDetail: pm_types.LocationDetail = x_struct.SubElementProperty(pm.LocationDetail,
+                                                                          value_class=pm_types.LocationDetail,
+                                                                          default_py_value=pm_types.LocationDetail(),
+                                                                          is_optional=True)
     _props = ('LocationDetail',)
 
     def update_from_sdc_location(self, sdc_location: SdcLocation):
@@ -621,10 +630,10 @@ class PatientContextStateContainer(AbstractContextStateContainer):
     # but it makes it much easier for users if CoreData always exists.
     # The consequence is a difference in generated xml: The CoreData node will always exist, even if nothing was set.
     # To circumvent this you can set CoreData to None.
-    CoreData: pm_types.PatientDemographicsCoreData | None = cp.SubElementProperty(pm.CoreData,
-                                                                                  value_class=pm_types.PatientDemographicsCoreData,
-                                                                                  default_py_value=pm_types.PatientDemographicsCoreData(),
-                                                                                  is_optional=True)
+    CoreData: pm_types.PatientDemographicsCoreData | None = x_struct.SubElementProperty(pm.CoreData,
+                                                                                        value_class=pm_types.PatientDemographicsCoreData,
+                                                                                        default_py_value=pm_types.PatientDemographicsCoreData(),
+                                                                                        is_optional=True)
     _props = ('CoreData',)
 
 
@@ -632,9 +641,9 @@ class WorkflowContextStateContainer(AbstractContextStateContainer):
     """Represents WorkflowContextState in BICEPS."""
 
     NODETYPE = pm.WorkflowContextState
-    WorkflowDetail: pm_types.WorkflowDetail | None = cp.SubElementProperty(pm.WorkflowDetail,
-                                                                           value_class=pm_types.WorkflowDetail,
-                                                                           is_optional=True)
+    WorkflowDetail: pm_types.WorkflowDetail | None = x_struct.SubElementProperty(pm.WorkflowDetail,
+                                                                                 value_class=pm_types.WorkflowDetail,
+                                                                                 is_optional=True)
     _props = ('WorkflowDetail',)
 
 
@@ -642,9 +651,9 @@ class OperatorContextStateContainer(AbstractContextStateContainer):
     """Represents OperatorContextState in BICEPS."""
 
     NODETYPE = pm.OperatorContextState
-    OperatorDetails: pm_types.BaseDemographics | None = cp.SubElementProperty(pm.OperatorDetails,
-                                                                              value_class=pm_types.BaseDemographics,
-                                                                              is_optional=True)
+    OperatorDetails: pm_types.BaseDemographics | None = x_struct.SubElementProperty(pm.OperatorDetails,
+                                                                                    value_class=pm_types.BaseDemographics,
+                                                                                    is_optional=True)
     _props = ('OperatorDetails',)
 
 
