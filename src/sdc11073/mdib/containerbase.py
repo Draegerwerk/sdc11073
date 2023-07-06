@@ -1,7 +1,7 @@
 import copy
 import inspect
 from lxml import etree as etree_
-from .. import observableproperties as properties
+from .. import observableproperties as properties, xmlparsing
 from ..namespaces import QN_TYPE
 from ..namespaces import Prefix_Namespace as Prefix
 
@@ -65,10 +65,12 @@ class ContainerBase(object):
         for dummy_name, cprop in self._sortedContainerProperties():
             cprop.updateFromNode(self, node)
 
-    def mkCopy(self):
-        new = copy.copy(self)  # no deepcopy because of TypeError: cannot pickle 'lxml.etree.QName' object
-        new.node = None
-        return new
+    def mkCopy(self, copy_node=True):
+        copied = copy.copy(self)  # no deepcopy because of TypeError: cannot pickle 'lxml.etree.QName' object
+        if copy_node:
+            new_node = xmlparsing.copy_node(self.node)
+            copied.node = new_node
+        return copied
 
     def _sortedContainerProperties(self):
         """

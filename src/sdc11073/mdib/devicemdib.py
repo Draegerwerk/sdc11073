@@ -355,7 +355,7 @@ class _MdibUpdateTransaction(_TransactionBase):
             if not state_container.isRealtimeSampleArrayMetricState:
                 raise ValueError(
                     'descriptorHandle {} does not reference a RealTimeSampleArrayMetricState'.format(descriptorHandle))
-            new_state = state_container.mkCopy()
+            new_state = state_container.mkCopy(copy_node=False)
             new_state.incrementState()
         self.rtSampleStateUpdates[descriptorHandle] = _TrItem(state_container, new_state)
         return new_state
