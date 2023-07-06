@@ -254,7 +254,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         """
         Given the source of the AlertCondition return PhysiologicalRange
         Only returns range with Lower, Upper and StepWidth
-        @param source: Source metric handle
+        :param source: Source metric handle
         @return: (Range) PhysiologicalRange
         """
 

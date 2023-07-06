@@ -87,7 +87,7 @@ class MessageReader(object):
 
     def readContextState(self, getContextStatesResponseNode):
         """ Creates Context State Containers from dom tree.
-        @param getContextstatesResponseNode: node "getContextStatesResponse" of getContextStates.
+        :param getContextstatesResponseNode: node "getContextStatesResponse" of getContextStates.
         :param additionalDescriptorContainers: a list of descriptor containers that can also be used for state creation
                 (typically used if descriptors and states are created in the same transaction. In that case the descriptors are not yet part of mdib.)
         @return: a list of state containers
@@ -123,8 +123,8 @@ class MessageReader(object):
 
     def mkStateContainerFromNode(self, node, forcedType=None, additionalDescriptorContainers = None):
         """
-        @param node: a etree node
-        @param forcedType: if given, the QName that shall be used for class instantiation instead of the data in node
+        :param node: a etree node
+        :param forcedType: if given, the QName that shall be used for class instantiation instead of the data in node
         """
         if forcedType is not None:
             nodeType = forcedType

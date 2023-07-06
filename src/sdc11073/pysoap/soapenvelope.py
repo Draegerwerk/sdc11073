@@ -220,10 +220,10 @@ class WsSubscribe(object):
                        filter_=None,
                        delivery_mode=None):
         """
-        @param notifyTo: a WsaEndpointReferenceType
-        @param expires: duration in seconds ( absolute date not supported)
-        @param endTo: a WsaEndpointReferenceType or None
-        @param delivery_mode: defaults to MODE_PUSH
+        :param notifyTo: a WsaEndpointReferenceType
+        :param expires: duration in seconds ( absolute date not supported)
+        :param endTo: a WsaEndpointReferenceType or None
+        :param delivery_mode: defaults to MODE_PUSH
         """
         self.delivery_mode = delivery_mode or MODE_PUSH
         self.notifyTo = notifyTo
@@ -363,8 +363,8 @@ class DPWSHost(object):
     __slots__ = ('endpointReferences', 'types')
     def __init__(self, endpointReferencesList, typesList):
         """
-        @param endpointReferencesList: list of WsEndpointReference instances
-        @param typesList: a list of etree.QName instances
+        :param endpointReferencesList: list of WsEndpointReference instances
+        :param typesList: a list of etree.QName instances
         """
         self.endpointReferences = endpointReferencesList
         self.types = typesList

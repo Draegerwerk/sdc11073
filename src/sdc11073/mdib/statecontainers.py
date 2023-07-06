@@ -497,6 +497,6 @@ _state_lookup_by_type = dict([(c.NODETYPE, c) for c in classes_with_NODETYPE])
 
 def getContainerClass(qNameType):
     """
-    @param qNameType: a QName instance
+    :param qNameType: a QName instance
     """
     return _state_lookup_by_type.get(qNameType)

@@ -23,7 +23,7 @@ class OperationsManager(object):
         """ an operation call does not return the result of the operation directly. Instead you get an transaction id,
         and will receive the status of this transaction as notification ("OperationInvokedReport").
         This method returns a "future" object. The future object has a result as soon as a final transaction state is received.
-        @param soapenvelope: the envelope to be sent
+        :param soapenvelope: the envelope to be sent
         @return: a concurrent.futures.Future object
         """
         ret = Future()

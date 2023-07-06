@@ -273,7 +273,7 @@ class XsiTypeAttributeProperty(_PropertyBase):
 
     def getPyValueFromNode(self, node):
         """
-        @param node: the etree node as input
+        :param node: the etree node as input
         @return: None or a QName
         """
         value = self._defaultPyValue

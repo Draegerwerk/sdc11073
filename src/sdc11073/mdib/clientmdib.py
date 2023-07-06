@@ -81,10 +81,10 @@ class ClientRtBuffer(object):
     """Collects data of one real time stream."""
     def __init__(self, sample_period, max_samples):
         """
-        @param sample_period: float value, in seconds. 
+        :param sample_period: float value, in seconds. 
                               When an incoming real time sample array is split into single RtSampleContainers, this is used to calculate the individual time stamps.
                               Value can be zero if correct value is not known. In this case all Containers will have the observation time of the sample array.
-        @param max_samples: integer, max. length of self.rtdata
+        :param max_samples: integer, max. length of self.rtdata
         """
         self.rt_data = deque(maxlen=max_samples)
         self.sample_period = sample_period
@@ -859,8 +859,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     def waitMetricMatches(self, handle, matchesfunc, timeout):
         """ wait until a matching metric has been received. The matching is defined by the handle of the metric and the result of a matching function.
         If the matching function returns true, this function returns.
-        @param handle: The handle string of the metric of interest.
-        @param matchesfunc: a callable, argument is the current state with matching handle. Can be None, in that case every state matches
+        :param handle: The handle string of the metric of interest.
+        :param matchesfunc: a callable, argument is the current state with matching handle. Can be None, in that case every state matches
         Example:
             expected = 42
             def isMatchingValue(state):
@@ -868,7 +868,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 if found:
                     found[0] = int(found[0])
                     return [expected] == found
-        @param timeout: timeout in seconds
+        :param timeout: timeout in seconds
         @return: the matching state. In cas of a timeout it raises a TimeoutError exception.
         """ 
         fut = futures.Future()
