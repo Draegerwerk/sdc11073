@@ -5,7 +5,7 @@ from lxml import etree as etree_
 
 from sdc11073.namespaces import wsaTag, wseTag, dpwsTag, s12Tag, xmlTag, nsmap, WSA_ANONYMOUS, docNameFromQName
 from sdc11073.namespaces import Prefix_Namespace as Prefix
-from .. import isoduration
+from .. import isoduration, xmlparsing
 
 CHECK_NAMESPACES = False   # can be used to enable additional checks for too many namespaces or undefined namespaces
 
@@ -98,7 +98,7 @@ class WsaEndpointReferenceType(object):
         node  = etree_.SubElement(rootNode, wsaTag('Address'))
         node.text = self.address
         if self.referenceParametersNode is not None:
-            rootNode.append(copy.copy(self.referenceParametersNode))
+            rootNode.append(xmlparsing.copy_node(self.referenceParametersNode))
         if self.metaDataNode is not None:
             rootNode.append(self.metaDataNode)
 
@@ -168,7 +168,7 @@ class WsAddress(object):
                 node.set('RelationshipType', self.relationshipType)
 
         if self.referenceParametersNode:
-            rootNode.append(copy.copy(self.referenceParametersNode))
+            rootNode.append(xmlparsing.copy_node(self.referenceParametersNode))
 
     
     @classmethod
@@ -220,10 +220,10 @@ class WsSubscribe(object):
                        filter_=None,
                        delivery_mode=None):
         """
-        @param notifyTo: a WsaEndpointReferenceType
-        @param expires: duration in seconds ( absolute date not supported)
-        @param endTo: a WsaEndpointReferenceType or None
-        @param delivery_mode: defaults to MODE_PUSH
+        :param notifyTo: a WsaEndpointReferenceType
+        :param expires: duration in seconds ( absolute date not supported)
+        :param endTo: a WsaEndpointReferenceType or None
+        :param delivery_mode: defaults to MODE_PUSH
         """
         self.delivery_mode = delivery_mode or MODE_PUSH
         self.notifyTo = notifyTo
@@ -363,8 +363,8 @@ class DPWSHost(object):
     __slots__ = ('endpointReferences', 'types')
     def __init__(self, endpointReferencesList, typesList):
         """
-        @param endpointReferencesList: list of WsEndpointReference instances
-        @param typesList: a list of etree.QName instances
+        :param endpointReferencesList: list of WsEndpointReference instances
+        :param typesList: a list of etree.QName instances
         """
         self.endpointReferences = endpointReferencesList
         self.types = typesList

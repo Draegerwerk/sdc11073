@@ -1,3 +1,5 @@
+import copy
+
 from lxml import etree as etree_
 from .definitions_base import ProtocolsRegistry
 
@@ -55,3 +57,17 @@ def shortFilterString(actions):
     :return: a comma separated string of shortened names
     """
     return ', '.join([_shortActionString(a) for a in actions])
+
+
+def copy_node(node: etree_._Element, method=copy.deepcopy) -> etree_._Element:
+    """
+    Copy and preserve complete namespace. See https://github.com/Draegerwerk/sdc11073/issues/191
+
+    :param node: report node to be copied
+    :param method: method that copies an etree element
+    :return: new report node
+    """
+    root_tree = node.getroottree()
+    new_report = method(root_tree.getroot())
+    ns_map = {k: v for k, v in node.nsmap.items() if k}  # filter for default namespace
+    return new_report.xpath(root_tree.getpath(node), namespaces=ns_map)[0]

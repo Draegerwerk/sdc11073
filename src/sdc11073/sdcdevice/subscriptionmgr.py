@@ -59,10 +59,10 @@ class _DevSubscription(object):
     def __init__(self, mode, base_urls, notifyToAddress, notifyRefNode, endToAddress, endToRefNode, expires,
                  max_subscription_duration, filter_, sslContext, acceptedEncodings):  # pylint:disable=too-many-arguments
         """
-        @param notifyToAddress: dom node of Subscribe Request
-        @param endToAddress: dom node of Subscribe Request
-        @param expires: seconds as float
-        @param filter: a space separated list of actions, or only one action
+        :param notifyToAddress: dom node of Subscribe Request
+        :param endToAddress: dom node of Subscribe Request
+        :param expires: seconds as float
+        :param filter: a space separated list of actions, or only one action
         """
         self.mode = mode
         self.base_urls = base_urls
