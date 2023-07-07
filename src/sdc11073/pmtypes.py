@@ -112,11 +112,11 @@ class LocalizedText(PropertyBasedPMType):
 
     def __init__(self, text, lang=None, ref=None, version=None, textWidth=None):
         """
-        @param text: a string
-        @param lang: a string or None
-        @param ref: a string or None
-        @param version: an int or None
-        @param textWidth: xs, s, m, l, xl, xxl or None
+        :param text: a string
+        :param lang: a string or None
+        :param ref: a string or None
+        :param version: an int or None
+        :param textWidth: xs, s, m, l, xl, xxl or None
         """
         self.text = text
         self.Lang = lang
@@ -242,9 +242,9 @@ class T_Translation(PropertyBasedPMType):
     def __init__(self, code=None, codingsystem=None, codingSystemVersion=None):
         """
 
-        @param code: a string or an int
-        @param codingsystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
-        @param codingSystemVersion: a string, min. length = 1
+        :param code: a string or an int
+        :param codingsystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
+        :param codingSystemVersion: a string, min. length = 1
         """
         self.Code = str(code)
         self.CodingSystem = codingsystem
@@ -301,12 +301,12 @@ class _CodedValueBase(PropertyBasedPMType):
     def __init__(self, code, codingsystem=None, codingSystemVersion=None, codingSystemNames=None,
                  conceptDescriptions=None, symbolicCodeName=None):
         """
-        @param code: a string or an int
-        @param codingsystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
-        @param codingSystemVersion: a string, min. length = 1
-        @param codingSystemNames: a list of LocalizedText objects or None
-        @param conceptDescriptions: a list of LocalizedText objects or None
-        @param symbolicCodeName: a string, min. length = 1 or None
+        :param code: a string or an int
+        :param codingsystem: anyURI or None, defaults to ISO/IEC 11073-10101 if None
+        :param codingSystemVersion: a string, min. length = 1
+        :param codingSystemNames: a list of LocalizedText objects or None
+        :param conceptDescriptions: a list of LocalizedText objects or None
+        :param symbolicCodeName: a string, min. length = 1 or None
         """
         self.Code = str(code)
         self.CodingSystem = codingsystem
@@ -462,9 +462,9 @@ class OperationGroup(PropertyBasedPMType):
 
     def __init__(self, codedValue=None, operatingMode=None, operations=None):
         """
-        @param codedValue: a CodedValue instances or None
-        @param operatingMode:  xsd:string string
-        @param operations: a xsd:string
+        :param codedValue: a CodedValue instances or None
+        :param operatingMode:  xsd:string string
+        :param operations: a xsd:string
         """
         self.Type = codedValue
         self.OperatingMode = operatingMode
@@ -488,10 +488,10 @@ class InstanceIdentifier(PropertyBasedPMType):
 
     def __init__(self, root, type_codedValue=None, identifierNames=None, extensionString=None):
         """
-        @param root:  xsd:anyURI string
-        @param type_codedValue: a CodedValue instances or None
-        @param identifierNames: a list of LocalizedText instances or None
-        @param extensionString: a xsd:string
+        :param root:  xsd:anyURI string
+        :param type_codedValue: a CodedValue instances or None
+        :param identifierNames: a list of LocalizedText instances or None
+        :param extensionString: a xsd:string
         """
         self.Root = root
         self.Type = type_codedValue
@@ -526,11 +526,11 @@ class Range(PropertyBasedPMType):
 
     def __init__(self, lower=None, upper=None, stepWidth=None, relativeAccuracy=None, absoluteAccuracy=None):
         """
-        @param lower: The including lower bound of the range. A value as float or integer, can be None
-        @param upper: The including upper bound of the range. A value as float or integer, can be None
-        @param stepWidth: The numerical distance between two values in the range of the given upper and lower bound. A value as float or integer, can be None
-        @param relativeAccuracy: Maximum relative error in relation to the correct value within the given range. A value as float or integer, can be None
-        @param absoluteAccuracy: Maximum absolute error in relation to the correct value within the given range. A value as float or integer, can be None
+        :param lower: The including lower bound of the range. A value as float or integer, can be None
+        :param upper: The including upper bound of the range. A value as float or integer, can be None
+        :param stepWidth: The numerical distance between two values in the range of the given upper and lower bound. A value as float or integer, can be None
+        :param relativeAccuracy: Maximum relative error in relation to the correct value within the given range. A value as float or integer, can be None
+        :param absoluteAccuracy: Maximum absolute error in relation to the correct value within the given range. A value as float or integer, can be None
         """
         self.Lower = lower
         self.Upper = upper
@@ -551,8 +551,8 @@ class Measurement(PropertyBasedPMType):
 
     def __init__(self, value, unit):
         """
-        @param value: a value as string, float or integer
-        @param unit: a CodedValue instance
+        :param value: a value as string, float or integer
+        :param unit: a CodedValue instance
         """
         self.MeasuredValue = value
         self.MeasurementUnit = unit
@@ -582,8 +582,8 @@ class AllowedValue(PropertyBasedPMType):
     def __init__(self, valueString, typeCoding=None):
         """One AllowedValue of a EnumStringMetricDescriptor. It has up to two sub elements "Value" and "Type"(optional).
         A StringEnumMetricDescriptor has a list of AllowedValues.
-        @param valueString: a string
-        @param typeCoding: an optional CodedValue instance
+        :param valueString: a string
+        :param typeCoding: an optional CodedValue instance
         """
         self.Value = valueString
         self.Type = typeCoding
@@ -762,7 +762,7 @@ class RemedyInfo(PropertyBasedPMType):
 
     def __init__(self, descriptions=None):
         """
-        @param descriptions : a list of LocalizedText objects or None
+        :param descriptions : a list of LocalizedText objects or None
         """
         if descriptions:
             self.Description = descriptions
@@ -779,8 +779,8 @@ class CauseInfo(PropertyBasedPMType):
 
     def __init__(self, remedyInfo, descriptions):
         """
-        @param remedyInfo: a RemedyInfo instance or None
-        @param descriptions : a list of LocalizedText objects or None
+        :param remedyInfo: a RemedyInfo instance or None
+        :param descriptions : a list of LocalizedText objects or None
         """
         self.RemedyInfo = remedyInfo
         self.Description = descriptions
@@ -809,8 +809,8 @@ class Argument(PropertyBasedPMType):
 
     def __init__(self, argName, arg):
         """
-        @param argName: a CodedValue instance
-        @param arg : etree_.QName instance
+        :param argName: a CodedValue instance
+        :param arg : etree_.QName instance
         """
         self.ArgName = argName
         self.Arg = arg
@@ -839,8 +839,8 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
 
     def __init__(self, labels, number):
         """
-        @param labels: a  list of LocalizedText
-        @param number : an integer
+        :param labels: a  list of LocalizedText
+        :param number : an integer
         """
         self.Label = labels
         self.Number = number
@@ -864,8 +864,8 @@ class SystemSignalActivation(PropertyBasedPMType):
 
     def __init__(self, manifestation, state):
         """
-        @param manifestation: a pmtypes.AlertSignalManifestation value
-        @param state : a pmtypes.AlertActivation value
+        :param manifestation: a pmtypes.AlertSignalManifestation value
+        :param state : a pmtypes.AlertActivation value
         """
         self.Manifestation = manifestation
         self.State = state
@@ -888,9 +888,9 @@ class ProductionSpecification(PropertyBasedPMType):
 
     def __init__(self, spectype, productionspec, componentid=None):
         """
-        @param spectype: a pmtypes.CodedValue value
-        @param productionspec: a string
-        @param componentid : a pmtypes.InstanceIdentifier value
+        :param spectype: a pmtypes.CodedValue value
+        :param productionspec: a string
+        :param componentid : a pmtypes.InstanceIdentifier value
         """
         self.SpecType = spectype
         self.ProductionSpec = productionspec
@@ -1041,7 +1041,7 @@ class OrderDetail(PropertyBasedPMType):
         :param end: a xsd:DateTime string
         :param performer: a list of PersonParticipation objects
         :param service: a list of CodedValue objects
-        @param imagingprocedure: a list of ImagingProcedure objects
+        :param imagingprocedure: a list of ImagingProcedure objects
         """
         self.Start = start
         self.End = end
@@ -1134,8 +1134,8 @@ class T_Selector(PropertyBasedPMType):
 
     def __init__(self, id_, text):
         """
-        @param id_: a string
-        @param text : a string
+        :param id_: a string
+        :param text : a string
         """
         self.Id = id_
         self.text = text
@@ -1156,9 +1156,9 @@ class T_DualChannelDef(PropertyBasedPMType):
 
     def __init__(self, selectors, algorithm=None, transform=None):
         """
-        @param selectors: a list of Selector objects
-        @param algorithm : a string
-        @param transform : a string
+        :param selectors: a list of Selector objects
+        :param algorithm : a string
+        :param transform : a string
         """
         self.Selector = selectors
         self.Algorithm = algorithm
@@ -1179,7 +1179,7 @@ class T_SafetyContextDef(PropertyBasedPMType):
 
     def __init__(self, selectors):
         """
-        @param selectors: a list of Selector objects
+        :param selectors: a list of Selector objects
         """
         self.Selector = selectors
 

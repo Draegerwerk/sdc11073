@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.27] - 2023-06-29
 
+### Fixed
+
+- nsmap not being fully copied when a report node is being copied in the client mdib [#191](https://github.com/Draegerwerk/sdc11073/issues/191)
+
+## [1.1.27] - 2023-06-29
+
 ### Added
 - On consumer side: Option to configure the time to wait until the event sink is started,
   this avoids invalid subscription requests [#147](https://github.com/Draegerwerk/sdc11073/issues/147)

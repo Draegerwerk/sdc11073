@@ -175,14 +175,14 @@ class SdcClient(object):
                  soap_notifications_handler_class=None,
                  chunked_requests=False):  # pylint:disable=too-many-arguments
         """
-        @param devicelocation: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
-        @param deviceType: a QName that defines the device type, e.g. '{http://standards.ieee.org/downloads/11073/11073-20702-2016}MedicalDevice'
-        @param sslEvents: define if client uses https
+        :param devicelocation: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
+        :param deviceType: a QName that defines the device type, e.g. '{http://standards.ieee.org/downloads/11073/11073-20702-2016}MedicalDevice'
+        :param sslEvents: define if client uses https
              sslEvents='auto': use https if Xaddress of device is https
              sslEvents=True: always use https
              sslEvents=False: use only http
-        @param sslContext: the ssl context that shall be used for https connections. If None, https is not possible.
-        @param my_ipaddress: This address is used for the http server that receives notifications.
+        :param sslContext: the ssl context that shall be used for https connections. If None, https is not possible.
+        :param my_ipaddress: This address is used for the http server that receives notifications.
              If value is None, best own address is determined automatically (recommended).
         """
         self._devicelocation = devicelocation
@@ -263,10 +263,10 @@ class SdcClient(object):
 
     def _subscribe(self, dpwsHosted, actions, callback):
         """ creates a subscription object and registers it in
-        @param dpwsHosted: proxy for the hosted service that provides the events we want to subscribe to
+        :param dpwsHosted: proxy for the hosted service that provides the events we want to subscribe to
                            This is the target for all subscribe/unsubscribe ... messages
-        @param actions: a list of filters. this (joined) string is sent to the sdc server in the Subscribe message
-        @param callback: callable with signature callback(soapEnvlope)
+        :param actions: a list of filters. this (joined) string is sent to the sdc server in the Subscribe message
+        :param callback: callable with signature callback(soapEnvlope)
         @return: a subscription object that has callback already registerd
         """
         s = self._subscriptionMgr.mkSubscription(dpwsHosted, actions)
@@ -288,7 +288,7 @@ class SdcClient(object):
         """ returns the client for the given port type name.
         WDP and SDC use different port type names, e.g. WPF="Get", SDC="GetService".
         If the port type is not found directly, it tries also with or without "Service" in name.
-        @param porttypename: string, e.g "Get", or "GetService", ...
+        :param porttypename: string, e.g "Get", or "GetService", ...
         """
         client = self._serviceClients.get(porttypename)
         if client is None and porttypename.endswith('Service'):
@@ -340,12 +340,12 @@ class SdcClient(object):
     def startAll(self, notSubscribedActions=None, subscriptionsCheckInterval=None, async_dispatch=True,
                  subscribe_periodic_reports=False, dispatcher_timeout=15.0):
         """
-        @param notSubscribedActions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
-        @param subscriptionsCheckInterval: an interval in seconds or None
-        @param async_dispatch: if True, incoming requests are queued and response is sent immediately (processing is done later).
+        :param notSubscribedActions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
+        :param subscriptionsCheckInterval: an interval in seconds or None
+        :param async_dispatch: if True, incoming requests are queued and response is sent immediately (processing is done later).
                                 if False, response is sent after the complete processing is done.
-        @param subscribe_periodic_reports: boolean
-        @param dispatcher_timeout: time to wait for the event sink aka. dispatcher thread to be started, if timeout is
+        :param subscribe_periodic_reports: boolean
+        :param dispatcher_timeout: time to wait for the event sink aka. dispatcher thread to be started, if timeout is
                                    exceeded a RuntimeError is raised
         @return: None
         """

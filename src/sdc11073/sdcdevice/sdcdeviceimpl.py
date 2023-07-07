@@ -21,9 +21,9 @@ class SdcDevice(object):
 
     def setLocation(self, location, validators=defaultInstanceIdentifiers, publishNow=True):
         """
-        @param location: a pysdc.location.SdcLocation instance
-        @param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
-        @param publishNow: if True, the device is published via its wsdiscovery reference.
+        :param location: a pysdc.location.SdcLocation instance
+        :param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
+        :param publishNow: if True, the device is published via its wsdiscovery reference.
         """
         if location == self._location:
             return

@@ -9,7 +9,7 @@ class HTTPRequestHandlingError(Exception):
 
     def __init__(self, status, reason, soapfault):
         """
-        @param status: integer, e.g. 404
+        :param status: integer, e.g. 404
         param reason: the provided human readable text
         """
         super(HTTPRequestHandlingError, self).__init__()

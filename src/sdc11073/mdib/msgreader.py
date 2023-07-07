@@ -1,7 +1,6 @@
 from lxml import etree as etree_
-import copy
-from .. import namespaces
-from .. import pmtypes
+
+from sdc11073 import namespaces, xmlparsing, pmtypes
 
 
 class MdibStructureError(Exception):
@@ -88,7 +87,7 @@ class MessageReader(object):
 
     def readContextState(self, getContextStatesResponseNode):
         """ Creates Context State Containers from dom tree.
-        @param getContextstatesResponseNode: node "getContextStatesResponse" of getContextStates.
+        :param getContextstatesResponseNode: node "getContextStatesResponse" of getContextStates.
         :param additionalDescriptorContainers: a list of descriptor containers that can also be used for state creation
                 (typically used if descriptors and states are created in the same transaction. In that case the descriptors are not yet part of mdib.)
         @return: a list of state containers
@@ -124,8 +123,8 @@ class MessageReader(object):
 
     def mkStateContainerFromNode(self, node, forcedType=None, additionalDescriptorContainers = None):
         """
-        @param node: a etree node
-        @param forcedType: if given, the QName that shall be used for class instantiation instead of the data in node
+        :param node: a etree node
+        :param forcedType: if given, the QName that shall be used for class instantiation instead of the data in node
         """
         if forcedType is not None:
             nodeType = forcedType
@@ -149,7 +148,7 @@ class MessageReader(object):
                 descriptorContainer = correspondingDescriptors[0]
         cls = self._mdib.getStateContainerClass(nodeType)
         if node.tag != namespaces.domTag('State'):
-            node = copy.copy(node)  # make a copy, do not modify the original report
+            node = xmlparsing.copy_node(node)  # make a copy, do not modify the original report
             node.tag = namespaces.domTag('State')
         return cls(self._mdib.nsmapper, descriptorContainer, node)
 

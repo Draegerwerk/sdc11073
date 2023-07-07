@@ -270,7 +270,7 @@ class HttpServerThread(threading.Thread):
 
     def setCompressionFlag(self, useCompression):
         """Sets use compression attribute on the http server to be used in handler
-        @param useCompression: bool flag 
+        :param useCompression: bool flag 
         """
         self.httpd.useCompression = useCompression
    
