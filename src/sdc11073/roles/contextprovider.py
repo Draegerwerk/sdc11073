@@ -51,7 +51,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                     mgr.add_state(proposed_st)
 
                     # find all associated context states, disassociate them, set unbinding info, and add them to updates
-                    old_state_containers = operation_instance.operation_target_storage.descriptorHandle.get(
+                    old_state_containers = operation_instance.operation_target_storage.descriptor_handle.get(
                         proposed_st.DescriptorHandle, [])
                     for old_state in old_state_containers:
                         if old_state.ContextAssociation != pm_types.ContextAssociation.DISASSOCIATED or old_state.UnbindingMdibVersion is None:

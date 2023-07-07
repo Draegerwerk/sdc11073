@@ -113,7 +113,7 @@ class OperationDefinition:
             # ToDo: transaction context for flexibility to add operations at runtime
             mdib.descriptions.add_object(self._descriptor_container)
 
-        self._operation_state_container = self._mdib.states.descriptorHandle.get_one(self._handle, allow_none=True)
+        self._operation_state_container = self._mdib.states.descriptor_handle.get_one(self._handle, allow_none=True)
         if self._operation_state_container is not None:
             self._logger.debug('operation state for operation "{}" is already present, re-using it', self._handle)
         else:
@@ -130,9 +130,9 @@ class OperationDefinition:
             self._descriptor_container.Type = self._coded_value
 
     def _init_operation_target_container(self):
-        """ Create the object that is manipulated by the operation"""
+        """Create the object that is manipulated by the operation."""
         operation_target_descriptor = self._mdib.descriptions.handle.get_one(self._operation_target_handle)
-        self._operation_target_container = self._mdib.states.descriptorHandle.get_one(self._operation_target_handle,
+        self._operation_target_container = self._mdib.states.descriptor_handle.get_one(self._operation_target_handle,
                                                                                       allow_none=True)  # pylint:disable=protected-access
         if self._operation_target_container is not None:
             self._logger.debug('operation target state for operation "{}" is already present, re-using it',

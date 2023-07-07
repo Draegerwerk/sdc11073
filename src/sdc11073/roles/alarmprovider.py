@@ -16,9 +16,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
     def __init__(self, mdib, log_prefix):
         super().__init__(mdib, log_prefix)
 
-        # some time stamps for handling of delegable alert signals
-        # self._last_set_alert_signal_state = {}  # a lookup by alert signal handle , value = time of last call
-
         self._stop_worker = Event()
         self._worker_thread = None
 
@@ -191,7 +188,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 alert_state = tr_item.new
             if alert_state is None:
                 # it is not part of this transaction
-                alert_state = mdib.states.descriptorHandle.get_one(descriptor_handle, allow_none=True)
+                alert_state = mdib.states.descriptor_handle.get_one(descriptor_handle, allow_none=True)
             if alert_state is None:
                 raise ValueError(f'there is no alert state for {descriptor_handle}')
             return alert_state
@@ -235,7 +232,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         # look for active delegations (we only need the Manifestation value here)
         active_delegate_manifestations = []
         for descriptor in remote_alert_signal_descriptors:
-            alert_signal_state = mdib.states.descriptorHandle.get_one(descriptor.Handle)
+            alert_signal_state = mdib.states.descriptor_handle.get_one(descriptor.Handle)
             if alert_signal_state.Presence != pm_types.AlertSignalPresence.OFF and alert_signal_state.Location == 'Rem':
                 active_delegate_manifestations.append(descriptor.Manifestation)
 
@@ -375,7 +372,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             all_alert_systems_descr = self._mdib.descriptions.NODETYPE.get(pm_names.AlertSystemDescriptor,
                                                                            [])
             for alert_system_descr in all_alert_systems_descr:
-                alert_system_state = self._mdib.states.descriptorHandle.get_one(alert_system_descr.Handle,
+                alert_system_state = self._mdib.states.descriptor_handle.get_one(alert_system_descr.Handle,
                                                                                 allow_none=True)
                 if alert_system_state is not None:
                     selfcheck_period = alert_system_descr.SelfCheckPeriod

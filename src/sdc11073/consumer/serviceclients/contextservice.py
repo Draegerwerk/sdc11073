@@ -12,9 +12,7 @@ from ...xml_types.actions import Actions
 from ...xml_types.addressing_types import HeaderInformationBlock
 
 if TYPE_CHECKING:
-    from sdc11073.sdcclient.manipulator import RequestManipulatorProtocol
-
-
+    from sdc11073.consumer.manipulator import RequestManipulatorProtocol
 class ContextServiceClient(HostedServiceClient):
     port_type_name = PrefixesEnum.SDC.tag('ContextService')
     notifications = (DispatchKey(Actions.EpisodicContextReport, msg_qnames.EpisodicContextReport),

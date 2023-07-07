@@ -238,7 +238,7 @@ class SubscriptionBase:
         return RoundTripData(None, None)
 
     def _mk_notification_message(self, header_info: HeaderInformationBlock,
-                                 body_node: etree_.Element) -> CreatedMessage:
+                                 body_node: etree_.ElementBase) -> CreatedMessage:
         return self._msg_factory.mk_soap_message_etree_payload(header_info, body_node)
 
 
@@ -441,7 +441,7 @@ class SubscriptionsManagerBase:
                                  request_data.message_data.q_name, dispatch_identifier, request_data.peer_name)
         return subscription
 
-    def send_to_subscribers(self, payload: Union[MessageType, etree_.Element],
+    def send_to_subscribers(self, payload: Union[MessageType, etree_.ElementBase],
                             action: str,
                             mdib_version_group,
                             what: str):
@@ -466,7 +466,7 @@ class SubscriptionsManagerBase:
                 raise
         self._do_housekeeping()
 
-    def _send_notification_report(self, subscription, body_node: etree_.Element, action: str):
+    def _send_notification_report(self, subscription, body_node: etree_.ElementBase, action: str):
         try:
             subscription.send_notification_report(body_node, action)
         except ConnectionRefusedError as ex:

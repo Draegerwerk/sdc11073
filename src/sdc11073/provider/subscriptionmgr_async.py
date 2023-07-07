@@ -37,7 +37,7 @@ def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
 
 class BicepsSubscriptionAsync(ActionBasedSubscription):
     """Async version of a single BICEPS subscription. It is used by BICEPSSubscriptionsManagerBaseAsync."""
-    async def async_send_notification_report(self, body_node: etree_.Element, action: str):
+    async def async_send_notification_report(self, body_node: etree_.ElementBase, action: str):
         """
 
         :param body_node: The soap body node to be sent to the subscriber.
@@ -178,7 +178,7 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             self._subscriptions.clear()
 
 
-    def send_to_subscribers(self, payload: Union[MessageType, etree_.Element],
+    def send_to_subscribers(self, payload: Union[MessageType, etree_.ElementBase],
                             action: str,
                             mdib_version_group,
                             what):
@@ -205,7 +205,7 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
                 self._logger.warning(f'{what}: _send_to_subscribers {subscribers[counter]} returned {element}')
 
     async def _async_send_notification_report(self, subscription,
-                                              body_node: etree_.Element,
+                                              body_node: etree_.ElementBase,
                                               action: str):
         try:
             self._logger.debug(f'send notification report {action} to {subscription}')

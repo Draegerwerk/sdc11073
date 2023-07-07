@@ -105,7 +105,7 @@ class MessageFactory:
 
     def mk_soap_message_etree_payload(self,
                                       header_info: HeaderInformationBlock,
-                                      payload_element: Optional[etree_.Element] = None):
+                                      payload_element: Optional[etree_.ElementBase] = None):
         nsh = self.ns_hlp
         my_ns_map = nsh.partial_map(nsh.S12, nsh.WSE, nsh.WSA)
         soap_envelope = Soap12Envelope(my_ns_map)

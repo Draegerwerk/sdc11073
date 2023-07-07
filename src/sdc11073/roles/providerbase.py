@@ -103,7 +103,7 @@ class ProviderRole:
                       current_request_handler=None, timeout_handler=None):
         """
 
-        :param cls: one of the Operations defined in sdcdevice.sco
+        :param cls: one of the Operations defined in provider.sco
         :param handle: the handle of this operation
         :param operation_target_handle: the handle of the operation target
         :param coded_value: the CodedValue for the Operation ( can be None)

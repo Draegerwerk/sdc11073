@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 class BicepsSubscription(ActionBasedSubscription):
     """ This extends ActionBasedSubscription with the ability to send notifications.
     The class is used by ActionBasedSubscriptionsManager."""
-    def send_notification_report(self, body_node: etree_.Element, action: str):
+    def send_notification_report(self, body_node: etree_.ElementBase, action: str):
         if not self.is_valid:
             return
         inf = HeaderInformationBlock(addr_to=self.notify_to_address,

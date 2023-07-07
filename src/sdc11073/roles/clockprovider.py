@@ -36,7 +36,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                 coded_value=pm_types.CodedValue('123'),
                 safety_classification=pm_types.SafetyClassification.INF)
             self._mdib.descriptions.add_object(clock_descriptor)
-        clock_state = self._mdib.states.descriptorHandle.get_one(clock_descriptor.Handle, allow_none=True)
+        clock_state = self._mdib.states.descriptor_handle.get_one(clock_descriptor.Handle, allow_none=True)
         if clock_state is None:
             clock_state = self._mdib.data_model.mk_state_container(clock_descriptor)
             self._mdib.states.add_object(clock_state)

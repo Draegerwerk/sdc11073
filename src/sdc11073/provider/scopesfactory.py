@@ -28,7 +28,7 @@ def mk_scopes(mdib) -> ScopesType:
                              (pm_names.MeansContextDescriptor, 'sdc.ctxt.mns')):
         descriptors = mdib.descriptions.NODETYPE.get(nodetype, [])
         for descriptor in descriptors:
-            states = mdib.context_states.descriptorHandle.get(descriptor.Handle, [])
+            states = mdib.context_states.descriptor_handle.get(descriptor.Handle, [])
             assoc_st = [s for s in states if s.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
             for state in assoc_st:
                 for ident in state.Identification:

@@ -115,7 +115,7 @@ class LoggerAdapter:
             self.logger.log(level, self._process(msg, args, kwargs))
 
 
-def get_logger_adapter(name, prefix=None):
+def get_logger_adapter(name, prefix=None) -> LoggerAdapter:
     ''' Use this method instead of logging.getLogger.
     @return: a LoggerAdapter instance
     '''

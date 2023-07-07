@@ -133,7 +133,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
                                                                   d.Manifestation == pm_types.AlertSignalManifestation.AUD]
                         for descriptor in audible_child_alert_signal_descriptors:
                             alert_signal_state = mgr.get_state(descriptor.Handle)
-                            alert_condition_state = self._mdib.states.descriptorHandle.get_one(
+                            alert_condition_state = self._mdib.states.descriptor_handle.get_one(
                                 descriptor.ConditionSignaled)
                             if alert_condition_state.Presence:
                                 # set signal back to 'ON'
