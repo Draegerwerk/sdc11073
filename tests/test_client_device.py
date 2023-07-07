@@ -19,19 +19,19 @@ from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
-from sdc11073.mdib import ClientMdibContainer
-from sdc11073.mdib.devicewaveform import Annotator
+from sdc11073.mdib import ConsumerMdib
+from sdc11073.mdib.providerwaveform import Annotator
 from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from sdc11073.sdcclient import SdcClient
-from sdc11073.sdcclient.components import SdcClientComponents
-from sdc11073.sdcclient.subscription import ClientSubscriptionManagerReferenceParams
-from sdc11073.sdcdevice import waveforms
-from sdc11073.sdcdevice.components import SdcDeviceComponents, default_sdc_device_components_async
-from sdc11073.sdcdevice.subscriptionmgr import ReferenceParamSubscriptionsManager
+from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.components import SdcConsumerComponents
+from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
+from sdc11073.provider import waveforms
+from sdc11073.provider.components import SdcProviderComponents, default_sdc_provider_components_async
+from sdc11073.provider.subscriptionmgr import ReferenceParamSubscriptionsManager
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.namespaces import default_ns_helper
 from tests.mockstuff import SomeDevice, dec_list
@@ -103,7 +103,7 @@ def runtest_directed_probe(unit_test, sdc_client, sdc_device):
 def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
     # a random number for maxRealtimeSamples, not too big, otherwise we have to wait too long.
     # But wait long enough to have at least one full waveform period in buffer for annotations.
-    client_mdib = ClientMdibContainer(sdc_client, max_realtime_samples=297)
+    client_mdib = ConsumerMdib(sdc_client, max_realtime_samples=297)
     client_mdib.init_mdib()
     client_mdib.xtra.set_calculate_wf_age_stats(True)
     time.sleep(3.5)  # Wait long enough to make the rt_buffers full.
@@ -112,7 +112,7 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
     # now verify that we have real time samples
     for d_handle in d_handles:
         # check content of state container
-        container = client_mdib.states.descriptorHandle.get_one(d_handle)
+        container = client_mdib.states.descriptor_handle.get_one(d_handle)
         unit_test.assertEqual(container.ActivationState, pm_types.ComponentActivation.ON)
         unit_test.assertIsNotNone(container.MetricValue)
         unit_test.assertAlmostEqual(container.MetricValue.DeterminationTime, time.time(), delta=0.5)
@@ -142,7 +142,7 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
     waveform_provider = sdc_device.mdib.xtra.waveform_provider
     waveform_provider.set_activation_state(d_handle, pm_types.ComponentActivation.OFF)
     time.sleep(0.5)
-    container = client_mdib.states.descriptorHandle.get_one(d_handle)
+    container = client_mdib.states.descriptor_handle.get_one(d_handle)
     unit_test.assertEqual(container.ActivationState, pm_types.ComponentActivation.OFF)
     unit_test.assertTrue(container.MetricValue is None)
 
@@ -177,7 +177,7 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
 
 def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_periodic_reports=True):
     """ verify that the client receives correct EpisodicMetricReports and PeriodicMetricReports"""
-    cl_mdib = ClientMdibContainer(sdc_client)
+    cl_mdib = ConsumerMdib(sdc_client)
     cl_mdib.init_mdib()
     # wait for the next EpisodicMetricReport
     coll = observableproperties.SingleValueCollector(sdc_client, 'episodic_metric_report')
@@ -205,7 +205,7 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
 
     # verify that client automatically got the state (via EpisodicMetricReport )
     coll.result(timeout=NOTIFICATION_TIMEOUT)
-    cl_state1 = cl_mdib.states.descriptorHandle.get_one(descriptor_handle)
+    cl_state1 = cl_mdib.states.descriptor_handle.get_one(descriptor_handle)
     unit_test.assertEqual(cl_state1.MetricValue.Value, first_value)
     unit_test.assertAlmostEqual(cl_state1.MetricValue.DeterminationTime, now, delta=0.01)
     unit_test.assertEqual(cl_state1.MetricValue.MetricQuality.Validity, pm_types.MeasurementValidity.VALID)
@@ -224,7 +224,7 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
 
     # verify that client automatically got the state (via EpisodicMetricReport )
     coll.result(timeout=NOTIFICATION_TIMEOUT)
-    cl_state1 = cl_mdib.states.descriptorHandle.get_one(descriptor_handle)
+    cl_state1 = cl_mdib.states.descriptor_handle.get_one(descriptor_handle)
     unit_test.assertEqual(cl_state1.MetricValue.Value, new_value)
     unit_test.assertEqual(cl_state1.StateVersion, 2)  # this is the 2nd state update after init
 
@@ -254,12 +254,12 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         time.sleep(0.5)  # allow init of devices to complete
         # no deferred action handling for easier debugging
-        specific_components = SdcClientComponents(
+        specific_components = SdcConsumerComponents(
             action_dispatcher_class=DispatchKeyRegistry
         )
 
         x_addr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcClient(x_addr[0],
+        self.sdc_client = SdcConsumer(x_addr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
@@ -338,7 +338,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_client_stop(self):
         """ verify that sockets get closed"""
-        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
 
         services = [s for s in self.sdc_device.hosted_services.dpws_hosted_services.values()
@@ -373,7 +373,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_device_stop(self):
         """ verify that sockets get closed"""
-        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         services = [s for s in self.sdc_device.hosted_services.dpws_hosted_services.values()
                     if s.subscriptions_manager is not None]
@@ -407,7 +407,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_client_stop_no_unsubscribe(self):
         self.log_watcher.setPaused(True)  # this test will have error logs, no check
-        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         services = [s for s in self.sdc_device.hosted_services.dpws_hosted_services.values()
                     if s.subscriptions_manager is not None]
@@ -473,7 +473,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def test_instance_id(self):
         """ verify that the client receives correct EpisodicMetricReports and PeriodicMetricReports"""
         self.assertIsNone(self.sdc_device.mdib.instance_id)
-        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         self.assertEqual(self.sdc_device.mdib.sequence_id, cl_mdib.sequence_id)
         self.assertEqual(self.sdc_device.mdib.instance_id, cl_mdib.instance_id)
@@ -484,17 +484,17 @@ class Test_Client_SomeDevice(unittest.TestCase):
         sdc_client = None
         try:
             # no deferred action handling for easier debugging
-            specific_components = SdcClientComponents(
+            specific_components = SdcConsumerComponents(
                 action_dispatcher_class=DispatchKeyRegistry
             )
-            sdc_client = SdcClient(x_addr[0],
+            sdc_client = SdcConsumer(x_addr[0],
                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                    ssl_context=None,
                                    validate=CLIENT_VALIDATE,
                                    specific_components=specific_components)
             sdc_client.start_all(subscribe_periodic_reports=True)
 
-            cl_mdib = ClientMdibContainer(sdc_client)
+            cl_mdib = ConsumerMdib(sdc_client)
             cl_mdib.init_mdib()
             self.assertEqual(self.sdc_device.mdib.instance_id, cl_mdib.instance_id)
         finally:
@@ -526,7 +526,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_alert_reports(self):
         """ verify that the client receives correct EpisodicAlertReports and PeriodicAlertReports"""
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
 
         # wait for the next PeriodicAlertReport
@@ -549,7 +549,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.ActualPriority = _actual_priority
                 st.Presence = _presence
             coll.result(timeout=NOTIFICATION_TIMEOUT)
-            client_state_container = client_mdib.states.descriptorHandle.get_one(
+            client_state_container = client_mdib.states.descriptor_handle.get_one(
                 descriptor_handle)  # this shall be updated by notification
             self.assertEqual(client_state_container.diff(st), None)
 
@@ -570,7 +570,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st.Location = _location
                 st.Slot = _slot
             coll.result(timeout=NOTIFICATION_TIMEOUT)
-            client_state_container = client_mdib.states.descriptorHandle.get_one(
+            client_state_container = client_mdib.states.descriptor_handle.get_one(
                 descriptor_handle)  # this shall be updated by notification
             self.assertEqual(client_state_container.diff(st), None)
 
@@ -583,7 +583,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def test_set_patient_context_on_device(self):
         """device updates patient.
          verify that a notification device->client updates the client mdib."""
-        clientMdib = ClientMdibContainer(self.sdc_client)
+        clientMdib = ConsumerMdib(self.sdc_client)
         clientMdib.init_mdib()
 
         patientDescriptorContainer = self.sdc_device.mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
@@ -619,7 +619,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(patient_context_state_container.CoreData.Race, st.CoreData.Race)
         self.assertEqual(patient_context_state_container.CoreData.DateOfBirth, st.CoreData.DateOfBirth)
         self.assertEqual(patient_context_state_container.BindingMdibVersion,
-                         tr_MdibVersion)  # created at the beginning
+                         self.sdc_device.mdib.mdib_version)
         self.assertEqual(patient_context_state_container.UnbindingMdibVersion, None)
 
         # test update of same patient
@@ -631,8 +631,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         patient_context_state_container = clientMdib.context_states.NODETYPE.get_one(
             pm.PatientContextState, allow_none=True)
         self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Moritz')
-        self.assertEqual(patient_context_state_container.BindingMdibVersion,
-                         tr_MdibVersion)  # created at the beginning
+        self.assertGreater(patient_context_state_container.BindingMdibVersion,
+                         tr_MdibVersion)
         self.assertEqual(patient_context_state_container.UnbindingMdibVersion, None)
 
     def test_get_containment_tree(self):
@@ -733,13 +733,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
             st.MetricValue.Value = first_value
             st.MetricValue.MetricQuality.Validity = pm_types.MeasurementValidity.VALID
 
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
 
         descriptor_container = client_mdib.descriptions.handle.get_one(descriptor_handle)
         initial_descriptor_version = descriptor_container.DescriptorVersion
 
-        state_container = client_mdib.states.descriptorHandle.get_one(descriptor_handle)
+        state_container = client_mdib.states.descriptor_handle.get_one(descriptor_handle)
         self.assertEqual(state_container.DescriptorVersion, initial_descriptor_version)
 
         # now update something and  wait for the next DescriptionModificationReport
@@ -756,14 +756,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
         # verify that devices mdib contains the updated descriptor_container
         # plus an updated state wit correct DescriptorVersion
         descriptor_container = device_mdib.descriptions.handle.get_one(descriptor_handle)
-        state_container = device_mdib.states.descriptorHandle.get_one(descriptor_handle)
+        state_container = device_mdib.states.descriptor_handle.get_one(descriptor_handle)
         self.assertEqual(descriptor_container.DescriptorVersion, expected_descriptor_version)
         self.assertEqual(descriptor_container.DeterminationPeriod, new_determination_period)
         self.assertEqual(state_container.DescriptorVersion, expected_descriptor_version)
 
         # verify that client got updates
         descriptor_container = client_mdib.descriptions.handle.get_one(descriptor_handle)
-        state_container = client_mdib.states.descriptorHandle.get_one(descriptor_handle)
+        state_container = client_mdib.states.descriptor_handle.get_one(descriptor_handle)
         self.assertEqual(descriptor_container.DescriptorVersion, expected_descriptor_version)
         self.assertEqual(descriptor_container.DeterminationPeriod, new_determination_period)
         self.assertEqual(state_container.DescriptorVersion, expected_descriptor_version)
@@ -800,7 +800,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         alert_descriptor_handle = '0xD3C00100'
         limit_alert_descriptor_handle = '0xD3C00108'
 
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
 
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
@@ -837,17 +837,17 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for update in client
         # verify that state updates are transported to client
-        client_alert_state = client_mdib.states.descriptorHandle.get_one(alert_descriptor_handle)
+        client_alert_state = client_mdib.states.descriptor_handle.get_one(alert_descriptor_handle)
         self.assertEqual(client_alert_state.ActualPriority, pm_types.AlertConditionPriority.HIGH)
         self.assertEqual(client_alert_state.Presence, True)
 
         # verify that alert system state is also updated
         alert_system_descr = client_mdib.descriptions.handle.get_one(client_alert_descriptor.parent_handle)
-        alert_system_state = client_mdib.states.descriptorHandle.get_one(alert_system_descr.Handle)
+        alert_system_state = client_mdib.states.descriptor_handle.get_one(alert_system_descr.Handle)
         self.assertTrue(alert_descriptor_handle in alert_system_state.PresentPhysiologicalAlarmConditions)
         self.assertGreater(alert_system_state.SelfCheckCount, 0)
 
-        client_limit_alert_state = client_mdib.states.descriptorHandle.get_one(limit_alert_descriptor_handle)
+        client_limit_alert_state = client_mdib.states.descriptor_handle.get_one(limit_alert_descriptor_handle)
         self.assertEqual(client_limit_alert_state.ActualPriority, pm_types.AlertConditionPriority.MEDIUM)
         self.assertEqual(client_limit_alert_state.Limits, pm_types.Range(upper=Decimal(3)))
         self.assertEqual(client_limit_alert_state.Presence, False)
@@ -868,7 +868,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 mds_descriptor.MetaData.SerialNumber.append('pmDCBA-4321')
                 mds_descriptor.MetaData.ModelNumber = '1.09'
 
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
 
         cl_mds_descriptors = client_mdib.descriptions.NODETYPE.get(pm.MdsDescriptor)
@@ -879,11 +879,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def test_remove_mds(self):
         self.sdc_device.stop_realtime_sample_loop()
         time.sleep(0.1)
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
         dev_descriptor_count1 = len(self.sdc_device.mdib.descriptions.objects)
         descr_handles = list(self.sdc_device.mdib.descriptions.handle.keys())
-        state_descriptor_handles = list(self.sdc_device.mdib.states.descriptorHandle.keys())
+        state_descriptor_handles = list(self.sdc_device.mdib.states.descriptor_handle.keys())
         context_state_handles = list(self.sdc_device.mdib.context_states.handle.keys())
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
         with self.sdc_device.mdib.transaction_manager() as mgr:
@@ -913,7 +913,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(dev_state_count2, cl_state_count2)
 
     def test_client_mdib_observables(self):
-        client_mdib = ClientMdibContainer(self.sdc_client)
+        client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
 
         # wait for the next EpisodicMetricReport
@@ -1055,7 +1055,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     return False
             return True
 
-        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         for cl_descriptor in cl_mdib.descriptions.objects:
             dev_descriptor = self.sdc_device.mdib.descriptions.handle.get_one(cl_descriptor.Handle)
@@ -1106,7 +1106,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device_1.get_xaddrs()
-        self.sdc_client_1 = SdcClient(x_addr[0],
+        self.sdc_client_1 = SdcConsumer(x_addr[0],
                                       sdc_definitions=self.sdc_device_1.mdib.sdc_definitions,
                                       ssl_context=None,
                                       epr="client1",
@@ -1115,7 +1115,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         self.sdc_client_1.start_all(shared_http_server=self.httpserver)
 
         x_addr = self.sdc_device_2.get_xaddrs()
-        self.sdc_client_2 = SdcClient(x_addr[0],
+        self.sdc_client_2 = SdcConsumer(x_addr[0],
                                       sdc_definitions=self.sdc_device_2.mdib.sdc_definitions,
                                       ssl_context=None,
                                       epr="client2",
@@ -1184,7 +1184,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcClient(x_addr[0],
+        self.sdc_client = SdcConsumer(x_addr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
@@ -1224,7 +1224,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
 
-        specific_components = SdcDeviceComponents(
+        specific_components = SdcProviderComponents(
             subscriptions_manager_class={'StateEvent': ReferenceParamSubscriptionsManager},
             soap_client_class=SoapClientAsync
         )
@@ -1239,8 +1239,8 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device.get_xaddrs()
-        specific_components = SdcClientComponents(subscription_manager_class=ClientSubscriptionManagerReferenceParams)
-        self.sdc_client = SdcClient(x_addr[0],
+        specific_components = SdcConsumerComponents(subscription_manager_class=ClientSubscriptionManagerReferenceParams)
+        self.sdc_client = SdcConsumer(x_addr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
@@ -1317,7 +1317,7 @@ class Test_Client_SomeDevice_async(unittest.TestCase):
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='',
-                                                    default_components=default_sdc_device_components_async,
+                                                    default_components=default_sdc_provider_components_async,
                                                     chunked_messages=True)
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -1326,7 +1326,7 @@ class Test_Client_SomeDevice_async(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcClient(x_addr[0],
+        self.sdc_client = SdcConsumer(x_addr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,

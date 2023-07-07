@@ -39,7 +39,7 @@ class DescriptionEventService(DPWSPortTypeBase):
         subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, 'send_descriptor_updates')
 
     def mk_description_modification_report_body(self, mdib_version_group, updated, created, deleted,
-                                                updated_states) -> etree_.Element:
+                                                updated_states) -> etree_.ElementBase:
         # This method creates one ReportPart for every descriptor.
         # An optimization is possible by grouping all descriptors with the same parent handle into one ReportPart.
         # This is not implemented, and I think it is not needed.

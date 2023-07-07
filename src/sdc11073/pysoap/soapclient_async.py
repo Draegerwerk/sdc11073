@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from ..pysoap.msgfactory import CreatedMessage
     from ..pysoap.msgreader import MessageReader
     from ..definitions_base import BaseDefinitions
-    from ..sdcclient.manipulator import RequestManipulatorProtocol
+    from ..consumer.manipulator import RequestManipulatorProtocol
     from ..loghelper import LoggerAdapter
 
 

@@ -167,16 +167,16 @@ class PeriodicReportsHandler:
 
             with self._mdib.mdib_lock:
                 mdib_version = self._mdib.mdib_version
-                metric_states = [self._mdib.states.descriptorHandle.get_one(h).mk_copy() for h in metrics]
-                component_states = [self._mdib.states.descriptorHandle.get_one(h).mk_copy() for h in components]
-                alert_states = [self._mdib.states.descriptorHandle.get_one(h).mk_copy() for h in alerts]
-                operational_states = [self._mdib.states.descriptorHandle.get_one(h).mk_copy() for h in operationals]
+                metric_states = [self._mdib.states.descriptor_handle.get_one(h).mk_copy() for h in metrics]
+                component_states = [self._mdib.states.descriptor_handle.get_one(h).mk_copy() for h in components]
+                alert_states = [self._mdib.states.descriptor_handle.get_one(h).mk_copy() for h in alerts]
+                operational_states = [self._mdib.states.descriptor_handle.get_one(h).mk_copy() for h in operationals]
                 context_states = []
                 for context in contexts:
                     print(
-                        f'context.Handle {context} = {len(self._mdib.context_states.descriptorHandle.get(context, []))} states')
+                        f'context.Handle {context} = {len(self._mdib.context_states.descriptor_handle.get(context, []))} states')
                     context_states.extend(
-                        [st.mk_copy() for st in self._mdib.context_states.descriptorHandle.get(context, [])])
+                        [st.mk_copy() for st in self._mdib.context_states.descriptor_handle.get(context, [])])
             self._logger.debug('   _periodic_reports_send_loop {} metric_states', len(metric_states))
             self._logger.debug('   _periodic_reports_send_loop {} component_states', len(component_states))
             self._logger.debug('   _periodic_reports_send_loop {} alert_states', len(alert_states))

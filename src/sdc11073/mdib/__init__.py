@@ -1,4 +1,4 @@
-from .clientmdib import ClientMdibContainer
-from .devicemdib import DeviceMdibContainer
+from .consumermdib import ConsumerMdib
+from .providermdib import ProviderMdib
 from . import descriptorcontainers
 from . import statecontainers

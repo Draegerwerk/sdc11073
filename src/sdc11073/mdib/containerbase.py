@@ -1,18 +1,23 @@
+from __future__ import annotations
+
 import copy
 import inspect
-from typing import Optional, List, Union
+from typing import Any
 
-from lxml import etree as etree_
+from lxml.etree import Element, ElementBase, QName
 
-from .. import observableproperties as properties
-from ..namespaces import QN_TYPE, NamespaceHelper
+from sdc11073 import observableproperties as properties
+from sdc11073.namespaces import QN_TYPE, NamespaceHelper
 
 
 class ContainerBase:
-    NODETYPE = None  # overwrite in derived classes! determines the value of xsi:Type attribute, must be an etree_.QName object
+    """Common base class for descriptors and states."""
+
+    NODETYPE: QName = None  # overwrite in derived classes! This is the BICEPS Type.
     node = properties.ObservableProperty()
     is_state_container = False
     is_descriptor_container = False
+
     # every class with container properties must provide a list of property names.
     # this list is needed to create sub elements in a certain order.
     # rule is : elements are sorted from this root class to derived class. Last derived class comes last.
@@ -20,17 +25,17 @@ class ContainerBase:
     # This is according to the inheritance in BICEPS xml schema
 
     def __init__(self):
-        self.node: Optional[etree_.Element] = None  # set in update_from_node
-        for dummy_name, cprop in self.sorted_container_properties():
+        self.node = None  # set in update_from_node
+        for _, cprop in self.sorted_container_properties():
             cprop.init_instance_data(self)
 
-    def get_actual_value(self, attr_name: str):
-        """ ignores default value and implied value, e.g. returns None if value is not present in xml"""
+    def get_actual_value(self, attr_name: str) -> Any:
+        """Ignore default value and implied value, e.g. return None if value is not present in xml."""
         return getattr(self.__class__, attr_name).get_actual_value(self)
 
-    def mk_node(self, tag:etree_.QName, ns_helper: NamespaceHelper, set_xsi_type: bool=False):
-        """
-        create an etree node from instance data
+    def mk_node(self, tag: QName, ns_helper: NamespaceHelper, set_xsi_type: bool = False) -> ElementBase:
+        """Create an etree node from instance data.
+
         :param tag: tag of the newly created node
         :param ns_helper: namespaces.NamespaceHelper instance
         :param set_xsi_type: if True, adds Type attribute to node
@@ -38,14 +43,16 @@ class ContainerBase:
         """
         ns_map = ns_helper.partial_map(ns_helper.PM,
                                        ns_helper.MSG,
-                                       ns_helper.XSI,)
-        node = etree_.Element(tag, nsmap=ns_map)
+                                       ns_helper.XSI)
+        node = Element(tag, nsmap=ns_map)
         self.update_node(node, ns_helper, set_xsi_type)
         return node
 
-    def update_node(self, node: etree_.Element, ns_helper: NamespaceHelper, set_xsi_type: bool = False):
-        """
-        update node with own data
+    def update_node(self, node: ElementBase,
+                    ns_helper: NamespaceHelper,
+                    set_xsi_type: bool = False) -> ElementBase:
+        """Update node with own data.
+
         :param node: node to be updated
         :param ns_helper: namespaces.NamespaceHelper instance
         :param set_xsi_type:if True, adds Type attribute to node
@@ -53,20 +60,18 @@ class ContainerBase:
         """
         if set_xsi_type and self.NODETYPE is not None:
             node.set(QN_TYPE, ns_helper.doc_name_from_qname(self.NODETYPE))
-        for dummy_name, prop in self.sorted_container_properties():
+        for _, prop in self.sorted_container_properties():
             prop.update_xml_value(self, node)
         return node
 
-    def update_from_node(self, node: etree_.Element):
-        """ update members.
-        :param node: node to be updated
-        """
-        for dummy_name, cprop in self.sorted_container_properties():
+    def update_from_node(self, node: ElementBase):
+        """Update members from node."""
+        for _, cprop in self.sorted_container_properties():
             cprop.update_from_node(self, node)
         self.node = node
 
-    def _update_from_other(self, other_container, skipped_properties):
-        # update all ContainerProperties
+    def _update_from_other(self, other_container: ContainerBase, skipped_properties: list[str] | None):
+        """Update all ContainerProperties."""
         if skipped_properties is None:
             skipped_properties = []
         for prop_name, _ in self.sorted_container_properties():
@@ -74,15 +79,17 @@ class ContainerBase:
                 new_value = getattr(other_container, prop_name)
                 setattr(self, prop_name, copy.copy(new_value))
 
-    def mk_copy(self, copy_node=True):
+    def mk_copy(self, copy_node: bool = True) -> ContainerBase:
+        """Make a copy of self."""
         copied = copy.copy(self)
         if copy_node:
             copied.node = copy.deepcopy(self.node)
         return copied
 
     def sorted_container_properties(self) -> list:
-        """
-        :return: a list of (name, object) tuples of all GenericProperties ( and subclasses), base class properties first.
+        """Return a list of (name, object) tuples of all GenericProperties ( and subclasses).
+
+        Base class properties are first.
         """
         ret = []
         all_classes = inspect.getmro(self.__class__)
@@ -97,16 +104,18 @@ class ContainerBase:
                     ret.append((name, obj))
         return ret
 
-    def diff(self, other, ignore_property_names: Optional[List[str]]=None) -> Union[None, str]:
-        """ compares all properties (except to be ignored ones).
+    def diff(self, other: ContainerBase, ignore_property_names: list[str] | None = None) -> None | list[str]:
+        """Compare all properties (except to be ignored ones).
+
         :param other: the object to compare with
         :param ignore_property_names: list of properties that shall be excluded from diff calculation
         :return: textual representation of differences or None if equal
         """
+        max_float_diff = 1e-6  # if difference is less or equal, two floats are considered equal
         ret = []
         ignore_list = ignore_property_names or []
         my_properties = self.sorted_container_properties()
-        for name, dummy in my_properties:
+        for name, _ in my_properties:
             if name in ignore_list:
                 continue
             my_value = getattr(self, name)
@@ -118,10 +127,10 @@ class ContainerBase:
                 if isinstance(my_value, float) or isinstance(other_value, float):
                     # cast both to float, if one is a Decimal Exception might be thrown
                     try:
-                        if abs((float(my_value) - float(other_value)) / float(my_value)) > 1e-6:  # 1e-6 is good enough
+                        if abs((float(my_value) - float(other_value)) / float(my_value)) > max_float_diff:
                             ret.append(f'{name}={my_value}, other={other_value}')
                     except ZeroDivisionError:
-                        if abs((float(my_value) - float(other_value))) > 1e-6:  # 1e-6 is good enough
+                        if abs(float(my_value) - float(other_value)) > max_float_diff:
                             ret.append(f'{name}={my_value}, other={other_value}')
                 elif my_value != other_value:
                     ret.append(f'{name}={my_value}, other={other_value}')
@@ -133,5 +142,6 @@ class ContainerBase:
             ret.append(f'other has more data elements:{surplus_names}')
         return None if len(ret) == 0 else ret
 
-    def is_equal(self, other) -> bool:
+    def is_equal(self, other: ContainerBase) -> bool:
+        """Compare all properties."""
         return len(self.diff(other)) == 0

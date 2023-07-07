@@ -24,14 +24,14 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.dpws_types import DeviceEventingFilterDialectURI
 from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeType
 
-from .components import default_sdc_client_components
+from .components import default_sdc_consumer_components
 from .request_handler_deferred import EmptyResponse
 
 if TYPE_CHECKING:
     from sdc11073.dispatch.request import RequestData
     from sdc11073.xml_types.mex_types import HostedServiceType
 
-    from .subscription import ClSubscription
+    from .subscription import ConsumerSubscription
 
 
 class HostDescription:
@@ -95,7 +95,7 @@ class HostedServiceDescription:
 
 @dataclass(frozen=True)
 class SubscriptionEndData:
-    subscription: ClSubscription
+    subscription: ConsumerSubscription
     request_data: RequestData
 
 
@@ -130,8 +130,8 @@ class _NotificationsSplitter:
         }
 
 
-class SdcClient:
-    """The SdcClient can be used with a known device location.
+class SdcConsumer:
+    """The SdcConsumer can be used with a known device location.
     The location is typically the result of a wsdiscovery process.
     This class expects that the BICEPS services are available in the device.
     What if not???? => raise exception in _discover_hosted_services.
@@ -174,7 +174,7 @@ class SdcClient:
         :param ssl_context: used for ssl connection to device and for own HTTP Server (notifications receiver)
         :param validate: bool
         :param log_prefix: a string used as prefix for logging
-        :param specific_components: a SdcClientComponents instance or None
+        :param specific_components: a SdcConsumerComponents instance or None
         :param chunked_requests: bool
         """
         if not device_location.startswith('http'):
@@ -182,7 +182,7 @@ class SdcClient:
         self._device_location = device_location
         self.sdc_definitions = sdc_definitions
         if default_components is None:
-            default_components = default_sdc_client_components
+            default_components = default_sdc_consumer_components
         self._components = copy.deepcopy(default_components)
         if specific_components is not None:
             self._components.merge(specific_components)
@@ -193,7 +193,7 @@ class SdcClient:
         self.chunked_requests = chunked_requests
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
         self._network_adapter = self._get_host_adapter_by_device_location()
-        self._logger.info('SdcClient for {} uses own IP Address {}', self._device_location, self._network_adapter)
+        self._logger.info('SdcConsumer for {} uses own IP Address {}', self._device_location, self._network_adapter)
         self.host_description: mex_types.Metadata | None = None
         self.hosted_services = {}  # lookup by service id
         self._validate = validate
@@ -243,9 +243,9 @@ class SdcClient:
             self.msg_reader, self._msg_factory, self._logger, self._services_dispatcher)
 
     def set_mdib(self, mdib):
-        """SdcClient sometimes must know the mdib data (e.g. Set service, activate method)."""
+        """SdcConsumer sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib is not None:
-            raise ApiUsageError('SdcClient has already an registered mdib')
+            raise ApiUsageError('SdcConsumer has already an registered mdib')
         self._mdib = mdib
         if self.client('Set') is not None:
             self.client('Set').register_mdib(mdib)
@@ -295,7 +295,7 @@ class SdcClient:
 
     def mk_subscription(self, dpws_hosted: HostedServiceType,
                         filter_type: eventing_types.FilterType,
-                        actions: list[DispatchKey]) -> ClSubscription:
+                        actions: list[DispatchKey]) -> ConsumerSubscription:
         """Creates a subscription object and registers it in dispatcher
         :param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
                            This is the target for all subscribe/unsubscribe ... messages
@@ -314,14 +314,14 @@ class SdcClient:
                      actions: list[DispatchKey] | set[DispatchKey],
                      expire_minutes: int | None = 60,
                      any_elements: list | None = None,
-                     any_attributes: dict | None = None) -> ClSubscription:
+                     any_attributes: dict | None = None) -> ConsumerSubscription:
         """Creates a subscription object and registers it in
         :param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
                            This is the target for all subscribe/unsubscribe ... messages
         :param filter_type: the filter that is sent to device
         :param actions: a list of DispatchKeys that this subscription shall handle
         :param expire_minutes: defaults to 1 hour
-        :param any_elements: optional list of etree.Element objects
+        :param any_elements: optional list of etree.ElementBase objects
         :param any_attributes: optional dictionary of name:str - value:str pairs
         :return: a subscription object that has callback already registered.
         """
@@ -388,7 +388,9 @@ class SdcClient:
                   subscribe_periodic_reports: bool = False,
                   shared_http_server: Any | None = None,
                   check_get_service: bool = True) -> None:
-        """:param not_subscribed_actions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
+        """Start background threads, read metadata from device, instantiate detected port type clients and subscribe.
+
+        :param not_subscribed_actions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
         :param subscriptions_check_interval: an interval in seconds or None
         :param subscribe_periodic_reports:
         :param shared_http_server: if provided, use this http server, else client creates its own.
@@ -615,17 +617,19 @@ class SdcClient:
         return EmptyResponse()
 
     def __str__(self) -> str:
-        return f'SdcClient to {self.host_description.this_device} {self.host_description.this_model} on {self._device_location}'
+        return f'SdcConsumer to {self.host_description.this_device} {self.host_description.this_model} on {self._device_location}'
 
     @classmethod
     def from_wsd_service(cls, wsd_service, ssl_context, validate=True, log_prefix='',
                          default_components=None, specific_components=None):
-        """:param wsd_service: a wsdiscovery.Service instance
+        """Construct a SdcConsumer from a Service.
+
+        :param wsd_service: a wsdiscovery.Service instance
         :param ssl_context: a ssl context or None
         :param validate: bool
         :param log_prefix: a string
-        :param default_components: a SdcClientComponents instance or None
-        :param specific_components: a SdcClientComponents instance or None
+        :param default_components: a SdcConsumerComponents instance or None
+        :param specific_components: a SdcConsumerComponents instance or None
         :return:
         """
         device_locations = wsd_service.x_addrs

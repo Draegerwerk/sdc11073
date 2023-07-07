@@ -8,8 +8,8 @@ from sdc11073 import loghelper
 from sdc11073.xml_types import pm_types, msg_types
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
-from sdc11073.mdib.clientmdib import ClientMdibContainer
-from sdc11073.sdcclient import SdcClient
+from sdc11073.mdib.consumermdib import ConsumerMdib
+from sdc11073.consumer import SdcConsumer
 from sdc11073.wsdiscovery import WSDiscovery
 from tests.mockstuff import SomeDevice
 
@@ -49,7 +49,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         xAddr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcClient(xAddr[0],
+        self.sdc_client = SdcConsumer(xAddr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
@@ -77,7 +77,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
 
     def test_BasicConnect(self):
         # simply check that all descriptors are available in client after init_mdib
-        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         all_cl_handles = set(cl_mdib.descriptions.handle.keys())
         all_dev_handles = set(self.sdc_device.mdib.descriptions.handle.keys())
@@ -85,7 +85,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         self.assertEqual(len(cl_mdib.states.objects), len(self.sdc_device.mdib.states.objects))
 
     def test_delegate(self):
-        cl_mdib = ClientMdibContainer(self.sdc_client)
+        cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         # set an alarm condition and start local signal
         with self.sdc_device.mdib.transaction_manager() as mgr:
@@ -96,7 +96,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
             local_alert_signal_state.ActivationState = pm_types.AlertActivation.ON
             local_alert_signal_state.Presence = pm_types.AlertSignalPresence.ON
         # verify that remote signal is still off
-        remote_alert_signal_state = self.sdc_device.mdib.states.descriptorHandle.get_one('as0.mds0_rem')
+        remote_alert_signal_state = self.sdc_device.mdib.states.descriptor_handle.get_one('as0.mds0_rem')
         self.assertEqual(pm_types.AlertSignalPresence.OFF, remote_alert_signal_state.Presence)
         self.assertEqual(pm_types.AlertActivation.OFF, remote_alert_signal_state.ActivationState)
 
@@ -111,8 +111,8 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
 
         # verify that now remote signal in on and local signal is off
-        local_alert_signal_state = cl_mdib.states.descriptorHandle.get_one('as0.mds0')
-        remote_alert_signal_state = cl_mdib.states.descriptorHandle.get_one('as0.mds0_rem')
+        local_alert_signal_state = cl_mdib.states.descriptor_handle.get_one('as0.mds0')
+        remote_alert_signal_state = cl_mdib.states.descriptor_handle.get_one('as0.mds0_rem')
         self.assertEqual(pm_types.AlertActivation.PAUSED, local_alert_signal_state.ActivationState)
         self.assertEqual(pm_types.AlertActivation.ON, remote_alert_signal_state.ActivationState)
         time.sleep(5)

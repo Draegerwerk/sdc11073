@@ -22,7 +22,7 @@ _DISCOVERY_TYPE_NS = "http://standards.ieee.org/downloads/11073/11073-10207-2017
 WSDL_S12 = ns_hlp.WSDL12.namespace  # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
 
 
-def etree_from_file(path) -> etree_.Element:
+def etree_from_file(path) -> etree_.ElementBase:
     parser = etree_.ETCompatXMLParser(resolve_entities=False)
     doc = etree_.parse(path, parser=parser)
     return doc.getroot()

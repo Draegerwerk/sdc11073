@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from lxml.etree import Element
+    from lxml.etree import ElementBase
     from sdc11073.pysoap.soapenvelope import Soap12Envelope
 
 
@@ -26,7 +26,7 @@ class RequestManipulator:
             return self.cb_soapenvelope(soap_envelope)
         return None
 
-    def manipulate_domtree(self, domtree: Element) -> Union[Element, None]:
+    def manipulate_domtree(self, domtree: ElementBase) -> Union[ElementBase, None]:
         if callable(self.cb_xml):
             return self.cb_xml(domtree)
         return None

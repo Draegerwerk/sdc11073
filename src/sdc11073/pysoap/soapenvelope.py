@@ -55,7 +55,7 @@ class Soap12Envelope:
             self._nsmap[prefix.prefix] = prefix.namespace
         self.header_info_block = None
 
-    def add_header_element(self, element: etree_.Element):
+    def add_header_element(self, element: etree_.ElementBase):
         self._header_nodes.append(element)
 
     def set_header_info_block(self, header_info_block):
@@ -66,7 +66,7 @@ class Soap12Envelope:
         return self._payload_element
 
     @payload_element.setter
-    def payload_element(self, element: etree_.Element):
+    def payload_element(self, element: etree_.ElementBase):
         if self._payload_element is not None:
             raise ApiUsageError('there can be only one body object')
         self._payload_element = element
@@ -76,7 +76,7 @@ class Soap12Envelope:
         return self._nsmap
 
     @property
-    def header_nodes(self) -> List[etree_.Element]:
+    def header_nodes(self) -> List[etree_.ElementBase]:
         return self._header_nodes
 
 

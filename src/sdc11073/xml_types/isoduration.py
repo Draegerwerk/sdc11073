@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import re
 from collections import namedtuple
-from datetime import datetime, date, tzinfo
-from datetime import timedelta
+from datetime import date, datetime, timedelta, tzinfo
 from decimal import Decimal
+from typing import NewType, Union
 
 ISO8601_PERIOD_REGEX = re.compile(
     r"^(?P<sign>[+-])?"
@@ -15,13 +17,15 @@ ISO8601_PERIOD_REGEX = re.compile(
     r"(?P<minutes>[0-9]+([,.][0-9]+)?M)?"
     r"(?P<seconds>[0-9]+([,.][0-9]+)?S)?)?$")
 
-
 # regular expression to parse ISO duration strings.
 
+DurationType = NewType('DurationType', Union[Decimal, int, float])  # input types for duration string creation
+ParsedDurationType = NewType('ParsedDurationType', Union[int, float])  # output types for parsed duration string
 
-def parse_duration(date_string):
-    """
-    Parses an ISO 8601 durations into a float value containing seconds.
+
+def parse_duration(date_string: str) -> ParsedDurationType:
+    """Parse an ISO 8601 durations into a float value containing seconds.
+
     The following duration formats are supported:
       -PnnW                  duration in weeks
       -PnnYnnMnnDTnnHnnMnnS  complete duration specification
@@ -37,7 +41,6 @@ def parse_duration(date_string):
         if key not in ('separator', 'sign'):
             if val is None:
                 groups[key] = "0n"
-            # print groups[key]
             if key in ('years', 'months'):
                 groups[key] = Decimal(groups[key][:-1].replace(',', '.'))
             else:
@@ -54,7 +57,8 @@ def parse_duration(date_string):
     return ret.total_seconds()
 
 
-def duration_string(seconds):
+def duration_string(seconds: DurationType) -> str:
+    """Create an ISO 8601 durations value containing seconds."""
     sign = '-' if seconds < 0 else ''
     fraction = abs(seconds - int(seconds))
     seconds = abs(int(seconds))
@@ -82,7 +86,7 @@ ZERO = timedelta(0)
 class UTC(tzinfo):
     """Fixed offset in minutes east from UTC."""
 
-    def __init__(self, offset_minutes, tzname=None):
+    def __init__(self, offset_minutes: int, tzname: str | None = None):
         self._offset = timedelta(minutes=offset_minutes)
         self._tzname = tzname
 
@@ -109,10 +113,7 @@ _year_month_regex = re.compile('^(?P<year>[0-9]{4})(-(?P<month>1[0-2]|0[1-9]))?'
 
 def parse_date_time(date_time_str, strict=True):
     try:
-        if strict:
-            d_t = _DATETIME_REGEX.match(date_time_str)
-        else:
-            d_t = _DATETIME_REGEX_RELAXED.match(date_time_str)
+        d_t = _DATETIME_REGEX.match(date_time_str) if strict else _DATETIME_REGEX_RELAXED.match(date_time_str)
         if d_t is not None:
             groups = d_t.groupdict()
             year, month, day = int(groups['year']), int(groups['month']), int(groups['day'])
@@ -143,10 +144,7 @@ def parse_date_time(date_time_str, strict=True):
         if d_t is not None:
             groups = d_t.groupdict()
             year, month = groups['year'], groups['month']
-            if month is None:
-                value = GYear(int(year))
-            else:
-                value = GYearMonth(int(year), int(month))
+            value = GYear(int(year)) if month is None else GYearMonth(int(year), int(month))
             return value
 
         raise ValueError(f'Could not parse date string = "{date_time_string}"')
@@ -191,9 +189,9 @@ def date_time_string(date_object):
         date_string = '{:4d}-{:02d}-{:02d}'.format(
             date_object.year, date_object.month, date_object.day)
     elif hasattr(date_object, 'month'):  # GYearMonth object
-        date_string = '{:4d}-{:02d}'.format(date_object.year, date_object.month)
+        date_string = f'{date_object.year:4d}-{date_object.month:02d}'
     elif hasattr(date_object, 'year'):  # GYear object
-        date_string = '{:4d}'.format(date_object.year)
+        date_string = f'{date_object.year:4d}'
     else:
         raise ValueError(f'cannot convert {date_object.__class__.__name__} to ISO8601 datetime string')
     return date_string

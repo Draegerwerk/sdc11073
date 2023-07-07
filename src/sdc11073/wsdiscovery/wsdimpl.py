@@ -636,7 +636,8 @@ class WSDiscoverySingleAdapter(WSDiscovery):
         """
         adapters = [adapter for adapter in network.get_adapters() if adapter.name == adapter_name]
         if not adapters:
-            raise RuntimeError(f'No adapter named "{adapter_name}"')
+            names = [adapter.name for adapter in network.get_adapters()]
+            raise RuntimeError(f'No adapter named "{adapter_name}", have {names}')
         if len(adapters) > 1:
             raise RuntimeError(f'Found multiple possible ip addresses on adapter "{adapter_name}"')
         super().__init__(adapters[0].ip, logger, multicast_port)

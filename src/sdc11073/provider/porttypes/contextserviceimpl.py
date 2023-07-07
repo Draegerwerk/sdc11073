@@ -75,7 +75,7 @@ class ContextService(ServiceWithOperations):
                     if not tmp:
                         # If a HANDLE reference does match a descriptor HANDLE,
                         # all states that belong to the corresponding descriptor SHALL be included in the result list
-                        tmp = self._mdib.context_states.descriptorHandle.get(handle)
+                        tmp = self._mdib.context_states.descriptor_handle.get(handle)
                     if not tmp:
                         # R5042: If a HANDLE reference from the msg:GetContextStates/msg:HandleRef list does match an
                         # MDS descriptor, then all context states that are part of this MDS SHALL be included in the result list.
