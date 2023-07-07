@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Added
 - `network` module to handle network adapter stuff of the host computer
+- `mypy` static code analysis
 
 ## Changed
 - when creating a `SdcClient` with a `device_location` or `WsDiscovery` containing an ip where no suitable host network adapter could be determined from, an `NetworkAdapterNotFoundError` is raised
