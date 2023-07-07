@@ -19,8 +19,8 @@ if TYPE_CHECKING:
     from lxml import etree as etree_
 
     from sdc11073.namespaces import NamespaceHelper
-    from sdc11073.xml_types.xml_structure import ExtensionLocalValue
     from sdc11073.xml_types.isoduration import DurationType
+    from sdc11073.xml_types.xml_structure import ExtensionLocalValue
 
 
 @dataclass(frozen=True)
@@ -174,7 +174,8 @@ class AbstractDescriptorContainer(ContainerBase):
         """Ignores default value and implied value, e.g. returns None if value is not present in xml."""
         return getattr(self.__class__, attr_name).get_actual_value(self)
 
-    def diff(self, other: AbstractDescriptorContainer, ignore_property_names: list[str] | None = None) -> None | str:
+    def diff(self, other: AbstractDescriptorContainer, ignore_property_names: list[str] | None = None) -> None | list[
+        str]:
         """Compare with another descriptor.
 
         It compares all properties plus the parent handle member.

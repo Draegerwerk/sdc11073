@@ -104,7 +104,7 @@ class ContainerBase:
                     ret.append((name, obj))
         return ret
 
-    def diff(self, other: ContainerBase, ignore_property_names: list[str] | None = None) -> None | str:
+    def diff(self, other: ContainerBase, ignore_property_names: list[str] | None = None) -> None | list[str]:
         """Compare all properties (except to be ignored ones).
 
         :param other: the object to compare with
