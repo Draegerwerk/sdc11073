@@ -9,7 +9,7 @@ from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
 from sdc11073.dispatch import (
     DispatchKey,
-    DispatchKeyRegistry,
+    RequestDispatcher,
     MessageConverterMiddleware,
     PathElementRegistry,
     RequestData,
@@ -46,7 +46,7 @@ class _PathElementDispatcher(PathElementRegistry):
     Implements RequestHandlerProtocol.
     """
 
-    def register_instance(self, path_element: str | None, instance: DispatchKeyRegistry):
+    def register_instance(self, path_element: str | None, instance: RequestDispatcher):
         super().register_instance(path_element, instance)
 
     def on_post(self, request_data: RequestData) -> CreatedMessage:
@@ -157,7 +157,7 @@ class SdcProvider:
                                                               validate=validate)
 
         # host dispatcher provides data of the sdc device itself.
-        self._host_dispatcher = DispatchKeyRegistry()
+        self._host_dispatcher = RequestDispatcher()
         nsh = self._mdib.sdc_definitions.data_model.ns_helper
         self._host_dispatcher.register_post_handler(
             DispatchKey(f'{nsh.WXF.namespace}/Get', None),

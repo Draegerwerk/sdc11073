@@ -191,7 +191,8 @@ class SubscriptionBase:
         subscription_end.Status = code
         subscription_end.add_reason(reason, 'en-US')
         inf = HeaderInformationBlock(action=subscription_end.action,
-                                     addr_to=self.end_to_address or self.notify_to_address)
+                                     addr_to=self.end_to_address or self.notify_to_address,
+                                     reference_parameters=self.end_to_ref_params or self.notify_ref_params)
         message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
 
         try:

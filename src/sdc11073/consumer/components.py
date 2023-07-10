@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING
 
 from sdc11073.pysoap.msgfactory import MessageFactory
 from sdc11073.pysoap.msgreader import MessageReader
 from sdc11073.pysoap.soapclient import SoapClient
 
-from .operations import OperationsManager
+from .operations import OperationsManager, OperationsManagerProtocol
 from .request_handler_deferred import DispatchKeyRegistryDeferred
 from .serviceclients.containmenttreeservice import CTreeServiceClient
 from .serviceclients.contextservice import ContextServiceClient
@@ -17,19 +17,23 @@ from .serviceclients.localizationservice import LocalizationServiceClient
 from .serviceclients.setservice import SetServiceClient
 from .serviceclients.stateeventservice import StateEventClient
 from .serviceclients.waveformservice import WaveformClient
-from .subscription import ConsumerSubscriptionManager
+from .subscription import ConsumerSubscriptionManager, ConsumerSubscriptionManagerProtocol
+
+if TYPE_CHECKING:
+    from sdc11073.pysoap.soapclient import SoapClientProtocol
+    from sdc11073.dispatch.dispatchkey import RequestDispatcherProtocol
 
 
 @dataclass()
 class SdcConsumerComponents:
     """Dependency injection: This class defines which component implementations the sdc consumer will use."""
 
-    soap_client_class: type[Any] = None
+    soap_client_class: type[SoapClientProtocol] = None
     msg_factory_class: type[MessageFactory] = None
     msg_reader_class: type[MessageReader] = None
-    action_dispatcher_class: type = None
-    subscription_manager_class: type = None
-    operations_manager_class: type = None
+    action_dispatcher_class: type[RequestDispatcherProtocol] = None
+    subscription_manager_class: type[ConsumerSubscriptionManagerProtocol] = None
+    operations_manager_class: type[OperationsManagerProtocol] | None = None
     service_handlers: list = None
 
     def merge(self, other: SdcConsumerComponents):

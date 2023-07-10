@@ -13,7 +13,7 @@ from http.client import CannotSendRequest, BadStatusLine, NotConnected, UnknownT
 from http.client import HTTPConnection, HTTPSConnection
 from http.client import HTTPException, HTTPResponse
 from threading import Lock
-from typing import List, Optional, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Union, Protocol
 
 from .. import commlog
 from .. import observableproperties
@@ -25,7 +25,7 @@ from ..pysoap.soapenvelope import Fault
 if TYPE_CHECKING:
     from ssl import SSLContext
     from ..pysoap.msgfactory import CreatedMessage
-    from ..pysoap.msgreader import MessageReader
+    from ..pysoap.msgreader import MessageReader, ReceivedMessage
     from ..definitions_base import BaseDefinitions
     from ..loghelper import LoggerAdapter
     from ..consumer.manipulator import RequestManipulatorProtocol
@@ -61,8 +61,47 @@ class HTTPReturnCodeError(HTTPException):
         return f'HTTPReturnCodeError(status={self.status}, reason={self.reason} fault={self.soap_fault}'
 
 
+class SoapClientProtocol(Protocol):
+    """The expected interface of a soap client."""
+
+    def __init__(self,
+                 netloc: str,
+                 logger: LoggerAdapter,
+                 ssl_context: [SSLContext, None],
+                 sdc_definitions: type[BaseDefinitions],
+                 msg_reader: MessageReader,
+                 supported_encodings: list |str = None,
+                 request_encodings: list|str = None,
+                 chunked_requests: bool = False):
+        ...
+
+    def post_message_to(self, hosted_service_path: str,
+                        message: CreatedMessage,
+                        msg: str = '',
+                        request_manipulator: RequestManipulatorProtocol | None = None,
+                        validate: bool = True
+                        ) -> ReceivedMessage | None:
+        """Send the message and return None if the response is empty else the received response."""
+        ...
+
+    def get_url(self, url: str, msg: str) -> bytes:
+        """Send a GET request and return content of response."""
+        ...
+
+    def is_closed(self) -> bool:
+        ...
+
+    def connect(self):
+        ...
+
+    @property
+    def sock(self) -> socket.SocketType | None:
+        """Return used socket."""
+
+
 class SoapClient:
     """SOAP Client wraps a http connection. It can send / receive SoapEnvelopes."""
+
     _usedSoapClients = 0
     SOCKET_TIMEOUT = 5 if sys.gettrace() is None else 1000  # higher timeout for debugging
 
@@ -72,12 +111,13 @@ class SoapClient:
                  netloc: str,
                  logger: LoggerAdapter,
                  ssl_context: [SSLContext, None],
-                 sdc_definitions: BaseDefinitions,
+                 sdc_definitions: type[BaseDefinitions],
                  msg_reader: MessageReader,
-                 supported_encodings: Optional[List[str]] = None,
-                 request_encodings: Optional[List[str]] = None,
-                 chunked_requests: Optional[bool] = False):
-        """ Connects to one url
+                 supported_encodings: list |str = None,
+                 request_encodings: list |str = None,
+                 chunked_requests: bool = False):
+        """Connect to one url.
+
         :param netloc: the location of the service (domain name:port) ###url of the service
         :param logger: a python logger instance
         :param ssl_context: an optional sll.SSLContext instance
@@ -111,7 +151,8 @@ class SoapClient:
         return self._netloc
 
     @property
-    def sock(self):
+    def sock(self) -> socket.SocketType | None:
+        """Return used socket."""
         return None if self._http_connection is None else self._http_connection.sock
 
     def _mk_http_connection(self) -> [HTTPSConnectionNoDelay, HTTPConnectionNoDelay]:
@@ -136,12 +177,12 @@ class SoapClient:
                 self._http_connection.close()
                 self._http_connection = None
 
-    def is_closed(self):
+    def is_closed(self) -> bool:
         return self._http_connection is None
 
     def _prepare_message(self, created_message: CreatedMessage,
-                         request_manipulator: Union[RequestManipulatorProtocol, None],
-                         validate):
+                         request_manipulator: RequestManipulatorProtocol | None,
+                         validate: bool):
         if hasattr(request_manipulator, 'manipulate_soapenvelope'):
             tmp = request_manipulator.manipulate_soapenvelope(created_message.p_msg)
             if tmp:
@@ -159,11 +200,12 @@ class SoapClient:
 
     def post_message_to(self, path: str,
                         created_message: CreatedMessage,
-                        msg: Optional[str] = '',
-                        request_manipulator: Optional[RequestManipulatorProtocol] = None,
-                        validate: Optional[bool] =True
-                        ):
-        """
+                        msg: str = '',
+                        request_manipulator: RequestManipulatorProtocol | None = None,
+                        validate: bool = True
+                        ) -> ReceivedMessage | None:
+        """Post created message to netloc/path.
+
         :param path: url path component
         :param created_message: The message that shall be sent
         :param msg: used in logs, helps to identify the context in which the method was called

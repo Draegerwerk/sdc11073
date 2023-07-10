@@ -1,11 +1,14 @@
+from sdc11073.dispatch import DispatchKey
+from sdc11073.namespaces import PrefixesEnum
+from sdc11073.xml_types import msg_qnames
+from sdc11073.xml_types.actions import Actions
+
 from .serviceclientbase import HostedServiceClient
-from ...dispatch import DispatchKey
-from ...namespaces import PrefixesEnum
-from ...xml_types import msg_qnames
-from ...xml_types.actions import Actions
 
 
 class StateEventClient(HostedServiceClient):
+    """Client for StateEventService."""
+
     port_type_name = PrefixesEnum.SDC.tag('StateEventService')
     notifications = (DispatchKey(Actions.EpisodicMetricReport, msg_qnames.EpisodicMetricReport),
                      DispatchKey(Actions.EpisodicAlertReport, msg_qnames.EpisodicAlertReport),

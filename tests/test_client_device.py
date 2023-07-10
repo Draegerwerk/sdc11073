@@ -14,7 +14,7 @@ from sdc11073 import commlog
 from sdc11073 import loghelper
 from sdc11073 import observableproperties
 from sdc11073.xml_types import pm_types, msg_qnames as msg, pm_qnames as pm
-from sdc11073.dispatch import DispatchKeyRegistry
+from sdc11073.dispatch import RequestDispatcher
 from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
@@ -31,7 +31,7 @@ from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.provider import waveforms
 from sdc11073.provider.components import SdcProviderComponents, default_sdc_provider_components_async
-from sdc11073.provider.subscriptionmgr import ReferenceParamSubscriptionsManager
+from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.namespaces import default_ns_helper
 from tests.mockstuff import SomeDevice, dec_list
@@ -255,7 +255,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         time.sleep(0.5)  # allow init of devices to complete
         # no deferred action handling for easier debugging
         specific_components = SdcConsumerComponents(
-            action_dispatcher_class=DispatchKeyRegistry
+            action_dispatcher_class=RequestDispatcher
         )
 
         x_addr = self.sdc_device.get_xaddrs()
@@ -485,7 +485,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         try:
             # no deferred action handling for easier debugging
             specific_components = SdcConsumerComponents(
-                action_dispatcher_class=DispatchKeyRegistry
+                action_dispatcher_class=RequestDispatcher
             )
             sdc_client = SdcConsumer(x_addr[0],
                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
@@ -1225,7 +1225,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
 
         specific_components = SdcProviderComponents(
-            subscriptions_manager_class={'StateEvent': ReferenceParamSubscriptionsManager},
+            subscriptions_manager_class={'StateEvent': SubscriptionsManagerReferenceParamAsync},
             soap_client_class=SoapClientAsync
         )
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='<Final> ',

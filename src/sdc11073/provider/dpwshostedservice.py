@@ -4,7 +4,7 @@ from io import BytesIO
 
 from lxml import etree as etree_
 
-from ..dispatch import DispatchKeyRegistry, DispatchKey
+from ..dispatch import RequestDispatcher, DispatchKey
 from ..namespaces import EventingActions
 from ..namespaces import default_ns_helper as ns_hlp
 from ..xml_types import mex_types
@@ -28,7 +28,7 @@ def etree_from_file(path) -> etree_.ElementBase:
     return doc.getroot()
 
 
-class _EventService(DispatchKeyRegistry):
+class _EventService(RequestDispatcher):
     """ A service that offers subscriptions"""
 
     def __init__(self, sdc_device, subscriptions_manager, offered_subscriptions):

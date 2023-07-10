@@ -1,4 +1,4 @@
 from .pathelementregistry import PathElementRegistry
 from .request import RequestData
-from .dispatchkey import DispatchKeyRegistry, DispatchKey
+from .dispatchkey import RequestDispatcher, DispatchKey
 from .messageconverter import MessageConverterMiddleware
