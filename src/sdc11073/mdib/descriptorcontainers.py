@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, Union
 
 from sdc11073 import observableproperties as properties
 from sdc11073.xml_types import ext_qnames as ext
@@ -22,6 +22,59 @@ if TYPE_CHECKING:
     from sdc11073.xml_types.isoduration import DurationType
     from sdc11073.xml_types.xml_structure import ExtensionLocalValue
 
+    OPERATION_DESCRIPTOR = Union[
+        'SetValueOperationDescriptorContainer',
+        'SetStringOperationDescriptorContainer',
+        'ActivateOperationDescriptorContainer',
+        'SetContextDescriptorOperationDescriptorContainer',
+        'SetMetricDescriptorOperationDescriptorContainer',
+        'SetComponentDescriptorOperationDescriptorContainer',
+        'SetAlertDescriptorOperationDescriptorContainer',
+    ]
+    METRIC_DESCRIPTOR = Union[
+        'NumericMetricDescriptorContainer',
+        'StringMetricDescriptorContainer',
+        'EnumStringMetricDescriptorContainer',
+        'RealTimeSampleArrayMetricDescriptorContainer',
+        'DistributionSampleArrayMetricDescriptorContainer',
+    ]
+    COMPLEX_DEVICE_COMPONENT_DESCRIPTOR = Union[
+        'MdsDescriptorContainer',
+        'ScoDescriptorContainer',
+        'VmdDescriptorContainer',
+    ]
+
+    DEVICE_COMPONENT_DESCRIPTOR = Union[
+        'ChannelDescriptorContainer',
+        'ClockDescriptorContainer',
+        'SystemContextDescriptorContainer',
+        'BatteryDescriptorContainer',
+    ]
+
+    ALERT_DESCRIPTOR = Union[
+        'AlertSystemDescriptorContainer',
+        'AlertSignalDescriptorContainer',
+        'AlertConditionDescriptorContainer',
+        'LimitAlertConditionDescriptorContainer',
+    ]
+
+    CONTEXT_DESCRIPTOR = Union[
+        'LocationContextDescriptorContainer',
+        'PatientContextDescriptorContainer',
+        'WorkflowContextDescriptorContainer',
+        'OperatorContextDescriptorContainer',
+        'MeansContextDescriptorContainer',
+        'EnsembleContextDescriptorContainer',
+    ]
+
+    ABSTRACT_DESCRIPTOR = Union[
+        OPERATION_DESCRIPTOR,
+        METRIC_DESCRIPTOR,
+        COMPLEX_DEVICE_COMPONENT_DESCRIPTOR,
+        DEVICE_COMPONENT_DESCRIPTOR,
+        ALERT_DESCRIPTOR,
+        CONTEXT_DESCRIPTOR,
+    ]
 
 @dataclass(frozen=True)
 class ChildDescriptorMapping:

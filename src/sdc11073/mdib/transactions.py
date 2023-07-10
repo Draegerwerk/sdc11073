@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.multikey import MultiKeyLookup
 
-    from .descriptorcontainers import AbstractDescriptorContainer, AbstractDescriptorProtocol
+    from .descriptorcontainers import AbstractDescriptorProtocol, ABSTRACT_DESCRIPTOR
     from .providermdib import ProviderMdib
     from .statecontainers import (
         CONTEXT_STATE,
@@ -37,18 +37,18 @@ class TransactionManagerProtocol(Protocol):
     def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
         ...
 
-    def get_descriptor_in_transaction(self, descriptor_handle: str) -> AbstractDescriptorContainer:
+    def get_descriptor_in_transaction(self, descriptor_handle: str) -> ABSTRACT_DESCRIPTOR:
         """Look for new or updated descriptor in current transaction and in mdib."""
 
-    def add_descriptor(self, descriptor_container: AbstractDescriptorContainer,
+    def add_descriptor(self, descriptor_container: ABSTRACT_DESCRIPTOR,
                        adjust_descriptor_version: bool = True,
-                       state_container: AbstractStateContainer | None = None):
+                       state_container: ABSTRACT_DESCRIPTOR | None = None):
         """Add a new descriptor to mdib."""
 
     def remove_descriptor(self, descriptor_handle: str):
         """Remove existing descriptor from mdib."""
 
-    def get_descriptor(self, descriptor_handle: str) -> AbstractDescriptorContainer:
+    def get_descriptor(self, descriptor_handle: str) -> ABSTRACT_DESCRIPTOR:
         """Get a descriptor from mdib."""
 
     def has_state(self, descriptor_handle: str) -> bool:
@@ -303,7 +303,7 @@ class MdibUpdateTransaction(_TransactionBase):
         self.descriptor_updates[descriptor_handle] = _TrItem(orig_descriptor_container, None)
 
     @tr_method_wrapper
-    def get_descriptor(self, descriptor_handle: str) -> AbstractDescriptorContainer:
+    def get_descriptor(self, descriptor_handle: str) -> ABSTRACT_DESCRIPTOR:
         """Get a descriptor from mdib.
 
         When the transaction is committed, the modifications to the copy will be applied to the original version,
@@ -407,7 +407,7 @@ class MdibUpdateTransaction(_TransactionBase):
         updates_dict[descriptor_handle] = _TrItem(mdib_state, copied_state)
         return copied_state
 
-    def get_context_state(self, context_state_handle: str) -> AbstractContextStateContainer:
+    def get_context_state(self, context_state_handle: str) -> CONTEXT_STATE:
         """Read a ContextState from mdib with given state handle.
 
         If there is no state with the given handle in the mdib, a ValueError is thrown.
@@ -697,7 +697,7 @@ class TransactionProcessor:
             updates_list.append(transaction_item.new.mk_copy(copy_node=False))
         return updates_list
 
-    def _update_corresponding_state(self, descriptor_container: AbstractDescriptorContainer):
+    def _update_corresponding_state(self, descriptor_container: ABSTRACT_DESCRIPTOR):
         """Add state to updated_states list and to corresponding notifications input.
 
         The state is always sent twice, (a) in the description modification report and (b)
@@ -756,14 +756,14 @@ class TransactionProcessor:
                     new_state.increment_state_version()
                     update_dict[descriptor_container.Handle] = _TrItem(old_state, new_state)
 
-    def _increment_parent_descriptor_version(self, descriptor_container: AbstractDescriptorContainer):
+    def _increment_parent_descriptor_version(self, descriptor_container: ABSTRACT_DESCRIPTOR):
         parent_descriptor_container = self._mdib.descriptions.handle.get_one(
             descriptor_container.parent_handle)
         parent_descriptor_container.increment_descriptor_version()
         self.descr_updated.append(parent_descriptor_container.mk_copy())
         self._update_corresponding_state(parent_descriptor_container)
 
-    def _remove_corresponding_state(self, descriptor_container: AbstractDescriptorContainer):
+    def _remove_corresponding_state(self, descriptor_container: ABSTRACT_DESCRIPTOR):
         if descriptor_container.is_context_descriptor:
             for state in self._mdib.context_states.descriptor_handle.get(descriptor_container.Handle, [])[:]:
                 self._mdib.context_states.remove_object_no_lock(state)
