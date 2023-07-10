@@ -1,4 +1,3 @@
-import os
 import threading
 import time
 import traceback
@@ -7,8 +6,8 @@ from collections import defaultdict
 from concurrent import futures
 from decimal import Decimal
 
-from examples.ReferenceTest import reference_device
-from sdc11073 import observableproperties, network, location
+from examples.ReferenceTest import reference_provider
+from sdc11073 import observableproperties
 from sdc11073.consumer import SdcConsumer
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.mdib import ConsumerMdib
@@ -90,12 +89,12 @@ class Test_Reference(unittest.TestCase):
         self.my_devices = []
         self.my_clients = []
         # define how the provider is published on the network and how the client tries to detect the device
-        self.loc = reference_device.get_location()
-        self.ip = reference_device.get_network_adapter().ip
+        self.loc = reference_provider.get_location()
+        self.ip = reference_provider.get_network_adapter().ip
         self.provider_discovery = WSDiscovery(self.ip)
         self.provider_discovery.start()
-        self.provider = reference_device.create_reference_provider(ws_discovery=self.provider_discovery)
-        reference_device.set_reference_data(self.provider, loc=self.loc)
+        self.provider = reference_provider.create_reference_provider(ws_discovery=self.provider_discovery)
+        reference_provider.set_reference_data(self.provider, loc=self.loc)
         self.device_activity = DeviceActivity(self.provider)
         self.device_activity.start()
 
