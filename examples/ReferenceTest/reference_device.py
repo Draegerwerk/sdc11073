@@ -1,41 +1,106 @@
+from __future__ import annotations
+
+import decimal
 import json
 import logging.config
 import os
+import pathlib
+import ssl
+import time
 import traceback
-from time import sleep
-from uuid import UUID
-from decimal import Decimal
+import uuid
 
+from sdc11073 import location
+from sdc11073 import network
+from sdc11073 import provider
 from sdc11073 import wsdiscovery
-from sdc11073.location import SdcLocation
-from sdc11073.provider import SdcProvider
-from sdc11073.xml_types import pm_types
-from sdc11073.mdib import ProviderMdib
 from sdc11073.certloader import mk_ssl_context_from_folder
-from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.loghelper import LoggerAdapter
-from sdc11073.provider.components import SdcProviderComponents, default_sdc_provider_components_sync
-from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
-from sdc11073.pysoap.soapclient_async import SoapClientAsync
+from sdc11073.mdib import ProviderMdib
+from sdc11073.provider.components import SdcProviderComponents
 from sdc11073.provider.servicesfactory import DPWSHostedService
 from sdc11073.provider.servicesfactory import HostedServices, mk_dpws_hosts
-
-here = os.path.dirname(__file__)
-default_mdib_path = os.path.join(here, 'reference_mdib.xml')
-mdib_path = os.getenv('ref_mdib') or default_mdib_path
-xtra_log_config = os.getenv('ref_xtra_log_cnf')  # or None
-
-My_UUID_str = '12345678-6f55-11ea-9697-123456789abc'
-
-# these variables define how the device is published on the network:
-adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
-ca_folder = os.getenv('ref_ca')
-ref_fac = os.getenv('ref_fac') or 'r_fac'
-ref_poc = os.getenv('ref_poc') or 'r_poc'
-ref_bed = os.getenv('ref_bed') or 'r_bed'
-ssl_passwd = os.getenv('ref_ssl_passwd') or None
+from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
+from sdc11073.xml_types import dpws_types
+from sdc11073.xml_types import pm_types, pm_qnames as pm
+from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 
 USE_REFERENCE_PARAMETERS = True
+
+
+def get_network_adapter() -> network.NetworkAdapter:
+    if ip := os.getenv('ref_ip') is not None:
+        return network.get_adapter_containing_ip(ip)
+    # get next available loopback adapter
+    return next(adapter for adapter in network.get_adapters() if adapter.is_loopback)
+
+
+def get_location() -> location.SdcLocation:
+    return location.SdcLocation(fac=os.getenv('ref_fac', default='r_fac'),
+                                poc=os.getenv('ref_poc', default='r_poc'),
+                                bed=os.getenv('ref_bed', default='r_bed'))
+
+
+def get_ssl_context() -> ssl.SSLContext | None:
+    if ca_folder := os.getenv('ref_ca') is None:
+        return None
+    return mk_ssl_context_from_folder(ca_folder,
+                                      private_key='user_private_key_encrypted.pem',
+                                      certificate='user_certificate_root_signed.pem',
+                                      ca_public_key='root_certificate.pem',
+                                      cyphers_file=None,
+                                      ssl_passwd=os.getenv('ref_ssl_passwd'))
+
+
+def create_reference_provider(
+        ws_discovery: wsdiscovery.WSDiscovery | None = None,
+        mdib_path: pathlib.Path = pathlib.Path(__file__).parent.joinpath('reference_mdib.xml'),
+        dpws_model: dpws_types.ThisModelType | None = None,
+        dpws_device: dpws_types.ThisDeviceType | None = None,
+        epr: uuid.UUID = uuid.UUID('12345678-6f55-11ea-9697-123456789abc'),
+        specific_components: SdcProviderComponents | None = None,
+        ssl_context: ssl.SSLContext | None = None) -> provider.SdcProvider:
+    # generic way to create a device, this what you usually do:
+    ws_discovery = ws_discovery or wsdiscovery.WSDiscovery(get_network_adapter().ip)
+    ws_discovery.start()
+    dpws_model = dpws_model or ThisModelType(manufacturer='sdc11073',
+                                             manufacturer_url='www.sdc11073.com',
+                                             model_name='TestDevice',
+                                             model_number='1.0',
+                                             model_url='www.draeger.com/model',
+                                             presentation_url='www.draeger.com/model/presentation')
+    dpws_device = dpws_device or ThisDeviceType(friendly_name='TestDevice',
+                                                firmware_version='Version1',
+                                                serial_number='12345')
+    prov = provider.SdcProvider(
+        ws_discovery=ws_discovery,
+        this_model=dpws_model,
+        this_device=dpws_device,
+        device_mdib_container=ProviderMdib.from_mdib_file(str(mdib_path)),
+        epr=epr,
+        specific_components=specific_components,
+        ssl_context=ssl_context or get_ssl_context(),
+    )
+    for desc in prov.mdib.descriptions.objects:
+        desc.SafetyClassification = pm_types.SafetyClassification.MED_A
+    prov.start_all(start_rtsample_loop=False)
+    return prov
+
+
+def set_reference_data(prov: provider.SdcProvider, loc: location.SdcLocation = None):
+    loc = loc or get_location()
+    prov.set_location(loc, [pm_types.InstanceIdentifier('Validator', extension_string='System')])
+    patient_handle = prov.mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor).Handle
+    with prov.mdib.transaction_manager() as mgr:
+        patient_state = mgr.mk_context_state(patient_handle)
+        patient_state.CoreData.Givenname = "Given"
+        patient_state.CoreData.Middlename = ["Middle"]
+        patient_state.CoreData.Familyname = "Familiy"
+        patient_state.CoreData.Birthname = "Birthname"
+        patient_state.CoreData.Title = "Title"
+        patient_state.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
+        patient_state.Identification = []
+
 
 def mk_all_services_except_localization(sdc_device, components, subscription_managers) -> HostedServices:
     # register all services with their endpoint references acc. to structure in components
@@ -53,123 +118,78 @@ def mk_all_services_except_localization(sdc_device, components, subscription_man
     return hosted_services
 
 
-if __name__ == '__main__':
-    with open(os.path.join(here, 'logging_default.jsn')) as f:
-        logging_setup = json.load(f)
-    logging.config.dictConfig(logging_setup)
-    if xtra_log_config is not None:
-        with open(xtra_log_config) as f:
-            logging_setup2 = json.load(f)
-            logging.config.dictConfig(logging_setup2)
+def setup_logging() -> logging.LoggerAdapter:
+    default = pathlib.Path(__file__).parent.joinpath('logging_default.json')
+    if default.exists():
+        logging.config.dictConfig(json.loads(default.read_bytes()))
+    if extra := os.getenv('ref_xtra_log_cnf') is not None:
+        logging.config.dictConfig(json.loads(pathlib.Path(extra).read_bytes()))
+    return LoggerAdapter(logging.getLogger('sdc'))
 
-    logger = logging.getLogger('sdc')
-    logger = LoggerAdapter(logger)
-    logger.info('{}', 'start')
-    wsd = wsdiscovery.WSDiscovery(adapter_ip)
+
+def run_provider():
+    logger = setup_logging()
+
+    adapter = get_network_adapter()
+    wsd = wsdiscovery.WSDiscovery(adapter.ip)
     wsd.start()
-    my_mdib = ProviderMdib.from_mdib_file(mdib_path)
-    my_uuid = UUID(My_UUID_str)
-    print("UUID for this device is {}".format(my_uuid))
-    loc = SdcLocation(ref_fac, ref_poc, ref_bed)
-    print("location for this device is {}".format(loc))
-    dpwsModel = ThisModelType(manufacturer='sdc11073',
-                          manufacturer_url='www.sdc11073.com',
-                          model_name='TestDevice',
-                          model_number='1.0',
-                          model_url='www.sdc11073.com/model',
-                          presentation_url='www.sdc11073.com/model/presentation')
 
-    dpwsDevice = ThisDeviceType(friendly_name='TestDevice',
-                            firmware_version='Version1',
-                            serial_number='12345')
-    if ca_folder:
-        ssl_context = mk_ssl_context_from_folder(ca_folder,
-                                                 private_key='user_private_key_encrypted.pem',
-                                                 certificate='user_certificate_root_signed.pem',
-                                                 ca_public_key='root_certificate.pem',
-                                                 cyphers_file=None,
-                                                 ssl_passwd=ssl_passwd)
-    else:
-        ssl_context = None
     if USE_REFERENCE_PARAMETERS:
-        # specific_components = SdcDeviceComponents(subscriptions_manager_class= {'StateEvent':SubscriptionsManagerReferenceParamAsync},
-        #                                           services_factory=mk_all_services_except_localization,
-        #                                           soap_client_class=SoapClientAsync)
-        specific_components = SdcProviderComponents(subscriptions_manager_class= {'StateEvent':SubscriptionsManagerReferenceParamAsync},
-                                                  services_factory=mk_all_services_except_localization)
+        specific_components = SdcProviderComponents(
+            subscriptions_manager_class={'StateEvent': SubscriptionsManagerReferenceParamAsync},
+            services_factory=mk_all_services_except_localization
+        )
     else:
-        specific_components = None # SdcDeviceComponents(services_factory=mk_all_services_except_localization)
-    sdcDevice = SdcProvider(wsd, dpwsModel, dpwsDevice, my_mdib, my_uuid,
-                                                           ssl_context=ssl_context,
-                          default_components=default_sdc_provider_components_sync,
-                                                           specific_components=specific_components)
-    sdcDevice.start_all()
+        specific_components = None  # provComponents(services_factory=mk_all_services_except_localization)
 
-    validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-    sdcDevice.set_location(loc, validators)
-    pm = my_mdib.data_model.pm_names
-    pm_types = my_mdib.data_model.pm_types
-    patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor)[0].Handle
-    with my_mdib.transaction_manager() as mgr:
-        patientContainer = mgr.mk_context_state(patientDescriptorHandle)
-        patientContainer.CoreData.Givenname = "Given"
-        patientContainer.CoreData.Middlename = ["Middle"]
-        patientContainer.CoreData.Familyname = "Familiy"
-        patientContainer.CoreData.Birthname = "Birthname"
-        patientContainer.CoreData.Title = "Title"
-        patientContainer.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED  #"Assoc"
-        identifiers = []
-        patientContainer.Identification = identifiers
+    prov = create_reference_provider(specific_components=specific_components)
 
-    descs = list(sdcDevice.mdib.descriptions.objects)
-    descs.sort(key=lambda x: x.Handle)
-    metric = None
-    alertCondition = None
-    alertSignal = None
-    activateOperation = None
-    stringOperation = None
-    valueOperation = None
-    for oneContainer in descs:
-        if oneContainer.Handle == "numeric.ch1.vmd0":
-            metric = oneContainer
-        if oneContainer.Handle == "ac0.mds0":
-            alertCondition = oneContainer
-        if oneContainer.Handle == "numeric.ch0.vmd1_sco_0":
-            valueOperation = oneContainer
-        if oneContainer.Handle == "enumstring.ch0.vmd1_sco_0":
-            stringOperation = oneContainer
-    with sdcDevice.mdib.transaction_manager() as mgr:
-        state = mgr.get_state(valueOperation.OperationTarget)
+    metric = prov.mdib.descriptions.handle.get_one('numeric.ch1.vmd0')
+    alert_condition = prov.mdib.descriptions.handle.get_one('ac0.mds0')
+    value_operation = prov.mdib.descriptions.handle.get_one('numeric.ch0.vmd1_sco_0')
+    string_operation = prov.mdib.descriptions.handle.get_one('enumstring.ch0.vmd1_sco_0')
+
+    with prov.mdib.transaction_manager() as mgr:
+        state = mgr.get_state(value_operation.OperationTarget)
         if not state.MetricValue:
             state.mk_metric_value()
-        state = mgr.get_state(stringOperation.OperationTarget)
+        state = mgr.get_state(string_operation.OperationTarget)
         if not state.MetricValue:
             state.mk_metric_value()
-    print("Running forever, CTRL-C to  exit")
+
+    print("Running forever, CTRL-C to exit")
+
     try:
-        currentValue = 0
+        current_value = 0
         while True:
-            if metric:
-                try:
-                    with sdcDevice.mdib.transaction_manager() as mgr:
-                        state = mgr.get_state(metric.Handle)
-                        if not state.MetricValue:
-                            state.mk_metric_value()
-                        state.MetricValue.Value = Decimal(currentValue)
-                        currentValue += 1
-                except Exception as ex:
-                    print(traceback.format_exc())
-            else:
-                print("Metric not found in MDIB!")
-            if alertCondition:
-                try:
-                    with sdcDevice.mdib.transaction_manager() as mgr:
-                        state = mgr.get_state(alertCondition.Handle)
-                        state.Presence = not state.Presence
-                except Exception as ex:
-                    print(traceback.format_exc())
-            else:
-                print("Alert not found in MDIB")
-            sleep(5)
+            try:
+                with prov.mdib.transaction_manager() as mgr:
+                    state = mgr.get_state(metric.Handle)
+                    if not state.MetricValue:
+                        state.mk_metric_value()
+                    state.MetricValue.Value = decimal.Decimal(current_value)
+                    logger.info(f'Set pm:MetricValue/@Value={current_value} of the metric with the handle '
+                                f'"{metric.Handle}".')
+                    current_value += 1
+            except Exception:
+                logger.error(traceback.format_exc())
+            try:
+                with prov.mdib.transaction_manager() as mgr:
+                    state = mgr.get_state(alert_condition.Handle)
+                    state.Presence = not state.Presence
+                    logger.info(f'Set @Presence={state.Presence} of the alert condition with the handle '
+                                f'"{alert_condition.Handle}".')
+            except Exception:
+                logger.error(traceback.format_exc())
+            time.sleep(5)
     except KeyboardInterrupt:
-        print("Exiting...")
+        pass
+    finally:
+        print("Stopping provider...")
+        prov.stop_all()
+        print("Stopping discovery...")
+        wsd.stop()
+
+
+if __name__ == '__main__':
+    run_provider()

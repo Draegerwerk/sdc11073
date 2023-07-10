@@ -7,7 +7,7 @@ def mk_ssl_context_from_folder(ca_folder,
                                certificate='usercert.pem',
                                ca_public_key='cacert.pem',
                                cyphers_file=None,
-                               ssl_passwd=None):
+                               ssl_passwd=None) -> ssl.SSLContext:
     """Convenience method for easy creation of SSL context, assuming all needed files are in the same folder.
     Create an ssl context from files 'userkey.pem', 'usercert.pem', and optional 'cacert.pem' and cyphers file
     :param ca_folder: base path of all files
@@ -56,7 +56,7 @@ def mk_ssl_context(key_file,
                    cert_file,
                    ca_file,
                    cyphers=None,
-                   ssl_passwd=None):
+                   ssl_passwd=None) -> ssl.SSLContext:
     """Convenience method for easy creation of SSL context.
     Create an ssl context from files 'userkey.pem', 'usercert.pem', 'cacert.pem' and optional 'cyphers.json'
     :param key_file: the private key pem file of the user

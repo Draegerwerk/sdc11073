@@ -15,7 +15,8 @@ if TYPE_CHECKING:
     from .descriptorcontainers import AbstractDescriptorContainer, AbstractDescriptorProtocol
     from .providermdib import ProviderMdib
     from .statecontainers import (
-        AbstractContextStateContainer,
+        CONTEXT_STATE,
+        ABSTRACT_STATE,
         AbstractMultiStateProtocol,
         AbstractStateContainer,
         AbstractStateProtocol,
@@ -56,22 +57,22 @@ class TransactionManagerProtocol(Protocol):
     def get_state_transaction_item(self, handle: str) -> _TrItem | None:
         """If transaction has a state with given handle, return the transaction-item, otherwise None."""
 
-    def add_state(self, state_container: AbstractStateContainer, adjust_state_version: bool = True):
+    def add_state(self, state_container: ABSTRACT_STATE, adjust_state_version: bool = True):
         """Add a new state to mdib."""
 
-    def unget_state(self, state_container: AbstractStateContainer | AbstractContextStateContainer):
+    def unget_state(self, state_container: ABSTRACT_STATE):
         """Forget a state that was provided before by a get_state or add_state call."""
 
-    def get_state(self, descriptor_handle: str) -> AbstractStateContainer:
+    def get_state(self, descriptor_handle: str) -> ABSTRACT_STATE:
         """Read a state from mdib and add it to the transaction."""
 
-    def get_context_state(self, context_state_handle: str) -> AbstractContextStateContainer:
+    def get_context_state(self, context_state_handle: str) -> CONTEXT_STATE:
         """Read a ContextState from mdib with given state handle."""
 
     def mk_context_state(self, descriptor_handle: str,
                          context_state_handle: str | None = None,
                          adjust_state_version: bool = True,
-                         set_associated: bool = False) -> AbstractContextStateContainer:
+                         set_associated: bool = False) -> CONTEXT_STATE:
         """Create a new ContextStateContainer."""
 
     def process_transaction(self, set_determination_time: bool) -> TransactionProcessor:

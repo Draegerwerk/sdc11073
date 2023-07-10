@@ -85,7 +85,6 @@ def run_ref_test():
         return results
 
     pm = mdib.data_model.pm_names
-    pm_types = mdib.data_model.pm_types
 
     print('Test step 5: check that at least one patient context exists')
     patients = mdib.context_states.NODETYPE.get(pm.PatientContextState, [])
@@ -255,7 +254,7 @@ if __name__ == '__main__':
 
     here = os.path.dirname(__file__)
 
-    with open(os.path.join(here, 'logging_default.jsn')) as f:
+    with open(os.path.join(here, 'logging_default.json')) as f:
         logging_setup = json.load(f)
     logging.config.dictConfig(logging_setup)
     if xtra_log_config is not None:

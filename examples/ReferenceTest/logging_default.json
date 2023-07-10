@@ -1,0 +1,110 @@
+{
+    "version": 1,
+    "formatters":{
+        "default":{
+            "class": "logging.Formatter",
+            "format": "{asctime} - {name} - {levelname} - {message}",
+            "style": "{"
+        }
+    },
+    "handlers":{
+        "file":{
+            "class": "logging.FileHandler",
+            "filename": "sdc_ref_dev.log",
+            "mode":"w",
+            "formatter": "default"
+        },
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default"
+        }
+    },
+    "loggers":{
+        "sdc": {
+            "handlers": ["file", "console"],
+            "level":"INFO"
+        },
+        "sdc.discover": {
+            "level": "INFO"
+        },
+        "sdc.discover.monitor": {
+            "level": null
+        },
+        "sdc.schema_resolver": {
+            "comment": "logs resolving of schema locations",
+            "level": null
+        },
+        "sdc.device": {
+            "comment": "base logger for device",
+            "level": null
+        },
+        "sdc.device.soap": {
+            "level": null
+        },
+        "sdc.device.mdib": {
+            "level": null
+        },
+        "sdc.device.httpsrv": {
+            "level": null
+        },
+        "sdc.device.op_worker": {
+            "comment": "logs execution of called operations",
+            "level": null
+        },
+        "sdc.device.op_reg": {
+            "comment": "logs operation creation ",
+            "level": null
+        },
+        "sdc.device.op_mgr": {
+            "comment": "logs operation calls",
+            "level": null
+        },
+        "sdc.device.op": {
+            "comment": "for all operations",
+            "level": null
+        },
+        "sdc.device.ops": {
+            "level": null
+        },
+        "sdc.device.subscrMgr": {
+            "level": null
+        },
+        "sdc.device.player": {
+            "comment": "if set to DEBUG, it will log all notifications that are replayed",
+            "level": null
+        },
+        "sdc.client": {
+            "comment": "base logger for client",
+            "level": "WARN"
+        },
+        "sdc.client.soap": {
+            "level": null
+        },
+        "sdc.client.subscr": {
+            "comment": "logs events per subscription, e.g. renew",
+            "level": null
+        },
+        "sdc.client.subscrMgr": {
+            "comment": "logs events of Subscriptions Manager, mainly errors if something goes wrong.",
+            "level": null
+        },
+        "sdc.client.notif_dispatch": {
+            "comment": "debug level logs every incoming notification",
+            "level": null
+        },
+        "sdc.client.mdib": {
+            "level": null
+        },
+        "sdc.client.mdib.rt": {
+            "comment": "logs for real time data buffer",
+            "level": null
+        },
+        "sdc.client.wf": {
+            "comment": "on debug it logs every incoming waveform",
+            "level": null
+        },
+        "sdc.client.op_mgr": {
+            "level": null
+        }
+    }
+}
