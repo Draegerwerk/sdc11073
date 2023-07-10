@@ -1,26 +1,26 @@
+import os
 import time
 import traceback
-import os
-from decimal import Decimal
 from collections import defaultdict
-from sdc11073 import observableproperties
-from sdc11073.definitions_sdc import SDC_v1_Definitions
 from concurrent import futures
+from decimal import Decimal
+
+from sdc11073 import commlog
+from sdc11073 import observableproperties
 from sdc11073.certloader import mk_ssl_context_from_folder
-from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.consumer import SdcConsumer
+from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods
+from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types.msg_types import InvocationState
-from sdc11073 import commlog
 
 ConsumerMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0
 
-adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
-ca_folder = os.getenv('ref_ca')
-ssl_passwd = os.getenv('ref_ssl_passwd') or None
-search_epr = os.getenv('ref_search_epr') or 'abc' # 'abc' # abc is fixed ending in reference_device uuid.
-
+adapter_ip = os.getenv('ref_ip') or '127.0.0.1'  # noqa: SIM112
+ca_folder = os.getenv('ref_ca')  # noqa: SIM112
+ssl_passwd = os.getenv('ref_ssl_passwd') or None  # noqa: SIM112
+search_epr = os.getenv('ref_search_epr') or 'abc'  # noqa: SIM112
 
 ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
@@ -29,6 +29,7 @@ if ENABLE_COMMLOG:
                                      log_in=True,
                                      broadcast_ip_filter=None)
     commlog.set_communication_logger(comm_logger)
+
 
 def run_ref_test():
     results = []
@@ -61,13 +62,13 @@ def run_ref_test():
         else:
             ssl_context = None
         client = SdcConsumer.from_wsd_service(my_service,
-                                                               ssl_context=ssl_context,
-                                                               validate=True)
+                                              ssl_context=ssl_context,
+                                              validate=True)
         client.start_all()
         print('Test step 2 successful: connected to device')
         results.append('### Test 2 ### passed')
     except:
-        print (traceback.format_exc())
+        print(traceback.format_exc())
         results.append('### Test 2 ### failed')
         return results
 
@@ -179,7 +180,7 @@ def run_ref_test():
 
     print('Test step 9: call SetValue operation')
     setvalue_operations = mdib.descriptions.NODETYPE.get(pm.SetValueOperationDescriptor, [])
-#    print('setvalue_operations', setvalue_operations)
+    #    print('setvalue_operations', setvalue_operations)
     setval_handle = 'numeric.ch0.vmd1_sco_0'
     if len(setvalue_operations) == 0:
         print('Test step 9 failed, no SetValue operation found')
@@ -245,9 +246,8 @@ def run_ref_test():
     return results
 
 
-
 if __name__ == '__main__':
-    xtra_log_config = os.getenv('ref_xtra_log_cnf')  # or None
+    xtra_log_config = os.getenv('ref_xtra_log_cnf')  # noqa: SIM112
 
     import json
     import logging.config
