@@ -16,12 +16,13 @@ from .containerbase import ContainerBase
 if TYPE_CHECKING:
     from decimal import Decimal
 
-    from lxml.etree import ElementBase,  QName
+    from lxml.etree import ElementBase, QName
 
     from sdc11073.location import SdcLocation
     from sdc11073.namespaces import NamespaceHelper
-    from sdc11073.xml_types.xml_structure import ExtensionLocalValue
     from sdc11073.xml_types.isoduration import DurationType
+    from sdc11073.xml_types.xml_structure import ExtensionLocalValue
+
     from .descriptorcontainers import AbstractDescriptorProtocol
 
 
