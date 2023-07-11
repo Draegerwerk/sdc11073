@@ -29,6 +29,7 @@ from .subscriptionmgr_async import SubscriptionsManagerPathAsync
 if TYPE_CHECKING:
     from lxml.etree import QName
 
+    from sdc11073 import provider
     from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.provider.servicesfactory import HostedServices
     from sdc11073.xml_types.wsd_types import ScopesType
@@ -50,7 +51,7 @@ class SdcProviderComponents:
     msg_reader_class: type[MessageReader] = None
     client_msg_reader_class: type[MessageReader] = None  # the corresponding reader for client
     xml_reader_class: type[MessageReader] = None  # needed to read xml based mdib files
-    services_factory: Callable[[Any, dict, Any], HostedServices] = None
+    services_factory: Callable[[provider.SdcProvider, SdcProviderComponents, dict], HostedServices] = None
     operation_cls_getter: Callable[[QName], type] = None
     sco_operations_registry_class: type[AbstractScoOperationsRegistry] = None
     subscriptions_manager_class: dict[str, type[SubscriptionManagerProtocol]] = None

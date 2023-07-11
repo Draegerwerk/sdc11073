@@ -318,7 +318,7 @@ class SdcProvider:
                                           x_addrs)
 
     @property
-    def mdib(self):
+    def mdib(self) -> ProviderMdib:
         return self._mdib
 
     @property

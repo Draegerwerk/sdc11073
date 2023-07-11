@@ -654,8 +654,8 @@ class LimitAlertConditionDescriptorContainer(AlertConditionDescriptorContainer):
     NODETYPE = pm_qnames.LimitAlertConditionDescriptor
     STATE_QNAME = pm_qnames.LimitAlertConditionState
     MaxLimits: pm_types.Range = x_struct.SubElementProperty(pm_qnames.MaxLimits,
-                                                              value_class=pm_types.Range,
-                                                              default_py_value=pm_types.Range())
+                                                            value_class=pm_types.Range,
+                                                            default_py_value=pm_types.Range())
     AutoLimitSupported: bool = x_struct.BooleanAttributeProperty('AutoLimitSupported', implied_py_value=False)
     _props = ('MaxLimits', 'AutoLimitSupported')
     _child_elements_order = (pm_qnames.MaxLimits,)

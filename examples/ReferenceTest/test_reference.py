@@ -1,34 +1,18 @@
-import os
 import threading
 import time
 import traceback
 import unittest
-import uuid
 from collections import defaultdict
 from concurrent import futures
 from decimal import Decimal
 
+from examples.ReferenceTest import reference_provider
 from sdc11073 import observableproperties
-from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
-from sdc11073.definitions_sdc import SDC_v1_Definitions
-from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
-from sdc11073.location import SdcLocation
-from sdc11073.mdib import ProviderMdib, ConsumerMdib
 from sdc11073.consumer import SdcConsumer
-from sdc11073.provider import SdcProvider
+from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.mdib import ConsumerMdib
 from sdc11073.wsdiscovery import WSDiscovery, ScopesType
-
-here = os.path.dirname(__file__)
-default_mdib_path = os.path.join(here, 'reference_mdib.xml')
-mdib_path = os.getenv('ref_mdib') or default_mdib_path
-
-My_Dev_UUID_str = '12345678-6f55-11ea-9697-123456789abc'
-
-# these variables define how the device is published on the network and how the client tries to detect the device:
-adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
-ref_fac = os.getenv('ref_fac') or 'r_fac'
-ref_poc = os.getenv('ref_poc') or 'r_poc'
-ref_bed = os.getenv('ref_bed') or 'r_bed'
+from sdc11073.xml_types import msg_types, pm_qnames as pm
 
 
 class DeviceActivity(threading.Thread):
@@ -96,86 +80,36 @@ class DeviceActivity(threading.Thread):
         print("DeviceActivity stopped.")
 
 
-def createReferenceDevice(wsdiscovery_instance, location, mdibPath):
-    my_mdib = ProviderMdib.from_mdib_file(mdibPath)
-    my_uuid = uuid.UUID(My_Dev_UUID_str)
-    dpwsModel = ThisModelType(manufacturer='sdc11073',
-                              manufacturer_url='www.sdc11073.com',
-                              model_name='TestDevice',
-                              model_number='1.0',
-                              model_url='www.draeger.com/model',
-                              presentation_url='www.draeger.com/model/presentation')
-
-    dpwsDevice = ThisDeviceType(friendly_name='TestDevice',
-                                firmware_version='Version1',
-                                serial_number='12345')
-    sdcDevice = SdcProvider(wsdiscovery_instance,
-                          dpwsModel,
-                          dpwsDevice,
-                          my_mdib,
-                          my_uuid)
-    for desc in sdcDevice.mdib.descriptions.objects:
-        desc.SafetyClassification = pm_types.SafetyClassification.MED_A
-    sdcDevice.start_all(start_rtsample_loop=False)
-    validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-    sdcDevice.set_location(location, validators)
-
-    patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor).Handle
-    with my_mdib.transaction_manager() as mgr:
-        patientContainer = mgr.mk_context_state(patientDescriptorHandle)
-        patientContainer.CoreData.Givenname = "Given"
-        patientContainer.CoreData.Middlename = ["Middle"]
-        patientContainer.CoreData.Familyname = "Familiy"
-        patientContainer.CoreData.Birthname = "Birthname"
-        patientContainer.CoreData.Title = "Title"
-        patientContainer.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
-        identifiers = []
-        patientContainer.Identification = identifiers
-
-    return sdcDevice
-
-
 class Test_Reference(unittest.TestCase):
     """Plugfest Reference tests"""
 
     def setUp(self) -> None:
-        self.my_location = SdcLocation(fac=ref_fac,
-                                       poc=ref_poc,
-                                       bed=ref_bed)
+
         # tests fill these lists with what they create, teardown cleans up after them.
         self.my_devices = []
         self.my_clients = []
-        self.my_wsdiscoveries = []
-        self.device_activity = None
+        # define how the provider is published on the network and how the client tries to detect the device
+        self.loc = reference_provider.get_location()
+        self.ip = reference_provider.get_network_adapter().ip
+        self.provider_discovery = WSDiscovery(self.ip)
+        self.provider_discovery.start()
+        self.provider = reference_provider.create_reference_provider(ws_discovery=self.provider_discovery)
+        reference_provider.set_reference_data(self.provider, loc=self.loc)
+        self.device_activity = DeviceActivity(self.provider)
+        self.device_activity.start()
 
     def tearDown(self) -> None:
+        self.provider_discovery.stop()
         for cl in self.my_clients:
             print('stopping {}'.format(cl))
             cl.stop_all()
-        for d in self.my_devices:
-            print('stopping {}'.format(d))
-            d.stop_all()
-        for w in self.my_wsdiscoveries:
-            print('stopping {}'.format(w))
-            w.stop()
-        if self.device_activity:
-            self.device_activity.running = False
-            self.device_activity.join()
+        self.device_activity.running = False
+        self.device_activity.join()
 
     def test_with_created_device(self):
         # This test creates its own device and runs the tests against it
         # A WsDiscovery instance is needed to publish devices on the network.
         # In this case we want to publish them only on localhost 127.0.0.1.
-        my_device_wsDiscovery = WSDiscovery(adapter_ip)
-        self.my_wsdiscoveries.append(my_device_wsDiscovery)
-        my_device_wsDiscovery.start()
-
-        # generic way to create a device, this what you usually do:
-        my_genericDevice = createReferenceDevice(my_device_wsDiscovery, self.my_location, mdib_path)
-        self.my_devices.append(my_genericDevice)
-        self.device_activity = DeviceActivity(my_genericDevice)
-        self.device_activity.start()
-        time.sleep(1)
         self._runtest_client_connects()
 
     @unittest.skip
@@ -188,14 +122,14 @@ class Test_Reference(unittest.TestCase):
         """sequence of client actions"""
         errors = []
         passed = []
-        my_client_wsDiscovery = WSDiscovery(adapter_ip)
-        self.my_wsdiscoveries.append(my_client_wsDiscovery)
-        my_client_wsDiscovery.start()
+        client_discovery = WSDiscovery(self.ip)
+        client_discovery.start()
 
-        print('looking for device with scope {}'.format(self.my_location.scope_string))
-        services = my_client_wsDiscovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
-                                                         scopes=ScopesType(self.my_location.scope_string))
+        print('looking for device with scope {}'.format(self.loc.scope_string))
+        services = client_discovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
+                                                    scopes=ScopesType(self.loc.scope_string))
         print('found {} services {}'.format(len(services), ', '.join([s.epr for s in services])))
+        client_discovery.stop()
         for s in services:
             print(s.epr)
         self.assertEqual(len(services), 1)
