@@ -4,7 +4,7 @@ import inspect
 import sys
 import time
 import uuid
-from typing import TYPE_CHECKING, Protocol, Union
+from typing import TYPE_CHECKING, Protocol
 
 from sdc11073.xml_types import ext_qnames as ext
 from sdc11073.xml_types import pm_qnames as pm
@@ -24,60 +24,6 @@ if TYPE_CHECKING:
     from sdc11073.xml_types.xml_structure import ExtensionLocalValue
 
     from .descriptorcontainers import AbstractDescriptorProtocol
-
-    OPERATION_STATE = Union[
-        'SetValueOperationStateContainer',
-        'SetStringOperationStateContainer',
-        'ActivateOperationStateContainer',
-        'SetContextStateOperationStateContainer',
-        'SetMetricStateOperationStateContainer',
-        'SetComponentStateOperationStateContainer',
-        'SetAlertStateOperationStateContainer',
-    ]
-    METRIC_STATE = Union[
-        'NumericMetricStateContainer',
-        'StringMetricStateContainer',
-        'EnumStringMetricStateContainer',
-        'RealTimeSampleArrayMetricStateContainer',
-        'DistributionSampleArrayMetricStateContainer',
-    ]
-    COMPLEX_DEVICE_COMPONENT_STATE = Union[
-        'MdsStateContainer',
-        'ScoStateContainer',
-        'VmdStateContainer',
-    ]
-
-    DEVICE_COMPONENT_STATE = Union[
-        'ChannelStateContainer',
-        'ClockStateContainer',
-        'SystemContextStateContainer',
-        'BatteryStateContainer',
-    ]
-
-    ALERT_STATE = Union[
-        'AlertSystemStateContainer',
-        'AlertSignalStateContainer',
-        'AlertConditionStateContainer',
-        'LimitAlertConditionStateContainer',
-    ]
-
-    CONTEXT_STATE = Union[
-        'LocationContextStateContainer',
-        'PatientContextStateContainer',
-        'WorkflowContextStateContainer',
-        'OperatorContextStateContainer',
-        'MeansContextStateContainer',
-        'EnsembleContextStateContainer',
-    ]
-
-    ABSTRACT_STATE = Union[
-        OPERATION_STATE,
-        METRIC_STATE,
-        COMPLEX_DEVICE_COMPONENT_STATE,
-        DEVICE_COMPONENT_STATE,
-        ALERT_STATE,
-        CONTEXT_STATE,
-    ]
 
 
 class AbstractStateProtocol(Protocol):
