@@ -763,10 +763,11 @@ class TransactionProcessor:
 
     def _increment_parent_descriptor_version(self, descriptor_container: AbstractDescriptorProtocol):
         parent_descriptor_container = self._mdib.descriptions.handle.get_one(
-            descriptor_container.parent_handle)
-        parent_descriptor_container.increment_descriptor_version()
-        self.descr_updated.append(parent_descriptor_container.mk_copy())
-        self._update_corresponding_state(parent_descriptor_container)
+            descriptor_container.parent_handle, allow_none=True)
+        if parent_descriptor_container is not None:
+            parent_descriptor_container.increment_descriptor_version()
+            self.descr_updated.append(parent_descriptor_container.mk_copy())
+            self._update_corresponding_state(parent_descriptor_container)
 
     def _remove_corresponding_state(self, descriptor_container: AbstractDescriptorProtocol):
         if descriptor_container.is_context_descriptor:

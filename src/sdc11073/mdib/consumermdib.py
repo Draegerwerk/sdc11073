@@ -276,7 +276,7 @@ class ConsumerMdib(mdibbase.MdibBase):
 
     def _get_context_states(self, handles: list[str] | None = None):
         try:
-            self._logger.debug('new Query, handles={}', handles)  # noqa PLE1205
+            self._logger.debug('new Query, handles={}', handles)  # noqa: PLE1205
             time.sleep(0.001)
             context_service = self._sdc_client.client('Context')
             self._logger.info('requesting context states...')
@@ -284,33 +284,33 @@ class ConsumerMdib(mdibbase.MdibBase):
             context_state_containers = response.result.ContextState
 
             self._context_mdib_version = response.mdib_version
-            self._logger.debug('_get_context_states: setting _context_mdib_version to {}',  # noqa PLE1205
+            self._logger.debug('_get_context_states: setting _context_mdib_version to {}',  # noqa: PLE1205
                                self._context_mdib_version)
 
-            self._logger.debug('got {} context states', len(context_state_containers))  # noqa PLE1205
+            self._logger.debug('got {} context states', len(context_state_containers))  # noqa: PLE1205
             with self.context_states.lock:
                 for state_container in context_state_containers:
                     old_state_containers = self.context_states.handle.get(state_container.Handle, [])
                     if len(old_state_containers) == 0:
                         self.context_states.add_object_no_lock(state_container)
-                        self._logger.debug('new ContextState {}', state_container)  # noqa PLE1205
+                        self._logger.debug('new ContextState {}', state_container)  # noqa: PLE1205
                     elif len(old_state_containers) == 1:
                         old_state_container = old_state_containers[0]
                         if old_state_container.StateVersion != state_container.StateVersion:
-                            self._logger.debug('update {} ==> {}',  # noqa PLE1205
+                            self._logger.debug('update {} ==> {}',  # noqa: PLE1205
                                                old_state_container, state_container)
                             old_state_container.update_from_node(state_container.node)
                             self.context_states.update_object_no_lock(old_state_container)
                         else:
                             difference = state_container.diff(old_state_container)
                             if difference:
-                                self._logger.error('no state version update but different!\n{ \n{}',  # noqa PLE1205
+                                self._logger.error('no state version update but different!\n{ \n{}',  # noqa: PLE1205
                                                    difference)
                     else:
                         txt = ', '.join([str(x) for x in old_state_containers])
-                        self._logger.error('found {} objects: {}', len(old_state_containers), txt)  # noqa PLE1205
+                        self._logger.error('found {} objects: {}', len(old_state_containers), txt)  # noqa: PLE1205
 
-        except Exception:  # noqa BLE001
+        except Exception:  # noqa: BLE001
             self._logger.error(traceback.format_exc())
         finally:
             self._logger.info('_get_context_states done')
@@ -326,15 +326,15 @@ class ConsumerMdib(mdibbase.MdibBase):
         if self.MDIB_VERSION_CHECK_DISABLED:
             return True
         if new_mdib_version is None:
-            self._logger.error('{}: could not check MdibVersion!', log_prefix)  # noqa PLE1205
+            self._logger.error('{}: could not check MdibVersion!', log_prefix)  # noqa: PLE1205
         else:
             # log deviations from expected mdib version
             if new_mdib_version < self.mdib_version:
-                self._logger.warning('{}: ignoring too old Mdib version, have {}, got {}',  # noqa PLE1205
+                self._logger.warning('{}: ignoring too old Mdib version, have {}, got {}',  # noqa: PLE1205
                                      log_prefix, self.mdib_version, new_mdib_version)
             elif (new_mdib_version - self.mdib_version) > 1:
                 if self._sdc_client.all_subscribed:
-                    self._logger.warning('{}: expect mdib_version {}, got {}',  # noqa PLE1205
+                    self._logger.warning('{}: expect mdib_version {}, got {}',  # noqa: PLE1205
                                          log_prefix, self.mdib_version + 1, new_mdib_version)
             # it is possible to receive multiple notifications with the same mdib version => compare ">="
             if new_mdib_version >= self.mdib_version:
@@ -372,7 +372,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                     src.update_object(old_state_container)
                     states_by_handle[old_state_container.DescriptorHandle] = old_state_container
             else:
-                self._logger.error('{}: got a new state {}',  # noqa PLE1205
+                self._logger.error('{}: got a new state {}',  # noqa: PLE1205
                                    report_type,
                                    state_container.DescriptorHandle)
                 self._set_descriptor_container_reference(state_container)
@@ -404,12 +404,12 @@ class ConsumerMdib(mdibbase.MdibBase):
                         states_by_handle[old_state_container.DescriptorHandle] = old_state_container
                 else:
                     if state_container.is_context_state:
-                        self._logger.info(  # noqa PLE1205
+                        self._logger.info(  # noqa: PLE1205
                             '{}: new context state handle = {} Descriptor Handle={} Assoc={}, Validators={}',
                             report_type, state_container.Handle, state_container.DescriptorHandle,
                             state_container.ContextAssociation, state_container.Validator)
                     else:
-                        self._logger.error('{}: got a new state {}',  # noqa PLE1205
+                        self._logger.error('{}: got a new state {}',  # noqa: PLE1205
                                            report_type,
                                            state_container.DescriptorHandle)
                     self._set_descriptor_container_reference(state_container)
@@ -560,7 +560,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                                                         self.process_incoming_description_modifications):
             return
 
-        def multi_key(st_container: AbstractStateContainer):  # noqa ANN002
+        def multi_key(st_container: AbstractStateContainer) -> mdibbase.StatesLookup | mdibbase.MultiStatesLookup:
             return self.context_states if st_container.is_context_state else self.states
 
         new_descriptor_by_handle = {}
@@ -577,7 +577,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                     if modification_type == dmt.CREATE:
                         for descriptor_container in report_part.Descriptor:
                             self.descriptions.add_object(descriptor_container)
-                            self._logger.debug(  # noqa PLE1205
+                            self._logger.debug(  # noqa: PLE1205
                                 'process_incoming_descriptors: created description "{}" (parent="{}")',
                                 descriptor_container.Handle, descriptor_container.parent_handle)
                             new_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
@@ -588,13 +588,13 @@ class ConsumerMdib(mdibbase.MdibBase):
                         updated_descriptor_containers = report_part.Descriptor
                         updated_state_containers = report_part.State
                         for descriptor_container in updated_descriptor_containers:
-                            self._logger.info(  # noqa PLE1205
+                            self._logger.info(  # noqa: PLE1205
                                 'process_incoming_descriptors: update descriptor "{}" (parent="{}")',
                                 descriptor_container.Handle, descriptor_container.parent_handle)
                             old_container = self.descriptions.handle.get_one(descriptor_container.Handle,
                                                                              allow_none=True)
                             if old_container is None:
-                                self._logger.error(  # noqa PLE1205
+                                self._logger.error(  # noqa: PLE1205
                                     'process_incoming_descriptors: got update of descriptor "{}", but it did not exist in mdib!',
                                     descriptor_container.Handle)
                             else:
@@ -622,7 +622,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                                 old_state_container = my_multi_key.descriptor_handle.get_one(
                                     state_container.DescriptorHandle, allow_none=True)
                                 if old_state_container is None:
-                                    self._logger.error(  # noqa PLE1205
+                                    self._logger.error(  # noqa: PLE1205
                                         'process_incoming_descriptors: got update of state "{}" , but it did not exist in mdib!',
                                         state_container.DescriptorHandle)
                             if old_state_container is not None:
@@ -633,7 +633,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                         deleted_descriptor_containers = report_part.Descriptor
                         deleted_state_containers = report_part.State
                         for descriptor_container in deleted_descriptor_containers:
-                            self._logger.debug(  # noqa PLE1205
+                            self._logger.debug(  # noqa: PLE1205
                                 'process_incoming_descriptors: remove descriptor "{}" (parent="{}")',
                                 descriptor_container.Handle, descriptor_container.parent_handle)
                             self.rm_descriptor_by_handle(
@@ -669,21 +669,21 @@ class ConsumerMdib(mdibbase.MdibBase):
         if diff == 1:  # this is the perfect version
             return True
         if diff > 1:
-            self._logger.error('{}: missed {} states for state DescriptorHandle={} ({}->{})',  # noqa PLE1205
+            self._logger.error('{}: missed {} states for state DescriptorHandle={} ({}->{})',  # noqa: PLE1205
                                report_name,
                                diff - 1, old_state_container.DescriptorHandle,
                                old_state_container.StateVersion, new_state_container.StateVersion)
             return True  # the new version is newer, therefore it can be added to mdib
         if diff < 0:
             if not is_buffered_report:
-                self._logger.error(  # noqa PLE1205
+                self._logger.error(  # noqa: PLE1205
                     '{}: reduced state version for state DescriptorHandle={} ({}->{}) ',
                     report_name, old_state_container.DescriptorHandle,
                     old_state_container.StateVersion, new_state_container.StateVersion)
             return False
         diffs = old_state_container.diff(new_state_container)  # compares all xml attributes
         if diffs:
-            self._logger.error(  # noqa PLE1205
+            self._logger.error(  # noqa: PLE1205
                 '{}: repeated state version {} for state {}, DescriptorHandle={}, but states have different data:{}',
                 report_name, old_state_container.StateVersion, old_state_container.__class__.__name__,
                 old_state_container.DescriptorHandle, diffs)

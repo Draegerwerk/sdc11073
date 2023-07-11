@@ -306,7 +306,7 @@ class ConsumerMdibMethods:
                         model.pm_types.MeasurementValidity.MEASUREMENT_ONGOING]:
                         determination_time = state_container.MetricValue.DeterminationTime
                         if determination_time is None:
-                            self._logger.warning(  # noqa PLE1205
+                            self._logger.warning(  # noqa: PLE1205
                                 'EpisodicMetricReport: metric {} version {} has no DeterminationTime',
                                 desc_h, state_container.StateVersion)
                         else:
@@ -334,8 +334,8 @@ class ConsumerMdibMethods:
         stats.print_stats(30)
         print(str_io.getvalue())
         print(f'total number of states: {len(self._mdib.states.objects)}')
-        print(f'total number of objIds: {len(self._mdib.states._object_ids)}')  # noqa SLF001
-        for name, refs in self._mdib.states._object_ids.items():  # noqa SLF001
+        print(f'total number of objIds: {len(self._mdib.states._object_ids)}')  # noqa: SLF001
+        for name, refs in self._mdib.states._object_ids.items():  # noqa: SLF001
             if len(refs) > reference_count_print_limit:
                 print(f'object {name} has {len(refs)} idx references, {refs}')
 
@@ -366,15 +366,15 @@ class ConsumerMdibMethods:
             if shall_log != _WarningState.A_NO_LOG:
                 tmp = ', '.join(f'"{k}": {v:.3f}sec.' for k, v in waveform_age.items())
                 if shall_log == _WarningState.A_OUT_OF_RANGE:
-                    self._logger.warning(  # noqa PLE1205
+                    self._logger.warning(  # noqa: PLE1205
                         '_on_waveform_report mdib_version {}: age of samples outside limit of {} sec.: {}',
                         self._mdib.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
                 elif shall_log == _WarningState.A_STILL_OUT_OF_RANGE:
-                    self._logger.warning(  # noqa PLE1205
+                    self._logger.warning(  # noqa: PLE1205
                         '_on_waveform_report mdib_version {}: age of samples still outside limit of {} sec.: {}',
                         self._mdib.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
                 elif shall_log == _WarningState.A_BACK_IN_RANGE:
-                    self._logger.info(  # noqa PLE1205
+                    self._logger.info(  # noqa: PLE1205
                         '_on_waveform_report mdib_version {}: age of samples back in limit of {} sec.: {}',
                         self._mdib.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
         if LOG_WF_AGE_INTERVAL:
@@ -382,7 +382,7 @@ class ConsumerMdibMethods:
             if now - self._last_wf_age_log >= LOG_WF_AGE_INTERVAL:
                 age_data = self.get_wf_age_stdev()
                 if age_data is not None:
-                    self._logger.info(  # noqa PLE1205
+                    self._logger.info(  # noqa: PLE1205
                         'waveform mean age={:.1f}ms., stdev={:.2f}ms. min={:.1f}ms., max={}',
                         age_data.mean_age * 1000., age_data.stdev * 1000.,
                         age_data.min_age * 1000., age_data.max_age * 1000.)

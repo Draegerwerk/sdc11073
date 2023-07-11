@@ -75,6 +75,7 @@ class AbstractDescriptorProtocol(Protocol):
     SafetyClassification: pm_types.SafetyClassification
     Type: pm_types.CodedValue | None
     source_mds: str
+    parent_handle: str | None
 
     def __init__(self, handle: str, parent_handle: str | None):
         ...
@@ -132,19 +133,19 @@ class AbstractDescriptorContainer(ContainerBase):
         self._source_mds = None  # needed on device side if mdib contains > 1 mds
 
     @property
-    def coding(self) -> pm_types.Coding | None:  # noqa D102
+    def coding(self) -> pm_types.Coding | None:  # noqa: D102
         return self.Type.coding if self.Type is not None else None
 
     @property
-    def code_id(self) -> str | None:  # noqa D102
+    def code_id(self) -> str | None:  # noqa: D102
         return self.Type.Code if self.Type is not None else None  # pylint:disable=no-member
 
     @property
-    def coding_system(self) -> str | None:  # noqa D102
+    def coding_system(self) -> str | None:  # noqa: D102
         return self.Type.CodingSystem if self.Type is not None else None  # pylint:disable=no-member
 
     @property
-    def parent_handle(self) -> str:  # noqa D102
+    def parent_handle(self) -> str:  # noqa: D102
         return self._parent_handle
 
     @parent_handle.setter
@@ -152,7 +153,7 @@ class AbstractDescriptorContainer(ContainerBase):
         self._parent_handle = value
 
     @property
-    def retrievability(self) -> [pm_types.Retrievability, None]:  # noqa D102
+    def retrievability(self) -> [pm_types.Retrievability, None]:  # noqa: D102
         if self.Extension is None:
             return None
         return self.Extension.value.get(msg.Retrievability)

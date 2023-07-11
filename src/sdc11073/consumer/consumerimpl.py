@@ -182,7 +182,7 @@ class SdcConsumer:
 
     SSL_CIPHERS = None  # None : use SSL default
 
-    def __init__(self, device_location: str,  # noqa PLR0913
+    def __init__(self, device_location: str,  # noqa: PLR0913
                  sdc_definitions: type[BaseDefinitions],
                  ssl_context: SSLContext | None,
                  epr: str | uuid.UUID | None = None,

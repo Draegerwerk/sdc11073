@@ -148,7 +148,7 @@ class ProviderMdibMethods:
         """Update all waveforms, by calling waveform_provider."""
         if self.waveform_provider is None:
             return
-        with self._mdib._rt_sample_transaction() as transaction:  # noqa SLF001
+        with self._mdib._rt_sample_transaction() as transaction:  # noqa: SLF001
             self.waveform_provider.update_all_realtime_samples(transaction)
 
     def get_mds_descriptor(self, container: AbstractDescriptorProtocol | AbstractStateProtocol) \
@@ -160,13 +160,13 @@ class ProviderMdibMethods:
         mds_descr = None
         expected_type = self._mdib.data_model.pm_names.MdsDescriptor
         while mds_descr is None:
-            if tmp.NODETYPE == expected_type:  # noqa SIM300
+            if tmp.NODETYPE == expected_type:  # noqa: SIM300
                 return tmp
             parent_handle = tmp.parent_handle
             tmp = self._mdib.descriptions.handle.get_one(parent_handle, allow_none=True)
             if tmp is None:
-                if self._mdib._current_transaction:  # noqa SLF001
-                    tmp = self._mdib._current_transaction.get_descriptor_in_transaction(parent_handle)  # noqa SLF001
+                if self._mdib._current_transaction:  # noqa: SLF001
+                    tmp = self._mdib._current_transaction.get_descriptor_in_transaction(parent_handle)  # noqa: SLF001
             if tmp is None:
                 raise KeyError(f'could not find mds descriptor for handle {container.Handle}')
         return None
@@ -228,7 +228,7 @@ class DescriptorFactory:
         cls = model.get_descriptor_container_class(model.pm_names.ChannelDescriptor)
         return self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
 
-    def create_string_metric_descriptor_container(self,  # noqa PLR0913
+    def create_string_metric_descriptor_container(self,  # noqa: PLR0913
                                                   handle: str,
                                                   parent_handle: str,
                                                   coded_value: CodedValue,
@@ -255,7 +255,7 @@ class DescriptorFactory:
         obj.MetricCategory = metric_category
         return obj
 
-    def create_enum_string_metric_descriptor_container(self,  # noqa PLR0913
+    def create_enum_string_metric_descriptor_container(self,  # noqa: PLR0913
                                                        handle: str,
                                                        parent_handle: str,
                                                        coded_value: CodedValue,
