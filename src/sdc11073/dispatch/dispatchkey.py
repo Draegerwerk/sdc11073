@@ -106,7 +106,7 @@ class RequestDispatcher(RequestDispatcherProtocol):  # derive from protocol to h
             raise InvalidActionError(fault)
         returned_message = func(request_data)
         duration = time.monotonic() - begin
-        self._logger.debug(  # noqa PLE1205
+        self._logger.debug(  # noqa: PLE1205
             'incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements, duration)
         return returned_message
 
@@ -116,10 +116,10 @@ class RequestDispatcher(RequestDispatcherProtocol):  # derive from protocol to h
         key = request_data.current_path_element  # the current path element is the dispatch key
         func = self._get_handlers.get(key)
         if func is not None:
-            self._logger.debug('on_get:path="{}" ,function="{}"', key, func.__name__)  # noqa PLE1205
+            self._logger.debug('on_get:path="{}" ,function="{}"', key, func.__name__)  # noqa: PLE1205
             result = func()
             duration = time.monotonic() - begin
-            self._logger.debug('on_get:duration="{:.4f}"', duration)  # noqa PLE1205
+            self._logger.debug('on_get:duration="{:.4f}"', duration)  # noqa: PLE1205
             return result
         error_text = f'on_get:path="{key}", no handler found!'
         self._logger.error(error_text)
@@ -129,5 +129,5 @@ class RequestDispatcher(RequestDispatcherProtocol):  # derive from protocol to h
         key = DispatchKey(request_data.message_data.action, request_data.message_data.q_name)
         handler = self._post_handlers.get(key)
         if handler is None:
-            self._logger.info('no handler for key={}', key)  # noqa PLE1205
+            self._logger.info('no handler for key={}', key)  # noqa: PLE1205
         return self._post_handlers.get(key)

@@ -107,13 +107,13 @@ class ProviderMdibMethods:
                     # add some initial values where needed
                     if state.is_alert_condition:
                         state.DeterminationTime = time.time()
-                    elif state.NODETYPE == pm.AlertSystemState:  # noqa SIM300
+                    elif state.NODETYPE == pm.AlertSystemState:  # noqa: SIM300
                         state.LastSelfCheck = time.time()
                         state.SelfCheckCount = 1
-                    elif state.NODETYPE == pm.ClockState:  # noqa SIM300
+                    elif state.NODETYPE == pm.ClockState:  # noqa: SIM300
                         state.LastSet = time.time()
-                    if mdib._current_transaction is not None:  # noqa SLF001
-                        mdib._current_transaction.add_state(state)  # noqa SLF001
+                    if mdib._current_transaction is not None:  # noqa: SLF001
+                        mdib._current_transaction.add_state(state)  # noqa: SLF001
                     else:
                         mdib.states.add_object(state)
 
@@ -121,13 +121,13 @@ class ProviderMdibMethods:
         """Update internal lists, based on current mdib descriptors."""
         mdib = self._mdib
         with mdib.mdib_lock:
-            del mdib._retrievability_episodic[:]  # noqa SLF001
+            del mdib._retrievability_episodic[:]  # noqa: SLF001
             mdib.retrievability_periodic.clear()
             for descr in mdib.descriptions.objects:
                 if descr.retrievability is not None:
                     for r_by in descr.retrievability.By:
                         if r_by.Method == RetrievabilityMethod.EPISODIC:
-                            mdib._retrievability_episodic.append(descr.Handle)  # noqa SLF001
+                            mdib._retrievability_episodic.append(descr.Handle)  # noqa: SLF001
                         elif r_by.Method == RetrievabilityMethod.PERIODIC:
                             period_float = r_by.UpdatePeriod
                             period_ms = int(period_float * 1000.0)

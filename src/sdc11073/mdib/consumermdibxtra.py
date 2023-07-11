@@ -106,15 +106,15 @@ class AgeLogger:
         shall_log = self._metric_time_warner.get_out_of_determination_time_log_state(
             min_age, max_age, self._warn_limit)
         if shall_log == _WarningState.A_OUT_OF_RANGE:
-            logger.warning(  # noqa PLE1205
+            logger.warning(  # noqa: PLE1205
                 '{} mdib_version {}: age of states outside limit of {} sec.: max, min = {:03f}, {:03f}',
                 self._log_prefix, self._mdib_version, self._warn_limit, max_age, min_age)
         elif shall_log == _WarningState.A_STILL_OUT_OF_RANGE:
-            logger.warning( # noqa PLE1205
+            logger.warning( # noqa: PLE1205
                 '{} mdib_version {}: age of states still outside limit of {} sec.: max, min = {:03f}, {:03f}',
                 self._log_prefix, self._mdib_version, self._warn_limit, max_age, min_age)
         elif shall_log == _WarningState.A_BACK_IN_RANGE:
-            logger.info( # noqa PLE1205
+            logger.info( # noqa: PLE1205
                 '{} mdib_version {}: age of states back in limit of {} sec.: max, min = {:03f}, {:03f}',
                 self._log_prefix, self._mdib_version, self._warn_limit, max_age, min_age)
 
@@ -218,7 +218,7 @@ class ConsumerMdibMethods:
             properties.bind(self._mdib, metrics_by_handle=on_metrics_by_handle)
             begin = time.monotonic()
             ret = fut.result(timeout)
-            self._logger.debug('wait_metric_matches: got result after {:.2f} seconds',  # noqa PLE1205
+            self._logger.debug('wait_metric_matches: got result after {:.2f} seconds',  # noqa: PLE1205
                                time.monotonic() - begin)
             return ret
         finally:

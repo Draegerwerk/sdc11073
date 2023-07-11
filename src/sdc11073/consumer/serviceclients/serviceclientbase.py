@@ -86,7 +86,7 @@ class HostedServiceClient:
         self.soap_client = soap_client
         self._sdc_client = sdc_consumer
         self._sdc_definitions = sdc_consumer.sdc_definitions
-        self._msg_factory = sdc_consumer._msg_factory
+        self._msg_factory = sdc_consumer._msg_factory  # noqa: SLF001
         self.log_prefix = sdc_consumer.log_prefix
         self.dpws_hosted: HostedServiceType = dpws_hosted
         self.endpoint_reference: EndpointReferenceType = dpws_hosted.EndpointReference[0]

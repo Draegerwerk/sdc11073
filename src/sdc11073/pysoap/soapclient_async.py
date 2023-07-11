@@ -3,30 +3,32 @@ from __future__ import annotations
 import sys
 import time
 from threading import Lock
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING
 
-from aiohttp.client import ClientSession, TCPConnector, ClientTimeout
+from aiohttp.client import ClientSession, ClientTimeout, TCPConnector
+
+from sdc11073 import commlog, observableproperties
+from sdc11073.httpserver.compression import CompressionHandler
+from sdc11073.httpserver.httpreader import mk_chunks
+from sdc11073.namespaces import default_ns_helper as ns_hlp
+from sdc11073.pysoap.soapenvelope import Fault
 
 from .soapclient import HTTPReturnCodeError
-from .. import commlog
-from .. import observableproperties
-from ..httpserver.compression import CompressionHandler
-from ..httpserver.httpreader import mk_chunks
-from ..namespaces import default_ns_helper as ns_hlp
-from ..pysoap.soapenvelope import Fault
 
 if TYPE_CHECKING:
     from ssl import SSLContext
-    from ..pysoap.msgfactory import CreatedMessage
-    from ..pysoap.msgreader import MessageReader
-    from ..definitions_base import BaseDefinitions
-    from ..consumer.manipulator import RequestManipulatorProtocol
-    from ..loghelper import LoggerAdapter
+
+    from sdc11073.consumer.manipulator import RequestManipulatorProtocol
+    from sdc11073.definitions_base import BaseDefinitions
+    from sdc11073.loghelper import LoggerAdapter
+    from sdc11073.pysoap.msgfactory import CreatedMessage
+    from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
 
 
 class SoapClientAsync:
     """SOAP Client wraps an http connection. It can send / receive SoapEnvelopes."""
-    _usedSoapClients = 0
+
+    _used_soap_clients = 0
     SOCKET_TIMEOUT = 5 if sys.gettrace() is None else 1000  # higher timeout for debugging
 
     roundtrip_time = observableproperties.ObservableProperty()
@@ -37,19 +39,19 @@ class SoapClientAsync:
                  ssl_context: [SSLContext, None],
                  sdc_definitions: BaseDefinitions,
                  msg_reader: MessageReader,
-                 supported_encodings: Optional[List[str]] = None,
-                 request_encodings: Optional[List[str]] = None,
-                 chunked_requests: Optional[bool] = False):
+                 supported_encodings: list[str] | None = None,
+                 request_encodings: list[str] | None = None,
+                 chunked_requests: bool | None = False):
         self._log = logger
         self._ssl_context = ssl_context
         self._sdc_definitions = sdc_definitions
         self._msg_reader = msg_reader
         self._netloc = netloc
         self._http_connection = None  # connect later on demand
-        self.__class__._usedSoapClients += 1  # pylint: disable=protected-access
-        self._client_number = self.__class__._usedSoapClients  # pylint: disable=protected-access
+        self.__class__._used_soap_clients += 1  # noqa: SLF001
+        self._client_number = self.__class__._used_soap_clients  # noqa: SLF001
         self._log.info('created soap client No. {} for {}', self._client_number, netloc)
-        self.supported_encodings = supported_encodings if supported_encodings is not None\
+        self.supported_encodings = supported_encodings if supported_encodings is not None \
             else CompressionHandler.available_encodings
         # these compression alg's does the other side accept ( set at runtime):
         self.request_encodings = request_encodings if request_encodings is not None else []
@@ -59,14 +61,16 @@ class SoapClientAsync:
         self._netloc = netloc
 
     @property
-    def netloc(self):
+    def netloc(self) -> str:
+        """Return location, e.g.127.0.0.1:9999."""
         return self._netloc
 
     def is_closed(self) -> bool:
+        """Return True if connection is closed."""
         return self._http_connection is None
 
     async def _mk_http_connection(self) -> ClientSession:
-        """ TCP_NODELAY is set by default in asyncio create_connection."""
+        """TCP_NODELAY is set by default in asyncio create_connection."""
         if self._ssl_context is not None:
             connector = TCPConnector(ssl=self._ssl_context)
             base_url = f'https://{self._netloc}/'
@@ -74,19 +78,19 @@ class SoapClientAsync:
             connector = TCPConnector()
             base_url = f'http://{self._netloc}/'
 
-        conn = ClientSession(base_url, connector=connector, timeout=ClientTimeout(self.SOCKET_TIMEOUT))
-        return conn
+        return ClientSession(base_url, connector=connector, timeout=ClientTimeout(self.SOCKET_TIMEOUT))
 
     async def async_connect(self):
-        """Connects to netloc"""
+        """Connect to netloc."""
         self._http_connection = await self._mk_http_connection()
 
     def close(self):
-        #ToDo: run async_close in event loop
+        """Close connection."""
+        # ToDo: run async_close in event loop
         self._http_connection = None
-        return
 
     async def async_close(self):
+        """Close connection."""
         with self._lock:
             if self._http_connection is not None:
                 self._log.info('closing soapClientNo {} for {}', self._client_number, self._netloc)
@@ -95,12 +99,12 @@ class SoapClientAsync:
 
     async def async_post_message_to(self, path: str,
                                     created_message: CreatedMessage,
-                                    msg: Optional[str] = '',
-                                    request_manipulator: Optional[RequestManipulatorProtocol] = None):
-        """
+                                    request_manipulator: RequestManipulatorProtocol | None = None) \
+            -> ReceivedMessage | None:
+        """Send the message and return None if the response is empty else the received response.
+
         :param path: url path component
         :param created_message: The message that shall be sent
-        :param msg: used in logs, helps to identify the context in which the method was called
         :param request_manipulator: can manipulate data before sending
         """
         if self.is_closed():
@@ -156,10 +160,10 @@ class SoapClientAsync:
             raise HTTPReturnCodeError(resp.status, resp.reason, soap_fault)
         return message_data
 
-    def _make_get_headers(self):
+    def _make_get_headers(self) -> dict[str, str]:
         headers = {
             'user_agent': 'pysoap',
-            'Connection': 'keep-alive'
+            'Connection': 'keep-alive',
         }
         if self.supported_encodings:
             headers['Accept-Encoding'] = ', '.join(self.supported_encodings)

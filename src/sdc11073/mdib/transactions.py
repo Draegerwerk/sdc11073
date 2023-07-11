@@ -195,7 +195,7 @@ def tr_method_wrapper(method: Callable) -> Callable:
     """Wrap a method (Decorator) for consistency checks and error handling."""
 
     @wraps(method)
-    def wrapper(self, *args, **kwargs) -> Any:  # noqa ANN003
+    def wrapper(self, *args, **kwargs) -> Any:  # noqa: ANN003
         # pylint: disable=protected-access
         if self._closed:
             raise ApiUsageError('This Transaction is closed!')

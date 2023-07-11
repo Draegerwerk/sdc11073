@@ -71,10 +71,10 @@ class OperationsManager(OperationsManagerProtocol):  # inheriting from protocol 
             invocation_info = abstract_set_response.InvocationInfo
             if invocation_info.InvocationState in self.nonFinalOperationStates:
                 self._transactions[invocation_info.TransactionId] = weakref.ref(ret)
-                self._logger.info('call_operation: transaction_id {} registered, state={}',  # noqa PLE1205
+                self._logger.info('call_operation: transaction_id {} registered, state={}',  # noqa: PLE1205
                                   invocation_info.TransactionId, invocation_info.InvocationState)
             else:
-                self._logger.debug('Result of Operation: {}', invocation_info)  # noqa PLE1205
+                self._logger.debug('Result of Operation: {}', invocation_info)  # noqa: PLE1205
                 ret.set_result(abstract_set_response)
         return ret
 
@@ -86,7 +86,7 @@ class OperationsManager(OperationsManagerProtocol):  # inheriting from protocol 
         for report_part in operation_invoked_report.ReportPart:
             invocation_state = report_part.InvocationInfo.InvocationState
             transaction_id = report_part.InvocationInfo.TransactionId
-            self._logger.debug(  # noqa PLE1205
+            self._logger.debug(  # noqa: PLE1205
                 '{}on_operation_invoked_report: got transaction_id {} state {}',
                 self.log_prefix, transaction_id, invocation_state)
             if invocation_state in self.nonFinalOperationStates:
@@ -96,18 +96,18 @@ class OperationsManager(OperationsManagerProtocol):  # inheriting from protocol 
                 future_ref = self._transactions.pop(transaction_id, None)
             if future_ref is None:
                 # this was not my transaction
-                self._logger.debug('transaction_id {} is not registered!', transaction_id)  # noqa PLE1205
+                self._logger.debug('transaction_id {} is not registered!', transaction_id)  # noqa: PLE1205
                 continue
             future_obj = future_ref()
             if future_obj is None:
                 # client gave up.
-                self._logger.debug('transaction_id {} given up', transaction_id)  # noqa PLE1205
+                self._logger.debug('transaction_id {} given up', transaction_id)  # noqa: PLE1205
                 continue
             if invocation_state == msg_types.InvocationState.FAILED:
                 error_text = ', '.join([err.text for err in report_part.InvocationInfo.InvocationErrorMessage])
-                self._logger.warning(  # noqa PLE1205
+                self._logger.warning(  # noqa: PLE1205
                     'transaction Id {} finished with error: error={}, error-message={}',
                                   transaction_id, report_part.InvocationInfo.InvocationError, error_text)
             else:
-                self._logger.info('transaction Id {} ok', transaction_id)  # noqa PLE1205
+                self._logger.info('transaction Id {} ok', transaction_id)  # noqa: PLE1205
             future_obj.set_result(report_part)

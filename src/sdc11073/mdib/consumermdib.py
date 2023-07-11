@@ -91,7 +91,7 @@ class ConsumerRtBuffer:
         metric_value = realtime_sample_array_container.MetricValue
         if metric_value is None:
             # this can happen if metric state is not activated.
-            self._logger.debug('real time sample array "{} "has no metric value, ignoring it',  # noqa PLE1205
+            self._logger.debug('real time sample array "{} "has no metric value, ignoring it',  # noqa: PLE1205
                                realtime_sample_array_container.DescriptorHandle)
             return []
         determination_time = metric_value.DeterminationTime
@@ -228,15 +228,15 @@ class ConsumerMdib(mdibbase.MdibBase):
         mdib_version_group = response.mdib_version_group
         if mdib_version_group.mdib_version is not None:
             self.mdib_version = mdib_version_group.mdib_version
-            self._logger.info('setting initial mdib version to {}', mdib_version_group.mdib_version)  # noqa PLE1205
+            self._logger.info('setting initial mdib version to {}', mdib_version_group.mdib_version)  # noqa: PLE1205
         else:
             self._logger.warning('found no mdib version in GetMdib response, assuming "0"')
             self.mdib_version = 0
         self.sequence_id = mdib_version_group.sequence_id
-        self._logger.info('setting initial sequence id to {}', mdib_version_group.sequence_id)  # noqa PLE1205
+        self._logger.info('setting initial sequence id to {}', mdib_version_group.sequence_id)  # noqa: PLE1205
         if mdib_version_group.instance_id != self.instance_id:
             self.instance_id = mdib_version_group.instance_id
-        self._logger.info('setting initial instance id to {}', mdib_version_group.instance_id)  # noqa PLE1205
+        self._logger.info('setting initial instance id to {}', mdib_version_group.instance_id)  # noqa: PLE1205
 
         # retrieve context states only if there were none in mdib
         if len(self.context_states.objects) == 0:

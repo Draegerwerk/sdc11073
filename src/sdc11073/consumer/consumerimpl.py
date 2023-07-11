@@ -50,7 +50,7 @@ if TYPE_CHECKING:
 class HostedServiceDescription:
     """HostedServiceDescription collects initial structural data from provider."""
 
-    def __init__(self, service_id: str,  # noqa PLR0913
+    def __init__(self, service_id: str,  # noqa: PLR0913
                  endpoint_address: str,
                  msg_reader: MessageReader,
                  msg_factory: MessageFactory,
@@ -88,7 +88,7 @@ class HostedServiceDescription:
     def _read_wsdl(self, soap_client: SoapClientProtocol, wsdl_url: str):
         parsed = urlparse(wsdl_url)
         actual_path = parsed.path + f'?{parsed.query}' if parsed.query else parsed.path
-        self.wsdl_bytes = soap_client.get_url(actual_path, msg=f'{self.log_prefix}:getwsdl')
+        self.wsdl_bytes = soap_client.get_from_url(actual_path, msg=f'{self.log_prefix}:getwsdl')
         try:
             wsdl_element_tree = self._msg_reader.read_wsdl(self.wsdl_bytes)
             self.wsdl_node = wsdl_element_tree.getroot()
@@ -99,7 +99,7 @@ class HostedServiceDescription:
             self.wsdl_string = self.wsdl_bytes.decode(encoding)
             commlog.get_communication_logger().log_wsdl(self.wsdl_string)
         except etree_.XMLSyntaxError as ex:
-            self._logger.error(  # noqa PLE1205
+            self._logger.error(  # noqa: PLE1205
                 'could not read wsdl from {}: error={}, data=\n{}', actual_path, ex, self.wsdl_bytes)
 
     def __repr__(self) -> str:
@@ -218,13 +218,13 @@ class SdcConsumer:
         self.chunked_requests = chunked_requests
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
         self._network_adapter = self._get_host_adapter_by_device_location()
-        self._logger.info(  # noqa PLE1205
+        self._logger.info(  # noqa: PLE1205
             'SdcConsumer for {} uses own IP Address {}', self._device_location, self._network_adapter)
         self.host_description: mex_types.Metadata | None = None
         self.hosted_services = {}  # lookup by service id
         self._validate = validate
         try:
-            self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)  # noqa PLE1205
+            self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)  # noqa: PLE1205
         except AttributeError:
             self._logger.info('Using SSL is enabled. TLS 1.3 is not supported')
         self._ssl_context = ssl_context
@@ -233,7 +233,7 @@ class SdcConsumer:
         self._http_server = None
         self._is_internal_http_server = False
 
-        self._logger.info('created {} for {}', self.__class__.__name__, self._device_location)  # noqa PLE1205
+        self._logger.info('created {} for {}', self.__class__.__name__, self._device_location)  # noqa: PLE1205
 
         self._compression_methods = compression.CompressionHandler.available_encodings[:]
         self._subscription_mgr = None
@@ -340,7 +340,7 @@ class SdcConsumer:
             self._services_dispatcher.register_post_handler(action, subscription.on_notification)
         return subscription
 
-    def do_subscribe(self, dpws_hosted: HostedServiceType,  # noqa PLR0913
+    def do_subscribe(self, dpws_hosted: HostedServiceType,  # noqa: PLR0913
                      filter_type: eventing_types.FilterType,
                      actions: Iterable[DispatchKey],
                      expire_minutes: int | None = 60,
@@ -426,7 +426,7 @@ class SdcConsumer:
         """Return the subscription manager."""
         return self._subscription_mgr
 
-    def start_all(self, not_subscribed_actions: list[str] | None = None,  # noqa PLR0913
+    def start_all(self, not_subscribed_actions: list[str] | None = None,  # noqa: PLR0913
                   subscriptions_check_interval: float | None = None,
                   subscribe_periodic_reports: bool = False,
                   shared_http_server: Any | None = None,
@@ -442,12 +442,12 @@ class SdcConsumer:
         :return: None
         """
         if self.host_description is None:
-            self._logger.debug('reading meta data from {}', self._device_location)  # noqa PLE1205
+            self._logger.debug('reading meta data from {}', self._device_location)  # noqa: PLE1205
             self.host_description = self._get_metadata()
 
         # now query also metadata of hosted services
         self._mk_hosted_services(self.host_description)
-        self._logger.debug('Services: {}', self._service_clients.keys())  # noqa PLE1205
+        self._logger.debug('Services: {}', self._service_clients.keys())  # noqa: PLE1205
 
         # only GetService is mandatory!!!
         if check_get_service and self.get_service_client is None:
@@ -507,9 +507,9 @@ class SdcConsumer:
                     filter_type.Dialect = DeviceEventingFilterDialectURI.ACTION
                     try:
                         self.do_subscribe(dpws_hosted, filter_type, subscribe_actions)
-                    except Exception:   # noqa BLE001
+                    except Exception:   # noqa: BLE001
                         self.all_subscribed = False  # => don't log errors when mdib versions are missing
-                        self._logger.error('start_all: could not subscribe: error = {}, actions= {}',  # noqa PLE1205
+                        self._logger.error('start_all: could not subscribe: error = {}, actions= {}',  # noqa: PLE1205
                                            traceback.format_exc(), subscribe_actions)
 
         # register callback for end of subscription
@@ -554,7 +554,7 @@ class SdcConsumer:
             self.peer_certificate = sock.getpeercert(binary_form=False)
             self.binary_peer_certificate = sock.getpeercert(binary_form=True)  # in case the application needs it...
 
-            self._logger.info('Peer Certificate: {}', self.peer_certificate)  # noqa PLE1205
+            self._logger.info('Peer Certificate: {}', self.peer_certificate)  # noqa: PLE1205
         nsh = self.sdc_definitions.data_model.ns_helper
         inf = HeaderInformationBlock(action=f'{nsh.WXF.namespace}/Get',
                                      addr_to=self._device_location)
@@ -594,7 +594,7 @@ class SdcConsumer:
             self._soap_clients[key] = soap_client
         return soap_client
 
-    def _mk_soap_client(self, scheme: str,  # noqa PLR0913
+    def _mk_soap_client(self, scheme: str,  # noqa: PLR0913
                         netloc: str,
                         logger: LoggerAdapter,
                         ssl_context: SSLContext | None,
@@ -629,7 +629,7 @@ class SdcConsumer:
                     self._service_clients[port_type.localname] = hosted_service_client
                     h_descr.services[port_type.localname] = hosted_service_client
                 else:
-                    self._logger.warning('Unknown port type {}', str(port_type))  # noqa PLE1205
+                    self._logger.warning('Unknown port type {}', str(port_type))  # noqa: PLE1205
 
     def _mk_hosted_service_client(self, port_type: str,
                                   soap_client: SoapClientProtocol,
@@ -652,7 +652,7 @@ class SdcConsumer:
             )
             self._http_server.start()
             self._http_server.started_evt.wait(timeout=5)
-            self._logger.info('serving EventSink on {}', self._http_server.base_url)  # noqa PLE1205
+            self._logger.info('serving EventSink on {}', self._http_server.base_url)  # noqa: PLE1205
         else:
             self._http_server = shared_http_server
         # register own epr in http server
@@ -675,7 +675,7 @@ class SdcConsumer:
         return f'SdcConsumer to {self.host_description.this_device} {self.host_description.this_model} on {self._device_location}'
 
     @classmethod
-    def from_wsd_service(cls, wsd_service: Service,   # noqa PLR0913
+    def from_wsd_service(cls, wsd_service: Service,   # noqa: PLR0913
                          ssl_context: SSLContext | None,
                          validate: bool = True,
                          log_prefix: str = '',

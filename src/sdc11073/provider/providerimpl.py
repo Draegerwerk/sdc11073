@@ -62,13 +62,13 @@ class _PathElementDispatcher(PathElementRegistry):
 class WsDiscoveryProtocol(Protocol):
     """WsDiscoveryProtocol is the interface that SdcProvider expects."""
 
-    def publish_service(self, epr: str, types: list, scopes: ScopesType, x_addrs: list):  # noqa D102
+    def publish_service(self, epr: str, types: list, scopes: ScopesType, x_addrs: list):  # noqa: D102
         ...
 
-    def get_active_addresses(self) -> list:  # noqa D102
+    def get_active_addresses(self) -> list:  # noqa: D102
         ...
 
-    def clear_service(self, epr: str):  # noqa D102
+    def clear_service(self, epr: str):  # noqa: D102
         ...
 
 

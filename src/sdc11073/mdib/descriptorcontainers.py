@@ -83,6 +83,11 @@ class AbstractDescriptorProtocol(Protocol):
         """Set source_mds member."""
         ...
 
+    @classmethod
+    def from_node(cls, node: etree_.ElementBase, parent_handle: str | None = None) -> AbstractDescriptorProtocol:
+            """Create class and init its properties from the node."""
+
+
 
 class AbstractDescriptorContainer(ContainerBase):
     """AbstractDescriptorContainer represents the AbstractDescriptor of BICEPS."""
@@ -261,7 +266,7 @@ class AbstractDescriptorContainer(ContainerBase):
 
     @classmethod
     def from_node(cls, node: etree_.ElementBase, parent_handle: str | None = None) -> AbstractDescriptorContainer:
-        """Create class and init its properties fron the node."""
+        """Create class and init its properties from the node."""
         obj = cls(handle=None,  # will be determined in constructor from node value
                   parent_handle=parent_handle)
         obj.update_from_node(node)

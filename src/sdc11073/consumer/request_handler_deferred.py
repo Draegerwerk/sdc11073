@@ -20,9 +20,9 @@ class EmptyResponse(CreatedMessage):
     def __init__(self):
         super().__init__(None, None)
 
-    def serialize(self, pretty: bool = False,  # noqa ARG002
-                  request_manipulator: RequestManipulatorProtocol | None = None,  # noqa ARG002
-                  validate: bool = True) -> bytes:  # noqa ARG002
+    def serialize(self, pretty: bool = False,  # noqa: ARG002
+                  request_manipulator: RequestManipulatorProtocol | None = None,  # noqa: ARG002
+                  validate: bool = True) -> bytes:  # noqa: ARG002
         """Return bytes of len 0."""
         return b''
 
@@ -59,7 +59,7 @@ class DispatchKeyRegistryDeferred(RequestDispatcher):
             func, request, action = self._queue.get()
             try:
                 func(request)
-            except Exception:  # noqa BLE001
+            except Exception:  # noqa: BLE001
                 # catch all to keep thread alive
-                self._logger.error('method {} for action "{}" failed:{}',  # noqa PLE1205
+                self._logger.error('method {} for action "{}" failed:{}',  # noqa: PLE1205
                                    func.__name__, action, traceback.format_exc())

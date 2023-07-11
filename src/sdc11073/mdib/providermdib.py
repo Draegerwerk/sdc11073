@@ -116,7 +116,7 @@ class ProviderMdib(mdibbase.MdibBase):
         if len(mgr.rt_sample_state_updates) > 0:
             self.mdib_version += 1
             updates = []
-            self._logger.debug('transaction_manager: rtSample updates = {}',  # noqa PLE1205
+            self._logger.debug('transaction_manager: rtSample updates = {}',  # noqa: PLE1205
                                mgr.rt_sample_state_updates)
             for transaction_item in mgr.rt_sample_state_updates.values():
                 updates.append(transaction_item.new)

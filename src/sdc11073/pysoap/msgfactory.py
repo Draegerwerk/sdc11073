@@ -15,8 +15,6 @@ if TYPE_CHECKING:
     from ..definitions_base import BaseDefinitions
     from ..namespaces import PrefixNamespace
 
-_LANGUAGE_ATTR = '{http://www.w3.org/XML/1998/namespace}lang'
-
 
 class CreatedMessage:
     def __init__(self, message, msg_factory):

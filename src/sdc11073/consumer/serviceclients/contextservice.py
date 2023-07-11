@@ -64,7 +64,7 @@ class ContextServiceClient(HostedServiceClient):
         data_model = self._sdc_definitions.data_model
         tmp = ', '.join([f'{st.__class__.__name__}(DescriptorHandle={st.DescriptorHandle}, handle={st.Handle})'
                          for st in proposed_context_states])
-        self._logger.info('set_context_state {}', tmp)  # noqa PLE1205
+        self._logger.info('set_context_state {}', tmp)  # noqa: PLE1205
         request = data_model.msg_types.SetContextState()
         request.OperationHandleRef = operation_handle
         request.ProposedContextState.extend(proposed_context_states)

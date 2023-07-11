@@ -45,7 +45,7 @@ STRICT_TYPES = True  # if True, only the expected types are excepted.
 MANDATORY_VALUE_CHECKING = True  # checks if mandatory values are present when xml is generated
 
 
-class ElementNotFoundError(Exception):  # Noqa: D101
+class ElementNotFoundError(Exception):  # noqa: D101
     pass
 
 
@@ -73,7 +73,7 @@ class _XmlStructureBaseProperty(ABC):
     update_xml_value: convert the Python data type to XML type and write it to XML node.
     """
 
-    def __init__(self, local_var_name: str,  # Noqa: PLR0913
+    def __init__(self, local_var_name: str,  # noqa: PLR0913
                  value_converter: DataConverterProtocol,
                  default_py_value: Any | None = None,
                  implied_py_value: Any | None = None,
@@ -116,7 +116,7 @@ class _XmlStructureBaseProperty(ABC):
     def is_optional(self) -> bool:
         return self._is_optional
 
-    def __get__(self, instance, owner) -> Any:  # Noqa ANN001
+    def __get__(self, instance, owner) -> Any:  # noqa: ANN001
         """Return a python value, use the locally stored value."""
         if instance is None:  # if called via class
             return self
@@ -139,7 +139,7 @@ class _XmlStructureBaseProperty(ABC):
         except AttributeError:
             return None
 
-    def __set__(self, instance, py_value):  # Noqa ANN001
+    def __set__(self, instance, py_value):  # noqa: ANN001
         """Value is the representation on the program side, e.g a float."""
         if STRICT_TYPES:
             self._converter.check_valid(py_value)
@@ -195,7 +195,7 @@ class _AttributeBase(_XmlStructureBaseProperty):
     The python representation is determined by value_converter.
     """
 
-    def __init__(self, attribute_name: str,  # Noqa: PLR0913
+    def __init__(self, attribute_name: str,  # noqa: PLR0913
                  value_converter: DataConverterProtocol | None = None,
                  default_py_value: Any = None,
                  implied_py_value: Any = None,
@@ -215,7 +215,7 @@ class _AttributeBase(_XmlStructureBaseProperty):
         super().__init__(local_var_name, value_converter, default_py_value, implied_py_value, is_optional)
         self._attribute_name = attribute_name
 
-    def get_py_value_from_node(self, instance: Any,  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any,  # noqa: ARG002
                                node: etree_.ElementBase | None) -> Any:
         xml_value = None if node is None else node.attrib.get(self._attribute_name)
         return None if xml_value is None else self._converter.to_py(xml_value)
@@ -246,7 +246,7 @@ class _AttributeBase(_XmlStructureBaseProperty):
 class _ElementBase(_XmlStructureBaseProperty, ABC):
     """_ElementBase represents an XML Element."""
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # Noqa: PLR0913
+    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
                  value_converter: DataConverterProtocol,
                  default_py_value: Any = None,
                  implied_py_value: Any = None,
@@ -335,7 +335,7 @@ class TimeZoneAttributeProperty(StringAttributeProperty):
 class EnumAttributeProperty(_AttributeBase):
     """Base class for enum attributes."""
 
-    def __init__(self, attribute_name: str,  # Noqa: PLR0913
+    def __init__(self, attribute_name: str,  # noqa: PLR0913
                  enum_cls: Any,
                  default_py_value: Any = None,
                  implied_py_value: Any = None,
@@ -466,7 +466,7 @@ class QNameAttributeProperty(_AttributeBase):
         super().__init__(attribute_name, value_converter=ClassCheckConverter(etree_.QName),
                          default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any,  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any,  # noqa: ARG002
                                node: etree_.ElementBase | None) -> Any:
         xml_value = None if node is None else node.attrib.get(self._attribute_name)
         return None if xml_value is None else text_to_qname(xml_value, node.nsmap)
@@ -507,7 +507,7 @@ class _AttributeListBase(_AttributeBase):
                  is_optional: bool = True):
         super().__init__(attribute_name, value_converter, is_optional=is_optional)
 
-    def __get__(self, instance, owner):  # Noqa ANN001
+    def __get__(self, instance, owner):  # noqa: ANN001
         """Return a python value, use the locally stored value."""
         if instance is None:  # if called via class
             return self
@@ -520,7 +520,7 @@ class _AttributeListBase(_AttributeBase):
     def init_instance_data(self, instance: Any):
         setattr(instance, self._local_var_name, [])
 
-    def get_py_value_from_node(self, instance: Any,  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any,  # noqa: ARG002
                                node: etree_.ElementBase | None) -> list[Any]:
         xml_value = None if node is None else node.attrib.get(self._attribute_name)
         if xml_value is not None:
@@ -595,7 +595,7 @@ class NodeTextProperty(_ElementBase):
     Python representation depends on value converter.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # Noqa: PLR0913
+    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
                  value_converter: DataConverterProtocol,
                  default_py_value: Any | None = None,
                  implied_py_value: Any | None = None,
@@ -604,7 +604,7 @@ class NodeTextProperty(_ElementBase):
         super().__init__(sub_element_name, value_converter, default_py_value, implied_py_value, is_optional)
         self._min_length = min_length
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -646,7 +646,7 @@ class NodeStringProperty(NodeTextProperty):
     Python representation is a string.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None = None,  # Noqa: PLR0913
+    def __init__(self, sub_element_name: etree_.QName | None = None,  # noqa: PLR0913
                  default_py_value: str | None = None,
                  implied_py_value: str | None = None,
                  is_optional: bool = False,
@@ -668,7 +668,7 @@ class NodeEnumTextProperty(NodeTextProperty):
     Python representation is an enum.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # Noqa: PLR0913
+    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
                  enum_cls: Any,
                  default_py_value: Any | None = None,
                  implied_py_value: Any | None = None,
@@ -684,7 +684,7 @@ class NodeEnumQNameProperty(NodeTextProperty):
     Python representation is an Enum of QName, XML is prefix:localname.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # Noqa: PLR0913
+    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
                  enum_cls: Any,
                  default_py_value: Any | None = None,
                  implied_py_value: Any | None = None,
@@ -693,7 +693,7 @@ class NodeEnumQNameProperty(NodeTextProperty):
                          is_optional, min_length=1)
         self.enum_cls = enum_cls
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -737,7 +737,7 @@ class NodeEnumQNameProperty(NodeTextProperty):
 class NodeIntProperty(NodeTextProperty):
     """Python representation is an int."""
 
-    def __init__(self, sub_element_name: etree_.QName | None = None,  # Noqa: PLR0913
+    def __init__(self, sub_element_name: etree_.QName | None = None,  # noqa: PLR0913
                  default_py_value: int | None = None,
                  implied_py_value: int | None = None,
                  is_optional: bool = False,
@@ -755,7 +755,7 @@ class NodeTextQNameProperty(_ElementBase):
         super().__init__(sub_element_name, ClassCheckConverter(etree_.QName), default_py_value,
                          is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -810,7 +810,7 @@ class ExtensionNodeProperty(_ElementBase):
         super().__init__(sub_element_name, ClassCheckConverter(ExtensionLocalValue), default_py_value,
                          is_optional=True)
 
-    def __get__(self, instance, owner):  # Noqa ANN001
+    def __get__(self, instance, owner):  # noqa: ANN001
         """Return a python value, uses the locally stored value."""
         if instance is None:  # if called via class
             return self
@@ -872,7 +872,7 @@ class AnyEtreeNodeProperty(_ElementBase):
         super().__init__(sub_element_name, NullConverter, default_py_value=None,
                          is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -896,7 +896,7 @@ class AnyEtreeNodeProperty(_ElementBase):
                 raise ValueError(f'mandatory value {self._sub_element_name} missing')
         else:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
-            if isinstance(py_value, etree_._Element):  # Noqa: SLF001
+            if isinstance(py_value, etree_._Element):  # noqa: SLF001
                 sub_node.append(py_value)
             else:
                 sub_node.extend(py_value)
@@ -912,7 +912,7 @@ class ValueClassProtocol(Protocol):
 class SubElementProperty(_ElementBase):
     """Uses a value that has an "as_etree_node" method."""
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # Noqa: PLR0913
+    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
                  value_class: type[XMLTypeBase],
                  default_py_value: Any | None = None,
                  implied_py_value: Any | None = None,
@@ -921,7 +921,7 @@ class SubElementProperty(_ElementBase):
                          is_optional)
         self.value_class = value_class
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         value = self._default_py_value
         try:
@@ -956,7 +956,7 @@ class SubElementProperty(_ElementBase):
 class ContainerProperty(_ElementBase):
     """ContainerProperty supports xsi:type information from xml and instantiates value accordingly."""
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # Noqa: PLR0913
+    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
                  value_class: type[XMLTypeBase],
                  cls_getter: Callable[[etree_.QName], type],
                  ns_helper: NamespaceHelper,
@@ -974,7 +974,7 @@ class ContainerProperty(_ElementBase):
         self._cls_getter = cls_getter
         self._ns_helper = ns_helper
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         value = self._default_py_value
         try:
@@ -1012,7 +1012,7 @@ class ContainerProperty(_ElementBase):
 
 
 class _ElementListProperty(_ElementBase, ABC):
-    def __get__(self, instance, owner):  # Noqa ANN001
+    def __get__(self, instance, owner):  # noqa: ANN001
         """Return a python value, uses the locally stored value."""
         if instance is None:  # if called via class
             return self
@@ -1038,7 +1038,7 @@ class SubElementListProperty(_ElementListProperty):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
         self.value_class = value_class
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         objects = []
         try:
@@ -1077,7 +1077,7 @@ class ContainerListProperty(_ElementListProperty):
     Used if maxOccurs="Unbounded" in BICEPS_ParticipantModel.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # Noqa: PLR0913
+    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
                  value_class: type[XMLTypeBase],
                  cls_getter: Callable[[etree_.QName], type],
                  ns_helper: NamespaceHelper,
@@ -1095,7 +1095,7 @@ class ContainerListProperty(_ElementListProperty):
         self._cls_getter = cls_getter
         self._ns_helper = ns_helper
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         objects = []
         try:
@@ -1147,7 +1147,7 @@ class SubElementTextListProperty(_ElementListProperty):
                  is_optional: bool = True):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         objects = []
         try:
@@ -1237,10 +1237,10 @@ class AnyEtreeNodeListProperty(_ElementListProperty):
 
     def __init__(self, sub_element_name: etree_.QName | None,
                  is_optional: bool = True):
-        value_class = etree_._Element  # Noqa: SLF001
+        value_class = etree_._Element  # noqa: SLF001
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         objects = []
         try:
@@ -1279,7 +1279,7 @@ class NodeTextListProperty(_ElementListProperty):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)),
                          is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -1325,7 +1325,7 @@ class NodeTextQNameListProperty(_ElementListProperty):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(etree_.QName)),
                          is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         result = []
         try:
@@ -1399,7 +1399,7 @@ class DateOfBirthProperty(_ElementBase):
         super().__init__(sub_element_name, ClassCheckConverter(datetime, date),
                          default_py_value, implied_py_value, is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # Noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
