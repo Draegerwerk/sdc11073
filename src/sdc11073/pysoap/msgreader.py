@@ -157,14 +157,14 @@ class MessageReader:
         return ReceivedMessage(self, message, message.header_info_block.Action.text,
                                message.msg_name, mdib_version_group)
 
-    def read_get_mdib_response(self, received_message_data: ReceivedMessage) -> (
-    list[AbstractDescriptorProtocol], list[AbstractStateProtocol]):
+    def read_get_mdib_response(self, received_message_data: ReceivedMessage) -> tuple[
+    list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
         """Return list of all descriptors and states in mdib of received message."""
         mdib_node = received_message_data.p_msg.msg_node[0]
         return self.read_get_mdib_payload(mdib_node)
 
-    def read_get_mdib_payload(self, mdib_node: etree_.ElementBase) -> (
-    list[AbstractDescriptorProtocol], list[AbstractStateProtocol]):
+    def read_get_mdib_payload(self, mdib_node: etree_.ElementBase) -> tuple[
+    list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
         """Return list of all descriptors and states in mdib."""
         descriptors = []
         states = []
@@ -176,7 +176,7 @@ class MessageReader:
             states = self._read_md_state_node(md_state_node)
         return descriptors, states
 
-    def read_mdib_xml(self, xml_text: bytes) -> (list[AbstractDescriptorProtocol], list[AbstractStateProtocol]):
+    def read_mdib_xml(self, xml_text: bytes) -> tuple[list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
         """Return list of all descriptors and states in mdib."""
         payload = self.read_xml_text(xml_text)
         q_name = etree_.QName(payload.tag)

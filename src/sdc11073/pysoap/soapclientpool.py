@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Protocol
+from typing import TYPE_CHECKING, Callable
 
 from sdc11073 import loghelper
 
 if TYPE_CHECKING:
     from .soapclient import SoapClientProtocol
 
-_SoapClientFactory = Callable[[str, list[str]], Any]
+    _SoapClientFactory = Callable[[str, list[str]], SoapClientProtocol]
 
 _UnreachableCallback = Callable[[], None]
 
@@ -41,7 +41,7 @@ class SoapClientPool:
 
     def get_soap_client(self, netloc: str,
                         accepted_encodings: list[str],
-                        unreachable_callback: _UnreachableCallback) -> Any:
+                        unreachable_callback: _UnreachableCallback) -> SoapClientProtocol:
         """Return a soap client for netloc.
 
         Method creates a new soap client if it did not exist yet.

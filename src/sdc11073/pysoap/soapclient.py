@@ -27,6 +27,7 @@ from sdc11073.pysoap.soapenvelope import Fault
 
 if TYPE_CHECKING:
     from ssl import SSLContext
+    from collections.abc import Iterable
 
     from sdc11073.consumer.manipulator import RequestManipulatorProtocol
     from sdc11073.definitions_base import BaseDefinitions
@@ -71,11 +72,11 @@ class SoapClientProtocol(Protocol):
     def __init__(self,
                  netloc: str,
                  logger: LoggerAdapter,
-                 ssl_context: [SSLContext, None],
+                 ssl_context: SSLContext | None,
                  sdc_definitions: type[BaseDefinitions],
                  msg_reader: MessageReader,
-                 supported_encodings: list | str = None,
-                 request_encodings: list | str = None,
+                 supported_encodings: Iterable[str] | str = None,
+                 request_encodings: Iterable[str] | str = None,
                  chunked_requests: bool = False):
         ...
 
@@ -117,11 +118,11 @@ class SoapClient:
     def __init__(self,
                  netloc: str,
                  logger: LoggerAdapter,
-                 ssl_context: [SSLContext, None],
+                 ssl_context: SSLContext| None,
                  sdc_definitions: type[BaseDefinitions],
                  msg_reader: MessageReader,
-                 supported_encodings: list | str = None,
-                 request_encodings: list | str = None,
+                 supported_encodings: Iterable[str] | str = None,
+                 request_encodings: Iterable[str] | str = None,
                  chunked_requests: bool = False):
         """Connect to one url.
 
@@ -129,12 +130,14 @@ class SoapClient:
         :param logger: a python logger instance
         :param ssl_context: an optional sll.SSLContext instance
         :param sdc_definitions: needed to normalize and de-normalize xml text.
-        :param supported_encodings: configured set of encodings that can be used. If None, all available encodings are used.
-                                This used for decompression of received responses.
-                                If this is an empty list, no compression is supported.
-        :param request_encodings: an optional list of encodings that the other side accepts. It is used to compress requests.
-                                If not set, requests will not be compressed.
-                                If set, then the http request will be compressed using this method
+        :param supported_encodings: Configured set of encodings that can be used.
+                                    If None, all available encodings are used.
+                                    This used for decompression of received responses.
+                                    If this is an empty list, no compression is supported.
+        :param request_encodings: An optional list of encodings that the other side accepts.
+                                  It is used to compress requests.
+                                  If not set, requests will not be compressed.
+                                  If set, then the http request will be compressed using this method
         :param chunked_requests: it True, requests are chunk-encoded
         """
         self._log = logger
@@ -143,10 +146,11 @@ class SoapClient:
         self._msg_reader = msg_reader
         self._netloc = netloc
         self._http_connection = None  # connect later on demand
-        self.__class__._used_soap_clients += 1  #  # noqa: SLF001
-        self._client_number = self.__class__._used_soap_clients  #  # noqa: SLF001
+        self.__class__._used_soap_clients += 1  # noqa: SLF001
+        self._client_number = self.__class__._used_soap_clients  # noqa: SLF001
         self._log.info('created soap client No. {} for {}', self._client_number, netloc)
-        self.supported_encodings = supported_encodings if supported_encodings is not None else CompressionHandler.available_encodings
+        self.supported_encodings = supported_encodings if supported_encodings is not None \
+            else CompressionHandler.available_encodings
         # request_encodings contains the compression algorithms that the other side accepts ( set at runtime)
         self.request_encodings = request_encodings if request_encodings is not None else []
         self._get_headers = self._make_get_headers()
@@ -243,7 +247,7 @@ class SoapClient:
             raise HTTPReturnCodeError(http_response.status, http_response.reason, soap_fault)
         return message_data
 
-    def _send_soap_request(self, path: str, xml: bytes | str, msg: str) -> (HTTPResponse, str):
+    def _send_soap_request(self, path: str, xml: bytes | str, msg: str) -> tuple[HTTPResponse, str]:
         """Send SOAP request using HTTP."""
         if not isinstance(xml, bytes):
             xml = xml.encode('utf-8')
@@ -274,7 +278,7 @@ class SoapClient:
         self._log.debug("{}:POST to netloc='{}' path='{}'", msg, self._netloc, path)
         response = None
 
-        def send_request()-> (bool, bool):
+        def send_request()-> tuple[bool, bool]:
             """Return (is_success, do_reopen)."""
             do_reopen = False
             try:
@@ -292,7 +296,7 @@ class SoapClient:
                     self._log.warn("{}: could not send request to {}, OSError={}", msg, self.netloc,
                                    traceback.format_exc())
                 do_reopen = True
-            except Exception as ex:  # noqa:BLE001
+            except Exception as ex:  # noqa: BLE001
                 self._log.warn("{}: POST to netloc='{}' path='{}': could not send request, error={!r}\n{}", msg,
                                self._netloc, path, ex, traceback.format_exc())
             return False, do_reopen  # success = False
@@ -310,7 +314,7 @@ class SoapClient:
                     self._log.warn("{}: could not receive response, OSError={} ({!r})\n{}", msg, ex.errno,
                                    ex, traceback.format_exc())
                 raise NotConnected from ex
-            except Exception as ex: # noqa:BLE001
+            except Exception as ex: # noqa: BLE001
                 self._log.warn("{}: POST to netloc='{}' path='{}': could not receive response, error={!r}\n{}",
                                msg, self._netloc, path, ex, traceback.format_exc())
                 raise NotConnected from ex
@@ -323,7 +327,7 @@ class SoapClient:
                 return
             except ConnectionRefusedError as ex:
                 self._log.warning("{}: could not reopen the connection, error={}", msg, ex)
-            except Exception as ex: # noqa:BLE001
+            except Exception as ex: # noqa: BLE001
                 self._log.warning("{}: could not reopen the connection, error={!r}\n{}\ncall-stack ={}",
                                   msg, ex, traceback.format_exc(), ''.join(traceback.format_stack()))
             self._http_connection.close()
