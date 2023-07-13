@@ -8,8 +8,7 @@ if TYPE_CHECKING:
     from .soapclient import SoapClientProtocol
 
     _SoapClientFactory = Callable[[str, list[str]], SoapClientProtocol]
-
-_UnreachableCallback = Callable[[], None]
+    _UnreachableCallback = Callable[[], None]
 
 
 class _SoapClientEntry:
