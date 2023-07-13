@@ -28,43 +28,56 @@ from .components import default_sdc_consumer_components
 from .request_handler_deferred import EmptyResponse
 
 if TYPE_CHECKING:
+    from ssl import SSLContext
+    from collections.abc import Iterable
     from sdc11073.dispatch.request import RequestData
     from sdc11073.xml_types.mex_types import HostedServiceType
+    from sdc11073.pysoap.soapclient import SoapClientProtocol
+    from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
+    from sdc11073.pysoap.msgfactory import MessageFactory
+    from sdc11073.definitions_base import AbstractDataModel, BaseDefinitions
+    from sdc11073.mdib.consumermdib import ConsumerMdib
+    from sdc11073.consumer.serviceclients.serviceclientbase import HostedServiceClient
+    from sdc11073.consumer.subscription import ConsumerSubscriptionManagerProtocol
+    from sdc11073.loghelper import LoggerAdapter
+    from sdc11073.wsdiscovery.service import Service
+    from .components import SdcConsumerComponents
 
     from .subscription import ConsumerSubscription
 
 
-class HostDescription:
-    def __init__(self, dpws_envelope):
-        self._dpws_envelope = dpws_envelope
-        self.this_model = dpws_envelope.this_model
-        self.this_device = dpws_envelope.this_device
-        self.host = dpws_envelope.host
-
-    def __str__(self) -> str:
-        return f'HostDescription: this_model = {self.this_model}, this_device = {self.this_device}, host = {self.host}'
-
 
 class HostedServiceDescription:
-    def __init__(self, service_id, endpoint_address, msg_reader, msg_factory, data_model,
-                 log_prefix=''):
+    """HostedServiceDescription collects initial structural data from provider."""
+
+    def __init__(self, service_id: str,  # noqa: PLR0913
+                 endpoint_address: str,
+                 msg_reader: MessageReader,
+                 msg_factory: MessageFactory,
+                 data_model: AbstractDataModel,
+                 log_prefix: str = ''):
         self._endpoint_address = endpoint_address
         self.service_id = service_id
         self._msg_reader = msg_reader
-        self._msg_factory = msg_factory
+        self.msg_factory = msg_factory
         self._data_model = data_model
         self.log_prefix = log_prefix
-        self.meta_data = None
+        self.meta_data: mex_types.Metadata| None = None
         self.wsdl_string = None
-        self.wsdl_node = None
+        self.wsdl_node: etree_.ElementBase | None = None
         self._logger = loghelper.get_logger_adapter('sdc.client.hosted', log_prefix)
         self._url = urlparse(endpoint_address)
         self.services = {}
 
-    def read_metadata(self, soap_client):
+    def read_metadata(self, soap_client: SoapClientProtocol):
+        """Read metadata from provider.
+
+        This gives consumer information about offered services and its addresses.
+        Members meta_data, wsdl_node and wsdl_string are filled with data from provider.
+        """
         payload = mex_types.GetMetadata()
         inf = HeaderInformationBlock(action=payload.action, addr_to=self._endpoint_address)
-        created_message = self._msg_factory.mk_soap_message(inf, payload=payload)
+        created_message = self.msg_factory.mk_soap_message(inf, payload=payload)
         message_data = soap_client.post_message_to(self._url.path,
                                                    created_message,
                                                    msg=f'<{self.service_id}> read_metadata')
@@ -72,10 +85,10 @@ class HostedServiceDescription:
         if self.meta_data.wsdl_location is not None:
             self._read_wsdl(soap_client, self.meta_data.wsdl_location)
 
-    def _read_wsdl(self, soap_client, wsdl_url):
+    def _read_wsdl(self, soap_client: SoapClientProtocol, wsdl_url: str):
         parsed = urlparse(wsdl_url)
         actual_path = parsed.path + f'?{parsed.query}' if parsed.query else parsed.path
-        self.wsdl_bytes = soap_client.get_url(actual_path, msg=f'{self.log_prefix}:getwsdl')
+        self.wsdl_bytes = soap_client.get_from_url(actual_path, msg=f'{self.log_prefix}:getwsdl')
         try:
             wsdl_element_tree = self._msg_reader.read_wsdl(self.wsdl_bytes)
             self.wsdl_node = wsdl_element_tree.getroot()
@@ -86,8 +99,8 @@ class HostedServiceDescription:
             self.wsdl_string = self.wsdl_bytes.decode(encoding)
             commlog.get_communication_logger().log_wsdl(self.wsdl_string)
         except etree_.XMLSyntaxError as ex:
-            self._logger.error(
-                f'could not read wsdl from {actual_path}: error={ex}, data=\n{self.wsdl_bytes}')
+            self._logger.error(  # noqa: PLE1205
+                'could not read wsdl from {}: error={}, data=\n{}', actual_path, ex, self.wsdl_bytes)
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__} "{self.service_id}" endpoint = {self._endpoint_address}'
@@ -95,24 +108,30 @@ class HostedServiceDescription:
 
 @dataclass(frozen=True)
 class SubscriptionEndData:
+    """When a subscription end message is received, sdc consumer writes a SubscriptionEndData instance to observable.
+
+    By doing so the application can react to the message.
+    """
+
     subscription: ConsumerSubscription
     request_data: RequestData
 
 
 class _NotificationsSplitter:
+    """Distributes incoming notification to the specific observables."""
 
-    def __init__(self, sdc_client):
-        self._sdc_client = sdc_client
+    def __init__(self, sdc_consumer: SdcConsumer):
+        self._sdc_consumer = sdc_consumer
         self._lookup = self._mk_lookup()
 
-    def on_notification(self, message_data):
+    def on_notification(self, message_data: ReceivedMessage):
         observable_name = self._lookup.get(message_data.action)
         if observable_name is None:
             raise ValueError(f'unknown message {message_data.action}')
-        setattr(self._sdc_client, observable_name, message_data)
+        setattr(self._sdc_consumer, observable_name, message_data)
 
-    def _mk_lookup(self):
-        actions = self._sdc_client.sdc_definitions.Actions
+    def _mk_lookup(self) -> dict[str, str]:
+        actions = self._sdc_consumer.sdc_definitions.Actions
         return {
             actions.Waveform: 'waveform_report',
             actions.EpisodicMetricReport: 'episodic_metric_report',
@@ -132,6 +151,7 @@ class _NotificationsSplitter:
 
 class SdcConsumer:
     """The SdcConsumer can be used with a known device location.
+
     The location is typically the result of a wsdiscovery process.
     This class expects that the BICEPS services are available in the device.
     What if not???? => raise exception in _discover_hosted_services.
@@ -162,13 +182,18 @@ class SdcConsumer:
 
     SSL_CIPHERS = None  # None : use SSL default
 
-    def __init__(self, device_location: str, sdc_definitions, ssl_context,
+    def __init__(self, device_location: str,  # noqa: PLR0913
+                 sdc_definitions: type[BaseDefinitions],
+                 ssl_context: SSLContext | None,
                  epr: str | uuid.UUID | None = None,
-                 validate=True,
-                 log_prefix='',
-                 default_components=None, specific_components=None,
-                 chunked_requests=False):  # pylint:disable=too-many-arguments
-        """:param device_location: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
+                 validate: bool = True,
+                 log_prefix: str = '',
+                 default_components: SdcConsumerComponents | None = None,
+                 specific_components: SdcConsumerComponents | None = None,
+                 chunked_requests: bool =False):
+        """Construct a SdcConsumer.
+
+        :param device_location: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         :param sdc_definitions: a class derived from BaseDefinitions
         :param epr: the path of this client in http server
         :param ssl_context: used for ssl connection to device and for own HTTP Server (notifications receiver)
@@ -193,12 +218,13 @@ class SdcConsumer:
         self.chunked_requests = chunked_requests
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
         self._network_adapter = self._get_host_adapter_by_device_location()
-        self._logger.info('SdcConsumer for {} uses own IP Address {}', self._device_location, self._network_adapter)
+        self._logger.info(  # noqa: PLE1205
+            'SdcConsumer for {} uses own IP Address {}', self._device_location, self._network_adapter)
         self.host_description: mex_types.Metadata | None = None
         self.hosted_services = {}  # lookup by service id
         self._validate = validate
         try:
-            self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)
+            self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)  # noqa: PLE1205
         except AttributeError:
             self._logger.info('Using SSL is enabled. TLS 1.3 is not supported')
         self._ssl_context = ssl_context
@@ -207,7 +233,7 @@ class SdcConsumer:
         self._http_server = None
         self._is_internal_http_server = False
 
-        self._logger.info('created {} for {}', self.__class__.__name__, self._device_location)
+        self._logger.info('created {} for {}', self.__class__.__name__, self._device_location)  # noqa: PLE1205
 
         self._compression_methods = compression.CompressionHandler.available_encodings[:]
         self._subscription_mgr = None
@@ -229,7 +255,7 @@ class SdcConsumer:
                                          validate=validate)
 
         msg_factory_cls = self._components.msg_factory_class
-        self._msg_factory = msg_factory_cls(self.sdc_definitions,
+        self.msg_factory = msg_factory_cls(self.sdc_definitions,
                                             additional_schema_specs,
                                             self._logger,
                                             validate=validate)
@@ -240,9 +266,9 @@ class SdcConsumer:
         self._notifications_splitter = _NotificationsSplitter(self)
 
         self._msg_converter = MessageConverterMiddleware(
-            self.msg_reader, self._msg_factory, self._logger, self._services_dispatcher)
+            self.msg_reader, self.msg_factory, self._logger, self._services_dispatcher)
 
-    def set_mdib(self, mdib):
+    def set_mdib(self, mdib: ConsumerMdib | None):
         """SdcConsumer sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib is not None:
             raise ApiUsageError('SdcConsumer has already an registered mdib')
@@ -253,7 +279,8 @@ class SdcConsumer:
             self.client('Context').register_mdib(mdib)
 
     @property
-    def mdib(self):
+    def mdib(self) -> ConsumerMdib | None:
+        """Return associated mdib."""
         return self._mdib
 
     @property
@@ -262,24 +289,27 @@ class SdcConsumer:
         return self._network_adapter
 
     @property
-    def _epr_urn(self):
-        # End Point Reference, e.g 'urn:uuid:8c26f673-fdbf-4380-b5ad-9e2454a65b6b'
+    def _epr_urn(self) -> str:
+        """Return end point reference, e.g 'urn:uuid:8c26f673-fdbf-4380-b5ad-9e2454a65b6b'."""
         try:
             return self._epr.urn
         except AttributeError:
             return self._epr
 
     @property
-    def path_prefix(self):
-        # http path prefix of service e.g '8c26f673fdbf4380b5ad9e2454a65b6b'
+    def path_prefix(self) -> str:
+        """Return http path prefix of service e.g '8c26f673fdbf4380b5ad9e2454a65b6b'."""
         try:
             return self._epr.hex
         except AttributeError:
             return self._epr
 
     @property
-    def base_url(self):
-        # replace servers ip address with own ip address (server might have 0.0.0.0)
+    def base_url(self) -> str:
+        """Return the base url of consumer.
+
+        Replace servers ip address with own ip address (server might have 0.0.0.0).
+        """
         p = urlparse(self._http_server.base_url)
         tmp = f'{p.scheme}://{self._network_adapter.ip}:{p.port}{p.path}'
         sep = '' if tmp.endswith('/') else '/'
@@ -295,8 +325,9 @@ class SdcConsumer:
 
     def mk_subscription(self, dpws_hosted: HostedServiceType,
                         filter_type: eventing_types.FilterType,
-                        actions: list[DispatchKey]) -> ConsumerSubscription:
-        """Creates a subscription object and registers it in dispatcher
+                        actions: Iterable[DispatchKey]) -> ConsumerSubscription:
+        """Create a subscription object and registers it in dispatcher.
+
         :param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
                            This is the target for all subscribe/unsubscribe ... messages
         :param filter_type: the filter that is sent to device
@@ -309,13 +340,14 @@ class SdcConsumer:
             self._services_dispatcher.register_post_handler(action, subscription.on_notification)
         return subscription
 
-    def do_subscribe(self, dpws_hosted: HostedServiceType,
+    def do_subscribe(self, dpws_hosted: HostedServiceType,  # noqa: PLR0913
                      filter_type: eventing_types.FilterType,
-                     actions: list[DispatchKey] | set[DispatchKey],
-                     expire_minutes: int | None = 60,
+                     actions: Iterable[DispatchKey],
+                     expire_minutes: int = 60,
                      any_elements: list | None = None,
                      any_attributes: dict | None = None) -> ConsumerSubscription:
-        """Creates a subscription object and registers it in
+        """Send subscribe request to provider.
+
         :param dpws_hosted: proxy for the hosted service that provides the events we want to subscribe to
                            This is the target for all subscribe/unsubscribe ... messages
         :param filter_type: the filter that is sent to device
@@ -330,8 +362,9 @@ class SdcConsumer:
         subscription.subscribe(expire_minutes, any_elements, any_attributes)
         return subscription
 
-    def client(self, port_type_name):
-        """Returns the client for the given port type name.
+    def client(self, port_type_name: str) -> HostedServiceClient | None:
+        """Return the client for the given port type name.
+
         WDP and SDC use different port type names, e.g. WPF="Get", SDC="GetService".
         If the port type is not found directly, it tries also with or without "Service" in name.
         :param port_type_name: string, e.g "Get", or "GetService", ...
@@ -344,46 +377,56 @@ class SdcConsumer:
         return client
 
     @property
-    def get_service_client(self):
+    def get_service_client(self) -> HostedServiceClient:
+        """Return a HostedServiceClient."""
         return self.client('GetService')
 
     @property
-    def set_service_client(self):
+    def set_service_client(self) -> HostedServiceClient:
+        """Return a HostedServiceClient."""
         return self.client('SetService')
 
     @property
-    def description_event_service_client(self):
+    def description_event_service_client(self) -> HostedServiceClient:
+        """Return a HostedServiceClient."""
         return self.client('DescriptionEventService')
 
     @property
-    def state_event_service_client(self):
+    def state_event_service_client(self) -> HostedServiceClient:
+        """Return a HostedServiceClient."""
         return self.client('StateEventService')
 
     @property
-    def context_service_client(self):
+    def context_service_client(self) -> HostedServiceClient:
+        """Return a HostedServiceClient."""
         return self.client('ContextService')
 
     @property
-    def waveform_service_client(self):
+    def waveform_service_client(self) -> HostedServiceClient:
+        """Return a HostedServiceClient."""
         return self.client('Waveform')
 
     @property
-    def containment_tree_service_client(self):
+    def containment_tree_service_client(self) -> HostedServiceClient:
+        """Return a HostedServiceClient."""
         return self.client('ContainmentTreeService')
 
     @property
-    def archive_service_client(self):
+    def archive_service_client(self) -> HostedServiceClient:
+        """Return a HostedServiceClient."""
         return self.client('ArchiveService')
 
     @property
-    def localization_service_client(self):
+    def localization_service_client(self) -> HostedServiceClient:
+        """Return a HostedServiceClient."""
         return self.client('LocalizationService')
 
     @property
-    def subscription_mgr(self):
+    def subscription_mgr(self)-> ConsumerSubscriptionManagerProtocol:
+        """Return the subscription manager."""
         return self._subscription_mgr
 
-    def start_all(self, not_subscribed_actions: list[str] | None = None,
+    def start_all(self, not_subscribed_actions: list[str] | None = None,  # noqa: PLR0913
                   subscriptions_check_interval: float | None = None,
                   subscribe_periodic_reports: bool = False,
                   shared_http_server: Any | None = None,
@@ -399,12 +442,12 @@ class SdcConsumer:
         :return: None
         """
         if self.host_description is None:
-            self._logger.debug('reading meta data from {}', self._device_location)
+            self._logger.debug('reading meta data from {}', self._device_location)  # noqa: PLE1205
             self.host_description = self._get_metadata()
 
         # now query also metadata of hosted services
         self._mk_hosted_services(self.host_description)
-        self._logger.debug('Services: {}', self._service_clients.keys())
+        self._logger.debug('Services: {}', self._service_clients.keys())  # noqa: PLE1205
 
         # only GetService is mandatory!!!
         if check_get_service and self.get_service_client is None:
@@ -420,7 +463,7 @@ class SdcConsumer:
         # start subscription manager
         subscription_manager_class = self._components.subscription_manager_class
         self._subscription_mgr = subscription_manager_class(self.msg_reader,
-                                                            self._msg_factory,
+                                                            self.msg_factory,
                                                             self.sdc_definitions.data_model,
                                                             self.get_soap_client,
                                                             self.base_url,
@@ -464,9 +507,9 @@ class SdcConsumer:
                     filter_type.Dialect = DeviceEventingFilterDialectURI.ACTION
                     try:
                         self.do_subscribe(dpws_hosted, filter_type, subscribe_actions)
-                    except Exception:
-                        self.all_subscribed = False  # => do not log errors when mdib versions are missing in notifications
-                        self._logger.error('start_all: could not subscribe: error = {}, actions= {}',
+                    except Exception:   # noqa: BLE001
+                        self.all_subscribed = False  # => don't log errors when mdib versions are missing
+                        self._logger.error('start_all: could not subscribe: error = {}, actions= {}',  # noqa: PLE1205
                                            traceback.format_exc(), subscribe_actions)
 
         # register callback for end of subscription
@@ -476,13 +519,14 @@ class SdcConsumer:
             self._on_subscription_end)
 
         # connect self.is_connected observable to all_subscriptions_okay observable in subscriptions manager
-        def set_is_connected(is_ok):
+        def set_is_connected(is_ok: bool):
             self.is_connected = is_ok
 
         properties.strongbind(self._subscription_mgr, all_subscriptions_okay=set_is_connected)
         self.is_connected = self._subscription_mgr.all_subscriptions_okay
 
-    def stop_all(self, unsubscribe=True):
+    def stop_all(self, unsubscribe: bool =True):
+        """Stop all threads, optionally unsubscribe."""
         if self._subscription_mgr is not None:
             if unsubscribe:
                 self._subscription_mgr.unsubscribe_all()
@@ -494,8 +538,8 @@ class SdcConsumer:
         self._soap_clients = {}
         self._stop_event_sink()
 
-    def set_used_compression(self, *compression_methods):
-        # update list in place
+    def set_used_compression(self, *compression_methods: str):
+        """Use only one of these compression methods."""
         del self._compression_methods[:]
         self._compression_methods.extend(compression_methods)
 
@@ -510,29 +554,32 @@ class SdcConsumer:
             self.peer_certificate = sock.getpeercert(binary_form=False)
             self.binary_peer_certificate = sock.getpeercert(binary_form=True)  # in case the application needs it...
 
-            self._logger.info('Peer Certificate: {}', self.peer_certificate)
+            self._logger.info('Peer Certificate: {}', self.peer_certificate)  # noqa: PLE1205
         nsh = self.sdc_definitions.data_model.ns_helper
         inf = HeaderInformationBlock(action=f'{nsh.WXF.namespace}/Get',
                                      addr_to=self._device_location)
-        message = self._msg_factory.mk_soap_message_etree_payload(inf, payload_element=None)
+        message = self.msg_factory.mk_soap_message_etree_payload(inf, payload_element=None)
 
         received_message_data = wsc.post_message_to(_url.path, message, msg='getMetadata')
-        meta_data = mex_types.Metadata.from_node(received_message_data.p_msg.body_node)
-        return meta_data
+        return mex_types.Metadata.from_node(received_message_data.p_msg.body_node)
 
-    def send_probe(self):
+    def send_probe(self) -> ProbeMatchesType:
+        """Send Probe directly to provider."""
         _url = urlparse(self._device_location)
         wsc = self.get_soap_client(self._device_location)
         probe = ProbeType()
         inf = HeaderInformationBlock(action=probe.action,
                                      addr_to=self._device_location)
 
-        message = self._msg_factory.mk_soap_message(inf, payload=probe)
+        message = self.msg_factory.mk_soap_message(inf, payload=probe)
         received_message_data = wsc.post_message_to(_url.path, message, msg='Probe')
-        probe_matches = ProbeMatchesType.from_node(received_message_data.p_msg.msg_node)
-        return probe_matches
+        return ProbeMatchesType.from_node(received_message_data.p_msg.msg_node)
 
-    def get_soap_client(self, address):
+    def get_soap_client(self, address: str) -> SoapClientProtocol:
+        """Return the soap client for address.
+
+        Method creates a new soap client if needed.
+        """
         _url = urlparse(address)
         key = (_url.scheme, _url.netloc)
         soap_client = self._soap_clients.get(key)
@@ -547,9 +594,15 @@ class SdcConsumer:
             self._soap_clients[key] = soap_client
         return soap_client
 
-    def _mk_soap_client(self, scheme, netloc, logger, ssl_context, sdc_definitions, msg_reader,
-                        supported_encodings=None,
-                        request_encodings=None, chunked_requests=False):
+    def _mk_soap_client(self, scheme: str,  # noqa: PLR0913
+                        netloc: str,
+                        logger: LoggerAdapter,
+                        ssl_context: SSLContext | None,
+                        sdc_definitions: type[BaseDefinitions],
+                        msg_reader: MessageReader,
+                        supported_encodings: Iterable[str] | None = None,
+                        request_encodings: Iterable[str] | None = None,
+                        chunked_requests: bool = False) -> SoapClientProtocol:
         _ssl_context = ssl_context if scheme == "https" else None
         cls = self._components.soap_client_class
         return cls(netloc, logger, ssl_context=_ssl_context,
@@ -559,13 +612,13 @@ class SdcConsumer:
                    request_encodings=request_encodings,
                    chunked_requests=chunked_requests)
 
-    def _mk_hosted_services(self, host_description):
+    def _mk_hosted_services(self, host_description: mex_types.Metadata):
         for hosted in host_description.relationship.Hosted:
             address = hosted.EndpointReference[0].Address
             soap_client = self.get_soap_client(address)
             h_descr = HostedServiceDescription(
                 hosted.ServiceId, address,
-                self.msg_reader, self._msg_factory, self.sdc_definitions.data_model, self.log_prefix)
+                self.msg_reader, self.msg_factory, self.sdc_definitions.data_model, self.log_prefix)
             self.hosted_services[hosted.ServiceId] = h_descr
             h_descr.read_metadata(soap_client)
             for port_type in hosted.Types:
@@ -576,15 +629,17 @@ class SdcConsumer:
                     self._service_clients[port_type.localname] = hosted_service_client
                     h_descr.services[port_type.localname] = hosted_service_client
                 else:
-                    self._logger.warning('Unknown port type {}', str(port_type))
+                    self._logger.warning('Unknown port type {}', str(port_type))  # noqa: PLE1205
 
-    def _mk_hosted_service_client(self, port_type, soap_client, hosted):
+    def _mk_hosted_service_client(self, port_type: str,
+                                  soap_client: SoapClientProtocol,
+                                  hosted: HostedServiceType) -> HostedServiceClient | None:
         for cls in self._components.service_handlers:
             if cls.port_type_name == port_type:
                 return cls(self, soap_client, hosted, port_type)
         return None
 
-    def _start_event_sink(self, shared_http_server):
+    def _start_event_sink(self, shared_http_server: Any):
         if shared_http_server is None:
             self._is_internal_http_server = True
             ssl_context = self._ssl_context if self._device_uses_https else None
@@ -597,7 +652,7 @@ class SdcConsumer:
             )
             self._http_server.start()
             self._http_server.started_evt.wait(timeout=5)
-            self._logger.info('serving EventSink on {}', self._http_server.base_url)
+            self._logger.info('serving EventSink on {}', self._http_server.base_url)  # noqa: PLE1205
         else:
             self._http_server = shared_http_server
         # register own epr in http server
@@ -607,11 +662,11 @@ class SdcConsumer:
         if self._is_internal_http_server and self._http_server is not None:
             self._http_server.stop()
 
-    def _on_notification(self, message_data):
+    def _on_notification(self, message_data: ReceivedMessage):
         self.state_event_report = message_data  # update observable
         self._notifications_splitter.on_notification(message_data)
 
-    def _on_subscription_end(self, request_data):
+    def _on_subscription_end(self, request_data: RequestData) -> EmptyResponse:
         subscription = self._subscription_mgr.on_subscription_end(request_data)  # subscription can be None
         self.subscription_end_data = SubscriptionEndData(subscription, request_data)
         return EmptyResponse()
@@ -620,8 +675,12 @@ class SdcConsumer:
         return f'SdcConsumer to {self.host_description.this_device} {self.host_description.this_model} on {self._device_location}'
 
     @classmethod
-    def from_wsd_service(cls, wsd_service, ssl_context, validate=True, log_prefix='',
-                         default_components=None, specific_components=None):
+    def from_wsd_service(cls, wsd_service: Service,   # noqa: PLR0913
+                         ssl_context: SSLContext | None,
+                         validate: bool = True,
+                         log_prefix: str = '',
+                         default_components: SdcConsumerComponents | None = None,
+                         specific_components: SdcConsumerComponents | None = None):
         """Construct a SdcConsumer from a Service.
 
         :param wsd_service: a wsdiscovery.Service instance

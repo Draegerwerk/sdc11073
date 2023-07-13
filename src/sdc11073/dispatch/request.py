@@ -31,5 +31,5 @@ class RequestData:
         return self.consumed_path_elements[-1]
 
     @property
-    def current(self):
+    def current_path_element(self):
         return self.path_elements[0] if len(self.path_elements) > 0 else None

@@ -1,34 +1,40 @@
+from __future__ import annotations
+
 import queue
 import threading
 import traceback
+from typing import TYPE_CHECKING
 
-from sdc11073.dispatch import RequestData
-from sdc11073.dispatch import DispatchKeyRegistry
-from ..exceptions import InvalidActionError
-from ..pysoap.msgfactory import CreatedMessage
-from ..pysoap.soapenvelope import Fault, faultcodeEnum
+from sdc11073.dispatch import RequestData, RequestDispatcher
+from sdc11073.exceptions import InvalidActionError
+from sdc11073.pysoap.msgfactory import CreatedMessage
+from sdc11073.pysoap.soapenvelope import Fault, faultcodeEnum
 
-
-class _DispatchError(Exception):
-    def __init__(self, http_error_code, error_text):
-        super().__init__()
-        self.http_error_code = http_error_code
-        self.error_text = error_text
+if TYPE_CHECKING:
+    from .manipulator import RequestManipulatorProtocol
 
 
 class EmptyResponse(CreatedMessage):
+    """EmptyResponse is a response with no content."""
+
     def __init__(self):
         super().__init__(None, None)
 
-    def serialize(self, pretty=False, request_manipulator=None, validate=True) -> bytes:
+    def serialize(self, pretty: bool = False,  # noqa: ARG002
+                  request_manipulator: RequestManipulatorProtocol | None = None,  # noqa: ARG002
+                  validate: bool = True) -> bytes:  # noqa: ARG002
+        """Return bytes of len 0."""
         return b''
 
 
-class DispatchKeyRegistryDeferred(DispatchKeyRegistry):
-    """This middleware splits request processing into two parts. It writes
-    the request to a queue and returns immediately. A worker thread is responsible for the further handling.
-    This allows a faster response."""
-    def __init__(self, log_prefix):
+class DispatchKeyRegistryDeferred(RequestDispatcher):
+    """A middleware that splits request processing into two parts.
+
+    It writes the request to a queue and returns immediately. A worker thread is responsible for the further handling.
+    This allows a faster response.
+    """
+
+    def __init__(self, log_prefix: str):
         super().__init__(log_prefix)
         self._queue = queue.Queue(1000)
         self._worker = threading.Thread(target=self._read_queue)
@@ -36,8 +42,9 @@ class DispatchKeyRegistryDeferred(DispatchKeyRegistry):
         self._worker.start()
 
     def on_post(self, request_data: RequestData) -> CreatedMessage:
+        """See documentation in RequestHandlerProtocol."""
         action = request_data.message_data.action
-        func = self.get_post_handler(request_data)
+        func = self._get_post_handler(request_data)
         if func is None:
             fault = Fault()
             fault.Code.Value = faultcodeEnum.SENDER
@@ -52,6 +59,7 @@ class DispatchKeyRegistryDeferred(DispatchKeyRegistry):
             func, request, action = self._queue.get()
             try:
                 func(request)
-            except Exception:
-                self._logger.error(
-                    f'method {func.__name__} for action "{action}" failed:{traceback.format_exc()}')
+            except Exception:  # noqa: BLE001
+                # catch all to keep thread alive
+                self._logger.error('method {} for action "{}" failed:{}',  # noqa: PLE1205
+                                   func.__name__, action, traceback.format_exc())

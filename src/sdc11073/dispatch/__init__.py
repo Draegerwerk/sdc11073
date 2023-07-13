@@ -1,4 +1,6 @@
+from .dispatchkey import DispatchKey, RequestDispatcher
+from .messageconverter import MessageConverterMiddleware
 from .pathelementregistry import PathElementRegistry
 from .request import RequestData
-from .dispatchkey import DispatchKeyRegistry, DispatchKey
-from .messageconverter import MessageConverterMiddleware
+
+__all__ = ['PathElementRegistry', 'RequestData', 'RequestDispatcher', 'DispatchKey', 'MessageConverterMiddleware']

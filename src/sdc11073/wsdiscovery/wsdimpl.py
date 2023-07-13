@@ -276,7 +276,7 @@ class WSDiscovery:
             raise ApiUsageError("Server not started")
 
         metadata_version = self._local_services[epr].metadata_version + 1 if epr in self._local_services else 1
-        instance_id = str(random.randint(1, 0xFFFFFFFF))  # Noqa: S311
+        instance_id = str(random.randint(1, 0xFFFFFFFF))  # noqa: S311
         service = Service(types, scopes, x_addrs, epr, instance_id, metadata_version=metadata_version)
         self._logger.info('publishing %r', service)
         self._local_services[epr] = service

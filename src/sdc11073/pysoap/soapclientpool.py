@@ -1,80 +1,92 @@
-from typing import Protocol, Callable, Any
-from .. import loghelper
+from __future__ import annotations
 
+from typing import TYPE_CHECKING, Callable
 
-_SoapClientFactory = Callable[[str, list[str]], Any]
+from sdc11073 import loghelper
 
+if TYPE_CHECKING:
+    from .soapclient import SoapClientProtocol
 
-class UserRef(Protocol):
-    def on_unreachable(self):
-        ...
-
+    _SoapClientFactory = Callable[[str, list[str]], SoapClientProtocol]
+    _UnreachableCallback = Callable[[], None]
 
 
 class _SoapClientEntry:
-    def __init__(self, soap_client, user_ref: UserRef):
+    def __init__(self, soap_client: SoapClientProtocol | None, unreachable_callback: _UnreachableCallback):
         self.soap_client = soap_client
-        self.user_refs = [user_ref]
+        self.callbacks = [unreachable_callback]
 
 
 class SoapClientPool:
-    """pool of soap clients with reference count"""
+    """Pool of soap clients with reference count."""
+
+    # ToDo: distinguish between unreachable netloc and unreachable epr
 
     def __init__(self, soap_client_factory: _SoapClientFactory, log_prefix: str):
         self._soap_client_factory = soap_client_factory
-        self._soap_clients = {}
+        self._soap_clients: dict[str, _SoapClientEntry] = {}
         self._logger = loghelper.get_logger_adapter('sdc.device.soap_client_pool', log_prefix)
 
-    def register_netloc_user(self, netloc: str, user_ref: UserRef) -> None:
-        """ associate a user_ref (subscription) to a network location"""
-        self._logger.debug('registered netloc {} user {}', netloc, user_ref)
+    def register_netloc_user(self, netloc: str, unreachable_callback: _UnreachableCallback) -> None:
+        """Associate a user_ref (subscription) to a network location."""
+        self._logger.debug('registered netloc {} ', netloc)  # noqa: PLE1205
         entry = self._soap_clients.get(netloc)
         if entry is None:
-            self._soap_clients[netloc] = _SoapClientEntry(None, user_ref)
+            # for now only register the callback, the soap client will be created later on get_soap_client call.
+            self._soap_clients[netloc] = _SoapClientEntry(None, unreachable_callback)
             return
-        if user_ref not in entry.user_refs:
-            entry.user_refs.append(user_ref)
+        if unreachable_callback not in entry.callbacks:
+            entry.callbacks.append(unreachable_callback)
 
-    def get_soap_client(self, netloc: str, accepted_encodings: list[str], user_ref: UserRef) -> Any:
-        """ Returns a soap client for netloc.
-        Creates a new soap client if it did not exist yet.
-         It also associates the user_ref (subscription) to the network location an"""
-        self._logger.debug('requested soap client for netloc {} user {}', netloc, user_ref)
+    def get_soap_client(self, netloc: str,
+                        accepted_encodings: list[str],
+                        unreachable_callback: _UnreachableCallback) -> SoapClientProtocol:
+        """Return a soap client for netloc.
+
+        Method creates a new soap client if it did not exist yet.
+        It also associates the user_ref (subscription) to the network location.
+        """
+        self._logger.debug('requested soap client for netloc {}', netloc)  # noqa: PLE1205
         entry = self._soap_clients[netloc]
         if entry.soap_client is None:
             soap_client = self._soap_client_factory(netloc, accepted_encodings)
             entry.soap_client = soap_client
             return soap_client
-        if user_ref not in entry.user_refs:
-            entry.user_refs.append(user_ref)
+        if unreachable_callback not in entry.callbacks:
+            entry.callbacks.append(unreachable_callback)
         return entry.soap_client
 
-    def forget(self, netloc: str, user_ref: Any) -> None:
-        """Removes the user reference fromn the network location.
-        If no more associations exist, the soap connection gets closed and the soap client deleted."""
-        self._logger.debug('forget soap client for netloc {} user {}', netloc, user_ref)
+    def forget_callable(self, netloc: str, unreachable_callback: _UnreachableCallback) -> None:
+        """Remove the user reference from the network location.
+
+        If no more associations exist, the soap connection gets closed and the soap client deleted.
+        """
+        self._logger.debug('forget soap client for netloc {}', netloc)  # noqa: PLE1205
         entry = self._soap_clients.get(netloc)
         if entry is None:
             return
-        entry.user_refs.remove(user_ref)
-        if len(entry.user_refs) == 0:
-            entry.soap_client.close()
+        entry.callbacks.remove(unreachable_callback)
+        if len(entry.callbacks) == 0:
+            if entry.soap_client is not None:
+                entry.soap_client.close()
             self._soap_clients.pop(netloc)
 
     def report_unreachable(self, netloc: str) -> None:
-        """ All user references for the unreachable network location will be informed,
-        then soap client gets closed and deleted"""
-        self._logger.debug('unreachable netloc {}', netloc)
+        """All user references for the unreachable network location will be informed.
+
+        Then soap client gets closed and deleted.
+        """
+        self._logger.debug('unreachable netloc {}', netloc)  # noqa: PLE1205
         try:
             entry = self._soap_clients.pop(netloc)
         except KeyError:
             return
         entry.soap_client.close()
-        for user_ref in entry.user_refs:
-            self._logger.debug('call on_unreachable netloc {} user {}', netloc, user_ref)
-            user_ref.on_unreachable()
+        for callback in entry.callbacks:
+            callback()
 
     def close_all(self):
+        """Close all connections."""
         for entry in self._soap_clients.values():
             entry.soap_client.close()
         self._soap_clients = {}

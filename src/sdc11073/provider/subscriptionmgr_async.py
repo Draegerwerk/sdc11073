@@ -54,9 +54,8 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
         try:
             soap_client = self._get_soap_client()
             roundtrip_timer = observableproperties.SingleValueCollector(soap_client, 'roundtrip_time')
-
-            await soap_client.async_post_message_to(self.notify_to_url.path, message,
-                                                          msg=f'send_notification_report {action}')
+            self._logger.debug('send_notification_report {}', action)
+            await soap_client.async_post_message_to(self.notify_to_url.path, message)
             try:
                 roundtrip_time = roundtrip_timer.result(0)
                 self.last_roundtrip_times.append(roundtrip_time)
@@ -91,13 +90,13 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
         subscription_end.Status = code
         subscription_end.add_reason(reason, 'en-US')
         inf = HeaderInformationBlock(action=subscription_end.action,
-                                     addr_to=self.end_to_address or self.notify_to_address)
+                                     addr_to=self.end_to_address or self.notify_to_address,
+                                     reference_parameters=self.end_to_ref_params or self.notify_ref_params)
         message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
         try:
             url = self._end_to_url or self.notify_to_url
             self._logger.info('async send subscription end to {}, subscription = {}', url, self)
-            return await soap_client.async_post_message_to(url.path, message,
-                                                                   msg='send_notification_end_message')
+            return await soap_client.async_post_message_to(url.path, message)
         except aiohttp.client_exceptions.ClientConnectorError as ex:
             # it does not matter that we could not send the message - end is end ;)
             self._logger.info('exception async send subscription end to {}, subscription = {}', url, self)

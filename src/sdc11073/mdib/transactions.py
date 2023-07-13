@@ -264,7 +264,7 @@ class MdibUpdateTransaction(_TransactionBase):
     def add_descriptor(self,
                        descriptor_container: AbstractDescriptorProtocol,
                        adjust_descriptor_version: bool = True,
-                       state_container: AbstractStateContainer | None = None):
+                       state_container: AbstractStateProtocol | None = None):
         """Add a new descriptor to mdib.
 
         :param descriptor_container: the object that shall be added to mdib
@@ -726,8 +726,8 @@ class TransactionProcessor:
             update_dict = self._mgr.context_state_updates
             all_context_states = self._mdib.context_states.descriptor_handle.get(
                 descriptor_container.Handle, [])
-            for context_states in all_context_states:
-                key = (descriptor_container.Handle, context_states.handle)
+            for context_state in all_context_states:
+                key = (descriptor_container.Handle, context_state.Handle)
                 # check if state is already present in this transaction
                 state_update = update_dict.get(key)
                 if state_update is not None:
@@ -735,7 +735,7 @@ class TransactionProcessor:
                     # update descriptor version
                     old_state, new_state = state_update
                 else:
-                    old_state = context_states
+                    old_state = context_state
                     new_state = old_state.mk_copy()
                     update_dict[key] = _TrItem(old_state, new_state)
                 new_state.descriptor_container = descriptor_container
@@ -763,10 +763,11 @@ class TransactionProcessor:
 
     def _increment_parent_descriptor_version(self, descriptor_container: AbstractDescriptorProtocol):
         parent_descriptor_container = self._mdib.descriptions.handle.get_one(
-            descriptor_container.parent_handle)
-        parent_descriptor_container.increment_descriptor_version()
-        self.descr_updated.append(parent_descriptor_container.mk_copy())
-        self._update_corresponding_state(parent_descriptor_container)
+            descriptor_container.parent_handle, allow_none=True)
+        if parent_descriptor_container is not None:
+            parent_descriptor_container.increment_descriptor_version()
+            self.descr_updated.append(parent_descriptor_container.mk_copy())
+            self._update_corresponding_state(parent_descriptor_container)
 
     def _remove_corresponding_state(self, descriptor_container: AbstractDescriptorProtocol):
         if descriptor_container.is_context_descriptor:

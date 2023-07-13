@@ -45,12 +45,15 @@ class AbstractStateProtocol(Protocol):
     DescriptorVersion: int
     StateVersion: int
 
-    def __init__(self, descriptor_container: AbstractDescriptorProtocol):
+    def __init__(self, descriptor_container: AbstractDescriptorProtocol | None):
         ...
 
     def update_from_other_container(self, other: AbstractStateProtocol,
                                     skipped_properties: list[str] | None = None):
         """Copy all properties except the skipped ones to self."""
+
+    def update_from_node(self, node: ElementBase):
+        """Update members from node."""
 
 
 class AbstractStateContainer(ContainerBase):

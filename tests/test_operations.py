@@ -13,12 +13,12 @@ from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.mdib.providerwaveform import Annotator
-from sdc11073.roles.nomenclature import NomenclatureCodes as nc
+from sdc11073.roles.nomenclature import NomenclatureCodes
 from sdc11073.consumer import SdcConsumer
 from sdc11073.provider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.consumer.components import SdcConsumerComponents
-from sdc11073.dispatch import DispatchKeyRegistry
+from sdc11073.dispatch import RequestDispatcher
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
@@ -79,7 +79,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         x_addr = self.sdc_device.get_xaddrs()
         # no deferred action handling for easier debugging
         specific_components = SdcConsumerComponents(
-            action_dispatcher_class=DispatchKeyRegistry
+            action_dispatcher_class=RequestDispatcher
         )
         self.sdc_client = SdcConsumer(x_addr[0],
                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
@@ -302,7 +302,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         set_service = self.sdc_client.client('Set')
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
-        coding = pm_types.Coding(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
+        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
         operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
         future = set_service.activate(operation_handle=operation.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
@@ -318,7 +318,7 @@ class Test_BuiltinOperations(unittest.TestCase):
             # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
             self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
 
-        coding = pm_types.Coding(nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
+        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
         operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
         future = set_service.activate(operation_handle=operation.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
@@ -346,7 +346,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         x_addr = self.sdc_device.get_xaddrs()
         # no deferred action handling for easier debugging
         specific_components = SdcConsumerComponents(
-            action_dispatcher_class=DispatchKeyRegistry
+            action_dispatcher_class=RequestDispatcher
         )
         sdc_client2 = SdcConsumer(x_addr[0],
                                 sdc_definitions=self.sdc_device.mdib.sdc_definitions,
@@ -357,7 +357,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         client_mdib2 = ConsumerMdib(sdc_client2)
         client_mdib2.init_mdib()
         clients = (self.sdc_client, sdc_client2)
-        coding = pm_types.Coding(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
+        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
         operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
         future = set_service.activate(operation_handle=operation.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
@@ -374,7 +374,7 @@ class Test_BuiltinOperations(unittest.TestCase):
                 # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
                 self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
 
-        coding = pm_types.Coding(nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
+        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
         operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
         future = set_service.activate(operation_handle=operation.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
@@ -394,11 +394,11 @@ class Test_BuiltinOperations(unittest.TestCase):
         set_service = self.sdc_client.client('Set')
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
-        coding = pm_types.Coding(nc.MDC_OP_SET_TIME_SYNC_REF_SRC)
+        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC)
         my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
         if my_operation_descriptor is None:
             # try old code:
-            coding = pm_types.Coding(nc.OP_SET_NTP)
+            coding = pm_types.Coding(NomenclatureCodes.OP_SET_NTP)
             my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding)
 
         operation_handle = my_operation_descriptor.Handle
@@ -426,11 +426,11 @@ class Test_BuiltinOperations(unittest.TestCase):
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
 
-        coding = pm_types.Coding(nc.MDC_ACT_SET_TIME_ZONE)
+        coding = pm_types.Coding(NomenclatureCodes.MDC_ACT_SET_TIME_ZONE)
         my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
         if my_operation_descriptor is None:
             # use old code:
-            coding = pm_types.Coding(nc.OP_SET_TZ)
+            coding = pm_types.Coding(NomenclatureCodes.OP_SET_TZ)
             my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding)
 
         operation_handle = my_operation_descriptor.Handle

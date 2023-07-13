@@ -9,7 +9,7 @@ from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
 from sdc11073.dispatch import (
     DispatchKey,
-    DispatchKeyRegistry,
+    RequestDispatcher,
     MessageConverterMiddleware,
     PathElementRegistry,
     RequestData,
@@ -46,7 +46,7 @@ class _PathElementDispatcher(PathElementRegistry):
     Implements RequestHandlerProtocol.
     """
 
-    def register_instance(self, path_element: str | None, instance: DispatchKeyRegistry):
+    def register_instance(self, path_element: str | None, instance: RequestDispatcher):
         super().register_instance(path_element, instance)
 
     def on_post(self, request_data: RequestData) -> CreatedMessage:
@@ -62,13 +62,13 @@ class _PathElementDispatcher(PathElementRegistry):
 class WsDiscoveryProtocol(Protocol):
     """WsDiscoveryProtocol is the interface that SdcProvider expects."""
 
-    def publish_service(self, epr: str, types: list, scopes: ScopesType, x_addrs: list):  # noqa D102
+    def publish_service(self, epr: str, types: list, scopes: ScopesType, x_addrs: list):  # noqa: D102
         ...
 
-    def get_active_addresses(self) -> list:  # noqa D102
+    def get_active_addresses(self) -> list:  # noqa: D102
         ...
 
-    def clear_service(self, epr: str):  # noqa D102
+    def clear_service(self, epr: str):  # noqa: D102
         ...
 
 
@@ -157,7 +157,7 @@ class SdcProvider:
                                                               validate=validate)
 
         # host dispatcher provides data of the sdc device itself.
-        self._host_dispatcher = DispatchKeyRegistry()
+        self._host_dispatcher = RequestDispatcher()
         nsh = self._mdib.sdc_definitions.data_model.ns_helper
         self._host_dispatcher.register_post_handler(
             DispatchKey(f'{nsh.WXF.namespace}/Get', None),
