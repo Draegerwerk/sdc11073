@@ -57,7 +57,7 @@ class ConsumerSubscriptionProtocol(Protocol):
     @property
     def remaining_subscription_seconds(self) -> float:
         """Return the time span until when the subscription will expire."""
-        return 0.0  # only to make ruff happy.
+
     def on_notification(self, request_data: RequestData) -> CreatedMessage:
         """Process incoming notification."""
 
@@ -520,8 +520,8 @@ class ConsumerSubscriptionManager(threading.Thread,
                 except HTTPException as ex:
                     self._logger.info('unsubscribe failed got HTTPException: {}', ex)  # noqa: PLE1205
                 except Exception:  # noqa: BLE001
-                    self._logger.error('unsubscribe error: {}\n call stack:{} ', traceback.format_exc(),  # noqa: PLE1205
-                                       traceback.format_stack())
+                    self._logger.error(  # noqa: PLE1205
+                        'unsubscribe error: {}\n call stack:{} ', traceback.format_exc(), traceback.format_stack())
                     ret = False
         return ret
 

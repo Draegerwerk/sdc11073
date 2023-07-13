@@ -726,8 +726,8 @@ class TransactionProcessor:
             update_dict = self._mgr.context_state_updates
             all_context_states = self._mdib.context_states.descriptor_handle.get(
                 descriptor_container.Handle, [])
-            for context_states in all_context_states:
-                key = (descriptor_container.Handle, context_states.handle)
+            for context_state in all_context_states:
+                key = (descriptor_container.Handle, context_state.Handle)
                 # check if state is already present in this transaction
                 state_update = update_dict.get(key)
                 if state_update is not None:
@@ -735,7 +735,7 @@ class TransactionProcessor:
                     # update descriptor version
                     old_state, new_state = state_update
                 else:
-                    old_state = context_states
+                    old_state = context_state
                     new_state = old_state.mk_copy()
                     update_dict[key] = _TrItem(old_state, new_state)
                 new_state.descriptor_container = descriptor_container

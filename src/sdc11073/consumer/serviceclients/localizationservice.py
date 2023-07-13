@@ -18,18 +18,18 @@ class LocalizationServiceClient(HostedServiceClient):
     port_type_name = PrefixesEnum.SDC.tag('LocalizationService')
 
     def get_localized_texts(self, refs: list[str] | None = None,  # noqa: PLR0913
-                            version: int |None = None,
+                            version: int | None = None,
                             langs: list[str] | None = None,
                             text_widths: list[LocalizedTextWidth] | None = None,
                             number_of_lines: list[int] | None = None,
                             request_manipulator: RequestManipulatorProtocol | None = None) -> GetRequestResult:
         """Send a GetLocalizedText request.
 
-        :param refs: optional lis of reference names of the texts that are requested.
+        :param refs: optional list of reference names of the texts that are requested.
         :param version: optional revision of the referenced text that is requested.
         :param langs: optional list of language identifiers.
         :param text_widths: optional list of LocalizedTextWidth enums
-        :param number_of_lines: optional list
+        :param number_of_lines: optional list of integers.
         :param request_manipulator: see documentation of RequestManipulatorProtocol
         """
         data_model = self._sdc_definitions.data_model

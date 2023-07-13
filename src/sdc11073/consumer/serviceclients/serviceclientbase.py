@@ -9,22 +9,23 @@ from sdc11073.exceptions import ApiUsageError
 
 if TYPE_CHECKING:
     from concurrent.futures import Future
+
     from lxml.etree import QName
 
-    from sdc11073.consumer.manipulator import RequestManipulatorProtocol
-    from sdc11073.dispatch import DispatchKey
-    from sdc11073.namespaces import PrefixNamespace
-    from sdc11073.pysoap.msgreader import ReceivedMessage, MessageReader, PayloadData, MdibVersionGroupReader
-    from sdc11073.pysoap.msgfactory import CreatedMessage
-    from sdc11073.xml_types.addressing_types import EndpointReferenceType
-    from sdc11073.xml_types.mex_types import HostedServiceType
-    from sdc11073.xml_types.basetypes import MessageType
-
-    from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
     from sdc11073.consumer.consumerimpl import SdcConsumer
-    from sdc11073.pysoap.soapclient import SoapClientProtocol
-    from sdc11073.mdib.consumermdib import ConsumerMdib
+    from sdc11073.consumer.manipulator import RequestManipulatorProtocol
     from sdc11073.consumer.operations import OperationsManagerProtocol
+    from sdc11073.dispatch import DispatchKey
+    from sdc11073.mdib.consumermdib import ConsumerMdib
+    from sdc11073.namespaces import PrefixNamespace
+    from sdc11073.pysoap.msgfactory import CreatedMessage
+    from sdc11073.pysoap.msgreader import MdibVersionGroupReader, MessageReader, ReceivedMessage
+    from sdc11073.pysoap.soapclient import SoapClientProtocol
+    from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
+    from sdc11073.xml_types.addressing_types import EndpointReferenceType
+    from sdc11073.xml_types.basetypes import MessageType
+    from sdc11073.xml_types.mex_types import HostedServiceType
+
 
 class GetRequestResult:
     """Like ReceivedMessage, but plus result (StateContainers, DescriptorContainers, ...)."""
@@ -34,13 +35,13 @@ class GetRequestResult:
         self._result = result
 
     @property
-    def msg_reader(self)-> MessageReader:
+    def msg_reader(self) -> MessageReader:
         """Return the responsible message reader."""
         return self._received_message.msg_reader
 
     @property
-    def p_msg(self) -> ReceivedSoapMessage | PayloadData:
-        """Return the responsible message reader."""
+    def p_msg(self) -> ReceivedSoapMessage:
+        """Return the received ReceivedSoapMessage."""
         return self._received_message.p_msg
 
     @property
@@ -67,7 +68,7 @@ class GetRequestResult:
 class HostedServiceClient:
     """Base class of clients that call hosted services of a dpws device."""
 
-    additional_namespaces: list[PrefixNamespace] = []  # for special namespaces
+    additional_namespaces: tuple[PrefixNamespace] = ()  # for special namespaces
     # notifications is a list of notifications that a HostedServiceClient handles (for dispatching of subscribed data).
     # Derived classes will set this class variable accordingly:
     notifications: tuple[DispatchKey] = tuple()
@@ -86,7 +87,7 @@ class HostedServiceClient:
         self.soap_client = soap_client
         self._sdc_client = sdc_consumer
         self._sdc_definitions = sdc_consumer.sdc_definitions
-        self._msg_factory = sdc_consumer._msg_factory  # noqa: SLF001
+        self._msg_factory = sdc_consumer.msg_factory
         self.log_prefix = sdc_consumer.log_prefix
         self.dpws_hosted: HostedServiceType = dpws_hosted
         self.endpoint_reference: EndpointReferenceType = dpws_hosted.EndpointReference[0]
@@ -122,12 +123,16 @@ class HostedServiceClient:
     def __repr__(self) -> str:
         return f'{self.__class__.__name__} "{self._porttype}" endpoint = {self.endpoint_reference}'
 
-    def post_message(self, created_message: CreatedMessage, msg: str | None = None,
+    def post_message(self, created_message: CreatedMessage,
+                     msg: str | None = None,
                      request_manipulator: RequestManipulatorProtocol | None = None,
-                     validate: bool = True) -> ReceivedMessage | None:
+                     validate: bool = True) -> ReceivedMessage:
         """Post the created message to provider."""
         msg = msg or created_message.p_msg.payload_element.tag.split('}')[-1]
 
-        return self.soap_client.post_message_to(self._url.path, created_message, msg=msg,
-                                                request_manipulator=request_manipulator,
-                                                validate=validate)
+        response = self.soap_client.post_message_to(self._url.path, created_message, msg=msg,
+                                                    request_manipulator=request_manipulator,
+                                                    validate=validate)
+        if response is None:
+            raise ValueError('expect a response, got None')
+        return response

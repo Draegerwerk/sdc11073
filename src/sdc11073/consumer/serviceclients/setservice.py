@@ -131,11 +131,8 @@ class SetServiceClient(HostedServiceClient):
                             request_manipulator: RequestManipulatorProtocol | None = None) -> Future:
         """Send an SetComponentState request.
 
-        The set_component_state method corresponds to the SetComponentStateOperation objects in the MDIB and allows to insert or modify context states.
-        :param operation_handle: handle name as string
-        :param proposed_component_states: a list of domainmodel.AbstractDeviceComponentState instances or derived class
-        :param request_manipulator:
-        :return: a concurrent.futures.Future
+        The set_component_state method corresponds to the SetComponentStateOperation objects in the MDIB
+        and allows to insert or modify context states.
         """
         data_model = self._sdc_definitions.data_model
         tmp = ', '.join([f'{st.__class__.__name__} (DescriptorHandle={st.DescriptorHandle})'

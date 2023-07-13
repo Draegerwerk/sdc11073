@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import time
-from abc import ABC
 from dataclasses import dataclass
-from typing import Callable, Protocol
-
-from lxml import etree as etree_
+from typing import TYPE_CHECKING, Callable, Protocol
 
 from sdc11073 import loghelper
 from sdc11073.dispatch.request import RequestData
 from sdc11073.exceptions import InvalidActionError
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapenvelope import Fault, faultcodeEnum
+
+if TYPE_CHECKING:
+    from lxml.etree import QName
 
 
 @dataclass(frozen=True)
@@ -22,12 +22,9 @@ class DispatchKey:
     """
 
     action: str
-    message_tag: etree_.QName | None
+    message_tag: QName | None
 
     def __repr__(self) -> str:
-        if isinstance(self.message_tag, etree_.QName):
-            return (f'{self.__class__.__name__} action={self.action} '
-                    f'msg={self.message_tag.namespace}::{self.message_tag.localname}')
         return f'{self.__class__.__name__} action={self.action} msg={self.message_tag}'
 
 
@@ -41,14 +38,12 @@ class RequestHandlerProtocol(Protocol):
 
     def on_post(self, request_data: RequestData) -> CreatedMessage:
         """Dispatch POST requests."""
-        raise NotImplementedError
 
     def on_get(self, request_data: RequestData) -> str:
         """Dispatch GET requests."""
-        raise NotImplementedError
 
 
-class RequestDispatcherProtocol(RequestHandlerProtocol, ABC):
+class RequestDispatcherProtocol(RequestHandlerProtocol):
     """The Protocol of a RequestDispatcher.
 
     A RequestDispatcher forwards messages to registered handlers. It implements the RequestHandlerProtocol.
@@ -63,7 +58,6 @@ class RequestDispatcherProtocol(RequestHandlerProtocol, ABC):
         The DispatchKey is a specific Soap message body and action string combination.
         An incoming message with this message body and action is forwarded to th on_post_handler.
         """
-        raise NotImplementedError
 
     def register_get_handler(self, dispatch_key: str, on_get_handler: OnGetHandler):
         """Register a GET handler for a DispatchKey.
@@ -71,7 +65,6 @@ class RequestDispatcherProtocol(RequestHandlerProtocol, ABC):
         The DispatchKey is a specific Soap message body and action string combination.
         An incoming message with this message body and action is forwarded to th on_get_handler.
         """
-        raise NotImplementedError
 
 
 class RequestDispatcher(RequestDispatcherProtocol):  # derive from protocol to help typing identify it.
@@ -80,7 +73,7 @@ class RequestDispatcher(RequestDispatcherProtocol):  # derive from protocol to h
     it implements the RequestDispatcherProtocol.
     """
 
-    def __init__(self, log_prefix: str = None):
+    def __init__(self, log_prefix: str | None = None):
         self._post_handlers = {}
         self._get_handlers = {}
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)

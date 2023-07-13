@@ -112,8 +112,8 @@ class ProviderMdibMethods:
                         state.SelfCheckCount = 1
                     elif state.NODETYPE == pm.ClockState:  # noqa: SIM300
                         state.LastSet = time.time()
-                    if mdib._current_transaction is not None:  # noqa: SLF001
-                        mdib._current_transaction.add_state(state)  # noqa: SLF001
+                    if mdib.current_transaction is not None:
+                        mdib.current_transaction.add_state(state)
                     else:
                         mdib.states.add_object(state)
 
@@ -165,8 +165,8 @@ class ProviderMdibMethods:
             parent_handle = tmp.parent_handle
             tmp = self._mdib.descriptions.handle.get_one(parent_handle, allow_none=True)
             if tmp is None:
-                if self._mdib._current_transaction:  # noqa: SLF001
-                    tmp = self._mdib._current_transaction.get_descriptor_in_transaction(parent_handle)  # noqa: SLF001
+                if self._mdib.current_transaction:
+                    tmp = self._mdib.current_transaction.get_descriptor_in_transaction(parent_handle)
             if tmp is None:
                 raise KeyError(f'could not find mds descriptor for handle {container.Handle}')
         return None

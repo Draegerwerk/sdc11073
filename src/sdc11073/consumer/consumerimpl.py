@@ -59,7 +59,7 @@ class HostedServiceDescription:
         self._endpoint_address = endpoint_address
         self.service_id = service_id
         self._msg_reader = msg_reader
-        self._msg_factory = msg_factory
+        self.msg_factory = msg_factory
         self._data_model = data_model
         self.log_prefix = log_prefix
         self.meta_data: mex_types.Metadata| None = None
@@ -77,7 +77,7 @@ class HostedServiceDescription:
         """
         payload = mex_types.GetMetadata()
         inf = HeaderInformationBlock(action=payload.action, addr_to=self._endpoint_address)
-        created_message = self._msg_factory.mk_soap_message(inf, payload=payload)
+        created_message = self.msg_factory.mk_soap_message(inf, payload=payload)
         message_data = soap_client.post_message_to(self._url.path,
                                                    created_message,
                                                    msg=f'<{self.service_id}> read_metadata')
@@ -255,7 +255,7 @@ class SdcConsumer:
                                          validate=validate)
 
         msg_factory_cls = self._components.msg_factory_class
-        self._msg_factory = msg_factory_cls(self.sdc_definitions,
+        self.msg_factory = msg_factory_cls(self.sdc_definitions,
                                             additional_schema_specs,
                                             self._logger,
                                             validate=validate)
@@ -266,7 +266,7 @@ class SdcConsumer:
         self._notifications_splitter = _NotificationsSplitter(self)
 
         self._msg_converter = MessageConverterMiddleware(
-            self.msg_reader, self._msg_factory, self._logger, self._services_dispatcher)
+            self.msg_reader, self.msg_factory, self._logger, self._services_dispatcher)
 
     def set_mdib(self, mdib: ConsumerMdib | None):
         """SdcConsumer sometimes must know the mdib data (e.g. Set service, activate method)."""
@@ -290,7 +290,7 @@ class SdcConsumer:
 
     @property
     def _epr_urn(self) -> str:
-        # End Point Reference, e.g 'urn:uuid:8c26f673-fdbf-4380-b5ad-9e2454a65b6b'
+        """Return end point reference, e.g 'urn:uuid:8c26f673-fdbf-4380-b5ad-9e2454a65b6b'."""
         try:
             return self._epr.urn
         except AttributeError:
@@ -343,7 +343,7 @@ class SdcConsumer:
     def do_subscribe(self, dpws_hosted: HostedServiceType,  # noqa: PLR0913
                      filter_type: eventing_types.FilterType,
                      actions: Iterable[DispatchKey],
-                     expire_minutes: int | None = 60,
+                     expire_minutes: int = 60,
                      any_elements: list | None = None,
                      any_attributes: dict | None = None) -> ConsumerSubscription:
         """Send subscribe request to provider.
@@ -362,7 +362,7 @@ class SdcConsumer:
         subscription.subscribe(expire_minutes, any_elements, any_attributes)
         return subscription
 
-    def client(self, port_type_name: str) -> HostedServiceClient:
+    def client(self, port_type_name: str) -> HostedServiceClient | None:
         """Return the client for the given port type name.
 
         WDP and SDC use different port type names, e.g. WPF="Get", SDC="GetService".
@@ -463,7 +463,7 @@ class SdcConsumer:
         # start subscription manager
         subscription_manager_class = self._components.subscription_manager_class
         self._subscription_mgr = subscription_manager_class(self.msg_reader,
-                                                            self._msg_factory,
+                                                            self.msg_factory,
                                                             self.sdc_definitions.data_model,
                                                             self.get_soap_client,
                                                             self.base_url,
@@ -558,7 +558,7 @@ class SdcConsumer:
         nsh = self.sdc_definitions.data_model.ns_helper
         inf = HeaderInformationBlock(action=f'{nsh.WXF.namespace}/Get',
                                      addr_to=self._device_location)
-        message = self._msg_factory.mk_soap_message_etree_payload(inf, payload_element=None)
+        message = self.msg_factory.mk_soap_message_etree_payload(inf, payload_element=None)
 
         received_message_data = wsc.post_message_to(_url.path, message, msg='getMetadata')
         return mex_types.Metadata.from_node(received_message_data.p_msg.body_node)
@@ -571,14 +571,14 @@ class SdcConsumer:
         inf = HeaderInformationBlock(action=probe.action,
                                      addr_to=self._device_location)
 
-        message = self._msg_factory.mk_soap_message(inf, payload=probe)
+        message = self.msg_factory.mk_soap_message(inf, payload=probe)
         received_message_data = wsc.post_message_to(_url.path, message, msg='Probe')
         return ProbeMatchesType.from_node(received_message_data.p_msg.msg_node)
 
     def get_soap_client(self, address: str) -> SoapClientProtocol:
         """Return the soap client for address.
 
-        Method  creates a new soap client if needed.
+        Method creates a new soap client if needed.
         """
         _url = urlparse(address)
         key = (_url.scheme, _url.netloc)
@@ -618,7 +618,7 @@ class SdcConsumer:
             soap_client = self.get_soap_client(address)
             h_descr = HostedServiceDescription(
                 hosted.ServiceId, address,
-                self.msg_reader, self._msg_factory, self.sdc_definitions.data_model, self.log_prefix)
+                self.msg_reader, self.msg_factory, self.sdc_definitions.data_model, self.log_prefix)
             self.hosted_services[hosted.ServiceId] = h_descr
             h_descr.read_metadata(soap_client)
             for port_type in hosted.Types:

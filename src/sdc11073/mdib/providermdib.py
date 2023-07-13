@@ -58,7 +58,7 @@ class ProviderMdib(mdibbase.MdibBase):
         self.sequence_id = uuid.uuid4().urn  # this uuid identifies this mdib instance
 
         self._annotators = {}
-        self._current_transaction = None
+        self.current_transaction = None
 
         self.pre_commit_handler = None  # pre_commit_handler can modify transaction if needed before it is committed
         self.post_commit_handler = None  # post_commit_handler can modify mdib if needed after it is committed
@@ -77,41 +77,42 @@ class ProviderMdib(mdibbase.MdibBase):
         """Start a transaction, return a new transaction manager."""
         with self._tr_lock, self.mdib_lock:
             try:
-                self._current_transaction = self._transaction_cls(self, self.logger)
-                yield self._current_transaction
+                self.current_transaction = self._transaction_cls(self, self.logger)
+                yield self.current_transaction
+
                 if callable(self.pre_commit_handler):
-                    self.pre_commit_handler(self, self._current_transaction)
-                if self._current_transaction.error:
+                    self.pre_commit_handler(self, self.current_transaction)
+                if self.current_transaction.error:
                     self._logger.info('transaction_manager: transaction without updates!')
                 else:
-                    processor = self._current_transaction.process_transaction(set_determination_time)
+                    processor = self.current_transaction.process_transaction(set_determination_time)
                     self.transaction = processor  # update observable
-                    self._current_transaction.mdib_version = self.mdib_version
+                    self.current_transaction.mdib_version = self.mdib_version
 
                     if callable(self.post_commit_handler):
-                        self.post_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
+                        self.post_commit_handler(self, self.current_transaction)
             finally:
-                self._current_transaction = None
+                self.current_transaction = None
 
     @contextmanager
     def _rt_sample_transaction(self):
         with self._tr_lock, self.mdib_lock:
             try:
-                self._current_transaction = RtDataMdibUpdateTransaction(self, self._logger)
-                yield self._current_transaction
+                self.current_transaction = RtDataMdibUpdateTransaction(self, self._logger)
+                yield self.current_transaction
                 if callable(self.pre_commit_handler):
-                    self.pre_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
-                if self._current_transaction.error:
+                    self.pre_commit_handler(self, self.current_transaction)
+                if self.current_transaction.error:
                     self._logger.info('_rt_sample_transaction: transaction without updates!')
                 else:
                     self._process_internal_rt_transaction()
                     if callable(self.post_commit_handler):
-                        self.post_commit_handler(self, self._current_transaction)  # pylint: disable=not-callable
+                        self.post_commit_handler(self, self.current_transaction)
             finally:
-                self._current_transaction = None
+                self.current_transaction = None
 
     def _process_internal_rt_transaction(self):
-        mgr = self._current_transaction
+        mgr = self.current_transaction
         # handle real time samples
         if len(mgr.rt_sample_state_updates) > 0:
             self.mdib_version += 1
@@ -172,8 +173,7 @@ class ProviderMdib(mdibbase.MdibBase):
         mdib = cls(protocol_definition, log_prefix=log_prefix)
 
         xml_msg_reader = xml_reader_class(protocol_definition, None, mdib.logger)
-        message_data = xml_msg_reader.read_payload_data(xml_text)
-        descriptor_containers, state_containers = xml_msg_reader.read_get_mdib_response(message_data)
+        descriptor_containers, state_containers = xml_msg_reader.read_mdib_xml(xml_text)
 
         mdib.add_description_containers(descriptor_containers)
         mdib.add_state_containers(state_containers)

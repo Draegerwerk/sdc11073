@@ -81,25 +81,11 @@ class ReceivedMessage:
     """ReceivedMessage contains all data of a received Message."""
 
     msg_reader: MessageReader
-    p_msg: ReceivedSoapMessage | PayloadData
+    p_msg: ReceivedSoapMessage
     action: str | None
     q_name: etree_.QName
     mdib_version_group: MdibVersionGroupReader
 
-
-class PayloadData:
-    """Similar to ReceivedMessage, but it is only works with the body of the soap envelope, no addressing, action etc."""
-
-    def __init__(self, xml_text: bytes):
-        parser = etree_.ETCompatXMLParser(resolve_entities=False)
-        try:
-            self._doc_root = etree_.fromstring(xml_text, parser=parser)
-        except Exception as ex:
-            print(f'load error "{ex}" in "{xml_text}"')
-            raise
-        self.raw_data = xml_text
-        self.msg_node = self._doc_root
-        self.msg_name = etree_.QName(self.msg_node.tag)
 
 
 class MessageReader:
@@ -171,22 +157,17 @@ class MessageReader:
         return ReceivedMessage(self, message, message.header_info_block.Action.text,
                                message.msg_name, mdib_version_group)
 
-    def read_payload_data(self, xml_text: bytes) -> ReceivedMessage:
-        """Read only payload part of a message."""
-        payload = PayloadData(xml_text)
-        action = None
-        mdib_version_group = None
-        if payload.msg_node is not None:
-            mdib_version_group = MdibVersionGroupReader.from_node(payload.msg_node)
-            self._validate_node(payload.msg_node)
-        return ReceivedMessage(self, payload, action, payload.msg_name, mdib_version_group)
-
     def read_get_mdib_response(self, received_message_data: ReceivedMessage) -> (
+    list[AbstractDescriptorProtocol], list[AbstractStateProtocol]):
+        """Return list of all descriptors and states in mdib of received message."""
+        mdib_node = received_message_data.p_msg.msg_node[0]
+        return self.read_get_mdib_payload(mdib_node)
+
+    def read_get_mdib_payload(self, mdib_node: etree_.ElementBase) -> (
     list[AbstractDescriptorProtocol], list[AbstractStateProtocol]):
         """Return list of all descriptors and states in mdib."""
         descriptors = []
         states = []
-        mdib_node = received_message_data.p_msg.msg_node[0]
         md_descr_node = mdib_node.find(self.pm_names.MdDescription)
         md_state_node = mdib_node.find(self.pm_names.MdState)
         if md_descr_node is not None:
@@ -194,6 +175,25 @@ class MessageReader:
         if md_state_node is not None:
             states = self._read_md_state_node(md_state_node)
         return descriptors, states
+
+    def read_mdib_xml(self, xml_text: bytes) -> (list[AbstractDescriptorProtocol], list[AbstractStateProtocol]):
+        """Return list of all descriptors and states in mdib."""
+        payload = self.read_xml_text(xml_text)
+        q_name = etree_.QName(payload.tag)
+        if q_name == self.msg_names.GetMdibResponse:
+            return self.read_get_mdib_payload(payload[0])
+        return self.read_get_mdib_payload(payload)
+
+    def read_xml_text(self, xml_text: bytes) -> etree_.ElementBase:
+        """Parse imput, return a node."""
+        parser = etree_.ETCompatXMLParser(resolve_entities=False)
+        try:
+            node = etree_.fromstring(xml_text, parser=parser)
+        except Exception as ex:
+            print(f'load error "{ex}" in "{xml_text}"')
+            raise
+        self._validate_node(node)
+        return node
 
     def _read_md_description_node(self, md_description_node: etree_.ElementBase) -> list[AbstractDescriptorProtocol]:
         descriptions = []

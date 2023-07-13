@@ -9,21 +9,16 @@ from .serviceclientbase import GetRequestResult, HostedServiceClient
 
 if TYPE_CHECKING:
     from sdc11073.consumer.manipulator import RequestManipulatorProtocol
-
+    from collections.abc import Iterable
 
 class CTreeServiceClient(HostedServiceClient):
     """Client for ContainmentTreeService."""
 
     port_type_name = PrefixesEnum.SDC.tag('ContainmentTreeService')
 
-    def get_descriptor(self, handles: list[str],
+    def get_descriptor(self, handles: Iterable[str],
                        request_manipulator: RequestManipulatorProtocol | None = None) -> GetRequestResult:
-        """Send a GetDescriptor request to provider.
-
-        :param handles: a list of strings
-        :param request_manipulator: see documentation of RequestManipulatorProtocol
-        :return: GetRequestResult
-        """
+        """Send a GetDescriptor request to provider."""
         data_model = self._sdc_definitions.data_model
         request = data_model.msg_types.GetDescriptor()
         request.HandleRef.extend(handles)
@@ -35,14 +30,9 @@ class CTreeServiceClient(HostedServiceClient):
         report = cls.from_node(received_message_data.p_msg.msg_node)
         return GetRequestResult(received_message_data, report)
 
-    def get_containment_tree(self, handles: list[str],
+    def get_containment_tree(self, handles: Iterable[str],
                              request_manipulator: RequestManipulatorProtocol | None = None) -> GetRequestResult:
-        """Send a GetContainmentTree request to provider.
-
-        :param handles: a list of strings
-        :param request_manipulator: see documentation of RequestManipulatorProtocol
-        :return: GetRequestResult
-        """
+        """Send a GetContainmentTree request to provider."""
         data_model = self._sdc_definitions.data_model
         request = data_model.msg_types.GetContainmentTree()
         request.HandleRef.extend(handles)

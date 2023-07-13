@@ -26,7 +26,13 @@ class OperationsManagerProtocol(Protocol):
     def call_operation(self, hosted_service_client: HostedServiceClient,
                        message: CreatedMessage,
                        request_manipulator: RequestManipulatorProtocol | None = None) -> Future:
-        """Call an operation."""
+        """Call an operation.
+
+        An operation call does not return the result of the operation directly. You get a transaction id,
+        and will receive the status of this transaction as notification ("OperationInvokedReport").
+        This method returns a "Future" object.
+        The Future object has a result as soon as a final transaction state is received.
+        """
 
     def on_operation_invoked_report(self, message_data: ReceivedMessage):
         """Check operation state and set future result if it is a final state."""
@@ -50,17 +56,7 @@ class OperationsManager(OperationsManagerProtocol):  # inheriting from protocol 
     def call_operation(self, hosted_service_client: HostedServiceClient,
                        message: CreatedMessage,
                        request_manipulator: RequestManipulatorProtocol | None = None) -> Future:
-        """Call an operation.
-
-        An operation call does not return the result of the operation directly. You get a transaction id,
-        and will receive the status of this transaction as notification ("OperationInvokedReport").
-        This method returns a "future" object.
-        The future object has a result as soon as a final transaction state is received.
-        :param hosted_service_client:
-        :param message: the CreatedMessage to be sent
-        :param request_manipulator: see documentation of RequestManipulatorProtocol
-        :return: a concurrent.futures.Future object.
-        """
+        """Call an operation."""
         ret = Future()
         with self._transactions_lock:
             message_data = hosted_service_client.post_message(message,

@@ -120,10 +120,10 @@ class SubscriptionBase:
         self.last_roundtrip_times = deque(
             maxlen=MAX_ROUNDTRIP_VALUES)  # a list of last n roundtrip times for notifications
         self.max_roundtrip_time = 0
-        self._soap_client_pool.register_netloc_user(self.notify_to_url.netloc, self)
+        self._soap_client_pool.register_netloc_user(self.notify_to_url.netloc, self.on_unreachable)
 
     def set_reference_parameter(self):
-        """Create a ReferenceParameters instance with a reference parameter"""
+        """Create a ReferenceParameters instance with a reference parameter."""
         reference_parameter = etree_.Element(self.IDENT_TAG)
         reference_parameter.text = self.identifier_uuid.hex
         self.reference_parameters.append(reference_parameter)
@@ -148,12 +148,13 @@ class SubscriptionBase:
     def _get_soap_client(self):
         if self._soap_client is None:
             self._soap_client = self._soap_client_pool.get_soap_client(self.notify_to_url.netloc,
-                                                                       self._accepted_encodings, self)
+                                                                       self._accepted_encodings,
+                                                                       self.on_unreachable)
         return self._soap_client
 
     def _release_soap_client(self):
         if self._soap_client is not None:
-            self._soap_client_pool.forget(self.notify_to_url.netloc, self)
+            self._soap_client_pool.forget_callable(self.notify_to_url.netloc, self.on_unreachable)
 
     @property
     def remaining_seconds(self):

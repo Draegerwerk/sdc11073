@@ -11,7 +11,6 @@ from sdc11073.xml_types import xml_structure as struct
 from sdc11073.xml_types.basetypes import ElementWithText, MessageType, XMLTypeBase
 
 if TYPE_CHECKING:
-    from sdc11073.pysoap.msgreader import PayloadData
     from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 
 CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
@@ -20,7 +19,7 @@ CHECK_NAMESPACES = False  # can be used to enable additional checks for too many
 class SoapResponseError(Exception):
     """Exception raised when Response could not be processed."""
 
-    def __init__(self, response_envelope: ReceivedSoapMessage | PayloadData):
+    def __init__(self, response_envelope: ReceivedSoapMessage):
         super().__init__()
         self.response_envelope = response_envelope
 
@@ -79,9 +78,6 @@ class ReceivedSoapMessage:
     """Represents a received soap envelope."""
 
     __slots__ = ('msg_node', 'msg_name', 'raw_data', 'header_info_block', '_doc_root', 'header_node', 'body_node')
-
-    msg_node: etree_.ElementBase | None
-    msg_name: etree_.QName | None
 
     def __init__(self, xml_text: bytes, doc_root: etree_.ElementBase):
         self.raw_data = xml_text

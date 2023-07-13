@@ -98,6 +98,9 @@ class SoapClientProtocol(Protocol):
     def connect(self):
         """Connect to net location."""
 
+    def close(self):
+        """Close connection."""
+
     @property
     def sock(self) -> socket.SocketType | None:
         """Return used socket."""
