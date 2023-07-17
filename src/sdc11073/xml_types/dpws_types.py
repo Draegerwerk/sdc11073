@@ -86,7 +86,7 @@ class ThisDeviceType(XMLTypeBase):
                                              value_class=LocalizedStringType)
     FirmwareVersion = cp.NodeStringProperty(default_ns_helper.DPWS.tag('FirmwareVersion'), is_optional=True)
     SerialNumber = cp.NodeStringProperty(default_ns_helper.DPWS.tag('SerialNumber'), is_optional=True)
-    _props = ['FriendlyName', 'FirmwareVersion']
+    _props = ['FriendlyName', 'FirmwareVersion', 'SerialNumber']
 
     def __init__(self, friendly_name: Union[str, LocalizedStringTypeDict, None] = None,
                  firmware_version: Optional[str] = None,
