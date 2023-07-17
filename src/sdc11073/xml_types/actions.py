@@ -7,7 +7,6 @@ _ActionsNamespace = ns_hlp.SDC.namespace
 class Actions(str, Enum):
     """ Central definition of all action strings used in BICEPS"""
     OperationInvokedReport = _ActionsNamespace + '/SetService/OperationInvokedReport'
-    ContextOperationInvokedReport = _ActionsNamespace + '/ContextService/OperationInvokedReport'
     EpisodicContextReport = _ActionsNamespace + '/ContextService/EpisodicContextReport'
     EpisodicMetricReport = _ActionsNamespace + '/StateEventService/EpisodicMetricReport'
     EpisodicOperationalStateReport = _ActionsNamespace + '/StateEventService/EpisodicOperationalStateReport'
