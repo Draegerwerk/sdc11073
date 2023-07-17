@@ -76,9 +76,11 @@ class OperationDefinition:
     def descriptor_container(self):
         return self._descriptor_container
 
-    def execute_operation(self, request, operation_request):  # pylint: disable=unused-argument
-        """ This is the code that executes the operation itself.
-        A handler that executes the operation must be bound to observable "current_request"."""
+    def execute_operation(self, request, operation_request):
+        """Execute the operation itself.
+
+        A handler that executes the operation must be bound to observable "current_request".
+        """
         self.calls.append((time.time(), request))
         self.current_request = request
         self.current_argument = operation_request.argument
@@ -121,38 +123,20 @@ class OperationDefinition:
             self._operation_state_container = cls(self._descriptor_container)
             mdib.states.add_object(self._operation_state_container)
 
-        # now add the object that is target of operation
-        self._init_operation_target_container()
-
     def _init_operation_descriptor_container(self):
         self._descriptor_container.OperationTarget = self._operation_target_handle
         if self._coded_value is not None:
             self._descriptor_container.Type = self._coded_value
 
-    def _init_operation_target_container(self):
-        """Create the object that is manipulated by the operation."""
-        operation_target_descriptor = self._mdib.descriptions.handle.get_one(self._operation_target_handle)
-        self._operation_target_container = self._mdib.states.descriptor_handle.get_one(self._operation_target_handle,
-                                                                                      allow_none=True)  # pylint:disable=protected-access
-        if self._operation_target_container is not None:
-            self._logger.debug('operation target state for operation "{}" is already present, re-using it',
-                              self._operation_target_handle)
-        else:
-            self._operation_target_container = self._mdib.data_model.mk_state_container(operation_target_descriptor)
-            self._logger.info('creating {} DescriptorHandle = {}', self._operation_target_container.__class__.__name__,
-                              self._operation_target_handle)
-            if self._operation_target_container is not None:
-                storage = self._mdib.context_states if self._operation_target_container.is_multi_state else self._mdib.states
-                storage.add_object(self._operation_target_container)
-
     def set_operating_mode(self, mode):
-        """ Mode is one of En, Dis, NA"""
+        """Mode is one of En, Dis, NA"""
         with self._mdib.transaction_manager() as mgr:
             state = mgr.get_state(self._handle)
             state.OperatingMode = mode
 
     def collect_values(self, number_of_values=None):
-        """ Async way to retrieve next value(s):
+        """Async way to retrieve next value(s).
+
         Returns a Future-like object that has a result() method.
         For details see properties.SingleValueCollector and propertiesValuesCollector documentation.
         """
