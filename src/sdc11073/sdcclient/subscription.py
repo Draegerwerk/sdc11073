@@ -198,6 +198,9 @@ class ClSubscription(object):
             raise SoapResponseException(soapEnvelope)
 
     def renew(self, expire_minutes=60):
+        if not self.isSubscribed:
+            return 0.0
+
         soapEnvelope = self._mkRenewEnvelope(expire_minutes)
         try:
             resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
@@ -224,7 +227,7 @@ class ClSubscription(object):
     def unsubscribe(self):
         if not self.isSubscribed:
             return
-
+        self.isSubscribed = False  # handle it as unsubscribed from now on
         soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
         soapEnvelope.setAddress(WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Unsubscribe',
                                           to=urlunparse(self._subscriptionManagerAddress)))
@@ -254,6 +257,8 @@ class ClSubscription(object):
         """ Sends a GetStatus Request to the device.
         :return: the remaining time of the subscription or None, if the request was not successful
         """
+        if not self.isSubscribed:
+            return 0.0
         soapEnvelope = self._mkGetStatusEnvelope()
         try:
             resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
