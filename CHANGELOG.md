@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - possible choosing wrong ipaddress/network interface [#187](https://github.com/Draegerwerk/sdc11073/issues/187)
 - added missing SerialNumber to ThisDeviceType
 - no creation of operation target states, they should already exist or are not needed if multi state.
+- transaction id is unique for provider instead only of sco. 
+- fixed problem that on operations without handler the transaction id always was 0.
 
 ## Added
 - `network` module to handle network adapter stuff of the host computer
