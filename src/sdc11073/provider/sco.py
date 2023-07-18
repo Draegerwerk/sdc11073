@@ -1,5 +1,5 @@
-"""
-This Module contains code handles Service Controller operations (sco).
+"""Sco Module implements Service Controller Operations(sco) functionality.
+
 All remote control commands of a client are executed by sco instances.
 
 These operations share a common behavior:
@@ -164,22 +164,17 @@ class _OperationsWorker(threading.Thread):
         self._set_service: SetServiceProtocol = set_service
         self._mdib = mdib
         self._operations_queue = queue.Queue(10)  # spooled operations
-        self._transaction_id = 1
-        self._transaction_id_lock = threading.Lock()
         self._logger = loghelper.get_logger_adapter('sdc.device.op_worker', log_prefix)
 
-    def enqueue_operation(self, operation, request, operation_request):
-        """ enqueues operation "operation".
+    def enqueue_operation(self, operation, request, operation_request, transaction_id: int):
+        """Enqueue operation "operation".
+
         :param operation: a callable with signature operation(request, mdib)
         :param request: the soapEnvelope of the request
-        :param argument: parsed argument for the operation handler
-        @return: a transaction Identifier
+        :param operation_request: parsed argument for the operation handler
+        :param transaction_id: int
         """
-        with self._transaction_id_lock:
-            transaction_id = self._transaction_id
-            self._transaction_id += 1
         self._operations_queue.put((transaction_id, operation, request, operation_request), timeout=1)
-        return transaction_id
 
     def run(self):
         data_model = self._mdib.data_model
@@ -311,13 +306,15 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
     def get_operation_by_handle(self, operation_handle: str) -> OperationDefinition:
         return self._registered_operations.get(operation_handle)
 
-    def enqueue_operation(self, operation: OperationDefinition, request, operation_request):
-        """ enqueues operation "operation".
+    def enqueue_operation(self, operation: OperationDefinition, request, operation_request, transaction_id: int):
+        """Enqueue operation "operation".
+
         :param operation: a callable with signature operation(request, mdib)
         :param request: the soapEnvelope of the request
-        @return: a transaction Id
+        :param operation_request: the argument for the operation
+        :param transaction_id:
         """
-        return self._worker.enqueue_operation(operation, request, operation_request)
+        self._worker.enqueue_operation(operation, request, operation_request, transaction_id)
 
     def start_worker(self):
         if self._worker is not None:

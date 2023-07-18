@@ -169,15 +169,16 @@ class ServiceWithOperations(DPWSPortTypeBase):
         """
         data_model = self._sdc_definitions.data_model
         operation = self._sdc_device.get_operation_by_handle(request.OperationHandleRef)
+        transaction_id  = self._sdc_device.generate_transaction_id()
+        set_response.InvocationInfo.TransactionId = transaction_id
         if operation is None:
             error_text = f'no handler registered for "{request.OperationHandleRef}"'
             self._logger.warn('handle operation request: {}', error_text)
-            set_response.InvocationInfo.TransactionId = 0
             set_response.InvocationInfo.InvocationState = data_model.msg_types.InvocationState.FAILED
             set_response.InvocationInfo.InvocationError = data_model.msg_types.InvocationError.INVALID_VALUE
+            set_response.InvocationInfo.add_error_message(error_text)
         else:
-            set_response.InvocationInfo.TransactionId = self._sdc_device.enqueue_operation(
-                operation, request_data.message_data.p_msg, request)
+            self._sdc_device.enqueue_operation(operation, request_data.message_data.p_msg, request, transaction_id)
             self._logger.info('operation request "{}" enqueued, transaction id = {}',
                               request.OperationHandleRef, set_response.InvocationInfo.TransactionId)
             set_response.InvocationInfo.InvocationState = data_model.msg_types.InvocationState.WAIT

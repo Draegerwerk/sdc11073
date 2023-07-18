@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import threading
 import uuid
 from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import SplitResult
@@ -177,6 +178,9 @@ class SdcProvider:
         self._msg_converter = MessageConverterMiddleware(
             self.msg_reader, self.msg_factory, self._logger, self._hosted_service_dispatcher)
 
+        self._transaction_id = 0 # central transaction number handling for all called operations.
+        self._transaction_id_lock = threading.Lock()
+
         # these are initialized in _setup_components:
         self._subscriptions_managers = {}
         self._soap_client_pool = SoapClientPool(self._mk_soap_client, log_prefix)
@@ -189,6 +193,12 @@ class SdcProvider:
         self.base_urls = []  # will be set after httpserver is started
         properties.bind(device_mdib_container, transaction=self._send_episodic_reports)
         properties.bind(device_mdib_container, rt_updates=self._send_rt_notifications)
+
+    def generate_transaction_id(self) -> int:
+        """Return a new transaction id."""
+        with self._transaction_id_lock:
+            self._transaction_id += 1
+            return self._transaction_id
 
     def _mk_soap_client(self, netloc: str, accepted_encodings: list[str]) -> Any:
         cls = self._components.soap_client_class
@@ -344,11 +354,11 @@ class SdcProvider:
                 return op
         return None
 
-    def enqueue_operation(self, operation, request, operation_request):
+    def enqueue_operation(self, operation, request, operation_request, transaction_id):
         for sco in self._sco_operations_registries.values():
             has_this_operation = sco.get_operation_by_handle(operation.handle) is not None
             if has_this_operation:
-                return sco.enqueue_operation(operation, request, operation_request)
+                return sco.enqueue_operation(operation, request, operation_request, transaction_id)
         return None
 
     def get_toplevel_sco_list(self) -> list:
