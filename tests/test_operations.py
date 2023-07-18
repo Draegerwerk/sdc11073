@@ -533,3 +533,21 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertEqual(updated_component_state.StateVersion, before_state_version + 1)
         self.assertEqual(updated_component_state.OperatingHours, new_operating_hours)
 
+    def test_operation_without_handler(self):
+        """Verify that a correct response is sent."""
+        set_service = self.sdc_client.client('Set')
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+
+        operation_handle = 'SVO.42.2.1.1.2.0-6'
+        value = 'foobar'
+        future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
+        result = future.result(timeout=SET_TIMEOUT)
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msg_types.InvocationState.FAILED)
+        self.assertIsNotNone(result.InvocationInfo.InvocationError)
+        # Verify that transaction id increases even with "invalid" calls.
+        future2 = set_service.set_string(operation_handle=operation_handle, requested_string=value)
+        result2 = future2.result(timeout=SET_TIMEOUT)
+        self.assertGreater(result2.InvocationInfo.TransactionId, result.InvocationInfo.TransactionId)
+
