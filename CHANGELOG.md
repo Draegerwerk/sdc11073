@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - no creation of operation target states, they should already exist or are not needed if multi state.
 - transaction id is unique for provider instead only of sco. 
 - fixed problem that on operations without handler the transaction id always was 0.
+- consumer: renew could be sent after unsubscribe
+
 
 ## Added
 - `network` module to handle network adapter stuff of the host computer
