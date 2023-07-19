@@ -21,7 +21,7 @@ from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.mdib.providerwaveform import Annotator
-from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
+from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
 from sdc11073.pysoap.msgfactory import CreatedMessage
@@ -30,7 +30,9 @@ from sdc11073.consumer import SdcConsumer
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.provider import waveforms
-from sdc11073.provider.components import SdcProviderComponents, default_sdc_provider_components_async
+from sdc11073.provider.components import (SdcProviderComponents,
+                                          default_sdc_provider_components_async,
+                                          default_sdc_provider_components_sync)
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.namespaces import default_ns_helper
@@ -245,7 +247,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041)
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
+                                                    default_components=default_sdc_provider_components_async,
+                                                    max_subscription_duration=10)  # shorter duration for faster tests
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -278,7 +282,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             if self.sdc_device:
                 self.sdc_device.stop_all()
             if self.sdc_client:
-                self.sdc_client.stop_all()
+                self.sdc_client.stop_all(unsubscribe=False)
             self.wsd.stop()
         except:
             sys.stderr.write(traceback.format_exc())
@@ -406,6 +410,23 @@ class Test_Client_SomeDevice(unittest.TestCase):
             mgr = hosted_service.subscriptions_manager
             self.assertEqual(len(mgr._subscriptions.objects), 0)
 
+    def test_no_renew(self):
+        self.logger.info('stopping client')
+        self.sdc_client.stop_all()
+        self.assertEqual(len(self.sdc_device._soap_client_pool._soap_clients), 0)
+        # make renew period much longer than max subscription duration
+        # => all subscription expired,  all soap clients closed
+        self.logger.info('starting client again  with fixed_renew_interval=1000')
+        self.sdc_client.start_all(fixed_renew_interval=1000)
+        time.sleep(1)
+        self.assertGreater(len(self.sdc_device._soap_client_pool._soap_clients), 0)
+        sleep_time = int(self.sdc_device._max_subscription_duration + 3)
+        self.logger.info('sleep now for %d seconds', sleep_time)
+        time.sleep(sleep_time)
+        self.logger.info('check that all soap clients are closed')
+        self.assertEqual(len(self.sdc_device._soap_client_pool._soap_clients), 0)
+        self.sdc_client.stop_all(unsubscribe=False)  # avoid errors in tearDown
+
     def test_client_stop_no_unsubscribe(self):
         self.log_watcher.setPaused(True)  # this test will have error logs, no check
         cl_mdib = ConsumerMdib(self.sdc_client)
@@ -492,7 +513,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                    ssl_context=None,
                                    validate=CLIENT_VALIDATE,
-                                   specific_components=specific_components)
+                                   specific_components=specific_components,
+                                     log_prefix='consumer2 ')
             sdc_client.start_all(subscribe_periodic_reports=True)
 
             cl_mdib = ConsumerMdib(sdc_client)
@@ -500,6 +522,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(self.sdc_device.mdib.instance_id, cl_mdib.instance_id)
         finally:
             if sdc_client:
+                time.sleep(1)
                 sdc_client.stop_all()
 
     def test_metric_report(self):
@@ -1309,7 +1332,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.sdc_client.stop_all()
 
 
-class Test_Client_SomeDevice_async(unittest.TestCase):
+class Test_Client_SomeDevice_sync(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
         self.logger = get_logger_adapter('sdc.test')
@@ -1319,7 +1342,7 @@ class Test_Client_SomeDevice_async(unittest.TestCase):
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='',
-                                                    default_components=default_sdc_provider_components_async,
+                                                    default_components=default_sdc_provider_components_sync,
                                                     chunked_messages=True)
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]

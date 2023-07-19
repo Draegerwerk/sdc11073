@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 import time
 from threading import Lock
 from typing import TYPE_CHECKING

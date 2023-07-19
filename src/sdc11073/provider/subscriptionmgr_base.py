@@ -6,27 +6,28 @@ import time
 import traceback
 import uuid
 from collections import deque
-from typing import TYPE_CHECKING, List, Union, Any, Protocol
+from threading import Thread
+from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import urlparse
 
 from lxml import etree as etree_
 
+from sdc11073 import loghelper, multikey, observableproperties
+from sdc11073.etc import apply_map
+from sdc11073.pysoap.soapclient import HTTPReturnCodeError
+from sdc11073.pysoap.soapenvelope import Fault, faultcodeEnum
+from sdc11073.xml_types import eventing_types as evt_types
+from sdc11073.xml_types import isoduration
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from .. import loghelper
-from .. import multikey
-from .. import observableproperties
-from ..etc import apply_map
-from ..pysoap.soapclient import HTTPReturnCodeError
-from ..pysoap.soapenvelope import Fault, faultcodeEnum
-from ..xml_types import eventing_types as evt_types, isoduration
-from ..xml_types.basetypes import MessageType
+from sdc11073.xml_types.basetypes import MessageType
 
 if TYPE_CHECKING:
-    from ..definitions_base import BaseDefinitions
-    from ..pysoap.msgfactory import MessageFactory, CreatedMessage
-    from ..dispatch import RequestData
-    from ..pysoap.soapclientpool import SoapClientPool
     from urllib.parse import SplitResult
+
+    from sdc11073.definitions_base import BaseDefinitions
+    from sdc11073.dispatch import RequestData
+    from sdc11073.pysoap.msgfactory import CreatedMessage, MessageFactory
+    from sdc11073.pysoap.soapclientpool import SoapClientPool
 
 MAX_ROUNDTRIP_VALUES = 20
 
@@ -46,7 +47,7 @@ class RoundTripData:
             self.avg = None
             self.abs_max = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'min={self.min:.4f} max={self.max:.4f} avg={self.avg:.4f} absmax={self.abs_max:.4f}'
 
 
@@ -66,14 +67,13 @@ class SubscriptionBase:
 
     def __init__(self, mgr,
                  subscribe_request: evt_types.Subscribe,
-                 accepted_encodings: List[str],
-                 base_urls: List[SplitResult],
+                 accepted_encodings: list[str],
+                 base_urls: list[SplitResult],
                  max_subscription_duration: int,
                  soap_client_pool: SoapClientPool,
                  msg_factory: MessageFactory,
                  log_prefix: str):
-        """
-        :param mgr: the parent subscription manager
+        """:param mgr: the parent subscription manager
         :param subscribe_request:
         :param base_urls:
         :param max_subscription_duration:
@@ -120,7 +120,6 @@ class SubscriptionBase:
         self.last_roundtrip_times = deque(
             maxlen=MAX_ROUNDTRIP_VALUES)  # a list of last n roundtrip times for notifications
         self.max_roundtrip_time = 0
-        self._soap_client_pool.register_netloc_user(self.notify_to_url.netloc, self.on_unreachable)
 
     def set_reference_parameter(self):
         """Create a ReferenceParameters instance with a reference parameter."""
@@ -136,8 +135,8 @@ class SubscriptionBase:
             self._expire_seconds = self._max_subscription_duration
 
     def matches(self, what: Any) -> bool:
-        """
-        Check if "what" parameter matches the filter criteria.
+        """Check if "what" parameter matches the filter criteria.
+
         The FilterType of eventing standard is very generic, it also has "any" types.
         THe type of "what" is determined by the Dialect parameter of FilterType.
         :param what: something that identifies a filter criteria of a notification message.
@@ -149,12 +148,12 @@ class SubscriptionBase:
         if self._soap_client is None:
             self._soap_client = self._soap_client_pool.get_soap_client(self.notify_to_url.netloc,
                                                                        self._accepted_encodings,
-                                                                       self.on_unreachable)
+                                                                       self)
         return self._soap_client
 
     def _release_soap_client(self):
         if self._soap_client is not None:
-            self._soap_client_pool.forget_callable(self.notify_to_url.netloc, self.on_unreachable)
+            self._soap_client_pool.forget_usr(self.notify_to_url.netloc, self)
 
     @property
     def remaining_seconds(self):
@@ -204,9 +203,9 @@ class SubscriptionBase:
             self.notify_errors = 0
             self._is_connection_error = False
             self._is_closed = True
-        except Exception:
+        except Exception as ex:  # noqa: BLE001
             # it does not matter that we could not send the message - end is end ;)
-            pass
+            self._logger.info('could not send subscription end message, error = {}', ex)  # noqa: PLE1205
 
     def close(self):
         self._is_closed = True
@@ -215,26 +214,15 @@ class SubscriptionBase:
     def is_closed(self):
         return self._is_closed
 
-    def on_unreachable(self):
-        """This method is called when another subscription detected a connection problem.
-        It delegates the message to subscription manager"""
-        self._is_connection_error = True
-        self._is_closed = True
-        self._mgr.on_unreachable_netloc(self)
-
-    def __repr__(self):
+    def __repr__(self) -> str:
         try:
-            if self.notify_ref_params is None:
-                ref_ident = '<none>'
-            else:
-                ref_ident = str(
-                    self.notify_ref_params)
+            ref_ident = "<none>" if self.notify_ref_params is None else str(self.notify_ref_params)
         except TypeError:
             ref_ident = '<unknown>'
-        return f'{self.__class__.__name__}(notify_to={self.notify_to_address} ident={ref_ident}, ' \
-               f'my identifier={self.identifier_uuid.hex}, expires={self.remaining_seconds})'
+        return (f'{self.__class__.__name__}(notify_to={self.notify_to_address} ident={ref_ident}, '
+                f'my identifier={self.identifier_uuid.hex}, expires={self.remaining_seconds})')
 
-    def get_roundtrip_stats(self):
+    def get_roundtrip_stats(self) -> RoundTripData:
         if len(self.last_roundtrip_times) > 0:
             return RoundTripData(self.last_roundtrip_times, self.max_roundtrip_time)
         return RoundTripData(None, None)
@@ -246,39 +234,32 @@ class SubscriptionBase:
 
 class ActionBasedSubscription(SubscriptionBase):
     """Subscription for specific actions.
-    Actions are a space separated list of strings in FilterType.text. """
+
+    Actions are a space separated list of strings in FilterType.text.
+    """
 
     def __init__(self, *args, **kwargs):
         # split the filter sting into separate action strings and keep them
         self.actions_filter: list[str] = []
-        self._short_filter_names: list[str] = [] # helper for shorter log entries
+        self._short_filter_names: list[str] = []  # helper for shorter log entries
         super().__init__(*args, **kwargs)
         if self.filter_type is not None:
             self.actions_filter.extend(self.filter_type.text.split())
             self._short_filter_names = [f.split('/')[-1] for f in self.actions_filter]
 
     def matches(self, what: Any) -> bool:
-        """
-
-        :param what: this must be a string
+        """:param what: this must be a string
         :return: True if argument matches one of the strings in self.actions_filter, else False
         """
         action: str = what.strip()  # just to be sure there are no spaces
-        for filter_string in self.actions_filter:
-            if filter_string.endswith(action):
-                return True
-        return False
+        return any(filter_string.endswith(action) for filter_string in self.actions_filter)
 
     def short_filter_names(self) -> list[str]:
         return self._short_filter_names
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         try:
-            if self.notify_ref_params is None:
-                ref_ident = '<none>'
-            else:
-                ref_ident = str(
-                    self.notify_ref_params)
+            ref_ident = "<none>" if self.notify_ref_params is None else str(self.notify_ref_params)
         except TypeError:
             ref_ident = '<unknown>'
         return f'{self.__class__.__name__}(notify_to={self.notify_to_address} ident={ref_ident}, ' \
@@ -289,7 +270,7 @@ class ActionBasedSubscription(SubscriptionBase):
 class SubscriptionManagerProtocol(Protocol):
 
     def set_base_urls(self, base_urls):
-        """A subscription manager must know its own address, it must be sent to subscribers in subscribe responses. """
+        """A subscription manager must know its own address, it must be sent to subscribers in subscribe responses."""
         ...
 
     def on_subscribe_request(self, request_data: RequestData) -> CreatedMessage:
@@ -338,9 +319,15 @@ class SubscriptionsManagerBase:
         self._subscriptions.add_index('netloc', multikey.IndexDefinition(
             lambda obj: obj.notify_to_url.netloc))
         self.base_urls = None
+        self._housekeeping_thread = Thread(target=self._do_housekeeping, name="housekeeping", daemon=True)
+        self._run_housekeeping_thread = False
+        self._housekeeping_thread.start()
 
     def set_base_urls(self, base_urls):
-        """A subscription manager must know its own address, it must be sent to subscribers in subscribe responses. """
+        """Set base url.
+
+        A subscription manager must know its own address, it must be sent to subscribers in subscribe responses.
+        """
         self.base_urls = base_urls
 
     def _mk_subscription_instance(self, request_data: RequestData) -> SubscriptionBase:
@@ -424,6 +411,8 @@ class SubscriptionsManagerBase:
 
     def stop_all(self, send_subscription_end: bool):
         self._end_all_subscriptions(send_subscription_end)
+        self._run_housekeeping_thread = False
+        self._housekeeping_thread.join()
 
     def _end_all_subscriptions(self, send_subscription_end: bool):
         with self._subscriptions.lock:
@@ -443,7 +432,7 @@ class SubscriptionsManagerBase:
                                  request_data.message_data.q_name, dispatch_identifier, request_data.peer_name)
         return subscription
 
-    def send_to_subscribers(self, payload: Union[MessageType, etree_.ElementBase],
+    def send_to_subscribers(self, payload: MessageType | etree_.ElementBase,
                             action: str,
                             mdib_version_group,
                             what: str):
@@ -466,14 +455,12 @@ class SubscriptionsManagerBase:
                 self._send_notification_report(subscriber, body_node, action)
             except:
                 raise
-        self._do_housekeeping()
 
     def _send_notification_report(self, subscription, body_node: etree_.ElementBase, action: str):
         try:
             subscription.send_notification_report(body_node, action)
         except ConnectionRefusedError as ex:
             self._logger.error('could not send notification report: {!r}:  subscr = {}', ex, subscription)
-            self._soap_client_pool.report_unreachable(subscription.notify_to_url.netloc)
         except HTTPReturnCodeError as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report: HTTP status= {}, reason={}, {}', ex.status,
@@ -481,11 +468,9 @@ class SubscriptionsManagerBase:
         except http.client.NotConnected as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report: {!r}:  subscr = {}', ex, subscription)
-            self._soap_client_pool.report_unreachable(subscription.notify_to_url.netloc)
         except socket.timeout as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
-            self._soap_client_pool.report_unreachable(subscription.notify_to_url.netloc)
         except etree_.DocumentInvalid as ex:
             # this is an error related to the document, it cannot be sent to any subscriber => re-raise
             self._logger.error('Invalid Document: {!r}\n{}', ex, etree_.tostring(body_node))
@@ -500,26 +485,16 @@ class SubscriptionsManagerBase:
         with self._subscriptions.lock:
             return [s for s in self._subscriptions.objects if s.matches(action)]
 
-    def on_unreachable_netloc(self, subscription):
-        """A subscription calls this method if it could not send a notification due to network issues.
-        The subscription manager can then remove all other subscriptions to the same location. """
-        with self._subscriptions.lock:
-            self._subscriptions.remove_object(subscription)
-
     def _do_housekeeping(self):
-        """ remove expired or invalid subscriptions"""
-        with self._subscriptions.lock:
-            invalid_subscriptions = [s for s in self._subscriptions.objects if not s.is_valid]
-        unreachable_netlocs = set()
-        for invalid_subscription in invalid_subscriptions:
-            if invalid_subscription.has_connection_error:
-                # the network location is unreachable, we can remove all subscriptions that use this location
-                unreachable_netlocs.add(invalid_subscription.notify_to_url.netloc)
+        """Remove expired or invalid subscriptions. Method is executed in a thread."""
+        self._run_housekeeping_thread = True
+        while self._run_housekeeping_thread:
+            time.sleep(1)
+            with self._subscriptions.lock:
+                invalid_subscriptions = [s for s in self._subscriptions.objects if not s.is_valid]
 
-        # now find all subscriptions that use the unreachable addresses
-        with self._subscriptions.lock:
-            unreachable_subscriptions = [s for s in self._subscriptions.objects if
-                                         s.notify_to_url.netloc in unreachable_netlocs]
-            for unreachable in unreachable_subscriptions:
-                self._logger.info('deleting unreachable subscription {}', unreachable)
-                self._subscriptions.remove_object(unreachable)
+                for invalid_subscription in invalid_subscriptions:
+                    if not invalid_subscription.is_closed():
+                        self._logger.info('_do_housekeeping closing {}',invalid_subscription)
+                        invalid_subscription.close()
+                        self._subscriptions.remove_object(invalid_subscription)
