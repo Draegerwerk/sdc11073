@@ -296,10 +296,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_renew_get_status(self):
         for s in self.sdc_client._subscription_mgr.subscriptions.values():
-            remaining_seconds = s.renew(1)  # one minute
-            self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
+            max_duration = self.sdc_device._max_subscription_duration
+            remaining_seconds = s.renew(max_duration + 100)
+            self.assertAlmostEqual(remaining_seconds, max_duration, delta=5.0)  # huge diff allowed due to jenkins
             remaining_seconds = s.get_status()
-            self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
+            self.assertAlmostEqual(remaining_seconds, max_duration, delta=5.0)  # huge diff allowed due to jenkins
             # verify that device returns fault message on wrong subscription identifier
             #if s.dev_reference_param.has_parameters:
             if s.subscribe_response.SubscriptionManager.ReferenceParameters:
@@ -313,7 +314,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     s._subscription_manager_path = s._subscription_manager_path[:-1] + 'xxx'
                     # renew
                     self.log_watcher.setPaused(True)  # ignore logged error
-                    remaining_seconds = s.renew(1)  # one minute
+                    remaining_seconds = s.renew(60)
                     self.log_watcher.setPaused(False)
                     self.assertFalse(s.is_subscribed)  # it did not work
                     self.assertEqual(remaining_seconds, 0)
@@ -429,7 +430,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             for s in subscriptions:
                 self.assertFalse(s.is_closed())
         self.sdc_client.stop_all(unsubscribe=False)
-        time.sleep(SoapClient.SOCKET_TIMEOUT + 3)  # just a little longer than socket timeout 5 seconds
+        time.sleep(self.sdc_device._socket_timeout + 3)  # a little longer than socket timeout
 
         # all subscriptions shall be closed now
         for s in all_subscriptions:
@@ -1295,11 +1296,12 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
 
     def test_renew_get_status(self):
         """ If renew and get_status work, then reference parameters based dispatching works. """
+        max_duration = self.sdc_device._max_subscription_duration
         for s in self.sdc_client._subscription_mgr.subscriptions.values():
-            remaining_seconds = s.renew(1)  # one minute
-            self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
+            remaining_seconds = s.renew(max_duration + 100)  # very long
+            self.assertAlmostEqual(remaining_seconds, max_duration, delta=5.0)  # huge diff allowed due to CI perform
             remaining_seconds = s.get_status()
-            self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
+            self.assertAlmostEqual(remaining_seconds, max_duration, delta=5.0)
 
     def test_subscription_end(self):
         self.sdc_device.stop_all()
