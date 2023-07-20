@@ -129,5 +129,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# idea
-.idea
+# Intellij IDEA / PyCharm
+.idea/
