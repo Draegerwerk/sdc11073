@@ -31,10 +31,6 @@ Soap12Envelope = pysoap.soapenvelope.Soap12Envelope
 
 Prefix = namespaces.Prefix_Namespace
 
-PROFILING = False
-if PROFILING:
-    pass
-
 # default ssl context data
 here = os.path.dirname(__file__)
 caFolder = os.path.join(os.path.dirname(here), 'ca')
