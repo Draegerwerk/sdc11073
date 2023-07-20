@@ -13,7 +13,6 @@ from unittest import mock
 
 from lxml import etree as etree_
 
-import sdc11073
 import sdc11073.certloader
 from sdc11073 import commlog
 from sdc11073 import compression
