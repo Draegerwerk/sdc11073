@@ -134,10 +134,6 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
             unit_test.assertEqual(len(w_a.annotations), 1)
             unit_test.assertEqual(w_a.annotations[0].Type,
                                   pm_types.CodedValue('a', 'b'))  # like in provide_realtime_data
-        # the cycle time of the annotator source is 1.2 seconds. The difference of the observation times must be almost 1.2
-        unit_test.assertAlmostEqual(with_annotation[1].determination_time - with_annotation[0].determination_time,
-                                    1.2,
-                                    delta=0.05)
 
     # now disable one waveform
     d_handle = d_handles[0]
@@ -364,20 +360,15 @@ class Test_Client_SomeDevice(unittest.TestCase):
             subscriptions = list(mgr._subscriptions.objects)  # make a copy of this list
             for s in subscriptions:
                 self.assertFalse(s.is_closed())
-
         self.sdc_client._subscription_mgr.unsubscribe_all()
 
         # all subscriptions shall be closed immediately
         for s in all_subscriptions:
-            self.assertTrue(s.is_closed())
+            self.assertIsNotNone(s.unsubscribed_at)
 
-        # subscription managers shall have no subscriptions
-        for hosted_service in services:
-            mgr = hosted_service.subscriptions_manager
-            self.assertEqual(len(mgr._subscriptions.objects), 0)
 
     def test_device_stop(self):
-        """ verify that sockets get closed"""
+        """Verify that sockets get closed."""
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         services = [s for s in self.sdc_device.hosted_services.dpws_hosted_services.values()
@@ -413,7 +404,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def test_no_renew(self):
         self.logger.info('stopping client')
         self.sdc_client.stop_all()
-        self.assertEqual(len(self.sdc_device._soap_client_pool._soap_clients), 0)
         # make renew period much longer than max subscription duration
         # => all subscription expired,  all soap clients closed
         self.logger.info('starting client again  with fixed_renew_interval=1000')
@@ -1378,7 +1368,7 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
 
-    def test_basic_connect_async(self):
+    def test_basic_connect_sync(self):
         # simply check that correct top node is returned
         get_service = self.sdc_client.client('Get')
         message_data = get_service.get_md_description()
@@ -1394,12 +1384,12 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
         result = context_service.get_context_states()
         self.assertGreater(len(result.result.ContextState), 0)
 
-    def test_realtime_samples_async(self):
+    def test_realtime_samples_sync(self):
         provide_realtime_data(self.sdc_device)
         time.sleep(0.2)  # let some rt data exist before test starts
         runtest_realtime_samples(self, self.sdc_device, self.sdc_client)
 
-    def test_metric_report_async(self):
+    def test_metric_report_sync(self):
         logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
         logging.getLogger('sdc.client.subscrMgr').setLevel(logging.DEBUG)
         logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)

@@ -112,7 +112,6 @@ class SubscriptionBase:
         self._expire_seconds = None
         self.renew(subscribe_request.Expires)  # sets self._started and self._expire_seconds
         self._accepted_encodings = accepted_encodings
-        self._soap_client = None
 
         self.notify_errors = 0
         self._is_closed = False
@@ -120,6 +119,7 @@ class SubscriptionBase:
         self.last_roundtrip_times = deque(
             maxlen=MAX_ROUNDTRIP_VALUES)  # a list of last n roundtrip times for notifications
         self.max_roundtrip_time = 0
+        self.unsubscribed_at: float | None = None  # for housekeeping
 
     def set_reference_parameter(self):
         """Create a ReferenceParameters instance with a reference parameter."""
@@ -145,15 +145,12 @@ class SubscriptionBase:
         return False
 
     def _get_soap_client(self):
-        if self._soap_client is None:
-            self._soap_client = self._soap_client_pool.get_soap_client(self.notify_to_url.netloc,
-                                                                       self._accepted_encodings,
-                                                                       self)
-        return self._soap_client
+        return self._soap_client_pool.get_soap_client(self.notify_to_url.netloc,
+                                                      self._accepted_encodings,
+                                                      self)
 
     def _release_soap_client(self):
-        if self._soap_client is not None:
-            self._soap_client_pool.forget_usr(self.notify_to_url.netloc, self)
+        self._soap_client_pool.forget_usr(self.notify_to_url.netloc, self)
 
     @property
     def remaining_seconds(self):
@@ -207,7 +204,9 @@ class SubscriptionBase:
             # it does not matter that we could not send the message - end is end ;)
             self._logger.info('could not send subscription end message, error = {}', ex)  # noqa: PLE1205
 
-    def close(self):
+    def close_by_subscription_manager(self):
+        self._logger.info('close subscription id={} to {}',   # noqa: PLE1205
+                          self.identifier_uuid, self.notify_to_address)
         self._is_closed = True
         self._release_soap_client()
 
@@ -363,12 +362,9 @@ class SubscriptionsManagerBase:
             fault.add_reason_text('unknown Subscription identifier')
             response = self._msg_factory.mk_reply_soap_message(request_data, fault, ns_map=[nsh.WSE])
         else:
-            subscription.close()
-            with self._subscriptions.lock:
-                self._subscriptions.remove_object(subscription)
-            self._logger.info('unsubscribe: subscription found and removed {})', str(subscription))
             unsubscribe_response = evt_types.UnsubscribeResponse()
             response = self._msg_factory.mk_reply_soap_message(request_data, unsubscribe_response)
+            subscription.unsubscribed_at = time.time()  # allow housekeeping to delete it delayed.
         return response
 
     def on_get_status_request(self, request_data: RequestData) -> CreatedMessage:
@@ -409,6 +405,9 @@ class SubscriptionsManagerBase:
             response = self._msg_factory.mk_reply_soap_message(request_data, renew_response)
         return response
 
+    def close_subscription(self, subscription: SubscriptionBase):
+        subscription.close_by_subscription_manager()
+
     def stop_all(self, send_subscription_end: bool):
         self._end_all_subscriptions(send_subscription_end)
         self._run_housekeeping_thread = False
@@ -417,8 +416,8 @@ class SubscriptionsManagerBase:
     def _end_all_subscriptions(self, send_subscription_end: bool):
         with self._subscriptions.lock:
             if send_subscription_end:
-                apply_map(lambda subscription: subscription.send_notification_end_message(),
-                          self._subscriptions.objects)
+                tmp = [s for s in self._subscriptions.objects if s.unsubscribed_at is None]
+                apply_map(lambda subscription: subscription.send_notification_end_message(), tmp)
             self._subscriptions.clear()
 
     def _get_subscription_for_request(self, request_data: RequestData) -> SubscriptionBase:
@@ -490,11 +489,13 @@ class SubscriptionsManagerBase:
         self._run_housekeeping_thread = True
         while self._run_housekeeping_thread:
             time.sleep(1)
+            now = time.time()
             with self._subscriptions.lock:
-                invalid_subscriptions = [s for s in self._subscriptions.objects if not s.is_valid]
+                obsolete_subscriptions = [s for s in self._subscriptions.objects
+                                          if not s.is_valid
+                                          or (s.unsubscribed_at is not None and now > s.unsubscribed_at + 1)]
 
-                for invalid_subscription in invalid_subscriptions:
-                    if not invalid_subscription.is_closed():
-                        self._logger.info('_do_housekeeping closing {}',invalid_subscription)
-                        invalid_subscription.close()
-                        self._subscriptions.remove_object(invalid_subscription)
+                for obsolete_subscription in obsolete_subscriptions:
+                    if not obsolete_subscription.is_closed():
+                        self.close_subscription(obsolete_subscription)
+                        self._subscriptions.remove_object(obsolete_subscription)

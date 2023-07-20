@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import http.client
 import socket
-import time
 import traceback
 from collections import defaultdict
 from threading import Thread
@@ -46,7 +44,7 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
 
     async def async_send_notification_report(self, body_node: etree_.ElementBase, action: str):
         """Send notification to subscriber."""
-        if not self.is_valid:
+        if not self.is_valid or self.unsubscribed_at is not None:
             return
         addr = HeaderInformationBlock(addr_to=self.notify_to_address,
                                       action=action,
@@ -174,24 +172,26 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
         return await asyncio.gather(*tasks, return_exceptions=True)
 
     def _end_all_subscriptions(self, send_subscription_end: bool):
+        self._logger.info('end all subscriptions')
         tasks = []
         with self._subscriptions.lock:
             all_subscriptions = list(self._subscriptions.objects)
-        if send_subscription_end:
+            if send_subscription_end:
+                for subscription in all_subscriptions:
+                    if subscription.is_valid and subscription.unsubscribed_at is None:
+                        self._logger.info('send subscription end, subscription = {}', subscription)  # noqa: PLE1205
+                        tasks.append(subscription.async_send_notification_end_message())
+        if tasks:
+            result = self._async_send_thread.run_coro(self._coro_send_to_subscribers(tasks))
+            for counter, element in enumerate(result):
+                if isinstance(element, Exception):
+                    self._logger.warning(  # noqa: PLE1205
+                        'end_all_subscriptions {} returned {}', all_subscriptions[counter], element)
+
+        with self._subscriptions.lock:
             for subscription in all_subscriptions:
-                self._logger.info('send subscription end, subscription = {}', subscription)  # noqa: PLE1205
-                tasks.append(subscription.async_send_notification_end_message())
-        result = self._async_send_thread.run_coro(self._coro_send_to_subscribers(tasks))
-
-        for subscription in all_subscriptions:
-            self._soap_client_pool.forget_usr(subscription.notify_to_url.netloc, subscription)
-
-        time.sleep(1)
-        for counter, element in enumerate(result):
-            if isinstance(element, Exception):
-                self._logger.warning(  # noqa: PLE1205
-                    'end_all_subscriptions {} returned {}', all_subscriptions[counter], element)
-        self._subscriptions.clear()
+                self._soap_client_pool.forget_usr(subscription.notify_to_url.netloc, subscription)
+                self._subscriptions.clear()
 
     def send_to_subscribers(self, payload: MessageType | etree_.ElementBase,
                             action: str,
@@ -229,33 +229,22 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             self._logger.debug('send notification report {} to {}', action, subscription)  # noqa: PLE1205
             await subscription.async_send_notification_report(body_node, action)
             self._logger.debug(' done: send notification report {} to {}', action, subscription)  # noqa: PLE1205
-        except aiohttp.client_exceptions.ClientConnectorError as ex:
-            # this is an error related to the connection => log error and continue
-            self._logger.error('could not send notification report {}: {} {}',  # noqa: PLE1205
-                               action, str(ex), subscription)
         except HTTPReturnCodeError as ex:
-            # this is an error related to the connection => log error and continue
-            self._logger.error('could not send notification report {}: HTTP status= {}, reason={}, {}',  # noqa: PLE1205
-                               action, ex.status, ex.reason, subscription)
-        except http.client.NotConnected as ex:
-            # this is an error related to the connection => log error and continue
-            self._logger.error('{subscription}:could not send notification report {}: {!r}:  subscr = {}',
-                               action, ex, subscription)
-        except socket.timeout as ex:
-            # this is an error related to the connection => log error and continue
-            self._logger.error('could not send notification report {} error= {!r}: {}',  # noqa: PLE1205
-                               action, ex, subscription)
-        except asyncio.exceptions.TimeoutError as ex:
-            # this is an error related to the connection => log error and continue
-            self._logger.error('could not send notification report {} error= {!r}: {}',  # noqa: PLE1205
-                               action, ex, subscription)
-        except aiohttp.client_exceptions.ClientConnectionError as ex:
-            # this is an error related to the connection => log error and continue
-            self._logger.error('could not send notification report {} error= {!r}: {}',  # noqa: PLE1205
+            # this is an error related to the connection => log warning and continue
+            self._logger.warning(  # noqa: PLE1205
+                'could not send notification report {}: HTTP status= {}, reason={}, {}',
+                action, ex.status, ex.reason, subscription)
+        except (aiohttp.client_exceptions.ClientConnectionError,
+                aiohttp.client_exceptions.ClientConnectorError,
+                aiohttp.client_exceptions.ServerConnectionError,
+                asyncio.exceptions.TimeoutError,
+                socket.timeout) as ex:
+            # this is an error related to the connection => log warning and continue
+            self._logger.warning('could not send notification report {} warning= {!r}: {}',  # noqa: PLE1205
                                action, ex, subscription)
         except etree_.DocumentInvalid as ex:
             # this is an error related to the document, it cannot be sent to any subscriber => re-raise
-            self._logger.error('Invalid Document for action {}: {!r}\n{}',  # noqa: PLE1205
+            self._logger.warning('Invalid Document for action {}: {!r}\n{}',  # noqa: PLE1205
                                action, ex, etree_.tostring(body_node))
             raise
         except Exception:
