@@ -4,11 +4,13 @@ import logging
 import os
 import ssl
 import traceback
-from urllib.parse import urlparse, urlsplit
+import typing
 from dataclasses import dataclass
+from urllib.parse import urlparse, urlsplit
 
 from lxml import etree as etree_
 
+import sdc11073.certloader
 from . import subscription
 from .hostedservice import CTreeServiceClient, DescriptionEventClient, ContextServiceClient, WaveformClient
 from .hostedservice import HostedServiceClient, GetServiceClient, SetServiceClient, StateEventClient
@@ -169,11 +171,13 @@ class SdcClient(object):
                        }
 
     SSL_CIPHERS = None  # None : use SSL default
+    _ssl_context_container: typing.Optional[sdc11073.certloader.SSLContextContainer]
 
     def __init__(self, devicelocation, deviceType, validate=True, sslEvents='auto', sslContext=None,
                  my_ipaddress=None, logLevel=None, ident='',
                  soap_notifications_handler_class=None,
-                 chunked_requests=False):  # pylint:disable=too-many-arguments
+                 chunked_requests=False,
+                 ssl_context_container: sdc11073.certloader.SSLContextContainer = None, ):  # pylint:disable=too-many-arguments
         """
         :param devicelocation: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         :param deviceType: a QName that defines the device type, e.g. '{http://standards.ieee.org/downloads/11073/11073-20702-2016}MedicalDevice'
@@ -184,6 +188,7 @@ class SdcClient(object):
         :param sslContext: the ssl context that shall be used for https connections. If None, https is not possible.
         :param my_ipaddress: This address is used for the http server that receives notifications.
              If value is None, best own address is determined automatically (recommended).
+        :param ssl_context_container container containing a client and a server context
         """
         self._devicelocation = devicelocation
         self._soap_notifications_handler_class = soap_notifications_handler_class
@@ -217,11 +222,21 @@ class SdcClient(object):
         self.hostDescription = None
         self._hostedServices = {}  # lookup by service id
         self._validate = validate
+
         try:
             self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)
         except AttributeError:
             self._logger.info('Using SSL is enabled. TLS 1.3 is not supported')
-        self._sslContext = sslContext
+
+        if sslContext and ssl_context_container:
+            raise ValueError('sslContext and ssl_context_container must not both be given')
+
+        if sslContext:
+            self._ssl_context_container = sdc11073.certloader.SSLContextContainer(client_context=sslContext,
+                                                                                  server_context=sslContext)
+        else:
+            self._ssl_context_container = ssl_context_container
+
         self._notificationsDispatcherThread = None
 
         self._logger.info('created {} for {}', self.__class__.__name__, self._devicelocation)
@@ -432,7 +447,7 @@ class SdcClient(object):
         if wsc.isClosed():
             wsc.connect()
 
-        if self._sslContext is not None and _url.scheme == 'https':
+        if self._ssl_context_container is not None and _url.scheme == 'https':
             sock = wsc.sock
             self.peerCertificate = sock.getpeercert(binary_form=False)
             self.binary_peer_cert = sock.getpeercert(binary_form=True)
@@ -464,7 +479,7 @@ class SdcClient(object):
             raise RuntimeError('GetService not detected! found services = {}'.format(self._serviceClients.keys()))
 
     def _getSoapClient(self, address):
-        _url =urlparse(address)
+        _url = urlparse(address)
         key = (_url.scheme, _url.netloc)
         soap_client = self._soapClients.get(key)
         if soap_client is None:
@@ -474,12 +489,13 @@ class SdcClient(object):
             elif self._sslEvents is False:  # no ssl
                 use_ssl = False
             else:  # only ssl
-                if self._sslContext is None:
+                if self._ssl_context_container is None:
                     raise RuntimeError('missing ssl context for ssl connection')
             soap_client = SoapClient(
                 _url.netloc,
                 logger=loghelper.getLoggerAdapter('sdc.client.soap', self.log_prefix),
-                sslContext=self._sslContext if use_ssl else None,
+                sslContext=(self._ssl_context_container.client_context
+                            if use_ssl and self._ssl_context_container else None),
                 sdc_definitions=self.sdc_definitions,
                 supportedEncodings=self._compression_methods,
                 requestEncodings=None,
@@ -512,9 +528,10 @@ class SdcClient(object):
 
     def _startEventSink(self, async_dispatch, dispatcher_timeout=15.0):
         if self._sslEvents == 'auto':
-            sslContext = self._sslContext if self._device_uses_https else None
+            sslContext = (self._ssl_context_container.server_context
+                          if self._device_uses_https and self._ssl_context_container else None)
         elif self._sslEvents:  # True
-            sslContext = self._sslContext
+            sslContext = self._ssl_context_container.server_context if self._ssl_context_container else None
         else:  # False
             sslContext = None
 
@@ -680,7 +697,8 @@ class SdcClient(object):
 
     @classmethod
     def fromWsdService(cls, wsdService, validate=True, sslEvents='auto',
-                       sslContext=None, my_ipaddress=None, logLevel=logging.INFO,
+                       sslContext=None, ssl_context_container: sdc11073.certloader.SSLContextContainer = None,
+                       my_ipaddress=None, logLevel=logging.INFO,
                        ident='', soap_notifications_handler_class=None):
         device_locations = wsdService.getXAddrs()
         if not device_locations:
@@ -694,5 +712,6 @@ class SdcClient(object):
                     deviceType = protocol.MedicalDeviceType
                     break
         return cls(device_location, deviceType=deviceType, validate=validate, sslEvents=sslEvents,
-                   sslContext=sslContext, my_ipaddress=my_ipaddress, logLevel=logLevel, ident=ident,
+                   sslContext=sslContext, ssl_context_container=ssl_context_container,
+                   my_ipaddress=my_ipaddress, logLevel=logLevel, ident=ident,
                    soap_notifications_handler_class=soap_notifications_handler_class)

@@ -1,26 +1,28 @@
-import threading
-import uuid
 import copy
-import time
-import socket
-import traceback
 import http.client
-from http.server import HTTPServer
 import queue
+import socket
+import threading
+import time
+import traceback
+import uuid
+from http.server import HTTPServer
 from urllib.parse import urlparse, urlunparse
+
 from lxml import etree as etree_
+
+from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, ReceivedSoap12Envelope, WsAddress, WsSubscribe, \
     SoapResponseException
 from sdc11073.pysoap.soapenvelope import WsaEndpointReferenceType
+from .. import commlog
+from .. import loghelper
+from .. import observableproperties as properties
+from .. import xmlparsing, isoduration
+from ..httprequesthandler import HTTPRequestHandler
 from ..namespaces import Prefix_Namespace as Prefix
 from ..namespaces import nsmap as _global_nsmap
 from ..namespaces import wseTag, wsaTag, WSA_IS_REFERENCE_PARAMETER
-from .. import xmlparsing, isoduration
-from .. import commlog
-from .. import observableproperties as properties
-from .. import loghelper
-from ..httprequesthandler import HTTPRequestHandler
-from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 
@@ -622,7 +624,9 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
             self.my_port = self.httpd.server_port
             self._logger.info('starting Notification receiver on {}:{}', self._my_ipaddress, self.my_port)
             if self._sslContext:
-                self.httpd.socket = self._sslContext.wrap_socket(self.httpd.socket, do_handshake_on_connect=False)
+                self.httpd.socket = self._sslContext.wrap_socket(self.httpd.socket,
+                                                                 server_side=True,
+                                                                 do_handshake_on_connect=False)
                 self.base_url = 'https://{}:{}/'.format(self._my_ipaddress, self.my_port)
             else:
                 self.base_url = 'http://{}:{}/'.format(self._my_ipaddress, self.my_port)

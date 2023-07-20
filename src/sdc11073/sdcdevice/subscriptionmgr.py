@@ -3,6 +3,7 @@ import http.client
 import socket
 import time
 import traceback
+import typing
 import urllib
 import uuid
 from collections import defaultdict
@@ -10,6 +11,7 @@ from collections import deque
 
 from lxml import etree as etree_
 
+import sdc11073.certloader
 from .exceptions import DeliveryModeRequestedUnavailableError
 from .exceptions import InvalidMessageError
 from .. import isoduration
@@ -27,19 +29,19 @@ from ..namespaces import wsaTag
 from ..namespaces import wseTag
 from ..namespaces import xmlTag
 
-
 WsAddress = pysoap.soapenvelope.WsAddress
 Soap12Envelope = pysoap.soapenvelope.Soap12Envelope
 
 MAX_ROUNDTRIP_VALUES = 20
 
+
 class _RoundTripData(object):
     def __init__(self, values, abs_max):
         if values:
-            self.values = list(values) # make a copy
+            self.values = list(values)  # make a copy
             self.min = min(values)
             self.max = max(values)
-            self.avg = sum(values)/len(values)
+            self.avg = sum(values) / len(values)
             self.abs_max = abs_max
         else:
             self.values = None
@@ -57,7 +59,8 @@ class _DevSubscription(object):
     IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
 
     def __init__(self, mode, base_urls, notifyToAddress, notifyRefNode, endToAddress, endToRefNode, expires,
-                 max_subscription_duration, filter_, sslContext, acceptedEncodings):  # pylint:disable=too-many-arguments
+                 max_subscription_duration, filter_, sslContext,
+                 acceptedEncodings):  # pylint:disable=too-many-arguments
         """
         :param notifyToAddress: dom node of Subscribe Request
         :param endToAddress: dom node of Subscribe Request
@@ -312,9 +315,11 @@ class SubscriptionsManager(object):
     NotificationPrefixes = [Prefix.S12, Prefix.WSA, Prefix.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
-    def __init__(self, sslContext, sdc_definitions, supportedEncodings,
+    _ssl_context_container: typing.Optional[sdc11073.certloader.SSLContextContainer]
+
+    def __init__(self, ssl_context_container, sdc_definitions, supportedEncodings,
                  max_subscription_duration=None, log_prefix=None, chunked_messages=False):
-        self._sslContext = sslContext
+        self._ssl_context_container = ssl_context_container
         self.sdc_definitions = sdc_definitions
         self.log_prefix = log_prefix
         self._logger = loghelper.getLoggerAdapter('sdc.device.subscrMgr', self.log_prefix)
@@ -333,17 +338,24 @@ class SubscriptionsManager(object):
 
     def onSubscribeRequest(self, httpHeader, soapEnvelope, epr_path):
         acceptedEncodings = CompressionHandler.parseHeader(httpHeader.get('Accept-Encoding'))
-        s = _DevSubscription.fromSoapEnvelope(soapEnvelope, self._sslContext, acceptedEncodings,
-                                              self._max_subscription_duration, self.base_urls)
+        s = _DevSubscription.fromSoapEnvelope(
+            soapEnvelope,
+            self._ssl_context_container.client_context if self._ssl_context_container else None,
+            acceptedEncodings,
+            self._max_subscription_duration,
+            self.base_urls)
         # assign a soap client
         key = s._url.netloc  # pylint:disable=protected-access
         soapClient = self.soapClients.get(key)
         if soapClient is None:
-            soapClient = pysoap.soapclient.SoapClient(key, loghelper.getLoggerAdapter('sdc.device.soap', self.log_prefix),
-                                                      sslContext=self._sslContext, sdc_definitions=self.sdc_definitions,
-                                                      supportedEncodings=self._supportedEncodings,
-                                                      requestEncodings=acceptedEncodings,
-                                                      chunked_requests=self._chunked_messages)
+            soapClient = pysoap.soapclient.SoapClient(
+                key,
+                loghelper.getLoggerAdapter('sdc.device.soap', self.log_prefix),
+                sslContext=self._ssl_context_container.client_context if self._ssl_context_container else None,
+                sdc_definitions=self.sdc_definitions,
+                supportedEncodings=self._supportedEncodings,
+                requestEncodings=acceptedEncodings,
+                chunked_requests=self._chunked_messages)
             self.soapClients[key] = soapClient
         s.setSoapClient(soapClient)
         with self._subscriptions.lock:
@@ -519,7 +531,8 @@ class SubscriptionsManager(object):
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
-        self._logger.debug('sending periodic metric report, contains last {} episodic updates', len(updatedMetricStatesList))
+        self._logger.debug('sending periodic metric report, contains last {} episodic updates',
+                           len(updatedMetricStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicMetricReport'),
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         mdib_version_group.update_node(bodyNode)
@@ -561,7 +574,8 @@ class SubscriptionsManager(object):
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
-        self._logger.debug('sending periodic operational state report, contains last {} episodic updates', len(updatedStatesList))
+        self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
+                           len(updatedStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicOperationalStateReport'),
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         mdib_version_group.update_node(bodyNode)
@@ -643,7 +657,8 @@ class SubscriptionsManager(object):
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
-        self._logger.debug('sending periodic component report, contains last {} episodic updates', len(updatedStatesList))
+        self._logger.debug('sending periodic component report, contains last {} episodic updates',
+                           len(updatedStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicComponentReport'),
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         mdib_version_group.update_node(bodyNode)
@@ -861,4 +876,3 @@ class SubscriptionsManager(object):
                 allvalues.extend(s.values)
             ret[k] = _RoundTripData(allvalues, max([s.max for s in stats]), )
         return ret
-
