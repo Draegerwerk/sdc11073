@@ -205,10 +205,12 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         self.assertGreaterEqual(len(client_ssl_context_wrap_socket_mock.call_args_list), 2)
 
         for call_arg in client_ssl_context_wrap_socket_mock.call_args_list:
-            if call_arg.args:
-                sock = call_arg.args[0]
+            if call_arg[0]:
+                # TODO: replace call_arg[0] with call_arg.args when Python 3.7 support is dropped
+                sock = call_arg[0][0]
             else:
-                sock = call_arg.kwargs['sock']
+                # TODO: replace call_arg[1] with call_arg.kwargs when Python 3.7 support is dropped
+                sock = call_arg[1]['sock']
 
             self.assertIn(unittest.mock.call.connect(unittest.mock.ANY), sock.method_calls)
             self.assertNotIn(unittest.mock.call.listen(unittest.mock.ANY), sock.method_calls)
@@ -219,18 +221,18 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         branches = list()
 
         for call_arg in server_ssl_context_wrap_socket_mock.call_args_list:
-            if call_arg.args:
-                sock = call_arg.args[0]
+            if call_arg[0]:
+                sock = call_arg[0][0]
             else:
-                sock = call_arg.kwargs['sock']
+                sock = call_arg[1]['sock']
 
             branches.extend(sock.branches)
 
         for call_arg in server_ssl_context_wrap_socket_mock.call_args_list:
-            if call_arg.args:
-                sock = call_arg.args[0]
+            if call_arg[0]:
+                sock = call_arg[0][0]
             else:
-                sock = call_arg.kwargs['sock']
+                sock = call_arg[1]['sock']
 
             self.assertNotIn(unittest.mock.call.connect(unittest.mock.ANY), sock.method_calls)
             self.assertTrue(unittest.mock.call.listen(unittest.mock.ANY) in sock.method_calls or
