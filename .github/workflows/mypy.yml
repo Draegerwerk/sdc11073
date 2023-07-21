@@ -21,9 +21,9 @@ jobs:
         run: pip install ".[mypy]"
 
       - name: Run mypy
+        continue-on-error: true
         uses: sasanquaneuf/mypy-github-action@releases/v1
         with:
-          continue-on-error: true
           checkName: 'mypy'   # NOTE: this needs to be the same as the job name
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -11,5 +11,4 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: chartboost/ruff-action@v1
-        with:
-          continue-on-error: true
+        continue-on-error: true
