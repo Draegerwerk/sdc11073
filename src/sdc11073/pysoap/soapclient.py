@@ -118,7 +118,7 @@ class SoapClient:
     def __init__(self,
                  netloc: str,
                  logger: LoggerAdapter,
-                 ssl_context: SSLContext| None,
+                 ssl_context: SSLContext | None,
                  sdc_definitions: type[BaseDefinitions],
                  msg_reader: MessageReader,
                  supported_encodings: Iterable[str] | str = None,

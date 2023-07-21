@@ -10,8 +10,9 @@ import traceback
 import uuid
 from typing import TYPE_CHECKING
 
+import sdc11073.certloader
 from sdc11073 import location, network, provider, wsdiscovery
-from sdc11073.certloader import mk_ssl_context_from_folder
+from sdc11073.certloader import mk_ssl_contexts_from_folder
 from sdc11073.loghelper import LoggerAdapter
 from sdc11073.mdib import ProviderMdib
 from sdc11073.provider.components import SdcProviderComponents
@@ -22,7 +23,7 @@ from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 
 if TYPE_CHECKING:
-    import ssl
+    pass
 
 USE_REFERENCE_PARAMETERS = True
 
@@ -42,16 +43,16 @@ def get_location() -> location.SdcLocation:
                                 bed=os.getenv('ref_bed', default='r_bed'))  # noqa: SIM112
 
 
-def get_ssl_context() -> ssl.SSLContext | None:
+def get_ssl_context() -> sdc11073.certloader.SSLContextContainer | None:
     """Get ssl context from environment or None."""
     if ca_folder := os.getenv('ref_ca') is None:  # noqa: SIM112
         return None
-    return mk_ssl_context_from_folder(ca_folder,
-                                      private_key='user_private_key_encrypted.pem',
-                                      certificate='user_certificate_root_signed.pem',
-                                      ca_public_key='root_certificate.pem',
-                                      cyphers_file=None,
-                                      ssl_passwd=os.getenv('ref_ssl_passwd'))  # noqa: SIM112
+    return mk_ssl_contexts_from_folder(ca_folder,
+                                       private_key='user_private_key_encrypted.pem',
+                                       certificate='user_certificate_root_signed.pem',
+                                       ca_public_key='root_certificate.pem',
+                                       cyphers_file=None,
+                                       ssl_passwd=os.getenv('ref_ssl_passwd'))  # noqa: SIM112
 
 
 def get_epr() -> uuid.UUID:
@@ -68,7 +69,7 @@ def create_reference_provider(
         dpws_device: dpws_types.ThisDeviceType | None = None,
         epr: uuid.UUID | None = None,
         specific_components: SdcProviderComponents | None = None,
-        ssl_context: ssl.SSLContext | None = None) -> provider.SdcProvider:
+        ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None) -> provider.SdcProvider:
     # generic way to create a device, this what you usually do:
     ws_discovery = ws_discovery or wsdiscovery.WSDiscovery(get_network_adapter().ip)
     ws_discovery.start()
@@ -89,7 +90,7 @@ def create_reference_provider(
         device_mdib_container=mdib,
         epr=epr or get_epr(),
         specific_components=specific_components,
-        ssl_context=ssl_context or get_ssl_context(),
+        ssl_context_container=ssl_context_container or get_ssl_context(),
     )
     for desc in prov.mdib.descriptions.objects:
         desc.SafetyClassification = pm_types.SafetyClassification.MED_A
@@ -151,7 +152,8 @@ def run_provider():
     else:
         specific_components = None  # provComponents(services_factory=mk_all_services_except_localization)
 
-    prov = create_reference_provider(specific_components=specific_components)
+    prov = create_reference_provider(ws_discovery=wsd, specific_components=specific_components)
+    set_reference_data(prov, get_location())
 
     metric = prov.mdib.descriptions.handle.get_one('numeric.ch1.vmd0')
     alert_condition = prov.mdib.descriptions.handle.get_one('ac0.mds0')

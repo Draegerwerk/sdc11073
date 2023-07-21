@@ -11,6 +11,7 @@ from urllib.parse import urlparse, urlsplit
 
 from lxml import etree as etree_
 
+import sdc11073.certloader
 from sdc11073 import commlog, loghelper, network
 from sdc11073 import observableproperties as properties
 from sdc11073.definitions_base import ProtocolsRegistry
@@ -46,7 +47,6 @@ if TYPE_CHECKING:
     from .subscription import ConsumerSubscription
 
 
-
 class HostedServiceDescription:
     """HostedServiceDescription collects initial structural data from provider."""
 
@@ -62,7 +62,7 @@ class HostedServiceDescription:
         self.msg_factory = msg_factory
         self._data_model = data_model
         self.log_prefix = log_prefix
-        self.meta_data: mex_types.Metadata| None = None
+        self.meta_data: mex_types.Metadata | None = None
         self.wsdl_string = None
         self.wsdl_node: etree_.ElementBase | None = None
         self._logger = loghelper.get_logger_adapter('sdc.client.hosted', log_prefix)
@@ -184,19 +184,19 @@ class SdcConsumer:
 
     def __init__(self, device_location: str,  # noqa: PLR0913
                  sdc_definitions: type[BaseDefinitions],
-                 ssl_context: SSLContext | None,
+                 ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
                  epr: str | uuid.UUID | None = None,
                  validate: bool = True,
                  log_prefix: str = '',
                  default_components: SdcConsumerComponents | None = None,
                  specific_components: SdcConsumerComponents | None = None,
-                 chunked_requests: bool =False):
+                 chunked_requests: bool = False):
         """Construct a SdcConsumer.
 
         :param device_location: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         :param sdc_definitions: a class derived from BaseDefinitions
         :param epr: the path of this client in http server
-        :param ssl_context: used for ssl connection to device and for own HTTP Server (notifications receiver)
+        :param ssl_context_container: used for ssl connection to device and for own HTTP Server (notifications receiver)
         :param validate: bool
         :param log_prefix: a string used as prefix for logging
         :param specific_components: a SdcConsumerComponents instance or None
@@ -227,7 +227,7 @@ class SdcConsumer:
             self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)  # noqa: PLE1205
         except AttributeError:
             self._logger.info('Using SSL is enabled. TLS 1.3 is not supported')
-        self._ssl_context = ssl_context
+        self._ssl_context_container = ssl_context_container
         self._epr = epr or uuid.uuid4()
 
         self._http_server = None
@@ -256,9 +256,9 @@ class SdcConsumer:
 
         msg_factory_cls = self._components.msg_factory_class
         self.msg_factory = msg_factory_cls(self.sdc_definitions,
-                                            additional_schema_specs,
-                                            self._logger,
-                                            validate=validate)
+                                           additional_schema_specs,
+                                           self._logger,
+                                           validate=validate)
 
         action_dispatcher_class = self._components.action_dispatcher_class
         self._services_dispatcher = action_dispatcher_class(log_prefix)
@@ -422,7 +422,7 @@ class SdcConsumer:
         return self.client('LocalizationService')
 
     @property
-    def subscription_mgr(self)-> ConsumerSubscriptionManagerProtocol:
+    def subscription_mgr(self) -> ConsumerSubscriptionManagerProtocol:
         """Return the subscription manager."""
         return self._subscription_mgr
 
@@ -507,7 +507,7 @@ class SdcConsumer:
                     filter_type.Dialect = DeviceEventingFilterDialectURI.ACTION
                     try:
                         self.do_subscribe(dpws_hosted, filter_type, subscribe_actions)
-                    except Exception:   # noqa: BLE001
+                    except Exception:  # noqa: BLE001
                         self.all_subscribed = False  # => don't log errors when mdib versions are missing
                         self._logger.error('start_all: could not subscribe: error = {}, actions= {}',  # noqa: PLE1205
                                            traceback.format_exc(), subscribe_actions)
@@ -525,7 +525,7 @@ class SdcConsumer:
         properties.strongbind(self._subscription_mgr, all_subscriptions_okay=set_is_connected)
         self.is_connected = self._subscription_mgr.all_subscriptions_okay
 
-    def stop_all(self, unsubscribe: bool =True):
+    def stop_all(self, unsubscribe: bool = True):
         """Stop all threads, optionally unsubscribe."""
         if self._subscription_mgr is not None:
             if unsubscribe:
@@ -547,7 +547,7 @@ class SdcConsumer:
         _url = urlparse(self._device_location)
         wsc = self.get_soap_client(self._device_location)
 
-        if self._ssl_context is not None and _url.scheme == 'https':
+        if self._ssl_context_container is not None and _url.scheme == 'https':
             if wsc.is_closed():
                 wsc.connect()
             sock = wsc.sock
@@ -584,13 +584,14 @@ class SdcConsumer:
         key = (_url.scheme, _url.netloc)
         soap_client = self._soap_clients.get(key)
         if soap_client is None:
-            soap_client = self._mk_soap_client(_url.scheme, _url.netloc,
-                                               loghelper.get_logger_adapter('sdc.client.soap', self.log_prefix),
-                                               ssl_context=self._ssl_context,
-                                               sdc_definitions=self.sdc_definitions,
-                                               msg_reader=self.msg_reader,
-                                               supported_encodings=self._compression_methods,
-                                               chunked_requests=self.chunked_requests)
+            soap_client = self._mk_soap_client(
+                _url.scheme, _url.netloc,
+                loghelper.get_logger_adapter('sdc.client.soap', self.log_prefix),
+                ssl_context=self._ssl_context_container.client_context if self._ssl_context_container else None,
+                sdc_definitions=self.sdc_definitions,
+                msg_reader=self.msg_reader,
+                supported_encodings=self._compression_methods,
+                chunked_requests=self.chunked_requests)
             self._soap_clients[key] = soap_client
         return soap_client
 
@@ -642,11 +643,11 @@ class SdcConsumer:
     def _start_event_sink(self, shared_http_server: Any):
         if shared_http_server is None:
             self._is_internal_http_server = True
-            ssl_context = self._ssl_context if self._device_uses_https else None
+            ssl_context_container = self._ssl_context_container if self._device_uses_https else None
             logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', self.log_prefix)
             self._http_server = HttpServerThreadBase(
                 str(self._network_adapter.ip),
-                ssl_context,
+                ssl_context_container.server_context if ssl_context_container else None,
                 logger=logger,
                 supported_encodings=self._compression_methods,
             )
@@ -675,8 +676,8 @@ class SdcConsumer:
         return f'SdcConsumer to {self.host_description.this_device} {self.host_description.this_model} on {self._device_location}'
 
     @classmethod
-    def from_wsd_service(cls, wsd_service: Service,   # noqa: PLR0913
-                         ssl_context: SSLContext | None,
+    def from_wsd_service(cls, wsd_service: Service,  # noqa: PLR0913
+                         ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
                          validate: bool = True,
                          log_prefix: str = '',
                          default_components: SdcConsumerComponents | None = None,
@@ -684,7 +685,7 @@ class SdcConsumer:
         """Construct a SdcConsumer from a Service.
 
         :param wsd_service: a wsdiscovery.Service instance
-        :param ssl_context: a ssl context or None
+        :param ssl_context_container: a ssl context or None
         :param validate: bool
         :param log_prefix: a string
         :param default_components: a SdcConsumerComponents instance or None
@@ -697,6 +698,7 @@ class SdcConsumer:
         device_location = device_locations[0]
         for sdc_definition in ProtocolsRegistry.protocols:
             if sdc_definition.types_match(wsd_service.types):
-                return cls(device_location, sdc_definition, ssl_context, validate=validate, log_prefix=log_prefix,
+                return cls(device_location, sdc_definition, ssl_context_container, validate=validate,
+                           log_prefix=log_prefix,
                            default_components=default_components, specific_components=specific_components)
         raise RuntimeError('no matching protocol definition found for this service!')

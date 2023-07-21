@@ -62,7 +62,7 @@ class Test_Compression(unittest.TestCase):
         x_addr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcConsumer(x_addr[0],
                                       sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                      ssl_context=None,
+                                      ssl_context_container=None,
                                       )
         if compression_flag is None:
             self.sdc_client.set_used_compression()

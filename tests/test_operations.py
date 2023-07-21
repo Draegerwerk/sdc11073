@@ -59,6 +59,7 @@ class Test_BuiltinOperations(unittest.TestCase):
     """ Test role providers (located in sdc11073.roles)
 
     """
+
     def setUp(self):
         basic_logging_setup()
 
@@ -82,10 +83,10 @@ class Test_BuiltinOperations(unittest.TestCase):
             action_dispatcher_class=RequestDispatcher
         )
         self.sdc_client = SdcConsumer(x_addr[0],
-                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                    ssl_context=None,
-                                    validate=CLIENT_VALIDATE,
-                                    specific_components=specific_components)
+                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                      ssl_context_container=None,
+                                      validate=CLIENT_VALIDATE,
+                                      specific_components=specific_components)
         self.sdc_client.start_all(subscribe_periodic_reports=True)
         time.sleep(1)
         sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
@@ -176,7 +177,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         # test update of the patient
         proposed_context = context.mk_proposed_context_object(patient_descriptor_container.Handle,
-                                                             handle=patient_context_state_container.Handle)
+                                                              handle=patient_context_state_container.Handle)
         proposed_context.CoreData.Givenname = 'Karla'
         future = context.set_context_state(operation_handle, [proposed_context])
         result = future.result(timeout=SET_TIMEOUT)
@@ -349,10 +350,10 @@ class Test_BuiltinOperations(unittest.TestCase):
             action_dispatcher_class=RequestDispatcher
         )
         sdc_client2 = SdcConsumer(x_addr[0],
-                                sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                ssl_context=None,
-                                validate=CLIENT_VALIDATE,
-                                specific_components=specific_components)
+                                  sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                  ssl_context_container=None,
+                                  validate=CLIENT_VALIDATE,
+                                  specific_components=specific_components)
         sdc_client2.start_all(subscribe_periodic_reports=True)
         client_mdib2 = ConsumerMdib(sdc_client2)
         client_mdib2.init_mdib()
@@ -478,7 +479,8 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         operation_handle = my_operation_descriptor.Handle
         proposed_metric_state = clientMdib.xtra.mk_proposed_state(operation_target_handle)
-        self.assertIsNone(proposed_metric_state.LifeTimePeriod)  # just to be sure that we know the correct intitial value
+        self.assertIsNone(
+            proposed_metric_state.LifeTimePeriod)  # just to be sure that we know the correct intitial value
         before_state_version = proposed_metric_state.StateVersion
         newLifeTimePeriod = 42.5
         proposed_metric_state.LifeTimePeriod = newLifeTimePeriod
@@ -523,7 +525,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         new_operating_hours = 42
         proposed_component_state.OperatingHours = new_operating_hours
         future = set_service.set_component_state(operation_handle=operation_handle,
-                                                proposed_component_states=[proposed_component_state])
+                                                 proposed_component_states=[proposed_component_state])
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
@@ -550,4 +552,3 @@ class Test_BuiltinOperations(unittest.TestCase):
         future2 = set_service.set_string(operation_handle=operation_handle, requested_string=value)
         result2 = future2.result(timeout=SET_TIMEOUT)
         self.assertGreater(result2.InvocationInfo.TransactionId, result.InvocationInfo.TransactionId)
-

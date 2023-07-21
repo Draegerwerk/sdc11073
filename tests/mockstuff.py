@@ -113,7 +113,7 @@ class SomeDevice(SdcProvider):
 
     def __init__(self, wsdiscovery, mdib_xml_string,
                  epr: Union[str, uuid.UUID, None] = None,
-                 validate=True, ssl_context=None, log_prefix='',
+                 validate=True, ssl_context_container=None, log_prefix='',
                  default_components=None, specific_components=None,
                  chunked_messages=False):
         model = ThisModelType(manufacturer='Example Manufacturer',
@@ -136,14 +136,14 @@ class SomeDevice(SdcProvider):
                 mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')
                 mdsDescriptor.MetaData.ModelNumber = '0.99'
         super().__init__(wsdiscovery, model, device, device_mdib_container, epr, validate,
-                         ssl_context=ssl_context, log_prefix=log_prefix,
+                         ssl_context_container=ssl_context_container, log_prefix=log_prefix,
                          default_components=default_components,
                          specific_components=specific_components,
                          chunked_messages=chunked_messages)
 
     @classmethod
     def from_mdib_file(cls, wsdiscovery, my_uuid, mdib_xml_path,
-                       validate=True, ssl_context=None, log_prefix='',
+                       validate=True, ssl_context_container=None, log_prefix='',
                        default_components=None, specific_components=None,
                        chunked_messages=False):
         """
@@ -155,6 +155,6 @@ class SomeDevice(SdcProvider):
 
         with open(mdib_xml_path, 'rb') as f:
             mdib_xml_string = f.read()
-        return cls(wsdiscovery, mdib_xml_string, my_uuid, validate, ssl_context, log_prefix=log_prefix,
+        return cls(wsdiscovery, mdib_xml_string, my_uuid, validate, ssl_context_container, log_prefix=log_prefix,
                    default_components=default_components, specific_components=specific_components,
                    chunked_messages=chunked_messages)

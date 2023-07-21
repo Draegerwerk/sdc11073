@@ -271,7 +271,7 @@ class Test_Tutorial(unittest.TestCase):
         services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)  # both devices found
 
-        my_client = SdcConsumer.from_wsd_service(services[0], ssl_context=None)
+        my_client = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
         self.my_clients.append(my_client)
         my_client.start_all()
         ############# Mdib usage ##############################
@@ -312,7 +312,7 @@ class Test_Tutorial(unittest.TestCase):
         services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)  # both devices found
 
-        my_client = SdcConsumer.from_wsd_service(services[0], ssl_context=None)
+        my_client = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
         self.my_clients.append(my_client)
         my_client.start_all()
         my_mdib = ConsumerMdib(my_client)
@@ -367,7 +367,7 @@ class Test_Tutorial(unittest.TestCase):
         services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
 
-        self.service = SdcConsumer.from_wsd_service(services[0], ssl_context=None)
+        self.service = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
         my_client = self.service
         self.my_clients.append(my_client)
         my_client.start_all()

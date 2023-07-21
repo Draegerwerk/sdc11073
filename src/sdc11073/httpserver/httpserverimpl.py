@@ -122,7 +122,7 @@ class HttpServerThreadBase(threading.Thread):
             self.my_port = self.httpd.server_port
             self.logger.info('starting http server on {}:{}', self._my_ipaddress, self.my_port)
             if self._ssl_context:
-                self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket)
+                self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket, server_side=True)
                 self.base_url = f'https://{self._my_ipaddress}:{self.my_port}/'
             else:
                 self.base_url = f'http://{self._my_ipaddress}:{self.my_port}/'
