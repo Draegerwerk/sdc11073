@@ -321,7 +321,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         ssl_context_mock = mock.Mock(side_effect=ssl_context_init_side_effect)
 
         with mock.patch.object(ssl, 'SSLContext', new=ssl_context_mock):
-            return_value = sdc11073.certloader.mk_ssl_contexts_from_folder(mock.MagicMock())
+            return_value = sdc11073.certloader.mk_ssl_contexts_from_folder('')
 
         self.assertNotEqual(return_value.client_context, return_value.server_context)
 
