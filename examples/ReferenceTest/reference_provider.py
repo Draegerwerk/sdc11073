@@ -29,7 +29,7 @@ USE_REFERENCE_PARAMETERS = True
 
 def get_network_adapter() -> network.NetworkAdapter:
     """Get network adapter from environment or first loopback."""
-    if ip := os.getenv('ref_ip') is not None:  # noqa: SIM112
+    if (ip := os.getenv('ref_ip')) is not None:  # noqa: SIM112
         return network.get_adapter_containing_ip(ip)
     # get next available loopback adapter
     return next(adapter for adapter in network.get_adapters() if adapter.is_loopback)
@@ -44,7 +44,7 @@ def get_location() -> location.SdcLocation:
 
 def get_ssl_context() -> ssl.SSLContext | None:
     """Get ssl context from environment or None."""
-    if ca_folder := os.getenv('ref_ca') is None:  # noqa: SIM112
+    if (ca_folder := os.getenv('ref_ca')) is None:  # noqa: SIM112
         return None
     return mk_ssl_context_from_folder(ca_folder,
                                       private_key='user_private_key_encrypted.pem',
@@ -56,7 +56,7 @@ def get_ssl_context() -> ssl.SSLContext | None:
 
 def get_epr() -> uuid.UUID:
     """Get epr from environment or default."""
-    if epr := os.getenv('ref_search_epr') is not None:  # noqa: SIM112
+    if (epr := os.getenv('ref_search_epr')) is not None:  # noqa: SIM112
         return uuid.UUID(epr)
     return uuid.UUID('12345678-6f55-11ea-9697-123456789abc')
 
@@ -131,7 +131,7 @@ def setup_logging() -> logging.LoggerAdapter:
     default = pathlib.Path(__file__).parent.joinpath('logging_default.json')
     if default.exists():
         logging.config.dictConfig(json.loads(default.read_bytes()))
-    if extra := os.getenv('ref_xtra_log_cnf') is not None:  # noqa: SIM112
+    if (extra := os.getenv('ref_xtra_log_cnf')) is not None:  # noqa: SIM112
         logging.config.dictConfig(json.loads(pathlib.Path(extra).read_bytes()))
     return LoggerAdapter(logging.getLogger('sdc'))
 
