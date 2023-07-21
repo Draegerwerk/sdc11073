@@ -7,6 +7,7 @@ import socket
 import ssl
 import sys
 import time
+import typing
 import unittest
 from itertools import product
 from unittest import mock
@@ -161,44 +162,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
 
         with mock.patch.object(socket, 'socket', new=socket_mock):
 
-            log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
-
-            wsd = WSDiscoveryWhitelist(['127.0.0.1'])
-            wsd.start()
-            location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
-            sdc_device_final = SomeDevice.fromMdibFile(wsd, None, '70041_MDIB_Final.xml',
-                                                       logLevel=logging.INFO,
-                                                       ssl_context_container=ssl_context_container)
-            ns_mapper = sdc_device_final.mdib.nsmapper
-            ns_mapper._prefixmap['__BICEPS_ParticipantModel__'] = None
-            sdc_device_final.startAll(periodic_reports_interval=1.0)
-            loc_validators = [pmtypes.InstanceIdentifier('Validator', extensionString='System')]
-            sdc_device_final.setLocation(location, loc_validators)
-            Test_Client_SomeDevice.provideRealtimeData(sdc_device_final)
-
-            time.sleep(0.5)
-
-            x_addr = sdc_device_final.getXAddrs()
-            sdc_client_final = SdcClient(x_addr[0],
-                                         deviceType=sdc_device_final.mdib.sdc_definitions.MedicalDeviceType,
-                                         validate=CLIENT_VALIDATE,
-                                         ssl_context_container=ssl_context_container)
-            sdc_client_final.startAll(subscribe_periodic_reports=True)
-
-            _all_cl_dev = [(sdc_client_final, sdc_device_final)]
-
-            time.sleep(1.5)
-
-            log_watcher.setPaused(True)
-            for sdcClient, sdcDevice in _all_cl_dev:
-                sdcClient.stopAll()
-                sdcDevice.stopAll()
-            wsd.stop()
-            try:
-                log_watcher.check()
-            except loghelper.LogWatchException as ex:
-                sys.stderr.write(repr(ex))
-                raise
+            self._run_client_with_device(None, ssl_context_container)
 
         socket_mock.assert_called()
 
@@ -237,6 +201,176 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
             self.assertNotIn(unittest.mock.call.connect(unittest.mock.ANY), sock.method_calls)
             self.assertTrue(unittest.mock.call.listen(unittest.mock.ANY) in sock.method_calls or
                             unittest.mock.call.listen() in sock.method_calls or set(sock.w).intersection(branches))
+
+    def test_basic_connection_with_only_one_ssl_context(self):
+        """
+        Test that client and server communication works when only one ssl context is given.
+        """
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+
+        ssl_context.check_hostname = False
+
+        ssl_context.verify_mode = ssl.CERT_NONE
+
+        # this is intentionally unsafe so that the unittest is simplified to work without dh params and rsa keys
+        ssl_context.set_ciphers('ALL:@SECLEVEL=0')
+
+        ssl_context_wrap_socket_mock = mock.Mock(
+            side_effect=self.wrap_socket.__get__(ssl_context, ssl.SSLContext))
+
+        ssl_context.old_wrap_socket = ssl_context.wrap_socket
+        ssl_context.wrap_socket = ssl_context_wrap_socket_mock
+
+        original_socket_socket = socket.socket
+
+        def socket_init_side_effect(*args, **kwargs):
+
+            s = original_socket_socket(*args, **kwargs)
+            m = mock.Mock(wraps=s)
+
+            m.s = s
+            m.w = list()
+
+            m.branches = list()
+            return m
+
+        socket_mock = mock.Mock(side_effect=socket_init_side_effect)
+
+        with mock.patch.object(socket, 'socket', new=socket_mock):
+
+            self._run_client_with_device(ssl_context, None)
+
+        socket_mock.assert_called()
+
+        self.assertGreaterEqual(len(ssl_context_wrap_socket_mock.call_args_list), 6)
+
+        branches = list()
+
+        for call_arg in ssl_context_wrap_socket_mock.call_args_list:
+            if call_arg[0]:
+                sock = call_arg[0][0]
+            else:
+                sock = call_arg[1]['sock']
+
+            branches.extend(sock.branches)
+
+        for call_arg in ssl_context_wrap_socket_mock.call_args_list:
+            if call_arg[0]:
+                # TODO: replace call_arg[0] with call_arg.args when Python 3.7 support is dropped
+                sock = call_arg[0][0]
+            else:
+                # TODO: replace call_arg[1] with call_arg.kwargs when Python 3.7 support is dropped
+                sock = call_arg[1]['sock']
+
+            predicate = any(
+                [unittest.mock.call.listen(unittest.mock.ANY) in sock.method_calls,
+                 unittest.mock.call.listen() in sock.method_calls,
+                 set(sock.w).intersection(branches),
+                 unittest.mock.call.connect(unittest.mock.ANY) in sock.method_calls]
+            )
+
+            self.assertTrue(predicate)
+
+    def test_both_context_parameters_being_given_fails(self):
+        """
+        Test that giving both sslContext and ssl_context_container as a parameter results in an ValueError being raised.
+        """
+        with self.assertRaises(ValueError) as client_error_context:
+            SdcClient(
+                'https://127.0.0.1:12345/test.sdc/abc',
+                deviceType=None,
+                validate=mock.MagicMock(),
+                sslContext=mock.MagicMock(),
+                ssl_context_container=mock.MagicMock()
+            )
+
+        self.assertEqual(client_error_context.exception.args,
+                         ('sslContext and ssl_context_container must not both be given',))
+
+        with self.assertRaises(ValueError) as device_error_context:
+            SomeDevice.fromMdibFile(
+                mock.MagicMock(),
+                None,
+                '70041_MDIB_Final.xml',
+                logLevel=logging.INFO,
+                sslContext=mock.MagicMock(),
+                ssl_context_container=mock.MagicMock())
+
+        self.assertEqual(device_error_context.exception.args,
+                         ('sslContext and ssl_context_container must not both be given',))
+
+    def test_mk_ssl_contexts(self):
+        """
+        Test that sdc11073.certloader.mk_ssl_contexts_from_folder creates different contexts for client and device.
+        """
+
+        original_ssl_context = ssl.SSLContext
+
+        ssl_context_mock_list: typing.List[mock.Mock] = list()
+
+        def ssl_context_init_side_effect(*args, **kwargs):
+            s = original_ssl_context(*args, **kwargs)
+            m = mock.Mock(wraps=s)
+
+            m.load_cert_chain = mock.MagicMock()
+            m.load_verify_locations = mock.MagicMock()
+
+            ssl_context_mock_list.append(m)
+            return m
+
+        ssl_context_mock = mock.Mock(side_effect=ssl_context_init_side_effect)
+
+        with mock.patch.object(ssl, 'SSLContext', new=ssl_context_mock):
+            return_value = sdc11073.certloader.mk_ssl_contexts_from_folder(mock.MagicMock())
+
+        self.assertNotEqual(return_value.client_context, return_value.server_context)
+
+        ssl_context_mock.assert_called()
+        ssl_context_mock.assert_any_call(ssl.PROTOCOL_TLS_CLIENT)
+        ssl_context_mock.assert_any_call(ssl.PROTOCOL_TLS_SERVER)
+
+        self.assertGreaterEqual(len(ssl_context_mock_list), 2)
+
+        for context_mock in ssl_context_mock_list:
+            context_mock.load_cert_chain.assert_called()
+            context_mock.load_verify_locations.assert_called()
+
+    @staticmethod
+    def _run_client_with_device(ssl_context, ssl_context_container):
+        log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
+        wsd = WSDiscoveryWhitelist(['127.0.0.1'])
+        wsd.start()
+        location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
+        sdc_device_final = SomeDevice.fromMdibFile(wsd, None, '70041_MDIB_Final.xml',
+                                                   logLevel=logging.INFO,
+                                                   sslContext=ssl_context,
+                                                   ssl_context_container=ssl_context_container)
+        ns_mapper = sdc_device_final.mdib.nsmapper
+        ns_mapper._prefixmap['__BICEPS_ParticipantModel__'] = None
+        sdc_device_final.startAll(periodic_reports_interval=1.0)
+        loc_validators = [pmtypes.InstanceIdentifier('Validator', extensionString='System')]
+        sdc_device_final.setLocation(location, loc_validators)
+        Test_Client_SomeDevice.provideRealtimeData(sdc_device_final)
+        time.sleep(0.5)
+        x_addr = sdc_device_final.getXAddrs()
+        sdc_client_final = SdcClient(x_addr[0],
+                                     deviceType=sdc_device_final.mdib.sdc_definitions.MedicalDeviceType,
+                                     validate=CLIENT_VALIDATE,
+                                     sslContext=ssl_context,
+                                     ssl_context_container=ssl_context_container)
+        sdc_client_final.startAll(subscribe_periodic_reports=True)
+        _all_cl_dev = [(sdc_client_final, sdc_device_final)]
+        time.sleep(1.5)
+        log_watcher.setPaused(True)
+        for sdcClient, sdcDevice in _all_cl_dev:
+            sdcClient.stopAll()
+            sdcDevice.stopAll()
+        wsd.stop()
+        try:
+            log_watcher.check()
+        except loghelper.LogWatchException as ex:
+            sys.stderr.write(repr(ex))
+            raise
 
 
 class Test_Client_SomeDevice(unittest.TestCase):
