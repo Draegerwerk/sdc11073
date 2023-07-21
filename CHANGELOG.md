@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+- instantiating pm:AllowedValue/pm:Value as empty string (formerly None) if no value is provided in xml
+
 ### Fixed
 - client subscription: renew could be sent after unsubscribe.
 

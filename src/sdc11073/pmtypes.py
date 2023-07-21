@@ -590,7 +590,7 @@ class AllowedValue(PropertyBasedPMType):
 
     @classmethod
     def fromNode(cls, node):
-        valueString = node.find(namespaces.domTag('Value')).text
+        valueString = node.find(namespaces.domTag('Value')).text or ""
         typeNode = node.find(namespaces.domTag('Type'))
         if typeNode is None:
             typeCoding = None
