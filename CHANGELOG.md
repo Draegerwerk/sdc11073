@@ -11,8 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `network` module to handle network adapter stuff of the host computer
 - `mypy` static code analysis
-- ssl_context_container parameter to get rid of the deprecation warning occurring 
-  when using the same ssl context for both client and server side
 
 ### Fixed
 
@@ -32,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sdc11073.mdib.devicemdib.DeviceMdibContainer becomes sdc11073.mdib.providermdib.ProviderMdib, etc.
 - renamed Client with Consumer: sdc11073.sdcclient.SdcClient becomes sdc11073.consumer.SdcConsumer,
   sdc11073.mdib.clientmdib.ClientMdibContainer becomes sdc11073.mdib.consumermdib.ConsumerMdib, etc.
+- replaced some of the ssl_context parameters with an ssl_context_container parameter, 
+  that can hold two ssl context objects, to be able to get rid of 
+  the deprecation warning occurring when using the same ssl context for both client and server side
 
 ## [2.0.0a5] - 2023-06-27
 
