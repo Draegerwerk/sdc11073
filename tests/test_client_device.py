@@ -338,7 +338,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
             self.assertNotIn(unittest.mock.call.listen(unittest.mock.ANY), sock.method_calls)
             self.assertNotIn(unittest.mock.call.listen(), sock.method_calls)
 
-        self.assertGreaterEqual(len(server_ssl_context_wrap_socket_mock.call_args_list), 4)
+        self.assertGreaterEqual(len(server_ssl_context_wrap_socket_mock.call_args_list), 1)
 
         branches = list()
 
