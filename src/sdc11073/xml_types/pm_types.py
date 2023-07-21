@@ -634,7 +634,7 @@ class AllowedValue(PropertyBasedPMType):
 
     @classmethod
     def from_node(cls, node):
-        value_string = node.find(pm.Value).text
+        value_string = node.find(pm.Value).text or ""
         type_node = node.find(pm.Type)
         if type_node is None:
             type_coding = None
