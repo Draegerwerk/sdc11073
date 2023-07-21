@@ -5,7 +5,6 @@ import ssl
 
 @dataclasses.dataclass
 class SSLContextContainer:
-
     client_context: ssl.SSLContext
     server_context: ssl.SSLContext
 
@@ -22,10 +21,10 @@ def mk_ssl_contexts_from_folder(ca_folder,
     :param private_key: name of the private key file of the user
     :param certificate: name of the signed certificate of the user
     :param ca_public_key: name of public key of the certificate authority that signed the certificate; if given,
-                   verify_mode of sslContext will be set to CERT_REQUIRED
+                          verify_mode of ssl contexts in the return value will be set to CERT_REQUIRED
     :param cyphers_file: optional file that contains a cyphers string; comments are possible, start line with '#'
     :param ssl_passwd: optional password string
-    :return: tuple of SSLContext instances (client_ssl_context, server_ssl_context)
+    :return: container of SSLContext instances i.e. client_ssl_context and server_ssl_context
     """
     certfile = os.path.join(ca_folder, certificate)
     keyfile = os.path.join(ca_folder, private_key)
@@ -61,10 +60,10 @@ def mk_ssl_contexts(key_file,
     :param key_file: the private key pem file of the user
     :param cert_file: the signed certificate of the user
     :param ca_file: optional public key of the certificate authority that signed the certificate; if given,
-                   verify_mode of sslContext will be set to CERT_REQUIRED
+                    verify_mode of ssl contexts in the return value will be set to CERT_REQUIRED
     :param cyphers: optional cyphers string
     :param ssl_passwd: optional password string
-    :return: tuple of SSLContext instances (client_ssl_context, server_ssl_context)
+    :return: container of SSLContext instances i.e. client_ssl_context and server_ssl_context
     """
     client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     server_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
