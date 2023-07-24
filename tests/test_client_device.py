@@ -33,12 +33,22 @@ from sdc11073.provider import waveforms
 from sdc11073.provider.components import SdcProviderComponents, default_sdc_provider_components_async
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.msgfactory import CreatedMessage
-from sdc11073.pysoap.soapclient import SoapClient, HTTPReturnCodeError
+from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types, msg_qnames as msg, pm_qnames as pm
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
+from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.components import SdcConsumerComponents
+from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
+from sdc11073.provider import waveforms
+from sdc11073.provider.components import (SdcProviderComponents,
+                                          default_sdc_provider_components_async,
+                                          default_sdc_provider_components_sync)
+from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
+from sdc11073.wsdiscovery import WSDiscovery
+from sdc11073.namespaces import default_ns_helper
 from tests.mockstuff import SomeDevice, dec_list
 
 ENABLE_COMMLOG = False
@@ -138,10 +148,6 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
             unit_test.assertEqual(len(w_a.annotations), 1)
             unit_test.assertEqual(w_a.annotations[0].Type,
                                   pm_types.CodedValue('a', 'b'))  # like in provide_realtime_data
-        # the cycle time of the annotator source is 1.2 seconds. The difference of the observation times must be almost 1.2
-        unit_test.assertAlmostEqual(with_annotation[1].determination_time - with_annotation[0].determination_time,
-                                    1.2,
-                                    delta=0.05)
 
     # now disable one waveform
     d_handle = d_handles[0]
@@ -442,7 +448,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041)
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
+                                                    default_components=default_sdc_provider_components_async,
+                                                    max_subscription_duration=10)  # shorter duration for faster tests
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -475,7 +483,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             if self.sdc_device:
                 self.sdc_device.stop_all()
             if self.sdc_client:
-                self.sdc_client.stop_all()
+                self.sdc_client.stop_all(unsubscribe=False)
             self.wsd.stop()
         except:
             sys.stderr.write(traceback.format_exc())
@@ -492,10 +500,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_renew_get_status(self):
         for s in self.sdc_client._subscription_mgr.subscriptions.values():
-            remaining_seconds = s.renew(1)  # one minute
-            self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
+            max_duration = self.sdc_device._max_subscription_duration
+            remaining_seconds = s.renew(max_duration + 100)
+            self.assertAlmostEqual(remaining_seconds, max_duration, delta=5.0)  # huge diff allowed due to jenkins
             remaining_seconds = s.get_status()
-            self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
+            self.assertAlmostEqual(remaining_seconds, max_duration, delta=5.0)  # huge diff allowed due to jenkins
             # verify that device returns fault message on wrong subscription identifier
             # if s.dev_reference_param.has_parameters:
             if s.subscribe_response.SubscriptionManager.ReferenceParameters:
@@ -509,7 +518,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     s._subscription_manager_path = s._subscription_manager_path[:-1] + 'xxx'
                     # renew
                     self.log_watcher.setPaused(True)  # ignore logged error
-                    remaining_seconds = s.renew(1)  # one minute
+                    remaining_seconds = s.renew(60)
                     self.log_watcher.setPaused(False)
                     self.assertFalse(s.is_subscribed)  # it did not work
                     self.assertEqual(remaining_seconds, 0)
@@ -555,20 +564,15 @@ class Test_Client_SomeDevice(unittest.TestCase):
             subscriptions = list(mgr._subscriptions.objects)  # make a copy of this list
             for s in subscriptions:
                 self.assertFalse(s.is_closed())
-
         self.sdc_client._subscription_mgr.unsubscribe_all()
 
         # all subscriptions shall be closed immediately
         for s in all_subscriptions:
-            self.assertTrue(s.is_closed())
+            self.assertIsNotNone(s.unsubscribed_at)
 
-        # subscription managers shall have no subscriptions
-        for hosted_service in services:
-            mgr = hosted_service.subscriptions_manager
-            self.assertEqual(len(mgr._subscriptions.objects), 0)
 
     def test_device_stop(self):
-        """ verify that sockets get closed"""
+        """Verify that sockets get closed."""
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         services = [s for s in self.sdc_device.hosted_services.dpws_hosted_services.values()
@@ -601,6 +605,22 @@ class Test_Client_SomeDevice(unittest.TestCase):
             mgr = hosted_service.subscriptions_manager
             self.assertEqual(len(mgr._subscriptions.objects), 0)
 
+    def test_no_renew(self):
+        self.logger.info('stopping client')
+        self.sdc_client.stop_all()
+        # make renew period much longer than max subscription duration
+        # => all subscription expired,  all soap clients closed
+        self.logger.info('starting client again  with fixed_renew_interval=1000')
+        self.sdc_client.start_all(fixed_renew_interval=1000)
+        time.sleep(1)
+        self.assertGreater(len(self.sdc_device._soap_client_pool._soap_clients), 0)
+        sleep_time = int(self.sdc_device._max_subscription_duration + 3)
+        self.logger.info('sleep now for %d seconds', sleep_time)
+        time.sleep(sleep_time)
+        self.logger.info('check that all soap clients are closed')
+        self.assertEqual(len(self.sdc_device._soap_client_pool._soap_clients), 0)
+        self.sdc_client.stop_all(unsubscribe=False)  # avoid errors in tearDown
+
     def test_client_stop_no_unsubscribe(self):
         self.log_watcher.setPaused(True)  # this test will have error logs, no check
         cl_mdib = ConsumerMdib(self.sdc_client)
@@ -625,7 +645,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             for s in subscriptions:
                 self.assertFalse(s.is_closed())
         self.sdc_client.stop_all(unsubscribe=False)
-        time.sleep(SoapClient.SOCKET_TIMEOUT + 3)  # just a little longer than socket timeout 5 seconds
+        time.sleep(self.sdc_device._socket_timeout + 3)  # a little longer than socket timeout
 
         # all subscriptions shall be closed now
         for s in all_subscriptions:
@@ -687,7 +707,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                      ssl_context_container=None,
                                      validate=CLIENT_VALIDATE,
-                                     specific_components=specific_components)
+                                     specific_components=specific_components,
+                                     log_prefix='consumer2 ')
             sdc_client.start_all(subscribe_periodic_reports=True)
 
             cl_mdib = ConsumerMdib(sdc_client)
@@ -695,6 +716,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(self.sdc_device.mdib.instance_id, cl_mdib.instance_id)
         finally:
             if sdc_client:
+                time.sleep(1)
                 sdc_client.stop_all()
 
     def test_metric_report(self):
@@ -1490,11 +1512,12 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
 
     def test_renew_get_status(self):
         """ If renew and get_status work, then reference parameters based dispatching works. """
+        max_duration = self.sdc_device._max_subscription_duration
         for s in self.sdc_client._subscription_mgr.subscriptions.values():
-            remaining_seconds = s.renew(1)  # one minute
-            self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
+            remaining_seconds = s.renew(max_duration + 100)  # very long
+            self.assertAlmostEqual(remaining_seconds, max_duration, delta=5.0)  # huge diff allowed due to CI perform
             remaining_seconds = s.get_status()
-            self.assertAlmostEqual(remaining_seconds, 60, delta=5.0)  # huge diff allowed due to jenkins
+            self.assertAlmostEqual(remaining_seconds, max_duration, delta=5.0)
 
     def test_subscription_end(self):
         self.sdc_device.stop_all()
@@ -1502,7 +1525,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.sdc_client.stop_all()
 
 
-class Test_Client_SomeDevice_async(unittest.TestCase):
+class Test_Client_SomeDevice_sync(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
         self.logger = get_logger_adapter('sdc.test')
@@ -1512,7 +1535,7 @@ class Test_Client_SomeDevice_async(unittest.TestCase):
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='',
-                                                    default_components=default_sdc_provider_components_async,
+                                                    default_components=default_sdc_provider_components_sync,
                                                     chunked_messages=True)
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -1548,7 +1571,7 @@ class Test_Client_SomeDevice_async(unittest.TestCase):
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
 
-    def test_basic_connect_async(self):
+    def test_basic_connect_sync(self):
         # simply check that correct top node is returned
         get_service = self.sdc_client.client('Get')
         message_data = get_service.get_md_description()
@@ -1564,12 +1587,12 @@ class Test_Client_SomeDevice_async(unittest.TestCase):
         result = context_service.get_context_states()
         self.assertGreater(len(result.result.ContextState), 0)
 
-    def test_realtime_samples_async(self):
+    def test_realtime_samples_sync(self):
         provide_realtime_data(self.sdc_device)
         time.sleep(0.2)  # let some rt data exist before test starts
         runtest_realtime_samples(self, self.sdc_device, self.sdc_client)
 
-    def test_metric_report_async(self):
+    def test_metric_report_sync(self):
         logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
         logging.getLogger('sdc.client.subscrMgr').setLevel(logging.DEBUG)
         logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)

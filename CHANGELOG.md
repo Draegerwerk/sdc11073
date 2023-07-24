@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sdc11073.mdib.devicemdib.DeviceMdibContainer becomes sdc11073.mdib.providermdib.ProviderMdib, etc.
 - renamed Client with Consumer: sdc11073.sdcclient.SdcClient becomes sdc11073.consumer.SdcConsumer,
   sdc11073.mdib.clientmdib.ClientMdibContainer becomes sdc11073.mdib.consumermdib.ConsumerMdib, etc.
+- reduced max_subscription_duration of provider to 15 seconds
+- renew can be performed in fixed intervals (as before) or depending on Expires time of subscription.
 - replaced some of the ssl_context parameters with an ssl_context_container parameter, 
   that can hold two ssl context objects, to be able to get rid of 
   the deprecation warning occurring when using the same ssl context for both client and server side

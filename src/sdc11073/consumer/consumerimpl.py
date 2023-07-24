@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import ssl
+import time
 import traceback
 import uuid
 from dataclasses import dataclass
@@ -190,7 +191,8 @@ class SdcConsumer:
                  log_prefix: str = '',
                  default_components: SdcConsumerComponents | None = None,
                  specific_components: SdcConsumerComponents | None = None,
-                 chunked_requests: bool = False):
+                 chunked_requests: bool = False,
+                 socket_timeout: int = 5):
         """Construct a SdcConsumer.
 
         :param device_location: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
@@ -201,6 +203,7 @@ class SdcConsumer:
         :param log_prefix: a string used as prefix for logging
         :param specific_components: a SdcConsumerComponents instance or None
         :param chunked_requests: bool
+        :param socket_timeout: timeout for connections to provider
         """
         if not device_location.startswith('http'):
             raise ValueError('Invalid device_location, it must be match http(s)://<netloc> syntax')
@@ -216,6 +219,7 @@ class SdcConsumer:
 
         self.log_prefix = log_prefix
         self.chunked_requests = chunked_requests
+        self._socket_timeout = socket_timeout
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
         self._network_adapter = self._get_host_adapter_by_device_location()
         self._logger.info(  # noqa: PLE1205
@@ -427,14 +431,16 @@ class SdcConsumer:
         return self._subscription_mgr
 
     def start_all(self, not_subscribed_actions: list[str] | None = None,  # noqa: PLR0913
-                  subscriptions_check_interval: float | None = None,
+                  fixed_renew_interval: float | None = None,
                   subscribe_periodic_reports: bool = False,
                   shared_http_server: Any | None = None,
                   check_get_service: bool = True) -> None:
         """Start background threads, read metadata from device, instantiate detected port type clients and subscribe.
 
         :param not_subscribed_actions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
-        :param subscriptions_check_interval: an interval in seconds or None
+        :param fixed_renew_interval: an interval in seconds or None
+                    if None, renew is sent when remaining time <= 50% of granted time
+                    if set, subscription renew is sent in this interval.
         :param subscribe_periodic_reports:
         :param shared_http_server: if provided, use this http server, else client creates its own.
         :param check_get_service: if True (default) it checks that a GetService is detected,
@@ -468,7 +474,7 @@ class SdcConsumer:
                                                             self.get_soap_client,
                                                             self.base_url,
                                                             log_prefix=self.log_prefix,
-                                                            check_interval=subscriptions_check_interval)
+                                                            fixed_renew_interval=fixed_renew_interval)
         self._subscription_mgr.start()
 
         # flag 'self.all_subscribed' tells mdib that mdib state versions shall not have any gaps
@@ -584,34 +590,23 @@ class SdcConsumer:
         key = (_url.scheme, _url.netloc)
         soap_client = self._soap_clients.get(key)
         if soap_client is None:
-            soap_client = self._mk_soap_client(
-                _url.scheme, _url.netloc,
-                loghelper.get_logger_adapter('sdc.client.soap', self.log_prefix),
-                ssl_context=self._ssl_context_container.client_context if self._ssl_context_container else None,
-                sdc_definitions=self.sdc_definitions,
-                msg_reader=self.msg_reader,
-                supported_encodings=self._compression_methods,
-                chunked_requests=self.chunked_requests)
+            soap_client = self._mk_soap_client(_url.scheme, _url.netloc)
             self._soap_clients[key] = soap_client
         return soap_client
 
     def _mk_soap_client(self, scheme: str,  # noqa: PLR0913
-                        netloc: str,
-                        logger: LoggerAdapter,
-                        ssl_context: SSLContext | None,
-                        sdc_definitions: type[BaseDefinitions],
-                        msg_reader: MessageReader,
-                        supported_encodings: Iterable[str] | None = None,
-                        request_encodings: Iterable[str] | None = None,
-                        chunked_requests: bool = False) -> SoapClientProtocol:
-        _ssl_context = ssl_context if scheme == "https" else None
+                        netloc: str) -> SoapClientProtocol:
+        _ssl_context = \
+            self._ssl_context_container.client_context if scheme == "https" and self._ssl_context_container else None
         cls = self._components.soap_client_class
-        return cls(netloc, logger, ssl_context=_ssl_context,
-                   sdc_definitions=sdc_definitions,
-                   msg_reader=msg_reader,
-                   supported_encodings=supported_encodings,
-                   request_encodings=request_encodings,
-                   chunked_requests=chunked_requests)
+        return cls(netloc,
+                   self._socket_timeout,
+                   loghelper.get_logger_adapter('sdc.client.soap', self.log_prefix),
+                   ssl_context=_ssl_context,
+                   sdc_definitions=self.sdc_definitions,
+                   msg_reader=self.msg_reader,
+                   supported_encodings=self._compression_methods,
+                   chunked_requests=self.chunked_requests)
 
     def _mk_hosted_services(self, host_description: mex_types.Metadata):
         for hosted in host_description.relationship.Hosted:

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Union
 
 from lxml import etree as etree_
 
+import sdc11073.certloader
 from sdc11073.mdib import ProviderMdib
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import SdcProvider
@@ -20,7 +21,10 @@ from sdc11073.xml_types.eventing_types import Subscribe
 
 if TYPE_CHECKING:
     import uuid
+    from ssl import SSLContext
     from sdc11073.pysoap.soapclientpool import SoapClientPool
+    from sdc11073.provider.providerimpl import WsDiscoveryProtocol
+    from sdc11073.provider.components import SdcProviderComponents
 
 portsLock = threading.Lock()
 _ports = 10000
@@ -107,15 +111,18 @@ class TestDevSubscription(BicepsSubscription):
 
 
 class SomeDevice(SdcProvider):
-    """A device used for unit tests
+    """A device used for unit tests. Some values are predefined."""
 
-    """
-
-    def __init__(self, wsdiscovery, mdib_xml_string,
-                 epr: Union[str, uuid.UUID, None] = None,
-                 validate=True, ssl_context_container=None, log_prefix='',
-                 default_components=None, specific_components=None,
-                 chunked_messages=False):
+    def __init__(self, wsdiscovery: WsDiscoveryProtocol,
+                 mdib_xml_data: bytes,
+                 epr: str | uuid.UUID | None = None,
+                 validate: bool = True,
+                 ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
+                 max_subscription_duration: int = 15,
+                 log_prefix: str = '',
+                 default_components: SdcProviderComponents | None = None,
+                 specific_components: SdcProviderComponents | None = None,
+                 chunked_messages: bool =False):
         model = ThisModelType(manufacturer='Example Manufacturer',
                               manufacturer_url='www.example-manufacturer.com',
                               model_name='SomeDevice',
@@ -126,7 +133,7 @@ class SomeDevice(SdcProvider):
                                 firmware_version='0.99',
                                 serial_number='12345')
 
-        device_mdib_container = ProviderMdib.from_string(mdib_xml_string, log_prefix=log_prefix)
+        device_mdib_container = ProviderMdib.from_string(mdib_xml_data, log_prefix=log_prefix)
         # set Metadata
         mdsDescriptors = device_mdib_container.descriptions.NODETYPE.get(pm.MdsDescriptor)
         for mdsDescriptor in mdsDescriptors:
@@ -136,25 +143,34 @@ class SomeDevice(SdcProvider):
                 mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')
                 mdsDescriptor.MetaData.ModelNumber = '0.99'
         super().__init__(wsdiscovery, model, device, device_mdib_container, epr, validate,
-                         ssl_context_container=ssl_context_container, log_prefix=log_prefix,
+                         ssl_context_container=ssl_context_container,
+                         max_subscription_duration = max_subscription_duration,
+                         log_prefix=log_prefix,
                          default_components=default_components,
                          specific_components=specific_components,
                          chunked_messages=chunked_messages)
 
     @classmethod
-    def from_mdib_file(cls, wsdiscovery, my_uuid, mdib_xml_path,
-                       validate=True, ssl_context_container=None, log_prefix='',
-                       default_components=None, specific_components=None,
-                       chunked_messages=False):
-        """
-        An alternative constructor for the class
-        """
+    def from_mdib_file(cls,
+                       wsdiscovery: WsDiscoveryProtocol,
+                       epr: str | uuid.UUID | None,
+                       mdib_xml_path: str,
+                       validate: bool =True,
+                       ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
+                       max_subscription_duration: int = 15,
+                       log_prefix: str = '',
+                       default_components: SdcProviderComponents | None = None,
+                       specific_components: SdcProviderComponents | None = None,
+                       chunked_messages: bool =False):
+        """Construct class with path to a mdib file."""
         if not os.path.isabs(mdib_xml_path):
             here = os.path.dirname(__file__)
             mdib_xml_path = os.path.join(here, mdib_xml_path)
 
         with open(mdib_xml_path, 'rb') as f:
-            mdib_xml_string = f.read()
-        return cls(wsdiscovery, mdib_xml_string, my_uuid, validate, ssl_context_container, log_prefix=log_prefix,
+            mdib_xml_data = f.read()
+        return cls(wsdiscovery, mdib_xml_data, epr, validate, ssl_context_container,
+                   max_subscription_duration = max_subscription_duration,
+                   log_prefix=log_prefix,
                    default_components=default_components, specific_components=specific_components,
                    chunked_messages=chunked_messages)

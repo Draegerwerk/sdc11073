@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 import time
 from threading import Lock
 from typing import TYPE_CHECKING
@@ -29,12 +28,12 @@ class SoapClientAsync:
     """SOAP Client wraps an http connection. It can send / receive SoapEnvelopes."""
 
     _used_soap_clients = 0
-    SOCKET_TIMEOUT = 5 if sys.gettrace() is None else 1000  # higher timeout for debugging
 
     roundtrip_time = observableproperties.ObservableProperty()
 
     def __init__(self,
                  netloc: str,
+                 socket_timeout: int | float,
                  logger: LoggerAdapter,
                  ssl_context: [SSLContext, None],
                  sdc_definitions: BaseDefinitions,
@@ -47,6 +46,7 @@ class SoapClientAsync:
         self._sdc_definitions = sdc_definitions
         self._msg_reader = msg_reader
         self._netloc = netloc
+        self._socket_timeout = socket_timeout
         self._http_connection = None  # connect later on demand
         self.__class__._used_soap_clients += 1  # noqa: SLF001
         self._client_number = self.__class__._used_soap_clients  # noqa: SLF001
@@ -78,7 +78,7 @@ class SoapClientAsync:
             connector = TCPConnector()
             base_url = f'http://{self._netloc}/'
 
-        return ClientSession(base_url, connector=connector, timeout=ClientTimeout(self.SOCKET_TIMEOUT))
+        return ClientSession(base_url, connector=connector, timeout=ClientTimeout(self._socket_timeout))
 
     async def async_connect(self):
         """Connect to netloc."""
