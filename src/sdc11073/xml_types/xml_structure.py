@@ -601,16 +601,22 @@ class NodeTextProperty(_ElementBase):
                  implied_py_value: Any | None = None,
                  is_optional: bool = False,
                  min_length: int = 0):
-        super().__init__(sub_element_name, value_converter, default_py_value, implied_py_value, is_optional)
+        super().__init__(sub_element_name, value_converter,
+                         default_py_value,
+                         implied_py_value,
+                         is_optional)
         self._min_length = min_length
 
     def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
-        """Read value from node."""
+        """Read value from node.
+
+        :return: None if the element was not found, else result of converter.
+        """
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
-            return self._converter.to_py(sub_node.text)
         except ElementNotFoundError:
-            return self._default_py_value
+            return None  # element was not found, return None
+        return self._converter.to_py(sub_node.text)
 
     def update_xml_value(self, instance: Any, node: etree_.ElementBase):
         """Write value to node."""
@@ -624,7 +630,7 @@ class NodeTextProperty(_ElementBase):
 
             if not self._sub_element_name:
                 # update text of this element
-                node.text = ''
+                node.text = None
             elif self.is_optional:
                 sub_node = node.find(self._sub_element_name)
                 if sub_node is not None:
@@ -651,7 +657,8 @@ class NodeStringProperty(NodeTextProperty):
                  implied_py_value: str | None = None,
                  is_optional: bool = False,
                  min_length: int = 0):
-        super().__init__(sub_element_name, StringConverter, default_py_value, implied_py_value, is_optional, min_length)
+        super().__init__(sub_element_name, StringConverter, default_py_value, implied_py_value,
+                         is_optional, min_length)
 
 
 class AnyUriTextElement(NodeStringProperty):
@@ -742,8 +749,8 @@ class NodeIntProperty(NodeTextProperty):
                  implied_py_value: int | None = None,
                  is_optional: bool = False,
                  min_length: int = 0):
-        super().__init__(sub_element_name, IntegerConverter, default_py_value, implied_py_value, is_optional,
-                         min_length)
+        super().__init__(sub_element_name, IntegerConverter, default_py_value, implied_py_value,
+                         is_optional, min_length)
 
 
 class NodeTextQNameProperty(_ElementBase):

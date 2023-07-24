@@ -611,36 +611,33 @@ class Measurement(PropertyBasedPMType):
 
 
 class AllowedValue(PropertyBasedPMType):
+    """One AllowedValue of a EnumStringMetricDescriptor."""
+
     NODETYPE = pm.AllowedValue
     # pylint: disable=invalid-name
-    Value = cp.NodeStringProperty(pm.Value)
-    Type = cp.SubElementProperty(pm.Type, value_class=CodedValue, is_optional=True)
-    Identification = cp.SubElementProperty(pm.Identification, value_class=InstanceIdentifier, is_optional=True)
-    Characteristic = cp.SubElementProperty(pm.Characteristic, value_class=Measurement, is_optional=True)
+    Value: str = cp.NodeStringProperty(pm.Value)
+    Type: CodedValue | None = cp.SubElementProperty(pm.Type,
+                                                    value_class=CodedValue,
+                                                    is_optional=True)
+    Identification: CodedValue | None = cp.SubElementProperty(pm.Identification,
+                                                              value_class=InstanceIdentifier,
+                                                              is_optional=True)
+    Characteristic: Measurement | None = cp.SubElementProperty(pm.Characteristic,
+                                                               value_class=Measurement,
+                                                               is_optional=True)
     # pylint: enable=invalid-name
     _props = ['Value', 'Type', 'Identification', 'Characteristic']
 
-    def __init__(self, value_string, type_coding=None):
-        """One AllowedValue of a EnumStringMetricDescriptor. It has up to two sub elements "Value" and "Type"(optional).
-        A StringEnumMetricDescriptor has a list of AllowedValues.
-        :param value_string: a string
-        :param type_coding: an optional CodedValue instance
-        """
+    def __init__(self, value:str = '',
+                 type_coding: CodedValue | None = None,
+                 identification: CodedValue | None = None,
+                 characteristic: Measurement | None = None):
+        """Construct one AllowedValue of a EnumStringMetricDescriptor."""
         super().__init__()
-        # pylint: disable=invalid-name
-        self.Value = value_string
+        self.Value = value
         self.Type = type_coding
-        # pylint: enable=invalid-name
-
-    @classmethod
-    def from_node(cls, node):
-        value_string = node.find(pm.Value).text
-        type_node = node.find(pm.Type)
-        if type_node is None:
-            type_coding = None
-        else:
-            type_coding = CodedValue.from_node(type_node)
-        return cls(value_string, type_coding)
+        self.Identification = identification
+        self.Characteristic = characteristic
 
 
 class T_MetricQuality(PropertyBasedPMType):
