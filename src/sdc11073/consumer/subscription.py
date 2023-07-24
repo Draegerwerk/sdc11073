@@ -23,33 +23,26 @@ from .request_handler_deferred import EmptyResponse
 if TYPE_CHECKING:
     from sdc11073.definitions_base import AbstractDataModel
     from sdc11073.dispatch import RequestData
-    from sdc11073.pysoap.msgfactory import MessageFactory
+    from sdc11073.pysoap.msgfactory import CreatedMessage, MessageFactory
     from sdc11073.pysoap.msgreader import MessageReader
     from sdc11073.pysoap.soapclient import SoapClientProtocol
-    from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.xml_types.eventing_types import FilterType
     from sdc11073.xml_types.mex_types import HostedServiceType
-
-
-SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 
 
 class ConsumerSubscriptionProtocol(Protocol):
     """The interface of a subscription instance."""
 
-    def subscribe(self, expire_minutes: int = 60,
+    def subscribe(self, expires: int | float = 3600,  # seconds
                   any_elements: list | None = None,
                   any_attributes: dict | None = None) -> None:
         """Send a Subscribe message."""
 
-    def renew(self, expire_minutes: int = 60) -> float:
+    def renew(self, expires: int | float = 3600) -> float:
         """Send a Renew message."""
 
     def get_status(self) -> float:
         """Send a GetStatus message."""
-
-    def check_status(self, renew_limit: int | float):
-        """Send GetStatus message and update internal data."""
 
     @property
     def remaining_subscription_seconds(self) -> float:
@@ -87,18 +80,19 @@ class ConsumerSubscription:
         self._dpws_hosted = dpws_hosted
         self._filter_type = filter_type
         self._filter_text = filter_type.text
+        self.notification_url = notification_url
+        self.end_to_url = end_to_url
         self.is_subscribed = False
         self._is_subscribed_lock = threading.Lock()
         self.end_status = None  # if device sent a SubscriptionEnd message, this contains the status from the message
         self.end_reason = None  # if device sent a SubscriptionEnd message, this contains the reason from the message
-        self.expire_at = None
-        self.expire_minutes = None
+        self.expires_at: float = 0.0
+        self.requested_expires: int | float = 0
+        self.granted_expires: int | float = 0
 
-        self.notification_url = notification_url
-        self.notify_to_identifier = None
+        self.notify_to_identifier: etree_.ElementBase | None = None
 
-        self.end_to_url = end_to_url
-        self.end_to_identifier = None
+        self.end_to_identifier: etree_.ElementBase | None = None
 
         self._logger = loghelper.get_logger_adapter('sdc.client.subscr', log_prefix)
         self.event_counter = 0  # for display purpose, we count notifications
@@ -108,37 +102,28 @@ class ConsumerSubscription:
         self._subscription_manager_path: str | None = None
         self.subscribe_response: evt_types.SubscribeResponse | None = None
 
-    def subscribe(self, expire_minutes: int = 60,
+    def subscribe(self, expires: int | float = 3600,
                   any_elements: list | None = None,
                   any_attributes: dict | None = None) -> None:
         """Send a subscribe request to the provider and handle the response."""
         self._logger.info('start subscription "{}"', self.short_filter_string)  # noqa: PLE1205
         self.event_counter = 0
-        self.expire_minutes = expire_minutes  # saved for later renewal, we will use the same interval
-
+        self.requested_expires = expires  # saved for later renewal, we will use the same interval
         subscribe_request = evt_types.Subscribe()
-
         # EndTo is an optional element
         if self.end_to_url is not None:
             subscribe_request.init_end_to()
             subscribe_request.EndTo.Address = self.end_to_url
             if self.end_to_identifier is not None:
                 subscribe_request.EndTo.ReferenceParameters = [self.end_to_identifier]
-
         # DeliveryMode always is the same value
         subscribe_request.Delivery.Mode = f'{self._data_model.ns_helper.WSE.namespace}/DeliveryModes/Push'
-
         # NotifyTo
         subscribe_request.Delivery.NotifyTo.Address = self.notification_url
         if self.notify_to_identifier is not None:
             subscribe_request.Delivery.NotifyTo.ReferenceParameters = [self.notify_to_identifier]
-
-        # Expires
-        if expire_minutes is not None:
-            subscribe_request.Expires = expire_minutes * 60
-
+        subscribe_request.Expires = expires
         subscribe_request.Filter = self._filter_type
-
         # make an elementtree from subscribe_request and add any_elements and any_attributes if present
         nsh = self._data_model.ns_helper
         nsmap = nsh.partial_map(nsh.WSE, nsh.MSG, nsh.PM)
@@ -148,7 +133,6 @@ class ConsumerSubscription:
         if any_attributes is not None:
             for name, value in any_attributes.items():
                 body_node.set(name, value)
-
         inf = HeaderInformationBlock(action=EventingActions.Subscribe,
                                      addr_to=self._hosted_service_address)
         message = self._msg_factory.mk_soap_message_etree_payload(inf, body_node)
@@ -161,36 +145,34 @@ class ConsumerSubscription:
                 self.is_subscribed = True
                 subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
                 self._subscription_manager_path = urlparse(subscription_manager_address).path
-
-                self.expire_at = time.time() + self.subscribe_response.Expires
+                self.granted_expires = self.subscribe_response.Expires
+                self.expires_at = time.time() + self.granted_expires
                 self._logger.info('Subscribe was successful: expires at {}, address="{}"',  # noqa: PLE1205
-                                  self.expire_at, self.subscribe_response.SubscriptionManager.Address)
+                                  self.expires_at, self.subscribe_response.SubscriptionManager.Address)
             except AttributeError as ex:
                 self._logger.error('Subscribe response has unexpected content: {}',  # noqa: PLE1205
                                    message_data.p_msg.raw_data)
                 self.is_subscribed = False
                 raise SoapResponseError(message_data.p_msg) from ex
-
         except HTTPReturnCodeError as ex:
             self._logger.error('could not subscribe: %r', ex)
 
-    def renew(self, expire_minutes: int = 60) -> float:
+    def renew(self, expires: int = 3600) -> float:
         """Send a Renew request to the provider and handle the response.
 
-        :return: the remaining time of the subscription or 0, if the request was not successful
+        :return: the remaining time of the subscription or 0.0, if the request was not successful
         """
         with self._is_subscribed_lock:
             if not self.is_subscribed:
                 return 0.0
             renew = evt_types.Renew()
-            renew.Expires = expire_minutes * 60
+            renew.Expires = expires
             dev_reference_param = self.subscribe_response.SubscriptionManager.ReferenceParameters
             subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
             inf = HeaderInformationBlock(action=renew.action,
                                          addr_to=subscription_manager_address,
                                          reference_parameters=dev_reference_param)
             message = self._msg_factory.mk_soap_message(inf, payload=renew)
-
             try:
                 soap_client = self._get_soap_client_func(subscription_manager_address)
                 message_data = soap_client.post_message_to(
@@ -208,13 +190,13 @@ class ConsumerSubscription:
                 self.is_subscribed = False
             else:
                 renew_response = evt_types.RenewResponse.from_node(message_data.p_msg.msg_node)
-                expire_seconds = renew_response.Expires
-                if expire_seconds is not None:
-                    self.expire_at = time.time() + expire_seconds
-                    return expire_seconds
+                self.granted_expires = renew_response.Expires
+                if self.granted_expires is not None:
+                    self.expires_at = time.time() + self.granted_expires
+                    return self.granted_expires
                 self.is_subscribed = False
                 self._logger.warning('renew failed: {}',  # noqa: PLE1205
-                                  etree_.tostring(message_data.p_msg.body_node, pretty_print=True))
+                                     etree_.tostring(message_data.p_msg.body_node, pretty_print=True))
             return 0.0
 
     def unsubscribe(self):
@@ -279,39 +261,17 @@ class ConsumerSubscription:
                 if expire_seconds is None:
                     self._logger.warning(  # noqa: PLE1205
                         'get_status for {}: Could not find "Expires" node! get_status={} ', self._filter_text,
-                                      message_data.p_msg.raw_data)
+                        message_data.p_msg.raw_data)
                     raise SoapResponseError(message_data.p_msg)
                 self._logger.debug('get_status for {}: Expires in {} seconds, counter = {}',  # noqa: PLE1205
                                    self._filter_text, expire_seconds, self.event_counter)
                 return expire_seconds
             return 0.0
 
-    def check_status(self, renew_limit: int | float, time_diff_warn_limit: int | float = 10):
-        """Call Get_status and update internal data.
-
-        :param renew_limit: a value in seconds. If remaining duration of subscription is less than this value,
-                            it renews the subscription.
-        :param time_diff_warn_limit: if own calculated remaining time differs more from GetStatus result,
-                 write a warning to log and correct own value.
-        :return: None
-        """
-        remaining_time = self.get_status()
-        if not self.is_subscribed:
-            return
-        if abs(remaining_time - self.remaining_subscription_seconds) > time_diff_warn_limit:
-            self._logger.warning(
-                'time delta between expected expire and reported expire  > 10 seconds. Will correct own expectation.')
-            self.expire_at = time.time() + remaining_time
-
-        if self.remaining_subscription_seconds < renew_limit:
-            self._logger.info('renewing subscription')
-            self.renew()
-
-
     @property
     def remaining_subscription_seconds(self) -> float:
         """Return remaining time."""
-        return self.expire_at - time.time()
+        return self.expires_at - time.time()
 
     def on_notification(self, request_data: RequestData) -> CreatedMessage:
         """Handle an incoming notification."""
@@ -332,7 +292,7 @@ class ConsumerSubscription:
     def __str__(self) -> str:
         if self._filter_text is not None:
             return (f'Subscription of "{self.short_filter_string}", is_subscribed={self.is_subscribed}, '
-                   f'remaining time = {int(self.remaining_subscription_seconds)} sec., count={self.event_counter}')
+                    f'remaining time = {int(self.remaining_subscription_seconds)} sec., count={self.event_counter}')
         return ', '.join(str(a) for a in self._filter_type.any)
 
 
@@ -341,15 +301,25 @@ class ConsumerSubscriptionManagerProtocol(Protocol):
 
     all_subscriptions_okay: bool
 
-    def __init__(self, msg_reader: MessageReader,  # noqa: PLR0913
+    def __init__(self,  # noqa: PLR0913
+                 msg_reader: MessageReader,
                  msg_factory: MessageFactory,
                  data_model: AbstractDataModel,
                  get_soap_client_func: Callable[[str], SoapClientProtocol],
                  notification_url: str,
                  end_to_url: str | None = None,
-                 check_interval: int | None = None,
+                 fixed_renew_interval: int | None = None,
                  log_prefix: str = ''):
-        """Construct an instance."""
+        """Construct a ConsumerSubscriptionManager.
+
+        :param msg_reader: xml -> internal representation
+        :param msg_factory: internal representation -> xml
+        :param notification_url: send to this address
+        :param end_to_url: send to this address
+        :param fixed_renew_interval: if set, renew is sent in this interval.
+                                     if None, renew is sent when remaining time <= 50% of granted time
+        :param log_prefix:
+        """
 
     def start(self):
         """Start the subscription manager (typically starts a thread)."""
@@ -368,7 +338,7 @@ class ConsumerSubscriptionManagerProtocol(Protocol):
 
 
 class ConsumerSubscriptionManager(threading.Thread,
-                                  ConsumerSubscriptionManagerProtocol): # derive from protocol to help typing.
+                                  ConsumerSubscriptionManagerProtocol):  # derive from protocol to help typing.
     """Factory for Subscription objects.
 
     The thread periodically renews subscriptions. This tells the provider to keep the connection alive.
@@ -381,7 +351,6 @@ class ConsumerSubscriptionManager(threading.Thread,
     """
 
     all_subscriptions_okay: bool = properties.ObservableProperty(True)  # a boolean
-    keep_alive_with_renew = True  # enable as workaround if check status is not supported
 
     def __init__(self, msg_reader: MessageReader,  # noqa: PLR0913
                  msg_factory: MessageFactory,
@@ -389,14 +358,15 @@ class ConsumerSubscriptionManager(threading.Thread,
                  get_soap_client_func: Callable[[str], SoapClientProtocol],
                  notification_url: str,
                  end_to_url: str | None = None,
-                 check_interval: int | None = None,
+                 fixed_renew_interval: int | None = None,
                  log_prefix: str = ''):
         """Construct a ConsumerSubscriptionManager.
 
         :param msg_factory:
         :param notification_url:
         :param end_to_url:
-        :param check_interval:
+        :param fixed_renew_interval: if set, renew is sent in this interval.
+                                     if None, renew is sent when remaining time <= 50% of granted time
         :param log_prefix:
         """
         super().__init__(name=f'SubscriptionClient{log_prefix}')
@@ -405,7 +375,7 @@ class ConsumerSubscriptionManager(threading.Thread,
         self._msg_factory = msg_factory
         self._data_model = data_model
         self._get_soap_client_func = get_soap_client_func
-        self._check_interval = check_interval or SUBSCRIPTION_CHECK_INTERVAL
+        self._renew_interval = fixed_renew_interval
         self.subscriptions = {}
         self._subscriptions_lock = threading.Lock()
 
@@ -427,31 +397,58 @@ class ConsumerSubscriptionManager(threading.Thread,
         """Perform thread."""
         self._run = True
         try:
-            while self._run:
-                try:
-                    for _ in range(self._check_interval):
-                        time.sleep(1)
-                        if not self._run:
-                            return
-                        # check if all subscriptions are okay
-                        with self._subscriptions_lock:
-                            not_okay = [s for s in self.subscriptions.values() if not s.is_subscribed]
-                            self.all_subscriptions_okay = (len(not_okay) == 0)
-                    with self._subscriptions_lock:
-                        subscriptions = list(self.subscriptions.values())
-                    for subscription in subscriptions:
-                        if self.keep_alive_with_renew:
-                            subscription.renew()
-                        else:
-                            subscription.check_status(renew_limit=self._check_interval * 5)
-                    self._logger.debug('##### SubscriptionManager Interval ######')
-                    for subscription in subscriptions:
-                        self._logger.debug('{}', subscription)  # noqa: PLE1205
-                except Exception:  # noqa: BLE001
-                    # catch all in order to keep thread running.
-                    self._logger.error('##### check loop: {}', traceback.format_exc())  # noqa: PLE1205
+            if self._renew_interval is not None:
+                self._fixed_renew_interval_loop()
+            else:
+                self._flexible_renew_interval_loop()
         finally:
             self._logger.info('terminating subscriptions check loop! self._run={}', self._run)  # noqa: PLE1205
+
+    def _check_all_subscriptions_okay(self):
+        with self._subscriptions_lock:
+            not_okay = [s for s in self.subscriptions.values() if not s.is_subscribed]
+            self.all_subscriptions_okay = (len(not_okay) == 0)
+
+    def _fixed_renew_interval_loop(self):
+        """Renew subscriptions in a fixed period."""
+        while self._run:
+            try:
+                for _ in range(self._renew_interval):
+                    time.sleep(1)
+                    if not self._run:
+                        return
+                self._check_all_subscriptions_okay()
+                with self._subscriptions_lock:
+                    # copy list of subscriptions in order to release lock early
+                    subscriptions = list(self.subscriptions.values())
+                for subscription in subscriptions:
+                    subscription.renew()
+                for subscription in subscriptions:
+                    self._logger.debug('{}', subscription)  # noqa: PLE1205
+            except Exception:  # noqa: BLE001
+                # catch all in order to keep thread running.
+                self._logger.error('##### check loop: {}', traceback.format_exc())  # noqa: PLE1205
+
+    def _flexible_renew_interval_loop(self):
+        """Renew subscriptions when remaining time <= 50% of granted time."""
+        while self._run:
+            try:
+                time.sleep(1)
+                if not self._run:
+                    return
+                self._check_all_subscriptions_okay()
+                with self._subscriptions_lock:
+                    # copy list of subscriptions in order to release lock early
+                    subscriptions = list(self.subscriptions.values())
+                for subscription in subscriptions:
+                    # renew if remaining time is 50% of granted time or less.
+                    if subscription.remaining_subscription_seconds <= subscription.granted_expires / 2:
+                        subscription.renew()
+                for subscription in subscriptions:
+                    self._logger.debug('{}', subscription)  # noqa: PLE1205
+            except Exception:  # noqa: BLE001
+                # catch all in order to keep thread running.
+                self._logger.error('##### check loop: {}', traceback.format_exc())  # noqa: PLE1205
 
     def mk_subscription(self, dpws_hosted: HostedServiceType, filter_type: FilterType) -> ConsumerSubscription:
         """Create a subscription instance."""

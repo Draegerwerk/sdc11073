@@ -85,7 +85,8 @@ class SdcProvider:
                  epr: str | uuid.UUID | None = None,
                  validate: bool = True,
                  ssl_context: SSLContext | None = None,
-                 max_subscription_duration: int = 7200,
+                 max_subscription_duration: int = 15,
+                 socket_timeout: int | float | None = None,
                  log_prefix: str = '',
                  default_components: SdcProviderComponents | None = None,
                  specific_components: SdcProviderComponents | None = None,
@@ -100,7 +101,9 @@ class SdcProvider:
                     If epr is a string, it must be usable as a path element in an url (no spaces, ...)
         :param validate: bool
         :param ssl_context: if not None, this context is used and https url is used, otherwise http
-        :param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
+        :param max_subscription_duration: max. possible duration of a subscription
+        :param socket_timeout: timeout for tcp sockets that send notifications.
+                               If None, it is set to max_subscription_duration * 1.2
         :param log_prefix: a string
         :param specific_components: a SdcProviderComponents instance
         :param chunked_messages: bool
@@ -116,6 +119,7 @@ class SdcProvider:
         self._validate = validate
         self._ssl_context = ssl_context
         self._max_subscription_duration = max_subscription_duration
+        self._socket_timeout = socket_timeout or int(max_subscription_duration * 1.2)
         self._log_prefix = log_prefix
         if default_components is None:
             default_components = default_sdc_provider_components
@@ -203,6 +207,7 @@ class SdcProvider:
     def _mk_soap_client(self, netloc: str, accepted_encodings: list[str]) -> Any:
         cls = self._components.soap_client_class
         return cls(netloc,
+                   self._socket_timeout,
                    loghelper.get_logger_adapter('sdc.device.soap', self._log_prefix),
                    ssl_context=self._ssl_context,
                    sdc_definitions=self._mdib.sdc_definitions,

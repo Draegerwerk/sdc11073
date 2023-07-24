@@ -222,6 +222,8 @@ class _NetworkingThreadBase(ABC):
                 pass
             else:
                 addr, data = incoming
+                if b"http://schemas.xmlsoap.org/ws/2005/04/discovery" in data:
+                    continue  # older version of discovery standard, ignore completely.
                 get_communication_logger().log_discovery_msg_in(addr[0], data)
                 try:
                     try:

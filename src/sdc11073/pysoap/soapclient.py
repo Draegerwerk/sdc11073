@@ -71,6 +71,7 @@ class SoapClientProtocol(Protocol):
 
     def __init__(self,
                  netloc: str,
+                 socket_timeout: int | float,
                  logger: LoggerAdapter,
                  ssl_context: SSLContext | None,
                  sdc_definitions: type[BaseDefinitions],
@@ -111,12 +112,12 @@ class SoapClient:
     """SOAP Client wraps a http connection. It can send / receive SoapEnvelopes."""
 
     _used_soap_clients = 0
-    SOCKET_TIMEOUT = 5 if sys.gettrace() is None else 1000  # higher timeout for debugging
 
     roundtrip_time = observableproperties.ObservableProperty()
 
     def __init__(self,
                  netloc: str,
+                 socket_timeout: int | float,
                  logger: LoggerAdapter,
                  ssl_context: SSLContext| None,
                  sdc_definitions: type[BaseDefinitions],
@@ -145,6 +146,7 @@ class SoapClient:
         self._sdc_definitions = sdc_definitions
         self._msg_reader = msg_reader
         self._netloc = netloc
+        self._socket_timeout = socket_timeout
         self._http_connection = None  # connect later on demand
         self.__class__._used_soap_clients += 1  # noqa: SLF001
         self._client_number = self.__class__._used_soap_clients  # noqa: SLF001
@@ -174,9 +176,9 @@ class SoapClient:
         We can use TCP_NODELAY for a little faster transmission.
         """
         if self._ssl_context is not None:
-            conn = HTTPSConnectionNoDelay(self._netloc, context=self._ssl_context, timeout=self.SOCKET_TIMEOUT)
+            conn = HTTPSConnectionNoDelay(self._netloc, context=self._ssl_context, timeout=self._socket_timeout)
         else:
-            conn = HTTPConnectionNoDelay(self._netloc, timeout=self.SOCKET_TIMEOUT)
+            conn = HTTPConnectionNoDelay(self._netloc, timeout=self._socket_timeout)
         return conn
 
     def connect(self):
