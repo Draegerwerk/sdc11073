@@ -21,7 +21,7 @@ jobs:
         run: pip install ".[mypy]"
 
       - name: Run mypy
-        continue-on-error: true
+        continue-on-error: true  # remove when https://github.com/Draegerwerk/sdc11073/issues/156 is done
         uses: sasanquaneuf/mypy-github-action@releases/v1
         with:
           checkName: 'mypy'   # NOTE: this needs to be the same as the job name
