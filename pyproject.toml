@@ -45,6 +45,7 @@ test = [
     "pytest",
     "pytest-html",
     "pytest-cov",
+    "pytest-xdist[psutil]",
     "sdc11073[lz4]",
 ]
 mypy = [
@@ -75,6 +76,7 @@ packages = ["src/sdc11073"]
 path = "src/sdc11073/__init__.py"
 
 [tool.pytest.ini_options]
+addopts = "-n logical"
 testpaths = "tests/"
 filterwarnings = [# https://docs.python.org/3/library/warnings.html#warning-filter
     "error",
