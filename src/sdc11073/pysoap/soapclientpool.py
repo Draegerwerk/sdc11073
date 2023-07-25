@@ -75,3 +75,5 @@ class SoapClientPool:
             for entry in self._soap_clients.values():
                 entry.soap_client.close()
             self._soap_clients = {}
+        if self.async_loop_subscr_mgr is not None:
+            self.async_loop_subscr_mgr.stop()
