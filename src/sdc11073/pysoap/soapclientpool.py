@@ -50,14 +50,19 @@ class SoapClientPool:
 
         If no more associations exist, the soap connection gets closed and the soap client deleted.
         """
-        self._logger.info('forget soap client for netloc {}', netloc)  # noqa: PLE1205
+        self._logger.info('forget_usr called for netloc {} usr_ident {}', netloc, usr_ident)  # noqa: PLE1205
         with self._lock:
             entry = self._soap_clients.get(netloc)
-            if entry is None:
+            if entry is None or len(entry.usr_idents) == 0:
+                # nothing to do
                 return
-            entry.usr_idents.remove(usr_ident)
+            if usr_ident in entry.usr_idents:
+                entry.usr_idents.remove(usr_ident)
+                self._logger.info('forget user ref for netloc {}, {} user refs remaining',  # noqa: PLE1205
+                                  netloc, len(entry.usr_idents))
             if len(entry.usr_idents) == 0:
                 if entry.soap_client is not None:
+                    self._logger.info('close soap client for netloc {}', netloc)  # noqa: PLE1205
                     if self.async_loop_subscr_mgr is None:
                         entry.soap_client.close()
                     else:
