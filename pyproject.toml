@@ -13,15 +13,15 @@ description = "Pure python implementation of IEEE11073 SDC protocol"
 readme = "README.rst"
 requires-python = ">=3.9, <3.12"
 classifiers = [
-        'Development Status :: 5 - Production/Stable',
-        'Intended Audience :: Developers',
-        'Topic :: Software Development',
-        'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
-        'Operating System :: Microsoft :: Windows',
-        'Operating System :: POSIX :: Linux'
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Developers',
+    'Topic :: Software Development',
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Operating System :: Microsoft :: Windows',
+    'Operating System :: POSIX :: Linux'
 ]
 keywords = [
     "SDC",
@@ -60,7 +60,7 @@ dev = [
 [tool.hatch.build.targets.sdist]
 include = [
     "src/sdc11073/**/*",
-    "docs/*",  # include picture for readme
+    "docs/*", # include picture for readme
     "LICENSE",
     "README.rst",
     "pyproject.toml",
@@ -76,6 +76,10 @@ path = "src/sdc11073/__init__.py"
 
 [tool.pytest.ini_options]
 testpaths = "tests/"
+filterwarnings = [# https://docs.python.org/3/library/warnings.html#warning-filter
+    "error",
+    "ignore::UserWarning",
+]
 
 [tool.ruff]
 extend-select = [# https://beta.ruff.rs/docs/settings/#extend-select
@@ -165,7 +169,7 @@ warn_unused_configs = true # https://mypy.readthedocs.io/en/stable/config_file.h
 warn_unused_ignores = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-warn_unused_ignores
 
 [tool.coverage.report]
-exclude_also = [ # https://coverage.readthedocs.io/en/7.2.7/config.html#report-exclude-also
+exclude_also = [# https://coverage.readthedocs.io/en/7.2.7/config.html#report-exclude-also
     "raise AssertionError",
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
