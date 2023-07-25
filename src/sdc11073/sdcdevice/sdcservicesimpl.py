@@ -8,7 +8,7 @@ from ..namespaces import Prefix_Namespace as Prefix
 from ..namespaces import msgTag, domTag, s12Tag, wsxTag, wseTag, dpwsTag, mdpwsTag, nsmap
 from .. import pmtypes
 from .. import loghelper
-from .exceptions import InvalidActionError, FunctionNotImplementedError
+from .exceptions import InvalidActionError, FunctionNotImplementedError, InvalidMessageError
 _msg_prefix = Prefix.MSG.prefix
 
 _wsdl_ns = Prefix.WSDL.namespace
@@ -151,7 +151,7 @@ class EventService(_SOAPActionDispatcherWithSubDispatchers):
             "//wse:Filter[@Dialect='{}/Action']".format(Prefix.DPWS.namespace),
             namespaces=nsmap)
         if len(subscriptionFilters) != 1:
-            raise Exception
+            raise InvalidMessageError(request=soapEnvelope, detail="wse:Subscribe/wse:Filter not provided")
         else:
             sfilters = subscriptionFilters[0].text
             for sfilter in sfilters.split():
@@ -181,7 +181,7 @@ class DPWSHostedService(EventService):
 
     def __init__(self, sdcDevice, base_urls, path_suffix, subDispatchers, offeredSubscriptions):
         """
-        @param base_urls: urlparse.SplitResult instances. They define the base addresses of this service
+        :param base_urls: urlparse.SplitResult instances. They define the base addresses of this service
         """
         super(DPWSHostedService, self).__init__(sdcDevice, subDispatchers, offeredSubscriptions)
 

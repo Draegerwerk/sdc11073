@@ -49,8 +49,8 @@ class _OperationsWorker(threading.Thread):
 
     def enqueueOperation(self, operation, request):
         """ enqueues operation "operation".
-        @param operation: a callable with signature operation(request, mdib)
-        @param request: the soapEnvelope of the request
+        :param operation: a callable with signature operation(request, mdib)
+        :param request: the soapEnvelope of the request
         @return: a transaction Id
         """
         with self._transactionIdLock:
@@ -159,8 +159,8 @@ class ScoOperationsRegistry(object):
 
     def enqueueOperation(self, operation, request):
         """ enqueues operation "operation".
-        @param operation: a callable with signature operation(request, mdib)
-        @param request: the soapEnvelope of the request
+        :param operation: a callable with signature operation(request, mdib)
+        :param request: the soapEnvelope of the request
         @return: a transaction Id
         """
         return self._worker.enqueueOperation(operation, request)
@@ -194,14 +194,14 @@ class OperationDefinition(object):
                  log_prefix=None,
                  extExtension=None):  # pylint:disable=too-many-arguments
         """
-        @param handle: the handle of the operation itself.
-        @param operationTarget: the handle of the modified data (MdDescription)
-        @param operationDescriptorQName: the QName of the descriptor for this operation
-        @param operationStateQName: the QName of the state for this operation
-        @param safetyClassification: one of pmtypes.SafetyClassification values
-        @param codedValue: a pmtypes.CodedValue instance
-        @param safetyReq: a pmtypes.T_SafetyReq instance or None
-        @param extExtension: list of etree.Element elements to be added to the Extension element
+        :param handle: the handle of the operation itself.
+        :param operationTarget: the handle of the modified data (MdDescription)
+        :param operationDescriptorQName: the QName of the descriptor for this operation
+        :param operationStateQName: the QName of the state for this operation
+        :param safetyClassification: one of pmtypes.SafetyClassification values
+        :param codedValue: a pmtypes.CodedValue instance
+        :param safetyReq: a pmtypes.T_SafetyReq instance or None
+        :param extExtension: list of etree.Element elements to be added to the Extension element
         """
         self._logger = loghelper.getLoggerAdapter('sdc.device.op.{}'.format(self.__class__.__name__), log_prefix)
         self._mdib = None

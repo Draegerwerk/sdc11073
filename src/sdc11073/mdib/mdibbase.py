@@ -192,7 +192,7 @@ class MdibContainer(object):
 
     def __init__(self, sdc_definitions):
         """
-        @param sdc_definitions: a class derived from Definitions_Base
+        :param sdc_definitions: a class derived from Definitions_Base
         """
         self.sdc_definitions = sdc_definitions
         self._logger = None # must to be instantiated by derived class
@@ -232,7 +232,7 @@ class MdibContainer(object):
 
     def addDescriptionContainers(self, descriptionContainers):
         """ init self.descriptions with provided descriptors
-        @param descriptionContainers: a list od DescriptionStateContainer objects
+        :param descriptionContainers: a list od DescriptionStateContainer objects
         """
         newDescriptorByHandle = {}
         with self.descriptions._lock: #pylint: disable=protected-access
@@ -305,7 +305,7 @@ class MdibContainer(object):
 
     def addStateContainers(self, stateContainers):
         """Adds states to self.states and self.contextStates.
-        @param stateContainers: a list of StateContainer objects.
+        :param stateContainers: a list of StateContainer objects.
         """
         for sc in stateContainers:
             if sc.descriptorContainer is not None:
@@ -352,7 +352,7 @@ class MdibContainer(object):
 
     def _reconstructMdib(self, addContextStates):
         """build dom tree from current data
-        @param addContextStates: bool
+        :param addContextStates: bool
         @return: an etree_ node
         """
         doc_nsmap = self.nsmapper.docNssmap
@@ -448,9 +448,9 @@ class MdibContainer(object):
     def getOperationsForMetric(self, vmdCode, channelCode, metricCode):
         """ This is the "correct" way to find an operation.
         Using well known handles is shaky, because they have no meaning and can change over time!
-        @param vmdCode: a pmtypes.CodedValue or a pmtypes.Coding instance
-        @param channelCode: a pmtypes.CodedValue or a pmtypes.Coding instance
-        @param metricCode: a pmtypes.CodedValue or a pmtypes.Coding instance
+        :param vmdCode: a pmtypes.CodedValue or a pmtypes.Coding instance
+        :param channelCode: a pmtypes.CodedValue or a pmtypes.Coding instance
+        :param metricCode: a pmtypes.CodedValue or a pmtypes.Coding instance
         @return: a list of matching Operation Containers
         """
         descriptorContainer = self.getDescriptorByCode(vmdCode, channelCode, metricCode)
@@ -473,7 +473,7 @@ class MdibContainer(object):
 
     def getStateContainerClass(self, qNameType):
         """
-        @param qNameType: a QName instance
+        :param qNameType: a QName instance
         """
         cls = self.sdc_definitions.sc.getContainerClass(qNameType)
         if cls is None:
@@ -513,7 +513,7 @@ class MdibContainer(object):
 
     def getDescriptorContainerClass(self, qNameType):
         """
-        @param qNameType: a QName instance
+        :param qNameType: a QName instance
         """
         cls = self.sdc_definitions.dc.getContainerClass(qNameType)
         if cls is None:

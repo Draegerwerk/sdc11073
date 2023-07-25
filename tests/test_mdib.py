@@ -2,6 +2,10 @@ import unittest
 import os
 from sdc11073 import mdib
 from sdc11073 import pmtypes
+from lxml import etree as etree_
+
+from sdc11073 import xmlparsing
+
 mdibFolder = os.path.dirname(__file__)
 
 class TestMdib(unittest.TestCase):
@@ -58,6 +62,175 @@ class TestMdib(unittest.TestCase):
             vmd_type, channel_type, pmtypes.CodedValue('some_code', 'some_coding_system'))
         self.assertIsNotNone(found2)
         self.assertEqual(handle, found2.Handle)
+
+    def test_copy_report_node(self):
+        def test_xml(raw_xml: bytes):
+            body = etree_.fromstring(raw_xml)[1]
+            for report in body:
+                new_report = xmlparsing.copy_node(report)
+                self.assertNotEqual(id(report), id(new_report))
+                self.assertEqual(report.nsmap, new_report.nsmap)
+                self.assertEqual(etree_.tostring(report), etree_.tostring(new_report))
+
+        test_xml(b"""<?xml version='1.0' encoding='UTF-8'?>
+<s12:Envelope xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"
+              xmlns:wsa="http://www.w3.org/2005/08/addressing"
+              xmlns:s12="http://www.w3.org/2003/05/soap-envelope"
+              xmlns:msg="http://standards.ieee.org/downloads/11073/11073-10207-2017/message"
+              xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+              xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <s12:Header>
+        <wsa:To s12:mustUnderstand="true">https://127.0.0.1:51341/</wsa:To>
+        <wsa:Action s12:mustUnderstand="true">
+            http://standards.ieee.org/downloads/11073/11073-20701-2018/StateEventService/EpisodicAlertReport
+        </wsa:Action>
+        <wsa:MessageID>urn:uuid:095ea71f-d5cb-4a6f-a12b-19a84933efef</wsa:MessageID>
+        <ns0:MyClIdentifier xmlns:ns0="http.local.com" wsa:IsReferenceParameter="true">
+            urn:uuid:75793341-2aa2-4a33-adfe-c158a0ad2982
+        </ns0:MyClIdentifier>
+    </s12:Header>
+    <s12:Body>
+        <msg:EpisodicAlertReport MdibVersion="10"
+                                 SequenceId="urn:uuid:2d6bfcf5-a29c-42e4-99e3-99ce4a4e0233">
+            <msg:ReportPart>
+                <msg:AlertState xsi:type="pm:AlertSystemState" DescriptorVersion="0" StateVersion="7"
+                                ActivationState="On" LastSelfCheck="1688025072995" SelfCheckCount="8"
+                                PresentPhysiologicalAlarmConditions="" PresentTechnicalAlarmConditions=""
+                                DescriptorHandle="ASYS0"/>
+            </msg:ReportPart>
+        </msg:EpisodicAlertReport>
+    </s12:Body>
+</s12:Envelope>""")
+
+        test_xml(b"""<?xml version='1.0' encoding='UTF-8'?>
+<s12:Envelope xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"
+              xmlns:wsa="http://www.w3.org/2005/08/addressing"
+              xmlns:s12="http://www.w3.org/2003/05/soap-envelope"
+              xmlns:msg="http://standards.ieee.org/downloads/11073/11073-10207-2017/message"
+              xmlns="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+              xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+              xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <s12:Header>
+        <wsa:To s12:mustUnderstand="true">https://127.0.0.1:51341/</wsa:To>
+        <wsa:Action s12:mustUnderstand="true">
+            http://standards.ieee.org/downloads/11073/11073-20701-2018/StateEventService/EpisodicAlertReport
+        </wsa:Action>
+        <wsa:MessageID>urn:uuid:095ea71f-d5cb-4a6f-a12b-19a84933efef</wsa:MessageID>
+        <ns0:MyClIdentifier xmlns:ns0="http.local.com" wsa:IsReferenceParameter="true">
+            urn:uuid:75793341-2aa2-4a33-adfe-c158a0ad2982
+        </ns0:MyClIdentifier>
+    </s12:Header>
+    <s12:Body>
+        <msg:EpisodicAlertReport MdibVersion="10"
+                                 SequenceId="urn:uuid:2d6bfcf5-a29c-42e4-99e3-99ce4a4e0233">
+            <msg:ReportPart>
+                <msg:AlertState xsi:type="AlertSystemState" DescriptorVersion="0" StateVersion="7"
+                                ActivationState="On" LastSelfCheck="1688025072995" SelfCheckCount="8"
+                                PresentPhysiologicalAlarmConditions="" PresentTechnicalAlarmConditions=""
+                                DescriptorHandle="ASYS0"/>
+            </msg:ReportPart>
+        </msg:EpisodicAlertReport>
+        <msg:EpisodicAlertReport MdibVersion="10"
+                                 SequenceId="urn:uuid:2d6bfcf5-a29c-42e4-99e3-99ce4a4e0234">
+            <msg:ReportPart>
+                <msg:AlertState xsi:type="pm:AlertSystemState" DescriptorVersion="0" StateVersion="7"
+                                ActivationState="On" LastSelfCheck="1688025072995" SelfCheckCount="8"
+                                PresentPhysiologicalAlarmConditions="" PresentTechnicalAlarmConditions=""
+                                DescriptorHandle="ASYS1"/>
+            </msg:ReportPart>
+        </msg:EpisodicAlertReport>
+        <msg:EpisodicMetricReport MdibVersion="1180245"
+                                  SequenceId="urn:uuid:5cdce523-d532-4d36-b5c1-42bf2fa8e3b0" InstanceId="0">
+            <msg:ReportPart>
+                <msg:SourceMds>mds0</msg:SourceMds>
+                <msg:MetricState xsi:type="pm:NumericMetricState" StateVersion="21894"
+                    DescriptorHandle="numeric.ch1.vmd0" DescriptorVersion="0">
+                    <pm:MetricValue Value="21894" DeterminationTime="1688126346037">
+                        <pm:MetricQuality Validity="Vld" Mode="Demo" />
+                    </pm:MetricValue>
+                </msg:MetricState>
+            </msg:ReportPart>
+        </msg:EpisodicMetricReport>
+    </s12:Body>
+</s12:Envelope>""")
+
+        test_xml(b"""<?xml version='1.0' encoding='UTF-8'?>
+<s12:Envelope xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"
+              xmlns:wsa="http://www.w3.org/2005/08/addressing"
+              xmlns:s12="http://www.w3.org/2003/05/soap-envelope"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <s12:Header>
+        <wsa:To s12:mustUnderstand="true">https://127.0.0.1:51341/</wsa:To>
+        <wsa:Action s12:mustUnderstand="true">
+            http://standards.ieee.org/downloads/11073/11073-20701-2018/StateEventService/EpisodicAlertReport
+        </wsa:Action>
+        <wsa:MessageID>urn:uuid:095ea71f-d5cb-4a6f-a12b-19a84933efef</wsa:MessageID>
+        <ns0:MyClIdentifier xmlns:ns0="http.local.com" wsa:IsReferenceParameter="true">
+            urn:uuid:75793341-2aa2-4a33-adfe-c158a0ad2982
+        </ns0:MyClIdentifier>
+    </s12:Header>
+    <s12:Body>
+        <msg:EpisodicAlertReport MdibVersion="10"
+                                 SequenceId="urn:uuid:2d6bfcf5-a29c-42e4-99e3-99ce4a4e0233"
+                                 xmlns:msg="http://standards.ieee.org/downloads/11073/11073-10207-2017/message"
+                                 xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                                 xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+            <msg:ReportPart>
+                <msg:AlertState xsi:type="pm:AlertSystemState" DescriptorVersion="0" StateVersion="7"
+                                ActivationState="On" LastSelfCheck="1688025072995" SelfCheckCount="8"
+                                PresentPhysiologicalAlarmConditions="" PresentTechnicalAlarmConditions=""
+                                DescriptorHandle="ASYS0"/>
+            </msg:ReportPart>
+        </msg:EpisodicAlertReport>
+    </s12:Body>
+</s12:Envelope>""")
+
+        test_xml(b"""<?xml version='1.0' encoding='UTF-8'?>
+<s12:Envelope xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"
+              xmlns:wsa="http://www.w3.org/2005/08/addressing"
+              xmlns:s12="http://www.w3.org/2003/05/soap-envelope"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <s12:Header>
+        <wsa:To s12:mustUnderstand="true">https://127.0.0.1:51341/</wsa:To>
+        <wsa:Action s12:mustUnderstand="true">
+            http://standards.ieee.org/downloads/11073/11073-20701-2018/StateEventService/EpisodicAlertReport
+        </wsa:Action>
+        <wsa:MessageID>urn:uuid:095ea71f-d5cb-4a6f-a12b-19a84933efef</wsa:MessageID>
+        <ns0:MyClIdentifier xmlns:ns0="http.local.com" wsa:IsReferenceParameter="true">
+            urn:uuid:75793341-2aa2-4a33-adfe-c158a0ad2982
+        </ns0:MyClIdentifier>
+    </s12:Header>
+    <s12:Body>
+        <msg:EpisodicAlertReport MdibVersion="10"
+                                 SequenceId="urn:uuid:2d6bfcf5-a29c-42e4-99e3-99ce4a4e0233"
+                                 xmlns:msg="http://standards.ieee.org/downloads/11073/11073-10207-2017/message"
+                                 xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                                 xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+            <msg:ReportPart>
+                <msg:AlertState xsi:type="pm:AlertSystemState" DescriptorVersion="0" StateVersion="7"
+                                ActivationState="On" LastSelfCheck="1688025072995" SelfCheckCount="8"
+                                PresentPhysiologicalAlarmConditions="" PresentTechnicalAlarmConditions=""
+                                DescriptorHandle="ASYS0"/>
+            </msg:ReportPart>
+        </msg:EpisodicAlertReport>
+        <msg:EpisodicMetricReport MdibVersion="1180245"
+                                  SequenceId="urn:uuid:5cdce523-d532-4d36-b5c1-42bf2fa8e3b0" InstanceId="0"
+                                  xmlns:msg="http://standards.ieee.org/downloads/11073/11073-10207-2017/message"
+                                  xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant">
+            <msg:ReportPart>
+                <msg:SourceMds>mds0</msg:SourceMds>
+                <msg:MetricState xsi:type="pm:NumericMetricState" StateVersion="21894"
+                    DescriptorHandle="numeric.ch1.vmd0" DescriptorVersion="0">
+                    <pm:MetricValue Value="21894" DeterminationTime="1688126346037">
+                        <pm:MetricQuality Validity="Vld" Mode="Demo" />
+                    </pm:MetricValue>
+                </msg:MetricState>
+            </msg:ReportPart>
+        </msg:EpisodicMetricReport>
+    </s12:Body>
+</s12:Envelope>""")
 
 
 def suite():

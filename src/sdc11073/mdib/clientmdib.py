@@ -2,6 +2,7 @@ import logging
 import threading
 import traceback
 import time
+
 from threading import Lock
 from collections import deque
 from collections import namedtuple
@@ -15,6 +16,7 @@ from .. import namespaces
 from .. import pmtypes
 from concurrent import futures
 from .. import loghelper
+from .. import xmlparsing
 
 _global_nsmap = namespaces.nsmap
 
@@ -79,10 +81,10 @@ class ClientRtBuffer(object):
     """Collects data of one real time stream."""
     def __init__(self, sample_period, max_samples):
         """
-        @param sample_period: float value, in seconds. 
+        :param sample_period: float value, in seconds. 
                               When an incoming real time sample array is split into single RtSampleContainers, this is used to calculate the individual time stamps.
                               Value can be zero if correct value is not known. In this case all Containers will have the observation time of the sample array.
-        @param max_samples: integer, max. length of self.rtdata
+        :param max_samples: integer, max. length of self.rtdata
         """
         self.rt_data = deque(maxlen=max_samples)
         self.sample_period = sample_period
@@ -408,10 +410,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         if showsuccesslog:
             self._logger.info('{}: _waitUntilInitialized took {} seconds', log_prefix, delay)
 
-
     def _onEpisodicMetricReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicMetricReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -480,7 +481,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     def _onEpisodicAlertReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicAlertReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -518,7 +519,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     def _onOperationalStateReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onOperationalStateReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -569,7 +570,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     def _onWaveformReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         #pylint:disable=too-many-locals
         # reportNode contains a list of msg:State nodes
         if not is_buffered_report and self._bufferNotification(reportNode, self._onWaveformReport):
@@ -652,7 +653,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
     def _onEpisodicContextReport(self, reportNode, is_buffered_report=False):
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicContextReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -693,7 +694,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         Components are MDSs, VMDs, Channels. Not metrics and alarms
         """
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onEpisodicComponentReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '1'))
@@ -739,7 +740,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         It consists of 1...n DescriptionModificationReportParts.
         """
         # copy reportNode, further processing might change report data. Avoid side effects
-        reportNode = copy.deepcopy(reportNode)
+        reportNode = xmlparsing.copy_node(reportNode)
         if not is_buffered_report and self._bufferNotification(reportNode, self._onDescriptionModificationReport):
             return
         newMdibVersion = int(reportNode.get('MdibVersion', '0'))
@@ -858,8 +859,8 @@ class ClientMdibContainer(mdibbase.MdibContainer):
     def waitMetricMatches(self, handle, matchesfunc, timeout):
         """ wait until a matching metric has been received. The matching is defined by the handle of the metric and the result of a matching function.
         If the matching function returns true, this function returns.
-        @param handle: The handle string of the metric of interest.
-        @param matchesfunc: a callable, argument is the current state with matching handle. Can be None, in that case every state matches
+        :param handle: The handle string of the metric of interest.
+        :param matchesfunc: a callable, argument is the current state with matching handle. Can be None, in that case every state matches
         Example:
             expected = 42
             def isMatchingValue(state):
@@ -867,7 +868,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                 if found:
                     found[0] = int(found[0])
                     return [expected] == found
-        @param timeout: timeout in seconds
+        :param timeout: timeout in seconds
         @return: the matching state. In cas of a timeout it raises a TimeoutError exception.
         """ 
         fut = futures.Future()

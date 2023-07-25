@@ -215,7 +215,7 @@ class AbstractDescriptorContainer(ContainerBase):
     def _sortChildNodes(self, node, ordered_tags):
         """
         raises an ValueError if a child node exist that is not listed in ordered_tags
-        @param ordered_tags: a list of QNames
+        :param ordered_tags: a list of QNames
         """
         not_in_order = [n for n in node if n.tag not in ordered_tags]
         if len(not_in_order) > 0:
@@ -650,7 +650,7 @@ _name_class_lookup = {
 
 def getContainerClass(qNameType):
     """
-    @param qNameType: a QName instance
+    :param qNameType: a QName instance
     """
     # first check type, this is more specific. 
     return _name_class_lookup.get(qNameType)

@@ -4,6 +4,33 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+- client subscription: renew could be sent after unsubscribe.
+
+## [1.1.28] - 2023-07-07
+
+### Fixed
+
+- nsmap not being fully copied when a report node is being copied in the client mdib [#191](https://github.com/Draegerwerk/sdc11073/issues/191)
+
+## [1.1.27] - 2023-06-29
+
+### Added
+- On consumer side: Option to configure the time to wait until the event sink is started,
+  this avoids invalid subscription requests [#147](https://github.com/Draegerwerk/sdc11073/issues/147)
+
+### Changed
+- Error handling for invalid subscription requests - sending faults specified in WS-Eventing [#147](https://github.com/Draegerwerk/sdc11073/issues/147)
+
+## [1.1.26] - 2023-06-08
+
+### Added
+
+- Option to configure the time to wait until the http server is started [#142](https://github.com/Draegerwerk/sdc11073/issues/142)
+- Enum for ChargeStatus of battery state [#165](https://github.com/Draegerwerk/sdc11073/issues/165).
+
 ## [1.1.25] - 2023-04-21
 
 ### Added

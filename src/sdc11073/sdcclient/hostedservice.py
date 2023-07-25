@@ -16,7 +16,7 @@ class HostedServiceClient(object):
     #def __init__(self, soapClient, dpws_hosted, porttype, validate, sdc_definitions, bicepsParser, log_prefix=''):
     def __init__(self, soapClient, dpws_hosted, porttype, sdc_definitions, log_prefix=''):
         """
-        @param simple_xml_hosted_node: a "Hosted" node in a simplexml document
+        :param simple_xml_hosted_node: a "Hosted" node in a simplexml document
         """
         self.endpoint_reference = dpws_hosted.endpointReferences[0]
         self._url = urllib.parse.urlparse(self.endpoint_reference.address)
@@ -69,9 +69,9 @@ class HostedServiceClient(object):
 
     def _mkSetMethodSoapEnvelope(self, methodName, operationHandle, requestNodes, additionalNamespaces=None):
         """ helper to create the soap envelope
-        @param methodName: last element of name of the called action
-        @param operationHandle: handle name as string
-        @param requestNodes: a list of etree_ nodes that will become Subelement of Method name element
+        :param methodName: last element of name of the called action
+        :param operationHandle: handle name as string
+        :param requestNodes: a list of etree_ nodes that will become Subelement of Method name element
         """
         soapBodyNode = etree_.Element( msgTag(methodName))
         ref = etree_.SubElement(soapBodyNode, msgTag('OperationHandleRef'), attrib={QN_TYPE: '{}:HandleRef'.format(Prefix.PM.prefix)}, nsmap=Prefix.partialMap(Prefix.PM))
@@ -207,7 +207,7 @@ class GetServiceClient(HostedServiceClient):
 
     def getMdDescriptionNode(self, requestedHandles=None, request_manipulator=None):
         """
-        @param requestedHandles: None if all descriptors shall be requested, otherwise a list of handles
+        :param requestedHandles: None if all descriptors shall be requested, otherwise a list of handles
         """
         requestparams = []
         if requestedHandles is not None:
@@ -229,7 +229,7 @@ class GetServiceClient(HostedServiceClient):
 
     def getMdState(self, requestedHandles=None, request_manipulator=None):
         """
-        @param requestedHandles: None if all states shall be requested, otherwise a list of handles
+        :param requestedHandles: None if all states shall be requested, otherwise a list of handles
         """
         requestparams = []
         if requestedHandles is not None:
@@ -244,7 +244,7 @@ class GetServiceClient(HostedServiceClient):
 
     def getMdStateNode(self, requestedHandles=None, request_manipulator=None):
         """
-        @param requestedHandles: None if all states shall be requested, otherwise a list of handles
+        :param requestedHandles: None if all states shall be requested, otherwise a list of handles
         """
         return self.getMdState(requestedHandles, request_manipulator=request_manipulator).msgNode
 
@@ -254,8 +254,8 @@ class SetServiceClient(HostedServiceClient):
 
     def setNumericValue(self, operationHandle, requestedNumericValue, request_manipulator=None):
         """ call SetNumericValue Method of device
-        @param operationHandle: a string
-        @param requestedNumericValue: int or float or a string representing a decimal number
+        :param operationHandle: a string
+        :param requestedNumericValue: int or float or a string representing a decimal number
         @return a Future object
         """
         self._logger.info('setNumericValue operationHandle={} requestedNumericValue={}',
@@ -265,8 +265,8 @@ class SetServiceClient(HostedServiceClient):
 
     def setString(self, operationHandle, requestedString, request_manipulator=None):
         """ call SetString Method of device
-        @param operationHandle: a string
-        @param requestedString: a string
+        :param operationHandle: a string
+        :param requestedString: a string
         @return a Future object
         """
         self._logger.info('setString operationHandle={} requestedString={}',
@@ -277,8 +277,8 @@ class SetServiceClient(HostedServiceClient):
     def setAlertState(self, operationHandle, proposedAlertState, request_manipulator=None):
         """The SetAlertState method corresponds to the SetAlertStateOperation objects in the MDIB and allows the modification of an alert.
         It can handle a single proposed AlertState as argument (only for backwards compatibility) and a list of them.
-        @param operationHandle: handle name as string
-        @param proposedAlertState: domainmodel.AbstractAlertState instance or a list of them
+        :param operationHandle: handle name as string
+        :param proposedAlertState: domainmodel.AbstractAlertState instance or a list of them
         """
         self._logger.info('setAlertState operationHandle={} requestedAlertState={}',
                           operationHandle, proposedAlertState)
@@ -290,8 +290,8 @@ class SetServiceClient(HostedServiceClient):
 
     def setMetricState(self, operationHandle, proposedMetricStates, request_manipulator=None):
         """The SetMetricState method corresponds to the SetMetricStateOperation objects in the MDIB and allows the modification of metric states.
-        @param operationHandle: handle name as string
-        @param proposedMetricStates: a list of domainmodel.AbstractMetricState instance or derived class
+        :param operationHandle: handle name as string
+        :param proposedMetricStates: a list of domainmodel.AbstractMetricState instance or derived class
         """
         self._logger.info('setMetricState operationHandle={} requestedMetricState={}',
                           operationHandle, proposedMetricStates)
@@ -302,8 +302,8 @@ class SetServiceClient(HostedServiceClient):
         """ an activate call does not return the result of the operation directly. Instead you get an transaction id,
         and will receive the status of this transaction as notification ("OperationInvokedReport").
         This method returns a "future" object. The future object has a result as soon as a final transaction state is received.
-        @param operationHandle: a string
-        @param value: a string
+        :param operationHandle: a string
+        :param value: a string
         @return: a concurrent.futures.Future object
         """
         # make message body
@@ -329,8 +329,8 @@ class SetServiceClient(HostedServiceClient):
     def setComponentState(self, operationHandle, proposedComponentStates, request_manipulator=None):
         """
         The setComponentState method corresponds to the SetComponentStateOperation objects in the MDIB and allows to insert or modify context states.
-        @param operationHandle: handle name as string
-        @param proposedComponentStates: a list of domainmodel.AbstractDeviceComponentState instances or derived class
+        :param operationHandle: handle name as string
+        :param proposedComponentStates: a list of domainmodel.AbstractDeviceComponentState instances or derived class
         :return: a concurrent.futures.Future
         """
         tmp = ', '.join(['{}(descriptorHandle={})'.format(st.__class__.__name__, st.descriptorHandle)
@@ -492,7 +492,7 @@ class ContextServiceClient(HostedServiceClient):
 
     def getContextStatesNode(self, handles=None, request_manipulator=None):
         """
-        @param handles: a list of handles
+        :param handles: a list of handles
         """
         params = []
         if handles:

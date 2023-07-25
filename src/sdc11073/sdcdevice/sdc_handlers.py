@@ -66,17 +66,17 @@ class SdcHandler_Base(object):
                  roleProvider=None, sslContext=None,
                  logLevel=None, max_subscription_duration=7200, log_prefix='', chunked_messages=False):  # pylint:disable=too-many-arguments
         """
-        @param uuid: a string that becomes part of the devices url (no spaces, no special characters please. This could cause an invalid url!).
+        :param uuid: a string that becomes part of the devices url (no spaces, no special characters please. This could cause an invalid url!).
                      Parameter can be None, in this case a random uuid string is generated.
-        @param ws_discovery: reference to the wsDiscovery instance
-        @param model: a pysoap.soapenvelope.DPWSThisModel instance
-        @param device: a pysoap.soapenvelope.DPWSThisDevice instance
-        @param deviceMdibContainer: a DeviceMdibContainer instance
-        @param roleProvider: handles the operation calls
-        @param sslContext: if not None, this context is used and https url is used. Otherwise http
-        @param logLevel: if not None, the "sdc.device" logger will use this level
-        @param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
-        @param ident: names a device, used for logging
+        :param ws_discovery: reference to the wsDiscovery instance
+        :param model: a pysoap.soapenvelope.DPWSThisModel instance
+        :param device: a pysoap.soapenvelope.DPWSThisDevice instance
+        :param deviceMdibContainer: a DeviceMdibContainer instance
+        :param roleProvider: handles the operation calls
+        :param sslContext: if not None, this context is used and https url is used. Otherwise http
+        :param logLevel: if not None, the "sdc.device" logger will use this level
+        :param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
+        :param ident: names a device, used for logging
         """
         self._my_uuid = my_uuid or uuid.uuid4()
         self._wsdiscovery = ws_discovery
@@ -252,7 +252,7 @@ class SdcHandler_Base(object):
         """ device itself can also handle GET requests. This is the handler"""
         return self._hostDispatcher.dispatchGetRequest(parseResult, headers)
 
-    def _startServices(self, shared_http_server=None):
+    def _startServices(self, shared_http_server=None, http_server_timeout=15.0):
         """ start the services"""
         self._logger.info('starting services, addr = {}', self._wsdiscovery.getActiveAddresses())
 
@@ -268,7 +268,7 @@ class SdcHandler_Base(object):
 
             # first start http server, the services need to know the ip port number
             self._httpServerThread.start()
-            event_is_set = self._httpServerThread.started_evt.wait(timeout=15.0)
+            event_is_set = self._httpServerThread.started_evt.wait(timeout=http_server_timeout)
             if not event_is_set:
                 self._logger.error('Cannot start device, start event of http server not set.')
                 raise RuntimeError('Cannot start device, start event of http server not set.')
@@ -302,11 +302,11 @@ class SdcHandler_Base(object):
             self._logger.info('serving Services on {}:{}', host_ip, port)
         self._subscriptionsManager.setBaseUrls(base_urls)
 
-    def startAll(self, startRealtimeSampleLoop=True, periodic_reports_interval=None, shared_http_server=None):
+    def startAll(self, startRealtimeSampleLoop=True, periodic_reports_interval=None, shared_http_server=None, http_server_timeout=15.0):
         if self.product_roles is not None:
             self.product_roles.initOperations(self._mdib, self._scoOperationsRegistry)
 
-        self._startServices(shared_http_server)
+        self._startServices(shared_http_server, http_server_timeout)
         if startRealtimeSampleLoop:
             self._runRtSampleThread = True
             self._rtSampleSendThread = threading.Thread(target=self._rt_sample_sendloop, name='DevRtSampleSendLoop')
