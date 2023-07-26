@@ -1,7 +1,8 @@
 import unittest
 
 from sdc11073.location import SdcLocation
-
+from sdc11073.wsdiscovery.service import Service
+from sdc11073.xml_types.wsd_types import ScopesType
 
 class TestSdcLocation(unittest.TestCase):
     scheme = SdcLocation.scheme  # 'sdc.ctxt.loc'
@@ -123,6 +124,13 @@ class TestSdcLocation(unittest.TestCase):
         self.assertFalse(my_bed in SdcLocation(fac='fac2', root='myroot'))
         self.assertFalse(my_bed in SdcLocation(fac='fac1'))
 
+    def test_matching_services(self):
+        my_loc = SdcLocation(fac='fac1', poc='poc1', bed='bed1', bld='bld1', flr='flr1', rm='rm1', root='myroot')
+        other_loc = SdcLocation(fac='fac2', poc='poc1', bed='bed1', bld='bld1', flr='flr1', rm='rm1', root='myroot')
+        service1 = Service(types=None, scopes=ScopesType(my_loc.scope_string), epr='a', x_addrs=None, instance_id=42)
+        service2 = Service(types=None, scopes=ScopesType(other_loc.scope_string), epr='b', x_addrs=None, instance_id=42)
+        matches = my_loc.matching_services((service1, service2))
+        self.assertEqual(len(matches), 1)
 
 def suite():
     return unittest.TestLoader().loadTestsFromTestCase(TestSdcLocation)
