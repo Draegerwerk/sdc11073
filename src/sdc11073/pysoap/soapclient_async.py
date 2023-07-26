@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-from threading import Lock
 from typing import TYPE_CHECKING
 
 from aiohttp.client import ClientSession, ClientTimeout, TCPConnector
@@ -56,7 +55,6 @@ class SoapClientAsync:
         # these compression alg's does the other side accept ( set at runtime):
         self.request_encodings = request_encodings if request_encodings is not None else []
         self._get_headers = self._make_get_headers()
-        self._lock = Lock()
         self._chunked_requests = chunked_requests
         self._netloc = netloc
 
@@ -91,11 +89,10 @@ class SoapClientAsync:
 
     async def async_close(self):
         """Close connection."""
-        with self._lock:
-            if self._http_connection is not None:
-                self._log.info('closing soapClientNo {} for {}', self._client_number, self._netloc)
-                await self._http_connection.close()
-                self._http_connection = None
+        if self._http_connection is not None:
+            self._log.info('closing soapClientNo {} for {}', self._client_number, self._netloc)
+            await self._http_connection.close()
+            self._http_connection = None
 
     async def async_post_message_to(self, path: str,
                                     created_message: CreatedMessage,
