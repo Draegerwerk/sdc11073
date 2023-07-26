@@ -650,6 +650,8 @@ class NodeStringProperty(NodeTextProperty):
     """Represents the text of an XML Element.
 
     Python representation is a string.
+    libxml sets text of element to None, if text in xml is empty. In this case the python value is an empty string.
+    if the xml element that should contain the text does not exist, the python value is None.
     """
 
     def __init__(self, sub_element_name: etree_.QName | None = None,  # noqa: PLR0913
