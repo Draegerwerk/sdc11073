@@ -149,9 +149,6 @@ class SubscriptionBase:
                                                       self._accepted_encodings,
                                                       self)
 
-    def _release_soap_client(self):
-        self._soap_client_pool.forget_usr(self.notify_to_url.netloc, self)
-
     @property
     def remaining_seconds(self):
         duration = int(self._expire_seconds - (time.monotonic() - self._started))
@@ -208,7 +205,7 @@ class SubscriptionBase:
         self._logger.info('close subscription id={} to {}',   # noqa: PLE1205
                           self.identifier_uuid, self.notify_to_address)
         self._is_closed = True
-        self._release_soap_client()
+        self._soap_client_pool.forget_usr(self.notify_to_url.netloc, self)
 
     def is_closed(self):
         return self._is_closed
@@ -405,19 +402,23 @@ class SubscriptionsManagerBase:
             response = self._msg_factory.mk_reply_soap_message(request_data, renew_response)
         return response
 
-    def close_subscription(self, subscription: SubscriptionBase):
-        subscription.close_by_subscription_manager()
-
     def stop_all(self, send_subscription_end: bool):
-        self._end_all_subscriptions(send_subscription_end)
+        self._logger.info('stop_all called')
+        # stop housekeeping thread first to get it out of the way
+        self._logger.debug('stop housekeeping thread')
         self._run_housekeeping_thread = False
         self._housekeeping_thread.join()
+        self._logger.debug('housekeeping thread stopped')
+        self._logger.debug('end all subscriptions')
+        self._end_all_subscriptions(send_subscription_end)
 
     def _end_all_subscriptions(self, send_subscription_end: bool):
+        # async variant has a different implementation!
         with self._subscriptions.lock:
             if send_subscription_end:
                 tmp = [s for s in self._subscriptions.objects if s.unsubscribed_at is None]
                 apply_map(lambda subscription: subscription.send_notification_end_message(), tmp)
+            apply_map(lambda subscription: subscription.close_by_subscription_manager(), self._subscriptions.objects)
             self._subscriptions.clear()
 
     def _get_subscription_for_request(self, request_data: RequestData) -> SubscriptionBase:
@@ -497,5 +498,6 @@ class SubscriptionsManagerBase:
 
                 for obsolete_subscription in obsolete_subscriptions:
                     if not obsolete_subscription.is_closed():
-                        self.close_subscription(obsolete_subscription)
+                        obsolete_subscription.close_by_subscription_manager()
+
                         self._subscriptions.remove_object(obsolete_subscription)
