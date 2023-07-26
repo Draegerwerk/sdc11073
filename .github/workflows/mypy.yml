@@ -26,4 +26,3 @@ jobs:
           checkName: 'mypy'   # NOTE: this needs to be the same as the job name
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true # https://github.com/Draegerwerk/sdc11073/issues/156
