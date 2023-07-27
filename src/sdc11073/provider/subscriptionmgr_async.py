@@ -11,6 +11,7 @@ import aiohttp.client_exceptions
 from lxml import etree as etree_
 
 from sdc11073 import observableproperties
+from sdc11073.etc import apply_map
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.xml_types import eventing_types as evt_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
@@ -127,13 +128,15 @@ class AsyncioEventLoopThread(Thread):
 
     def run_coro(self, coro: Awaitable) -> Any:
         """Run threadsafe."""
+        if not self.running:
+            return None
         return asyncio.run_coroutine_threadsafe(coro, loop=self.loop).result()
 
     def stop(self):
         """Stop thread."""
+        self.running = False
         self.loop.call_soon_threadsafe(self.loop.stop)
         self.join()
-        self.running = False
 
 
 class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
@@ -181,46 +184,51 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
                     if subscription.is_valid and subscription.unsubscribed_at is None:
                         self._logger.info('send subscription end, subscription = {}', subscription)  # noqa: PLE1205
                         tasks.append(subscription.async_send_notification_end_message())
-        if tasks:
-            result = self._async_send_thread.run_coro(self._coro_send_to_subscribers(tasks))
-            for counter, element in enumerate(result):
-                if isinstance(element, Exception):
-                    self._logger.warning(  # noqa: PLE1205
-                        'end_all_subscriptions {} returned {}', all_subscriptions[counter], element)
+            if tasks:
+                result = self._async_send_thread.run_coro(self._coro_send_to_subscribers(tasks))
+                for counter, element in enumerate(result):
+                    if isinstance(element, Exception):
+                        self._logger.warning(  # noqa: PLE1205
+                            'end_all_subscriptions {} returned {}', all_subscriptions[counter], element)
 
-        with self._subscriptions.lock:
-            for subscription in all_subscriptions:
-                self._soap_client_pool.forget_usr(subscription.notify_to_url.netloc, subscription)
-                self._subscriptions.clear()
+        apply_map(lambda subscription: subscription.close_by_subscription_manager(), self._subscriptions.objects)
+        self._subscriptions.clear()
 
     def send_to_subscribers(self, payload: MessageType | etree_.ElementBase,
                             action: str,
                             mdib_version_group: MdibVersionGroup,
                             what: str):
         """Send payload to all subscribers."""
-        subscribers = self._get_subscriptions_for_action(action)
-        if isinstance(payload, MessageType):
-            nsh = self.sdc_definitions.data_model.ns_helper
-            namespaces = [nsh.PM, nsh.MSG]
-            namespaces.extend(payload.additional_namespaces)
-            my_ns_map = nsh.partial_map(*namespaces)
-            body_node = payload.as_etree_node(payload.NODETYPE, my_ns_map)
-        else:
-            body_node = payload
+        with self._subscriptions.lock:
+            if not self._async_send_thread.running:
+                self._logger.info('could not send notifications, async send loop is not running.')
+                return
+            subscribers = self._get_subscriptions_for_action(action)
+            if isinstance(payload, MessageType):
+                nsh = self.sdc_definitions.data_model.ns_helper
+                namespaces = [nsh.PM, nsh.MSG]
+                namespaces.extend(payload.additional_namespaces)
+                my_ns_map = nsh.partial_map(*namespaces)
+                body_node = payload.as_etree_node(payload.NODETYPE, my_ns_map)
+            else:
+                body_node = payload
 
-        self.sent_to_subscribers = (action, mdib_version_group, body_node)  # update observable
-        tasks = []
-        for subscriber in subscribers:
-            tasks.append(self._async_send_notification_report(subscriber, body_node, action))
+            self.sent_to_subscribers = (action, mdib_version_group, body_node)  # update observable
+            tasks = []
+            for subscriber in subscribers:
+                tasks.append(self._async_send_notification_report(subscriber, body_node, action))
 
-        if what:
-            self._logger.debug('{}: sending report to {}',  # noqa: PLE1205
-                               what, [s.notify_to_address for s in subscribers])
-        result = self._async_send_thread.run_coro(self._coro_send_to_subscribers(tasks))
-        for counter, element in enumerate(result):
-            if isinstance(element, Exception):
-                self._logger.warning(  # noqa: PLE1205
-                    '{}: _send_to_subscribers {} returned {}', what, subscribers[counter], element)
+            if what:
+                self._logger.debug('{}: sending report to {}',  # noqa: PLE1205
+                                   what, [s.notify_to_address for s in subscribers])
+            result = self._async_send_thread.run_coro(self._coro_send_to_subscribers(tasks))
+            if result is None:
+                self._logger.info('could not send notifications, async send loop is not running.')
+                return
+            for counter, element in enumerate(result):
+                if isinstance(element, Exception):
+                    self._logger.warning(  # noqa: PLE1205
+                        '{}: _send_to_subscribers {} returned {}', what, subscribers[counter], element)
 
     async def _async_send_notification_report(self, subscription: BicepsSubscriptionAsync,
                                               body_node: etree_.ElementBase,

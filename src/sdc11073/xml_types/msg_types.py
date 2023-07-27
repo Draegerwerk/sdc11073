@@ -8,7 +8,7 @@ from . import pm_qnames as pm
 from . import xml_structure as cp
 from .actions import Actions
 from .basetypes import MessageType
-from .dataconverters import UnsignedIntConverter, StringConverter, DecimalConverter
+from .dataconverters import UnsignedIntConverter, DecimalConverter
 from .pm_types import PropertyBasedPMType, LocalizedText, InstanceIdentifier, LocalizedTextWidth, ContainmentTree
 from ..mdib.descriptorcontainers import AbstractDescriptorContainer, MdsDescriptorContainer, VmdDescriptorContainer
 from ..mdib.descriptorcontainers import ChannelDescriptorContainer, AbstractMetricDescriptorContainer
@@ -55,7 +55,7 @@ class InvocationError(StringEnum):
 
 ### Reports ###
 class AbstractReportPart(PropertyBasedPMType):
-    SourceMds = cp.NodeTextProperty(msg.SourceMds, StringConverter, is_optional=True)
+    SourceMds = cp.NodeStringProperty(msg.SourceMds, is_optional=True)
     _props = ['SourceMds']
 
 
@@ -381,7 +381,7 @@ class AbstractGet(MessageType):
 
 
 class AbstractSet(MessageType):
-    OperationHandleRef = cp.NodeTextProperty(msg.OperationHandleRef, StringConverter)
+    OperationHandleRef = cp.NodeStringProperty(msg.OperationHandleRef)
     _props = ['OperationHandleRef']
 
 
@@ -635,7 +635,7 @@ class SetValue(AbstractSet):
 class SetString(AbstractSet):
     NODETYPE = msg.SetString
     action = Actions.SetString
-    RequestedStringValue = cp.NodeTextProperty(msg.RequestedStringValue, value_converter=StringConverter)
+    RequestedStringValue = cp.NodeStringProperty(msg.RequestedStringValue)
     _props = ['RequestedStringValue']
 
     @property
@@ -672,7 +672,7 @@ class SetMetricState(AbstractSet):
 
 
 class Argument(PropertyBasedPMType):
-    ArgValue = cp.NodeTextProperty(msg.ArgValue, value_converter=StringConverter)
+    ArgValue = cp.NodeStringProperty(msg.ArgValue)
     _props = ['ArgValue']
 
 
