@@ -69,7 +69,7 @@ path = "src/sdc11073/__init__.py"
 [tool.pytest.ini_options]
 testpaths = "tests/"
 
-# https://docs.pytest.org/en/6.2.x/logging.html#live-logs
+# https://docs.pytest.org/en/latest/how-to/logging.html#live-logs
 log_cli = true
 log_cli_level = "info"
 log_cli_format = "%(asctime)s %(levelname)s (%(threadName)-10s) %(filename)s:%(lineno)d %(message)s"
