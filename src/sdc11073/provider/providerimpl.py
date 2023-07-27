@@ -458,6 +458,7 @@ class SdcProvider:
             role.stop()
         if self._is_internal_http_server and self._http_server is not None:
             self._http_server.stop()
+        self._soap_client_pool.close_all()
 
     def start_rt_sample_loop(self):
         if self._waveform_sender:

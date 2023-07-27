@@ -1,6 +1,5 @@
 import datetime
 import logging
-import sys
 import time
 import unittest
 from decimal import Decimal
@@ -56,15 +55,12 @@ def provide_realtime_data(sdc_device):
 
 
 class Test_BuiltinOperations(unittest.TestCase):
-    """ Test role providers (located in sdc11073.roles)
-
-    """
+    """Test role providers (located in sdc11073.roles)."""
 
     def setUp(self):
         basic_logging_setup()
-
-        sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
+        self._logger = logging.getLogger('sdc.test')
+        self._logger.info('############### start setUp %s ##############', self._testMethodName)
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
@@ -89,13 +85,12 @@ class Test_BuiltinOperations(unittest.TestCase):
                                       specific_components=specific_components)
         self.sdc_client.start_all(subscribe_periodic_reports=True)
         time.sleep(1)
-        sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))
+        self._logger.info('############### setUp done %s ##############', self._testMethodName)
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
+        self._logger.info('############### tearDown %s... ##############\n', self._testMethodName)
         self.log_watcher.setPaused(True)
         if self.sdc_client:
             self.sdc_client.stop_all()
@@ -105,9 +100,9 @@ class Test_BuiltinOperations(unittest.TestCase):
         try:
             self.log_watcher.check()
         except loghelper.LogWatchException as ex:
-            sys.stderr.write(repr(ex))
+            self._logger.warning(repr(ex))
             raise
-        sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
+        self._logger.info('############### tearDown %s done ##############\n', self._testMethodName)
 
     def test_set_patient_context_operation(self):
         """client calls corresponding operation of GenericContextProvider.
@@ -126,7 +121,7 @@ class Test_BuiltinOperations(unittest.TestCase):
             NODETYPE=pm.SetContextStateOperationDescriptor)
         self.assertEqual(len(my_operations), 1)
         operation_handle = my_operations[0].Handle
-        print('Handle for SetContextSTate Operation = {}'.format(operation_handle))
+        self._logger.info('Handle for SetContextState Operation = %s', operation_handle)
         context = self.sdc_client.client('Context')
 
         # insert a new patient with wrong handle, this shall fail
@@ -353,43 +348,47 @@ class Test_BuiltinOperations(unittest.TestCase):
                                   sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                   ssl_context_container=None,
                                   validate=CLIENT_VALIDATE,
-                                  specific_components=specific_components)
+                                  specific_components=specific_components,
+                                  log_prefix='client2')
         sdc_client2.start_all(subscribe_periodic_reports=True)
-        client_mdib2 = ConsumerMdib(sdc_client2)
-        client_mdib2.init_mdib()
-        clients = (self.sdc_client, sdc_client2)
-        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
-        operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
-        future = set_service.activate(operation_handle=operation.Handle, arguments=None)
-        result = future.result(timeout=SET_TIMEOUT)
-        state = result.InvocationInfo.InvocationState
-        self.assertEqual(state, msg_types.InvocationState.FINISHED)
-        time.sleep(0.5)  # allow notifications to arrive
-        # the whole tests only makes sense if there is an alert system
-        alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
-        self.assertTrue(alert_system_descriptors is not None)
-        self.assertGreater(len(alert_system_descriptors), 0)
-        for alert_system_descriptor in alert_system_descriptors:
-            for client in clients:
-                state = client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
-                # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
-                self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
+        try:
+            client_mdib2 = ConsumerMdib(sdc_client2)
+            client_mdib2.init_mdib()
+            clients = (self.sdc_client, sdc_client2)
+            coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
+            operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
+            future = set_service.activate(operation_handle=operation.Handle, arguments=None)
+            result = future.result(timeout=SET_TIMEOUT)
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            time.sleep(0.5)  # allow notifications to arrive
+            # the whole tests only makes sense if there is an alert system
+            alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
+            self.assertTrue(alert_system_descriptors is not None)
+            self.assertGreater(len(alert_system_descriptors), 0)
+            for alert_system_descriptor in alert_system_descriptors:
+                for client in clients:
+                    state = client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
+                    # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
+                    self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
 
-        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
-        operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
-        future = set_service.activate(operation_handle=operation.Handle, arguments=None)
-        result = future.result(timeout=SET_TIMEOUT)
-        state = result.InvocationInfo.InvocationState
-        self.assertEqual(state, msg_types.InvocationState.FINISHED)
-        time.sleep(0.5)  # allow notifications to arrive
-        # the whole tests only makes sense if there is an alert system
-        alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
-        self.assertTrue(alert_system_descriptors is not None)
-        self.assertGreater(len(alert_system_descriptors), 0)
-        for alert_system_descriptor in alert_system_descriptors:
-            for client in clients:
-                state = client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
-                self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.ON)
+            coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
+            operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
+            future = set_service.activate(operation_handle=operation.Handle, arguments=None)
+            result = future.result(timeout=SET_TIMEOUT)
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            time.sleep(0.5)  # allow notifications to arrive
+            # the whole tests only makes sense if there is an alert system
+            alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
+            self.assertTrue(alert_system_descriptors is not None)
+            self.assertGreater(len(alert_system_descriptors), 0)
+            for alert_system_descriptor in alert_system_descriptors:
+                for client in clients:
+                    state = client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
+                    self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.ON)
+        finally:
+            sdc_client2.stop_all()
 
     def test_set_ntp_server(self):
         set_service = self.sdc_client.client('Set')
@@ -404,7 +403,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         operation_handle = my_operation_descriptor.Handle
         for value in ('169.254.0.199', '169.254.0.199:1234'):
-            print('ntp server', value)
+            self._logger.info('ntp server = %s', value)
             future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
             result = future.result(timeout=SET_TIMEOUT)
             state = result.InvocationInfo.InvocationState
@@ -436,7 +435,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         operation_handle = my_operation_descriptor.Handle
         for value in ('+03:00', '-03:00'):  # are these correct values?
-            print('time zone', value)
+            self._logger.info('time zone = %s', value)
             future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
             result = future.result(timeout=SET_TIMEOUT)
             state = result.InvocationInfo.InvocationState

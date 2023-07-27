@@ -1,5 +1,7 @@
 import unittest
 
+from lxml.etree import fromstring, QName
+
 from sdc11073.xml_types import pm_types
 
 
@@ -33,3 +35,21 @@ class TestPmTypes(unittest.TestCase):
         c2 = pm_types.CodedValue('xxx', coding_system='abc')
         c2.Translation.append(pm_types.T_Translation('41'))
         self.assertTrue(pm_types.have_matching_codes(c1, c2))
+
+    def test_allowed_value(self):
+        """Verify that value is an empty string if text of Value node is empty."""
+        text = """<pm:AllowedValue xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant">
+                <pm:Value>{}</pm:Value>
+                <pm:Type Code="202890">
+                </pm:Type>
+              </pm:AllowedValue>
+"""
+        node = fromstring(text.format(''))
+        allowed_value1 = pm_types.AllowedValue.from_node(node)
+        self.assertEqual(allowed_value1.Value, '')
+        generated_node = allowed_value1.as_etree_node(QName('foo', 'bar'), {})
+        self.assertEqual('', generated_node[0].text )
+
+        node = fromstring(text.format('foobar'))
+        allowed_value2 = pm_types.AllowedValue.from_node(node)
+        self.assertEqual(allowed_value2.Value, 'foobar')

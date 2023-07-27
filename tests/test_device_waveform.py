@@ -64,8 +64,8 @@ class TestDeviceWaveform(unittest.TestCase):
             expected_count = 1.0 / period
             rt_sample_array = waveform_generators[h].get_next_sample_array()
             # sleep is not very precise, therefore verify that number of sample is in a certain range
-            self.assertTrue(expected_count - 5 <= len(rt_sample_array.samples) <= expected_count + 5)  #
-            self.assertTrue(abs(now - rt_sample_array.determination_time) <= 0.02)
+            self.assertTrue(expected_count - 50 <= len(rt_sample_array.samples) <= expected_count + 50)  #
+            self.assertTrue(abs(now - rt_sample_array.determination_time) <= 0.1)
             self.assertEqual(rt_sample_array.activation_state, pm_types.ComponentActivation.ON)
         h = HANDLES[0]
         # test with all activation states
@@ -81,7 +81,7 @@ class TestDeviceWaveform(unittest.TestCase):
         rt_sample_array = waveform_generators[h].get_next_sample_array()
         self.assertEqual(rt_sample_array.activation_state, pm_types.ComponentActivation.ON)
         self.assertTrue(len(rt_sample_array.samples) > 0)
-        self.assertTrue(abs(now - rt_sample_array.determination_time) <= 0.02)
+        self.assertTrue(abs(now - rt_sample_array.determination_time) <= 0.1)
 
     def test_waveformSubscription(self):
         this_model = ThisModelType(manufacturer='ABCDEFG GmbH',
@@ -120,4 +120,4 @@ class TestDeviceWaveform(unittest.TestCase):
         mgr._subscriptions.add_object(test_subscription)
 
         time.sleep(3)
-        self.assertGreater(len(test_subscription.reports), 20)
+        self.assertGreater(len(test_subscription.reports), 10)

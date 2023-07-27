@@ -79,7 +79,10 @@ class EnumConverter(NullConverter):
 
 
 class StringConverter(NullConverter):
-    """Strings need no conversion, only type checking."""
+    """Convert None to empty string, everything else is unchanged."""
+
+    def to_py(xml_value):
+        return xml_value or ''
 
     @staticmethod
     def check_valid(py_value) -> bool:
