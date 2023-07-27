@@ -36,6 +36,7 @@ from sdc11073.provider.components import (SdcProviderComponents,
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.namespaces import default_ns_helper
+from tests import utils
 from tests.mockstuff import SomeDevice, dec_list
 
 ENABLE_COMMLOG = False
@@ -242,14 +243,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
                                                     default_components=default_sdc_provider_components_async,
                                                     max_subscription_duration=10)  # shorter duration for faster tests
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdc_device.set_location(location, self._loc_validators)
+        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
         provide_realtime_data(self.sdc_device)
 
         time.sleep(0.5)  # allow init of devices to complete
@@ -1094,7 +1094,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
+        location = utils.random_location()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
 
         # common http server for all devices and clients
@@ -1185,14 +1185,13 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='<Final> ',
                                                     chunked_messages=True)
 
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdc_device.set_location(location, self._loc_validators)
+        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
         provide_realtime_data(self.sdc_device)
 
         time.sleep(0.5)  # allow full init of devices
@@ -1236,7 +1235,6 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
 
         specific_components = SdcProviderComponents(
             subscriptions_manager_class={'StateEvent': SubscriptionsManagerReferenceParamAsync},
@@ -1248,7 +1246,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdc_device.set_location(location, self._loc_validators)
+        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
 
         time.sleep(0.5)  # allow full init of devices
 
@@ -1330,13 +1328,12 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='',
                                                     default_components=default_sdc_provider_components_sync,
                                                     chunked_messages=True)
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdc_device.set_location(location, self._loc_validators)
+        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
 
         time.sleep(0.5)  # allow full init of devices
 

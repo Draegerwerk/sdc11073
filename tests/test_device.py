@@ -5,6 +5,7 @@ import unittest
 from sdc11073 import wsdiscovery
 from sdc11073.xml_types import pm_types
 from sdc11073.location import SdcLocation
+from tests import utils
 from tests.mockstuff import SomeDevice
 
 
@@ -16,13 +17,10 @@ class Test_Device(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
         self.wsd.start()
-        location = SdcLocation(fac='fac1',
-                               poc='CU1',
-                               bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         self.sdc_device.start_all()
         self._locValidators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdc_device.set_location(location, self._locValidators)
+        self.sdc_device.set_location(utils.random_location(), self._locValidators)
 
         time.sleep(0.1)  # allow full init of device
 

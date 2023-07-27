@@ -10,6 +10,7 @@ from sdc11073.location import SdcLocation
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types
+from tests import utils
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
@@ -34,14 +35,13 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
         my_uuid = None  # let device create one
         # self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_tns.xml')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_two_mds.xml')
 
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdc_device.set_location(location, self._loc_validators)
+        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
 
         time.sleep(0.5)  # allow full init of devices
 

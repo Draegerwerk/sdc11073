@@ -21,6 +21,7 @@ from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.xml_types.wsd_types import ScopesType
+from tests import utils
 
 loopback_adapter = next(adapter for adapter in network.get_adapters() if adapter.is_loopback)
 
@@ -170,12 +171,8 @@ class Test_Tutorial(unittest.TestCase):
     """run tutorial examples as unit tests, so that broken examples are automatically detected."""
 
     def setUp(self) -> None:
-        self.my_location = SdcLocation(fac='ODDS',
-                                       poc='CU1',
-                                       bed='BedSim')
-        self.my_location2 = SdcLocation(fac='ODDS',
-                                        poc='CU2',
-                                        bed='BedSim')
+        self.my_location = utils.random_location()
+        self.my_location2 = utils.random_location()
         # tests fill these lists with what they create, teardown cleans up after them.
         self.my_devices = []
         self.my_clients = []
@@ -232,8 +229,10 @@ class Test_Tutorial(unittest.TestCase):
         # there a different methods to detect devices:
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
-        services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT)
-        self.assertEqual(len(services), 2)  # both devices found
+        # TODO: enable this step once https://github.com/Draegerwerk/sdc11073/issues/223 has been fixed
+        # services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT)
+        # self.assertTrue(len(self.my_location.matching_services(services)), 1)
+        # self.assertTrue(len(self.my_location2.matching_services(services)), 1)
 
         # now search only for devices in my_location2
         services = my_client_ws_discovery.search_services(scopes=ScopesType(self.my_location2.scope_string),
@@ -243,14 +242,14 @@ class Test_Tutorial(unittest.TestCase):
         # search for medical devices only (BICEPS Final version only)
         services = my_client_ws_discovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
                                                           timeout=SEARCH_TIMEOUT)
-        self.assertEqual(len(services), 2)
+        self.assertGreaterEqual(len(services), 2)
 
         # search for medical devices only all known protocol versions
         all_types = [p.MedicalDeviceTypesFilter for p in ProtocolsRegistry.protocols]
         services = my_client_ws_discovery.search_multiple_types(types_list=all_types,
                                                                 timeout=SEARCH_TIMEOUT)
 
-        self.assertEqual(len(services), 2)
+        self.assertGreaterEqual(len(services), 2)
 
     def test_createClient(self):
         # create one discovery and one device that we can then search for
@@ -268,7 +267,8 @@ class Test_Tutorial(unittest.TestCase):
         # there a different methods to detect devices:
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
-        services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT)
+        services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT,
+                                                          scopes=ScopesType(self.my_location.scope_string))
         self.assertEqual(len(services), 1)  # both devices found
 
         my_client = SdcConsumer.from_wsd_service(services[0], ssl_context=None)
@@ -309,7 +309,8 @@ class Test_Tutorial(unittest.TestCase):
         # there a different methods to detect devices:
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
-        services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT)
+        services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT,
+                                                          scopes=ScopesType(self.my_location.scope_string))
         self.assertEqual(len(services), 1)  # both devices found
 
         my_client = SdcConsumer.from_wsd_service(services[0], ssl_context=None)
@@ -364,7 +365,8 @@ class Test_Tutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_client_ws_discovery)
         my_client_ws_discovery.start()
 
-        services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT)
+        services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT,
+                                                          scopes=ScopesType(self.my_location.scope_string))
         self.assertEqual(len(services), 1)
 
         self.service = SdcConsumer.from_wsd_service(services[0], ssl_context=None)

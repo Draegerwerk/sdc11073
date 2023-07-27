@@ -8,6 +8,7 @@ from sdc11073.httpserver import compression
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.location import SdcLocation
 from sdc11073.xml_types.pm_types import InstanceIdentifier
+from tests import utils
 from tests.mockstuff import SomeDevice
 
 XML_REQ = '<?xml version=\'1.0\' encoding=\'UTF-8\'?> \
@@ -33,7 +34,7 @@ class Test_Compression(unittest.TestCase):
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         # Create a new device
-        self.location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
+        self.location = utils.random_location()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         self._loc_validators = [InstanceIdentifier('Validator', extension_string='System')]
 
