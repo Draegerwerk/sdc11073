@@ -6,7 +6,7 @@ from sdc11073.xml_types.wsd_types import ScopesType
 
 class TestSdcLocation(unittest.TestCase):
     scheme = SdcLocation.scheme  # 'sdc.ctxt.loc'
-    default_root = SdcLocation.location_detail_root  # 'sdc.ctxt.loc.detail'
+    default_root = 'sdc.ctxt.loc.detail'
     scope_prefix = scheme + ':/' + default_root  # sdc.ctxt.loc:/sdc.ctxt.loc.detail'
 
     def test_scopeString(self):
