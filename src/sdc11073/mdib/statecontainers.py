@@ -612,7 +612,7 @@ class LocationContextStateContainer(AbstractContextStateContainer):
         extension_string = self._mk_extension_string(sdc_location)
         self.Identification = [pm_types.InstanceIdentifier(root=sdc_location.root, extension_string=extension_string)]
 
-    def _mk_extension_string(self, sdc_location: SdcLocation):
+    def _mk_extension_string(self, sdc_location: SdcLocation) -> str:
         """Return a string with all location elements separated by /-char.
 
         None elements are replaces by an empty string.
