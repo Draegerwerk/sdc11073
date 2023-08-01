@@ -26,8 +26,7 @@ class SdcLocation:
         so be careful with this!
     """
 
-    scheme = 'sdc.ctxt.loc'
-    location_detail_root = 'sdc.ctxt.loc.detail'
+    scheme = 'sdc.ctxt.loc'  # constant for scheme from sdc standard
 
     url_elements = ('fac', 'bldng', 'flr', 'poc', 'rm', 'bed')  # order also defines hierarchy
 
@@ -38,7 +37,7 @@ class SdcLocation:
                  bldng: str | None = None,
                  flr: str | None = None,
                  rm: str | None = None,
-                 root: str = location_detail_root):
+                 root: str = 'sdc.ctxt.loc.detail'):
         self.root = root
         self.fac = fac  # facility
         self.bldng = bldng  # building
@@ -69,7 +68,7 @@ class SdcLocation:
             ParseResult(scheme=self.scheme, netloc=None, path=path, params=None, query=query, fragment=None))
 
     def filter_services_inside(self, services: Iterable[Service]) -> list[Service]:
-        """Return services that are 'inside' own location."""
+        """Return services that are 'inside' own location (see doc string of class)."""
         return [s for s in services if self._service_matches(s)]
 
     def _service_matches(self, service: Service) -> bool:
@@ -80,7 +79,7 @@ class SdcLocation:
     def _scope_string_matches(self, scope_text: str) -> bool:
         """Check if location in scope is inside own location."""
         try:
-            other = self.__class__.from_scope_string(str(scope_text))
+            other = self.__class__.from_scope_string(scope_text)
             return other in self
         except UrlSchemeError:
             # Scope has different scheme, no match
