@@ -605,15 +605,20 @@ class LocationContextStateContainer(AbstractContextStateContainer):
         self.LocationDetail.Room = sdc_location.rm
         self.LocationDetail.Bed = sdc_location.bed
         self.LocationDetail.Facility = sdc_location.fac
-        self.LocationDetail.Building = sdc_location.bld
+        self.LocationDetail.Building = sdc_location.bldng
         self.LocationDetail.Floor = sdc_location.flr
         self.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
 
-        extension_string = sdc_location.mk_extension_string()
-        if not extension_string:
-            # schema does not allow extension string of zero length
-            extension_string = None
+        extension_string = self._mk_extension_string(sdc_location)
         self.Identification = [pm_types.InstanceIdentifier(root=sdc_location.root, extension_string=extension_string)]
+
+    def _mk_extension_string(self, sdc_location: SdcLocation):
+        """Return a string with all location elements separated by /-char.
+
+        None elements are replaces by an empty string.
+        """
+        return '/'.join([getattr(sdc_location, attr) or '' for attr in sdc_location.url_elements])
+
 
     @classmethod
     def from_sdc_location(cls, descriptor_container: AbstractDescriptorProtocol,

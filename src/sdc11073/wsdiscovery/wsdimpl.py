@@ -262,7 +262,7 @@ class WSDiscovery:
     def search_sdc_device_services_in_location(self, sdc_location: SdcLocation, timeout: int = 3) -> list[Service]:
         """Search for all sdc devices (no scopes filter applied), then filter locally for location."""
         services = self.search_sdc_services(timeout=timeout)
-        return sdc_location.matching_services(services)
+        return sdc_location.filter_services_inside(services)
 
     def publish_service(self, epr: str,
                         types: list[QName],

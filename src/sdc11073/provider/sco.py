@@ -49,7 +49,6 @@ class OperationDefinition:
         self._mdib = None
         self._descriptor_container = None
         self._operation_state_container = None
-        self._operation_target_container = None
         self._handle = handle
         self._operation_target_handle = operation_target_handle
         # documentation of operation_target_handle:

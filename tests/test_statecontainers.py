@@ -504,7 +504,7 @@ class TestStateContainers(unittest.TestCase):
         state2.update_from_other_container(state)
         verifyEqual(state, state2)
 
-        loc = SdcLocation(fac='a', poc='b', bed='c', bld='d', flr='e', rm='f', root='g')
+        loc = SdcLocation(fac='a', poc='b', bed='c', bldng='d', flr='e', rm='f', root='g')
         state = sc.LocationContextStateContainer.from_sdc_location(descriptor_container=self.descr,
                                                                    handle='abc',
                                                                    sdc_location=loc)
