@@ -5,6 +5,7 @@ import urllib
 
 from lxml import etree as etree_
 
+import sdc11073.certloader
 from sdc11073 import namespaces
 from sdc11073 import pmtypes
 from sdc11073.mdib import DeviceMdibContainer
@@ -93,7 +94,8 @@ class SomeDevice(SdcDevice):
 
     def __init__(self, wsdiscovery, my_uuid, mdib_xml_string,
                  validate=True, sslContext=None, logLevel=logging.INFO, log_prefix='',
-                 chunked_messages=False):
+                 chunked_messages=False,
+                 ssl_context_container: sdc11073.certloader.SSLContextContainer = None):
         model = DPWSThisModel(manufacturer='Draeger CoC Systems',
                               manufacturerUrl='www.draeger.com',
                               modelName='SomeDevice',
@@ -115,11 +117,13 @@ class SomeDevice(SdcDevice):
         super(SomeDevice, self).__init__(wsdiscovery, my_uuid, model, device, deviceMdibContainer, validate,
                                          # registerDefaultOperations=True,
                                          sslContext=sslContext, logLevel=logLevel, log_prefix=log_prefix,
-                                         chunked_messages=chunked_messages)
+                                         chunked_messages=chunked_messages,
+                                         ssl_context_container=ssl_context_container)
 
     @classmethod
     def fromMdibFile(cls, wsdiscovery, my_uuid, mdib_xml_path,
-                     validate=True, sslContext=None, logLevel=logging.INFO, log_prefix='', chunked_messages=False):
+                     validate=True, sslContext=None, logLevel=logging.INFO, log_prefix='', chunked_messages=False,
+                     ssl_context_container: sdc11073.certloader.SSLContextContainer = None):
         """
         An alternative constructor for the class
         """
@@ -130,4 +134,4 @@ class SomeDevice(SdcDevice):
         with open(mdib_xml_path, 'rb') as f:
             mdib_xml_string = f.read()
         return cls(wsdiscovery, my_uuid, mdib_xml_string, validate, sslContext, logLevel, log_prefix=log_prefix,
-                   chunked_messages=chunked_messages)
+                   chunked_messages=chunked_messages, ssl_context_container=ssl_context_container)

@@ -1,52 +1,48 @@
-import uuid
-import os
-import time
-import urllib
 import logging
+import os
 import threading
+import time
 import traceback
+import typing
+import urllib
+import uuid
 from collections import namedtuple
 
 from lxml import etree as etree_
 
-from .. import compression
-from .. import loghelper
-from .. import pmtypes
-from .. import wsdiscovery
-from ..location import SdcLocation
-from .. import namespaces
-from .. import pysoap
-
-from .sdcservicesimpl import SOAPActionDispatcher, DPWSHostedService
-from .sdcservicesimpl import GetService, SetService, StateEventService,  ContainmentTreeService, ContextService, WaveformService, DescriptionEventService
-from .localizationservice import LocalizationService
-from . import subscriptionmgr
-from . import sco
+import sdc11073.certloader
 from . import httpserver
 from . import intervaltimer
+from . import sco
+from . import subscriptionmgr
+from .localizationservice import LocalizationService
+from .sdcservicesimpl import GetService, SetService, StateEventService, ContainmentTreeService, ContextService, \
+    WaveformService, DescriptionEventService
+from .sdcservicesimpl import SOAPActionDispatcher, DPWSHostedService
+from .. import compression
+from .. import loghelper
+from .. import namespaces
+from .. import pmtypes
+from .. import pysoap
+from .. import wsdiscovery
+from ..location import SdcLocation
 
 Soap12Envelope = pysoap.soapenvelope.Soap12Envelope
 
 Prefix = namespaces.Prefix_Namespace
 
-PROFILING = False
-if PROFILING:
-    import cProfile
-    import pstats
-    from io import StringIO
-
-
 # default ssl context data
 here = os.path.dirname(__file__)
 caFolder = os.path.join(os.path.dirname(here), 'ca')
-_ssl_certfile = os.path.join(caFolder, 'sdccert.pem') # this is the certification chain ( contains root ca and signed public key
-_ssl_keyfile = os.path.join(caFolder, 'userkey.pem')     # this is the private key of own certificate
-_ssl_cacert = os.path.join(caFolder, 'cacert.pem')    # this is the common root ca that signed all sdc devices
-_ssl_passwd = 'dummypass' #'Phase1' #dummypass
-_ssl_cypherfile = os.path.join(caFolder, 'cyphers.json') # Json file that determines ciphers to be used
-
+_ssl_certfile = os.path.join(caFolder,
+                             'sdccert.pem')  # this is the certification chain ( contains root ca and signed public key
+_ssl_keyfile = os.path.join(caFolder, 'userkey.pem')  # this is the private key of own certificate
+_ssl_cacert = os.path.join(caFolder, 'cacert.pem')  # this is the common root ca that signed all sdc devices
+_ssl_passwd = 'dummypass'  # 'Phase1' #dummypass
+_ssl_cypherfile = os.path.join(caFolder, 'cyphers.json')  # Json file that determines ciphers to be used
 
 PeriodicStates = namedtuple('PeriodicStates', 'mdib_version states')
+
 
 class SdcHandler_Base(object):
     """ This is the base class for the sdc device handler. It contains all functionality of a device except the definition of the hosted services.
@@ -62,9 +58,12 @@ class SdcHandler_Base(object):
     # member "contextstates_in_getmdib".
     defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extensionString='System'),)
 
+    _ssl_context_container: typing.Optional[sdc11073.certloader.SSLContextContainer]
+
     def __init__(self, my_uuid, ws_discovery, model, device, deviceMdibContainer, validate=True,
                  roleProvider=None, sslContext=None,
-                 logLevel=None, max_subscription_duration=7200, log_prefix='', chunked_messages=False):  # pylint:disable=too-many-arguments
+                 logLevel=None, max_subscription_duration=7200, log_prefix='', chunked_messages=False,
+                 ssl_context_container: sdc11073.certloader.SSLContextContainer = None):  # pylint:disable=too-many-arguments
         """
         :param uuid: a string that becomes part of the devices url (no spaces, no special characters please. This could cause an invalid url!).
                      Parameter can be None, in this case a random uuid string is generated.
@@ -77,6 +76,7 @@ class SdcHandler_Base(object):
         :param logLevel: if not None, the "sdc.device" logger will use this level
         :param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
         :param ident: names a device, used for logging
+        :param ssl_context_container: container containing a client and a server context
         """
         self._my_uuid = my_uuid or uuid.uuid4()
         self._wsdiscovery = ws_discovery
@@ -86,7 +86,13 @@ class SdcHandler_Base(object):
         self._log_prefix = log_prefix
         self._mdib.log_prefix = log_prefix
         self._validate = validate
-        self._sslContext = sslContext
+
+        if sslContext:
+            self._ssl_context_container = sdc11073.certloader.SSLContextContainer(client_context=sslContext,
+                                                                                  server_context=sslContext)
+        else:
+            self._ssl_context_container = ssl_context_container
+
         self._compression_methods = compression.encodings[:]
         self._httpServerThread = None
         self._setupLogging(logLevel)
@@ -112,7 +118,7 @@ class SdcHandler_Base(object):
         self._rtSampleSendThread = None
         self._runRtSampleThread = False
         self.collectRtSamplesPeriod = 0.1  # in seconds
-        if self._sslContext is not None:
+        if self._ssl_context_container is not None:
             self._urlschema = 'https'
         else:
             self._urlschema = 'http'
@@ -196,7 +202,7 @@ class SdcHandler_Base(object):
         return hostDispatcher
 
     def _mkSubscriptionManager(self, max_subscription_duration):
-        return subscriptionmgr.SubscriptionsManager(self._sslContext,
+        return subscriptionmgr.SubscriptionsManager(self._ssl_context_container,
                                                     self._mdib.sdc_definitions,
                                                     self._compression_methods,
                                                     max_subscription_duration,
@@ -260,11 +266,12 @@ class SdcHandler_Base(object):
         if shared_http_server:
             self._httpServerThread = shared_http_server
         else:
-            self._httpServerThread = httpserver.HttpServerThread(my_ipaddress='0.0.0.0',
-                                                                 sslContext=self._sslContext,
-                                                                 supportedEncodings=self._compression_methods,
-                                                                 log_prefix=self._log_prefix,
-                                                                 chunked_responses=self.chunked_messages)
+            self._httpServerThread = httpserver.HttpServerThread(
+                my_ipaddress='0.0.0.0',
+                sslContext=self._ssl_context_container.server_context if self._ssl_context_container else None,
+                supportedEncodings=self._compression_methods,
+                log_prefix=self._log_prefix,
+                chunked_responses=self.chunked_messages)
 
             # first start http server, the services need to know the ip port number
             self._httpServerThread.start()
@@ -302,7 +309,8 @@ class SdcHandler_Base(object):
             self._logger.info('serving Services on {}:{}', host_ip, port)
         self._subscriptionsManager.setBaseUrls(base_urls)
 
-    def startAll(self, startRealtimeSampleLoop=True, periodic_reports_interval=None, shared_http_server=None, http_server_timeout=15.0):
+    def startAll(self, startRealtimeSampleLoop=True, periodic_reports_interval=None, shared_http_server=None,
+                 http_server_timeout=15.0):
         if self.product_roles is not None:
             self.product_roles.initOperations(self._mdib, self._scoOperationsRegistry)
 
@@ -315,7 +323,8 @@ class SdcHandler_Base(object):
         if periodic_reports_interval:
             self._run_periodic_reports_thread = True
             self._periodic_reports_interval = periodic_reports_interval
-            self._periodic_reports_thread = threading.Thread(target=self._periodic_reports_send_loop, name='DevPeriodicSendLoop')
+            self._periodic_reports_thread = threading.Thread(target=self._periodic_reports_send_loop,
+                                                             name='DevPeriodicSendLoop')
             self._periodic_reports_thread.daemon = True
             self._periodic_reports_thread.start()
 
@@ -443,17 +452,21 @@ class SdcHandler_Base(object):
     def sendComponentStateUpdates(self, mdib_version_grp, stateUpdates):
         self._logger.debug('sending component state updates {}', stateUpdates)
         self._subscriptionsManager.sendEpisodicComponentStateReport(stateUpdates, self._mdib.nsmapper, mdib_version_grp)
-        self._store_for_periodic_report(mdib_version_grp.mdib_version, stateUpdates, self._periodic_component_state_reports)
+        self._store_for_periodic_report(mdib_version_grp.mdib_version, stateUpdates,
+                                        self._periodic_component_state_reports)
 
     def sendContextStateUpdates(self, mdib_version_grp, stateUpdates):
         self._logger.debug('sending context updates {}', stateUpdates)
         self._subscriptionsManager.sendEpisodicContextReport(stateUpdates, self._mdib.nsmapper, mdib_version_grp)
-        self._store_for_periodic_report(mdib_version_grp.mdib_version, stateUpdates, self._periodic_context_state_reports)
+        self._store_for_periodic_report(mdib_version_grp.mdib_version, stateUpdates,
+                                        self._periodic_context_state_reports)
 
     def sendOperationalStateUpdates(self, mdib_version_grp, stateUpdates):
         self._logger.debug('sending operational state updates {}', stateUpdates)
-        self._subscriptionsManager.sendEpisodicOperationalStateReport(stateUpdates, self._mdib.nsmapper, mdib_version_grp)
-        self._store_for_periodic_report(mdib_version_grp.mdib_version, stateUpdates, self._periodic_operational_state_reports)
+        self._subscriptionsManager.sendEpisodicOperationalStateReport(stateUpdates, self._mdib.nsmapper,
+                                                                      mdib_version_grp)
+        self._store_for_periodic_report(mdib_version_grp.mdib_version, stateUpdates,
+                                        self._periodic_operational_state_reports)
 
     def sendRealtimeSamplesStateUpdates(self, mdib_version_grp, stateUpdates):
         self._logger.debug('sending real time sample state updates {}', stateUpdates)
@@ -473,7 +486,7 @@ class SdcHandler_Base(object):
         while self._runRtSampleThread:
             behindScheduleSeconds = timer.waitForNextIntervalBegin()
             try:
-                self._mdib.update_all_rt_samples() # update from waveform generators
+                self._mdib.update_all_rt_samples()  # update from waveform generators
                 self._logWaveformTiming(behindScheduleSeconds)
             except Exception:
                 self._logger.warn(' could not update real time samples: {}', traceback.format_exc())
@@ -491,9 +504,13 @@ class SdcHandler_Base(object):
             for reports_list, send_func, msg in [
                 (self._periodic_metric_reports, self._subscriptionsManager.sendPeriodicMetricReport, 'metric'),
                 (self._periodic_alert_reports, self._subscriptionsManager.sendPeriodicAlertReport, 'alert'),
-                (self._periodic_component_state_reports, self._subscriptionsManager.sendPeriodicComponentStateReport, 'component'),
+                (self._periodic_component_state_reports, self._subscriptionsManager.sendPeriodicComponentStateReport,
+                 'component'),
                 (self._periodic_context_state_reports, self._subscriptionsManager.sendPeriodicContextReport, 'context'),
-                (self._periodic_operational_state_reports, self._subscriptionsManager.sendPeriodicOperationalStateReport, 'operational'),
+                (
+                        self._periodic_operational_state_reports,
+                        self._subscriptionsManager.sendPeriodicOperationalStateReport,
+                        'operational'),
             ]:
                 tmp = None
                 with self._periodic_reports_lock:
@@ -544,9 +561,9 @@ class SdcHandler_Base(object):
         self._compression_methods.extend(compression_methods)
 
 
-
 class SdcHandler_Full(SdcHandler_Base):
     """ This class instantiates all port types."""
+
     def _register_hosted_services(self, base_urls):
         # register all services with their endpoint references acc. to sdc standard
         actions = self._mdib.sdc_definitions.Actions
@@ -607,6 +624,7 @@ class SdcHandler_Full(SdcHandler_Base):
 
 class SdcHandler_Minimal(SdcHandler_Base):
     """This class instantiates only GetService and LocalizationService"""
+
     def _register_hosted_services(self, base_urls):
         self._GetDispatcher = GetService('GetService', self)
         self._LocalizationDispatcher = LocalizationService('LocalizationService', self)

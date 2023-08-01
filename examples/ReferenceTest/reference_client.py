@@ -1,19 +1,18 @@
-import time
-import logging
-import traceback
 import os
-import sdc11073
+import time
+import traceback
 from collections import defaultdict
-from sdc11073 import observableproperties
-from sdc11073.definitions_sdc import SDC_v1_Definitions
 from concurrent import futures
-from sdc11073.certloader import mk_ssl_context_from_folder
 
+import sdc11073
+from sdc11073 import observableproperties
+from sdc11073.certloader import mk_ssl_contexts_from_folder
+from sdc11073.definitions_sdc import SDC_v1_Definitions
 
 adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
 ca_folder = os.getenv('ref_ca')
 ssl_passwd = os.getenv('ref_ssl_passwd') or None
-search_epr = os.getenv('ref_search_epr')  or 'abc' # abc is fixed ending in reference_device uuid.
+search_epr = os.getenv('ref_search_epr') or 'abc'  # abc is fixed ending in reference_device uuid.
 
 
 def run_ref_test():
@@ -36,19 +35,21 @@ def run_ref_test():
     print('Test step 2: connect to device...')
     try:
         if ca_folder:
-            ssl_context = mk_ssl_context_from_folder(ca_folder, cyphers_file=None,
-                                                     certificate='sdccert.pem',
-                                                     ssl_passwd=ssl_passwd,
-                                                     )
+            ssl_context_container = mk_ssl_contexts_from_folder(ca_folder, cyphers_file=None,
+                                                                certificate='sdccert.pem',
+                                                                ssl_passwd=ssl_passwd,
+                                                                )
+            client = sdc11073.sdcclient.SdcClient.fromWsdService(my_service,
+                                                                 ssl_context_container=ssl_context_container)
         else:
             ssl_context = None
-        client = sdc11073.sdcclient.SdcClient.fromWsdService(my_service,
-                                                             sslContext=ssl_context)
+            client = sdc11073.sdcclient.SdcClient.fromWsdService(my_service,
+                                                                 sslContext=ssl_context)
         client.startAll()
         print('Test step 2 successful: connected to device')
         results.append('### Test 2 ### passed')
     except:
-        print (traceback.format_exc())
+        print(traceback.format_exc())
         results.append('### Test 2 ### failed')
         return results
 
@@ -128,7 +129,8 @@ def run_ref_test():
                 results.append(f'### Test 8 handle {k} ### passed')
 
     print('Test step 9: call SetString operation')
-    setstring_operations = mdib.descriptions.NODETYPE.get(sdc11073.namespaces.domTag('SetStringOperationDescriptor'), [])
+    setstring_operations = mdib.descriptions.NODETYPE.get(sdc11073.namespaces.domTag('SetStringOperationDescriptor'),
+                                                          [])
     setst_handle = 'string.ch0.vmd1_sco_0'
     if len(setstring_operations) == 0:
         print('Test step 9(SetString) failed, no SetString operation found')
@@ -154,7 +156,7 @@ def run_ref_test():
 
     print('Test step 9: call SetValue operation')
     setvalue_operations = mdib.descriptions.NODETYPE.get(sdc11073.namespaces.domTag('SetValueOperationDescriptor'), [])
-#    print('setvalue_operations', setvalue_operations)
+    #    print('setvalue_operations', setvalue_operations)
     setval_handle = 'numeric.ch0.vmd1_sco_0'
     if len(setvalue_operations) == 0:
         print('Test step 9 failed, no SetValue operation found')
@@ -203,7 +205,6 @@ def run_ref_test():
                 results.append('### Test 9(Activate) ### failed')
 
     return results
-
 
 
 if __name__ == '__main__':
