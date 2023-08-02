@@ -29,7 +29,7 @@ def random_location() -> location.SdcLocation:
     return location.SdcLocation(fac=get_random_RFC3986_string_of_length(7),
                                 poc=get_random_RFC3986_string_of_length(7),
                                 bed=get_random_RFC3986_string_of_length(7),
-                                bld=get_random_RFC3986_string_of_length(7),
+                                bldng=get_random_RFC3986_string_of_length(7),
                                 flr=get_random_RFC3986_string_of_length(7),
                                 rm=get_random_RFC3986_string_of_length(7))
 
