@@ -1,15 +1,16 @@
 import logging
 import socket
 import sys
+import threading
 import time
 import unittest
+import uuid
 from urllib.parse import urlparse, urlsplit
-
-from lxml.etree import QName
 
 from sdc11073 import loghelper, network, wsdiscovery
 from sdc11073.wsdiscovery.wsdimpl import MatchBy, match_scope
 from sdc11073.xml_types.wsd_types import ScopesType
+from tests import utils
 
 test_log = logging.getLogger("unittest")
 
@@ -101,42 +102,38 @@ class TestDiscovery(unittest.TestCase):
         self.wsd_client.start()
         time.sleep(0.1)
 
-        ttype1 = [QName("abc", "def")]
-        scopes1 = ScopesType("http://myscope")
-        ttype2 = [QName("namespace", "myOtherTestService_type1")]
-        scopes2 = ScopesType("http://other_scope")
+        ttype1 = [utils.random_qname()]
+        scopes1 = utils.random_scope()
+        ttype2 = [utils.random_qname()]
+        scopes2 = utils.random_scope()
 
-        addresses = ["http://localhost:8080/abc", 'http://{ip}/device_service']
-        epr = 'my_epr'
+        addresses = [f"http://localhost:8080/{uuid.uuid4()}", 'http://{ip}/' + str(uuid.uuid4())]
+        epr = uuid.uuid4().hex
         self.wsd_service.publish_service(epr, types=ttype1, scopes=scopes1, x_addrs=addresses)
         time.sleep(1)
 
         # test that unfiltered search delivers at least my service
         test_log.info('starting search no filter...')
         services = self.wsd_client.search_services(timeout=self.SEARCH_TIMEOUT)
-        myServices = [s for s in services if s.epr == epr]
-        self.assertEqual(len(myServices), 1)
+        self.assertTrue(any(s for s in services if s.epr == epr))
 
         # test that filtered search (types) delivers only my service
         test_log.info('starting search types filter...')
         services = self.wsd_client.search_services(types=ttype1, timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
-        myServices = [s for s in services if s.epr == epr]
-        self.assertEqual(len(myServices), 1)
+        self.assertTrue(all(s for s in services if s.epr == epr))
 
         # test that filtered search (scopes) delivers only my service
         test_log.info('starting search scopes filter...')
         services = self.wsd_client.search_services(scopes=scopes1, timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
-        myServices = [s for s in services if s.epr == epr]
-        self.assertEqual(len(myServices), 1)
+        self.assertTrue(all(s for s in services if s.epr == epr))
 
         # test that filtered search (scopes+types) delivers only my service
         test_log.info('starting search scopes+types filter...')
         services = self.wsd_client.search_services(types=ttype1, scopes=scopes1, timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
-        myServices = [s for s in services if s.epr == epr]
-        self.assertEqual(len(myServices), 1)
+        self.assertTrue(all(s for s in services if s.epr == epr))
 
         # test that filtered search (wrong type) finds no service
         test_log.info('starting search types filter...')
@@ -163,16 +160,15 @@ class TestDiscovery(unittest.TestCase):
         services = self.wsd_client.search_multiple_types(types_list=[ttype1, ttype2], timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
 
-        addresses2 = ["http://localhost:8080/def"]
-        epr = 'my_epr2'
-        self.wsd_service.publish_service(epr, types=ttype2, scopes=scopes2, x_addrs=addresses2)
+        addresses2 = [f"http://localhost:8080/{uuid.uuid4()}"]
+        self.wsd_service.publish_service(uuid.uuid4().hex, types=ttype2, scopes=scopes2, x_addrs=addresses2)
         time.sleep(1)
 
-        ttype3 = [QName("namespace", "something_different")]
-        scopes3 = ScopesType("http://still_another_scope")
-        addresses3 = ["http://localhost:8080/xxx"]
-        epr = 'my_epr3'
-        self.wsd_service.publish_service(epr, types=ttype3, scopes=scopes3, x_addrs=addresses3)
+        ttype3 = [utils.random_qname()]
+        self.wsd_service.publish_service(uuid.uuid4().hex,
+                                         types=ttype3,
+                                         scopes=utils.random_scope(),
+                                         x_addrs=[f"http://localhost:8080/{uuid.uuid4()}"])
         time.sleep(1)
 
         # test search_multiple_types
@@ -190,12 +186,11 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('starting service...')
         self.wsd_service.start()
 
-        ttype = QName("abc", "def")
-        scopes = ScopesType("http://other_scope")
-
-        addresses = ["localhost:8080/abc"]
-        epr = 'my_epr'
-        self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=addresses)
+        epr = uuid.uuid4().hex
+        self.wsd_service.publish_service(epr,
+                                         types=[utils.random_qname()],
+                                         scopes=utils.random_scope(),
+                                         x_addrs=[uuid.uuid4().hex])
         time.sleep(2)
 
         test_log.info('starting client...')
@@ -207,8 +202,7 @@ class TestDiscovery(unittest.TestCase):
 
         for service in services:
             test_log.info(f'found service: {service.epr} : {service.x_addrs}')
-        myServices = [s for s in services if s.epr == epr]
-        self.assertEqual(len(myServices), 1)
+        self.assertEqual(len([s for s in services if s.epr == epr]), 1)
 
     def test_discover_noEPR(self):
         """If a service has no epr in ProbeMatches response, it shall be ignored."""
@@ -216,12 +210,12 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('starting service...')
         self.wsd_service.start()
 
-        ttype = QName("abc", "def")
-        scopes = ScopesType("http://other_scope")
+        ttypes = [utils.random_qname()]
+        scopes = ScopesType(utils.random_location().scope_string)
 
-        addresses = ["localhost:8080/abc"]
-        epr = 'my_epr'
-        self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=addresses)
+        addresses = [f"localhost:8080/{uuid.uuid4()}"]
+        epr = uuid.uuid4().hex
+        self.wsd_service.publish_service(epr, types=ttypes, scopes=scopes, x_addrs=addresses)
         time.sleep(5)  # make sure hello messages are all sent before client discovery starts
 
         test_log.info('starting client...')
@@ -229,7 +223,7 @@ class TestDiscovery(unittest.TestCase):
         time.sleep(0.2)
         test_log.info('starting search...')
         self.wsd_client.clear_remote_services()
-        services = self.wsd_client.search_services(timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(timeout=self.SEARCH_TIMEOUT, types=ttypes, scopes=scopes)
         test_log.info('search done.')
         self.assertEqual(len(services), 0)
 
@@ -239,13 +233,12 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('starting wsd_service...')
         self.wsd_service.start()
 
-        ttype = QName("abc", "def")
-        scopes = ScopesType("http://other_scope")
+        ttype = utils.random_qname()
 
         addresses = ["localhost:8080/abc"]
-        epr = 'my_epr'
+        epr = uuid.uuid4().hex
         test_log.info('publish_service...')
-        self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=addresses)
+        self.wsd_service.publish_service(epr, types=[ttype], scopes=utils.random_scope(), x_addrs=addresses)
         time.sleep(2)
 
         test_log.info('starting client...')
@@ -257,9 +250,9 @@ class TestDiscovery(unittest.TestCase):
 
         for service in services:
             test_log.info(f'found service: {service.epr} : {service.x_addrs}')
-        myServices = [s for s in services if s.epr == epr]
-        self.assertEqual(len(myServices), 1)
-        self.assertEqual(myServices[0].types, [ttype])
+        my_services = [s for s in services if s.epr == epr]
+        self.assertEqual(len(my_services), 1)
+        self.assertEqual(my_services[0].types, [ttype])
 
     def test_discover_noScopes(self):
         """If a service has no scopes in ProbeMatches response, the client shall send a resolve and add that result."""
@@ -267,12 +260,11 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('starting service...')
         self.wsd_service.start()
 
-        ttype = QName("abc", "def")
-        scopes = ScopesType("http://other_scope")
+        ttype = utils.random_qname()
 
-        addresses = ["localhost:8080/abc"]
-        epr = 'my_epr'
-        self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=addresses)
+        epr = uuid.uuid4().hex
+        addresses = [f"localhost:8080/{uuid.uuid4()}"]
+        self.wsd_service.publish_service(epr, types=[ttype], scopes=utils.random_scope(), x_addrs=addresses)
         time.sleep(2)
 
         test_log.info('starting client...')
@@ -284,9 +276,9 @@ class TestDiscovery(unittest.TestCase):
 
         for service in services:
             test_log.info(f'found service: {service.epr} : {service.x_addrs}')
-        myServices = [s for s in services if s.epr == epr]
-        self.assertEqual(len(myServices), 1)
-        self.assertEqual(myServices[0].types, [ttype])
+        my_services = [s for s in services if s.epr == epr]
+        self.assertEqual(len(my_services), 1)
+        self.assertEqual(my_services[0].types, [ttype])
 
     def test_discover_no_x_addresses(self):
         """If a service has no x-addresses in ProbeMatches response, the client shall send a resolve and add that result."""
@@ -294,13 +286,12 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('starting wsd_service...')
         self.wsd_service.start()
 
-        ttype = QName("abc", "def")
-        scopes = ScopesType("http://other_scope")
+        ttype = utils.random_qname()
+        scopes = utils.random_scope()
 
-        addresses = ["localhost:8080/abc"]
-        epr = 'my_epr'
+        epr = uuid.uuid4().hex
         test_log.info('publish_service...')
-        self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=addresses)
+        self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=[f"localhost:8080/{uuid.uuid4()}"])
         time.sleep(2)
 
         test_log.info('starting client...')
@@ -312,9 +303,9 @@ class TestDiscovery(unittest.TestCase):
 
         for service in services:
             test_log.info(f'found service: {service.epr} : {service.x_addrs}')
-        myServices = [s for s in services if s.epr == epr]
-        self.assertEqual(len(myServices), 1)
-        self.assertEqual(myServices[0].types, [ttype])
+        my_services = [s for s in services if s.epr == epr]
+        self.assertEqual(len(my_services), 1)
+        self.assertEqual(my_services[0].types, [ttype])
 
     def test_ScopeMatch(self):
         my_scope = 'biceps.ctxt.location:/biceps.ctxt.unknown/HOSP1%2Fb1%2FCU1%2F1%2Fr2%2FBed?fac=HOSP1&bldng=b1&poc=CU1&flr=1&rm=r2&bed=Bed'
@@ -358,13 +349,12 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('starting service...')
         self.wsd_service.start()
         device_count = 20
-        for i in range(device_count):
-            ttype1 = QName("namespace", "myOtherTestService_type1")
-            scopes1 = ScopesType("http://other_scope")
-
-            epr = f'my_epr{i}'
-            addresses = [f"localhost:{8080 + i}/{epr}"]
-            self.wsd_service.publish_service(epr, types=[ttype1], scopes=scopes1, x_addrs=addresses)
+        eprs = [uuid.uuid4().hex for _ in range(device_count)]
+        for i, epr in enumerate(eprs):
+            self.wsd_service.publish_service(epr,
+                                             types=[utils.random_qname()],
+                                             scopes=utils.random_scope(),
+                                             x_addrs=[f"localhost:{8080 + i}/{uuid.uuid4()}"])
 
         time.sleep(3.02)
         test_log.info('starting client...')
@@ -374,7 +364,7 @@ class TestDiscovery(unittest.TestCase):
 
         for service in services:
             test_log.info(f'found service: {service.epr} : {service.x_addrs}')
-        my_services = [s for s in services if 'my_epr' in s.epr]  # there might be other devices in the network
+        my_services = [s for s in services if s.epr in eprs]  # there might be other devices in the network
         self.assertEqual(len(my_services), device_count)
 
     def test_publishManyServices_earlyStartedClient(self):
@@ -385,21 +375,29 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('starting service...')
         self.wsd_service.start()
         device_count = 20
-        for i in range(device_count):
-            ttype1 = QName("namespace", "myOtherTestService_type1")
-            scopes1 = ScopesType("http://other_scope")
-
-            epr = f'my_epr{i}'
+        eprs = [uuid.uuid4().hex for _ in range(device_count)]
+        epr_event_map: dict[str, threading.Event] = {epr: threading.Event() for epr in eprs}
+        for i, epr in enumerate(eprs):
             addresses = [f"localhost:{8080 + i}/{epr}"]
-            self.wsd_service.publish_service(epr, types=[ttype1], scopes=scopes1, x_addrs=addresses)
+            self.wsd_service.publish_service(epr,
+                                             types=[utils.random_qname()],
+                                             scopes=ScopesType(utils.random_location().scope_string),
+                                             x_addrs=addresses)
 
         time.sleep(2.02)
-        self.assertEqual(len(self.wsd_client._remote_services), device_count)
+        self.assertEqual(len([epr for epr in self.wsd_client._remote_services if epr in eprs]), device_count)
         test_log.info('stopping service...')
         test_log.info('clear_local_services...')
+
+        def _remote_service_bye(_: str, epr_: str) -> None:
+            if epr_ in eprs:
+                self.assertTrue(epr_ not in self.wsd_client._remote_services)
+                epr_event_map[epr_].set()
+
+        self.wsd_client.set_remote_service_bye_callback(_remote_service_bye)
         self.wsd_service.clear_local_services()
-        time.sleep(2.02)
-        self.assertEqual(len(self.wsd_client._remote_services), 0)
+        for event in epr_event_map.values():
+            self.assertTrue(event.wait(timeout=5.0))
 
     def test_unexpected_multicast_messages(self):
         """Verify that module is robust against all kind of invalid multicast and single cast messages."""

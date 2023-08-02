@@ -14,7 +14,7 @@ from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapenvelope import Soap12Envelope
 from sdc11073.dispatch.request import RequestData
 from sdc11073.wsdiscovery import WSDiscovery
-from tests import mockstuff
+from tests import mockstuff, utils
 
 _sdc_ns = ns_hlp.SDC.namespace
 
@@ -134,10 +134,7 @@ class TestDeviceServices(unittest.TestCase):
         self.assertEqual(msg_node.attrib['SequenceId'], str(self.sdc_device.mdib.sequence_id))
 
     def test_getContextStates(self):
-        facility = 'HOSP42'
-        poc = 'Care Unit 1'
-        bed = 'my bed'
-        loc = SdcLocation(fac=facility, poc=poc, bed=bed)
+        loc = utils.random_location()
         self.sdc_device.set_location(loc)
         context_service = self.sdc_device.hosted_services.context_service
         path = '123'
@@ -155,12 +152,12 @@ class TestDeviceServices(unittest.TestCase):
         locationContextNodes = response.p_msg.payload_element.xpath(query, namespaces=_ns.ns_map)
         self.assertEqual(len(locationContextNodes), 1)
         identificationNode = locationContextNodes[0].find(pm.Identification)
-        self.assertEqual(identificationNode.get('Extension'), '{}///{}//{}'.format(facility, poc, bed))
+        self.assertEqual(identificationNode.get('Extension'), '{}/{}/{}/{}/{}/{}'.format(loc.fac, loc.bldng, loc.flr, loc.poc, loc.rm,loc.bed))
 
         locationDetailNode = locationContextNodes[0].find(pm.LocationDetail)
-        self.assertEqual(locationDetailNode.get('PoC'), poc)
-        self.assertEqual(locationDetailNode.get('Bed'), bed)
-        self.assertEqual(locationDetailNode.get('Facility'), facility)
+        self.assertEqual(locationDetailNode.get('PoC'), loc.poc)
+        self.assertEqual(locationDetailNode.get('Bed'), loc.bed)
+        self.assertEqual(locationDetailNode.get('Facility'), loc.fac)
 
     def test_wsdl(self):
         """
