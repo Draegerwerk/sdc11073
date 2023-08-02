@@ -16,6 +16,7 @@ from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice.sdcdeviceimpl import SdcDevice
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist, WSDiscoverySingleAdapter, Scope
+from tests import utils
 
 loopback_adapter = 'Loopback Pseudo-Interface 1' if os.name == 'nt' else 'lo'
 
@@ -57,12 +58,8 @@ class Test_Tutorial(unittest.TestCase):
     """ run tutorial examples as unit tests, so that broken examples are automatically detected"""
 
     def setUp(self) -> None:
-        self.my_location = SdcLocation(fac='ODDS',
-                                       poc='CU1',
-                                       bed='BedSim')
-        self.my_location2 = SdcLocation(fac='ODDS',
-                                        poc='CU2',
-                                        bed='BedSim')
+        self.my_location = utils.random_location()
+        self.my_location2 = utils.random_location()
         # tests fill these lists with what they create, teardown cleans up after them.
         self.my_devices = []
         self.my_clients = []
@@ -115,22 +112,26 @@ class Test_Tutorial(unittest.TestCase):
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
         services = my_client_wsDiscovery.searchServices(timeout=SEARCH_TIMEOUT)
+        services = self.my_location.matchingServices(services) + self.my_location2.matchingServices(services)
         self.assertEqual(len(services), 2)  # both devices found
 
         # now search only for devices in my_location2
         services = my_client_wsDiscovery.searchServices(scopes=[Scope(self.my_location2.scopeStringSdc)],
                                                         timeout=SEARCH_TIMEOUT)
+        services = self.my_location.matchingServices(services) + self.my_location2.matchingServices(services)
         self.assertEqual(len(services), 1)
 
         # search for medical devices only (BICEPS FInal version only)
         services = my_client_wsDiscovery.searchServices(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
                                                         timeout=SEARCH_TIMEOUT)
+        services = self.my_location.matchingServices(services) + self.my_location2.matchingServices(services)
         self.assertEqual(len(services), 2)
 
         # search for medical devices only all known protocol versions
         all_types = [p.MedicalDeviceTypesFilter for p in ProtocolsRegistry.protocols]
         services = my_client_wsDiscovery.searchMultipleTypes(typesList=all_types,
                                                              timeout=SEARCH_TIMEOUT)
+        services = self.my_location.matchingServices(services) + self.my_location2.matchingServices(services)
 
         self.assertEqual(len(services), 2)
 
@@ -151,6 +152,7 @@ class Test_Tutorial(unittest.TestCase):
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
         services = my_client_wsDiscovery.searchServices(timeout=SEARCH_TIMEOUT)
+        services = self.my_location.matchingServices(services)
         self.assertEqual(len(services), 1)  # both devices found
 
         my_client = SdcClient.fromWsdService(services[0])
@@ -192,6 +194,7 @@ class Test_Tutorial(unittest.TestCase):
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
         services = my_client_wsDiscovery.searchServices(timeout=SEARCH_TIMEOUT)
+        services = self.my_location.matchingServices(services)
         self.assertEqual(len(services), 1)  # both devices found
 
         my_client = SdcClient.fromWsdService(services[0])
@@ -347,6 +350,7 @@ class Test_Tutorial(unittest.TestCase):
         my_client_wsDiscovery.start()
 
         services = my_client_wsDiscovery.searchServices(timeout=SEARCH_TIMEOUT)
+        services = self.my_location.matchingServices(services)
         self.assertEqual(len(services), 1)
 
         my_client = SdcClient.fromWsdService(services[0])

@@ -32,6 +32,7 @@ from sdc11073.sdcclient import SdcClient
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.httpserver import HttpServerThread
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from tests import utils
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
@@ -340,7 +341,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         wsd.start()
-        location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
+        location = utils.random_location()
         sdc_device_final = SomeDevice.fromMdibFile(wsd, None, '70041_MDIB_Final.xml',
                                                    logLevel=logging.INFO,
                                                    sslContext=ssl_context,
@@ -383,7 +384,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
-        location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
+        location = utils.random_location()
         self.sdcDevice_Final = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml', logLevel=logging.INFO)
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         nsmapper = self.sdcDevice_Final.mdib.nsmapper
@@ -984,8 +985,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(cl_locations[0].UnbindingMdibVersion, None)
 
             for i in range(10):
-                current_bed = 'Bed_{}'.format(i)
-                new_location = SdcLocation(fac='tklx', poc='CU2', bed=current_bed)
+                new_location = utils.random_location()
                 coll = observableproperties.SingleValueCollector(clientMdib, 'contextByHandle')
                 sdcDevice.setLocation(new_location)
                 coll.result(timeout=NOTIFICATION_TIMEOUT)
@@ -1760,7 +1760,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
-        location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
+        location = utils.random_location()
         self.sdcDevice_1 = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<dev1> ')
 
         # common http server for both devices, borrow ssl context from device
@@ -1868,7 +1868,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
-        location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
+        location = utils.random_location()
         self.sdcDevice_Final = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml', log_prefix='<Final> ',
                                                        chunked_messages=True)
         # in order to test correct handling of default namespaces, we make participant model the default namespace
