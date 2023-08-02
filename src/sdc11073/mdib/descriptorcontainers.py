@@ -644,10 +644,10 @@ class AlertConditionDescriptorContainer(AbstractAlertDescriptorContainer):
     DefaultConditionGenerationDelay: DurationType = x_struct.DurationAttributeProperty(
         'DefaultConditionGenerationDelay',
         implied_py_value=0)
-    CanEscalate: pm_types.CanEscalateAlertConditionPriority | None = x_struct.EnumAttributeProperty(
-        'CanEscalate', enum_cls=pm_types.CanEscalateAlertConditionPriority)
-    CanDeescalate: pm_types.CanDeEscalateAlertConditionPriority | None = x_struct.EnumAttributeProperty(
-        'CanDeescalate', enum_cls=pm_types.CanDeEscalateAlertConditionPriority)
+    CanEscalate: pm_types.CanEscalate | None = x_struct.EnumAttributeProperty(
+        'CanEscalate', enum_cls=pm_types.CanEscalate)
+    CanDeescalate: pm_types.CanDeEscalate | None = x_struct.EnumAttributeProperty(
+        'CanDeescalate', enum_cls=pm_types.CanDeEscalate)
     _props = ('Source', 'CauseInfo', 'Kind', 'Priority', 'DefaultConditionGenerationDelay',
               'CanEscalate', 'CanDeescalate')
     _child_elements_order = (pm_qnames.Source,

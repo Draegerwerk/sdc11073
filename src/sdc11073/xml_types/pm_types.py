@@ -1,23 +1,27 @@
-""" Implementation of data types used in Participant Model"""
+"""Implementation of data types used in Participant Model."""
 from __future__ import annotations
 
 import inspect
 import sys
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
-from lxml import etree as etree_
+from sdc11073.namespaces import QN_TYPE, text_to_qname
 
-from ..namespaces import QN_TYPE, text_to_qname
 from . import ext_qnames as ext
 from . import msg_qnames as msg
 from . import pm_qnames as pm
 from . import xml_structure as cp
 from .basetypes import StringEnum, XMLTypeBase
 
+if TYPE_CHECKING:
+    from lxml.etree import QName
+
 
 class SafetyClassification(StringEnum):
+    """Represents BICEPS SafetyClassification."""
+
     INF = 'Inf'
     MED_A = 'MedA'
     MED_B = 'MedB'
@@ -25,6 +29,8 @@ class SafetyClassification(StringEnum):
 
 
 class MdsOperatingMode(StringEnum):
+    """Represents BICEPS MdsOperatingMode."""
+
     NORMAL = 'Nml'
     DEMO = 'Dmo'
     SERVICE = 'Srv'
@@ -32,6 +38,8 @@ class MdsOperatingMode(StringEnum):
 
 
 class ComponentActivation(StringEnum):
+    """Represents BICEPS ComponentActivation."""
+
     ON = 'On'
     NOT_READY = 'NotRdy'
     STANDBY = 'StndBy'
@@ -41,6 +49,8 @@ class ComponentActivation(StringEnum):
 
 
 class ContextAssociation(StringEnum):
+    """Represents BICEPS ContextAssociation."""
+
     NO_ASSOCIATION = 'No'
     PRE_ASSOCIATION = 'Pre'
     ASSOCIATED = 'Assoc'
@@ -48,6 +58,8 @@ class ContextAssociation(StringEnum):
 
 
 class AlertConditionMonitoredLimits(StringEnum):
+    """Represents BICEPS AlertConditionMonitoredLimits."""
+
     ALL_ON = 'All'
     LOW_OFF = 'LoOff'
     HIGH_OFF = 'HiOff'
@@ -55,6 +67,8 @@ class AlertConditionMonitoredLimits(StringEnum):
 
 
 class AlertConditionPriority(StringEnum):
+    """Represents BICEPS AlertConditionPriority."""
+
     NONE = 'None'
     LOW = 'Lo'
     MEDIUM = 'Me'
@@ -62,24 +76,32 @@ class AlertConditionPriority(StringEnum):
 
 
 class AlertConditionKind(StringEnum):
+    """Represents BICEPS AlertConditionKind."""
+
     PHYSIOLOGICAL = 'Phy'
     TECHNICAL = 'Tec'
     OTHER = 'Oth'
 
 
-class CanEscalateAlertConditionPriority(StringEnum):
+class CanEscalate(StringEnum):
+    """Represents BICEPS CanEscalate."""
+
     LOW = 'Lo'
     MEDIUM = 'Me'
     HIGH = 'Hi'
 
 
-class CanDeEscalateAlertConditionPriority(StringEnum):
+class CanDeEscalate(StringEnum):
+    """Represents BICEPS CanDeEscalate."""
+
     MEDIUM = 'Me'
     LOW = 'Lo'
     NONE = 'None'
 
 
 class AlertSignalPresence(StringEnum):
+    """Represents BICEPS AlertSignalPresence."""
+
     ON = 'On'
     OFF = 'Off'
     LATCH = 'Latch'
@@ -251,15 +273,9 @@ class LocalizedText(PropertyBasedPMType):
 
     @classmethod
     def from_node(cls, node):
-        text = node.text
-        lang = node.get('Lang')
-        ref = node.get('Ref')
-        version = node.get('Version')
-        if version is not None:
-            version = int(version)
-        text_width = node.get('TextWidth')
-        enum_text_width = LocalizedTextWidth(text_width) if text_width is not None else None
-        return cls(text, lang, ref, version, enum_text_width)
+        obj = cls('')
+        obj.update_from_node(node)
+        return obj
 
     def __repr__(self):
         params = [f'"{self.text}"']
@@ -523,9 +539,8 @@ class InstanceIdentifier(PropertyBasedPMType):
 
     @classmethod
     def from_node(cls, node):
-        ret = cls(None, None, None, None)
+        ret = cls(None)
         ret.update_from_node(node)
-        ret.node = node
         return ret
 
     def __repr__(self):
@@ -597,14 +612,10 @@ class Measurement(PropertyBasedPMType):
 
     @classmethod
     def from_node(cls, node):
-        value = node.get('MeasuredValue')
-        if value is not None:
-            value = Decimal(value)
-        unit = None
-        unit_node = node.find(pm.MeasurementUnit)
-        if unit_node is not None:
-            unit = CodedValue.from_node(unit_node)
-        return cls(value, unit)
+        obj = cls(None, None)
+        obj.update_from_node(node)
+        return obj
+
 
     def __repr__(self):
         return f'Measurement(value={self.MeasuredValue!r}, Unit={self.MeasurementUnit!r})'
@@ -643,7 +654,10 @@ class AllowedValue(PropertyBasedPMType):
 class T_MetricQuality(PropertyBasedPMType):
     NODETYPE = pm.MetricQuality
     # pylint: disable=invalid-name
-    Validity = cp.EnumAttributeProperty('Validity', enum_cls=MeasurementValidity)
+    Validity = cp.EnumAttributeProperty('Validity',
+                                        enum_cls=MeasurementValidity,
+                                        is_optional=False,
+                                        default_py_value= MeasurementValidity.VALID)
     Mode = cp.EnumAttributeProperty('Mode', implied_py_value=GenerationMode.REAL, enum_cls=GenerationMode)
     Qi = cp.QualityIndicatorAttributeProperty('Qi', implied_py_value=Decimal('1'))
     # pylint: enable=invalid-name
@@ -657,36 +671,13 @@ class AbstractMetricValue(PropertyBasedPMType):
     StartTime = cp.TimestampAttributeProperty('StartTime')
     StopTime = cp.TimestampAttributeProperty('StopTime')
     DeterminationTime = cp.TimestampAttributeProperty('DeterminationTime')
-    MetricQuality = cp.SubElementProperty(pm.MetricQuality, value_class=T_MetricQuality)
+    MetricQuality = cp.SubElementProperty(pm.MetricQuality,
+                                          value_class=T_MetricQuality,
+                                          default_py_value=T_MetricQuality())
     Annotation = cp.SubElementListProperty(pm.Annotation, Annotation)
     Annotations = Annotation  # alternative name that makes it clearer that this is a list
     # pylint: enable=invalid-name
     _props = ('ext_Extension', 'StartTime', 'StopTime', 'DeterminationTime', 'MetricQuality', 'Annotation')
-
-    def __init__(self, node=None):
-        super().__init__()
-        # attributes of root node
-        self.node = node
-        self.MetricQuality = T_MetricQuality()  # pylint: disable=invalid-name
-        if node is not None:
-            self.update_from_node(node)
-        else:
-            # mandatory value, for convenience it is preset
-            self.MetricQuality.Validity = MeasurementValidity.VALID  # pylint: disable=invalid-name
-
-    def update_from_node(self, node):
-        for dummy, prop in self.sorted_container_properties():
-            prop.update_from_node(self, node)
-        self.node = node
-
-    def as_etree_node(self, qname, nsmap):
-        node = super().as_etree_node(qname, nsmap)
-        return node
-
-    @classmethod
-    def from_node(cls, node):
-        obj = cls(node)
-        return obj
 
 
 class NumericMetricValue(AbstractMetricValue):
@@ -727,13 +718,6 @@ class ApplyAnnotation(PropertyBasedPMType):
         self.AnnotationIndex = annotation_index
         self.SampleIndex = sample_index
         # pylint: enable=invalid-name
-
-    @classmethod
-    def from_node(cls, node):
-        obj = cls(None, None)
-        cls.AnnotationIndex.update_from_node(obj, node)
-        cls.SampleIndex.update_from_node(obj, node)
-        return obj
 
     def __repr__(self):
         return f'{self.__class__.__name__}(AnnotationIndex={self.AnnotationIndex}, SampleIndex={self.SampleIndex})'
@@ -795,18 +779,6 @@ class CauseInfo(PropertyBasedPMType):
         self.Description = descriptions or []
         # pylint: enable=invalid-name
 
-    @classmethod
-    def from_node(cls, node):
-        remedy_info_node = node.find(pm.RemedyInfo)
-        if remedy_info_node is not None:
-            remedy_info = RemedyInfo.from_node(remedy_info_node)
-        else:
-            remedy_info = None
-        descriptions = []
-        for description_node in node.findall(pm.Description):
-            descriptions.append(LocalizedText.from_node(description_node))
-        return cls(remedy_info, descriptions)
-
 
 class ActivateOperationDescriptorArgument(PropertyBasedPMType):
     """Argument for ActivateOperationDescriptor.
@@ -821,7 +793,7 @@ class ActivateOperationDescriptorArgument(PropertyBasedPMType):
     def __init__(self, arg_name=None, arg=None):
         """
         :param arg_name: a CodedValue instance
-        :param arg : etree_.QName instance
+        :param arg : QName instance
         """
         super().__init__()
         # pylint: disable=invalid-name
@@ -829,13 +801,6 @@ class ActivateOperationDescriptorArgument(PropertyBasedPMType):
         self.Arg = arg
         # pylint: enable=invalid-name
 
-    @classmethod
-    def from_node(cls, node):
-        arg_name_node = node.find(pm.ArgName)
-        arg_name = CodedValue.from_node(arg_name_node)
-        arg_node = node.find(pm.Arg)
-        arg_qname = text_to_qname(arg_node.text, node.nsmap)
-        return cls(arg_name, arg_qname)
 
     def __repr__(self):
         return f'{self.__class__.__name__}(argName={self.ArgName}, arg={self.Arg})'
@@ -864,13 +829,6 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
         self.Number = number
         # pylint: enable=invalid-name
 
-    @classmethod
-    def from_node(cls, node):
-        obj = cls(None, None)
-        cls.Label.update_from_node(obj, node)
-        cls.Number.update_from_node(obj, node)
-        return obj
-
     def __repr__(self):
         return f'{self.__class__.__name__}(label={self.Label}, number={self.Number})'
 
@@ -895,12 +853,6 @@ class SystemSignalActivation(PropertyBasedPMType):
         self.Manifestation = manifestation
         self.State = state
         # pylint: enable=invalid-name
-
-    @classmethod
-    def from_node(cls, node):
-        obj = cls(None, None)
-        obj.update_from_node(node)
-        return obj
 
     def __repr__(self):
         return f'{self.__class__.__name__}(Manifestation={self.Manifestation}, State={self.State})'
@@ -928,12 +880,6 @@ class ProductionSpecification(PropertyBasedPMType):
         self.ProductionSpec = production_spec
         self.ComponentId = component_id
         # pylint: enable=invalid-name
-
-    @classmethod
-    def from_node(cls, node):
-        obj = cls(None, None)
-        obj.update_from_node(node)
-        return obj
 
 
 class BaseDemographics(PropertyBasedPMType):
@@ -1432,7 +1378,7 @@ class RetrievabilityInfo(PropertyBasedPMType):
 
     @classmethod
     def from_node(cls, node):
-        obj = cls(RetrievabilityMethod.GET, None)  # any allowed value, will be overwritten in update_node
+        obj = cls(RetrievabilityMethod.GET)  # any allowed value, will be overwritten in update_node
         obj.update_from_node(node)
         return obj
 
@@ -1447,12 +1393,6 @@ class Retrievability(PropertyBasedPMType):
     def __init__(self, retrievability_info_list=None):
         super().__init__()
         self.By = retrievability_info_list or []
-
-    @classmethod
-    def from_node(cls, node):
-        obj = cls(None)
-        obj.update_from_node(node)
-        return obj
 
 
 ###################################################################################
@@ -1472,7 +1412,7 @@ classes_with_NODETYPE = [c[1] for c in classes if hasattr(c[1], 'NODETYPE') and 
 _name_class_lookup = {c.NODETYPE: c for c in classes_with_NODETYPE}
 
 
-def _get_pmtypes_class(qname: etree_.QName):
+def _get_pmtypes_class(qname: QName):
     """
     :param qname: a QName instance
     """
