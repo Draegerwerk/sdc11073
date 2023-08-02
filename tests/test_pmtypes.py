@@ -19,21 +19,21 @@ class TestPmTypes(unittest.TestCase):
         self.assertTrue(c1.equals(pm_types.Coding('42', pm_types.DEFAULT_CODING_SYSTEM, None)))
 
         # if two CodedValue instances are compared, the translations shall also be handled
-        c2.Translation.append(pm_types.T_Translation('41'))
+        c2.Translation.append(pm_types.Translation('41'))
         self.assertNotEqual(c2, 41)
         c3 = pm_types.CodedValue('42')
-        c3.Translation.append(pm_types.T_Translation('41'))  # same translation as c2
+        c3.Translation.append(pm_types.Translation('41'))  # same translation as c2
         self.assertTrue(c2.equals(c3))
 
     def test_have_matching_codes(self):
         c1 = pm_types.CodedValue('42', coding_system='abc')
-        c1.Translation.append(pm_types.T_Translation('41'))
+        c1.Translation.append(pm_types.Translation('41'))
         self.assertTrue(pm_types.have_matching_codes(c1, pm_types.Coding('42', coding_system='abc')))
         self.assertTrue(pm_types.have_matching_codes(c1, pm_types.Coding('41')))
         self.assertFalse(pm_types.have_matching_codes(c1, pm_types.Coding('41', coding_system='abc')))
 
         c2 = pm_types.CodedValue('xxx', coding_system='abc')
-        c2.Translation.append(pm_types.T_Translation('41'))
+        c2.Translation.append(pm_types.Translation('41'))
         self.assertTrue(pm_types.have_matching_codes(c1, c2))
 
     def test_allowed_value(self):
@@ -55,7 +55,7 @@ class TestPmTypes(unittest.TestCase):
         self.assertEqual(allowed_value2.Value, 'foobar')
 
     def test_activate_operation_descriptor_argument(self):
-        """Verify that ActivateOperationDescriptorArgument is correctly insyantiated from node"""
+        """Verify that ActivateOperationDescriptorArgument is correctly instantiated from node."""
         text = """<pm:Argument xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant">
                       <pm:ArgName Code="202890"></pm:ArgName>
                       <pm:Arg xmlns:dd="dummy">dd:Something</pm:Arg>

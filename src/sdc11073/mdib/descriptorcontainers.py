@@ -517,9 +517,9 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
     InvocationEffectiveTimeout: DurationType | None = x_struct.DurationAttributeProperty(
         'InvocationEffectiveTimeout')
     Retriggerable: bool = x_struct.BooleanAttributeProperty('Retriggerable', implied_py_value=True)
-    AccessLevel: pm_types.T_AccessLevel = x_struct.EnumAttributeProperty('AccessLevel',
-                                                                         implied_py_value=pm_types.T_AccessLevel.USER,
-                                                                         enum_cls=pm_types.T_AccessLevel)
+    AccessLevel: pm_types.AccessLevel = x_struct.EnumAttributeProperty('AccessLevel',
+                                                                         implied_py_value=pm_types.AccessLevel.USER,
+                                                                         enum_cls=pm_types.AccessLevel)
     _props = ('OperationTarget', 'MaxTimeToFinish', 'InvocationEffectiveTimeout', 'Retriggerable', 'AccessLevel')
 
 
