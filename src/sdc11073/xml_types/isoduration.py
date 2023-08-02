@@ -111,7 +111,13 @@ _DATETIME_REGEX_RELAXED = re.compile(
 _year_month_regex = re.compile('^(?P<year>[0-9]{4})(-(?P<month>1[0-2]|0[1-9]))?')
 
 
-def parse_date_time(date_time_str, strict=True):
+DateTypeUnion = Union[GYear, GYearMonth, date, datetime]
+
+def parse_date_time(date_time_str: str, strict: bool = True) -> DateTypeUnion | None:
+    """Parse a date time string.
+
+    String can be  xsd:dateTime, xsd:date, xsd:gYearMonth or xsd:gYear.
+    """
     try:
         d_t = _DATETIME_REGEX.match(date_time_str) if strict else _DATETIME_REGEX_RELAXED.match(date_time_str)
         if d_t is not None:
@@ -152,7 +158,7 @@ def parse_date_time(date_time_str, strict=True):
         return None
 
 
-def _mk_seconds_string(date_object):
+def _mk_seconds_string(date_object: DateTypeUnion) -> str:
     if date_object.microsecond > 0:
         seconds = float(date_object.second) + float(date_object.microsecond) / 1e6
         seconds_string = f'{seconds:06.03f}'
@@ -164,7 +170,7 @@ def _mk_seconds_string(date_object):
     return seconds_string
 
 
-def _mk_tz_string(date_object):
+def _mk_tz_string(date_object: DateTypeUnion) -> str:
     tz_string = ''
     if date_object.tzinfo:
         delta = date_object.tzinfo.utcoffset(0)
@@ -179,7 +185,7 @@ def _mk_tz_string(date_object):
     return tz_string
 
 
-def date_time_string(date_object):
+def date_time_string(date_object: DateTypeUnion) -> str:
     if hasattr(date_object, 'hour'):  # datetime object
         date_string = '{:4d}-{:02d}-{:02d}T{:02d}:{:02d}:{}{}'.format(
             date_object.year, date_object.month, date_object.day,
