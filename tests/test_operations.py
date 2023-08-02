@@ -18,6 +18,7 @@ from sdc11073.provider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import RequestDispatcher
+from tests import utils
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
@@ -63,12 +64,11 @@ class Test_BuiltinOperations(unittest.TestCase):
         self._logger.info('############### start setUp %s ##############', self._testMethodName)
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdc_device.set_location(location, self._loc_validators)
+        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
         provide_realtime_data(self.sdc_device)
 
         time.sleep(0.5)  # allow init of devices to complete
@@ -256,8 +256,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertEqual(cl_locations[0].UnbindingMdibVersion, None)
 
         for i in range(10):
-            current_bed = 'Bed_{}'.format(i)
-            new_location = SdcLocation(fac='fac1', poc='CU2', bed=current_bed)
+            new_location = utils.random_location()
             coll = observableproperties.SingleValueCollector(client_mdib, 'context_by_handle')
             self.sdc_device.set_location(new_location)
             coll.result(timeout=NOTIFICATION_TIMEOUT)

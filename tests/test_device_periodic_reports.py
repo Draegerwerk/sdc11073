@@ -10,6 +10,7 @@ from sdc11073.loghelper import basic_logging_setup
 from sdc11073.observableproperties import ValuesCollector
 from sdc11073.xml_types import pm_types
 from sdc11073.xml_types.pm_types import RetrievabilityMethod, RetrievabilityInfo, Retrievability
+from tests import utils
 from tests.mockstuff import SomeDevice
 
 CLIENT_VALIDATE = True
@@ -25,9 +26,6 @@ class Test_Device_PeriodicReports(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
         self.wsd.start()
-        location = SdcLocation(fac='tklx',
-                               poc='CU1',
-                               bed='Bed')
 
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         mdib = self.sdc_device.mdib
@@ -42,7 +40,7 @@ class Test_Device_PeriodicReports(unittest.TestCase):
 
         self.sdc_device.start_all()
         loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdc_device.set_location(location, loc_validators)
+        self.sdc_device.set_location(utils.random_location(), loc_validators)
 
         time.sleep(0.1)  # allow full init of device
         x_addr = self.sdc_device.get_xaddrs()
