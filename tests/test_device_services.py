@@ -152,7 +152,7 @@ class TestDeviceServices(unittest.TestCase):
         locationContextNodes = response.p_msg.payload_element.xpath(query, namespaces=_ns.ns_map)
         self.assertEqual(len(locationContextNodes), 1)
         identificationNode = locationContextNodes[0].find(pm.Identification)
-        self.assertEqual(identificationNode.get('Extension'), '{}/{}/{}/{}/{}/{}'.format(loc.fac, loc.bld, loc.flr, loc.poc, loc.rm,loc.bed))
+        self.assertEqual(identificationNode.get('Extension'), '{}/{}/{}/{}/{}/{}'.format(loc.fac, loc.bldng, loc.flr, loc.poc, loc.rm,loc.bed))
 
         locationDetailNode = locationContextNodes[0].find(pm.LocationDetail)
         self.assertEqual(locationDetailNode.get('PoC'), loc.poc)
