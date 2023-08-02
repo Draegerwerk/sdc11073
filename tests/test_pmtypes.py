@@ -53,3 +53,16 @@ class TestPmTypes(unittest.TestCase):
         node = fromstring(text.format('foobar'))
         allowed_value2 = pm_types.AllowedValue.from_node(node)
         self.assertEqual(allowed_value2.Value, 'foobar')
+
+    def test_activate_operation_descriptor_argument(self):
+        """Verify that ActivateOperationDescriptorArgument is correctly insyantiated from node"""
+        text = """<pm:Argument xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant">
+                      <pm:ArgName Code="202890"></pm:ArgName>
+                      <pm:Arg xmlns:dd="dummy">dd:Something</pm:Arg>
+                  </pm:Argument>
+        """
+        node = fromstring(text.format(''))
+        arg = pm_types.ActivateOperationDescriptorArgument.from_node(node)
+        self.assertEqual(arg.ArgName, pm_types.CodedValue("202890"))
+        self.assertEqual(arg.Arg, QName("dummy", "Something"))
+
