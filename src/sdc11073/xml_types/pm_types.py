@@ -217,7 +217,7 @@ class AlertActivation(StringEnum):
 
 
 class AbstractMetricDescriptorRelationKindEnum(StringEnum):
-    """Represents BICEPS AbstractMetricDescriptor -> Relation -> Kind Definition."""
+    """Represents BICEPS AbstractMetricDescriptor/Relation/Kind Definition."""
 
     RECOMMENDATION = 'Rcm'
     PRE_SETTING = 'PS'
@@ -299,7 +299,7 @@ class LocalizedText(PropertyBasedPMType):
     Lang: str | None = cp.StringAttributeProperty('Lang')
     Version: int | None = cp.ReferencedVersionAttributeProperty('Version')
     TextWidth = cp.EnumAttributeProperty('TextWidth', enum_cls=LocalizedTextWidth)
-    _props = ['text', 'Ref', 'Lang', 'Version', 'TextWidth']
+    _props = ('text', 'Ref', 'Lang', 'Version', 'TextWidth')
 
     def __init__(self, text: str,  # noqa: PLR0913
                  lang: str | None = None,
@@ -376,7 +376,7 @@ class Translation(PropertyBasedPMType):
     CodingSystem: str | None = cp.StringAttributeProperty('CodingSystem', implied_py_value=DEFAULT_CODING_SYSTEM)
     CodingSystemVersion: str | None = cp.StringAttributeProperty('CodingSystemVersion')
 
-    _props = ['ExtExtension', 'Code', 'CodingSystem', 'CodingSystemVersion']
+    _props = ('ExtExtension', 'Code', 'CodingSystem', 'CodingSystemVersion')
 
     def __init__(self, code: str,
                  coding_system: str | None = None,
@@ -426,8 +426,8 @@ class CodedValue(PropertyBasedPMType):
     CodingSystem: str | None = cp.StringAttributeProperty('CodingSystem', implied_py_value=DEFAULT_CODING_SYSTEM)
     CodingSystemVersion: str | None = cp.StringAttributeProperty('CodingSystemVersion')
     SymbolicCodeName: str | None = cp.SymbolicCodeNameAttributeProperty('SymbolicCodeName')
-    _props = ['ExtExtension', 'CodingSystemName', 'ConceptDescription', 'Translation',
-              'Code', 'CodingSystem', 'CodingSystemVersion', 'SymbolicCodeName']
+    _props = ('ExtExtension', 'CodingSystemName', 'ConceptDescription', 'Translation',
+              'Code', 'CodingSystem', 'CodingSystemVersion', 'SymbolicCodeName')
 
     def __init__(self, code: str,  # noqa: PLR0913
                  coding_system: str | None = None,
@@ -492,12 +492,12 @@ def have_matching_codes(code_a: CodedValue | Coding, code_b: CodedValue | Coding
 
 
 class Annotation(PropertyBasedPMType):
-    """Represents BICEPS AbstractMetricValue -> Annotation."""
+    """Represents BICEPS AbstractMetricValue/Annotation."""
 
     NODETYPE = pm.Annotation
     ExtExtension = cp.ExtensionNodeProperty(ext.Extension)
     Type: CodedValue | None = cp.SubElementProperty(pm.Type, value_class=CodedValue)
-    _props = ['ExtExtension', 'Type']
+    _props = ('ExtExtension', 'Type')
 
     def __init__(self, coded_value: CodedValue | None = None):
         super().__init__()
@@ -508,14 +508,14 @@ AnnotationType = Annotation  # TypeAlias
 
 
 class OperationGroup(PropertyBasedPMType):
-    """Represents BICEPS ScoState -> OperationGroup."""
+    """Represents BICEPS ScoState/OperationGroup."""
 
     NODETYPE = pm.OperationGroup
     ExtExtension = cp.ExtensionNodeProperty(ext.Extension)
     Type: CodedValue | None = cp.SubElementProperty(pm.Type, value_class=CodedValue)
     OperatingMode: OperatingModeType | None = cp.EnumAttributeProperty('OperatingMode', enum_cls=OperatingMode)
     Operations = cp.OperationRefListAttributeProperty('Operations')
-    _props = ['ExtExtension', 'Type', 'OperatingMode', 'Operations']
+    _props = ('ExtExtension', 'Type', 'OperatingMode', 'Operations')
 
     def __init__(self, coded_value: CodedValue | None = None,
                  operating_mode: OperatingModeType | None = None,
@@ -524,10 +524,6 @@ class OperationGroup(PropertyBasedPMType):
         self.Type = coded_value
         self.OperatingMode = operating_mode
         self.Operations = operations
-
-    # @classmethod
-    # def from_node(cls, node: ElementBase) -> OperationGroup:
-    #     """Construct class from a node."""
 
 
 class InstanceIdentifier(PropertyBasedPMType):
@@ -553,9 +549,6 @@ class InstanceIdentifier(PropertyBasedPMType):
         self.Extension = extension_string
         self.node = None
 
-    # @classmethod
-    # def from_node(cls, node: ElementBase) -> InstanceIdentifier:
-    #     """Construct class from a node."""
 
     def __repr__(self) -> str:
         params = [f'root={self.Root!r}']
@@ -582,7 +575,7 @@ class Range(PropertyBasedPMType):
     StepWidth: Decimal | None = cp.DecimalAttributeProperty('StepWidth')
     RelativeAccuracy: Decimal | None = cp.DecimalAttributeProperty('RelativeAccuracy')
     AbsoluteAccuracy: Decimal | None = cp.DecimalAttributeProperty('AbsoluteAccuracy')
-    _props = ['Extension', 'Lower', 'Upper', 'StepWidth', 'RelativeAccuracy', 'AbsoluteAccuracy']
+    _props = ('Extension', 'Lower', 'Upper', 'StepWidth', 'RelativeAccuracy', 'AbsoluteAccuracy')
 
     def __init__(self,  # noqa: PLR0913
                  lower: Decimal | None = None,
@@ -612,7 +605,7 @@ class Measurement(PropertyBasedPMType):
     ExtExtension = cp.ExtensionNodeProperty(ext.Extension)
     MeasurementUnit: CodedValue = cp.SubElementProperty(pm.MeasurementUnit, value_class=CodedValue)
     MeasuredValue: Decimal = cp.DecimalAttributeProperty('MeasuredValue', is_optional=False)
-    _props = ['ExtExtension', 'MeasurementUnit', 'MeasuredValue']
+    _props = ('ExtExtension', 'MeasurementUnit', 'MeasuredValue')
 
     def __init__(self,
                  value: Decimal | None,
@@ -646,7 +639,7 @@ class AllowedValue(PropertyBasedPMType):
     Characteristic: Measurement | None = cp.SubElementProperty(pm.Characteristic,
                                                                value_class=Measurement,
                                                                is_optional=True)
-    _props = ['Value', 'Type', 'Identification', 'Characteristic']
+    _props = ('Value', 'Type', 'Identification', 'Characteristic')
 
     def __init__(self, value: str = '',
                  type_coding: CodedValue | None = None,
@@ -661,7 +654,7 @@ class AllowedValue(PropertyBasedPMType):
 
 
 class MetricQuality(PropertyBasedPMType):
-    """Represents BICEPS AbstractMetricValue -> MetricQuality."""
+    """Represents BICEPS AbstractMetricValue/MetricQuality."""
 
     NODETYPE = pm.MetricQuality
     Validity: MeasurementValidity = cp.EnumAttributeProperty('Validity',
@@ -717,12 +710,12 @@ class StringMetricValue(AbstractMetricValue):
 
 
 class ApplyAnnotation(PropertyBasedPMType):
-    """Represents BICEPS SampleArrayValue -> ApplyAnnotation."""
+    """Represents BICEPS SampleArrayValue/ApplyAnnotation."""
 
     NODETYPE = pm.ApplyAnnotation
     AnnotationIndex: int = cp.UnsignedIntAttributeProperty('AnnotationIndex', is_optional=False)
     SampleIndex: int = cp.UnsignedIntAttributeProperty('SampleIndex', is_optional=False)
-    _props = ['AnnotationIndex', 'SampleIndex']
+    _props = ('AnnotationIndex', 'SampleIndex')
 
     def __init__(self, annotation_index: int | None = None, sample_index: int | None = None):
         super().__init__()
@@ -754,7 +747,7 @@ class RemedyInfo(PropertyBasedPMType):
     NODETYPE = pm.RemedyInfo
     ExtExtension = cp.ExtensionNodeProperty(ext.Extension)
     Description: list[LocalizedText] = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)
-    _props = ['ExtExtension', 'Description']
+    _props = ('ExtExtension', 'Description')
 
     def __init__(self, descriptions: list[LocalizedText] | None = None):
         super().__init__()
@@ -772,7 +765,7 @@ class CauseInfo(PropertyBasedPMType):
     ExtExtension = cp.ExtensionNodeProperty(ext.Extension)
     RemedyInfo: RemedyInfoType = cp.SubElementProperty(pm.RemedyInfo, value_class=RemedyInfo)
     Description: list[LocalizedText] = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)
-    _props = ['ExtExtension', 'RemedyInfo', 'Description']
+    _props = ('ExtExtension', 'RemedyInfo', 'Description')
 
     def __init__(self, remedy_info: RemedyInfoType | None = None,
                  descriptions: list[LocalizedText] | None = None):
@@ -782,11 +775,11 @@ class CauseInfo(PropertyBasedPMType):
 
 
 class ActivateOperationDescriptorArgument(PropertyBasedPMType):
-    """Represents BICEPS AbstractSetStateOperationDescriptor -> Argument."""
+    """Represents BICEPS AbstractSetStateOperationDescriptor/Argument."""
 
     ArgName: CodedValue = cp.SubElementProperty(pm.ArgName, value_class=CodedValue, is_optional=False)
     Arg: QName | None = cp.NodeTextQNameProperty(pm.Arg, is_optional=False)
-    _props = ['ArgName', 'Arg']
+    _props = ('ArgName', 'Arg')
 
     def __init__(self, arg_name: CodedValue | None = None, arg: QName | None = None):
         super().__init__()
@@ -809,7 +802,7 @@ class PhysicalConnectorInfo(PropertyBasedPMType):
     Label: list[LocalizedText] = cp.SubElementListProperty(pm.Label,
                                                            value_class=LocalizedText)
     Number: int | None = cp.IntegerAttributeProperty('Number')
-    _props = ['ExtExtension', 'Label', 'Number']
+    _props = ('ExtExtension', 'Label', 'Number')
 
     def __init__(self, labels: list[LocalizedText] | None = None,
                  number: int | None = None):
@@ -831,7 +824,7 @@ class SystemSignalActivation(PropertyBasedPMType):
                                                                        is_optional=False)
     State: AlertActivation = cp.EnumAttributeProperty('State', default_py_value=AlertActivation.ON,
                                                       enum_cls=AlertActivation, is_optional=False)
-    _props = ['Manifestation', 'State']
+    _props = ('Manifestation', 'State')
 
     def __init__(self, manifestation: AlertSignalManifestation | None = None,
                  state: AlertActivation | None = None):
@@ -844,14 +837,14 @@ class SystemSignalActivation(PropertyBasedPMType):
 
 
 class ProductionSpecification(PropertyBasedPMType):
-    """Represents BICEPS AbstractDeviceComponentDescriptor -> ProductionSpecification."""
+    """Represents BICEPS AbstractDeviceComponentDescriptor/ProductionSpecification."""
 
     NODETYPE = pm.ProductionSpecification
     SpecType: CodedValue = cp.SubElementProperty(pm.SpecType, value_class=CodedValue)
     ProductionSpec: str = cp.NodeStringProperty(pm.ProductionSpec)
     ComponentId: InstanceIdentifier | None = cp.SubElementProperty(pm.ComponentId,
                                                                    value_class=InstanceIdentifier, is_optional=True)
-    _props = ['SpecType', 'ProductionSpec', 'ComponentId']
+    _props = ('SpecType', 'ProductionSpec', 'ComponentId')
 
     def __init__(self, spec_type: CodedValue | None = None,
                  production_spec: str | None = None,
@@ -896,7 +889,7 @@ class PersonReference(PropertyBasedPMType):
     Identification: list[InstanceIdentifier] = cp.SubElementListProperty(pm.Identification,
                                                                          value_class=InstanceIdentifier)  # 1...n
     Name: BaseDemographics | None = cp.SubElementProperty(pm.Name, value_class=BaseDemographics, is_optional=True)
-    _props = ['ExtExtension', 'Identification', 'Name']
+    _props = ('ExtExtension', 'Identification', 'Name')
 
     def __init__(self, identifications: list[InstanceIdentifier] | None = None,
                  name: BaseDemographics | None = None):
@@ -911,7 +904,7 @@ class PersonParticipation(PersonReference):
 
     NODETYPE = pm.PersonParticipation
     Role: list[CodedValue] = cp.SubElementListProperty(pm.Role, value_class=CodedValue)
-    _props = ['Role']
+    _props = ('Role',)
 
     def __init__(self,
                  identifications: list[InstanceIdentifier] | None = None,
@@ -963,7 +956,7 @@ class LocationReference(PropertyBasedPMType):
     LocationDetail: LocationDetailType | None = cp.SubElementProperty(pm.LocationDetail,
                                                                       value_class=LocationDetail,
                                                                       is_optional=True)
-    _props = ['Identification', 'LocationDetail']
+    _props = ('Identification', 'LocationDetail')
 
     def __init__(self, identifications: list[InstanceIdentifier] | None = None,
                  location_detail: LocationDetailType | None = None):
@@ -974,14 +967,14 @@ class LocationReference(PropertyBasedPMType):
 
 
 class ReferenceRange(PropertyBasedPMType):
-    """Represents BICEPS ClinicalInfo -> RelatedMeasurement -> ReferenceRange."""
+    """Represents BICEPS ClinicalInfo/RelatedMeasurement/ReferenceRange."""
 
     NODETYPE = pm.ReferenceRange
     Range: RangeType = cp.SubElementProperty(pm.Range, value_class=Range)
     Meaning: CodedValue | None = cp.SubElementProperty(pm.Meaning, value_class=CodedValue, is_optional=True)
-    _props = ['Range', 'Meaning']
+    _props = ('Range', 'Meaning')
 
-    def __init__(self, ref_range: Range, meaning: CodedValue | None = None):
+    def __init__(self, ref_range: RangeType, meaning: CodedValue | None = None):
         super().__init__()
         self.Range = ref_range
         self.Meaning = meaning
@@ -991,16 +984,16 @@ ReferenceRangeType = ReferenceRange  # TypeAlias
 
 
 class RelatedMeasurement(PropertyBasedPMType):
-    """Represents BICEPS ClinicalInfo -> RelatedMeasurement."""
+    """Represents BICEPS ClinicalInfo/RelatedMeasurement."""
 
     NODETYPE = pm.RelatedMeasurement
     Value: Measurement = cp.SubElementProperty(pm.Value, value_class=Measurement)
     ReferenceRange: list[ReferenceRangeType] = cp.SubElementListProperty(pm.ReferenceRange, value_class=ReferenceRange)
-    _props = ['Value', 'ReferenceRange']
+    _props = ('Value', 'ReferenceRange')
 
     def __init__(self,
                  value: Measurement,
-                 reference_range: list[ReferenceRange] | None = None):
+                 reference_range: list[ReferenceRangeType] | None = None):
         super().__init__()
         self.Value = value
         if reference_range is not None:
@@ -1008,7 +1001,7 @@ class RelatedMeasurement(PropertyBasedPMType):
 
 
 class Criticality(StringEnum):
-    """Represents BICEPS ClinicalInfo -> Criticality."""
+    """Represents BICEPS ClinicalInfo/Criticality."""
 
     Low = 'Lo'
     High = 'Hi'
@@ -1027,7 +1020,7 @@ class ClinicalInfo(PropertyBasedPMType):
                                                            is_optional=True, implied_py_value=Criticality.Low)
     Description: list[LocalizedText] = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)
     RelatedMeasurement: list[Measurement] = cp.SubElementListProperty(pm.RelatedMeasurement, value_class=Measurement)
-    _props = ['Type', 'Code', 'Criticality', 'Description', 'RelatedMeasurement']
+    _props = ('Type', 'Code', 'Criticality', 'Description', 'RelatedMeasurement')
 
     def __init__(self,  # noqa: PLR0913
                  type_: CodedValue | None = None,
@@ -1061,8 +1054,8 @@ class ImagingProcedure(PropertyBasedPMType):
                                                                          value_class=InstanceIdentifier)
     Modality: CodedValue | None = cp.SubElementProperty(pm.Modality, value_class=CodedValue, is_optional=True)
     ProtocolCode: CodedValue | None = cp.SubElementProperty(pm.ProtocolCode, value_class=CodedValue, is_optional=True)
-    _props = ['AccessionIdentifier', 'RequestedProcedureId', 'StudyInstanceUid', 'ScheduledProcedureStepId',
-              'Modality', 'ProtocolCode']
+    _props = ('AccessionIdentifier', 'RequestedProcedureId', 'StudyInstanceUid', 'ScheduledProcedureStepId',
+              'Modality', 'ProtocolCode')
 
     def __init__(self,  # noqa: PLR0913
                  accession_identifier: InstanceIdentifier | None = None,
@@ -1080,6 +1073,9 @@ class ImagingProcedure(PropertyBasedPMType):
         self.ProtocolCode = protocol_code
 
 
+ImagingProcedureType = ImagingProcedure  # TypeAlias
+
+
 class OrderDetail(PropertyBasedPMType):
     """Represents BICEPS OrderDetail."""
 
@@ -1088,24 +1084,16 @@ class OrderDetail(PropertyBasedPMType):
     End: str | None = cp.NodeStringProperty(pm.End, is_optional=True)  # xsd:dateTime
     Performer: list[PersonParticipation] = cp.SubElementListProperty(pm.Performer, value_class=PersonParticipation)
     Service: list[CodedValue] = cp.SubElementListProperty(pm.Service, value_class=CodedValue)
-    ImagingProcedure: list[ImagingProcedure] = cp.SubElementListProperty(pm.ImagingProcedure,
+    ImagingProcedure: list[ImagingProcedureType] = cp.SubElementListProperty(pm.ImagingProcedure,
                                                                          value_class=ImagingProcedure)
-    _props = ['Start', 'End', 'Performer', 'Service', 'ImagingProcedure']
+    _props = ('Start', 'End', 'Performer', 'Service', 'ImagingProcedure')
 
     def __init__(self,  # noqa: PLR0913
                  start: str | None = None,
                  end: str | None = None,
                  performer: list[PersonParticipation] | None = None,
                  service: list[CodedValue] | None = None,
-                 imaging_procedure: list[ImagingProcedure] | None = None):
-        """Construct OrderDetail.
-
-        :param start: a xsd:DateTime string
-        :param end: a xsd:DateTime string
-        :param performer: a list of PersonParticipation objects
-        :param service: a list of CodedValue objects
-        :param imaging_procedure: a list of ImagingProcedure objects
-        """
+                 imaging_procedure: list[ImagingProcedureType] | None = None):
         super().__init__()
         self.Start = start
         self.End = end
@@ -1118,7 +1106,7 @@ class OrderDetail(PropertyBasedPMType):
 
 
 class RequestedOrderDetail(OrderDetail):
-    """Represents BICEPS WorkflowContextState -> WorkflowDetail -> RequestedOrderDetail."""
+    """Represents BICEPS WorkflowContextState/WorkflowDetail/RequestedOrderDetail."""
 
     NODETYPE = pm.RequestedOrderDetail
     ReferringPhysician: PersonReference | None = cp.SubElementProperty(pm.ReferringPhysician,
@@ -1128,7 +1116,7 @@ class RequestedOrderDetail(OrderDetail):
                                                                         value_class=PersonReference,
                                                                         is_optional=True)
     PlacerOrderNumber: InstanceIdentifier = cp.SubElementProperty(pm.PlacerOrderNumber, value_class=InstanceIdentifier)
-    _props = ['ReferringPhysician', 'RequestingPhysician', 'PlacerOrderNumber']
+    _props = ('ReferringPhysician', 'RequestingPhysician', 'PlacerOrderNumber')
 
     def __init__(self,  # noqa: PLR0913
                  start: str | None = None,
@@ -1149,7 +1137,7 @@ RequestedOrderDetailType = RequestedOrderDetail  # TypeAlias
 
 
 class PerformedOrderDetail(OrderDetail):
-    """Represents BICEPS WorkflowContextState -> WorkflowDetail -> PerformedOrderDetail."""
+    """Represents BICEPS WorkflowContextState/WorkflowDetail/PerformedOrderDetail."""
 
     NODETYPE = pm.PerformedOrderDetail
     FillerOrderNumber: InstanceIdentifier | None = cp.SubElementProperty(pm.FillerOrderNumber,
@@ -1157,7 +1145,7 @@ class PerformedOrderDetail(OrderDetail):
                                                                          is_optional=True)
     ResultingClinicalInfo: ClinicalInfoType = cp.SubElementListProperty(pm.RelevantClinicalInfo,
                                                                         value_class=ClinicalInfo)
-    _props = ['FillerOrderNumber', 'ResultingClinicalInfo']
+    _props = ('FillerOrderNumber', 'ResultingClinicalInfo')
 
     def __init__(self,  # noqa: PLR0913
                  start: str | None = None,
@@ -1177,7 +1165,7 @@ PerformedOrderDetailType = PerformedOrderDetail  # TypeAlias
 
 
 class WorkflowDetail(PropertyBasedPMType):
-    """Represents BICEPS WorkflowContextState -> WorkflowDetail."""
+    """Represents BICEPS WorkflowContextState/WorkflowDetail."""
 
     NODETYPE = pm.WorkflowDetail
     Patient = cp.SubElementProperty(pm.Patient, value_class=PersonReference)
@@ -1195,8 +1183,8 @@ class WorkflowDetail(PropertyBasedPMType):
     PerformedOrderDetail: PerformedOrderDetailType = cp.SubElementProperty(pm.PerformedOrderDetail,
                                                                            value_class=PerformedOrderDetail,
                                                                            is_optional=True)
-    _props = ['Patient', 'AssignedLocation', 'VisitNumber', 'DangerCode',
-              'RelevantClinicalInfo', 'RequestedOrderDetail', 'PerformedOrderDetail']
+    _props = ('Patient', 'AssignedLocation', 'VisitNumber', 'DangerCode',
+              'RelevantClinicalInfo', 'RequestedOrderDetail', 'PerformedOrderDetail')
 
     def __init__(self,  # noqa: PLR0913
                  patient: PersonReference | None = None,
@@ -1219,7 +1207,7 @@ class WorkflowDetail(PropertyBasedPMType):
 
 
 class Relation(PropertyBasedPMType):
-    """Represents BICEPS AbstractMetricDescriptor -> Relation.
+    """Represents BICEPS AbstractMetricDescriptor/Relation.
 
     Relation allows the modelling of relationships between a metric and other containment tree entries.
     """
@@ -1234,7 +1222,7 @@ class Relation(PropertyBasedPMType):
         enum_cls=AbstractMetricDescriptorRelationKindEnum,
         is_optional=False)
     Entries: list[str] = cp.EntryRefListAttributeProperty('Entries')
-    _props = ['ExtExtension', 'Code', 'Identification', 'Kind', 'Entries']
+    _props = ('ExtExtension', 'Code', 'Identification', 'Kind', 'Entries')
 
 
 class PatientDemographicsCoreData(BaseDemographics):
@@ -1277,7 +1265,7 @@ class NeonatalPatientDemographicsCoreData(PatientDemographicsCoreData):
 
 
 class Udi(PropertyBasedPMType):
-    """Represents BICEPS MdsDescriptor -> MetaData -> Udi."""
+    """Represents BICEPS MdsDescriptor/MetaData/Udi."""
 
     NODETYPE = pm.Udi
     DeviceIdentifier: str = cp.NodeStringProperty(pm.DeviceIdentifier)
@@ -1286,7 +1274,7 @@ class Udi(PropertyBasedPMType):
     Jurisdiction: InstanceIdentifier | None = cp.SubElementProperty(pm.Jurisdiction,
                                                                     value_class=InstanceIdentifier,
                                                                     is_optional=True)
-    _props = ['DeviceIdentifier', 'HumanReadableForm', 'Issuer', 'Jurisdiction']
+    _props = ('DeviceIdentifier', 'HumanReadableForm', 'Issuer', 'Jurisdiction')
 
     def __init__(self, device_identifier: str | None = None,
                  human_readable_form: str | None = None,
@@ -1303,7 +1291,7 @@ UdiType = Udi  # TypeAlias
 
 
 class MetaData(PropertyBasedPMType):
-    """Represents BICEPS MdsDescriptor -> MetaData."""
+    """Represents BICEPS MdsDescriptor/MetaData."""
 
     NODETYPE = pm.MetaData
     Udi: list[UdiType] = cp.SubElementListProperty(pm.Udi, value_class=UdiType)
@@ -1314,27 +1302,27 @@ class MetaData(PropertyBasedPMType):
     ModelName: list[LocalizedText] = cp.SubElementListProperty(pm.ModelName, value_class=LocalizedText)
     ModelNumber: str | None = cp.NodeStringProperty(pm.ModelNumber, is_optional=True)
     SerialNumber: list[str] = cp.SubElementStringListProperty(pm.SerialNumber)
-    _props = ['Udi', 'LotNumber', 'Manufacturer', 'ManufactureDate', 'ExpirationDate',
-              'ModelName', 'ModelNumber', 'SerialNumber']
+    _props = ('Udi', 'LotNumber', 'Manufacturer', 'ManufactureDate', 'ExpirationDate',
+              'ModelName', 'ModelNumber', 'SerialNumber')
 
 
 class CalibrationResult(PropertyBasedPMType):
-    """Represents BICEPS CalibrationInfo -> CalibrationDocumentation -> CalibrationResult."""
+    """Represents BICEPS CalibrationInfo/CalibrationDocumentation/CalibrationResult."""
 
     NODETYPE = pm.CalibrationResult
     Code: CodedValue = cp.SubElementProperty(pm.Code, value_class=CodedValue)
     Value: Measurement = cp.SubElementProperty(pm.Value, value_class=Measurement)
-    _props = ['Code', 'Value']
+    _props = ('Code', 'Value')
 
 
 class CalibrationDocumentation(PropertyBasedPMType):
-    """Represents BICEPS CalibrationInfo -> CalibrationDocumentation."""
+    """Represents BICEPS CalibrationInfo/CalibrationDocumentation."""
 
     NODETYPE = pm.CalibrationDocumentation
     Documentation: list[LocalizedText] = cp.SubElementListProperty(pm.Documentation, value_class=LocalizedText)
     CalibrationResult: list[CalibrationResult] = cp.SubElementListProperty(pm.CalibrationResult,
                                                                            value_class=CalibrationResult)
-    _props = ['Documentation', 'CalibrationResult']
+    _props = ('Documentation', 'CalibrationResult')
 
 
 class CalibrationInfo(PropertyBasedPMType):
@@ -1349,7 +1337,7 @@ class CalibrationInfo(PropertyBasedPMType):
                                                             implied_py_value=CalibrationType.UNSPEC,
                                                             enum_cls=CalibrationType)
     Time: float | None = cp.TimestampAttributeProperty('Time')
-    _props = ['CalibrationDocumentation', 'ComponentCalibrationState', 'Type', 'Time']
+    _props = ('CalibrationDocumentation', 'ComponentCalibrationState', 'Type', 'Time')
 
 
 class ApprovedJurisdictions(PropertyBasedPMType):
@@ -1358,21 +1346,21 @@ class ApprovedJurisdictions(PropertyBasedPMType):
     NODETYPE = pm.ApprovedJurisdictions
     ApprovedJurisdiction: list[InstanceIdentifier] = cp.SubElementListProperty(pm.ApprovedJurisdiction,
                                                      value_class=InstanceIdentifier)
-    _props = ['ApprovedJurisdiction']
+    _props = ('ApprovedJurisdiction',)
 
 
 class ContainmentTreeEntry(PropertyBasedPMType):
-    """Represents BICEPS ContainmentTree -> Entry."""
+    """Represents BICEPS ContainmentTree/Entry."""
 
     Type: CodedValue | None = cp.SubElementProperty(pm.Type, value_class=CodedValue, is_optional=True)
-    _props = ['Type']
+    _props = ('Type',)
 
 
 class ContainmentTree(PropertyBasedPMType):
     """Represents BICEPS ContainmentTree."""
 
     Entry: ContainmentTreeEntry = cp.SubElementListProperty(pm.Entry, value_class=ContainmentTreeEntry)
-    _props = ['Entry']
+    _props = ('Entry',)
 
 
 # Technically, Retrievalibity belongs to msg_types, because it is defined in BICEPS message model.
@@ -1394,10 +1382,10 @@ class RetrievabilityInfo(PropertyBasedPMType):
     Method: RetrievabilityMethod = cp.EnumAttributeProperty('Method',
                                                             enum_cls=RetrievabilityMethod,
                                                             is_optional=False)
-    UpdatePeriod: DurationType = cp.DurationAttributeProperty('UpdatePeriod', implied_py_value=1.0)
-    _props = ['Method', 'UpdatePeriod']
+    UpdatePeriod: DurationType | None = cp.DurationAttributeProperty('UpdatePeriod', implied_py_value=1.0)
+    _props = ('Method', 'UpdatePeriod')
 
-    def __init__(self, method: RetrievabilityMethod, update_period: [float, None] = None):
+    def __init__(self, method: RetrievabilityMethod, update_period: DurationType | None = None):
         super().__init__()
         self.Method = method
         self.UpdatePeriod = update_period
@@ -1417,7 +1405,7 @@ class Retrievability(PropertyBasedPMType):
     """Represents BICEPS message model Retrievability."""
 
     By: list[RetrievabilityInfo] = cp.SubElementListProperty(msg.By, value_class=RetrievabilityInfo)
-    _props = ['By']
+    _props = ('By',)
 
     def __init__(self, retrievability_info_list: list[RetrievabilityInfo] | None = None):
         super().__init__()

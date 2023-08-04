@@ -4,7 +4,7 @@ import re
 from collections import namedtuple
 from datetime import date, datetime, timedelta, tzinfo
 from decimal import Decimal
-from typing import NewType, Union
+from typing import Union
 
 ISO8601_PERIOD_REGEX = re.compile(
     r"^(?P<sign>[+-])?"
@@ -19,9 +19,8 @@ ISO8601_PERIOD_REGEX = re.compile(
 
 # regular expression to parse ISO duration strings.
 
-DurationType = NewType('DurationType', Union[Decimal, int, float])  # input types for duration string creation
-ParsedDurationType = NewType('ParsedDurationType', Union[int, float])  # output types for parsed duration string
-
+DurationType = Union[Decimal, int, float]
+ParsedDurationType = Union[int, float]
 
 def parse_duration(date_string: str) -> ParsedDurationType:
     """Parse an ISO 8601 durations into a float value containing seconds.

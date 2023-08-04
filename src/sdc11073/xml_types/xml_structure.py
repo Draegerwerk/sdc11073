@@ -910,13 +910,6 @@ class AnyEtreeNodeProperty(_ElementBase):
             else:
                 sub_node.extend(py_value)
 
-# class ValueClassProtocol(Protocol):
-#
-#     @classmethod
-#     def value_class_from_node(cls, node: etree_.ElementBase) -> type:
-#         """Get the class that represents the node."""
-
-
 
 class SubElementProperty(_ElementBase):
     """Uses a value that has an "as_etree_node" method."""

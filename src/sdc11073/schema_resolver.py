@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from threading import Lock
 import os
 from io import StringIO
 from typing import TYPE_CHECKING, List, Union
@@ -13,7 +12,6 @@ from . import loghelper
 if TYPE_CHECKING:
     from .namespaces import PrefixNamespace, NamespaceHelper
 
-_lock = Lock()
 def mk_schema_validator(namespaces: List[PrefixNamespace], ns_helper: NamespaceHelper) -> etree_.XMLSchema:
     schema_resolver = SchemaResolver(namespaces)
     parser = etree_.XMLParser(resolve_entities=True)
@@ -31,8 +29,7 @@ def mk_schema_validator(namespaces: List[PrefixNamespace], ns_helper: NamespaceH
     all_included = tmp.getvalue().encode('utf-8')
 
     elem_tree = etree_.fromstring(all_included, parser=parser, base_url='C://')
-    with _lock:
-        return etree_.XMLSchema(etree=elem_tree)
+    return etree_.XMLSchema(etree=elem_tree)
 
 
 class SchemaResolver(etree_.Resolver):
