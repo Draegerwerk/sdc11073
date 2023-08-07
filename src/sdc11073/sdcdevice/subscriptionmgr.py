@@ -1,35 +1,47 @@
-import uuid
-import time
 import copy
-import socket
-import traceback
-from collections import deque, defaultdict
-import urllib
 import http.client
+import socket
+import time
+import traceback
+import typing
+import urllib
+import uuid
+from collections import defaultdict
+from collections import deque
 
 from lxml import etree as etree_
-from ..namespaces import xmlTag, wseTag, wsaTag, msgTag, nsmap, DocNamespaceHelper
-from ..namespaces import Prefix_Namespace as Prefix
-from .. import pysoap
+
+import sdc11073.certloader
+from .exceptions import DeliveryModeRequestedUnavailableError
+from .exceptions import InvalidMessageError
 from .. import isoduration
-from .. import xmlparsing
-from .. import observableproperties
-from .. import multikey
 from .. import loghelper
+from .. import multikey
+from .. import observableproperties
+from .. import pysoap
+from .. import xmlparsing
 from ..compression import CompressionHandler
+from ..namespaces import DocNamespaceHelper
+from ..namespaces import Prefix_Namespace as Prefix
+from ..namespaces import msgTag
+from ..namespaces import nsmap
+from ..namespaces import wsaTag
+from ..namespaces import wseTag
+from ..namespaces import xmlTag
 
 WsAddress = pysoap.soapenvelope.WsAddress
 Soap12Envelope = pysoap.soapenvelope.Soap12Envelope
 
 MAX_ROUNDTRIP_VALUES = 20
 
+
 class _RoundTripData(object):
     def __init__(self, values, abs_max):
         if values:
-            self.values = list(values) # make a copy
+            self.values = list(values)  # make a copy
             self.min = min(values)
             self.max = max(values)
-            self.avg = sum(values)/len(values)
+            self.avg = sum(values) / len(values)
             self.abs_max = abs_max
         else:
             self.values = None
@@ -47,12 +59,13 @@ class _DevSubscription(object):
     IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
 
     def __init__(self, mode, base_urls, notifyToAddress, notifyRefNode, endToAddress, endToRefNode, expires,
-                 max_subscription_duration, filter_, sslContext, acceptedEncodings):  # pylint:disable=too-many-arguments
+                 max_subscription_duration, filter_, sslContext,
+                 acceptedEncodings):  # pylint:disable=too-many-arguments
         """
-        @param notifyToAddress: dom node of Subscribe Request
-        @param endToAddress: dom node of Subscribe Request
-        @param expires: seconds as float
-        @param filter: a space separated list of actions, or only one action
+        :param notifyToAddress: dom node of Subscribe Request
+        :param endToAddress: dom node of Subscribe Request
+        :param expires: seconds as float
+        :param filter: a space separated list of actions, or only one action
         """
         self.mode = mode
         self.base_urls = base_urls
@@ -258,24 +271,31 @@ class _DevSubscription(object):
         endToAddresses = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:EndTo', namespaces=nsmap)
         if len(endToAddresses) == 1:
             endToNode = endToAddresses[0]
-            endToAddress = endToNode.xpath('wsa:Address/text()', namespaces=nsmap)[0]
+            endToAddress = endToNode.xpath('wsa:Address/text()', namespaces=nsmap)
+            if not endToAddress:
+                raise InvalidMessageError(request=soapEnvelope, detail="wse:Subscribe/wse:EndTo/wsa:Address not set")
+            endToAddress = endToAddress[0]
             endToRefNode = endToNode.find('wsa:ReferenceParameters', namespaces=nsmap)
 
         # determine (mandatory) notification address
         deliveryNode = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:Delivery', namespaces=nsmap)[0]
         notifyToNode = deliveryNode.find('wse:NotifyTo', namespaces=nsmap)
+        if notifyToNode is None:
+            raise InvalidMessageError(request=soapEnvelope, detail="wse:Subscribe/wse:Delivery/wse:NotifyTo not set")
         notifyToAddress = notifyToNode.xpath('wsa:Address/text()', namespaces=nsmap)[0]
         notifyRefNode = notifyToNode.find('wsa:ReferenceParameters', namespaces=nsmap)
 
-        mode = deliveryNode.get('Mode')  # mandatory attribute
+        mode = deliveryNode.get('Mode', pysoap.soapenvelope.MODE_PUSH)
+        if mode != pysoap.soapenvelope.MODE_PUSH:
+            raise DeliveryModeRequestedUnavailableError(request=soapEnvelope)
 
         expiresNodes = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:Expires/text()', namespaces=nsmap)
-        if len(expiresNodes) == 0:
-            expires = None
-        else:
-            expires = isoduration.parse_duration(str(expiresNodes[0]))
+        expires = isoduration.parse_duration(str(expiresNodes[0])) if expiresNodes else None
 
-        filter_ = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:Filter/text()', namespaces=nsmap)[0]
+        filter_ = soapEnvelope.bodyNode.xpath('wse:Subscribe/wse:Filter/text()', namespaces=nsmap)
+        if not filter_:
+            raise InvalidMessageError(request=soapEnvelope, detail="wse:Subscribe/wse:Filter not set")
+        filter_ = filter_[0]
 
         return cls(str(mode), base_urls, notifyToAddress, notifyRefNode, endToAddress, endToRefNode,
                    expires, max_subscription_duration, str(filter_), sslContext, acceptedEncodings)
@@ -295,9 +315,11 @@ class SubscriptionsManager(object):
     NotificationPrefixes = [Prefix.S12, Prefix.WSA, Prefix.WSE]
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription
 
-    def __init__(self, sslContext, sdc_definitions, supportedEncodings,
+    _ssl_context_container: typing.Optional[sdc11073.certloader.SSLContextContainer]
+
+    def __init__(self, ssl_context_container, sdc_definitions, supportedEncodings,
                  max_subscription_duration=None, log_prefix=None, chunked_messages=False):
-        self._sslContext = sslContext
+        self._ssl_context_container = ssl_context_container
         self.sdc_definitions = sdc_definitions
         self.log_prefix = log_prefix
         self._logger = loghelper.getLoggerAdapter('sdc.device.subscrMgr', self.log_prefix)
@@ -316,17 +338,24 @@ class SubscriptionsManager(object):
 
     def onSubscribeRequest(self, httpHeader, soapEnvelope, epr_path):
         acceptedEncodings = CompressionHandler.parseHeader(httpHeader.get('Accept-Encoding'))
-        s = _DevSubscription.fromSoapEnvelope(soapEnvelope, self._sslContext, acceptedEncodings,
-                                              self._max_subscription_duration, self.base_urls)
+        s = _DevSubscription.fromSoapEnvelope(
+            soapEnvelope,
+            self._ssl_context_container.client_context if self._ssl_context_container else None,
+            acceptedEncodings,
+            self._max_subscription_duration,
+            self.base_urls)
         # assign a soap client
         key = s._url.netloc  # pylint:disable=protected-access
         soapClient = self.soapClients.get(key)
         if soapClient is None:
-            soapClient = pysoap.soapclient.SoapClient(key, loghelper.getLoggerAdapter('sdc.device.soap', self.log_prefix),
-                                                      sslContext=self._sslContext, sdc_definitions=self.sdc_definitions,
-                                                      supportedEncodings=self._supportedEncodings,
-                                                      requestEncodings=acceptedEncodings,
-                                                      chunked_requests=self._chunked_messages)
+            soapClient = pysoap.soapclient.SoapClient(
+                key,
+                loghelper.getLoggerAdapter('sdc.device.soap', self.log_prefix),
+                sslContext=self._ssl_context_container.client_context if self._ssl_context_container else None,
+                sdc_definitions=self.sdc_definitions,
+                supportedEncodings=self._supportedEncodings,
+                requestEncodings=acceptedEncodings,
+                chunked_requests=self._chunked_messages)
             self.soapClients[key] = soapClient
         s.setSoapClient(soapClient)
         with self._subscriptions.lock:
@@ -502,7 +531,8 @@ class SubscriptionsManager(object):
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
-        self._logger.debug('sending periodic metric report, contains last {} episodic updates', len(updatedMetricStatesList))
+        self._logger.debug('sending periodic metric report, contains last {} episodic updates',
+                           len(updatedMetricStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicMetricReport'),
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         mdib_version_group.update_node(bodyNode)
@@ -544,7 +574,8 @@ class SubscriptionsManager(object):
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
-        self._logger.debug('sending periodic operational state report, contains last {} episodic updates', len(updatedStatesList))
+        self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
+                           len(updatedStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicOperationalStateReport'),
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         mdib_version_group.update_node(bodyNode)
@@ -626,7 +657,8 @@ class SubscriptionsManager(object):
         subscribers = self._getSubscriptionsForAction(action)
         if not subscribers:
             return
-        self._logger.debug('sending periodic component report, contains last {} episodic updates', len(updatedStatesList))
+        self._logger.debug('sending periodic component report, contains last {} episodic updates',
+                           len(updatedStatesList))
         bodyNode = etree_.Element(msgTag('PeriodicComponentReport'),
                                   nsmap=nsmapper.partialMap(*self.BodyNodePrefixes))
         mdib_version_group.update_node(bodyNode)
@@ -844,4 +876,3 @@ class SubscriptionsManager(object):
                 allvalues.extend(s.values)
             ret[k] = _RoundTripData(allvalues, max([s.max for s in stats]), )
         return ret
-

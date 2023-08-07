@@ -1,26 +1,28 @@
-import threading
-import uuid
 import copy
-import time
-import socket
-import traceback
 import http.client
-from http.server import HTTPServer
 import queue
+import socket
+import threading
+import time
+import traceback
+import uuid
+from http.server import HTTPServer
 from urllib.parse import urlparse, urlunparse
+
 from lxml import etree as etree_
+
+from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, ReceivedSoap12Envelope, WsAddress, WsSubscribe, \
     SoapResponseException
 from sdc11073.pysoap.soapenvelope import WsaEndpointReferenceType
+from .. import commlog
+from .. import loghelper
+from .. import observableproperties as properties
+from .. import xmlparsing, isoduration
+from ..httprequesthandler import HTTPRequestHandler
 from ..namespaces import Prefix_Namespace as Prefix
 from ..namespaces import nsmap as _global_nsmap
 from ..namespaces import wseTag, wsaTag, WSA_IS_REFERENCE_PARAMETER
-from .. import xmlparsing, isoduration
-from .. import commlog
-from .. import observableproperties as properties
-from .. import loghelper
-from ..httprequesthandler import HTTPRequestHandler
-from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 
 SUBSCRIPTION_CHECK_INTERVAL = 5  # seconds
 
@@ -84,6 +86,7 @@ class ClSubscription(object):
         self._filter = ' '.join(actions)
         self._notification_url = notification_url
         self.isSubscribed = False
+        self._isSubscribedLock = threading.Lock()
         self.end_status = None  # if device sent a SubscriptionEnd message, this contains the status from the message
         self.end_reason = None  # if device sent a SubscriptionEnd message, this contains the reason from the message
         self.expireAt = None
@@ -198,48 +201,53 @@ class ClSubscription(object):
             raise SoapResponseException(soapEnvelope)
 
     def renew(self, expire_minutes=60):
-        soapEnvelope = self._mkRenewEnvelope(expire_minutes)
-        try:
-            resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
-                                                                               soapEnvelope, msg='renew')
-            self._logger.debug('{}', resultSoapEnvelope.as_xml(pretty=True))
-        except HTTPReturnCodeError as ex:
-            self.isSubscribed = False
-            self._logger.error('could not renew: {}'.format(HTTPReturnCodeError))
-        except (http.client.HTTPException, ConnectionError) as ex:
-            self._logger.warn('renew failed: {}', ex)
-            self.isSubscribed = False
-        except Exception as ex:
-            self._logger.error('Exception in renew: {}', ex)
-            self.isSubscribed = False
-        else:
+        with self._isSubscribedLock:
+            if not self.isSubscribed:
+                return None
+
+            soapEnvelope = self._mkRenewEnvelope(expire_minutes)
             try:
-                self._handleRenewResponse(resultSoapEnvelope)
-                return self.remainingSubscriptionSeconds
-            except SoapResponseException as ex:
+                resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
+                                                                                   soapEnvelope, msg='renew')
+                self._logger.debug('{}', resultSoapEnvelope.as_xml(pretty=True))
+            except HTTPReturnCodeError as ex:
                 self.isSubscribed = False
-                self._logger.warn('renew failed: {}',
-                                  etree_.tostring(ex.soapResponseEnvelope.bodyNode, pretty_print=True))
+                self._logger.error('could not renew: {}'.format(HTTPReturnCodeError))
+            except (http.client.HTTPException, ConnectionError) as ex:
+                self._logger.warn('renew failed: {}', ex)
+                self.isSubscribed = False
+            except Exception as ex:
+                self._logger.error('Exception in renew: {}', ex)
+                self.isSubscribed = False
+            else:
+                try:
+                    self._handleRenewResponse(resultSoapEnvelope)
+                    return self.remainingSubscriptionSeconds
+                except SoapResponseException as ex:
+                    self.isSubscribed = False
+                    self._logger.warn('renew failed: {}',
+                                      etree_.tostring(ex.soapResponseEnvelope.bodyNode, pretty_print=True))
 
     def unsubscribe(self):
-        if not self.isSubscribed:
-            return
-
-        soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
-        soapEnvelope.setAddress(WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Unsubscribe',
-                                          to=urlunparse(self._subscriptionManagerAddress)))
-        self._add_device_references(soapEnvelope)
-        soapEnvelope.addBodyElement(etree_.Element(wseTag('Unsubscribe')))
-        resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
-                                                                           soapEnvelope, msg='unsubscribe')
-        responseAction = resultSoapEnvelope.address.action
-        # check response: response does not contain explicit status. If action== UnsubscribeResponse all is fine.
-        if responseAction == 'http://schemas.xmlsoap.org/ws/2004/08/eventing/UnsubscribeResponse':
-            self._logger.info('unsubscribe: end of subscription {} was confirmed.', self._filter)
-        else:
-            self._logger.error('unsubscribe: unexpected response action: {}', resultSoapEnvelope.as_xml(pretty=True))
-            raise RuntimeError(
-                'unsubscribe: unexpected response action: {}'.format(resultSoapEnvelope.as_xml(pretty=True)))
+        with self._isSubscribedLock:
+            if not self.isSubscribed:
+                return
+            self.isSubscribed = False  # handle it as unsubscribed from now on
+            soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
+            soapEnvelope.setAddress(WsAddress(action='http://schemas.xmlsoap.org/ws/2004/08/eventing/Unsubscribe',
+                                              to=urlunparse(self._subscriptionManagerAddress)))
+            self._add_device_references(soapEnvelope)
+            soapEnvelope.addBodyElement(etree_.Element(wseTag('Unsubscribe')))
+            resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
+                                                                               soapEnvelope, msg='unsubscribe')
+            responseAction = resultSoapEnvelope.address.action
+            # check response: response does not contain explicit status. If action== UnsubscribeResponse all is fine.
+            if responseAction == 'http://schemas.xmlsoap.org/ws/2004/08/eventing/UnsubscribeResponse':
+                self._logger.info('unsubscribe: end of subscription {} was confirmed.', self._filter)
+            else:
+                self._logger.error('unsubscribe: unexpected response action: {}', resultSoapEnvelope.as_xml(pretty=True))
+                raise RuntimeError(
+                    'unsubscribe: unexpected response action: {}'.format(resultSoapEnvelope.as_xml(pretty=True)))
 
     def _mkGetStatusEnvelope(self):
         soapEnvelope = Soap12Envelope(Prefix.partialMap(Prefix.S12, Prefix.WSA, Prefix.WSE))
@@ -254,48 +262,47 @@ class ClSubscription(object):
         """ Sends a GetStatus Request to the device.
         :return: the remaining time of the subscription or None, if the request was not successful
         """
-        soapEnvelope = self._mkGetStatusEnvelope()
-        try:
-            resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
-                                                                               soapEnvelope, msg='getStatus')
-        except HTTPReturnCodeError as ex:
-            self.isSubscribed = False
-            self._logger.error('could not get status: {}'.format(HTTPReturnCodeError))
-        except (http.client.HTTPException, ConnectionError) as ex:
-            self.isSubscribed = False
-            self._logger.warn('getStatus: Connection Error {} for subscription {}', ex, self._filter)
-        except Exception as ex:
-            self._logger.error('Exception in getStatus: {}', ex)
-            self.isSubscribed = False
-        else:
+        with self._isSubscribedLock:
+            if not self.isSubscribed:
+                return None
+            soapEnvelope = self._mkGetStatusEnvelope()
             try:
-                expiresNode = resultSoapEnvelope.msgNode.find('wse:Expires', namespaces=_global_nsmap)
-                if expiresNode is None:
-                    self._logger.warn('getStatus for {}: Could not find "Expires" node! getStatus={} ', self._filter,
-                                      resultSoapEnvelope.rawdata)
-                    raise SoapResponseException(resultSoapEnvelope)
-                else:
-                    expires = expiresNode.text
-                    expiresValue = isoduration.parse_duration(expires)
-                    self._logger.debug('getStatus for {}: Expires = {} = {} seconds, counter = {}', self._filter,
-                                       expires,
-                                       expiresValue,
-                                       self.eventCounter)
-                    return expiresValue
-            except AttributeError:
-                self._logger.warn('No msg in envelope')
+                resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._subscriptionManagerAddress.path,
+                                                                                   soapEnvelope, msg='getStatus')
+            except HTTPReturnCodeError as ex:
+                self.isSubscribed = False
+                self._logger.error('could not get status: {}'.format(HTTPReturnCodeError))
+            except (http.client.HTTPException, ConnectionError) as ex:
+                self.isSubscribed = False
+                self._logger.warn('getStatus: Connection Error {} for subscription {}', ex, self._filter)
+            except Exception as ex:
+                self._logger.error('Exception in getStatus: {}', ex)
+                self.isSubscribed = False
+            else:
+                try:
+                    expiresNode = resultSoapEnvelope.msgNode.find('wse:Expires', namespaces=_global_nsmap)
+                    if expiresNode is None:
+                        self._logger.warn('getStatus for {}: Could not find "Expires" node! getStatus={} ', self._filter,
+                                          resultSoapEnvelope.rawdata)
+                        raise SoapResponseException(resultSoapEnvelope)
+                    else:
+                        expires = expiresNode.text
+                        expiresValue = isoduration.parse_duration(expires)
+                        self._logger.debug('getStatus for {}: Expires = {} = {} seconds, counter = {}', self._filter,
+                                           expires,
+                                           expiresValue,
+                                           self.eventCounter)
+                        return expiresValue
+                except AttributeError:
+                    self._logger.warn('No msg in envelope')
 
     def checkStatus(self, renewLimit):
         """ Calls getStatus and updates internal data.
         :param renewLimit: a value in seconds. If remaining duration of subscription is less than this value, it renews the subscription.
         :return: None
         """
-        if not self.isSubscribed:
-            return
-
         remainingTime = self.getStatus()
-        if remainingTime is None:
-            self.isSubscribed = False
+        if not self.isSubscribed:
             return
         elif abs(remainingTime - self.remainingSubscriptionSeconds) > 10:
             self._logger.warn(
@@ -304,13 +311,6 @@ class ClSubscription(object):
 
         if self.remainingSubscriptionSeconds < renewLimit:
             self._logger.info('renewing subscription')
-            self.renew()
-
-    def checkStatus_renew(self):
-        """ Calls renew and updates internal data.
-        :return: None
-        """
-        if self.isSubscribed:
             self.renew()
 
     @property
@@ -390,7 +390,7 @@ class SubscriptionManager(threading.Thread):
                         subscriptions = list(self.subscriptions.values())
                     for subscription in subscriptions:
                         if self.keepAlive_with_renew:
-                            subscription.checkStatus_renew()
+                            subscription.renew()
                         else:
                             subscription.checkStatus(renewLimit=self._checkInterval * 5)
                     self._logger.debug('##### SubscriptionManager Interval ######')
@@ -622,7 +622,9 @@ class NotificationsReceiverDispatcherThread(threading.Thread):
             self.my_port = self.httpd.server_port
             self._logger.info('starting Notification receiver on {}:{}', self._my_ipaddress, self.my_port)
             if self._sslContext:
-                self.httpd.socket = self._sslContext.wrap_socket(self.httpd.socket, do_handshake_on_connect=False)
+                self.httpd.socket = self._sslContext.wrap_socket(self.httpd.socket,
+                                                                 server_side=True,
+                                                                 do_handshake_on_connect=False)
                 self.base_url = 'https://{}:{}/'.format(self._my_ipaddress, self.my_port)
             else:
                 self.base_url = 'http://{}:{}/'.format(self._my_ipaddress, self.my_port)

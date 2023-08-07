@@ -1,19 +1,35 @@
-from .. import pmtypes
+import sdc11073.certloader
 from .sdc_handlers import SdcHandler_Full
+from .. import pmtypes
 
 
 class SdcDevice(object):
     defaultInstanceIdentifiers = (pmtypes.InstanceIdentifier(root='rootWithNoMeaning', extensionString='System'),)
-    def __init__(self, ws_discovery, my_uuid, model, device, deviceMdibContainer, validate=True, roleProvider=None, sslContext=None,
+
+    def __init__(self, ws_discovery, my_uuid, model, device, deviceMdibContainer, validate=True, roleProvider=None,
+                 sslContext=None,
                  logLevel=None, max_subscription_duration=7200, log_prefix='', handler_cls=None,
-                 chunked_messages=False): #pylint:disable=too-many-arguments
+                 chunked_messages=False,
+                 ssl_context_container: sdc11073.certloader.SSLContextContainer = None):  # pylint:disable=too-many-arguments
         # ssl protocol handling itself is delegated to a handler.
         # Specific protocol versions or behaviours are implemented there.
         if handler_cls is None:
             handler_cls = SdcHandler_Full
-        self._handler = handler_cls(my_uuid, ws_discovery, model, device, deviceMdibContainer, validate,
-                                roleProvider, sslContext, logLevel, max_subscription_duration,
-                                log_prefix=log_prefix, chunked_messages=chunked_messages)
+
+        if sslContext and ssl_context_container:
+            raise ValueError('sslContext and ssl_context_container must not both be given')
+
+        if ssl_context_container:
+            self._handler = handler_cls(my_uuid, ws_discovery, model, device, deviceMdibContainer, validate,
+                                        roleProvider, sslContext, logLevel,
+                                        max_subscription_duration, ssl_context_container=ssl_context_container,
+                                        log_prefix=log_prefix, chunked_messages=chunked_messages)
+        else:
+            self._handler = handler_cls(my_uuid, ws_discovery, model, device, deviceMdibContainer, validate,
+                                        roleProvider, sslContext, logLevel,
+                                        max_subscription_duration,
+                                        log_prefix=log_prefix, chunked_messages=chunked_messages)
+
         self._wsdiscovery = ws_discovery
         self._logger = self._handler._logger
         self._mdib = deviceMdibContainer
@@ -21,9 +37,9 @@ class SdcDevice(object):
 
     def setLocation(self, location, validators=defaultInstanceIdentifiers, publishNow=True):
         """
-        @param location: a pysdc.location.SdcLocation instance
-        @param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
-        @param publishNow: if True, the device is published via its wsdiscovery reference.
+        :param location: a pysdc.location.SdcLocation instance
+        :param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
+        :param publishNow: if True, the device is published via its wsdiscovery reference.
         """
         if location == self._location:
             return
@@ -83,7 +99,7 @@ class SdcDevice(object):
         """ device itself can also handle GET requests. This is the handler"""
         return self._handler.dispatchGetRequest(parseResult, headers)
 
-    def startAll(self, startRealtimeSampleLoop=True, periodic_reports_interval=None, shared_http_server = None):
+    def startAll(self, startRealtimeSampleLoop=True, periodic_reports_interval=None, shared_http_server=None):
         """
 
         :param startRealtimeSampleLoop: flag
@@ -98,7 +114,6 @@ class SdcDevice(object):
 
     def getXAddrs(self):
         return self._handler.getXAddrs()
-
 
     def sendMetricStateUpdates(self, mdib_version_grp, stateUpdates):
         return self._handler.sendMetricStateUpdates(mdib_version_grp, stateUpdates)
@@ -115,7 +130,7 @@ class SdcDevice(object):
     def sendOperationalStateUpdates(self, mdib_version_grp, stateUpdates):
         return self._handler.sendOperationalStateUpdates(mdib_version_grp, stateUpdates)
 
-    def sendRealtimeSamplesStateUpdates (self, mdib_version_grp, stateUpdates):
+    def sendRealtimeSamplesStateUpdates(self, mdib_version_grp, stateUpdates):
         return self._handler.sendRealtimeSamplesStateUpdates(mdib_version_grp, stateUpdates)
 
     def sendDescriptorUpdates(self, mdib_version_grp, updated, created, deleted, updated_states):

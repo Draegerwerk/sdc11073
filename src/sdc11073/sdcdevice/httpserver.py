@@ -1,13 +1,14 @@
+import socket
 import threading
 import time
 import traceback
-import socket
-from urllib.parse import urlparse
 from http.server import HTTPServer
+from urllib.parse import urlparse
+
 from .exceptions import HTTPRequestHandlingError, InvalidPathError, InvalidActionError
-from .. import pysoap
 from .. import commlog
 from .. import loghelper
+from .. import pysoap
 from ..httprequesthandler import HTTPRequestHandler, mkchunks
 
 
@@ -258,7 +259,9 @@ class HttpServerThread(threading.Thread):
             setattr(self.httpd, 'supportedEncodings', self.supportedEncodings)
             self.httpd.logger = self._logger # add logger by monkey-pathing
             if self._sslContext is not None:
-                self.httpd.socket = self._sslContext.wrap_socket(self.httpd.socket, do_handshake_on_connect=False)
+                self.httpd.socket = self._sslContext.wrap_socket(self.httpd.socket,
+                                                                 server_side=True,
+                                                                 do_handshake_on_connect=False)
             self.my_port = self.httpd.server_port
             self.httpd.dispatcher = self.devices_dispatcher
 
@@ -270,7 +273,7 @@ class HttpServerThread(threading.Thread):
 
     def setCompressionFlag(self, useCompression):
         """Sets use compression attribute on the http server to be used in handler
-        @param useCompression: bool flag 
+        :param useCompression: bool flag 
         """
         self.httpd.useCompression = useCompression
    

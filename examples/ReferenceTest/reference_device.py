@@ -1,5 +1,3 @@
-
-import logging
 import json
 import logging.config
 import os
@@ -7,9 +5,9 @@ from time import sleep
 from uuid import UUID
 
 import sdc11073
+from sdc11073.certloader import mk_ssl_contexts_from_folder
 from sdc11073.loghelper import LoggerAdapter
 from sdc11073.namespaces import domTag
-from sdc11073.certloader import mk_ssl_context_from_folder
 
 here = os.path.dirname(__file__)
 default_mdib_path = os.path.join(here, 'reference_mdib.xml')
@@ -56,12 +54,12 @@ if __name__ == '__main__':
                                                              firmwareVersion='Version1',
                                                              serialNumber='12345')
     if ca_folder:
-        ssl_context = mk_ssl_context_from_folder(ca_folder, cyphers_file=None,
-                                                 ssl_passwd=ssl_passwd)
+        ssl_context_container = mk_ssl_contexts_from_folder(ca_folder, cyphers_file=None,
+                                                            ssl_passwd=ssl_passwd)
     else:
-        ssl_context = None
+        ssl_context_container = None
     sdcDevice = sdc11073.sdcdevice.sdcdeviceimpl.SdcDevice(wsd, my_uuid, dpwsModel, dpwsDevice, my_mdib,
-                                                           sslContext=ssl_context)
+                                                           ssl_context_container=ssl_context_container)
     sdcDevice.startAll()
 
     validators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extensionString='System')]

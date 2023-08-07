@@ -34,7 +34,7 @@ class HTTPReturnCodeError(httplib.HTTPException):
     """ THis class is used to map http return codes to Python exceptions."""
     def __init__(self, status, reason, soapfault):
         """
-        @param status: integer, e.g. 404
+        :param status: integer, e.g. 404
         param reason: the provided human readable text
         """
         super(HTTPReturnCodeError, self).__init__()
@@ -59,15 +59,15 @@ class SoapClient(CompressionHandler):
     def __init__(self, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
                  requestEncodings=None, chunked_requests=False, xml_validator=None):
         """ Connects to one url
-        @param netloc: the location of the service (domainname:port) ###url of the service
-        @param sslContext: an optional sll.SSLContext instance
-        @param supportedEncodings: configured set of encodings that can be used. If None, all available encodings are used.
+        :param netloc: the location of the service (domainname:port) ###url of the service
+        :param sslContext: an optional sll.SSLContext instance
+        :param supportedEncodings: configured set of encodings that can be used. If None, all available encodings are used.
                                 This used for decompression of received responses.
                                 If this is an empty list, no compression is supported.
-        @param requestEncodings: an optional list of encodings that the other side accepts. It is used to compress requests.
+        :param requestEncodings: an optional list of encodings that the other side accepts. It is used to compress requests.
                                 If not set, requests will not be commpressed.
                                 If set, then the http request will be compressed using this method
-        @param xml_validator: optional etree.XMLSchema instance
+        :param xml_validator: optional etree.XMLSchema instance
         """
         self._log = logger
         self._sslContext = sslContext
@@ -131,11 +131,11 @@ class SoapClient(CompressionHandler):
                            msg='',
                            request_manipulator=None):
         """
-        @param path: url path component
-        @param soapEnvelopeRequest: The soap envelope that shall be sent
-        @param responseFactory: a callable that creates a response object from received xml. If None, a ReceivedSoap12Envelope will be created
-        @param schema: If given, the request is validated against this schema
-        @param msg: used in logs, helps to identify the context in which the method was called
+        :param path: url path component
+        :param soapEnvelopeRequest: The soap envelope that shall be sent
+        :param responseFactory: a callable that creates a response object from received xml. If None, a ReceivedSoap12Envelope will be created
+        :param schema: If given, the request is validated against this schema
+        :param msg: used in logs, helps to identify the context in which the method was called
         """
         if self.isClosed():
             raise httplib.NotConnected('call connect before posting!')

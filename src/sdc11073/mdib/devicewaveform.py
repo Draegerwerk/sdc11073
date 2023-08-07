@@ -14,10 +14,10 @@ class RtSampleArray:
     It is used to create Waveform notifications."""
     def __init__(self, determination_time, sample_period, samples, activation_state):
         """
-        @param determination_time: the time stamp of the first value in samples
-        @param sample_period: the time difference between two samples
-        @param samples: a list of 2-tuples (value (float or int), flag annotation_trigger)
-        @param activation_state: one of pmtypes.ComponentActivation values
+        :param determination_time: the time stamp of the first value in samples
+        :param sample_period: the time difference between two samples
+        :param samples: a list of 2-tuples (value (float or int), flag annotation_trigger)
+        :param activation_state: one of pmtypes.ComponentActivation values
         """
         self.determination_time = determination_time
         self.sample_period = sample_period
@@ -43,8 +43,8 @@ class RtSampleArray:
 
     def add_annotations_at(self, annotation, timestamps):
         """
-        @param annotation: a pmtypes.Annotation instance
-        @param timestamps: a list of time stamps (time.time based)
+        :param annotation: a pmtypes.Annotation instance
+        :param timestamps: a list of time stamps (time.time based)
         """
         applied = False
         annotation_index = len(self.annotations)  # Index is zero-based
@@ -68,7 +68,7 @@ class _SampleArrayGenerator:
 
     def set_activation_state(self, component_activation):
         """
-        @param component_activation: one of pmtypes.ComponentActivation values
+        :param component_activation: one of pmtypes.ComponentActivation values
         """
         self._activation_state = component_activation
         if component_activation == pmtypes.ComponentActivation.ON:
@@ -128,8 +128,8 @@ class DefaultWaveformSource(AbstractWaveformSource):
     def register_waveform_generator(self, mdib, descriptor_handle, wf_generator):
         """
         param mdib: a device mdib instance
-        @param descriptor_handle: the handle of the RealtimeSampelArray that shall accept this data
-        @param wf_generator: a waveforms.WaveformGenerator instance
+        :param descriptor_handle: the handle of the RealtimeSampelArray that shall accept this data
+        :param wf_generator: a waveforms.WaveformGenerator instance
         """
         sample_period = wf_generator.sampleperiod
         descriptor_container = mdib.descriptions.handle.getOne(descriptor_handle)
@@ -146,8 +146,8 @@ class DefaultWaveformSource(AbstractWaveformSource):
     def set_activation_state(self, mdib, descriptorHandle, componentActivation):
         """
         param mdib: a device mdib instance
-        @param descriptorHandle: a handle string
-        @param componentActivation: one of pmtypes.ComponentActivation values
+        :param descriptorHandle: a handle string
+        :param componentActivation: one of pmtypes.ComponentActivation values
         """
         self._waveform_generators[descriptorHandle].set_activation_state(componentActivation)
         with mdib.mdibUpdateTransaction() as tr:
@@ -156,9 +156,9 @@ class DefaultWaveformSource(AbstractWaveformSource):
 
     def register_annotation_generator(self, annotator, triggerHandle, annotatedHandles):
         """
-        @param annotator: a pmtypes.Annotation instance
-        @param triggerHandle: The handle of the waveform that triggers the annotator ( trigger = start of a waveform cycle)
-        @param annotatedHandles: the handles of the waveforms that shall be annotated.
+        :param annotator: a pmtypes.Annotation instance
+        :param triggerHandle: The handle of the waveform that triggers the annotator ( trigger = start of a waveform cycle)
+        :param annotatedHandles: the handles of the waveforms that shall be annotated.
         """
         self._annotators[triggerHandle] = (annotator, annotatedHandles)
 
