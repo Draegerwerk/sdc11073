@@ -1,29 +1,31 @@
 import unittest
 
-from lxml.etree import fromstring, QName
+from lxml.etree import QName, fromstring
 
 from sdc11073.xml_types import pm_types
 
 
 class TestPmTypes(unittest.TestCase):
 
-    def test_CodedValue(self):
+    def test_coded_value(self):
         c1 = pm_types.CodedValue('42')
         c2 = pm_types.CodedValue('42', coding_system='abc')
-        # compare with simple string or int shall return False
-        self.assertFalse(c1.equals(42))
-        self.assertFalse(c1.equals('42'))
-        # if CodedValue does not have default coding system, this compare shall return False
-        self.assertFalse(c2.equals(42))
+        self.assertTrue(c1.is_equivalent(pm_types.CodedValue('42')))
+        # test with explicit coding system
+        self.assertTrue(c1.is_equivalent(pm_types.Coding('42', pm_types.DEFAULT_CODING_SYSTEM, None)))
+        # test with explicit coding system and different version
+        self.assertFalse(c1.is_equivalent(pm_types.Coding('42', pm_types.DEFAULT_CODING_SYSTEM, '1')))
         # it shall be possible to compare with a Coding instance
-        self.assertTrue(c1.equals(pm_types.Coding('42', pm_types.DEFAULT_CODING_SYSTEM, None)))
+        self.assertTrue(c1.is_equivalent(pm_types.Coding('42')))
+        # different coding system
+        self.assertFalse(c2.is_equivalent(pm_types.Coding('42')))
 
         # if two CodedValue instances are compared, the translations shall also be handled
         c2.Translation.append(pm_types.Translation('41'))
-        self.assertNotEqual(c2, 41)
-        c3 = pm_types.CodedValue('42')
+        self.assertTrue(c2.is_equivalent(pm_types.Coding('41')))
+        c3 = pm_types.CodedValue('44')
         c3.Translation.append(pm_types.Translation('41'))  # same translation as c2
-        self.assertTrue(c2.equals(c3))
+        self.assertTrue(c2.is_equivalent(c3))
 
     def test_have_matching_codes(self):
         c1 = pm_types.CodedValue('42', coding_system='abc')
@@ -48,7 +50,7 @@ class TestPmTypes(unittest.TestCase):
         allowed_value1 = pm_types.AllowedValue.from_node(node)
         self.assertEqual(allowed_value1.Value, '')
         generated_node = allowed_value1.as_etree_node(QName('foo', 'bar'), {})
-        self.assertEqual('', generated_node[0].text )
+        self.assertEqual('', generated_node[0].text)
 
         node = fromstring(text.format('foobar'))
         allowed_value2 = pm_types.AllowedValue.from_node(node)
@@ -65,4 +67,3 @@ class TestPmTypes(unittest.TestCase):
         arg = pm_types.ActivateOperationDescriptorArgument.from_node(node)
         self.assertEqual(arg.ArgName, pm_types.CodedValue("202890"))
         self.assertEqual(arg.Arg, QName("dummy", "Something"))
-

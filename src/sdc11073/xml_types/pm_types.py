@@ -5,7 +5,7 @@ import inspect
 import sys
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sdc11073.namespaces import QN_TYPE, text_to_qname
 
@@ -202,9 +202,12 @@ class GenerationMode(StringEnum):
 class AlertSignalManifestation(StringEnum):
     """Represents BICEPS AlertSignalManifestation."""
 
-    AUD = 'Aud'  # Aud = Audible. The ALERT SIGNAL manifests in an audible manner, i.e., the alert can be heard. Example: an alarm sound.
-    VIS = 'Vis'  # Vis = Visible. The ALERT SIGNAL manifests in a visible manner, i.e., the alert can be seen. Example: a red flashing light.
-    TAN = 'Tan'  # Tan = Tangible. The ALERT SIGNAL manifests in a tangible manner, i.e., the alert can be felt. Example: vibration.
+    AUD = 'Aud'  # Aud = Audible. The ALERT SIGNAL manifests in an audible manner, i.e., the alert can be heard.
+                 #  Example: an alarm sound.
+    VIS = 'Vis'  # Vis = Visible. The ALERT SIGNAL manifests in a visible manner, i.e., the alert can be seen.
+                 #  Example: a red flashing light.
+    TAN = 'Tan'  # Tan = Tangible. The ALERT SIGNAL manifests in a tangible manner, i.e., the alert can be felt.
+                 #  Example: vibration.
     OTH = 'Oth'  # Oth = Other. The ALERT SIGNAL manifests in a manner not further specified.
 
 
@@ -352,13 +355,6 @@ class Coding:
         if not isinstance(self.code, str):
             raise TypeError('code must be a string!')
 
-    def equals(self, other: Coding | CodedValue) -> bool:
-        """Different compare method to __eq__.
-
-        Overwriting __eq__ makes Coding un-hashable!
-        """
-        return have_matching_codes(self, other)
-
     @classmethod
     def from_node(cls, node: ElementBase) -> Coding:
         """Construct class from a node."""
@@ -463,10 +459,26 @@ class CodedValue(PropertyBasedPMType):
             return f'CodedValue({self.Code})'
         if self.CodingSystemVersion is None:
             return f'CodedValue({self.Code}, codingsystem="{self.CodingSystem}")'
-        return f'CodedValue({self.Code}, codingsystem="{self.CodingSystem}", codingsystemversion="{self.CodingSystemVersion}")'
+        return (f'CodedValue({self.Code}, codingsystem="{self.CodingSystem}", '
+                f'codingsystemversion="{self.CodingSystemVersion}")')
 
-    def equals(self, other: Coding | CodedValue) -> bool:
-        """Compare with a  CodedValue or a Coding."""
+    def is_equivalent(self, other: Coding | CodedValue) -> bool:
+        """Compare with a  CodedValue or a Coding.
+
+        BICEPS specifies equivalance as follows:
+        Two CodedValue objects C1 and C2 are equivalent, if
+        - C1/@Code equals C2/@Code
+        - C1/@CodingSystem equals C2/@CodingSystem, both with expanded default values
+        - C1/@CodingSystemVersion equals C2/@CodingSystemVersion
+        - If there exists a CodedValue object T1 in C1/pm:Translation and a CodedValue object T2 in C2/pm:Translation
+          such that T1 and T2 are equivalent, C1 and T2 are equivalent, or C2 and T1 are equivalent.
+
+        NOTE 1—In case that ./@CodingSystem is not explicitly defined in CodedValue, it is replaced implicitly by
+               a default identifier. The ./@CodingSystem ATTRIBUTE is then called "expanded".
+        NOTE 2—As prescribed in ./@CodingSystemVersion, a version is set only if a unique version identification
+               by ./@CodingSystem is not possible. Hence, there can be no implicit version mismatch.
+        NOTE 3—Equivalence between CodedValue objects is not necessarily transitive.
+        """
         return have_matching_codes(self, other)
 
     @classmethod
