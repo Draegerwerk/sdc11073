@@ -66,13 +66,25 @@ class TestMdib(unittest.TestCase):
         self.assertEqual(handle, found2.Handle)
 
     def test_copy_report_node(self):
+        def _compare_xml(expected, actual):
+            self.assertNotEqual(id(expected), id(actual))
+            self.assertEqual(expected.tag, actual.tag)
+            self.assertEqual(expected.text, actual.text)
+            self.assertEqual(expected.tail, actual.tail)
+            self.assertEqual(expected.prefix, actual.prefix)
+            self.assertEqual(expected.sourceline, actual.sourceline)
+            self.assertEqual(expected.base, actual.base)
+            self.assertDictEqual(dict(expected.attrib), dict(actual.attrib))  # make order of attributes irrelevant
+            self.assertDictEqual(expected.nsmap, actual.nsmap)  # make order of attributes irrelevant
+            self.assertEqual(len(expected), len(actual))
+            for c1, c2 in zip(expected, actual):
+                _compare_xml(c1, c2)
+
         def test_xml(raw_xml: bytes):
             body = etree_.fromstring(raw_xml)[1]
             for report in body:
                 new_report = xmlparsing.copy_node(report)
-                self.assertNotEqual(id(report), id(new_report))
-                self.assertEqual(report.nsmap, new_report.nsmap)
-                self.assertEqual(etree_.tostring(report), etree_.tostring(new_report))
+                _compare_xml(report.getroottree().getroot(), new_report.getroottree().getroot())
 
         test_xml(b"""<?xml version='1.0' encoding='UTF-8'?>
 <s12:Envelope xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"
