@@ -91,15 +91,16 @@ def copy_node(node: etree_._Element, method=copy.deepcopy) -> etree_._Element:
     return current
 
 
-def copy_node_wo_parent(node: etree_._Element) -> etree_._Element:
+def copy_node_wo_parent(node: etree_._Element, method=copy.deepcopy) -> etree_._Element:
     """
     Copy node but only keep relevant information and no parent.
 
     :param node: node to be copied
+    :param method: method that copies an etree element
     :return: new node
     """
     new_node = etree_.Element(node.tag, attrib=node.attrib, nsmap=node.nsmap)
     new_node.text = node.text
     new_node.tail = node.tail
-    new_node.extend((copy_node_wo_parent(child) for child in node))
+    new_node.extend((method(child) for child in node))
     return new_node
