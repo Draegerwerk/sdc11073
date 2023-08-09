@@ -65,9 +65,9 @@ def copy_node(node: etree_._Element, method=copy.deepcopy) -> etree_._Element:
     """
     Copy and preserve complete namespace. See https://github.com/Draegerwerk/sdc11073/issues/191
 
-    :param node: report node to be copied
+    :param node: node to be copied
     :param method: method that copies an etree element
-    :return: new report node
+    :return: new node
     """
     # walk from target to root
     current = node
@@ -89,3 +89,17 @@ def copy_node(node: etree_._Element, method=copy.deepcopy) -> etree_._Element:
             step = f'/{step}'
         current = current.xpath(step, namespaces=ns_map_list[i])[0]
     return current
+
+
+def copy_node_wo_parent(node: etree_._Element) -> etree_._Element:
+    """
+    Copy node but only keep relevant information and no parent.
+
+    :param node: node to be copied
+    :return: new node
+    """
+    new_node = etree_.Element(node.tag, attrib=node.attrib, nsmap=node.nsmap)
+    new_node.text = node.text
+    new_node.tail = node.tail
+    new_node.extend((copy_node_wo_parent(child) for child in node))
+    return new_node

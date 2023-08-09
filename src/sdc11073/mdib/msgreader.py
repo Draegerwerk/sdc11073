@@ -148,7 +148,7 @@ class MessageReader(object):
                 descriptorContainer = correspondingDescriptors[0]
         cls = self._mdib.getStateContainerClass(nodeType)
         if node.tag != namespaces.domTag('State'):
-            node = xmlparsing.copy_node(node)  # make a copy, do not modify the original report
+            node = xmlparsing.copy_node_wo_parent(node)  # make a copy, do not modify the original report
             node.tag = namespaces.domTag('State')
         return cls(self._mdib.nsmapper, descriptorContainer, node)
 

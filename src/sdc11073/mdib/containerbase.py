@@ -68,7 +68,7 @@ class ContainerBase(object):
     def mkCopy(self, copy_node=True):
         copied = copy.copy(self)  # no deepcopy because of TypeError: cannot pickle 'lxml.etree.QName' object
         if copy_node and self.node is not None:
-            new_node = xmlparsing.copy_node(self.node)
+            new_node = xmlparsing.copy_node_wo_parent(self.node)
             copied.node = new_node
         return copied
 
