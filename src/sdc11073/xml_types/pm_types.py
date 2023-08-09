@@ -5,7 +5,7 @@ import inspect
 import sys
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from sdc11073.namespaces import QN_TYPE, text_to_qname
 
@@ -203,11 +203,11 @@ class AlertSignalManifestation(StringEnum):
     """Represents BICEPS AlertSignalManifestation."""
 
     AUD = 'Aud'  # Aud = Audible. The ALERT SIGNAL manifests in an audible manner, i.e., the alert can be heard.
-                 #  Example: an alarm sound.
+    #  Example: an alarm sound.
     VIS = 'Vis'  # Vis = Visible. The ALERT SIGNAL manifests in a visible manner, i.e., the alert can be seen.
-                 #  Example: a red flashing light.
+    #  Example: a red flashing light.
     TAN = 'Tan'  # Tan = Tangible. The ALERT SIGNAL manifests in a tangible manner, i.e., the alert can be felt.
-                 #  Example: vibration.
+    #  Example: vibration.
     OTH = 'Oth'  # Oth = Other. The ALERT SIGNAL manifests in a manner not further specified.
 
 
@@ -463,9 +463,9 @@ class CodedValue(PropertyBasedPMType):
                 f'codingsystemversion="{self.CodingSystemVersion}")')
 
     def is_equivalent(self, other: Coding | CodedValue) -> bool:
-        """Compare with a  CodedValue or a Coding.
+        """Compare with a CodedValue or a Coding.
 
-        BICEPS specifies equivalance as follows:
+        BICEPS specifies equivalence as follows:
         Two CodedValue objects C1 and C2 are equivalent, if
         - C1/@Code equals C2/@Code
         - C1/@CodingSystem equals C2/@CodingSystem, both with expanded default values
@@ -560,7 +560,6 @@ class InstanceIdentifier(PropertyBasedPMType):
         self.IdentifierName = [] if identifier_names is None else identifier_names
         self.Extension = extension_string
         self.node = None
-
 
     def __repr__(self) -> str:
         params = [f'root={self.Root!r}']
@@ -1097,7 +1096,7 @@ class OrderDetail(PropertyBasedPMType):
     Performer: list[PersonParticipation] = cp.SubElementListProperty(pm.Performer, value_class=PersonParticipation)
     Service: list[CodedValue] = cp.SubElementListProperty(pm.Service, value_class=CodedValue)
     ImagingProcedure: list[ImagingProcedureType] = cp.SubElementListProperty(pm.ImagingProcedure,
-                                                                         value_class=ImagingProcedure)
+                                                                             value_class=ImagingProcedure)
     _props = ('Start', 'End', 'Performer', 'Service', 'ImagingProcedure')
 
     def __init__(self,  # noqa: PLR0913
@@ -1357,7 +1356,7 @@ class ApprovedJurisdictions(PropertyBasedPMType):
 
     NODETYPE = pm.ApprovedJurisdictions
     ApprovedJurisdiction: list[InstanceIdentifier] = cp.SubElementListProperty(pm.ApprovedJurisdiction,
-                                                     value_class=InstanceIdentifier)
+                                                                               value_class=InstanceIdentifier)
     _props = ('ApprovedJurisdiction',)
 
 
