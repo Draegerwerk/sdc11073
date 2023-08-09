@@ -951,8 +951,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(patientContextStateContainer.Weight, st.Weight)
             self.assertEqual(patientContextStateContainer.Race, st.Race)
             self.assertEqual(patientContextStateContainer.DateOfBirth, st.DateOfBirth)
-            self.assertEqual(patientContextStateContainer.BindingMdibVersion,
-                             tr_MdibVersion+ 1 )
+            self.assertEqual(patientContextStateContainer.BindingMdibVersion, tr_MdibVersion + 1 )
             self.assertEqual(patientContextStateContainer.UnbindingMdibVersion, None)
 
             # test update of same patient
@@ -964,8 +963,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             patientContextStateContainer = clientMdib.contextStates.NODETYPE.getOne(
                 namespaces.domTag('PatientContextState'), allowNone=True)
             self.assertEqual(patientContextStateContainer.Givenname, 'Moritz')
-            self.assertEqual(patientContextStateContainer.BindingMdibVersion,
-                             tr_MdibVersion + 1)
+            self.assertEqual(patientContextStateContainer.BindingMdibVersion, tr_MdibVersion + 1)
             self.assertEqual(patientContextStateContainer.UnbindingMdibVersion, None)
 
     def test_LocationContext(self):
