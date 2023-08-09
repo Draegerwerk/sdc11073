@@ -12,6 +12,7 @@ import unittest
 from itertools import product
 from unittest import mock
 
+import pytest
 from lxml import etree as etree_
 
 import sdc11073.certloader
@@ -203,6 +204,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
             self.assertTrue(unittest.mock.call.listen(unittest.mock.ANY) in sock.method_calls or
                             unittest.mock.call.listen() in sock.method_calls or set(sock.w).intersection(branches))
 
+    @pytest.mark.skipif(sys.version_info >= (3, 10), reason="ssl.PROTOCOL_TLS is deprecated since 3.10")
     def test_basic_connection_with_only_one_ssl_context(self):
         """
         Test that client and server communication works when only one ssl context is given.
