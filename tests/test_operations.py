@@ -132,7 +132,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         proposed_context.CoreData.Familyname = 'Klammer'
         proposed_context.CoreData.Birthname = 'Bourne'
         proposed_context.CoreData.Title = 'Dr.'
-        proposed_context.CoreData.Sex = pm_types.T_Sex.MALE
+        proposed_context.CoreData.Sex = pm_types.Sex.MALE
         proposed_context.CoreData.PatientType = pm_types.PatientType.ADULT
         proposed_context.CoreData.set_birthdate('2000-12-12')
         proposed_context.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
@@ -190,7 +190,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         proposed_context.CoreData.Familyname = 'Klammer'
         proposed_context.CoreData.Birthname = 'Bourne'
         proposed_context.CoreData.Title = 'Dr.'
-        proposed_context.CoreData.Sex = pm_types.T_Sex.FEMALE
+        proposed_context.CoreData.Sex = pm_types.Sex.FEMALE
         proposed_context.CoreData.PatientType = pm_types.PatientType.ADULT
         proposed_context.CoreData.set_birthdate('2000-12-12')
         proposed_context.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
@@ -220,7 +220,7 @@ class Test_BuiltinOperations(unittest.TestCase):
             st.CoreData.Birthname = 'Mustermann'
             st.CoreData.Familyname = 'Musterfrau'
             st.CoreData.Title = 'Rex'
-            st.CoreData.Sex = pm_types.T_Sex.MALE
+            st.CoreData.Sex = pm_types.Sex.MALE
             st.CoreData.PatientType = pm_types.PatientType.ADULT
             st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
             st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))

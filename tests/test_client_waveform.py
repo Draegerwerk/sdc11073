@@ -173,7 +173,7 @@ class TestClientWaveform(unittest.TestCase):
             self.assertAlmostEqual(rtBuffer.rt_data[-2].determination_time - observation_time,
                                    rtBuffer.sample_period * (s_count - 2), places=4)
             for i in range(s_count):
-                self.assertAlmostEqual(rtBuffer.rt_data[i].value, current_samples[i])
+                self.assertAlmostEqual(float(rtBuffer.rt_data[i].value), current_samples[i])
 
         # verify that only handle 0x34F05501 has an annotation
         for handle in [HANDLES[0], HANDLES[2]]:
@@ -184,7 +184,7 @@ class TestClientWaveform(unittest.TestCase):
         rtBuffer = client_mdib.rt_buffers[HANDLES[1]]
         annotated = rtBuffer.rt_data[2]  # this object should have the annotation (SampleIndex="2")
         self.assertEqual(1, len(annotated.annotations))
-        self.assertEqual(Coding('4711', 'bla'), annotated.annotations[0].coding)
+        self.assertEqual(Coding('4711', 'bla'), annotated.annotations[0].Type.coding)
         for i in (0, 1, 3, 4):
             self.assertEqual(0, len(rtBuffer.rt_data[i].annotations))
 

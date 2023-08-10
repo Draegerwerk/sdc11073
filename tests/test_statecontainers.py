@@ -226,19 +226,19 @@ class TestStateContainers(unittest.TestCase):
         state.OperatingHours = 4
         state.PhysicalConnector = pm_types.PhysicalConnectorInfo([pm_types.LocalizedText('ABC')], 1)
 
-        calibration_result = pm_types.T_CalibrationResult()
+        calibration_result = pm_types.CalibrationResult()
         calibration_result.Code = pm_types.CodedValue("42")
         calibration_result.Value = pm_types.Measurement(Decimal(50), pm_types.CodedValue("10"))
-        calibration_documentation = pm_types.T_CalibrationDocumentation()
+        calibration_documentation = pm_types.CalibrationDocumentation()
         calibration_documentation.Documentation.append(pm_types.LocalizedText('documentation result'))
         calibration_documentation.CalibrationResult.append(calibration_result)
 
         calib_info = pm_types.CalibrationInfo()
-        self.assertEqual(calib_info.Type, pm_types.T_CalibrationType.UNSPEC)
+        self.assertEqual(calib_info.Type, pm_types.CalibrationType.UNSPEC)
         calib_info.CalibrationDocumentation = [calibration_documentation]
-        calib_info.ComponentCalibrationState = pm_types.T_CalibrationState.CALIBRATED
+        calib_info.ComponentCalibrationState = pm_types.CalibrationState.CALIBRATED
         calib_info.Time = 3782495
-        calib_info.Type = pm_types.T_CalibrationType.TWO_POINT_CALIBRATION
+        calib_info.Type = pm_types.CalibrationType.TWO_POINT_CALIBRATION
         state.CalibrationInfo = calib_info
 
         state2 = sc.AbstractDeviceComponentStateContainer(descriptor_container=self.descr)

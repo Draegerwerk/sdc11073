@@ -36,20 +36,10 @@ if TYPE_CHECKING:
 class RtSampleContainer:
     """RtSampleContainer contains a single value."""
 
-    value_string: str
+    value: Decimal
     determination_time: float
     validity: Enum
     annotations: list
-
-    @property
-    def value(self) -> float:
-        """Return the value of the sample as float."""
-        return float(self.value_string)
-
-    @property
-    def dec_value(self) -> Decimal:
-        """Return the value of the sample as Decimal."""
-        return Decimal(self.value_string)
 
     @property
     def age(self) -> float:
@@ -57,7 +47,7 @@ class RtSampleContainer:
         return time.time() - self.determination_time
 
     def __repr__(self) -> str:
-        return f'RtSample value="{self.value_string}" validity="{self.validity}" time={self.determination_time}'
+        return f'RtSample value="{self.value}" validity="{self.validity}" time={self.determination_time}'
 
 
 class ConsumerRtBuffer:
@@ -95,8 +85,8 @@ class ConsumerRtBuffer:
                                realtime_sample_array_container.DescriptorHandle)
             return []
         determination_time = metric_value.DeterminationTime
-        annots = metric_value.Annotations
-        apply_annotations = metric_value.ApplyAnnotations
+        annots = metric_value.Annotation
+        apply_annotations = metric_value.ApplyAnnotation
         rt_sample_containers = []
         if metric_value.Samples is not None:
             for i, sample in enumerate(metric_value.Samples):

@@ -13,8 +13,7 @@ import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from datetime import date, datetime
-from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Callable, NewType, Union, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 from lxml import etree as etree_
 
@@ -36,6 +35,7 @@ from .dataconverters import (
 )
 
 if TYPE_CHECKING:
+    from decimal import Decimal
     from sdc11073.namespaces import NamespaceHelper
     from sdc11073.xml_types.basetypes import XMLTypeBase
     from .dataconverters import DataConverterProtocol
@@ -910,13 +910,6 @@ class AnyEtreeNodeProperty(_ElementBase):
             else:
                 sub_node.extend(py_value)
 
-class ValueClassProtocol(Protocol):
-
-    @classmethod
-    def value_class_from_node(cls, node: etree_.ElementBase) -> type:
-        """Get the class that represents the node."""
-
-
 
 class SubElementProperty(_ElementBase):
     """Uses a value that has an "as_etree_node" method."""
@@ -1435,7 +1428,7 @@ class DateOfBirthProperty(_ElementBase):
         sub_element.text = date_string
 
     @staticmethod
-    def mk_value_object(date_string: str) -> date | datetime | isoduration.GYear | isoduration.GYearMonth | None:
+    def mk_value_object(date_string: str) -> isoduration.DateTypeUnion | None:
         """Parse isoduration string."""
         return isoduration.parse_date_time(date_string)
 

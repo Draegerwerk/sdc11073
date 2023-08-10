@@ -12,7 +12,6 @@ from . import loghelper
 if TYPE_CHECKING:
     from .namespaces import PrefixNamespace, NamespaceHelper
 
-
 def mk_schema_validator(namespaces: List[PrefixNamespace], ns_helper: NamespaceHelper) -> etree_.XMLSchema:
     schema_resolver = SchemaResolver(namespaces)
     parser = etree_.XMLParser(resolve_entities=True)
