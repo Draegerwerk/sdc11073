@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - renew can be performed in fixed intervals (as before) or depending on Expires time of subscription.
 - SdcLocation class reworked; use 'bldng' instead of 'bld', which better matches the standard. 
 - Some classes renamed in pmtypes.py
+- soap client does not try implicit reconnects
 
 ## [2.0.0a5] - 2023-06-27
 
