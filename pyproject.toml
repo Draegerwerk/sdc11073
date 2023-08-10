@@ -13,17 +13,17 @@ description = "Pure python implementation of IEEE11073 SDC protocol"
 readme = "README.rst"
 requires-python = ">=3.7, <3.12"
 classifiers = [
-        'Development Status :: 5 - Production/Stable',
-        'Intended Audience :: Developers',
-        'Topic :: Software Development',
-        'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
-        'Operating System :: Microsoft :: Windows',
-        'Operating System :: POSIX :: Linux'
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Developers',
+    'Topic :: Software Development',
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Operating System :: Microsoft :: Windows',
+    'Operating System :: POSIX :: Linux'
 ]
 keywords = [
     "SDC",
@@ -46,13 +46,14 @@ test = [
     "pytest",
     "pytest-html",
     "pytest-cov",
+    "pytest-xdist[psutil]",
     "sdc11073[lz4]",
 ]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "src/sdc11073/**/*",
-    "docs/*",  # include picture for readme
+    "docs/*", # include picture for readme
     "LICENSE",
     "README.rst",
     "pyproject.toml",
@@ -68,8 +69,14 @@ path = "src/sdc11073/__init__.py"
 
 [tool.pytest.ini_options]
 testpaths = "tests/"
+filterwarnings = [# https://docs.python.org/3/library/warnings.html#warning-filter
+    "error",
+    "ignore::UserWarning",
+    "ignore:The --rsyncdir command line argument and rsyncdirs config variable are deprecated.:DeprecationWarning", # https://github.com/psf/black/issues/3805
+]
 
 # https://docs.pytest.org/en/latest/how-to/logging.html#live-logs
+# please note that live-logs for cli while using xdist is not working. see https://github.com/pytest-dev/pytest-xdist/issues/574
 log_cli = true
 log_cli_level = "info"
 log_cli_format = "%(asctime)s %(levelname)s (%(threadName)-10s) %(filename)s:%(lineno)d %(message)s"
@@ -79,3 +86,14 @@ log_file = "pytest.log"
 log_file_level = "debug"
 log_file_format = "%(asctime)s %(levelname)s (%(threadName)-10s) %(filename)s:%(lineno)d %(message)s"
 log_file_date_format = "%Y-%m-%d %H:%M:%S:%f"
+
+[tool.coverage.report]
+exclude_also = [# https://coverage.readthedocs.io/en/latest/config.html#report-exclude-also
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+ignore_errors = true # https://coverage.readthedocs.io/en/latest/config.html#report-ignore-errors
+
+[tool.coverage.run]
+parallel = true # https://coverage.readthedocs.io/en/latest/config.html#run-parallel

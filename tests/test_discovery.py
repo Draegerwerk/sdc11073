@@ -1,4 +1,7 @@
+import threading
+import typing
 import unittest
+import uuid
 from unittest import mock
 from sdc11073 import wsdiscovery
 import logging
@@ -7,6 +10,7 @@ import urllib
 import socket
 
 from sdc11073 import loghelper #, definitions_sdc, location
+from tests import utils
 
 QName = wsdiscovery.QName
 Scope = wsdiscovery.Scope
@@ -74,13 +78,13 @@ class TestDiscovery(unittest.TestCase):
         testlog.info('starting service...') 
         self.wsdService.start()
         
-        ttype1 = QName("abc", "def")
-        scope1 = Scope("http://myscope")
-        ttype2 = QName("namespace", "myOtherTestService_type1")
-        scope2 = Scope("http://other_scope")
+        ttype1 = utils.random_qname()
+        scope1 = utils.random_scope()
+        ttype2 = utils.random_qname()
+        scope2 = utils.random_scope()
         
-        xAddrs = ["localhost:8080/abc", '{ip}/device_service']
-        epr = 'my_epr'
+        xAddrs = [f"localhost:8080/{uuid.uuid4()}", '{ip}/' + str(uuid.uuid4())]
+        epr = uuid.uuid4().hex
         self.wsdService.publishService(epr, types=[ttype1], scopes=[scope1], xAddrs=xAddrs)
         time.sleep(0.2)
         
@@ -136,11 +140,11 @@ class TestDiscovery(unittest.TestCase):
         testlog.info('starting service...') 
         self.wsdService.start()
         
-        ttype = QName("abc", "def")
-        scope = Scope("http://other_scope")
+        ttype = utils.random_qname()
+        scope = utils.random_scope()
         
-        xAddrs = ["localhost:8080/abc", ]
-        epr = 'my_epr'
+        xAddrs = [f"localhost:8080/{uuid.uuid4()}", ]
+        epr = uuid.uuid4().hex
         self.wsdService.publishService(epr, types=[ttype], scopes=[scope], xAddrs=xAddrs)
         time.sleep(2)
         
@@ -163,11 +167,11 @@ class TestDiscovery(unittest.TestCase):
         testlog.info('starting service...')
         self.wsdService.start()
 
-        ttype = QName("abc", "def")
-        scope = Scope("http://other_scope")
+        ttype = utils.random_qname()
+        scope = utils.random_scope()
 
-        xAddrs = ["localhost:8080/abc", ]
-        epr = 'my_epr'
+        xAddrs = [f"localhost:8080/{uuid.uuid4()}", ]
+        epr = uuid.uuid4().hex
         self.wsdService.publishService(epr, types=[ttype], scopes=[scope], xAddrs=xAddrs)
         time.sleep(5) # make sure hello messages are all sent before client discovery starts
 
@@ -178,7 +182,7 @@ class TestDiscovery(unittest.TestCase):
         self.wsdclient.clearRemoteServices()
         services = self.wsdclient.searchServices(timeout=self.SEARCH_TIMEOUT)
         testlog.info('search done.')
-        self.assertEqual(len(services), 0)
+        self.assertEqual(len([s for s in services if s.getEPR() == epr]), 0)
 
 
     def test_discover_noTYPES(self):
@@ -187,11 +191,11 @@ class TestDiscovery(unittest.TestCase):
         testlog.info('starting service...')
         self.wsdService.start()
 
-        ttype = QName("abc", "def")
-        scope = Scope("http://other_scope")
+        ttype = utils.random_qname()
+        scope = utils.random_scope()
 
-        xAddrs = ["localhost:8080/abc", ]
-        epr = 'my_epr'
+        xAddrs = [f"localhost:8080/{uuid.uuid4()}", ]
+        epr = uuid.uuid4().hex
         self.wsdService.publishService(epr, types=[ttype], scopes=[scope], xAddrs=xAddrs)
         time.sleep(2)
 
@@ -214,11 +218,11 @@ class TestDiscovery(unittest.TestCase):
         testlog.info('starting service...')
         self.wsdService.start()
 
-        ttype = QName("abc", "def")
-        scope = Scope("http://other_scope")
+        ttype = utils.random_qname()
+        scope = utils.random_scope()
 
-        xAddrs = ["localhost:8080/abc", ]
-        epr = 'my_epr'
+        xAddrs = [f"localhost:8080/{uuid.uuid4()}", ]
+        epr = uuid.uuid4().hex
         self.wsdService.publishService(epr, types=[ttype], scopes=[scope], xAddrs=xAddrs)
         time.sleep(2)
 
@@ -241,11 +245,11 @@ class TestDiscovery(unittest.TestCase):
         testlog.info('starting service...')
         self.wsdService.start()
 
-        ttype = QName("abc", "def")
-        scope = Scope("http://other_scope")
+        ttype = utils.random_qname()
+        scope = utils.random_scope()
 
-        xAddrs = ["localhost:8080/abc", ]
-        epr = 'my_epr'
+        xAddrs = [f"localhost:8080/{uuid.uuid4()}", ]
+        epr = uuid.uuid4().hex
         self.wsdService.publishService(epr, types=[ttype], scopes=[scope], xAddrs=xAddrs)
         time.sleep(2)
 
@@ -291,12 +295,11 @@ class TestDiscovery(unittest.TestCase):
     def test_publishManyServices_lateStartedClient(self):
         testlog.info('starting service...') 
         self.wsdService.start()
-        deviceCount = 20
-        for i in range(deviceCount):
-            ttype1 = QName("namespace", "myOtherTestService_type1")
-            scope1 = Scope("http://other_scope")
-        
-            epr = 'my_epr{}'.format(i)
+        device_count = 20
+        eprs = [uuid.uuid4().hex for _ in range(device_count)]
+        for i, epr in enumerate(eprs):
+            ttype1 = utils.random_qname()
+            scope1 = utils.random_scope()
             xAddrs = ["localhost:{}/{}".format(8080+i, epr)]
             self.wsdService.publishService(epr, types=[ttype1], scopes=[scope1], xAddrs=xAddrs)
             
@@ -308,8 +311,8 @@ class TestDiscovery(unittest.TestCase):
         
         for service in services:
             testlog.info('found service: {} : {}'.format(service.getEPR(), service.getXAddrs()))
-        myServices = [s for s in services if 'my_epr' in s.getEPR()] # there might be other devices in the network
-        self.assertEqual(len(myServices), deviceCount)
+        myServices = [s for s in services if s.getEPR() in eprs] # there might be other devices in the network
+        self.assertEqual(len(myServices), device_count)
 
 
     def test_publishManyServices_earlyStartedClient(self):
@@ -319,21 +322,27 @@ class TestDiscovery(unittest.TestCase):
         time.sleep(0.01)
         testlog.info('starting service...') 
         self.wsdService.start()
-        deviceCount = 20
-        for i in range(deviceCount):
-            ttype1 = QName("namespace", "myOtherTestService_type1")
-            scope1 = Scope("http://other_scope")
-        
-            epr = 'my_epr{}'.format(i)
-            xAddrs = ["localhost:{}/{}".format(8080+i, epr)]
+        device_count = 20
+        eprs = [uuid.uuid4().hex for _ in range(device_count)]
+        epr_event_map: typing.Dict[str, threading.Event] = {epr: threading.Event() for epr in eprs}
+        for i, epr in enumerate(eprs):
+            ttype1 = utils.random_qname()
+            scope1 = utils.random_scope()
+            xAddrs = ["localhost:{}/{}".format(8080 + i, epr)]
             self.wsdService.publishService(epr, types=[ttype1], scopes=[scope1], xAddrs=xAddrs)
             
         time.sleep(2.02)
-        self.assertEqual(len(self.wsdclient._remoteServices), deviceCount)
-        testlog.info('stopping service...') 
+        self.assertEqual(len([epr for epr in self.wsdclient._remoteServices if epr in eprs]), device_count)
+        testlog.info('stopping service...')
+        def _remote_service_bye(_: str, epr_: str) -> None:
+            if epr_ in eprs:
+                self.assertTrue(epr_ not in self.wsdclient._remoteServices)
+                epr_event_map[epr_].set()
+
+        self.wsdclient.setRemoteServiceByeCallback(_remote_service_bye)
         self.wsdService.clearLocalServices()
-        time.sleep(2.02)
-        self.assertEqual(len(self.wsdclient._remoteServices), 0)
+        for event in epr_event_map.values():
+            self.assertTrue(event.wait(timeout=5.0))
 
     def test_unexpected_multicast_messages(self):
         """verify that module is robust against all kind of invalid multicast and single cast messages"""
@@ -374,7 +383,7 @@ class TestDiscovery(unittest.TestCase):
                 for address in all_addresses:
                     unicast_sock.sendto(f'<bla>unicast{address} all </bla>'.encode('utf-8'),
                                         (address, self.MY_MULTICAST_PORT))
-                time.sleep(0.1)
+                time.sleep(0.5)
                 self.assertGreaterEqual(wrapped_obj.call_count, len(all_addresses))
 
             wsd_service_all.stop()  # do not interfere with next instance
@@ -387,8 +396,8 @@ class TestDiscovery(unittest.TestCase):
                 for address in all_addresses:
                     unicast_sock.sendto(f'<bla>unicast{address} all </bla>'.encode('utf-8'),
                                         (address, self.MY_MULTICAST_PORT))
-                time.sleep(0.1)
-                wrapped_obj.assert_called_once()
+                time.sleep(0.5)
+                wrapped_obj.assert_called()
         finally:
             unicast_sock.close()
 
