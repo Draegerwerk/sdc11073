@@ -11,7 +11,8 @@ from sdc11073.namespaces import msgTag, domTag, nsmap
 from sdc11073.namespaces import Prefix_Namespace as Prefix
 from sdc11073.pysoap.soapenvelope import GenericNode, WsAddress, Soap12Envelope, ReceivedSoap12Envelope
 from sdc11073.definitions_sdc import SDC_v1_Definitions
-from tests import mockstuff
+from tests import mockstuff, utils
+
 _msg_ns = Prefix.MSG.namespace
 _sdc_ns = Prefix.SDC.namespace
 
@@ -127,11 +128,8 @@ class TestDeviceServices(unittest.TestCase):
 
 
     def test_getContextStates(self):
-        facility = 'HOSP42'
-        poc = 'Care Unit 1'
-        bed = 'my bed'
-        loc = SdcLocation(fac=facility, poc=poc, bed=bed)
         for sdcDevice in self._alldevices:
+            loc = utils.random_location()
             sdcDevice.mdib.setLocation(loc)
             contextService = sdcDevice._handler._ContextDispatcher
             endpoint_reference = '123'
@@ -149,14 +147,14 @@ class TestDeviceServices(unittest.TestCase):
             self.assertEqual(len(locationContextNodes), 1)
             identificationNode = locationContextNodes[0].find(domTag('Identification'))
             if sdcDevice is self.sdcDevice_final:
-                self.assertEqual(identificationNode.get('Extension'), '{}///{}//{}'.format(facility, poc, bed))
+                self.assertEqual(identificationNode.get('Extension'), '{}/{}/{}/{}/{}/{}'.format(loc.fac, loc.bld, loc.flr, loc.poc, loc.rm,loc.bed))
             else:
-                self.assertEqual(identificationNode.get('Extension'), '{}/{}/{}'.format(facility, poc, bed))
+                self.assertEqual(identificationNode.get('Extension'), '{}/{}/{}/{}/{}/{}'.format(loc.fac, loc.bld, loc.flr, loc.poc, loc.rm,loc.bed))
             
             locationDetailNode = locationContextNodes[0].find(domTag('LocationDetail'))
-            self.assertEqual(locationDetailNode.get('PoC'), poc) 
-            self.assertEqual(locationDetailNode.get('Bed'), bed) 
-            self.assertEqual(locationDetailNode.get('Facility'), facility) 
+            self.assertEqual(locationDetailNode.get('PoC'), loc.poc)
+            self.assertEqual(locationDetailNode.get('Bed'), loc.bed)
+            self.assertEqual(locationDetailNode.get('Facility'), loc.fac)
             print (response.as_xml(pretty=True))
 
 

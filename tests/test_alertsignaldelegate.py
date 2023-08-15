@@ -10,6 +10,7 @@ from sdc11073.location import SdcLocation
 from sdc11073.mdib.clientmdib import ClientMdibContainer
 from sdc11073.sdcclient import SdcClient
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
+from tests import utils
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
@@ -35,7 +36,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
-        location = SdcLocation(fac='tklx', poc='CU1', bed='Bed')
+        location = utils.random_location()
         my_uuid = None  # let device create one
         self.sdc_device = SomeDevice.fromMdibFile(self.wsd, my_uuid, 'mdib_tns.xml', logLevel=logging.INFO)
 

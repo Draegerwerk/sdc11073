@@ -92,11 +92,11 @@ jobs:
       - name: Run pytest
         run: >-
           pytest
+          -n logical
           --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html
           --self-contained-html
           --cov=$(python -c "import pathlib;import sdc11073;print(pathlib.Path(sdc11073.__file__).parent)")
           --log-file pytest_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.log
-          tests
 
       - name: Archive test result
         uses: actions/upload-artifact@v3
@@ -118,3 +118,5 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
