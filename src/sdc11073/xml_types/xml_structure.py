@@ -13,8 +13,9 @@ import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, Callable, Protocol
+from typing import TYPE_CHECKING, Any, Callable
 
+from xmldiff import main as xml_diff, actions as xml_diff_actions
 from lxml import etree as etree_
 
 from sdc11073.exceptions import ApiUsageError
@@ -802,8 +803,19 @@ class NodeTextQNameProperty(_ElementBase):
             sub_node.text = value
 
 
+class ExtensionXmlComparisonWrapper:
+    def __init__(self, xml_tree: etree_.ElementBase):
+        self.xml_tree = xml_tree
+
+    def __eq__(self, other: ExtensionXmlComparisonWrapper):
+        # note: comparing qnames is not supported
+        diffs = xml_diff.diff_trees(self.xml_tree, other.xml_tree, {'F': 1})
+        diffs = [diff for diff in diffs if not isinstance(diff, xml_diff_actions.InsertNamespace)]
+        return not diffs
+
+
 class ExtensionLocalValue:
-    def __init__(self, value: Any):
+    def __init__(self, value: OrderedDict | None):
         self.value = value or OrderedDict()
 
     def __eq__(self, other: ExtensionLocalValue) -> bool:
@@ -847,7 +859,7 @@ class ExtensionNodeProperty(_ElementBase):
             if cls:
                 values[extension_node.tag] = cls.from_node(extension_node)
             else:
-                values[extension_node.tag] = extension_node
+                values[extension_node.tag] = ExtensionXmlComparisonWrapper(extension_node)
         return ExtensionLocalValue(values)
 
     def update_xml_value(self, instance: Any, node: etree_.ElementBase):

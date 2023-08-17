@@ -31,6 +31,7 @@ dependencies = [
     'lxml>=2.3',
     'ifaddr',
     'aiohttp',
+    'xmldiff',
 ]
 
 [project.urls]
@@ -136,6 +137,7 @@ extend-select = [# https://beta.ruff.rs/docs/settings/#extend-select
 extend-ignore = [# https://beta.ruff.rs/docs/settings/#extend-ignore
     "ANN101", # https://beta.ruff.rs/docs/rules/missing-type-self/
     "ANN102", # https://beta.ruff.rs/docs/rules/missing-type-cls/
+    "ANN204", # https://beta.ruff.rs/docs/rules/missing-return-type-special-method/
     "ANN401", # https://beta.ruff.rs/docs/rules/any-type/
     "C408", # https://beta.ruff.rs/docs/rules/unnecessary-collection-call/
     "C409", # https://beta.ruff.rs/docs/rules/unnecessary-literal-within-tuple-call/

@@ -1,8 +1,12 @@
 import unittest
+from typing import Any
+from unittest import mock
 
-from lxml.etree import QName, fromstring
+import lxml
+from xmldiff import actions as xml_diff_actions
+from xmldiff import main as xml_diff
 
-from sdc11073.xml_types import pm_types
+from sdc11073.xml_types import pm_types, xml_structure
 
 
 class TestPmTypes(unittest.TestCase):
@@ -46,13 +50,13 @@ class TestPmTypes(unittest.TestCase):
                 </pm:Type>
               </pm:AllowedValue>
 """
-        node = fromstring(text.format(''))
+        node = lxml.etree.fromstring(text.format(''))
         allowed_value1 = pm_types.AllowedValue.from_node(node)
         self.assertEqual(allowed_value1.Value, '')
-        generated_node = allowed_value1.as_etree_node(QName('foo', 'bar'), {})
+        generated_node = allowed_value1.as_etree_node(lxml.etree.QName('foo', 'bar'), {})
         self.assertEqual('', generated_node[0].text)
 
-        node = fromstring(text.format('foobar'))
+        node = lxml.etree.fromstring(text.format('foobar'))
         allowed_value2 = pm_types.AllowedValue.from_node(node)
         self.assertEqual(allowed_value2.Value, 'foobar')
 
@@ -63,7 +67,96 @@ class TestPmTypes(unittest.TestCase):
                       <pm:Arg xmlns:dd="dummy">dd:Something</pm:Arg>
                   </pm:Argument>
         """
-        node = fromstring(text.format(''))
+        node = lxml.etree.fromstring(text.format(''))
         arg = pm_types.ActivateOperationDescriptorArgument.from_node(node)
         self.assertEqual(arg.ArgName, pm_types.CodedValue("202890"))
-        self.assertEqual(arg.Arg, QName("dummy", "Something"))
+        self.assertEqual(arg.Arg, lxml.etree.QName("dummy", "Something"))
+
+
+class TestExtensions(unittest.TestCase):
+
+    def test_compare_extensions(self):
+        xml = b"""
+        <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue"/>
+                <bar anotherattr="differentvalue"/>
+            </ext:Extension>
+        </pm:Identification>
+        """
+        self.assertNotEqual(lxml.etree.fromstring(xml), lxml.etree.fromstring(xml))
+        inst1 = pm_types.InstanceIdentifier.from_node(lxml.etree.fromstring(xml))
+        inst2 = pm_types.InstanceIdentifier.from_node(lxml.etree.fromstring(xml))
+        self.assertEqual(inst1.ExtExtension, inst2.ExtExtension)
+        self.assertEqual(inst1, inst2)
+
+        another_xml = b"""
+                <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                                   Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                                   Extension="123.234.424">
+                    <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                        <foo someattr="somevalue"/>
+                        <bar anotherattr="differentvalue2"/>
+                    </ext:Extension>
+                </pm:Identification>
+                """
+        inst2 = pm_types.InstanceIdentifier.from_node(lxml.etree.fromstring(another_xml))
+        self.assertNotEqual(inst1.ExtExtension, inst2.ExtExtension)
+        self.assertNotEqual(inst1, inst2)
+
+    def test_fails_with_qname(self):
+        xml1 = lxml.etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
+        xmlns:what="123.456.789">
+        <what:ItIsNotKnown>
+                <what:Unknown>what:lorem</what:Unknown>
+        </what:ItIsNotKnown>
+</ext:Extension>""")
+        xml2 = lxml.etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
+        xmlns:who="123.456.789">
+        <who:ItIsNotKnown>
+                <who:Unknown>who:lorem</who:Unknown>
+        </who:ItIsNotKnown>
+</ext:Extension>""")
+        self.assertNotEqual(xml1, xml2)
+        inst1 = xml_structure.ExtensionXmlComparisonWrapper(xml1)
+        inst2 = xml_structure.ExtensionXmlComparisonWrapper(xml2)
+        self.assertNotEqual(inst1, inst2)
+
+    def test_ignore_insert_namespaces(self):
+        xml1 = lxml.etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+<what:ItIsNotKnown xmlns:what="123.456.789"><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
+</ext:Extension>""")
+        xml2 = lxml.etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension" xmlns:what="123.456.789">
+<what:ItIsNotKnown><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
+</ext:Extension>""")
+        self.assertNotEqual(xml1, xml2)
+        inst1 = xml_structure.ExtensionXmlComparisonWrapper(xml1)
+        inst2 = xml_structure.ExtensionXmlComparisonWrapper(xml2)
+        self.assertEqual(inst1, inst2)
+
+        def _return_only_insert_namespace_error(*_: Any, **__: Any) -> list[xml_diff_actions.InsertNamespace]:
+            return []
+
+        with mock.patch.object(xml_diff, 'diff_trees', _return_only_insert_namespace_error):
+            self.assertEqual(xml_structure.ExtensionXmlComparisonWrapper(mock.MagicMock()),
+                             xml_structure.ExtensionXmlComparisonWrapper(mock.MagicMock()))
+
+        def _return_only_insert_namespace_error(*_: Any, **__: Any) -> list[xml_diff_actions.InsertNamespace]:
+            return [xml_diff_actions.InsertNamespace('', '')]
+
+        with mock.patch.object(xml_diff, 'diff_trees', _return_only_insert_namespace_error):
+            self.assertEqual(xml_structure.ExtensionXmlComparisonWrapper(mock.MagicMock()),
+                             xml_structure.ExtensionXmlComparisonWrapper(mock.MagicMock()))
+
+        def _return_only_insert_namespace_error(*_: Any, **__: Any) -> list[xml_diff_actions.InsertNamespace]:
+            return [xml_diff_actions.InsertNamespace('', ''), object()]
+
+        with mock.patch.object(xml_diff, 'diff_trees', _return_only_insert_namespace_error):
+            self.assertNotEqual(xml_structure.ExtensionXmlComparisonWrapper(mock.MagicMock()),
+                                xml_structure.ExtensionXmlComparisonWrapper(mock.MagicMock()))
