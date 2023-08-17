@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fixed problem that on operations without handler the transaction id always was 0.
 - consumer: renew could be sent after unsubscribe
 - possible deadlock when stopping provider
+- comparison of extensions would fail [#238](https://github.com/Draegerwerk/sdc11073/issues/238)
 
 
 ## Added
