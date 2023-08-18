@@ -9,6 +9,7 @@ Container properties represent values in xml nodes.
 from __future__ import annotations
 
 import copy
+import operator
 import time
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -803,25 +804,30 @@ class NodeTextQNameProperty(_ElementBase):
             sub_node.text = value
 
 
-class ExtensionXmlComparisonWrapper:
-    def __init__(self, xml_tree: etree_.ElementBase):
-        self.xml_tree = xml_tree
-
-    def __eq__(self, other: ExtensionXmlComparisonWrapper):
-        # note: comparing qnames is not supported
-        diffs = xml_diff.diff_trees(self.xml_tree, other.xml_tree, {'F': 1})
-        diffs = [diff for diff in diffs if not isinstance(diff, xml_diff_actions.InsertNamespace)]
-        return not diffs
-
-
 class ExtensionLocalValue:
     def __init__(self, value: OrderedDict | None):
         self.value = value or OrderedDict()
 
-    def __eq__(self, other: ExtensionLocalValue) -> bool:
+    def __eq__(self, other: ExtensionLocalValue | None) -> bool:
         if other is None:
             return len(self.value) == 0
-        return self.value == other.value
+        if len(self.value) != len(other.value):
+            return False
+        for key, value in self.value.items():
+            try:
+                if not self._extension_comparison(value, other.value[key]):
+                    return False
+            except KeyError:
+                return False
+        return all(map(operator.eq, self.value, other.value))  # also check order
+
+    def _extension_comparison(self, val1: Any, val2: Any) -> bool:
+        if isinstance(val1, etree_._Element) and isinstance(val2, etree_._Element):
+            # note: comparing qnames is not supported
+            diffs = xml_diff.diff_trees(val1, val2, {'F': 1})
+            diffs = [diff for diff in diffs if not isinstance(diff, xml_diff_actions.InsertNamespace)]
+            return not diffs
+        return val1 == val2
 
 
 class ExtensionNodeProperty(_ElementBase):
@@ -859,7 +865,7 @@ class ExtensionNodeProperty(_ElementBase):
             if cls:
                 values[extension_node.tag] = cls.from_node(extension_node)
             else:
-                values[extension_node.tag] = ExtensionXmlComparisonWrapper(extension_node)
+                values[extension_node.tag] = extension_node
         return ExtensionLocalValue(values)
 
     def update_xml_value(self, instance: Any, node: etree_.ElementBase):

@@ -1,3 +1,4 @@
+import collections
 import unittest
 from typing import Any
 from unittest import mock
@@ -106,6 +107,32 @@ class TestExtensions(unittest.TestCase):
         self.assertNotEqual(inst1.ExtExtension, inst2.ExtExtension)
         self.assertNotEqual(inst1, inst2)
 
+    def test_order(self):
+        xml1 = b"""
+        <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue"/>
+                <bar anotherattr="differentvalue"/>
+            </ext:Extension>
+        </pm:Identification>
+        """
+        xml2 = b"""
+        <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <bar anotherattr="differentvalue"/>
+                <foo someattr="somevalue"/>
+            </ext:Extension>
+        </pm:Identification>
+        """
+        inst1 = pm_types.InstanceIdentifier.from_node(lxml.etree.fromstring(xml1))
+        inst2 = pm_types.InstanceIdentifier.from_node(lxml.etree.fromstring(xml2))
+        self.assertNotEqual(inst1.ExtExtension, inst2.ExtExtension)
+        self.assertNotEqual(inst1, inst2)
+
     def test_fails_with_qname(self):
         xml1 = lxml.etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
@@ -121,9 +148,9 @@ class TestExtensions(unittest.TestCase):
                 <who:Unknown>who:lorem</who:Unknown>
         </who:ItIsNotKnown>
 </ext:Extension>""")
-        self.assertNotEqual(xml1, xml2)
-        inst1 = xml_structure.ExtensionXmlComparisonWrapper(xml1)
-        inst2 = xml_structure.ExtensionXmlComparisonWrapper(xml2)
+        self.assertNotEqual(lxml.etree.tostring(xml1), lxml.etree.tostring(xml2))
+        inst1 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml1.tag, xml1)]))
+        inst2 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml2.tag, xml2)]))
         self.assertNotEqual(inst1, inst2)
 
     def test_ignore_insert_namespaces(self):
@@ -135,28 +162,36 @@ class TestExtensions(unittest.TestCase):
 <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension" xmlns:what="123.456.789">
 <what:ItIsNotKnown><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
 </ext:Extension>""")
-        self.assertNotEqual(xml1, xml2)
-        inst1 = xml_structure.ExtensionXmlComparisonWrapper(xml1)
-        inst2 = xml_structure.ExtensionXmlComparisonWrapper(xml2)
+        self.assertNotEqual(lxml.etree.tostring(xml1), lxml.etree.tostring(xml2))
+        inst1 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml1.tag, xml1)]))
+        inst2 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml2.tag, xml2)]))
         self.assertEqual(inst1, inst2)
 
         def _return_only_insert_namespace_error(*_: Any, **__: Any) -> list[xml_diff_actions.InsertNamespace]:
             return []
 
-        with mock.patch.object(xml_diff, 'diff_trees', _return_only_insert_namespace_error):
-            self.assertEqual(xml_structure.ExtensionXmlComparisonWrapper(mock.MagicMock()),
-                             xml_structure.ExtensionXmlComparisonWrapper(mock.MagicMock()))
+        placeholder_xml = lxml.etree.Element('a')
+        placeholder = collections.OrderedDict([(placeholder_xml.tag, placeholder_xml)])
+        with mock.patch.object(xml_diff, 'diff_trees') as diff_mock:
+            diff_mock.side_effect = _return_only_insert_namespace_error
+            self.assertEqual(xml_structure.ExtensionLocalValue(placeholder),
+                             xml_structure.ExtensionLocalValue(placeholder))
+            diff_mock.assert_called_once()
 
         def _return_only_insert_namespace_error(*_: Any, **__: Any) -> list[xml_diff_actions.InsertNamespace]:
             return [xml_diff_actions.InsertNamespace('', '')]
 
-        with mock.patch.object(xml_diff, 'diff_trees', _return_only_insert_namespace_error):
-            self.assertEqual(xml_structure.ExtensionXmlComparisonWrapper(mock.MagicMock()),
-                             xml_structure.ExtensionXmlComparisonWrapper(mock.MagicMock()))
+        with mock.patch.object(xml_diff, 'diff_trees') as diff_mock:
+            diff_mock.side_effect = _return_only_insert_namespace_error
+            self.assertEqual(xml_structure.ExtensionLocalValue(placeholder),
+                             xml_structure.ExtensionLocalValue(placeholder))
+            diff_mock.assert_called_once()
 
         def _return_only_insert_namespace_error(*_: Any, **__: Any) -> list[xml_diff_actions.InsertNamespace]:
             return [xml_diff_actions.InsertNamespace('', ''), object()]
 
-        with mock.patch.object(xml_diff, 'diff_trees', _return_only_insert_namespace_error):
-            self.assertNotEqual(xml_structure.ExtensionXmlComparisonWrapper(mock.MagicMock()),
-                                xml_structure.ExtensionXmlComparisonWrapper(mock.MagicMock()))
+        with mock.patch.object(xml_diff, 'diff_trees') as diff_mock:
+            diff_mock.side_effect = _return_only_insert_namespace_error
+            self.assertNotEqual(xml_structure.ExtensionLocalValue(placeholder),
+                                xml_structure.ExtensionLocalValue(placeholder))
+            diff_mock.assert_called_once()
