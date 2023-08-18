@@ -203,10 +203,8 @@ class TestExtensions(unittest.TestCase):
         self.assertNotEqual(inst1, inst2)
 
     def test_different_keys(self):
-        inst1 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(1, mock.MagicMock()),
-                                                                           (2, mock.MagicMock())]))
-        inst2 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(1, mock.MagicMock()),
-                                                                           (3, mock.MagicMock())]))
+        inst1 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(1, mock.MagicMock())]))
+        inst2 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(2, mock.MagicMock())]))
         self.assertNotEqual(inst1, inst2)
 
     def test_compare_non_xml(self):
