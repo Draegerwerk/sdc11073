@@ -176,7 +176,7 @@ class TestExtensions(unittest.TestCase):
             diff_mock.side_effect = _return_only_insert_namespace_error
             self.assertEqual(xml_structure.ExtensionLocalValue(placeholder),
                              xml_structure.ExtensionLocalValue(placeholder))
-            diff_mock.assert_called_once()
+            self.assertEqual(2, diff_mock.call_count)
 
         def _return_only_insert_namespace_error(*_: Any, **__: Any) -> list[xml_diff_actions.InsertNamespace]:
             return [xml_diff_actions.InsertNamespace('', '')]
@@ -185,7 +185,7 @@ class TestExtensions(unittest.TestCase):
             diff_mock.side_effect = _return_only_insert_namespace_error
             self.assertEqual(xml_structure.ExtensionLocalValue(placeholder),
                              xml_structure.ExtensionLocalValue(placeholder))
-            diff_mock.assert_called_once()
+            self.assertEqual(2, diff_mock.call_count)
 
         def _return_only_insert_namespace_error(*_: Any, **__: Any) -> list[xml_diff_actions.InsertNamespace]:
             return [xml_diff_actions.InsertNamespace('', ''), object()]
@@ -194,7 +194,7 @@ class TestExtensions(unittest.TestCase):
             diff_mock.side_effect = _return_only_insert_namespace_error
             self.assertNotEqual(xml_structure.ExtensionLocalValue(placeholder),
                                 xml_structure.ExtensionLocalValue(placeholder))
-            diff_mock.assert_called_once()
+            self.assertEqual(2, diff_mock.call_count)
 
     def test_different_length(self):
         inst1 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(mock.MagicMock(), mock.MagicMock()),
@@ -216,3 +216,17 @@ class TestExtensions(unittest.TestCase):
 
         inst3 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(1, '2')]))
         self.assertNotEqual(inst1, inst3)
+
+    def test_ignore_comments(self):
+        xml1 = lxml.etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+<what:ItIsNotKnown xmlns:what="123.456.789"><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
+<!--This is an xml comment and should be ignored during comparison-->
+</ext:Extension>""")
+        xml2 = lxml.etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+<what:ItIsNotKnown xmlns:what="123.456.789"><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
+</ext:Extension>""")
+        inst1 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml1.tag, xml1)]))
+        inst2 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml2.tag, xml2)]))
+        self.assertEqual(inst1, inst2)

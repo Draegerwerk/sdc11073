@@ -824,8 +824,20 @@ class ExtensionLocalValue:
     def _extension_comparison(self, val1: Any, val2: Any) -> bool:
         if isinstance(val1, etree_._Element) and isinstance(val2, etree_._Element):
             # note: comparing qnames is not supported
-            diffs = xml_diff.diff_trees(val1, val2, {'F': 1})
-            diffs = [diff for diff in diffs if not isinstance(diff, xml_diff_actions.InsertNamespace)]
+            diffs = (xml_diff.diff_trees(val1, val2, {'F': 1}) +  # compare left right
+                     xml_diff.diff_trees(val2, val1, {'F': 1}))  # compare right left
+            for diff in diffs[:]:
+                if isinstance(diff, xml_diff_actions.DeleteNode):
+                    if 'comment()' in diff.node:  # ignore comments
+                        diffs.remove(diff)
+                elif isinstance(diff, xml_diff_actions.InsertComment):  # ignore comments
+                    diffs.remove(diff)
+                elif isinstance(diff, xml_diff_actions.UpdateTextAfter):
+                    if 'comment()' in diff.node:  # ignore comments
+                        diffs.remove(diff)
+                elif isinstance(diff, (xml_diff_actions.InsertNamespace, xml_diff_actions.DeleteNamespace)):
+                    diffs.remove(diff)  # ignore unused namespaces
+
             return not diffs
         return val1 == val2
 
