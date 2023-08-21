@@ -293,6 +293,9 @@ class _MdibUpdateTransaction(_TransactionBase):
             oldStateContainer = self._deviceMdibContainer.contextStates.handle.getOne(contextStateHandle,
                                                                                       allowNone=True)
             if oldStateContainer is not None:
+                if oldStateContainer.descriptorHandle != descriptorHandle:
+                    raise ValueError(
+                        f'Handle {contextStateHandle} and DescriptorHandle {descriptorHandle} do not match.')
                 set_associated = False  # keep state as it is
                 newStateContainer = oldStateContainer.mkCopy()
                 newStateContainer.incrementState()

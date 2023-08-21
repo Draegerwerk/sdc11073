@@ -49,7 +49,9 @@ class GenericContextProvider(providerbase.ProviderRole):
                     self._logger.info('new {}, handle={}', proposed_st.NODETYPE.localname, proposed_st.Handle)
                     tr.addContextState(proposed_st)
 
-                    if proposed_st.ContextAssociation == ContextAssociation.ASSOCIATED:
+                    if proposed_st.NODETYPE in (namespaces.domTag('PatientContextState'),
+                                                namespaces.domTag('LocationContextState')) \
+                            and proposed_st.ContextAssociation == ContextAssociation.ASSOCIATED:
                         # find all associated context states, disassociate them, set unbinding info, and add them to updates
                         oldContextStateContainers = operationInstance.operationTargetStorage.descriptorHandle.get(proposed_st.descriptorHandle, [])
                         for old_st in oldContextStateContainers:
