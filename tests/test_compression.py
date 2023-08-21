@@ -1,6 +1,7 @@
 import unittest
 import time
 import sdc11073
+from tests import utils
 from tests.mockstuff import SomeDevice
 from sdc11073.sdcclient import SdcClient
 from lxml import etree
@@ -25,7 +26,7 @@ class Test_Compression(unittest.TestCase):
         self.wsd = sdc11073.wsdiscovery.WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
         # Create a new device
-        self.location = sdc11073.location.SdcLocation(fac='tklx', poc='CU1', bed='Bed')
+        self.location = utils.random_location()
         self.sdcDevice_Final = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml')
         self._locValidators = [sdc11073.pmtypes.InstanceIdentifier('Validator', extensionString='System')]
 

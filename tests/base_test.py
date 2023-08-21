@@ -4,6 +4,7 @@ from sdc11073.wsdiscovery import WSDiscoverySingleAdapter
 from sdc11073 import pmtypes
 from sdc11073.location import SdcLocation
 from sdc11073.sdcclient import SdcClient
+from tests import utils
 from tests.mockstuff import SomeDevice
 
 loopback_adapter = 'Loopback Pseudo-Interface 1' if os.name == 'nt' else 'lo'
@@ -23,7 +24,7 @@ class BaseTest(unittest.TestCase):
         self.wsdiscovery.stop()
 
     def setUpCocoDraft10(self):
-        self.cocoFinalLocation = SdcLocation(fac='tklx', poc='CU1', bed='cocoDraft10Bed')
+        self.cocoFinalLocation = utils.random_location()
 
         self.sdcDeviceCoCoFinal = SomeDevice.fromMdibFile(self.wsdiscovery, None, '70041_MDIB_Final.xml')
         self.sdcDeviceCoCoFinal.startAll()

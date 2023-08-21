@@ -5,6 +5,7 @@ import time
 #pylint: disable=protected-access
 from sdc11073 import pmtypes, wsdiscovery
 from sdc11073.location import SdcLocation
+from tests import utils
 from tests.mockstuff import SomeDevice
 
 class Test_Device(unittest.TestCase):
@@ -13,10 +14,7 @@ class Test_Device(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = wsdiscovery.WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
-        location = SdcLocation(fac='tklx',
-                               poc='CU1',
-                               bed='Bed')
-    
+        location = utils.random_location()
 #        self.sdcDevice = CoCoDeviceAnesthesia(self.wsd, my_uuid=None, useSSL=False)
         self.sdcDevice = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml')
         self.sdcDevice.startAll()
