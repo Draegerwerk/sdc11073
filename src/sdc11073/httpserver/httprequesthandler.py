@@ -89,10 +89,10 @@ class DispatchingRequestHandler(BaseHTTPRequestHandler):
         self.send_response(http_status, http_reason)
         response_xml_string = self._compress_if_supported(response_xml_string)
         self.send_header("Content-type", "application/soap+xml; charset=utf-8")
-        if self.server.chunked_response:
+        if self.server.chunk_size > 0:
             self.send_header("transfer-encoding", "chunked")
             self.end_headers()
-            self.wfile.write(mk_chunks(response_xml_string))
+            self.wfile.write(mk_chunks(response_xml_string, chunk_size=self.server.chunk_size))
         else:
             self.send_header("Content-length", str(len(response_xml_string)))
             self.end_headers()
@@ -115,10 +115,10 @@ class DispatchingRequestHandler(BaseHTTPRequestHandler):
         self.send_response(http_status, http_reason)
         response_xml_string = self._compress_if_supported(response_xml_string)
         self.send_header("Content-type", content_type)
-        if self.server.chunked_response:
+        if self.server.chunk_size > 0:
             self.send_header("transfer-encoding", "chunked")
             self.end_headers()
-            self.wfile.write(mk_chunks(response_xml_string))
+            self.wfile.write(mk_chunks(response_xml_string, chunk_size=self.server.chunk_size))
         else:
             self.send_header("Content-length", str(len(response_xml_string)))
             self.end_headers()

@@ -76,7 +76,7 @@ class SoapClientProtocol(Protocol):
                  msg_reader: MessageReader,
                  supported_encodings: Iterable[str] | str = None,
                  request_encodings: Iterable[str] | str = None,
-                 chunked_requests: bool = False):
+                 chunk_size: int = 0):
         ...
 
     def post_message_to(self, hosted_service_path: str,
@@ -122,7 +122,7 @@ class SoapClient:
                  msg_reader: MessageReader,
                  supported_encodings: Iterable[str] | str = None,
                  request_encodings: Iterable[str] | str = None,
-                 chunked_requests: bool = False):
+                 chunk_size: int = 0):
         """Connect to one url.
 
         :param netloc: the location of the service (domain name:port) ###url of the service
@@ -137,7 +137,7 @@ class SoapClient:
                                   It is used to compress requests.
                                   If not set, requests will not be compressed.
                                   If set, then the http request will be compressed using this method
-        :param chunked_requests: it True, requests are chunk-encoded
+        :param chunk_size: if value > 0, message is split into chunks of this size.
         """
         self._log = logger
         self._ssl_context = ssl_context
@@ -155,7 +155,7 @@ class SoapClient:
         self.request_encodings = request_encodings if request_encodings is not None else []
         self._get_headers = self._make_get_headers()
         self._lock = Lock()
-        self._chunked_requests = chunked_requests
+        self._chunk_size = chunk_size
         self._has_connection_error = False  # used to avoid implicit connects after an error
 
     @property
@@ -191,9 +191,9 @@ class SoapClient:
     def close(self):
         """Close connection."""
         with self._lock:
-            self._close()
+            self._close_without_lock()
 
-    def _close(self):
+    def _close_without_lock(self):
         if self._http_connection is not None:
             self._log.info('closing soapClientNo {} for {}', self._client_number, self._netloc)
             self._http_connection.close()
@@ -278,9 +278,9 @@ class SoapClient:
                     headers['Content-Encoding'] = compr
                     break
         # split message into chunks?
-        if self._chunked_requests:
+        if self._chunk_size > 0:
             headers['transfer-encoding'] = "chunked"
-            xml = mk_chunks(xml)
+            xml = mk_chunks(xml, self._chunk_size)
         else:
             headers['Content-Length'] = str(len(xml))
 
@@ -289,7 +289,7 @@ class SoapClient:
             self._http_connection.request('POST', path, body=xml, headers=headers)
         except HTTPException as ex:
             self._log.warn("{}: could not send request, http exception = {!r}", log_msg, ex)
-            self._close()
+            self._close_without_lock()
             self._has_connection_error = True
             raise NotConnected from ex
         except OSError as ex:
@@ -299,13 +299,13 @@ class SoapClient:
                 self._log.warn("{}: could not send request to {}, OSError={!r}", log_msg, self.netloc,
                                traceback.format_exc())
             self._has_connection_error = True
-            self._close()
+            self._close_without_lock()
             raise NotConnected from ex
         except Exception as ex:  # noqa: BLE001
             self._log.warn("{}: POST to netloc='{}' path='{}': could not send request, error={!r}\n{}", log_msg,
                            self._netloc, path, ex, traceback.format_exc())
             self._has_connection_error = True
-            self._close()
+            self._close_without_lock()
             raise NotConnected from ex
 
         # read the response
@@ -314,7 +314,7 @@ class SoapClient:
         except HTTPException as ex:
             self._log.warn("{}: could not receive response, http exception = {!r} ", log_msg, ex)
             self._has_connection_error = True
-            self._close()
+            self._close_without_lock()
             raise NotConnected from ex
         except OSError as ex:
             if ex.errno in (10053, 10054):
@@ -323,13 +323,13 @@ class SoapClient:
                 self._log.warn("{}: could not receive response, OSError={!r} ({!r})\n{}", log_msg, ex.errno,
                                ex, traceback.format_exc())
             self._has_connection_error = True
-            self._close()
+            self._close_without_lock()
             raise NotConnected from ex
         except Exception as ex:  # noqa: BLE001
             self._log.warn("{}: POST to netloc='{}' path='{}': could not receive response, error={!r}\n{}",
                            log_msg, self._netloc, path, ex, traceback.format_exc())
             self._has_connection_error = True
-            self._close()
+            self._close_without_lock()
             raise NotConnected from ex
 
         content = HTTPReader.read_response_body(response)

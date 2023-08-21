@@ -191,7 +191,7 @@ class SdcConsumer:
                  log_prefix: str = '',
                  default_components: SdcConsumerComponents | None = None,
                  specific_components: SdcConsumerComponents | None = None,
-                 chunked_requests: bool = False,
+                 request_chunk_size: int = 0,
                  socket_timeout: int = 5):
         """Construct a SdcConsumer.
 
@@ -202,7 +202,7 @@ class SdcConsumer:
         :param validate: bool
         :param log_prefix: a string used as prefix for logging
         :param specific_components: a SdcConsumerComponents instance or None
-        :param chunked_requests: bool
+        :param request_chunk_size: if value > 0, message is split into chunks of this size
         :param socket_timeout: timeout for connections to provider
         """
         if not device_location.startswith('http'):
@@ -218,7 +218,7 @@ class SdcConsumer:
         self._device_uses_https = splitted.scheme.lower() == 'https'
 
         self.log_prefix = log_prefix
-        self.chunked_requests = chunked_requests
+        self.request_chunk_size = request_chunk_size
         self._socket_timeout = socket_timeout
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
         self._network_adapter = self._get_host_adapter_by_device_location()
@@ -605,7 +605,7 @@ class SdcConsumer:
                    sdc_definitions=self.sdc_definitions,
                    msg_reader=self.msg_reader,
                    supported_encodings=self._compression_methods,
-                   chunked_requests=self.chunked_requests)
+                   chunk_size=self.request_chunk_size)
 
     def _mk_hosted_services(self, host_description: mex_types.Metadata):
         for hosted in host_description.relationship.Hosted:
