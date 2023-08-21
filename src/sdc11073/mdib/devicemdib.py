@@ -267,17 +267,18 @@ class _MdibUpdateTransaction(_TransactionBase):
         return new_state
 
     @tr_method_wrapper
-    def getContextState(self, descriptorHandle, contextStateHandle=None, adjustStateVersion=True):
-        """ Create or Update a ContextState.
-        If contextStateHandle is None, a new Context State will be created and returned.
-        Otherwise an the existing contextState with that handle will be returned or a new one created.
-        When the transaction is committed, the modifications to the copy will be applied to the original version,
-        and notification messages will be sent to clients.
-        :param descriptorHandle: the descriptorHandle of the object that shall be read
-        :param contextStateHandle: If None, a new Context State will be created and returned.
-            Otherwise an existing contextState with that handle will be returned or a new one created.
-        :param adjustStateVersion: if True, and a state with this handle does not exist, but was already present in this mdib before,
-          the StateVersion of descriptorContainer is set to last known version for this handle +1
+    def getContextState(self, descriptorHandle, contextStateHandle=None, adjustStateVersion=True, set_associated=True):
+        """ Create or update a ContextState.
+
+        If contextStateHandle is None or the handle does not exist in mdib, a new Context State
+        is created and returned. Else an existing ContextState with that handle is returned.
+        :param descriptorHandle: the descriptorHandle of the ContextState that shall be read.
+        :param contextStateHandle: the handle of the ContextState that shall be read.
+        :param adjustStateVersion: if True, and a state with this handle does not exist,
+          but was already present in this mdib before, the StateVersion of descriptorContainer is set to
+          last known version for this handle +1
+        :param set_associated: If True, and a new context state is created, ContextAssociation is set to 'Assoc'
+          and BindingMdibVersion + BindingStartTime are set.
         @return: a copy of the state.
         """
         lookup_key = (descriptorHandle, contextStateHandle)
@@ -285,23 +286,29 @@ class _MdibUpdateTransaction(_TransactionBase):
             raise ValueError('descriptorHandle {} already in updated set!'.format(lookup_key))
         descriptorContainer = self._getDescriptorInTransaction(descriptorHandle)
         if contextStateHandle is None:
+            # create a new context state with random handle.
             oldStateContainer = None
             newStateContainer = self._deviceMdibContainer.mkStateContainerFromDescriptor(descriptorContainer)
-            newStateContainer.BindingMdibVersion = self._deviceMdibContainer.mdibVersion  # auto-set this Attribute
-            newStateContainer.BindingStartTime = time.time()  # auto-set this Attribute
         else:
             oldStateContainer = self._deviceMdibContainer.contextStates.handle.getOne(contextStateHandle,
                                                                                       allowNone=True)
             if oldStateContainer is not None:
+                if oldStateContainer.descriptorHandle != descriptorHandle:
+                    raise ValueError(
+                        f'Handle {contextStateHandle} and DescriptorHandle {descriptorHandle} do not match.')
+                set_associated = False  # keep state as it is
                 newStateContainer = oldStateContainer.mkCopy()
                 newStateContainer.incrementState()
             else:
+                # create a new context state with given handle.
                 newStateContainer = self._deviceMdibContainer.mkStateContainerFromDescriptor(descriptorContainer)
-                newStateContainer.BindingMdibVersion = self._deviceMdibContainer.mdibVersion  # auto-set this Attribute
-                newStateContainer.BindingStartTime = time.time()  # auto-set this Attribute
                 newStateContainer.Handle = contextStateHandle
                 if adjustStateVersion:
                     self._deviceMdibContainer.contextStates.setVersion(newStateContainer)
+        if set_associated:
+            newStateContainer.BindingMdibVersion = self._deviceMdibContainer.mdibVersion + 1  # version after commit
+            newStateContainer.BindingStartTime = time.time()
+            newStateContainer.ContextAssociation = pmtypes.ContextAssociation.ASSOCIATED
         self.contextStateUpdates[lookup_key] = _TrItem(oldStateContainer, newStateContainer)
         return newStateContainer
 
@@ -749,8 +756,10 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             for l in associatedLocations:
                 locationContext = mgr.getContextState(l.descriptorHandle, l.Handle)
                 locationContext.ContextAssociation = pmtypes.ContextAssociation.DISASSOCIATED
-                # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
-                locationContext.UnbindingMdibVersion = self.mdibVersion
+                # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version + 1)
+                locationContext.UnbindingMdibVersion = self.mdibVersion + 1
+                locationContext.BindingEndTime = time.time()
+
             descriptorContainer = self.descriptions.NODETYPE.getOne(domTag('LocationContextDescriptor'))
 
             self._currentLocation = mgr.getContextState(descriptorContainer.handle)  # this creates a new location state

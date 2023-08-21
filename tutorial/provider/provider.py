@@ -31,7 +31,8 @@ def setLocalEnsembleContext(mdib, ensemble):
         for l in associatedEnsembles:
             ensembleContext = mgr.getContextState(l.descriptorHandle, l.Handle)
             ensembleContext.ContextAssociation = pmtypes.ContextAssociation.DISASSOCIATED
-            ensembleContext.UnbindingMdibVersion = mdib.mdibVersion  # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
+            ensembleContext.UnbindingMdibVersion = mdib.mdibVersion + 1
+            ensembleContext.BindingEndTime = time.time()
 
         newEnsState = mgr.getContextState(descriptorContainer.handle)  # this creates a new location state
         newEnsState.ContextAssociation = 'Assoc'
