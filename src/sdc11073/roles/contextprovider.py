@@ -42,22 +42,25 @@ class GenericContextProvider(providerbase.ProviderRole):
                     # create a new unique handle
                     handleString = '{}_{}'.format(proposed_st.descriptorHandle, self._mdib.mdibVersion)
                     proposed_st.Handle = handleString
-                    proposed_st.BindingMdibVersion = self._mdib.mdibVersion
-                    proposed_st.BindingStartTime = time.time()
-                    proposed_st.ContextAssociation = ContextAssociation.ASSOCIATED
+                    if proposed_st.ContextAssociation == ContextAssociation.ASSOCIATED:
+                        proposed_st.BindingMdibVersion = self._mdib.mdibVersion + 1
+                        proposed_st.BindingStartTime = time.time()
                     proposed_st.updateNode()
                     self._logger.info('new {}, handle={}', proposed_st.NODETYPE.localname, proposed_st.Handle)
                     tr.addContextState(proposed_st)
 
-                    # find all associated context states, disassociate them, set unbinding info, and add them to updates
-                    oldContextStateContainers = operationInstance.operationTargetStorage.descriptorHandle.get(proposed_st.descriptorHandle, [])
-                    for old_st in oldContextStateContainers:
-                        if old_st.ContextAssociation != ContextAssociation.DISASSOCIATED or old_st.UnbindingMdibVersion is None:
-                            new_st = tr.getContextState(old_st.descriptorHandle, old_st.Handle)
-                            new_st.ContextAssociation = ContextAssociation.DISASSOCIATED
-                            if new_st.UnbindingMdibVersion is None:
-                                new_st.UnbindingMdibVersion = self._mdib.mdibVersion
-                                new_st.BindingEndTime = time.time()
+                    if proposed_st.NODETYPE in (namespaces.domTag('PatientContextState'),
+                                                namespaces.domTag('LocationContextState')) \
+                            and proposed_st.ContextAssociation == ContextAssociation.ASSOCIATED:
+                        # find all associated context states, disassociate them, set unbinding info, and add them to updates
+                        oldContextStateContainers = operationInstance.operationTargetStorage.descriptorHandle.get(proposed_st.descriptorHandle, [])
+                        for old_st in oldContextStateContainers:
+                            if old_st.ContextAssociation != ContextAssociation.DISASSOCIATED or old_st.UnbindingMdibVersion is None:
+                                new_st = tr.getContextState(old_st.descriptorHandle, old_st.Handle)
+                                new_st.ContextAssociation = ContextAssociation.DISASSOCIATED
+                                if new_st.UnbindingMdibVersion is None:
+                                    new_st.UnbindingMdibVersion = self._mdib.mdibVersion + 1
+                                    new_st.BindingEndTime = time.time()
                 else:
                     # this is an update to an existing patient
                     # use "regular" way to update via transaction manager

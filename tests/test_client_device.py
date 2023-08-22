@@ -797,6 +797,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
             # insert a new patient with wrong handle, this shall fail
             proposedContext = context.mkProposedContextObject(patientDescriptorContainer.handle)
+            proposedContext.ContextAssociation = pmtypes.ContextAssociation.ASSOCIATED
             proposedContext.Handle = 'some_nonexisting_handle'
             proposedContext.Givenname = 'Karl'
             proposedContext.Middlename = 'M.'
@@ -833,7 +834,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(patientContextStateContainer.Title, 'Dr.')
             self.assertEqual(patientContextStateContainer.Sex, 'M')
             self.assertEqual(patientContextStateContainer.PatientType, pmtypes.PatientType.ADULT)
-            #            self.assertEqual(patientContextStateContainer.DateOfBirth, datetime.datetime(2000, 12,12,14,55, tzinfo = containerproperties.UTC(0)))
             self.assertEqual(patientContextStateContainer.Height.MeasuredValue, 88.2)
             self.assertEqual(patientContextStateContainer.Weight.MeasuredValue, 68.2)
             self.assertEqual(patientContextStateContainer.Race, pmtypes.CodedValue('somerace'))
@@ -856,6 +856,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
             # set new patient, check binding mdib versions and context association
             proposedContext = context.mkProposedContextObject(patientDescriptorContainer.handle)
+            proposedContext.ContextAssociation = pmtypes.ContextAssociation.ASSOCIATED
             proposedContext.Givenname = 'Heidi'
             proposedContext.Middlename = 'M.'
             proposedContext.Familyname = 'Klammer'
@@ -953,8 +954,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(patientContextStateContainer.Weight, st.Weight)
             self.assertEqual(patientContextStateContainer.Race, st.Race)
             self.assertEqual(patientContextStateContainer.DateOfBirth, st.DateOfBirth)
-            self.assertEqual(patientContextStateContainer.BindingMdibVersion,
-                             tr_MdibVersion)  # created at the beginning
+            self.assertEqual(patientContextStateContainer.BindingMdibVersion, tr_MdibVersion + 1 )
             self.assertEqual(patientContextStateContainer.UnbindingMdibVersion, None)
 
             # test update of same patient
@@ -966,8 +966,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             patientContextStateContainer = clientMdib.contextStates.NODETYPE.getOne(
                 namespaces.domTag('PatientContextState'), allowNone=True)
             self.assertEqual(patientContextStateContainer.Givenname, 'Moritz')
-            self.assertEqual(patientContextStateContainer.BindingMdibVersion,
-                             tr_MdibVersion)  # created at the beginning
+            self.assertEqual(patientContextStateContainer.BindingMdibVersion, tr_MdibVersion + 1)
             self.assertEqual(patientContextStateContainer.UnbindingMdibVersion, None)
 
     def test_LocationContext(self):
@@ -983,7 +982,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(len(cl_locations), 1)
             self.assertEqual(dev_locations[0].Handle, cl_locations[0].Handle)
             self.assertEqual(cl_locations[0].ContextAssociation, pmtypes.ContextAssociation.ASSOCIATED)
-            self.assertEqual(cl_locations[0].BindingMdibVersion, 0)  # created at the beginning
+            self.assertEqual(cl_locations[0].BindingMdibVersion, 1)  # first mdib update
             self.assertEqual(cl_locations[0].UnbindingMdibVersion, None)
 
             for i in range(10):

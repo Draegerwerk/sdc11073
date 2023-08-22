@@ -12,6 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.0] - 2023-08-02
 
+### Fixed
+- getContextState sets correct BindingVersion [#168](https://github.com/Draegerwerk/sdc11073/issues/168).
+
+### Changed
+- additional parameter 'set_associated' for getContextState. It defaults to True.
+- _setContextState only sets BindingMdibVersion and -Time if proposed state is associated.
+
+## [1.2.0] - 2023-08-02
+ 
 ### Added
 
 - ssl_context_container parameter to be able to get rid of the deprecation warning occurring 
