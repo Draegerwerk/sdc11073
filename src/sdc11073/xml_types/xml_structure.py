@@ -804,7 +804,32 @@ class NodeTextQNameProperty(_ElementBase):
             sub_node.text = value
 
 
+def _compare_extension(left: Any, right: Any) -> bool:
+    if not isinstance(left, etree_._Element) and not isinstance(right, etree_._Element):
+        return left == right  # default comparison
+
+    # xml comparison
+    if left.tag != right.tag:  # compare expanded names
+        return False
+    if left.text != right.text:  # compare values
+        return False
+    if dict(left.attrib) != dict(right.attrib):  # unclear how lxml _Attrib compares
+        return False
+
+    # ignore comments
+    left_children = [child for child in left if not isinstance(child, etree_._Comment)]
+    right_children = [child for child in right if not isinstance(child, etree_._Comment)]
+
+    if len(left_children) != len(right_children):  # compare children count
+        return False
+    return all(map(_compare_extension, left_children, right_children))  # compare children but keep order
+
+
 class ExtensionLocalValue:
+
+    compare_method: Callable[[Any, Any], bool] = _compare_extension
+    """may be overwritten by user if a custom comparison behaviour is required"""
+
     def __init__(self, value: OrderedDict | None):
         self.value = value or OrderedDict()
 
@@ -815,31 +840,12 @@ class ExtensionLocalValue:
             return False
         for key, value in self.value.items():
             try:
-                if not self._extension_comparison(value, other.value[key]):
-                    return False
+                other_value = other.value[key]
             except KeyError:
                 return False
+            if not ExtensionLocalValue.compare_method(value, other_value):
+                return False
         return all(map(operator.eq, self.value, other.value))  # also check order
-
-    def _extension_comparison(self, val1: Any, val2: Any) -> bool:
-        if isinstance(val1, etree_._Element) and isinstance(val2, etree_._Element):
-            # note: comparing qnames is not supported
-            diffs = (xml_diff.diff_trees(val1, val2, {'F': 1}) +  # compare left right
-                     xml_diff.diff_trees(val2, val1, {'F': 1}))  # compare right left
-            for diff in diffs[:]:
-                if isinstance(diff, xml_diff_actions.DeleteNode):
-                    if 'comment()' in diff.node:  # ignore comments
-                        diffs.remove(diff)
-                elif isinstance(diff, xml_diff_actions.InsertComment):  # ignore comments
-                    diffs.remove(diff)
-                elif isinstance(diff, xml_diff_actions.UpdateTextAfter):
-                    if 'comment()' in diff.node:  # ignore comments
-                        diffs.remove(diff)
-                elif isinstance(diff, (xml_diff_actions.InsertNamespace, xml_diff_actions.DeleteNamespace)):
-                    diffs.remove(diff)  # ignore unused namespaces
-
-            return not diffs
-        return val1 == val2
 
 
 class ExtensionNodeProperty(_ElementBase):

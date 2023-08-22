@@ -31,7 +31,6 @@ dependencies = [
     'lxml>=2.3',
     'ifaddr',
     'aiohttp',
-    'xmldiff',
 ]
 
 [project.urls]
