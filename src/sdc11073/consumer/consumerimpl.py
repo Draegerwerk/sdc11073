@@ -217,13 +217,13 @@ class SdcConsumer:
         splitted = urlsplit(self._device_location)
         self._device_uses_https = splitted.scheme.lower() == 'https'
 
+        # available after start_all
+        self._network_adapter: network.NetworkAdapter | None = None
+
         self.log_prefix = log_prefix
         self.request_chunk_size = request_chunk_size
         self._socket_timeout = socket_timeout
         self._logger = loghelper.get_logger_adapter('sdc.client', self.log_prefix)
-        self._network_adapter = self._get_host_adapter_by_device_location()
-        self._logger.info(  # noqa: PLE1205
-            'SdcConsumer for {} uses own IP Address {}', self._device_location, self._network_adapter)
         self.host_description: mex_types.Metadata | None = None
         self.hosted_services = {}  # lookup by service id
         self._validate = validate
@@ -288,7 +288,7 @@ class SdcConsumer:
         return self._mdib
 
     @property
-    def network_adapter(self) -> network.NetworkAdapter:
+    def network_adapter(self) -> network.NetworkAdapter | None:
         """The network adapter used by this consumer."""
         return self._network_adapter
 
@@ -319,13 +319,6 @@ class SdcConsumer:
         sep = '' if tmp.endswith('/') else '/'
         tmp = f'{tmp}{sep}{self.path_prefix}/'
         return tmp
-
-    def _get_host_adapter_by_device_location(self) -> network.NetworkAdapter:
-        split_result = urlsplit(self._device_location)
-        device_addr = split_result.hostname
-        if device_addr is None:
-            device_addr = split_result.netloc.split(':')[0]  # without port
-        return network.get_adapter_containing_ip(device_addr)
 
     def mk_subscription(self, dpws_hosted: HostedServiceType,
                         filter_type: eventing_types.FilterType,
@@ -454,6 +447,12 @@ class SdcConsumer:
         # now query also metadata of hosted services
         self._mk_hosted_services(self.host_description)
         self._logger.debug('Services: {}', self._service_clients.keys())  # noqa: PLE1205
+
+        used_ip = self.get_soap_client(self._device_location).sock.getsockname()[0]
+        self._network_adapter = network.get_adapter_containing_ip(used_ip)
+        self._logger.info('SdcConsumer for {} uses network adapter {}',  # noqa: PLE1205
+                          self._device_location,
+                          self._network_adapter)
 
         # only GetService is mandatory!!!
         if check_get_service and self.get_service_client is None:
