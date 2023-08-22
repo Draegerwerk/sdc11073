@@ -18,7 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fixed a bug where the `SdcConsumer` failed to determine the host network adapter if the ip contained in the `device_location` is on a different subnet
 - comparison of extensions would fail [#238](https://github.com/Draegerwerk/sdc11073/issues/238)
 
-
 ## Added
 - `network` module to handle network adapter stuff of the host computer
 - `mypy` static code analysis
