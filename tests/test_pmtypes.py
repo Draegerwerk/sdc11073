@@ -210,3 +210,47 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
         xml_structure.ExtensionLocalValue.compare_method = _my_comparer
         self.assertEqual(inst1, inst2)
         xml_structure.ExtensionLocalValue.compare_method = orig_method
+
+    def test_cdata(self):
+        xml1 = b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                        <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                        <what:ItIsNotKnown xmlns:what="123.456.789">
+                        <![CDATA[<some test data & stuff>]]>
+                        <what:Unknown>What does this mean?<![CDATA[Test this CDATA section]]></what:Unknown></what:ItIsNotKnown>
+                        </ext:Extension>"""
+        xml2 = b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                        <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                        <who:ItIsNotKnown xmlns:who="123.456.789">
+                        <![CDATA[<some test data & stuff>]]>
+                        <who:Unknown>What does this mean?<![CDATA[Test this CDATA section]]></who:Unknown></who:ItIsNotKnown>
+                        </ext:Extension>"""
+        xml1 = lxml.etree.fromstring(xml1)
+        xml2 = lxml.etree.fromstring(xml2)
+
+        inst1 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml1.tag, xml1)]))
+        inst2 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml2.tag, xml2)]))
+        self.assertEqual(inst1, inst2)
+
+    def test_comparison_subelements(self):
+        xml1 = b"""
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue">
+                    <foo_subelement subelement="value"/>
+                </foo>
+                <bar anotherattr="differentvalue"/>
+            </ext:Extension>
+        """
+        xml2 = b"""
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue">
+                    <foo_subelement subelement="fiff_value"/>
+                </foo>
+                <bar anotherattr="differentvalue"/>
+            </ext:Extension>
+        """
+        xml1 = lxml.etree.fromstring(xml1)
+        xml2 = lxml.etree.fromstring(xml2)
+
+        inst1 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml1.tag, xml1)]))
+        inst2 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml2.tag, xml2)]))
+        self.assertNotEqual(inst1, inst2)

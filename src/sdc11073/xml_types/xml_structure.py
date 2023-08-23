@@ -804,7 +804,7 @@ class NodeTextQNameProperty(_ElementBase):
 
 
 def _compare_extension(left: Any, right: Any) -> bool:
-    if not isinstance(left, etree_._Element) and not isinstance(right, etree_._Element):
+    if not isinstance(left, etree_._Element) or not isinstance(right, etree_._Element):
         return left == right  # default comparison
 
     # xml comparison
@@ -835,6 +835,9 @@ class ExtensionLocalValue:
     def __eq__(self, other: ExtensionLocalValue | None) -> bool:
         if other is None:
             return len(self.value) == 0
+        if not isinstance(other, self.__class__):
+            return NotImplemented
+
         if len(self.value) != len(other.value):
             return False
         for key, value in self.value.items():
