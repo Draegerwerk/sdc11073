@@ -254,3 +254,21 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
         inst1 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml1.tag, xml1)]))
         inst2 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml2.tag, xml2)]))
         self.assertNotEqual(inst1, inst2)
+
+    def test_mixed_content_is_ignored(self):
+        xml1 = lxml.etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
+        xmlns:what="123.456.789">
+        <what:ItIsNotKnown><what:Unknown>what:lorem</what:Unknown></what:ItIsNotKnown>
+</ext:Extension>""")
+        xml2 = lxml.etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
+        xmlns:what="123.456.789">
+        <what:ItIsNotKnown>
+        dsafasdf
+        <what:Unknown>what:lorem</what:Unknown>
+        </what:ItIsNotKnown>
+</ext:Extension>""")
+        inst1 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml1.tag, xml1)]))
+        inst2 = xml_structure.ExtensionLocalValue(collections.OrderedDict([(xml2.tag, xml2)]))
+        self.assertEqual(inst1, inst2)

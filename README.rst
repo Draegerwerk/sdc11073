@@ -80,8 +80,6 @@ Limitations
 The wsdiscovery module only works with a single ipv4 address. Publishing a device on multiple networks it not supported.
 The same is valid for searching.
 
-The usage of `QNames` in extensions is not supported, see `explanation of SDPi <https://github.com/IHE/DEV.SDPi/pull/211>`__
-
 ISO 9001
 --------
 

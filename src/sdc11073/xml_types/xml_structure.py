@@ -810,8 +810,6 @@ def _compare_extension(left: Any, right: Any) -> bool:
     # xml comparison
     if left.tag != right.tag:  # compare expanded names
         return False
-    if left.text != right.text:  # compare values
-        return False
     if dict(left.attrib) != dict(right.attrib):  # unclear how lxml _Attrib compares
         return False
 
@@ -821,6 +819,10 @@ def _compare_extension(left: Any, right: Any) -> bool:
 
     if len(left_children) != len(right_children):  # compare children count
         return False
+    if len(left_children) == 0 and len(right_children) == 0:
+        if left.text != right.text:  # mixed content is not allowed. only compare text if there are no children
+            return False
+
     return all(map(_compare_extension, left_children, right_children))  # compare children but keep order
 
 
