@@ -16,7 +16,6 @@ from collections import OrderedDict
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Callable
 
-from xmldiff import main as xml_diff, actions as xml_diff_actions
 from lxml import etree as etree_
 
 from sdc11073.exceptions import ApiUsageError
