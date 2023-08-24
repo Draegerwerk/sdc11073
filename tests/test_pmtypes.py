@@ -80,6 +80,7 @@ class TestExtensions(unittest.TestCase):
                            Extension="123.234.424">
             <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
                 <foo someattr="somevalue"/>
+                    <foo_child childattr="somechild"/>
                 <bar anotherattr="differentvalue"/>
             </ext:Extension>
         </pm:Identification>
