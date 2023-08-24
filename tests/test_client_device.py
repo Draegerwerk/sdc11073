@@ -1182,7 +1182,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='<Final> ',
-                                                    chunked_messages=True)
+                                                    chunk_size=512)
 
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all()
@@ -1198,7 +1198,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
                                     log_prefix='<Final> ',
-                                    chunked_requests=True)
+                                    request_chunk_size=512)
         self.sdc_client.start_all()
 
         time.sleep(1)
@@ -1238,7 +1238,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         )
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='<Final> ',
                                                     specific_components=specific_components,
-                                                    chunked_messages=True)
+                                                    chunk_size=512)
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -1254,7 +1254,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
                                     validate=CLIENT_VALIDATE,
                                     log_prefix='<Final> ',
                                     specific_components=specific_components,
-                                    chunked_requests=True)
+                                    request_chunk_size=512)
         self.sdc_client.start_all()
 
         time.sleep(1)
@@ -1326,7 +1326,7 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='',
                                                     default_components=default_sdc_provider_components_sync,
-                                                    chunked_messages=True)
+                                                    chunk_size=512)
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
@@ -1339,7 +1339,7 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
                                     ssl_context=None,
                                     validate=CLIENT_VALIDATE,
                                     log_prefix='',
-                                    chunked_requests=True)
+                                    request_chunk_size=512)
         self.sdc_client.start_all(subscribe_periodic_reports=True)
 
         time.sleep(1)

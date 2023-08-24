@@ -90,7 +90,7 @@ class SdcProvider:
                  log_prefix: str = '',
                  default_components: SdcProviderComponents | None = None,
                  specific_components: SdcProviderComponents | None = None,
-                 chunked_messages: bool = False):
+                 chunk_size: int = 0):
         """Construct an SdcProvider.
 
         :param ws_discovery: a WsDiscovers instance
@@ -106,7 +106,7 @@ class SdcProvider:
                                If None, it is set to max_subscription_duration * 1.2
         :param log_prefix: a string
         :param specific_components: a SdcProviderComponents instance
-        :param chunked_messages: bool
+        :param chunk_size: if value > 0, messages are split into chunks of this size.
         """
         self._wsdiscovery = ws_discovery
         self.model = this_model
@@ -127,7 +127,7 @@ class SdcProvider:
         if specific_components is not None:
             # merge specific stuff into _components
             self._components.merge(specific_components)
-        self.chunked_messages = chunked_messages
+        self.chunk_size = chunk_size
 
         self._mdib.log_prefix = log_prefix
         self._compression_methods = compression.CompressionHandler.available_encodings[:]
@@ -214,7 +214,7 @@ class SdcProvider:
                    msg_reader=self.msg_reader,
                    supported_encodings=self._compression_methods,
                    request_encodings=accepted_encodings,
-                   chunked_requests=self.chunked_messages)
+                   chunk_size=self.chunk_size)
 
     def _setup_components(self):
         self._subscriptions_managers = {}
@@ -409,7 +409,7 @@ class SdcProvider:
 
             self._http_server = HttpServerThreadBase(
                 my_ipaddress='0.0.0.0', ssl_context=self._ssl_context, supported_encodings=self._compression_methods,
-                logger=logger, chunked_responses=self.chunked_messages)
+                logger=logger, chunk_size=self.chunk_size)
 
             # first start http server, the services need to know the ip port number
             self._http_server.start()
