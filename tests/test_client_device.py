@@ -1057,6 +1057,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         return CreatedMessage(soap_envelope, self.sdc_client.get_service_client._msg_factory)
 
     def test_extension(self):
+        """Verify that all Extension Elements of descriptors are identical on provider and consumer."""
         def are_equivalent(node1, node2):
             if node1.tag != node2.tag or node1.attrib != node2.attrib or node1.text != node2.text:
                 return False
@@ -1069,16 +1070,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
         cl_mdib.init_mdib()
         for cl_descriptor in cl_mdib.descriptions.objects:
             dev_descriptor = self.sdc_device.mdib.descriptions.handle.get_one(cl_descriptor.Handle)
-            self.assertEqual(dev_descriptor.Extension.value.keys(), cl_descriptor.Extension.value.keys())
-            for key, dev_val in dev_descriptor.Extension.value.items():
-                cl_val = cl_descriptor.Extension.value[key]
-                try:
-                    if isinstance(dev_val, etree_._Element):
-                        self.assertTrue(are_equivalent(dev_val, cl_val))
-                    else:
-                        self.assertEqual(dev_val, cl_val)
-                except:
-                    raise
+            self.assertEqual([x.tag for x in dev_descriptor.Extension.value], [x.tag for x in cl_descriptor.Extension.value])
+            for dev, cl in zip(dev_descriptor.Extension.value, cl_descriptor.Extension.value):
+                self.assertTrue(are_equivalent(dev, cl))
 
 
 class Test_DeviceCommonHttpServer(unittest.TestCase):

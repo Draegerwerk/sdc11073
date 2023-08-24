@@ -152,16 +152,16 @@ class AbstractDescriptorContainer(ContainerBase):
     def parent_handle(self, value: str):
         self._parent_handle = value
 
-    @property
-    def retrievability(self) -> [pm_types.Retrievability, None]:  # noqa: D102
-        if self.Extension is None:
-            return None
-        return self.Extension.value.get(msg.Retrievability)
+    def get_retrievability(self) -> list[pm_types.Retrievability]:
+        """Return all retrievability data from Extension."""
+        return  [pm_types.Retrievability.from_node(x) for x in self.Extension.value if x.tag == msg.Retrievability]
 
-    @retrievability.setter
-    def retrievability(self, retrievability_instance: pm_types.Retrievability):
-        value = self.Extension.value
-        value[msg.Retrievability] = retrievability_instance
+    def set_retrievability(self, retrievability_list: list[pm_types.Retrievability]) -> None:
+        """Replace all retrievability elements with provided ones in Extension."""
+        tmp = [x for x in self.Extension.value if x.tag == msg.Retrievability]
+        for x in tmp:
+            self.Extension.value.remove(x)
+        self.Extension.value.extend([r.as_etree_node(msg.Retrievability, {}) for r in retrievability_list])
 
     def increment_descriptor_version(self):
         """Increment DescriptorVersion."""

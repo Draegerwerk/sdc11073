@@ -5,11 +5,9 @@ from itertools import cycle
 
 from sdc11073 import wsdiscovery
 from sdc11073.consumer import SdcConsumer
-from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.observableproperties import ValuesCollector
-from sdc11073.xml_types import pm_types
-from sdc11073.xml_types.pm_types import RetrievabilityMethod, RetrievabilityInfo, Retrievability
+from sdc11073.xml_types.pm_types import RetrievabilityMethod, RetrievabilityInfo, Retrievability, InstanceIdentifier
 from tests import utils
 from tests.mockstuff import SomeDevice
 
@@ -33,13 +31,15 @@ class Test_Device_PeriodicReports(unittest.TestCase):
         periods = cycle([1.0, 2.0, 3.0])
         for descr in mdib.descriptions.objects:
             p = next(periods)
-            if descr.retrievability is None:
-                descr.retrievability = Retrievability()
-            descr.retrievability.By.append(RetrievabilityInfo(RetrievabilityMethod.PERIODIC, update_period=p))
+            retr_list = descr.get_retrievability()
+            if len(retr_list) == 0:
+                retr_list.append(Retrievability())
+            retr_list[0].By.append(RetrievabilityInfo(RetrievabilityMethod.PERIODIC, update_period=p))
+            descr.set_retrievability(retr_list)
         mdib.xtra.update_retrievability_lists()
 
         self.sdc_device.start_all()
-        loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+        loc_validators = [InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), loc_validators)
 
         time.sleep(0.1)  # allow full init of device

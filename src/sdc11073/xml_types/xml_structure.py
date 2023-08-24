@@ -804,7 +804,7 @@ class NodeTextQNameProperty(_ElementBase):
 
 class ExtensionLocalValue:
     def __init__(self, value: Any):
-        self.value = value or OrderedDict()
+        self.value = value or list()
 
     def __eq__(self, other: ExtensionLocalValue) -> bool:
         if other is None:
@@ -838,17 +838,7 @@ class ExtensionNodeProperty(_ElementBase):
             extension_nodes = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
         except ElementNotFoundError:
             return None
-        values = OrderedDict()
-        for extension_node in extension_nodes:
-            try:
-                cls = instance.extension_class_lookup.get(extension_node.tag)
-            except AttributeError:
-                cls = None
-            if cls:
-                values[extension_node.tag] = cls.from_node(extension_node)
-            else:
-                values[extension_node.tag] = extension_node
-        return ExtensionLocalValue(values)
+        return ExtensionLocalValue(extension_nodes[:])
 
     def update_xml_value(self, instance: Any, node: etree_.ElementBase):
         """Write value to node."""
@@ -866,12 +856,7 @@ class ExtensionNodeProperty(_ElementBase):
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
 
             del sub_node[:]  # delete all children first
-
-            for tag, val in extension_local_value.value.items():
-                if val is None:
-                    continue
-                _node = val.as_etree_node(tag, node.nsmap) if hasattr(val, 'as_etree_node') else val
-                sub_node.append(copy.copy(_node))
+            sub_node.extend(copy.copy(x) for x in extension_local_value.value)
 
 
 class AnyEtreeNodeProperty(_ElementBase):
