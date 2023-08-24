@@ -65,3 +65,28 @@ class TestExtensions(unittest.TestCase):
                 """
         inst2 = pmtypes.InstanceIdentifier.fromNode(lxml.etree.fromstring(another_xml))
         self.assertNotEqual(inst1, inst2)
+
+    def test_compare_attributes(self):
+        xml1 = b"""
+        <pm:Identification xmlns:pm="__BICEPS_ParticipantModel__"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+            <ext:Extension xmlns:ext="__ExtensionPoint__">
+                <foo someattr="somevalue"/>
+                <bar anotherattr="differentvalue"/>
+            </ext:Extension>
+        </pm:Identification>
+        """
+        xml2 = b"""
+        <pm:Identification xmlns:pm="__BICEPS_ParticipantModel__"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+            <ext:Extension xmlns:ext="__ExtensionPoint__">
+                <foo someattr="somevalue"/>
+                <bar anotherattr="differentvalue2"/>
+            </ext:Extension>
+        </pm:Identification>
+                """
+        inst1 = pmtypes.InstanceIdentifier.fromNode(lxml.etree.fromstring(xml1))
+        inst2 = pmtypes.InstanceIdentifier.fromNode(lxml.etree.fromstring(xml2))
+        self.assertNotEqual(inst1, inst2)
