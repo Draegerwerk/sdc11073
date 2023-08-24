@@ -8,7 +8,7 @@ import enum
 import warnings
 from typing import Union
 from lxml import etree as etree_
-from sdc11073 import namespaces
+from sdc11073 import namespaces, xmlparsing
 from .mdib import containerproperties as cp
 from math import isclose
 
@@ -66,6 +66,10 @@ class PropertyBasedPMType(object):
             for name, dummy in self._sortedContainerProperties():
                 my_value = getattr(self, name)
                 other_value = getattr(other, name)
+                if (name == 'ext_Extension'
+                        and isinstance(my_value, etree_._Element)
+                        and isinstance(other_value, etree_._Element)):
+                    return xmlparsing.compare_xml_extension(my_value, other_value)
                 if my_value == other_value:
                     continue
                 elif (isinstance(my_value, float) or isinstance(other_value, float)) and isclose(my_value, other_value):

@@ -6,10 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Fixed
+### Fixed
+
 - getContextState sets correct BindingVersion [#168](https://github.com/Draegerwerk/sdc11073/issues/168).
+- comparison of extensions would fail [#238](https://github.com/Draegerwerk/sdc11073/issues/238)
 
 ### Changed
+
 - additional parameter 'set_associated' for getContextState. It defaults to True.
 - _setContextState only sets BindingMdibVersion and -Time if proposed state is associated.
 
