@@ -8,6 +8,7 @@ from lxml.etree import Element, ElementBase, QName
 
 from sdc11073 import observableproperties as properties
 from sdc11073.namespaces import QN_TYPE, NamespaceHelper
+from sdc11073.xml import utils as xml_utils
 
 
 class ContainerBase:
@@ -83,7 +84,7 @@ class ContainerBase:
         """Make a copy of self."""
         copied = copy.copy(self)
         if copy_node:
-            copied.node = copy.deepcopy(self.node)
+            copied.node = xml_utils.copy_element(self.node)
         return copied
 
     def sorted_container_properties(self) -> list:
