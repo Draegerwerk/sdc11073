@@ -24,14 +24,14 @@ class _ThreadingHTTPServer(HTTPServer):
     """
 
     def __init__(self, logger, server_address,
-                 chunked_responses, supported_encodings):
+                 chunk_size, supported_encodings):
 
         super().__init__(server_address, DispatchingRequestHandler)
         self.daemon_threads = True
         self.threads = []
         self.logger = logger
         self.dispatcher = PathElementRegistry()
-        self.chunked_response = chunked_responses
+        self.chunk_size = chunk_size
         self.supported_encodings = supported_encodings
 
     def process_request_thread(self, request, client_address):
@@ -81,7 +81,7 @@ class _ThreadingHTTPServer(HTTPServer):
 class HttpServerThreadBase(threading.Thread):
 
     def __init__(self, my_ipaddress, ssl_context, supported_encodings,
-                 logger, chunked_responses=False):
+                 logger, chunk_size=0):
         """
         Runs a ThreadingHTTPServer in a thread, so that it can be stopped without blocking.
         Handling of requests happens in two stages:
@@ -91,7 +91,7 @@ class HttpServerThreadBase(threading.Thread):
         :param ssl_context: a ssl.SslContext instance or None
         :param supported_encodings: a list of strings
         :param logger: a python logger
-        :param chunked_responses: boolean
+        :param chunk_size: if value > 0, messages are split into chunks of this size.
         """
         super().__init__(name='Dev_SdcHttpServerThread')
         self.daemon = True
@@ -105,7 +105,7 @@ class HttpServerThreadBase(threading.Thread):
             self.logger = LoggerAdapter(logger)
         else:
             self.logger = logger
-        self.chunked_responses = chunked_responses
+        self.chunk_size = chunk_size
         # create and set up the dispatcher for all incoming requests
         self.started_evt = threading.Event()  # helps to wait until thread has initialised is variables
         self._stop_requested = False
@@ -117,7 +117,7 @@ class HttpServerThreadBase(threading.Thread):
             myport = 0  # zero means that OS selects a free port
             self.httpd = _ThreadingHTTPServer(self.logger,
                                               (self._my_ipaddress, myport),
-                                              self.chunked_responses,
+                                              self.chunk_size,
                                               self.supported_encodings)
             self.my_port = self.httpd.server_port
             self.logger.info('starting http server on {}:{}', self._my_ipaddress, self.my_port)

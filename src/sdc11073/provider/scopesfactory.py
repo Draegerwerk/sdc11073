@@ -18,7 +18,7 @@ def mk_scopes(mdib) -> ScopesType:
     if len(assoc_loc) == 1:
         loc = assoc_loc[0]
         det = loc.LocationDetail
-        dr_loc = SdcLocation(fac=det.Facility, poc=det.PoC, bed=det.Bed, bld=det.Building,
+        dr_loc = SdcLocation(fac=det.Facility, poc=det.PoC, bed=det.Bed, bldng=det.Building,
                              flr=det.Floor, rm=det.Room)
         scope.text.append(dr_loc.scope_string)
 

@@ -257,8 +257,8 @@ class DefaultWaveformSource:
                 state.mk_metric_value()
             state.MetricValue.Samples = samples
             state.MetricValue.DeterminationTime = rt_sample_array.determination_time
-            state.MetricValue.Annotations = rt_sample_array.annotations
-            state.MetricValue.ApplyAnnotations = rt_sample_array.apply_annotations
+            state.MetricValue.Annotation = rt_sample_array.annotations
+            state.MetricValue.ApplyAnnotation = rt_sample_array.apply_annotations
             state.ActivationState = rt_sample_array.activation_state
 
     def _add_all_annotations(self):

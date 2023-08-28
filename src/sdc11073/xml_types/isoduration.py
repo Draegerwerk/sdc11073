@@ -4,7 +4,7 @@ import re
 from collections import namedtuple
 from datetime import date, datetime, timedelta, tzinfo
 from decimal import Decimal
-from typing import NewType, Union
+from typing import Union
 
 ISO8601_PERIOD_REGEX = re.compile(
     r"^(?P<sign>[+-])?"
@@ -19,9 +19,8 @@ ISO8601_PERIOD_REGEX = re.compile(
 
 # regular expression to parse ISO duration strings.
 
-DurationType = NewType('DurationType', Union[Decimal, int, float])  # input types for duration string creation
-ParsedDurationType = NewType('ParsedDurationType', Union[int, float])  # output types for parsed duration string
-
+DurationType = Union[Decimal, int, float]
+ParsedDurationType = Union[int, float]
 
 def parse_duration(date_string: str) -> ParsedDurationType:
     """Parse an ISO 8601 durations into a float value containing seconds.
@@ -111,7 +110,13 @@ _DATETIME_REGEX_RELAXED = re.compile(
 _year_month_regex = re.compile('^(?P<year>[0-9]{4})(-(?P<month>1[0-2]|0[1-9]))?')
 
 
-def parse_date_time(date_time_str, strict=True):
+DateTypeUnion = Union[GYear, GYearMonth, date, datetime]
+
+def parse_date_time(date_time_str: str, strict: bool = True) -> DateTypeUnion | None:
+    """Parse a date time string.
+
+    String can be  xsd:dateTime, xsd:date, xsd:gYearMonth or xsd:gYear.
+    """
     try:
         d_t = _DATETIME_REGEX.match(date_time_str) if strict else _DATETIME_REGEX_RELAXED.match(date_time_str)
         if d_t is not None:
@@ -152,7 +157,7 @@ def parse_date_time(date_time_str, strict=True):
         return None
 
 
-def _mk_seconds_string(date_object):
+def _mk_seconds_string(date_object: DateTypeUnion) -> str:
     if date_object.microsecond > 0:
         seconds = float(date_object.second) + float(date_object.microsecond) / 1e6
         seconds_string = f'{seconds:06.03f}'
@@ -164,7 +169,7 @@ def _mk_seconds_string(date_object):
     return seconds_string
 
 
-def _mk_tz_string(date_object):
+def _mk_tz_string(date_object: DateTypeUnion) -> str:
     tz_string = ''
     if date_object.tzinfo:
         delta = date_object.tzinfo.utcoffset(0)
@@ -179,7 +184,7 @@ def _mk_tz_string(date_object):
     return tz_string
 
 
-def date_time_string(date_object):
+def date_time_string(date_object: DateTypeUnion) -> str:
     if hasattr(date_object, 'hour'):  # datetime object
         date_string = '{:4d}-{:02d}-{:02d}T{:02d}:{:02d}:{}{}'.format(
             date_object.year, date_object.month, date_object.day,

@@ -122,7 +122,7 @@ class SomeDevice(SdcProvider):
                  log_prefix: str = '',
                  default_components: SdcProviderComponents | None = None,
                  specific_components: SdcProviderComponents | None = None,
-                 chunked_messages: bool =False):
+                 chunk_size: int = 0):
         model = ThisModelType(manufacturer='Example Manufacturer',
                               manufacturer_url='www.example-manufacturer.com',
                               model_name='SomeDevice',
@@ -148,7 +148,7 @@ class SomeDevice(SdcProvider):
                          log_prefix=log_prefix,
                          default_components=default_components,
                          specific_components=specific_components,
-                         chunked_messages=chunked_messages)
+                         chunk_size=chunk_size)
 
     @classmethod
     def from_mdib_file(cls,
@@ -161,7 +161,7 @@ class SomeDevice(SdcProvider):
                        log_prefix: str = '',
                        default_components: SdcProviderComponents | None = None,
                        specific_components: SdcProviderComponents | None = None,
-                       chunked_messages: bool =False):
+                       chunk_size: int = 0):
         """Construct class with path to a mdib file."""
         if not os.path.isabs(mdib_xml_path):
             here = os.path.dirname(__file__)
@@ -173,4 +173,4 @@ class SomeDevice(SdcProvider):
                    max_subscription_duration = max_subscription_duration,
                    log_prefix=log_prefix,
                    default_components=default_components, specific_components=specific_components,
-                   chunked_messages=chunked_messages)
+                   chunk_size=chunk_size)

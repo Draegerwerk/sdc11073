@@ -13,15 +13,15 @@ description = "Pure python implementation of IEEE11073 SDC protocol"
 readme = "README.rst"
 requires-python = ">=3.9, <3.12"
 classifiers = [
-        'Development Status :: 5 - Production/Stable',
-        'Intended Audience :: Developers',
-        'Topic :: Software Development',
-        'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
-        'Operating System :: Microsoft :: Windows',
-        'Operating System :: POSIX :: Linux'
+    'Development Status :: 5 - Production/Stable',
+    'Intended Audience :: Developers',
+    'Topic :: Software Development',
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Operating System :: Microsoft :: Windows',
+    'Operating System :: POSIX :: Linux'
 ]
 keywords = [
     "SDC",
@@ -45,6 +45,7 @@ test = [
     "pytest",
     "pytest-html",
     "pytest-cov",
+    "pytest-xdist[psutil]",
     "sdc11073[lz4]",
 ]
 mypy = [
@@ -60,7 +61,7 @@ dev = [
 [tool.hatch.build.targets.sdist]
 include = [
     "src/sdc11073/**/*",
-    "docs/*",  # include picture for readme
+    "docs/*", # include picture for readme
     "LICENSE",
     "README.rst",
     "pyproject.toml",
@@ -76,8 +77,14 @@ path = "src/sdc11073/__init__.py"
 
 [tool.pytest.ini_options]
 testpaths = "tests/"
+filterwarnings = [# https://docs.python.org/3/library/warnings.html#warning-filter
+    "error",
+    "ignore::UserWarning",
+    "ignore:The --rsyncdir command line argument and rsyncdirs config variable are deprecated.:DeprecationWarning", # https://github.com/psf/black/issues/3805
+]
 
 # https://docs.pytest.org/en/latest/how-to/logging.html#live-logs
+# please note that live-logs for cli while using xdist is not working. see https://github.com/pytest-dev/pytest-xdist/issues/574
 log_cli = true
 log_cli_level = "info"
 log_cli_format = "%(asctime)s %(levelname)s (%(threadName)-10s) %(filename)s:%(lineno)d %(message)s"
@@ -129,6 +136,7 @@ extend-select = [# https://beta.ruff.rs/docs/settings/#extend-select
 extend-ignore = [# https://beta.ruff.rs/docs/settings/#extend-ignore
     "ANN101", # https://beta.ruff.rs/docs/rules/missing-type-self/
     "ANN102", # https://beta.ruff.rs/docs/rules/missing-type-cls/
+    "ANN204", # https://beta.ruff.rs/docs/rules/missing-return-type-special-method/
     "ANN401", # https://beta.ruff.rs/docs/rules/any-type/
     "C408", # https://beta.ruff.rs/docs/rules/unnecessary-collection-call/
     "C409", # https://beta.ruff.rs/docs/rules/unnecessary-literal-within-tuple-call/
@@ -138,6 +146,7 @@ extend-ignore = [# https://beta.ruff.rs/docs/settings/#extend-ignore
     "D213", # multi-line-summary-second-line
     "Q000", # https://beta.ruff.rs/docs/rules/bad-quotes-inline-string/
     "S101", # https://beta.ruff.rs/docs/rules/assert/
+    "S311", # https://beta.ruff.rs/docs/rules/suspicious-non-cryptographic-random-usage/
     "SIM102", # collapsible-if
     "T201", # https://beta.ruff.rs/docs/rules/print/
 
@@ -176,9 +185,12 @@ warn_unused_configs = true # https://mypy.readthedocs.io/en/stable/config_file.h
 warn_unused_ignores = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-warn_unused_ignores
 
 [tool.coverage.report]
-exclude_also = [ # https://coverage.readthedocs.io/en/7.2.7/config.html#report-exclude-also
+exclude_also = [# https://coverage.readthedocs.io/en/latest/config.html#report-exclude-also
     "raise AssertionError",
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
 ]
-ignore_errors = true # https://coverage.readthedocs.io/en/7.2.7/config.html#report-ignore-errors
+ignore_errors = true # https://coverage.readthedocs.io/en/latest/config.html#report-ignore-errors
+
+[tool.coverage.run]
+parallel = true # https://coverage.readthedocs.io/en/latest/config.html#run-parallel

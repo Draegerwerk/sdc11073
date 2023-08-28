@@ -39,7 +39,7 @@ class SoapClientAsync:
                  msg_reader: MessageReader,
                  supported_encodings: list[str] | None = None,
                  request_encodings: list[str] | None = None,
-                 chunked_requests: bool | None = False):
+                 chunk_size: int = 0):
         self._log = logger
         self._ssl_context = ssl_context
         self._sdc_definitions = sdc_definitions
@@ -55,7 +55,7 @@ class SoapClientAsync:
         # these compression alg's does the other side accept ( set at runtime):
         self.request_encodings = request_encodings if request_encodings is not None else []
         self._get_headers = self._make_get_headers()
-        self._chunked_requests = chunked_requests
+        self._chunk_size = chunk_size
         self._netloc = netloc
 
     @property
@@ -137,9 +137,9 @@ class SoapClientAsync:
                         xml_request = CompressionHandler.compress_payload(compr, xml_request)
                         headers['Content-Encoding'] = compr
                         break
-            if self._chunked_requests:
+            if self._chunk_size > 0:
                 headers['transfer-encoding'] = "chunked"
-                xml_request = mk_chunks(xml_request)
+                xml_request = mk_chunks(xml_request, chunk_size=self._chunk_size)
             else:
                 headers['Content-Length'] = str(len(xml_request))
 

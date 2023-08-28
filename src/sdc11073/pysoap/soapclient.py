@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 import socket
-import sys
 import time
 import traceback
 from http.client import (
-    BadStatusLine,
-    CannotSendRequest,
     HTTPConnection,
     HTTPException,
     HTTPResponse,
@@ -26,14 +23,15 @@ from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.pysoap.soapenvelope import Fault
 
 if TYPE_CHECKING:
-    from ssl import SSLContext
     from collections.abc import Iterable
+    from ssl import SSLContext
 
     from sdc11073.consumer.manipulator import RequestManipulatorProtocol
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
+
 
 class HTTPConnectionNoDelay(HTTPConnection):
     """Connect method sets specific socket options."""
@@ -78,7 +76,7 @@ class SoapClientProtocol(Protocol):
                  msg_reader: MessageReader,
                  supported_encodings: Iterable[str] | str = None,
                  request_encodings: Iterable[str] | str = None,
-                 chunked_requests: bool = False):
+                 chunk_size: int = 0):
         ...
 
     def post_message_to(self, hosted_service_path: str,
@@ -124,7 +122,7 @@ class SoapClient:
                  msg_reader: MessageReader,
                  supported_encodings: Iterable[str] | str = None,
                  request_encodings: Iterable[str] | str = None,
-                 chunked_requests: bool = False):
+                 chunk_size: int = 0):
         """Connect to one url.
 
         :param netloc: the location of the service (domain name:port) ###url of the service
@@ -139,7 +137,7 @@ class SoapClient:
                                   It is used to compress requests.
                                   If not set, requests will not be compressed.
                                   If set, then the http request will be compressed using this method
-        :param chunked_requests: it True, requests are chunk-encoded
+        :param chunk_size: if value > 0, message is split into chunks of this size.
         """
         self._log = logger
         self._ssl_context = ssl_context
@@ -157,7 +155,8 @@ class SoapClient:
         self.request_encodings = request_encodings if request_encodings is not None else []
         self._get_headers = self._make_get_headers()
         self._lock = Lock()
-        self._chunked_requests = chunked_requests
+        self._chunk_size = chunk_size
+        self._has_connection_error = False  # used to avoid implicit connects after an error
 
     @property
     def netloc(self) -> str:
@@ -183,6 +182,7 @@ class SoapClient:
 
     def connect(self):
         """Connect to netloc."""
+        self._has_connection_error = False
         self._http_connection = self._mk_http_connection()
         self._http_connection.connect()  # connect now so that we have own address and port for logging
         my_addr = self._http_connection.sock.getsockname()
@@ -191,16 +191,20 @@ class SoapClient:
     def close(self):
         """Close connection."""
         with self._lock:
-            if self._http_connection is not None:
-                self._log.info('closing soapClientNo {} for {}', self._client_number, self._netloc)
-                self._http_connection.close()
-                self._http_connection = None
+            self._close_without_lock()
+
+    def _close_without_lock(self):
+        if self._http_connection is not None:
+            self._log.info('closing soapClientNo {} for {}', self._client_number, self._netloc)
+            self._http_connection.close()
+            self._http_connection = None
 
     def is_closed(self) -> bool:
         """Return True if connection is closed."""
-        return self._http_connection is None
+        return self._http_connection is None or self._http_connection.sock is None
 
-    def _prepare_message(self, created_message: CreatedMessage,
+    @staticmethod
+    def _prepare_message(created_message: CreatedMessage,
                          request_manipulator: RequestManipulatorProtocol | None,
                          validate: bool) -> bytes:
         if hasattr(request_manipulator, 'manipulate_soapenvelope'):
@@ -232,12 +236,16 @@ class SoapClient:
         :param request_manipulator: see documentation of RequestManipulatorProtocol
         :param validate: set to False if no schema validation shall be done
         """
-        if self.is_closed():
+        if self.is_closed() and not self._has_connection_error:
+            # implicit connect
             self.connect()
+        if self.is_closed():
+            raise NotConnected
         xml_request = self._prepare_message(created_message, request_manipulator, validate)
         started = time.perf_counter()
         try:
-            http_response, xml_response = self._send_soap_request(path, xml_request, msg)
+            with self._lock:
+                http_response, xml_response = self._send_soap_request(path, xml_request, msg)
         finally:
             self.roundtrip_time = time.perf_counter() - started  # set roundtrip time even if method raises an exception
         if not xml_response:  # empty response
@@ -249,132 +257,100 @@ class SoapClient:
             raise HTTPReturnCodeError(http_response.status, http_response.reason, soap_fault)
         return message_data
 
-    def _send_soap_request(self, path: str, xml: bytes | str, msg: str) -> tuple[HTTPResponse, str]:
-        """Send SOAP request using HTTP."""
-        if not isinstance(xml, bytes):
-            xml = xml.encode('utf-8')
+    def _send_soap_request(self, path: str, xml: bytes, log_msg: str) -> tuple[HTTPResponse, bytes]:
+        """Send SOAP request."""
+        commlog.get_communication_logger().log_soap_request_out(xml, 'POST')
+        self._log.debug("{}:POST to netloc='{}' path='{}'", log_msg, self._netloc, path)
 
         headers = {
             'Content-type': 'application/soap+xml; charset=utf-8',
             'user_agent': 'pysoap',
             'Connection': 'keep-alive',
         }
-        commlog.get_communication_logger().log_soap_request_out(xml, 'POST')
-
+        # set accepted encodings
         if self.supported_encodings:
             headers['Accept-Encoding'] = ','.join(self.supported_encodings)
+        # if possible encode ( compress) xml data
         if self.request_encodings:
             for compr in self.request_encodings:
                 if compr in self.supported_encodings:
                     xml = CompressionHandler.compress_payload(compr, xml)
                     headers['Content-Encoding'] = compr
                     break
-        if self._chunked_requests:
+        # split message into chunks?
+        if self._chunk_size > 0:
             headers['transfer-encoding'] = "chunked"
-            xml = mk_chunks(xml)
+            xml = mk_chunks(xml, self._chunk_size)
         else:
             headers['Content-Length'] = str(len(xml))
 
-        xml = bytearray(xml)  # cast to bytes, required to bypass httplib checks for is str
+        # send the request
+        try:
+            self._http_connection.request('POST', path, body=xml, headers=headers)
+        except HTTPException as ex:
+            self._log.warn("{}: could not send request, http exception = {!r}", log_msg, ex)
+            self._close_without_lock()
+            self._has_connection_error = True
+            raise NotConnected from ex
+        except OSError as ex:
+            if ex.errno in (10053, 10054):
+                self._log.warn("{}: could not send request to {}, OSError={!r}", log_msg, self.netloc, ex)
+            else:
+                self._log.warn("{}: could not send request to {}, OSError={!r}", log_msg, self.netloc,
+                               traceback.format_exc())
+            self._has_connection_error = True
+            self._close_without_lock()
+            raise NotConnected from ex
+        except Exception as ex:  # noqa: BLE001
+            self._log.warn("{}: POST to netloc='{}' path='{}': could not send request, error={!r}\n{}", log_msg,
+                           self._netloc, path, ex, traceback.format_exc())
+            self._has_connection_error = True
+            self._close_without_lock()
+            raise NotConnected from ex
 
-        self._log.debug("{}:POST to netloc='{}' path='{}'", msg, self._netloc, path)
-        response = None
+        # read the response
+        try:
+            response = self._http_connection.getresponse()
+        except HTTPException as ex:
+            self._log.warn("{}: could not receive response, http exception = {!r} ", log_msg, ex)
+            self._has_connection_error = True
+            self._close_without_lock()
+            raise NotConnected from ex
+        except OSError as ex:
+            if ex.errno in (10053, 10054):
+                self._log.warn("{}: could not receive response, OSError={!r}", log_msg, ex)
+            else:
+                self._log.warn("{}: could not receive response, OSError={!r} ({!r})\n{}", log_msg, ex.errno,
+                               ex, traceback.format_exc())
+            self._has_connection_error = True
+            self._close_without_lock()
+            raise NotConnected from ex
+        except Exception as ex:  # noqa: BLE001
+            self._log.warn("{}: POST to netloc='{}' path='{}': could not receive response, error={!r}\n{}",
+                           log_msg, self._netloc, path, ex, traceback.format_exc())
+            self._has_connection_error = True
+            self._close_without_lock()
+            raise NotConnected from ex
 
-        def send_request()-> tuple[bool, bool]:
-            """Return (is_success, do_reopen)."""
-            do_reopen = False
+        content = HTTPReader.read_response_body(response)
+
+        if response.status >= 300:  # noqa: PLR2004
+            self._log.error(
+                "{}: POST to netloc='{}' path='{}': could not send request, HTTP response={}\ncontent='{}'", log_msg,
+                self._netloc, path, response.status, content.decode('utf-8'))
             try:
-                self._http_connection.request('POST', path, body=xml, headers=headers)
-                return True, do_reopen  # success = True
-            except CannotSendRequest as ex:
-                # for whatever reason the response of the previous call was not read. read it and try again
-                self._log.warn(
-                    "{}: could not send request, got error '{}'. Will read response and retry", msg, ex)
-                self._http_connection.getresponse().read()
-            except OSError as ex:
-                if ex.errno in (10053, 10054):
-                    self._log.warn("{}: could not send request to {}, OSError={!r}", msg, self.netloc, ex)
-                else:
-                    self._log.warn("{}: could not send request to {}, OSError={}", msg, self.netloc,
-                                   traceback.format_exc())
-                do_reopen = True
-            except Exception as ex:  # noqa: BLE001
-                self._log.warn("{}: POST to netloc='{}' path='{}': could not send request, error={!r}\n{}", msg,
-                               self._netloc, path, ex, traceback.format_exc())
-            return False, do_reopen  # success = False
+                tmp = self._msg_reader.read_received_message(content)
+            except XMLSyntaxError as ex:
+                raise HTTPReturnCodeError(response.status, response.reason, None) from ex
+            else:
+                soap_fault = Fault.from_node(tmp.p_msg.msg_node)
+                raise HTTPReturnCodeError(response.status, response.reason, soap_fault)
 
-        def get_response() -> HTTPResponse:
-            try:
-                return self._http_connection.getresponse()
-            except BadStatusLine as ex:
-                self._log.warn("{}: invalid http response, error= {!r} ", msg, ex)
-                raise
-            except OSError as ex:
-                if ex.errno in (10053, 10054):
-                    self._log.warn("{}: could not receive response, OSError={!r}", msg, ex)
-                else:
-                    self._log.warn("{}: could not receive response, OSError={} ({!r})\n{}", msg, ex.errno,
-                                   ex, traceback.format_exc())
-                raise NotConnected from ex
-            except Exception as ex: # noqa: BLE001
-                self._log.warn("{}: POST to netloc='{}' path='{}': could not receive response, error={!r}\n{}",
-                               msg, self._netloc, path, ex, traceback.format_exc())
-                raise NotConnected from ex
+        response_headers = {k.lower(): v for k, v in response.getheaders()}
 
-        def reopen_http_connection():
-            self._log.info("{}: will close and reopen the connection and then try again", msg)
-            self._http_connection.close()
-            try:
-                self._http_connection.connect()
-                return
-            except ConnectionRefusedError as ex:
-                self._log.warning("{}: could not reopen the connection, error={}", msg, ex)
-            except Exception as ex: # noqa: BLE001
-                self._log.warning("{}: could not reopen the connection, error={!r}\n{}\ncall-stack ={}",
-                                  msg, ex, traceback.format_exc(), ''.join(traceback.format_stack()))
-            self._http_connection.close()
-            raise NotConnected
-
-        with self._lock:
-            _retry_send = 2  # ugly construct that allows to retry sending the request once
-            while _retry_send > 0:
-                _retry_send -= 1
-                success, _do_reopen = send_request()
-                if not success:
-                    if _do_reopen:
-                        reopen_http_connection()
-                    else:
-                        raise NotConnected
-                else:
-                    try:
-                        response = get_response()
-                        _retry_send = -1  # -1 == SUCCESS
-                    except NotConnected:
-                        self._log.info("{}: will reopen after get_response error", msg)
-                        reopen_http_connection()
-
-            if _retry_send != -1:
-                raise NotConnected
-
-            content = HTTPReader.read_response_body(response)
-
-            if response.status >= 300:  # noqa: PLR2004
-                self._log.error(
-                    "{}: POST to netloc='{}' path='{}': could not send request, HTTP response={}\ncontent='{}'", msg,
-                    self._netloc, path, response.status, content.decode('utf-8'))
-                try:
-                    tmp = self._msg_reader.read_received_message(content)
-                except XMLSyntaxError as ex:
-                    raise HTTPReturnCodeError(response.status, response.reason, None) from ex
-                else:
-                    soap_fault = Fault.from_node(tmp.p_msg.msg_node)
-                    raise HTTPReturnCodeError(response.status, response.reason, soap_fault)
-
-            response_headers = {k.lower(): v for k, v in response.getheaders()}
-
-            self._log.debug('{}: response:{}; content has {} Bytes ', msg, response_headers, len(content))
-            commlog.get_communication_logger().log_soap_response_in(content, 'POST')
-            return response, content
+        self._log.debug('{}: response:{}; content has {} Bytes ', log_msg, response_headers, len(content))
+        commlog.get_communication_logger().log_soap_response_in(content, 'POST')
+        return response, content
 
     def _make_get_headers(self) -> dict[str, str]:
         headers = {
@@ -387,6 +363,12 @@ class SoapClient:
 
     def get_from_url(self, url: str, msg: str) -> bytes:
         """Send a GET request and return content of response."""
+        if self.is_closed() and not self._has_connection_error:
+            # implicit connect
+            self.connect()
+        if self.is_closed():
+            raise NotConnected
+
         if not url.startswith('/'):
             url = '/' + url
         self._log.debug("{} Get {}/{}", msg, self._netloc, url)
