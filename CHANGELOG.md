@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Fixed
+### Added
+
+- `network` module to handle network adapter stuff of the host computer
+- `mypy` static code analysis
+
+### Fixed
+
 - possible choosing wrong ipaddress/network interface [#187](https://github.com/Draegerwerk/sdc11073/issues/187)
 - added missing SerialNumber to ThisDeviceType
 - no creation of operation target states, they should already exist or are not needed if multi state.
@@ -18,11 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fixed a bug where the `SdcConsumer` failed to determine the host network adapter if the ip contained in the `device_location` is on a different subnet
 - comparison of extensions would fail [#238](https://github.com/Draegerwerk/sdc11073/issues/238)
 
-## Added
-- `network` module to handle network adapter stuff of the host computer
-- `mypy` static code analysis
 
-## Changed
+### Changed
+
 - when creating a `SdcClient` with a `device_location` or `WsDiscovery` containing an ip where no suitable host network adapter could be determined from, an `NetworkAdapterNotFoundError` is raised
 - removed `netconn` module
 - renamed Device with Provider in order to be more compliant with sdc11073 names: 
@@ -35,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SdcLocation class reworked; use 'bldng' instead of 'bld', which better matches the standard. 
 - Some classes renamed in pmtypes.py
 - soap client does not try implicit reconnects
+- replaced some of the ssl_context parameters with an ssl_context_container parameter, 
+  that can hold two ssl context objects, to be able to get rid of 
+  the deprecation warning occurring when using the same ssl context for both client and server side
 
 ## [2.0.0a5] - 2023-06-27
 

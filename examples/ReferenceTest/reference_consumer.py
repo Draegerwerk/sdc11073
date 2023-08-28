@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from sdc11073 import commlog
 from sdc11073 import observableproperties
-from sdc11073.certloader import mk_ssl_context_from_folder
+from sdc11073.certloader import mk_ssl_contexts_from_folder
 from sdc11073.consumer import SdcConsumer
 from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.mdib.consumermdib import ConsumerMdib
@@ -52,17 +52,17 @@ def run_ref_test():
     print('Test step 2: connect to device...')
     try:
         if ca_folder:
-            ssl_context = mk_ssl_context_from_folder(ca_folder,
-                                                     cyphers_file=None,
-                                                     private_key='user_private_key_encrypted.pem',
-                                                     certificate='user_certificate_root_signed.pem',
-                                                     ca_public_key='root_certificate.pem',
-                                                     ssl_passwd=ssl_passwd,
-                                                     )
+            ssl_context_container = mk_ssl_contexts_from_folder(ca_folder,
+                                                                cyphers_file=None,
+                                                                private_key='user_private_key_encrypted.pem',
+                                                                certificate='user_certificate_root_signed.pem',
+                                                                ca_public_key='root_certificate.pem',
+                                                                ssl_passwd=ssl_passwd,
+                                                                )
         else:
-            ssl_context = None
+            ssl_context_container = None
         client = SdcConsumer.from_wsd_service(my_service,
-                                              ssl_context=ssl_context,
+                                              ssl_context_container=ssl_context_container,
                                               validate=True)
         client.start_all()
         print('Test step 2 successful: connected to device')

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Union
 
 from lxml import etree as etree_
 
+import sdc11073.certloader
 from sdc11073.mdib import ProviderMdib
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import SdcProvider
@@ -116,7 +117,7 @@ class SomeDevice(SdcProvider):
                  mdib_xml_data: bytes,
                  epr: str | uuid.UUID | None = None,
                  validate: bool = True,
-                 ssl_context: SSLContext | None = None,
+                 ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
                  max_subscription_duration: int = 15,
                  log_prefix: str = '',
                  default_components: SdcProviderComponents | None = None,
@@ -142,7 +143,7 @@ class SomeDevice(SdcProvider):
                 mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')
                 mdsDescriptor.MetaData.ModelNumber = '0.99'
         super().__init__(wsdiscovery, model, device, device_mdib_container, epr, validate,
-                         ssl_context=ssl_context,
+                         ssl_context_container=ssl_context_container,
                          max_subscription_duration = max_subscription_duration,
                          log_prefix=log_prefix,
                          default_components=default_components,
@@ -155,7 +156,7 @@ class SomeDevice(SdcProvider):
                        epr: str | uuid.UUID | None,
                        mdib_xml_path: str,
                        validate: bool =True,
-                       ssl_context: SSLContext | None = None,
+                       ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
                        max_subscription_duration: int = 15,
                        log_prefix: str = '',
                        default_components: SdcProviderComponents | None = None,
@@ -168,7 +169,7 @@ class SomeDevice(SdcProvider):
 
         with open(mdib_xml_path, 'rb') as f:
             mdib_xml_data = f.read()
-        return cls(wsdiscovery, mdib_xml_data, epr, validate, ssl_context,
+        return cls(wsdiscovery, mdib_xml_data, epr, validate, ssl_context_container,
                    max_subscription_duration = max_subscription_duration,
                    log_prefix=log_prefix,
                    default_components=default_components, specific_components=specific_components,

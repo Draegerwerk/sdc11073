@@ -48,7 +48,7 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         x_addr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcConsumer(x_addr[0],
                                       sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                      ssl_context=None,
+                                      ssl_context_container=None,
                                       validate=CLIENT_VALIDATE)
 
         self.sdc_client.start_all()

@@ -11,3 +11,4 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: chartboost/ruff-action@v1
+        continue-on-error: true  # remove when https://github.com/Draegerwerk/sdc11073/issues/156 is done
