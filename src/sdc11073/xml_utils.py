@@ -11,8 +11,6 @@ if sys.version_info >= (3, 10):
 
     LxmlElement: TypeAlias = _Element
 else:
-    from typing_extensions import TypeAlias
-
     LxmlElement = _Element
 
 
