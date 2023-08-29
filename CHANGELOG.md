@@ -9,13 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - fixed a bug where coping a xml node would not work if namespace have been defined multiple time [#232](https://github.com/Draegerwerk/sdc11073/issues/232)
-
-## [1.2.0] - 2023-08-02
-
-### Fixed
 - getContextState sets correct BindingVersion [#168](https://github.com/Draegerwerk/sdc11073/issues/168).
 
 ### Changed
+
 - additional parameter 'set_associated' for getContextState. It defaults to True.
 - _setContextState only sets BindingMdibVersion and -Time if proposed state is associated.
 
