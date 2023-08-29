@@ -2,7 +2,7 @@ import unittest
 
 import lxml
 
-from sdc11073.xml import utils
+from sdc11073 import xml_utils
 
 
 class TestXmlParsing(unittest.TestCase):
@@ -208,7 +208,7 @@ class TestXmlParsing(unittest.TestCase):
     def setUp(self) -> None:
         self.xml_to_be_tested = [lxml.etree.fromstring(raw_xml)[1] for raw_xml in self.xml_to_be_parsed]
 
-    def _compare_nodes(self, expected: utils.LxmlElement, actual: utils.LxmlElement):
+    def _compare_nodes(self, expected: xml_utils.LxmlElement, actual: xml_utils.LxmlElement):
         self.assertNotEqual(id(expected), id(actual))
         self.assertEqual(expected.tag, actual.tag)
         self.assertEqual(expected.text, actual.text)
@@ -222,5 +222,5 @@ class TestXmlParsing(unittest.TestCase):
     def test_copy_full_node(self):
         for soap_body in self.xml_to_be_tested:
             for report in soap_body:
-                new_report = utils.copy_element(report)
+                new_report = xml_utils.copy_element(report)
                 self._compare_nodes(report.getroottree().getroot(), new_report.getroottree().getroot())
