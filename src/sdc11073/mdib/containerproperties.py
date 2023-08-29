@@ -476,23 +476,6 @@ def _compare_extension(left: etree_.ElementBase, right: etree_.ElementBase) -> b
     return all(map(_compare_extension, left_children, right_children))  # compare children but keep order
 
 
-# class ExtensionLocalValue:
-#
-#     compare_method = _compare_extension
-#     """may be overwritten by user if a custom comparison behaviour is required"""
-#
-#     def __init__(self, value):
-#         self.value = value or list()
-#
-#     def __eq__(self, other):
-#         if not isinstance(other, self.__class__):
-#             return False
-#         if len(self.value) != len(other.value):
-#             return False
-#         for my_element, other_element in zip(self.value, other.value):
-#             if not ExtensionLocalValue.compare_method(my_element, other_element):
-#                 return False
-#         return True
 class ExtensionLocalValue(list):
 
     compare_method = _compare_extension
