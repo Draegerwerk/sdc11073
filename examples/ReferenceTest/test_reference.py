@@ -137,7 +137,7 @@ class Test_Reference(unittest.TestCase):
         print('Test step 1 successful: device discovered')
 
         print('Test step 2: connect to device...')
-        client = SdcConsumer.from_wsd_service(my_service, ssl_context=None)
+        client = SdcConsumer.from_wsd_service(my_service, ssl_context_container=None)
         self.my_clients.append(client)
         client.start_all()
         self.assertTrue(client.is_connected)

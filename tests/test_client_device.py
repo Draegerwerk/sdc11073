@@ -1,19 +1,26 @@
 import copy
 import datetime
 import logging
+import socket
+import ssl
 import sys
 import time
 import traceback
 import unittest
+import unittest.mock
 from decimal import Decimal
 from itertools import product
 
 from lxml import etree as etree_
 
+import sdc11073.certloader
+import sdc11073.definitions_sdc
 from sdc11073 import commlog
 from sdc11073 import loghelper
 from sdc11073 import observableproperties
-from sdc11073.xml_types import pm_types, msg_qnames as msg, pm_qnames as pm
+from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.components import SdcConsumerComponents
+from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.dispatch import RequestDispatcher
 from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
@@ -21,10 +28,16 @@ from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.mdib.providerwaveform import Annotator
+from sdc11073.namespaces import default_ns_helper
+from sdc11073.provider import waveforms
+from sdc11073.provider.components import SdcProviderComponents, default_sdc_provider_components_async
+from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
+from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
-from sdc11073.pysoap.msgfactory import CreatedMessage
+from sdc11073.wsdiscovery import WSDiscovery
+from sdc11073.xml_types import pm_types, msg_qnames as msg, pm_qnames as pm
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.consumer import SdcConsumer
 from sdc11073.consumer.components import SdcConsumerComponents
@@ -94,13 +107,14 @@ def runtest_basic_connect(unit_test, sdc_client):
     get_result = context_service.get_context_states()
     unit_test.assertGreater(len(get_result.result.ContextState), 0)
 
+
 def runtest_directed_probe(unit_test, sdc_client, sdc_device):
     probe_matches = sdc_client.send_probe()
     unit_test.assertEqual(1, len(probe_matches.ProbeMatch))
     probe_match = probe_matches.ProbeMatch[0]
     unit_test.assertEqual(1, len(probe_match.XAddrs))
     unit_test.assertEqual(probe_match.XAddrs[0], sdc_device.get_xaddrs()[0])
-    print (probe_matches)
+    print(probe_matches)
 
 
 def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
@@ -231,6 +245,197 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
         unit_test.assertGreaterEqual(len(report.ReportPart), 1)
 
 
+class ClientDeviceSSLIntegration(unittest.TestCase):
+    """
+    Integration test for the sdc11073 client and sdc11073 device regarding their usage of ssl context objects.
+    """
+
+    @staticmethod
+    def wrap_socket(self, sock, *args, **kwargs):
+
+        def accept(self, *args, **kwargs):
+            conn, address = self.old_accept(*args, **kwargs)
+
+            sock.branches.append(conn)
+
+            return conn, address
+
+        new_socket = self.old_wrap_socket(sock.s, *args, **kwargs)
+        new_socket.old_accept = new_socket.accept
+        new_socket.accept = accept.__get__(new_socket, socket.SocketType)
+
+        m = unittest.mock.Mock(wraps=new_socket)
+        sock.w.append(m)
+
+        return m
+
+    def test_basic_connection_with_different_ssl_contexts(self):
+        """
+        Test that client and server contexts are used only for their intended purpose.
+        """
+        client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        server_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+
+        client_ssl_context.check_hostname = False
+
+        client_ssl_context.verify_mode = ssl.CERT_NONE
+        server_ssl_context.verify_mode = ssl.CERT_NONE
+
+        # this is intentionally unsafe so that the unittest is simplified to work without dh params and rsa keys
+        client_ssl_context.set_ciphers('ALL:@SECLEVEL=0')
+        server_ssl_context.set_ciphers('ALL:@SECLEVEL=0')
+
+        client_ssl_context_wrap_socket_mock = unittest.mock.Mock(
+            side_effect=self.wrap_socket.__get__(client_ssl_context, ssl.SSLContext))
+        server_ssl_context_wrap_socket_mock = unittest.mock.Mock(
+            side_effect=self.wrap_socket.__get__(server_ssl_context, ssl.SSLContext))
+
+        client_ssl_context.old_wrap_socket = client_ssl_context.wrap_socket
+        client_ssl_context.wrap_socket = client_ssl_context_wrap_socket_mock
+        server_ssl_context.old_wrap_socket = server_ssl_context.wrap_socket
+        server_ssl_context.wrap_socket = server_ssl_context_wrap_socket_mock
+
+        ssl_context_container = sdc11073.certloader.SSLContextContainer(client_context=client_ssl_context,
+                                                                        server_context=server_ssl_context)
+
+        original_socket_socket = socket.socket
+
+        def socket_init_side_effect(*args, **kwargs):
+
+            s = original_socket_socket(*args, **kwargs)
+            m = unittest.mock.Mock(wraps=s)
+
+            m.s = s
+            m.w = list()
+
+            m.branches = list()
+
+            m.family = s.family
+
+            return m
+
+        class SocketSocketMock(unittest.mock.Mock):
+
+            def __instancecheck__(self, instance):
+                return original_socket_socket.__instancecheck__(instance)
+
+        socket_socket_mock = SocketSocketMock(side_effect=socket_init_side_effect)
+
+        with unittest.mock.patch.object(socket, 'socket', new=socket_socket_mock):
+
+            self._run_client_with_device(ssl_context_container)
+
+        socket_socket_mock.assert_called()
+
+        self.assertGreaterEqual(len(client_ssl_context_wrap_socket_mock.call_args_list), 1)
+
+        for call_arg in client_ssl_context_wrap_socket_mock.call_args_list:
+            if call_arg[0]:
+                # TODO: replace call_arg[0] with call_arg.args when Python 3.7 support is dropped
+                sock = call_arg[0][0]
+            else:
+                # TODO: replace call_arg[1] with call_arg.kwargs when Python 3.7 support is dropped
+                sock = call_arg[1]['sock']
+
+            self.assertIn(unittest.mock.call.connect(unittest.mock.ANY), sock.method_calls)
+            self.assertNotIn(unittest.mock.call.listen(unittest.mock.ANY), sock.method_calls)
+            self.assertNotIn(unittest.mock.call.listen(), sock.method_calls)
+
+        self.assertGreaterEqual(len(server_ssl_context_wrap_socket_mock.call_args_list), 1)
+
+        branches = list()
+
+        for call_arg in server_ssl_context_wrap_socket_mock.call_args_list:
+            if call_arg[0]:
+                sock = call_arg[0][0]
+            else:
+                sock = call_arg[1]['sock']
+
+            branches.extend(sock.branches)
+
+        for call_arg in server_ssl_context_wrap_socket_mock.call_args_list:
+            if call_arg[0]:
+                sock = call_arg[0][0]
+            else:
+                sock = call_arg[1]['sock']
+
+            self.assertNotIn(unittest.mock.call.connect(unittest.mock.ANY), sock.method_calls)
+            self.assertTrue(unittest.mock.call.listen(unittest.mock.ANY) in sock.method_calls or
+                            unittest.mock.call.listen() in sock.method_calls or set(sock.w).intersection(branches))
+
+    @unittest.mock.patch('os.path.exists')
+    def test_mk_ssl_contexts(self, _):
+        """
+        Test that sdc11073.certloader.mk_ssl_contexts_from_folder creates different contexts for client and device.
+        """
+        original_ssl_context = ssl.SSLContext
+
+        ssl_context_mock_list: list[unittest.mock.Mock] = list()
+
+        def ssl_context_init_side_effect(*args, **kwargs):
+            s = original_ssl_context(*args, **kwargs)
+            m = unittest.mock.Mock(wraps=s)
+
+            m.load_cert_chain = unittest.mock.MagicMock()
+            m.load_verify_locations = unittest.mock.MagicMock()
+
+            ssl_context_mock_list.append(m)
+            return m
+
+        ssl_context_mock = unittest.mock.Mock(side_effect=ssl_context_init_side_effect)
+
+        with unittest.mock.patch.object(ssl, 'SSLContext', new=ssl_context_mock):
+            return_value = sdc11073.certloader.mk_ssl_contexts_from_folder('')
+
+        self.assertNotEqual(return_value.client_context, return_value.server_context)
+
+        ssl_context_mock.assert_called()
+        ssl_context_mock.assert_any_call(ssl.PROTOCOL_TLS_CLIENT)
+        ssl_context_mock.assert_any_call(ssl.PROTOCOL_TLS_SERVER)
+
+        self.assertGreaterEqual(len(ssl_context_mock_list), 2)
+
+        for context_mock in ssl_context_mock_list:
+            context_mock.load_cert_chain.assert_called()
+            context_mock.load_verify_locations.assert_called()
+
+    @staticmethod
+    def _run_client_with_device(ssl_context_container):
+        log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
+        basic_logging_setup()
+        wsd = WSDiscovery('127.0.0.1')
+        wsd.start()
+        location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
+        sdc_device = SomeDevice.from_mdib_file(wsd, None, mdib_70041, ssl_context_container=ssl_context_container)
+        sdc_device.start_all(periodic_reports_interval=1.0)
+        _loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+        sdc_device.set_location(location, _loc_validators)
+        provide_realtime_data(sdc_device)
+
+        time.sleep(0.5)
+        specific_components = SdcConsumerComponents(
+            action_dispatcher_class=RequestDispatcher
+        )
+
+        x_addr = sdc_device.get_xaddrs()
+        sdc_client = SdcConsumer(x_addr[0],
+                                 sdc_definitions=sdc_device.mdib.sdc_definitions,
+                                 ssl_context_container=ssl_context_container,
+                                 validate=CLIENT_VALIDATE,
+                                 specific_components=specific_components)
+        sdc_client.start_all(subscribe_periodic_reports=True)
+        time.sleep(1.5)
+
+        log_watcher.setPaused(True)
+        if sdc_device:
+            sdc_device.stop_all()
+        if sdc_client:
+            sdc_client.stop_all()
+        wsd.stop()
+
+        log_watcher.check()
+
+
 class Test_Client_SomeDevice(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
@@ -256,10 +461,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         x_addr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcConsumer(x_addr[0],
-                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                    ssl_context=None,
-                                    validate=CLIENT_VALIDATE,
-                                    specific_components=specific_components)
+                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                      ssl_context_container=None,
+                                      validate=CLIENT_VALIDATE,
+                                      specific_components=specific_components)
         self.sdc_client.start_all(subscribe_periodic_reports=True)
         time.sleep(1)
         sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
@@ -289,7 +494,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
         runtest_basic_connect(self, self.sdc_client)
         runtest_directed_probe(self, self.sdc_client, self.sdc_device)
 
-
     def test_renew_get_status(self):
         for s in self.sdc_client._subscription_mgr.subscriptions.values():
             max_duration = self.sdc_device._max_subscription_duration
@@ -298,7 +502,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             remaining_seconds = s.get_status()
             self.assertAlmostEqual(remaining_seconds, max_duration, delta=5.0)  # huge diff allowed due to jenkins
             # verify that device returns fault message on wrong subscription identifier
-            #if s.dev_reference_param.has_parameters:
+            # if s.dev_reference_param.has_parameters:
             if s.subscribe_response.SubscriptionManager.ReferenceParameters:
                 # ToDo: manipulate reference parameter
                 pass
@@ -496,10 +700,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 action_dispatcher_class=RequestDispatcher
             )
             sdc_client = SdcConsumer(x_addr[0],
-                                   sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                   ssl_context=None,
-                                   validate=CLIENT_VALIDATE,
-                                   specific_components=specific_components,
+                                     sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                     ssl_context_container=None,
+                                     validate=CLIENT_VALIDATE,
+                                     specific_components=specific_components,
                                      log_prefix='consumer2 ')
             sdc_client.start_all(subscribe_periodic_reports=True)
 
@@ -532,7 +736,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     self.assertTrue(stats.max > 0)
                     self.assertTrue(stats.min >= 0)
         self.assertTrue(found)
-
 
     def test_alert_reports(self):
         """ verify that the client receives correct EpisodicAlertReports and PeriodicAlertReports"""
@@ -642,7 +845,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             pm.PatientContextState, allow_none=True)
         self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Moritz')
         self.assertGreater(patient_context_state_container.BindingMdibVersion,
-                         tr_MdibVersion)
+                           tr_MdibVersion)
         self.assertEqual(patient_context_state_container.UnbindingMdibVersion, None)
 
     def test_get_containment_tree(self):
@@ -660,7 +863,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         storage.add(
             pm_types.LocalizedText('bla', lang='de-de', ref='a', version=1, text_width=pm_types.LocalizedTextWidth.XS),
             pm_types.LocalizedText('foo', lang='en-en', ref='a', version=1, text_width=pm_types.LocalizedTextWidth.XS)
-            )
+        )
 
         get_request_response = self.sdc_client.localization_service_client.get_supported_languages()
         languages = get_request_response.result.Lang
@@ -671,21 +874,21 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def test_get_localized_texts(self):
         storage = self.sdc_device.localization_storage
         storage.add(pm_types.LocalizedText('bla_a', lang='de-de', ref='a', version=1,
-                                          text_width=pm_types.LocalizedTextWidth.XS))
+                                           text_width=pm_types.LocalizedTextWidth.XS))
         storage.add(pm_types.LocalizedText('foo_a', lang='en-en', ref='a', version=1,
-                                          text_width=pm_types.LocalizedTextWidth.XS))
+                                           text_width=pm_types.LocalizedTextWidth.XS))
         storage.add(pm_types.LocalizedText('bla_b', lang='de-de', ref='b', version=1,
-                                          text_width=pm_types.LocalizedTextWidth.XS))
+                                           text_width=pm_types.LocalizedTextWidth.XS))
         storage.add(pm_types.LocalizedText('foo_b', lang='en-en', ref='b', version=1,
-                                          text_width=pm_types.LocalizedTextWidth.XS))
+                                           text_width=pm_types.LocalizedTextWidth.XS))
         storage.add(pm_types.LocalizedText('bla_aa', lang='de-de', ref='a', version=2,
-                                          text_width=pm_types.LocalizedTextWidth.S))
+                                           text_width=pm_types.LocalizedTextWidth.S))
         storage.add(pm_types.LocalizedText('foo_aa', lang='en-en', ref='a', version=2,
-                                          text_width=pm_types.LocalizedTextWidth.S))
+                                           text_width=pm_types.LocalizedTextWidth.S))
         storage.add(pm_types.LocalizedText('bla_bb', lang='de-de', ref='b', version=2,
-                                          text_width=pm_types.LocalizedTextWidth.S))
+                                           text_width=pm_types.LocalizedTextWidth.S))
         storage.add(pm_types.LocalizedText('foo_bb', lang='en-en', ref='b', version=2,
-                                          text_width=pm_types.LocalizedTextWidth.S))
+                                           text_width=pm_types.LocalizedTextWidth.S))
         service_client = self.sdc_client.localization_service_client
         get_request_response = service_client.get_localized_texts()
         report = get_request_response.result
@@ -1111,20 +1314,20 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
 
         x_addr = self.sdc_device_1.get_xaddrs()
         self.sdc_client_1 = SdcConsumer(x_addr[0],
-                                      sdc_definitions=self.sdc_device_1.mdib.sdc_definitions,
-                                      ssl_context=None,
-                                      epr="client1",
-                                      validate=CLIENT_VALIDATE,
-                                      log_prefix='<cl1> ')
+                                        sdc_definitions=self.sdc_device_1.mdib.sdc_definitions,
+                                        ssl_context_container=None,
+                                        epr="client1",
+                                        validate=CLIENT_VALIDATE,
+                                        log_prefix='<cl1> ')
         self.sdc_client_1.start_all(shared_http_server=self.httpserver)
 
         x_addr = self.sdc_device_2.get_xaddrs()
         self.sdc_client_2 = SdcConsumer(x_addr[0],
-                                      sdc_definitions=self.sdc_device_2.mdib.sdc_definitions,
-                                      ssl_context=None,
-                                      epr="client2",
-                                      validate=CLIENT_VALIDATE,
-                                      log_prefix='<cl2> ')
+                                        sdc_definitions=self.sdc_device_2.mdib.sdc_definitions,
+                                        ssl_context_container=None,
+                                        epr="client2",
+                                        validate=CLIENT_VALIDATE,
+                                        log_prefix='<cl2> ')
         self.sdc_client_2.start_all(shared_http_server=self.httpserver)
 
         self._all_cl_dev = ((self.sdc_client_1, self.sdc_device_1),
@@ -1188,11 +1391,11 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
 
         x_addr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcConsumer(x_addr[0],
-                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                    ssl_context=None,
-                                    validate=CLIENT_VALIDATE,
-                                    log_prefix='<Final> ',
-                                    request_chunk_size=512)
+                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                      ssl_context_container=None,
+                                      validate=CLIENT_VALIDATE,
+                                      log_prefix='<Final> ',
+                                      request_chunk_size=512)
         self.sdc_client.start_all()
 
         time.sleep(1)
@@ -1243,12 +1446,12 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         x_addr = self.sdc_device.get_xaddrs()
         specific_components = SdcConsumerComponents(subscription_manager_class=ClientSubscriptionManagerReferenceParams)
         self.sdc_client = SdcConsumer(x_addr[0],
-                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                    ssl_context=None,
-                                    validate=CLIENT_VALIDATE,
-                                    log_prefix='<Final> ',
-                                    specific_components=specific_components,
-                                    request_chunk_size=512)
+                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                      ssl_context_container=None,
+                                      validate=CLIENT_VALIDATE,
+                                      log_prefix='<Final> ',
+                                      specific_components=specific_components,
+                                      request_chunk_size=512)
         self.sdc_client.start_all()
 
         time.sleep(1)
@@ -1329,11 +1532,11 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
 
         x_addr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcConsumer(x_addr[0],
-                                    sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                    ssl_context=None,
-                                    validate=CLIENT_VALIDATE,
-                                    log_prefix='',
-                                    request_chunk_size=512)
+                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+                                      ssl_context_container=None,
+                                      validate=CLIENT_VALIDATE,
+                                      log_prefix='',
+                                      request_chunk_size=512)
         self.sdc_client.start_all(subscribe_periodic_reports=True)
 
         time.sleep(1)

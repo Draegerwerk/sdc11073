@@ -1,8 +1,9 @@
 import unittest
+from unittest import mock
 
-from lxml.etree import QName, fromstring
+from lxml.etree import QName, fromstring, tostring
 
-from sdc11073.xml_types import pm_types
+from sdc11073.xml_types import pm_types, xml_structure
 
 
 class TestPmTypes(unittest.TestCase):
@@ -46,13 +47,13 @@ class TestPmTypes(unittest.TestCase):
                 </pm:Type>
               </pm:AllowedValue>
 """
-        node = fromstring(text.format(''))
+        node = fromstring(text.format('')) # noqa: S320
         allowed_value1 = pm_types.AllowedValue.from_node(node)
         self.assertEqual(allowed_value1.Value, '')
         generated_node = allowed_value1.as_etree_node(QName('foo', 'bar'), {})
         self.assertEqual('', generated_node[0].text)
 
-        node = fromstring(text.format('foobar'))
+        node = fromstring(text.format('foobar')) # noqa: S320
         allowed_value2 = pm_types.AllowedValue.from_node(node)
         self.assertEqual(allowed_value2.Value, 'foobar')
 
@@ -63,7 +64,235 @@ class TestPmTypes(unittest.TestCase):
                       <pm:Arg xmlns:dd="dummy">dd:Something</pm:Arg>
                   </pm:Argument>
         """
-        node = fromstring(text.format(''))
+        node = fromstring(text.format('')) # noqa: S320
         arg = pm_types.ActivateOperationDescriptorArgument.from_node(node)
         self.assertEqual(arg.ArgName, pm_types.CodedValue("202890"))
         self.assertEqual(arg.Arg, QName("dummy", "Something"))
+
+
+class TestExtensions(unittest.TestCase):
+
+    def test_compare_extensions(self):
+        xml = b"""
+        <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue"/>
+                    <foo_child childattr="somechild"/>
+                <bar anotherattr="differentvalue"/>
+            </ext:Extension>
+        </pm:Identification>
+        """
+        self.assertNotEqual(fromstring(xml), fromstring(xml))  # noqa: S320
+        inst1 = pm_types.InstanceIdentifier.from_node(fromstring(xml)) # noqa: S320
+        inst2 = pm_types.InstanceIdentifier.from_node(fromstring(xml)) # noqa: S320
+        self.assertEqual(inst1.ExtExtension, inst2.ExtExtension)
+        self.assertEqual(inst1, inst2)
+
+        another_xml = b"""
+                <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                                   Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                                   Extension="123.234.424">
+                    <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                        <foo someattr="somevalue"/>
+                        <bar anotherattr="differentvalue2"/>
+                    </ext:Extension>
+                </pm:Identification>
+                """
+        inst2 = pm_types.InstanceIdentifier.from_node(fromstring(another_xml)) # noqa: S320
+        self.assertNotEqual(inst1.ExtExtension, inst2.ExtExtension)
+        self.assertNotEqual(inst1, inst2)
+
+    def test_element_order(self):
+        xml1 = b"""
+        <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue"/>
+                <bar anotherattr="differentvalue"/>
+            </ext:Extension>
+        </pm:Identification>
+        """
+        xml2 = b"""
+        <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <bar anotherattr="differentvalue"/>
+                <foo someattr="somevalue"/>
+            </ext:Extension>
+        </pm:Identification>
+        """
+        inst1 = pm_types.InstanceIdentifier.from_node(fromstring(xml1)) # noqa: S320
+        inst2 = pm_types.InstanceIdentifier.from_node(fromstring(xml2)) # noqa: S320
+        self.assertNotEqual(inst1.ExtExtension, inst2.ExtExtension)
+        self.assertNotEqual(inst1, inst2)
+
+    def test_attribute_order(self):
+        xml1 = b"""
+        <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue" anotherattr="differentvalue"/>
+            </ext:Extension>
+        </pm:Identification>
+        """
+        xml2 = b"""
+        <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo anotherattr="differentvalue" someattr="somevalue"/>
+            </ext:Extension>
+        </pm:Identification>
+        """
+        inst1 = pm_types.InstanceIdentifier.from_node(fromstring(xml1)) # noqa: S320
+        inst2 = pm_types.InstanceIdentifier.from_node(fromstring(xml2)) # noqa: S320
+        self.assertEqual(inst1.ExtExtension, inst2.ExtExtension)
+        self.assertEqual(inst1, inst2)
+
+
+    def test_fails_with_qname(self):
+        xml1 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
+        xmlns:what="123.456.789">
+        <what:ItIsNotKnown>
+                <what:Unknown>what:lorem</what:Unknown>
+        </what:ItIsNotKnown>
+</ext:Extension>""") # noqa: S320
+        xml2 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
+        xmlns:who="123.456.789">
+        <who:ItIsNotKnown>
+                <who:Unknown>who:lorem</who:Unknown>
+        </who:ItIsNotKnown>
+</ext:Extension>""") # noqa: S320
+        self.assertNotEqual(tostring(xml1), tostring(xml2))
+        inst1 = xml_structure.ExtensionLocalValue([xml1])
+        inst2 = xml_structure.ExtensionLocalValue([xml2])
+        self.assertNotEqual(inst1, inst2)
+
+    def test_ignore_not_needed_namespaces(self):
+        xml1 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension" 
+xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant">
+<what:ItIsNotKnown xmlns:what="123.456.789"><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
+</ext:Extension>""") # noqa: S320
+        xml2 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension" xmlns:what="123.456.789">
+<what:ItIsNotKnown><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
+</ext:Extension>""") # noqa: S320
+        self.assertNotEqual(tostring(xml1), tostring(xml2))
+        inst1 = xml_structure.ExtensionLocalValue([xml1])
+        inst2 = xml_structure.ExtensionLocalValue([xml2])
+        self.assertEqual(inst1, inst2)
+
+    def test_different_length(self):
+        inst1 = xml_structure.ExtensionLocalValue([mock.MagicMock(), mock.MagicMock()])
+        inst2 = xml_structure.ExtensionLocalValue([mock.MagicMock()])
+        self.assertNotEqual(inst1, inst2)
+
+    def test_ignore_comments(self):
+        xml1 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+<what:ItIsNotKnown xmlns:what="123.456.789"><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
+<!--This is an xml comment and should be ignored during comparison-->
+</ext:Extension>""") # noqa: S320
+        xml2 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+<what:ItIsNotKnown xmlns:what="123.456.789"><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
+</ext:Extension>""") # noqa: S320
+        inst1 = xml_structure.ExtensionLocalValue([xml1])
+        inst2 = xml_structure.ExtensionLocalValue([xml2])
+        self.assertEqual(inst1, inst2)
+
+    def test_custom_compare_method(self):
+        xml1 = b"""
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue"/>
+            </ext:Extension>
+        """
+        xml2 = b"""
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <bar anotherattr="differentvalue"/>
+            </ext:Extension>
+        """
+        xml1 = fromstring(xml1) # noqa: S320
+        xml2 = fromstring(xml2) # noqa: S320
+
+        inst1 = xml_structure.ExtensionLocalValue([xml1])
+        inst2 = xml_structure.ExtensionLocalValue([xml2])
+        self.assertNotEqual(inst1, inst2)
+
+        def _my_comparer(_, __): # noqa: ANN001 ANN202
+            return True
+
+        orig_method = xml_structure.ExtensionLocalValue.compare_method
+        xml_structure.ExtensionLocalValue.compare_method = _my_comparer
+        self.assertEqual(inst1, inst2)
+        xml_structure.ExtensionLocalValue.compare_method = orig_method
+
+    def test_cdata(self):
+        xml1 = b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                        <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                        <what:ItIsNotKnown xmlns:what="123.456.789">
+                        <![CDATA[<some test data & stuff>]]>
+                        <what:Unknown>What does this mean?<![CDATA[Test this CDATA section]]></what:Unknown></what:ItIsNotKnown>
+                        </ext:Extension>"""
+        xml2 = b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                        <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                        <who:ItIsNotKnown xmlns:who="123.456.789">
+                        <![CDATA[<some test data & stuff>]]>
+                        <who:Unknown>What does this mean?<![CDATA[Test this CDATA section]]></who:Unknown></who:ItIsNotKnown>
+                        </ext:Extension>"""
+        xml1 = fromstring(xml1) # noqa: S320
+        xml2 = fromstring(xml2) # noqa: S320
+
+        inst1 = xml_structure.ExtensionLocalValue([xml1])
+        inst2 = xml_structure.ExtensionLocalValue([xml2])
+        self.assertEqual(inst1, inst2)
+
+    def test_comparison_subelements(self):
+        xml1 = b"""
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue">
+                    <foo_subelement subelement="value"/>
+                </foo>
+                <bar anotherattr="differentvalue"/>
+            </ext:Extension>
+        """
+        xml2 = b"""
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue">
+                    <foo_subelement subelement="fiff_value"/>
+                </foo>
+                <bar anotherattr="differentvalue"/>
+            </ext:Extension>
+        """
+        xml1 = fromstring(xml1) # noqa: S320
+        xml2 = fromstring(xml2) # noqa: S320
+
+        inst1 = xml_structure.ExtensionLocalValue([xml1])
+        inst2 = xml_structure.ExtensionLocalValue([xml2])
+        self.assertNotEqual(inst1, inst2)
+
+    def test_mixed_content_is_ignored(self):
+        xml1 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
+        xmlns:what="123.456.789">
+        <what:ItIsNotKnown><what:Unknown>what:lorem</what:Unknown></what:ItIsNotKnown>
+</ext:Extension>""") # noqa: S320
+        xml2 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
+        xmlns:what="123.456.789">
+        <what:ItIsNotKnown>
+        dsafasdf
+        <what:Unknown>what:lorem</what:Unknown>
+        </what:ItIsNotKnown>
+</ext:Extension>""") # noqa: S320
+        inst1 = xml_structure.ExtensionLocalValue([xml1])
+        inst2 = xml_structure.ExtensionLocalValue([xml2])
+        self.assertEqual(inst1, inst2)

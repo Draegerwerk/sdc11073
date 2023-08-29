@@ -6,6 +6,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import SplitResult
 
+import sdc11073.certloader
 from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
 from sdc11073.dispatch import (
@@ -84,7 +85,7 @@ class SdcProvider:
                  device_mdib_container: ProviderMdib,
                  epr: str | uuid.UUID | None = None,
                  validate: bool = True,
-                 ssl_context: SSLContext | None = None,
+                 ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
                  max_subscription_duration: int = 15,
                  socket_timeout: int | float | None = None,
                  log_prefix: str = '',
@@ -100,7 +101,7 @@ class SdcProvider:
         :param epr: something that serves as a unique identifier of this device for discovery.
                     If epr is a string, it must be usable as a path element in an url (no spaces, ...)
         :param validate: bool
-        :param ssl_context: if not None, this context is used and https url is used, otherwise http
+        :param ssl_context_container: if not None, the contexts are used and an https url is used, otherwise http
         :param max_subscription_duration: max. possible duration of a subscription
         :param socket_timeout: timeout for tcp sockets that send notifications.
                                If None, it is set to max_subscription_duration * 1.2
@@ -117,7 +118,7 @@ class SdcProvider:
         else:
             self._epr = epr
         self._validate = validate
-        self._ssl_context = ssl_context
+        self._ssl_context_container = ssl_context_container
         self._max_subscription_duration = max_subscription_duration
         self._socket_timeout = socket_timeout or int(max_subscription_duration * 1.2)
         self._log_prefix = log_prefix
@@ -136,7 +137,7 @@ class SdcProvider:
         self._http_server = None
         self._is_internal_http_server = False
 
-        if self._ssl_context is not None:
+        if self._ssl_context_container is not None:
             self._urlschema = 'https'
         else:
             self._urlschema = 'http'
@@ -182,7 +183,7 @@ class SdcProvider:
         self._msg_converter = MessageConverterMiddleware(
             self.msg_reader, self.msg_factory, self._logger, self._hosted_service_dispatcher)
 
-        self._transaction_id = 0 # central transaction number handling for all called operations.
+        self._transaction_id = 0  # central transaction number handling for all called operations.
         self._transaction_id_lock = threading.Lock()
 
         # these are initialized in _setup_components:
@@ -209,7 +210,7 @@ class SdcProvider:
         return cls(netloc,
                    self._socket_timeout,
                    loghelper.get_logger_adapter('sdc.device.soap', self._log_prefix),
-                   ssl_context=self._ssl_context,
+                   ssl_context=self._ssl_context_container.client_context if self._ssl_context_container else None,
                    sdc_definitions=self._mdib.sdc_definitions,
                    msg_reader=self.msg_reader,
                    supported_encodings=self._compression_methods,
@@ -408,8 +409,11 @@ class SdcProvider:
             logger = loghelper.get_logger_adapter('sdc.device.httpsrv', self._log_prefix)
 
             self._http_server = HttpServerThreadBase(
-                my_ipaddress='0.0.0.0', ssl_context=self._ssl_context, supported_encodings=self._compression_methods,
-                logger=logger, chunk_size=self.chunk_size)
+                my_ipaddress='0.0.0.0',
+                ssl_context=self._ssl_context_container.server_context if self._ssl_context_container else None,
+                supported_encodings=self._compression_methods,
+                logger=logger,
+                chunk_size=self.chunk_size)
 
             # first start http server, the services need to know the ip port number
             self._http_server.start()

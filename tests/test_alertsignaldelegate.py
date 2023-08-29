@@ -49,7 +49,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         xAddr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcConsumer(xAddr[0],
                                       sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                      ssl_context=None,
+                                      ssl_context_container=None,
                                       validate=CLIENT_VALIDATE,
                                       log_prefix='<client> ')
         self.sdc_client.start_all()

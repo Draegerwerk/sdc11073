@@ -20,7 +20,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc.SafetyClassification, 'Inf')
         self.assertEqual(dc.get_actual_value('SafetyClassification'), None)
         self.assertEqual(dc.Type, None)
-        self.assertEqual(dc.Extension, None)
+        self.assertEqual(len(dc.Extension.value), 0)
 
         # test creation from node
         node = dc.mk_node(test_tag, self.ns_mapper)
@@ -28,7 +28,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc2.DescriptorVersion, 0)
         self.assertEqual(dc2.SafetyClassification, 'Inf')
         self.assertEqual(dc.Type, None)
-        self.assertEqual(dc.Extension, None)
+        self.assertEqual(len(dc.Extension.value), 0)
 
         # test update from node
         dc.DescriptorVersion = 42

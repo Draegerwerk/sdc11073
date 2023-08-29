@@ -105,7 +105,7 @@ class TestClientWaveform(unittest.TestCase):
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         self.sdc_client = SdcConsumer(DEV_ADDRESS,
                                       sdc_definitions=definitions_sdc.SDC_v1_Definitions,
-                                      ssl_context=None,
+                                      ssl_context_container=None,
                                       validate=CLIENT_VALIDATE)
 
     def tearDown(self):
