@@ -9,13 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - fixed a bug where coping a xml node would not work if namespace have been defined multiple time [#232](https://github.com/Draegerwerk/sdc11073/issues/232)
-- comparison of extensions would fail [#238](https://github.com/Draegerwerk/sdc11073/issues/238)
-
-## [1.2.0] - 2023-08-02
-
-### Fixed
-
 - getContextState sets correct BindingVersion [#168](https://github.com/Draegerwerk/sdc11073/issues/168).
+- comparison of extensions would fail [#238](https://github.com/Draegerwerk/sdc11073/issues/238)
 
 ### Changed
 
