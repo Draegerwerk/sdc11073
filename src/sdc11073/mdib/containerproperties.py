@@ -456,8 +456,67 @@ class NodeTextQNameProperty(_PropertyBase):
             subNode.text = value
 
 
+def _compare_extension(left: etree_.ElementBase, right: etree_.ElementBase) -> bool:
+    # xml comparison
+    if left.tag != right.tag:  # compare expanded names
+        return False
+    if dict(left.attrib) != dict(right.attrib):  # unclear how lxml _Attrib compares
+        return False
+
+    # ignore comments
+    left_children = [child for child in left if not isinstance(child, etree_._Comment)]
+    right_children = [child for child in right if not isinstance(child, etree_._Comment)]
+
+    if len(left_children) != len(right_children):  # compare children count
+        return False
+    if len(left_children) == 0 and len(right_children) == 0:
+        if left.text != right.text:  # mixed content is not allowed. only compare text if there are no children
+            return False
+
+    return all(map(_compare_extension, left_children, right_children))  # compare children but keep order
+
+
+# class ExtensionLocalValue:
+#
+#     compare_method = _compare_extension
+#     """may be overwritten by user if a custom comparison behaviour is required"""
+#
+#     def __init__(self, value):
+#         self.value = value or list()
+#
+#     def __eq__(self, other):
+#         if not isinstance(other, self.__class__):
+#             return False
+#         if len(self.value) != len(other.value):
+#             return False
+#         for my_element, other_element in zip(self.value, other.value):
+#             if not ExtensionLocalValue.compare_method(my_element, other_element):
+#                 return False
+#         return True
+class ExtensionLocalValue(list):
+
+    compare_method = _compare_extension
+    """may be overwritten by user if a custom comparison behaviour is required"""
+
+    # def __init__(self, value):
+    #     self.value = value or list()
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        if len(self) != len(other):
+            return False
+        for my_element, other_element in zip(self, other):
+            if not ExtensionLocalValue.compare_method(my_element, other_element):
+                return False
+        return True
+
+
 class ExtensionNodeProperty(_PropertyBase):
-    """ Represents an ext:Extension Element that contains xml tree of any kind."""
+    """Represents an ext:Extension Element that contains 0...n child elements of any kind.
+
+    The python representation is an ExtensionLocalValue with list of elements.
+    """
 
     def __init__(self, subElementNames=None, defaultPyValue=None):
         if subElementNames is None:
@@ -465,36 +524,48 @@ class ExtensionNodeProperty(_PropertyBase):
         else:
             subElementNames.append(namespaces.extTag('Extension'))
         attrname = '_ext_ext'
-        super(ExtensionNodeProperty, self).__init__(attrname, subElementNames, defaultPyValue)
+        super().__init__(attrname, subElementNames, defaultPyValue)
         self._converter = None
 
-    def getPyValueFromNode(self, node):
+    def __set__(self, instance, pyValue):
+        if not isinstance(pyValue, ExtensionLocalValue):
+            pyValue = ExtensionLocalValue(pyValue)
+        super().__set__(instance, pyValue)
+
+    def __get__(self, instance, owner):
+        """Return a python value, uses the locally stored value."""
+        if instance is None:  # if called via class
+            return self
         try:
-            subNode = self._getElementbyChildNamesList(node, self._subElementNames, createMissingNodes=False)
-            return _PropertyValue(None, subNode)  # subNode is the ext:Extension node
+            value = getattr(instance, self._localVarName)
+        except AttributeError:
+            value = None
+        if value is None:
+            value = _PropertyValue(None, ExtensionLocalValue())
+            setattr(instance, self._localVarName, value)
+        return value.py_value
+
+    def getPyValueFromNode(self, node):
+        """Read value from node."""
+        try:
+            extension_node = self._getElementbyChildNamesList(node, self._subElementNames, createMissingNodes=False)
         except ElementNotFoundException:
-            return None
+            return _PropertyValue(None, ExtensionLocalValue())
+        return _PropertyValue(extension_node, ExtensionLocalValue(extension_node[:]))
 
     def updateXMLValue(self, instance, node):
+        """Write value to node.
+
+        The Extension Element is only added if there is at least one element available in local list.
+        """
         try:
             property_value = getattr(instance, self._localVarName)
-        except AttributeError:  # set to None (it is in the responsibility of the called method to do the right thing)
-            property_value = None
-        if property_value is None:
-            try:
-                parentNode = self._getElementbyChildNamesList(node, self._subElementNames[:-1],
-                                                              createMissingNodes=False)
-            except ElementNotFoundException:
-                return
-            subNode = parentNode.find(self._subElementNames[-1])
-            if subNode is not None:
-                parentNode.remove(subNode)
-        else:
-            subNode = self._getElementbyChildNamesList(node, self._subElementNames, createMissingNodes=True)
-
-            del subNode[:]  # delete all children first
-            if property_value.py_value is not None:
-                subNode.extend([copy.copy(n) for n in property_value.py_value])
+        except AttributeError:
+            return  # nothing to add
+        if property_value is None or len(property_value.py_value) == 0:
+            return  # nothing to add
+        sub_node = self._getElementbyChildNamesList(node, self._subElementNames, createMissingNodes=True)
+        sub_node.extend(copy.copy(x) for x in property_value.py_value)
 
 
 class SubElementProperty(_PropertyBase):

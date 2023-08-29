@@ -74,31 +74,17 @@ class AbstractDescriptorContainer(ContainerBase):
     def codingSystem(self):
         return self.Type.coding.codingSystem if self.Type is not None else None  # pylint:disable=no-member
 
-    @property
-    def retrievability(self) -> [msgtypes.Retrievability, None]:
-        """look for msgTag('Retrievability') in ext:Extension node"""
-        if self.ext_Extension is None:
-            return None
-        retrievability_tag = msgTag('Retrievability')
-        for elem in self.ext_Extension:
-            if elem.tag == retrievability_tag:
-                return msgtypes.Retrievability.fromNode(elem)
-        return None
+    def get_retrievability(self):
+        """Return all retrievability data from Extension."""
+        return  [msgtypes.Retrievability.fromNode(x) for x in self.ext_Extension
+                 if x.tag == msgTag('Retrievability')]
 
-    @retrievability.setter
-    def retrievability(self, retrievability_instance: msgtypes.Retrievability):
-        """sets msgTag('Retrievability') child node of ext:Extension"""
-        retrievability_tag = msgTag('Retrievability')
-        if self.ext_Extension is None:
-          self.ext_Extension = etree_.Element(extTag('Extension'))
-        else:
-            # delete current retrievability info if it exists
-            for elem in self.ext_Extension:
-                if elem.tag == retrievability_tag:
-                    self.ext_Extension.remove(elem)
-                    break
-        node = retrievability_instance.asEtreeNode(retrievability_tag, nsmap=None)
-        self.ext_Extension.append(node)
+    def set_retrievability(self, retrievability_list):
+        """Replace all retrievability elements with provided ones in Extension."""
+        tmp = [x for x in self.ext_Extension if x.tag == msgTag('Retrievability')]
+        for x in tmp:
+            self.ext_Extension.remove(x)
+        self.ext_Extension.extend([r.asEtreeNode(msgTag('Retrievability'), {}) for r in retrievability_list])
 
     def incrementDescriptorVersion(self):
         if self.DescriptorVersion is None:
