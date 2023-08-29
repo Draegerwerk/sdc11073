@@ -63,7 +63,7 @@ jobs:
       - name: Zip unittest reports
         uses: vimtor/action-zip@v1.1
         with:
-          files: pytest_reports/unittest_report_*.html
+          files: pytest_reports/
           dest: pytest_reports/test_reports.zip
 
       - name: Detect prerelease
