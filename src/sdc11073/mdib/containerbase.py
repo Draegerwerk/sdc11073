@@ -83,7 +83,7 @@ class ContainerBase:
     def mk_copy(self, copy_node: bool = True) -> ContainerBase:
         """Make a copy of self."""
         copied = copy.copy(self)
-        if copy_node:
+        if copy_node and self.node is not None:
             copied.node = xml_utils.copy_element(self.node)
         return copied
 
