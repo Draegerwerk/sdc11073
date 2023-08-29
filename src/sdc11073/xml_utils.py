@@ -1,12 +1,19 @@
 """Module containing utilities and helper methods regarding xml."""
 
 import copy
+import sys
 from typing import Callable
 
 from lxml.etree import _Element
-from typing_extensions import TypeAlias
 
-LxmlElement: TypeAlias = _Element
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+
+    LxmlElement: TypeAlias = _Element
+else:
+    from typing_extensions import TypeAlias
+
+    LxmlElement = _Element
 
 
 def copy_element(node: LxmlElement,
