@@ -14,6 +14,7 @@ from sdc11073.xml_types import xml_structure as x_struct
 from .containerbase import ContainerBase
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from decimal import Decimal
 
     from lxml import etree as etree_
@@ -86,8 +87,7 @@ class AbstractDescriptorProtocol(Protocol):
 
     @classmethod
     def from_node(cls, node: etree_.ElementBase, parent_handle: str | None = None) -> AbstractDescriptorProtocol:
-            """Create class and init its properties from the node."""
-
+        """Create class and init its properties from the node."""
 
 
 class AbstractDescriptorContainer(ContainerBase):
@@ -154,14 +154,13 @@ class AbstractDescriptorContainer(ContainerBase):
 
     def get_retrievability(self) -> list[pm_types.Retrievability]:
         """Return all retrievability data from Extension."""
-        return  [pm_types.Retrievability.from_node(x) for x in self.Extension.value if x.tag == msg.Retrievability]
+        return [pm_types.Retrievability.from_node(x) for x in self.Extension if x.tag == msg.Retrievability]
 
-    def set_retrievability(self, retrievability_list: list[pm_types.Retrievability]) -> None:
+    def set_retrievability(self, retrievability_list: Iterable[pm_types.Retrievability]) -> None:
         """Replace all retrievability elements with provided ones in Extension."""
-        tmp = [x for x in self.Extension.value if x.tag == msg.Retrievability]
-        for x in tmp:
-            self.Extension.value.remove(x)
-        self.Extension.value.extend([r.as_etree_node(msg.Retrievability, {}) for r in retrievability_list])
+        for tmp in [x for x in self.Extension if x.tag == msg.Retrievability]:
+            self.Extension.remove(tmp)
+        self.Extension.extend([r.as_etree_node(msg.Retrievability, {}) for r in retrievability_list])
 
     def increment_descriptor_version(self):
         """Increment DescriptorVersion."""
@@ -518,8 +517,8 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
         'InvocationEffectiveTimeout')
     Retriggerable: bool = x_struct.BooleanAttributeProperty('Retriggerable', implied_py_value=True)
     AccessLevel: pm_types.AccessLevel = x_struct.EnumAttributeProperty('AccessLevel',
-                                                                         implied_py_value=pm_types.AccessLevel.USER,
-                                                                         enum_cls=pm_types.AccessLevel)
+                                                                       implied_py_value=pm_types.AccessLevel.USER,
+                                                                       enum_cls=pm_types.AccessLevel)
     _props = ('OperationTarget', 'MaxTimeToFinish', 'InvocationEffectiveTimeout', 'Retriggerable', 'AccessLevel')
 
 

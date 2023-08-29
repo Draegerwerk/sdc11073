@@ -9,10 +9,8 @@ Container properties represent values in xml nodes.
 from __future__ import annotations
 
 import copy
-import operator
 import time
 from abc import ABC, abstractmethod
-from collections import OrderedDict
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -36,6 +34,7 @@ from .dataconverters import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
     from decimal import Decimal
     from sdc11073.namespaces import NamespaceHelper
     from sdc11073.xml_types.basetypes import XMLTypeBase
@@ -59,6 +58,48 @@ class _NumberStack:
     def unique_number(cls) -> str:
         cls._value += 1
         return str(cls._value)
+
+def copy_node(node: etree_._Element, method: Callable[[Any], Any] = copy.deepcopy) -> etree_._Element:
+    """Copy and preserve complete namespace.
+
+    :param node: node to be copied
+    :param method: method that copies an etree element
+    :return: new node
+    """
+    # walk from target to root
+    current = node
+    ns_map_list: list[dict[str, str]] = []  # saves all namespaces
+    while current is not None:
+        ns_map_list.append({k: v for k, v in current.nsmap.items() if k})  # filter for default namespace
+        current = current.getparent()
+
+    # create new instance
+    root_tree = node.getroottree()
+    current = method(root_tree.getroot())
+    x_path_steps = root_tree.getpath(node).split('/')[1:]
+    assert len(x_path_steps) == len(ns_map_list)
+
+    # walk from root to target
+    ns_map_list.reverse()
+    for i, step in enumerate(x_path_steps):
+        if i == 0:
+            step = f'/{step}'
+        current = current.xpath(step, namespaces=ns_map_list[i])[0]
+    return current
+
+
+def copy_node_wo_parent(node: etree_._Element, method: Callable[[Any], Any]=copy.deepcopy) -> etree_._Element:
+    """Copy node but only keep relevant information and no parent.
+
+    :param node: node to be copied
+    :param method: method that copies an etree element
+    :return: new node
+    """
+    new_node = etree_.Element(node.tag, attrib=node.attrib, nsmap=node.nsmap)
+    new_node.text = node.text
+    new_node.tail = node.tail
+    new_node.extend(method(child) for child in node)
+    return new_node
 
 
 class _XmlStructureBaseProperty(ABC):
@@ -805,9 +846,12 @@ class NodeTextQNameProperty(_ElementBase):
 
 def _compare_extension(left: etree_.ElementBase, right: etree_.ElementBase) -> bool:
     # xml comparison
-    if left.tag != right.tag:  # compare expanded names
-        return False
-    if dict(left.attrib) != dict(right.attrib):  # unclear how lxml _Attrib compares
+    try:
+        if left.tag != right.tag:  # compare expanded names
+            return False
+        if dict(left.attrib) != dict(right.attrib):  # unclear how lxml _Attrib compares
+            return False
+    except AttributeError:  # right side is not an Element type because expected attributes are missing
         return False
 
     # ignore comments
@@ -819,27 +863,21 @@ def _compare_extension(left: etree_.ElementBase, right: etree_.ElementBase) -> b
     if len(left_children) == 0 and len(right_children) == 0:
         if left.text != right.text:  # mixed content is not allowed. only compare text if there are no children
             return False
-
     return all(map(_compare_extension, left_children, right_children))  # compare children but keep order
 
 
-class ExtensionLocalValue:
+class ExtensionLocalValue(list[etree_.ElementBase]):
 
     compare_method: Callable[[etree_.ElementBase, etree_.ElementBase], bool] = _compare_extension
     """may be overwritten by user if a custom comparison behaviour is required"""
 
-    def __init__(self, value: list[etree_.ElementBase] | None):
-        self.value = value or list()
-
-    def __eq__(self, other: ExtensionLocalValue) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        if len(self.value) != len(other.value):
-            return False
-        for my_element, other_element in zip(self.value, other.value):
-            if not ExtensionLocalValue.compare_method(my_element, other_element):
+    def __eq__(self, other: Sequence) -> bool:
+        try:
+            if len(self) != len(other):
                 return False
-        return True
+        except AttributeError: # len of other cannot be determined
+            return False
+        return all(self.__class__.compare_method(left, right) for left, right in zip(self, other))
 
 
 class ExtensionNodeProperty(_ElementBase):
@@ -852,6 +890,11 @@ class ExtensionNodeProperty(_ElementBase):
         super().__init__(sub_element_name, ClassCheckConverter(ExtensionLocalValue), default_py_value,
                          is_optional=True)
 
+    def __set__(self, instance: Any, value: Iterable):
+        if not isinstance(value, ExtensionLocalValue):
+            value = ExtensionLocalValue(value)
+        super().__set__(instance, value)
+
     def __get__(self, instance, owner):  # noqa: ANN001
         """Return a python value, uses the locally stored value."""
         if instance is None:  # if called via class
@@ -861,7 +904,7 @@ class ExtensionNodeProperty(_ElementBase):
         except AttributeError:
             value = None
         if value is None:
-            value = ExtensionLocalValue(None)
+            value = ExtensionLocalValue()
             setattr(instance, self._local_var_name, value)
         return value
 
@@ -870,7 +913,7 @@ class ExtensionNodeProperty(_ElementBase):
         try:
             extension_nodes = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
         except ElementNotFoundError:
-            return ExtensionLocalValue(None)
+            return ExtensionLocalValue()
         return ExtensionLocalValue(extension_nodes[:])
 
     def update_xml_value(self, instance: Any, node: etree_.ElementBase):
@@ -882,10 +925,11 @@ class ExtensionNodeProperty(_ElementBase):
             extension_local_value = getattr(instance, self._local_var_name)
         except AttributeError:
             return  # nothing to add
-        if len(extension_local_value.value) == 0:
+        if extension_local_value is None or len(extension_local_value) == 0:
             return  # nothing to add
         sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
-        sub_node.extend(copy.copy(x) for x in extension_local_value.value)
+
+        sub_node.extend(copy_node_wo_parent(x) for x in extension_local_value)
 
 
 class AnyEtreeNodeProperty(_ElementBase):

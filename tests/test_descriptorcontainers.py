@@ -20,7 +20,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc.SafetyClassification, 'Inf')
         self.assertEqual(dc.get_actual_value('SafetyClassification'), None)
         self.assertEqual(dc.Type, None)
-        self.assertEqual(len(dc.Extension.value), 0)
+        self.assertEqual(len(dc.Extension), 0)
 
         # test creation from node
         node = dc.mk_node(test_tag, self.ns_mapper)
@@ -28,7 +28,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc2.DescriptorVersion, 0)
         self.assertEqual(dc2.SafetyClassification, 'Inf')
         self.assertEqual(dc.Type, None)
-        self.assertEqual(len(dc.Extension.value), 0)
+        self.assertEqual(len(dc.Extension), 0)
 
         # test update from node
         dc.DescriptorVersion = 42
@@ -38,13 +38,13 @@ class TestDescriptorContainers(unittest.TestCase):
         ext_node = etree_.Element(ns_hlp.MSG.tag('Whatever'))
         etree_.SubElement(ext_node, 'foo', attrib={'some_attr': 'some_value'})
         etree_.SubElement(ext_node, 'bar', attrib={'another_attr': 'different_value'})
-        dc.Extension.value.append(ext_node)
+        dc.Extension.append(ext_node)
         retrievability = pm_types.Retrievability([pm_types.RetrievabilityInfo(pm_types.RetrievabilityMethod.GET),
                                                  pm_types.RetrievabilityInfo(pm_types.RetrievabilityMethod.PERIODIC,
                                                                             update_period=42.0),
                                                  ],
                                                 )
-        dc.Extension.value.append(retrievability.as_etree_node(msg.Retrievability, {}))
+        dc.Extension.append(retrievability.as_etree_node(msg.Retrievability, {}))
 
         dc2.update_from_other_container(dc)
         self.assertEqual(dc2.DescriptorVersion, 42)
@@ -52,7 +52,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc2.Type, dc.Type)
         self.assertEqual(dc.code_id, 'abc')
         self.assertEqual(dc.coding_system, 'def')
-        self.assertEqual(dc2.Extension.value[0], ext_node)
+        self.assertEqual(dc2.Extension[0], ext_node)
         self.assertEqual(dc2.get_retrievability(), [retrievability])
 
         node = dc.mk_node(test_tag, self.ns_mapper)
@@ -63,7 +63,7 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc3.Type, dc.Type)
         self.assertEqual(dc3.code_id, 'abc')
         self.assertEqual(dc3.coding_system, 'def')
-        self.assertEqual(dc3.Extension.value[0].tag, ext_node.tag)
+        self.assertEqual(dc3.Extension[0].tag, ext_node.tag)
         self.assertEqual(dc3.get_retrievability(), [retrievability])
 
 

@@ -89,6 +89,7 @@ class TestExtensions(unittest.TestCase):
         inst2 = pm_types.InstanceIdentifier.from_node(fromstring(xml)) # noqa: S320
         self.assertEqual(inst1.ExtExtension, inst2.ExtExtension)
         self.assertEqual(inst1, inst2)
+        self.assertEqual(inst1.ExtExtension, tuple(inst2.ExtExtension))
 
         another_xml = b"""
                 <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
