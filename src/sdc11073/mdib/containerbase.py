@@ -8,7 +8,7 @@ from lxml.etree import Element, ElementBase, QName
 
 from sdc11073 import observableproperties as properties
 from sdc11073.namespaces import QN_TYPE, NamespaceHelper
-from sdc11073.xml import xml_utils as xml_utils
+from sdc11073 import xml_utils
 
 
 class ContainerBase:
