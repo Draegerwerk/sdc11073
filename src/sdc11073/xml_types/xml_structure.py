@@ -59,50 +59,6 @@ class _NumberStack:
         cls._value += 1
         return str(cls._value)
 
-def copy_node(node: etree_._Element,
-              method: Callable[[etree_._Element], etree_._Element] = copy.deepcopy) -> etree_._Element:
-    """Copy and preserve complete namespace.
-
-    :param node: node to be copied
-    :param method: method that copies an etree element
-    :return: new node
-    """
-    # walk from target to root
-    current = node
-    ns_map_list: list[dict[str, str]] = []  # saves all namespaces
-    while current is not None:
-        ns_map_list.append({k: v for k, v in current.nsmap.items() if k})  # filter for default namespace
-        current = current.getparent()
-
-    # create new instance
-    root_tree = node.getroottree()
-    current = method(root_tree.getroot())
-    x_path_steps = root_tree.getpath(node).split('/')[1:]
-    assert len(x_path_steps) == len(ns_map_list)
-
-    # walk from root to target
-    ns_map_list.reverse()
-    for i, step in enumerate(x_path_steps):
-        if i == 0:
-            step = f'/{step}'
-        current = current.xpath(step, namespaces=ns_map_list[i])[0]
-    return current
-
-
-def copy_node_wo_parent(node: etree_._Element,
-                        method: Callable[[etree_._Element], etree_._Element]=copy.deepcopy) -> etree_._Element:
-    """Copy node but only keep relevant information and no parent.
-
-    :param node: node to be copied
-    :param method: method that copies an etree element
-    :return: new node
-    """
-    new_node = etree_.Element(node.tag, attrib=node.attrib, nsmap=node.nsmap)
-    new_node.text = node.text
-    new_node.tail = node.tail
-    new_node.extend(method(child) for child in node)
-    return new_node
-
 
 class _XmlStructureBaseProperty(ABC):
     """_XmlStructureBaseProperty defines a python property that converts between Python Data Types and XML data types.
@@ -931,7 +887,7 @@ class ExtensionNodeProperty(_ElementBase):
             return  # nothing to add
         sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
 
-        sub_node.extend(copy_node_wo_parent(x) for x in extension_local_value)
+        sub_node.extend(copy.copy(x) for x in extension_local_value)
 
 
 class AnyEtreeNodeProperty(_ElementBase):
