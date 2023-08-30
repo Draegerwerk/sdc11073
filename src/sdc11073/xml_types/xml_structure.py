@@ -833,7 +833,7 @@ class ExtensionLocalValue(list[etree_.ElementBase]):
         try:
             if len(self) != len(other):
                 return False
-        except AttributeError: # len of other cannot be determined
+        except TypeError: # len of other cannot be determined
             return False
         return all(self.__class__.compare_method(left, right) for left, right in zip(self, other))
 

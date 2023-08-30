@@ -105,6 +105,18 @@ class TestExtensions(unittest.TestCase):
         self.assertNotEqual(inst1.ExtExtension, inst2.ExtExtension)
         self.assertNotEqual(inst1, inst2)
 
+    def test_compare_extension_with_other_types(self):
+        xml1 = b"""
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue"/>
+            </ext:Extension>
+        """
+        xml1 = fromstring(xml1)  # noqa: S320
+
+        inst1 = xml_structure.ExtensionLocalValue([xml1])
+        self.assertFalse(inst1 == 42)
+        self.assertFalse(inst1 == [41])
+
     def test_element_order(self):
         xml1 = b"""
         <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
@@ -279,6 +291,48 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
         inst1 = xml_structure.ExtensionLocalValue([xml1])
         inst2 = xml_structure.ExtensionLocalValue([xml2])
         self.assertNotEqual(inst1, inst2)
+
+    def test_assign_iterable(self):
+        xml1 = b"""
+        <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue" anotherattr="differentvalue"/>
+            </ext:Extension>
+        </pm:Identification>
+        """
+        xml2 = b"""
+        <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <bar someattr="somevalue"/>
+            </ext:Extension>
+        </pm:Identification>
+        """
+        xml3 = b"""
+        <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+                           Root="urn:uuid:90beab82-f160-4e2f-b3b2-ed8cfcf5e205"
+                           Extension="123.234.424">
+        </pm:Identification>
+        """
+
+        inst1 = pm_types.InstanceIdentifier.from_node(fromstring(xml1)) # noqa: S320
+        inst2 = pm_types.InstanceIdentifier.from_node(fromstring(xml2)) # noqa: S320
+        inst3 = pm_types.InstanceIdentifier.from_node(fromstring(xml3)) # noqa: S320
+        self.assertNotEqual(inst1.ExtExtension, inst2.ExtExtension)
+        self.assertEqual(len(inst3.ExtExtension), 0)
+        # assign a tuple with values from inst1 to inst3
+        inst3.ExtExtension = tuple(inst1.ExtExtension)
+        self.assertTrue(isinstance(inst3.ExtExtension, xml_structure.ExtensionLocalValue))
+        self.assertEqual(inst1.ExtExtension, inst3.ExtExtension)
+        # assign a generator with values from inst2 to inst3
+        def my_generator():
+            yield from inst2.ExtExtension
+        inst3.ExtExtension = my_generator()
+        self.assertEqual(inst2.ExtExtension, inst3.ExtExtension)
+
 
     def test_mixed_content_is_ignored(self):
         xml1 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
