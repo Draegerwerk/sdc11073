@@ -59,7 +59,8 @@ class _NumberStack:
         cls._value += 1
         return str(cls._value)
 
-def copy_node(node: etree_._Element, method: Callable[[Any], Any] = copy.deepcopy) -> etree_._Element:
+def copy_node(node: etree_._Element,
+              method: Callable[[etree_._Element], etree_._Element] = copy.deepcopy) -> etree_._Element:
     """Copy and preserve complete namespace.
 
     :param node: node to be copied
@@ -88,7 +89,8 @@ def copy_node(node: etree_._Element, method: Callable[[Any], Any] = copy.deepcop
     return current
 
 
-def copy_node_wo_parent(node: etree_._Element, method: Callable[[Any], Any]=copy.deepcopy) -> etree_._Element:
+def copy_node_wo_parent(node: etree_._Element,
+                        method: Callable[[etree_._Element], etree_._Element]=copy.deepcopy) -> etree_._Element:
     """Copy node but only keep relevant information and no parent.
 
     :param node: node to be copied

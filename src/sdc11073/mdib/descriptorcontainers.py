@@ -156,11 +156,11 @@ class AbstractDescriptorContainer(ContainerBase):
         """Return all retrievability data from Extension."""
         return [pm_types.Retrievability.from_node(x) for x in self.Extension if x.tag == msg.Retrievability]
 
-    def set_retrievability(self, retrievability_list: Iterable[pm_types.Retrievability]) -> None:
-        """Replace all retrievability elements with provided ones in Extension."""
+    def set_retrievability(self, retrievabilities: Iterable[pm_types.Retrievability]) -> None:
+        """Replace all retrievability elements in Extension with provided ones."""
         for tmp in [x for x in self.Extension if x.tag == msg.Retrievability]:
             self.Extension.remove(tmp)
-        self.Extension.extend([r.as_etree_node(msg.Retrievability, {}) for r in retrievability_list])
+        self.Extension.extend([r.as_etree_node(msg.Retrievability, {}) for r in retrievabilities])
 
     def increment_descriptor_version(self):
         """Increment DescriptorVersion."""
