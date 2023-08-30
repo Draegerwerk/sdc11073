@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any
 
 from sdc11073 import loghelper
 from sdc11073.definitions_base import ProtocolsRegistry
-from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.observableproperties import ObservableProperty
 from sdc11073.pysoap.msgreader import MessageReader
 
@@ -47,6 +46,7 @@ class ProviderMdib(mdibbase.MdibBase):
         :param transaction_cls: runs the transaction, default is MdibUpdateTransaction
         """
         if sdc_definitions is None:
+            from sdc11073.definitions_sdc import SDC_v1_Definitions  # lazy import, needed to brake cyclic imports
             sdc_definitions = SDC_v1_Definitions
         super().__init__(sdc_definitions,
                          loghelper.get_logger_adapter('sdc.device.mdib', log_prefix))
