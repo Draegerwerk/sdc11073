@@ -79,12 +79,14 @@ class AbstractDescriptorContainer(ContainerBase):
         return  [msgtypes.Retrievability.fromNode(x) for x in self.ext_Extension
                  if x.tag == msgTag('Retrievability')]
 
-    def set_retrievability(self, retrievability_list):
-        """Replace all retrievability elements with provided ones in Extension."""
+    def set_retrievability(self, retrievabilities):
+        """Replace all retrievability elements with provided ones in Extension.
+
+        :param retrievabilities: Iterable of msgtypes.Retrievability."""
         tmp = [x for x in self.ext_Extension if x.tag == msgTag('Retrievability')]
         for x in tmp:
             self.ext_Extension.remove(x)
-        self.ext_Extension.extend([r.asEtreeNode(msgTag('Retrievability'), {}) for r in retrievability_list])
+        self.ext_Extension.extend([r.asEtreeNode(msgTag('Retrievability'), {}) for r in retrievabilities])
 
     def incrementDescriptorVersion(self):
         if self.DescriptorVersion is None:
