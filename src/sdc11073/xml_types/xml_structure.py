@@ -32,6 +32,7 @@ from .dataconverters import (
     StringConverter,
     TimestampConverter,
 )
+from .. import xml_utils
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -886,8 +887,7 @@ class ExtensionNodeProperty(_ElementBase):
         if extension_local_value is None or len(extension_local_value) == 0:
             return  # nothing to add
         sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
-
-        sub_node.extend(copy.copy(x) for x in extension_local_value)
+        sub_node.extend(xml_utils.copy_node_wo_parent(x) for x in extension_local_value)
 
 
 class AnyEtreeNodeProperty(_ElementBase):
