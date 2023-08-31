@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - possible deadlock when stopping provider
 - fixed a bug where the `SdcConsumer` failed to determine the host network adapter if the ip contained in the `device_location` is on a different subnet
 - comparison of extensions would fail [#238](https://github.com/Draegerwerk/sdc11073/issues/238)
+- ExtensionLocalValue.value must be a list instead of a dictionary in order to allow multiple elements with same name.
 - fixed a bug where namespaces of xml are lost when coping lxml elements
 
 
@@ -43,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - replaced some of the ssl_context parameters with an ssl_context_container parameter, 
   that can hold two ssl context objects, to be able to get rid of 
   the deprecation warning occurring when using the same ssl context for both client and server side
+- replaced AbstractDescriptorContainer.retrievability property with methods get_retrievability() and set_retrievability()
+
 
 ## [2.0.0a5] - 2023-06-27
 

@@ -124,8 +124,8 @@ class ProviderMdibMethods:
             del mdib._retrievability_episodic[:]  # noqa: SLF001
             mdib.retrievability_periodic.clear()
             for descr in mdib.descriptions.objects:
-                if descr.retrievability is not None:
-                    for r_by in descr.retrievability.By:
+                for r in descr.get_retrievability():
+                    for r_by in r.By:
                         if r_by.Method == RetrievabilityMethod.EPISODIC:
                             mdib._retrievability_episodic.append(descr.Handle)  # noqa: SLF001
                         elif r_by.Method == RetrievabilityMethod.PERIODIC:

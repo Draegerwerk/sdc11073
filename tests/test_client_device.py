@@ -18,9 +18,6 @@ import sdc11073.definitions_sdc
 from sdc11073 import commlog
 from sdc11073 import loghelper
 from sdc11073 import observableproperties
-from sdc11073.consumer import SdcConsumer
-from sdc11073.consumer.components import SdcConsumerComponents
-from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.dispatch import RequestDispatcher
 from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
@@ -28,15 +25,10 @@ from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.mdib.providerwaveform import Annotator
-from sdc11073.namespaces import default_ns_helper
-from sdc11073.provider import waveforms
-from sdc11073.provider.components import SdcProviderComponents, default_sdc_provider_components_async
-from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
-from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types, msg_qnames as msg, pm_qnames as pm
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.consumer import SdcConsumer
@@ -1260,6 +1252,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         return CreatedMessage(soap_envelope, self.sdc_client.get_service_client._msg_factory)
 
     def test_extension(self):
+        """Verify that all Extension Elements of descriptors are identical on provider and consumer."""
         def are_equivalent(node1, node2):
             if node1.tag != node2.tag or node1.attrib != node2.attrib or node1.text != node2.text:
                 return False
@@ -1272,16 +1265,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         cl_mdib.init_mdib()
         for cl_descriptor in cl_mdib.descriptions.objects:
             dev_descriptor = self.sdc_device.mdib.descriptions.handle.get_one(cl_descriptor.Handle)
-            self.assertEqual(dev_descriptor.Extension.value.keys(), cl_descriptor.Extension.value.keys())
-            for key, dev_val in dev_descriptor.Extension.value.items():
-                cl_val = cl_descriptor.Extension.value[key]
-                try:
-                    if isinstance(dev_val, etree_._Element):
-                        self.assertTrue(are_equivalent(dev_val, cl_val))
-                    else:
-                        self.assertEqual(dev_val, cl_val)
-                except:
-                    raise
+            self.assertEqual(dev_descriptor.Extension, cl_descriptor.Extension)
 
 
 class Test_DeviceCommonHttpServer(unittest.TestCase):
