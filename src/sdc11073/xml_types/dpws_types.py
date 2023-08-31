@@ -49,7 +49,7 @@ class HostServiceType(XMLTypeBase):
     EndpointReference = cp.SubElementProperty(default_ns_helper.WSA.tag('EndpointReference'),
                                               value_class=EndpointReferenceType)
     Types = cp.NodeTextQNameListProperty(default_ns_helper.DPWS.tag('Types'))
-    _props = ['EndpointReference', 'Types']
+    _props = ('EndpointReference', 'Types')
 
 
 class HostedServiceType(XMLTypeBase):
@@ -57,12 +57,12 @@ class HostedServiceType(XMLTypeBase):
                                                   value_class=EndpointReferenceType)
     Types = cp.NodeTextQNameListProperty(default_ns_helper.DPWS.tag('Types'))
     ServiceId = cp.AnyUriTextElement(default_ns_helper.DPWS.tag('ServiceId'))
-    _props = ['EndpointReference', 'Types', 'ServiceId']
+    _props = ('EndpointReference', 'Types', 'ServiceId')
 
 
 class LocalizedStringType(ElementWithText):
     lang = cp.StringAttributeProperty(default_ns_helper.XML.tag('lang'))
-    _props = ['lang']
+    _props = ('lang',)
 
     @classmethod
     def init(cls, text: str, lang: Optional[str] = None):
@@ -86,7 +86,7 @@ class ThisDeviceType(XMLTypeBase):
                                              value_class=LocalizedStringType)
     FirmwareVersion = cp.NodeStringProperty(default_ns_helper.DPWS.tag('FirmwareVersion'), is_optional=True)
     SerialNumber = cp.NodeStringProperty(default_ns_helper.DPWS.tag('SerialNumber'), is_optional=True)
-    _props = ['FriendlyName', 'FirmwareVersion', 'SerialNumber']
+    _props = ('FriendlyName', 'FirmwareVersion', 'SerialNumber')
 
     def __init__(self, friendly_name: Union[str, LocalizedStringTypeDict, None] = None,
                  firmware_version: Optional[str] = None,
@@ -118,7 +118,7 @@ class ThisModelType(XMLTypeBase):
     ModelNumber = cp.NodeStringProperty(default_ns_helper.DPWS.tag('ModelNumber'), is_optional=True)
     ModelUrl = cp.NodeStringProperty(default_ns_helper.DPWS.tag('ModelUrl'), is_optional=True)
     PresentationUrl = cp.NodeStringProperty(default_ns_helper.DPWS.tag('PresentationUrl'), is_optional=True)
-    _props = ['Manufacturer', 'ManufacturerUrl', 'ModelName', 'ModelNumber', 'ModelUrl', 'PresentationUrl']
+    _props = ('Manufacturer', 'ManufacturerUrl', 'ModelName', 'ModelNumber', 'ModelUrl', 'PresentationUrl')
 
     def __init__(self,
                  manufacturer: Union[str, LocalizedStringTypeDict, None] = None,

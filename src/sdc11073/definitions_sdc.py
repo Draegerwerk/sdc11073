@@ -64,6 +64,6 @@ class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     MedicalDeviceType = ns_hlp.MDPWS.tag('MedicalDevice')
     ActionsNamespace = ns_hlp.SDC.namespace
     PortTypeNamespace = ns_hlp.SDC.namespace
-    MedicalDeviceTypesFilter = [DpwsDeviceType, MedicalDeviceType]
+    MedicalDeviceTypesFilter = (DpwsDeviceType, MedicalDeviceType)
     Actions = actions.Actions
     data_model = V1Model()

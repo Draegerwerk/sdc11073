@@ -108,14 +108,14 @@ class reasontext(ElementWithText):  # noqa: N801
     """Text with language attribute."""
 
     lang: str = struct.StringAttributeProperty(ns_hlp.XML.tag('lang'), default_py_value='en-US')
-    _props = ['lang']
+    _props = ('lang',)
 
 
 class faultreason(XMLTypeBase):  # noqa: N801
     """List of reasontext."""
 
     Text: list[reasontext] = struct.SubElementListProperty(ns_hlp.S12.tag('Text'), value_class=reasontext)
-    _props = ['Text']
+    _props = ('Text',)
 
 
 class subcode(XMLTypeBase):  # noqa: N801
@@ -123,7 +123,7 @@ class subcode(XMLTypeBase):  # noqa: N801
 
     Value: etree_.QName = struct.NodeTextQNameProperty(ns_hlp.S12.tag('Value'))
     # optional Subcode Element intentionally omitted, it is of type subcode => recursion, bad idea!
-    _props = ['Value']
+    _props = ('Value',)
 
 
 class faultcode(XMLTypeBase):  # noqa: N801
@@ -131,7 +131,7 @@ class faultcode(XMLTypeBase):  # noqa: N801
 
     Value = struct.NodeEnumQNameProperty(ns_hlp.S12.tag('Value'), faultcodeEnum)
     Subcode = struct.SubElementProperty(ns_hlp.S12.tag('Subcode'), value_class=subcode, is_optional=True)
-    _props = ['Value', 'Subcode']
+    _props = ('Value', 'Subcode')
 
 
 class Fault(MessageType):
@@ -146,8 +146,8 @@ class Fault(MessageType):
     Role = struct.AnyUriTextElement(ns_hlp.S12.tag('Role'), is_optional=True)
     # Schema says Detail is an "any" type. Here it is modelled as a string that becomes the text of the Detail node
     Detail = struct.NodeStringProperty(ns_hlp.S12.tag('Detail'), is_optional=True)
-    _props = ['Code', 'Reason', 'Node', 'Role', 'Detail']
-    additional_namespaces = [ns_hlp.XML, ns_hlp.WSE]
+    _props = ('Code', 'Reason', 'Node', 'Role', 'Detail')
+    additional_namespaces = (ns_hlp.XML, ns_hlp.WSE)
 
     def add_reason_text(self, text: str, lang: str = 'en-US'):
         """Add reason text to list."""

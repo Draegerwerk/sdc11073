@@ -14,7 +14,7 @@ class QNameListType(struct.NodeTextQNameListProperty):
 class ScopesType(ElementWithTextList):
     # text is a URI list
     MatchBy = struct.AnyURIAttributeProperty('MatchBy')
-    _props = ['MatchBy']
+    _props = ('MatchBy',)
 
     def __init__(self, value: Optional[str] = None, match_by: Optional[str] = None):
         super().__init__()
@@ -37,7 +37,7 @@ class HelloType(MessageType):
                                           value_class=str,
                                           is_optional=True)
     MetadataVersion = struct.NodeIntProperty(wsd_tag('MetadataVersion'), default_py_value=1)
-    _props = ['EndpointReference', 'Types', 'Scopes', 'XAddrs', 'MetadataVersion']
+    _props = ('EndpointReference', 'Types', 'Scopes', 'XAddrs', 'MetadataVersion')
 
 
 class ByeType(MessageType):
@@ -54,7 +54,7 @@ class ByeType(MessageType):
                                           value_class=str,
                                           is_optional=True)
     MetadataVersion = struct.NodeIntProperty(wsd_tag('MetadataVersion'), is_optional=True)
-    _props = ['EndpointReference', 'Types', 'Scopes', 'XAddrs', 'MetadataVersion']
+    _props = ('EndpointReference', 'Types', 'Scopes', 'XAddrs', 'MetadataVersion')
 
 
 class ProbeType(MessageType):
@@ -64,7 +64,7 @@ class ProbeType(MessageType):
     Scopes  = struct.SubElementProperty(wsd_tag('Scopes'),
                                         value_class=ScopesType,
                                         is_optional=True)
-    _props = ['Types', 'Scopes']
+    _props = ('Types', 'Scopes')
 
 
 class ProbeMatchType(XMLTypeBase):
@@ -79,7 +79,7 @@ class ProbeMatchType(XMLTypeBase):
                                           value_class=str,
                                           is_optional=True)
     MetadataVersion = struct.NodeIntProperty(wsd_tag('MetadataVersion'), default_py_value=1)
-    _props = ['EndpointReference', 'Types', 'Scopes', 'XAddrs', 'MetadataVersion']
+    _props = ('EndpointReference', 'Types', 'Scopes', 'XAddrs', 'MetadataVersion')
 
 
 class ProbeMatchesType(MessageType):
@@ -87,8 +87,8 @@ class ProbeMatchesType(MessageType):
     action = f'{default_ns_helper.WSD.namespace}/ProbeMatches'
     ProbeMatch = struct.SubElementListProperty(wsd_tag('ProbeMatch'),
                                                value_class=ProbeMatchType)
-    _props = ['ProbeMatch']
-    additional_namespaces = [default_ns_helper.WSD, default_ns_helper.WSA]
+    _props = ('ProbeMatch',)
+    additional_namespaces = (default_ns_helper.WSD, default_ns_helper.WSA)
 
 
 class ResolveType(MessageType):
@@ -97,7 +97,7 @@ class ResolveType(MessageType):
     EndpointReference = struct.SubElementProperty(wsa_tag('EndpointReference'),
                                                   value_class=EndpointReferenceType,
                                                   default_py_value=EndpointReferenceType())
-    _props = ['EndpointReference']
+    _props = ('EndpointReference',)
 
 
 class ResolveMatchType(XMLTypeBase):
@@ -112,7 +112,7 @@ class ResolveMatchType(XMLTypeBase):
                                           value_class=str,
                                           is_optional=True)
     MetadataVersion = struct.NodeIntProperty(wsd_tag('MetadataVersion'), default_py_value=1)
-    _props = ['EndpointReference', 'Types', 'Scopes', 'XAddrs', 'MetadataVersion']
+    _props = ('EndpointReference', 'Types', 'Scopes', 'XAddrs', 'MetadataVersion')
 
 
 class ResolveMatchesType(MessageType):
@@ -121,7 +121,7 @@ class ResolveMatchesType(MessageType):
     ResolveMatch = struct.SubElementProperty(wsd_tag('ResolveMatch'),
                                                value_class=ResolveMatchType,
                                              is_optional=True)
-    _props = ['ResolveMatch']
+    _props = ('ResolveMatch',)
 
 
 class AppSequenceType(XMLTypeBase):
@@ -130,4 +130,4 @@ class AppSequenceType(XMLTypeBase):
     InstanceId = struct.IntegerAttributeProperty('InstanceId', is_optional=False)
     SequenceId = struct.AnyURIAttributeProperty('SequenceId')
     MessageNumber = struct.IntegerAttributeProperty('MessageNumber', is_optional=False)
-    _props = ['InstanceId', 'SequenceId', 'MessageNumber']
+    _props = ('InstanceId', 'SequenceId', 'MessageNumber')

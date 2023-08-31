@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, ClassVar
 
 from sdc11073 import observableproperties as properties
 from sdc11073.xml_types import ext_qnames as ext
@@ -123,7 +123,9 @@ class AbstractDescriptorContainer(ContainerBase):
     _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'Extension', 'Type')
     _child_elements_order = (ext.Extension, pm_qnames.Type)  # child elements in BICEPS order
     STATE_QNAME = None
-    extension_class_lookup = {msg.Retrievability: pm_types.Retrievability}
+    extension_class_lookup: ClassVar[dict[etree_.QName, type[pm_types.PropertyBasedPMType]]] = {
+        msg.Retrievability: pm_types.Retrievability
+    }
 
     def __init__(self, handle: str | None, parent_handle: str | None):
         """Parent Handle can only be None for a Mds Descriptor. every other descriptor has a parent."""

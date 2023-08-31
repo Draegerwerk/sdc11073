@@ -18,13 +18,13 @@ class DeliveryType(XMLTypeBase):
     NotifyTo = cp.SubElementProperty(wse_tag('NotifyTo'),
                                      value_class=EndpointReferenceType,
                                      default_py_value=EndpointReferenceType())
-    _props = ['Mode', 'NotifyTo']
+    _props = ('Mode', 'NotifyTo')
 
 
 class FilterType(ElementWithText):
     Dialect = cp.AnyURIAttributeProperty('Dialect')
     any = xml_structure.AnyEtreeNodeListProperty(None, is_optional=True)
-    _props = ['Dialect', 'any']
+    _props = ('Dialect', 'any')
 
 
 class Subscribe(MessageType):
@@ -40,8 +40,8 @@ class Subscribe(MessageType):
     Filter = cp.SubElementProperty(wse_tag('Filter'),
                                    value_class=FilterType,
                                    is_optional=True)
-    _props = ['EndTo', 'Delivery', 'Expires', 'Filter']
-    additional_namespaces = [default_ns_helper.WSE]
+    _props = ('EndTo', 'Delivery', 'Expires', 'Filter')
+    additional_namespaces = (default_ns_helper.WSE,)
 
     def init_end_to(self):
         self.EndTo = EndpointReferenceType()
@@ -59,20 +59,20 @@ class SubscribeResponse(MessageType):
                                                 value_class=EndpointReferenceType,
                                                 default_py_value=EndpointReferenceType())
     Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
-    _props = ['SubscriptionManager', 'Expires']
-    additional_namespaces = [default_ns_helper.WSE]
+    _props = ('SubscriptionManager', 'Expires')
+    additional_namespaces = (default_ns_helper.WSE,)
 
 
 class Unsubscribe(MessageType):
     NODETYPE = wse_tag('Unsubscribe')
     action = EventingActions.Unsubscribe
-    additional_namespaces = [default_ns_helper.WSE]
+    additional_namespaces = (default_ns_helper.WSE,)
 
 
 class UnsubscribeResponse(MessageType):
     NODETYPE = wse_tag('UnsubscribeResponse')
     action = EventingActions.UnsubscribeResponse
-    additional_namespaces = [default_ns_helper.WSE]
+    additional_namespaces = (default_ns_helper.WSE,)
 
     def as_etree_node(self, *args, **kwargs):
         # Unsubscribe has empty body
@@ -81,7 +81,7 @@ class UnsubscribeResponse(MessageType):
 
 class LanguageSpecificStringType(ElementWithText):
     lang = cp.StringAttributeProperty(attribute_name=xml_tag('lang'))
-    _props = ['lang']
+    _props = ('lang',)
 
 
 class SubscriptionEnd(MessageType):
@@ -93,8 +93,8 @@ class SubscriptionEnd(MessageType):
     Status = cp.NodeStringProperty(wse_tag('Status'))
     Reason = cp.SubElementListProperty(wse_tag('Reason'),
                                        value_class=LanguageSpecificStringType)
-    _props = ['SubscriptionManager', 'Status', 'Reason']
-    additional_namespaces = [default_ns_helper.WSE]
+    _props = ('SubscriptionManager', 'Status', 'Reason')
+    additional_namespaces = (default_ns_helper.WSE,)
 
     def add_reason(self, text, lang=None):
         tmp = LanguageSpecificStringType()
@@ -107,27 +107,27 @@ class Renew(MessageType):
     NODETYPE = wse_tag('Renew')
     action = EventingActions.Renew
     Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
-    _props = ['Expires']
-    additional_namespaces = [default_ns_helper.WSE]
+    _props = ('Expires',)
+    additional_namespaces = (default_ns_helper.WSE,)
 
 
 class RenewResponse(MessageType):
     NODETYPE = wse_tag('RenewResponse')
     action = EventingActions.RenewResponse
     Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
-    _props = ['Expires']
-    additional_namespaces = [default_ns_helper.WSE]
+    _props = ('Expires',)
+    additional_namespaces = (default_ns_helper.WSE,)
 
 
 class GetStatus(MessageType):
     NODETYPE = wse_tag('GetStatus')
     action = EventingActions.GetStatus
-    additional_namespaces = [default_ns_helper.WSE]
+    additional_namespaces = (default_ns_helper.WSE,)
 
 
 class GetStatusResponse(MessageType):
     NODETYPE = wse_tag('GetStatusResponse')
     action = EventingActions.GetStatusResponse
     Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
-    _props = ['Expires']
-    additional_namespaces = [default_ns_helper.WSE]
+    _props = ('Expires',)
+    additional_namespaces = (default_ns_helper.WSE,)
