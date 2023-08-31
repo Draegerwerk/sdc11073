@@ -458,9 +458,12 @@ class NodeTextQNameProperty(_PropertyBase):
 
 def _compare_extension(left: etree_.ElementBase, right: etree_.ElementBase) -> bool:
     # xml comparison
-    if left.tag != right.tag:  # compare expanded names
-        return False
-    if dict(left.attrib) != dict(right.attrib):  # unclear how lxml _Attrib compares
+    try:
+        if left.tag != right.tag:  # compare expanded names
+            return False
+        if dict(left.attrib) != dict(right.attrib):  # unclear how lxml _Attrib compares
+            return False
+    except AttributeError:  # right side is not an Element type because expected attributes are missing
         return False
 
     # ignore comments
@@ -485,9 +488,10 @@ class ExtensionLocalValue(list):
     #     self.value = value or list()
 
     def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            return False
-        if len(self) != len(other):
+        try:
+            if len(self) != len(other):
+                return False
+        except TypeError:  # len of other cannot be determined
             return False
         for my_element, other_element in zip(self, other):
             if not ExtensionLocalValue.compare_method(my_element, other_element):
