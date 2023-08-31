@@ -224,3 +224,10 @@ class TestXmlParsing(unittest.TestCase):
             for report in soap_body:
                 new_report = xml_utils.copy_element(report)
                 self._compare_nodes(report.getroottree().getroot(), new_report.getroottree().getroot())
+
+    def test_copy_node_wo_parent(self):
+        for soap_body in self.xml_to_be_tested:
+            for report in soap_body:
+                new_report = xml_utils.copy_node_wo_parent(report)
+                self.assertEqual(new_report.getparent(), None)
+                self._compare_nodes(report, new_report)

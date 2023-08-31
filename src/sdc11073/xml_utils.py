@@ -4,7 +4,7 @@ import copy
 import sys
 from typing import Callable
 
-from lxml.etree import _Element
+from lxml.etree import Element, _Element
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
@@ -14,8 +14,7 @@ else:
     LxmlElement = _Element
 
 
-def copy_element(node: LxmlElement,
-                 method: Callable[[LxmlElement], LxmlElement] = copy.deepcopy) -> LxmlElement:
+def copy_element(node: LxmlElement, method: Callable[[LxmlElement], LxmlElement] = copy.deepcopy) -> LxmlElement:
     """Copy and preserve complete namespace.
 
     :param node: node to be copied
@@ -40,3 +39,17 @@ def copy_element(node: LxmlElement,
     for i, step in enumerate(x_path_steps):
         current = current.xpath(f'/{step}' if i == 0 else step, namespaces=ns_map_list[i])[0]
     return current
+
+
+def copy_node_wo_parent(node: LxmlElement, method: Callable[[LxmlElement], LxmlElement] = copy.deepcopy) -> LxmlElement:
+    """Copy node but only keep relevant information and no parent.
+
+    :param node: node to be copied
+    :param method: method that copies an etree element
+    :return: new node
+    """
+    new_node = Element(node.tag, attrib=node.attrib, nsmap=node.nsmap)
+    new_node.text = node.text
+    new_node.tail = node.tail
+    new_node.extend(method(child) for child in node)
+    return new_node
