@@ -10,7 +10,8 @@ from . import xml_structure as struct
 from .basetypes import ElementWithText, XMLTypeBase
 
 if TYPE_CHECKING:
-    from lxml.etree import Element, ElementBase, QName
+    from lxml.etree import QName
+    from sdc11073 import xml_utils
 
 _is_reference_parameter = nsh.WSA.tag('IsReferenceParameter')
 
@@ -65,7 +66,7 @@ class HeaderInformationBlock(XMLTypeBase):
                  addr_to: str | None = None,
                  relates_to: str | None = None,
                  addr_from: str | None = None,
-                 reference_parameters: list[ElementBase] | None = None,
+                 reference_parameters: list[xml_utils.LxmlElement] | None = None,
                  relationship_type: QName | None = None):
         super().__init__()
         if action is not None:
@@ -104,7 +105,7 @@ class HeaderInformationBlock(XMLTypeBase):
         reply_address.Action = MustUnderStandTextElement(action)
         return reply_address
 
-    def as_etree_node(self, q_name: QName, ns_map: dict[str, str]) -> ElementBase:
+    def as_etree_node(self, q_name: QName, ns_map: dict[str, str]) -> xml_utils.LxmlElement:
         """Create etree Element form instance data."""
         node = super().as_etree_node(q_name, ns_map)
         for param in self.reference_parameters:
@@ -114,7 +115,7 @@ class HeaderInformationBlock(XMLTypeBase):
         return node
 
     @classmethod
-    def from_node(cls, node: ElementBase) -> HeaderInformationBlock:
+    def from_node(cls, node: xml_utils.LxmlElement) -> HeaderInformationBlock:
         """Create HeaderInformationBlock from etree element."""
         obj = cls()
         obj.update_from_node(node)

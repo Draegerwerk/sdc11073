@@ -231,3 +231,10 @@ class TestXmlParsing(unittest.TestCase):
                 new_report = xml_utils.copy_node_wo_parent(report)
                 self.assertEqual(new_report.getparent(), None)
                 self._compare_nodes(report, new_report)
+
+    def test_lxml_element_type(self):
+        self.assertEqual(lxml.etree._Element, xml_utils.LxmlElement)
+        parsed_xml = lxml.etree.fromstring(self.xml_to_be_parsed[0])
+        self.assertEqual(type(parsed_xml), xml_utils.LxmlElement)
+        self.assertTrue(isinstance(parsed_xml, lxml.etree._Element))
+        self.assertTrue(isinstance(parsed_xml, xml_utils.LxmlElement))

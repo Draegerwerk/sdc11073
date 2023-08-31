@@ -11,6 +11,7 @@ from ...namespaces import PrefixesEnum
 if TYPE_CHECKING:
     from ...pysoap.msgfactory import CreatedMessage
     from ...namespaces import PrefixNamespace
+    from sdc11073 import xml_utils
 
 msg_prefix = PrefixesEnum.MSG.prefix
 
@@ -64,7 +65,7 @@ class DPWSPortTypeBase:
     def add_wsdl_port_type(self, parent_node):
         raise NotImplementedError
 
-    def _mk_port_type_node(self, parent_node: etree_.ElementBase, is_event_source: bool =False) -> etree_.ElementBase:
+    def _mk_port_type_node(self, parent_node: xml_utils.LxmlElement, is_event_source: bool =False) -> xml_utils.LxmlElement:
         """ Needed for wsdl message
         :param parent_node: where to add data
         :param is_event_source: true if port type provides notification
@@ -189,7 +190,7 @@ class ServiceWithOperations(DPWSPortTypeBase):
         return self._sdc_device.msg_factory.mk_reply_soap_message(request_data, set_response)
 
 
-def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_message_name) -> etree_.ElementBase:
+def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_message_name) -> xml_utils.LxmlElement:
     elem = etree_.SubElement(parent_node, _wsdl_operation, attrib={'name': operation_name})
     if input_message_name is not None:
         etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'input'),
@@ -202,10 +203,10 @@ def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_m
     return elem
 
 
-def mk_wsdl_two_way_operation(parent_node: etree_.ElementBase,
+def mk_wsdl_two_way_operation(parent_node: xml_utils.LxmlElement,
                               operation_name: str,
                               input_message_name: Optional[str] = None,
-                              output_message_name: Optional[str] = None) -> etree_.ElementBase:
+                              output_message_name: Optional[str] = None) -> xml_utils.LxmlElement:
     """
     A helper for wsdl generation. A two-way-operation defines a 'normal' request and response operation.
     :param parent_node: info shall be added to this node
@@ -222,9 +223,9 @@ def mk_wsdl_two_way_operation(parent_node: etree_.ElementBase,
                               output_message_name=output_msg_name)
 
 
-def mk_wsdl_one_way_operation(parent_node: etree_.ElementBase,
+def mk_wsdl_one_way_operation(parent_node: xml_utils.LxmlElement,
                               operation_name: str,
-                              output_message_name: Optional[str] = None) -> etree_.ElementBase:
+                              output_message_name: Optional[str] = None) -> xml_utils.LxmlElement:
     """
     A helper for wsdl generation. A one-way-operation is a subscription.
     :param parent_node: info shall be added to this node

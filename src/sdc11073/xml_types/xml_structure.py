@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from sdc11073.xml_types.basetypes import XMLTypeBase
     from .dataconverters import DataConverterProtocol
     from .isoduration import DurationType
+    from sdc11073 import xml_utils
 
 STRICT_TYPES = True  # if True, only the expected types are excepted.
 MANDATORY_VALUE_CHECKING = True  # checks if mandatory values are present when xml is generated
@@ -157,7 +158,7 @@ class _XmlStructureBaseProperty(ABC):
             setattr(instance, self._local_var_name, copy.deepcopy(self._default_py_value))
 
     @abstractmethod
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Update node with current data from instance.
 
         This method is used internally and should not be called by application.
@@ -167,7 +168,7 @@ class _XmlStructureBaseProperty(ABC):
         """
 
     @abstractmethod
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase):
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement):
         """Read data from node.
 
         This method is used internally and should not be called by application.
@@ -176,7 +177,7 @@ class _XmlStructureBaseProperty(ABC):
         :return: value
         """
 
-    def update_from_node(self, instance: Any, node: etree_.ElementBase):
+    def update_from_node(self, instance: Any, node: xml_utils.LxmlElement):
         """Update instance data with data from node.
 
         This method is used internally and should not be called by application.
@@ -217,11 +218,11 @@ class _AttributeBase(_XmlStructureBaseProperty):
         self._attribute_name = attribute_name
 
     def get_py_value_from_node(self, instance: Any,  # noqa: ARG002
-                               node: etree_.ElementBase | None) -> Any:
+                               node: xml_utils.LxmlElement | None) -> Any:
         xml_value = None if node is None else node.attrib.get(self._attribute_name)
         return None if xml_value is None else self._converter.to_py(xml_value)
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -269,9 +270,9 @@ class _ElementBase(_XmlStructureBaseProperty, ABC):
         self._sub_element_name = sub_element_name
 
     @staticmethod
-    def _get_element_by_child_name(node: etree_.ElementBase,
+    def _get_element_by_child_name(node: xml_utils.LxmlElement,
                                    sub_element_name: etree_.QName | None,
-                                   create_missing_nodes: bool) -> etree_.ElementBase:
+                                   create_missing_nodes: bool) -> xml_utils.LxmlElement:
         if sub_element_name is None:
             return node
         sub_node = node.find(sub_element_name)
@@ -281,7 +282,7 @@ class _ElementBase(_XmlStructureBaseProperty, ABC):
             sub_node = etree_.SubElement(node, sub_element_name)  # create this node
         return sub_node
 
-    def remove_sub_element(self, node: etree_.ElementBase):
+    def remove_sub_element(self, node: xml_utils.LxmlElement):
         if self._sub_element_name is None:
             return
         sub_node = node.find(self._sub_element_name)
@@ -370,7 +371,7 @@ class CurrentTimestampAttributeProperty(_AttributeBase):
         super().__init__(attribute_name, value_converter=TimestampConverter,
                          default_py_value=None, is_optional=is_optional)
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         setattr(instance, self._local_var_name, time.time())
         super().update_xml_value(instance, node)
@@ -468,11 +469,11 @@ class QNameAttributeProperty(_AttributeBase):
                          default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
     def get_py_value_from_node(self, instance: Any,  # noqa: ARG002
-                               node: etree_.ElementBase | None) -> Any:
+                               node: xml_utils.LxmlElement | None) -> Any:
         xml_value = None if node is None else node.attrib.get(self._attribute_name)
         return None if xml_value is None else text_to_qname(xml_value, node.nsmap)
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -522,14 +523,14 @@ class _AttributeListBase(_AttributeBase):
         setattr(instance, self._local_var_name, [])
 
     def get_py_value_from_node(self, instance: Any,  # noqa: ARG002
-                               node: etree_.ElementBase | None) -> list[Any]:
+                               node: xml_utils.LxmlElement | None) -> list[Any]:
         xml_value = None if node is None else node.attrib.get(self._attribute_name)
         if xml_value is not None:
             split_result = xml_value.split(' ')
             return [self._converter.elem_to_py(val) for val in split_result if val]
         return []
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         try:
             py_value = getattr(instance, self._local_var_name)
         except AttributeError:
@@ -608,7 +609,7 @@ class NodeTextProperty(_ElementBase):
                          is_optional)
         self._min_length = min_length
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node.
 
         :return: None if the element was not found, else result of converter.
@@ -619,7 +620,7 @@ class NodeTextProperty(_ElementBase):
             return None  # element was not found, return None
         return self._converter.to_py(sub_node.text)
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -703,7 +704,7 @@ class NodeEnumQNameProperty(NodeTextProperty):
                          is_optional, min_length=1)
         self.enum_cls = enum_cls
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -714,7 +715,7 @@ class NodeEnumQNameProperty(NodeTextProperty):
         except ElementNotFoundError:
             return self._default_py_value
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -765,7 +766,7 @@ class NodeTextQNameProperty(_ElementBase):
         super().__init__(sub_element_name, ClassCheckConverter(etree_.QName), default_py_value,
                          is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -777,7 +778,7 @@ class NodeTextQNameProperty(_ElementBase):
             pass
         return self._default_py_value
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -803,7 +804,7 @@ class NodeTextQNameProperty(_ElementBase):
             sub_node.text = value
 
 
-def _compare_extension(left: etree_.ElementBase, right: etree_.ElementBase) -> bool:
+def _compare_extension(left: xml_utils.LxmlElement, right: xml_utils.LxmlElement) -> bool:
     # xml comparison
     try:
         if left.tag != right.tag:  # compare expanded names
@@ -825,9 +826,9 @@ def _compare_extension(left: etree_.ElementBase, right: etree_.ElementBase) -> b
     return all(map(_compare_extension, left_children, right_children))  # compare children but keep order
 
 
-class ExtensionLocalValue(list[etree_.ElementBase]):
+class ExtensionLocalValue(list[xml_utils.LxmlElement]):
 
-    compare_method: Callable[[etree_.ElementBase, etree_.ElementBase], bool] = _compare_extension
+    compare_method: Callable[[xml_utils.LxmlElement, xml_utils.LxmlElement], bool] = _compare_extension
     """may be overwritten by user if a custom comparison behaviour is required"""
 
     def __eq__(self, other: Sequence) -> bool:
@@ -867,7 +868,7 @@ class ExtensionNodeProperty(_ElementBase):
             setattr(instance, self._local_var_name, value)
         return value
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:
         """Read value from node."""
         try:
             extension_nodes = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -875,7 +876,7 @@ class ExtensionNodeProperty(_ElementBase):
             return ExtensionLocalValue()
         return ExtensionLocalValue(extension_nodes[:])
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node.
 
         The Extension Element is only added if there is at least one element available in local list.
@@ -897,7 +898,7 @@ class AnyEtreeNodeProperty(_ElementBase):
         super().__init__(sub_element_name, NullConverter, default_py_value=None,
                          is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -905,7 +906,7 @@ class AnyEtreeNodeProperty(_ElementBase):
             return None
         return sub_node[:]  # all children
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -939,7 +940,7 @@ class SubElementProperty(_ElementBase):
                          is_optional)
         self.value_class = value_class
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
         value = self._default_py_value
         try:
@@ -950,7 +951,7 @@ class SubElementProperty(_ElementBase):
             pass
         return value
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -992,7 +993,7 @@ class ContainerProperty(_ElementBase):
         self._cls_getter = cls_getter
         self._ns_helper = ns_helper
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
         value = self._default_py_value
         try:
@@ -1008,7 +1009,7 @@ class ContainerProperty(_ElementBase):
             pass
         return value
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -1056,7 +1057,7 @@ class SubElementListProperty(_ElementListProperty):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
         self.value_class = value_class
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
         objects = []
         try:
@@ -1069,7 +1070,7 @@ class SubElementListProperty(_ElementListProperty):
         except ElementNotFoundError:
             return objects
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -1113,7 +1114,7 @@ class ContainerListProperty(_ElementListProperty):
         self._cls_getter = cls_getter
         self._ns_helper = ns_helper
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
         objects = []
         try:
@@ -1131,7 +1132,7 @@ class ContainerListProperty(_ElementListProperty):
         except ElementNotFoundError:
             return objects
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -1165,7 +1166,7 @@ class SubElementTextListProperty(_ElementListProperty):
                  is_optional: bool = True):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
         objects = []
         try:
@@ -1176,7 +1177,7 @@ class SubElementTextListProperty(_ElementListProperty):
         except ElementNotFoundError:
             return objects
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -1231,7 +1232,7 @@ class SubElementWithSubElementListProperty(SubElementProperty):
                          default_py_value=default_py_value,
                          value_class=value_class)
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -1251,14 +1252,14 @@ class SubElementWithSubElementListProperty(SubElementProperty):
 
 
 class AnyEtreeNodeListProperty(_ElementListProperty):
-    """class represents a list of etree_.Element."""
+    """class represents a list of lxml elements."""
 
-    def __init__(self, sub_element_name: etree_.QName | None,
-                 is_optional: bool = True):
-        value_class = etree_._Element  # noqa: SLF001
-        super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
+    def __init__(self, sub_element_name: etree_.QName | None, is_optional: bool = True):
+        super().__init__(sub_element_name,
+                         ListConverter(ClassCheckConverter(xml_utils.LxmlElement)),
+                         is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
         objects = []
         try:
@@ -1269,7 +1270,7 @@ class AnyEtreeNodeListProperty(_ElementListProperty):
         except ElementNotFoundError:
             return objects
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -1297,7 +1298,7 @@ class NodeTextListProperty(_ElementListProperty):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)),
                          is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -1307,7 +1308,7 @@ class NodeTextListProperty(_ElementListProperty):
             pass
         return self._default_py_value
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -1343,7 +1344,7 @@ class NodeTextQNameListProperty(_ElementListProperty):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(etree_.QName)),
                          is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
         result = []
         try:
@@ -1358,7 +1359,7 @@ class NodeTextQNameListProperty(_ElementListProperty):
             pass
         return self._default_py_value or result
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)
@@ -1417,7 +1418,7 @@ class DateOfBirthProperty(_ElementBase):
         super().__init__(sub_element_name, ClassCheckConverter(datetime, date),
                          default_py_value, implied_py_value, is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: etree_.ElementBase) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -1428,7 +1429,7 @@ class DateOfBirthProperty(_ElementBase):
             pass
         return None
 
-    def update_xml_value(self, instance: Any, node: etree_.ElementBase):
+    def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
         try:
             py_value = getattr(instance, self._local_var_name)

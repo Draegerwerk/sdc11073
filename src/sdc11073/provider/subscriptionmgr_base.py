@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 from lxml import etree as etree_
 
-from sdc11073 import loghelper, multikey, observableproperties
+from sdc11073 import loghelper, multikey, observableproperties, xml_utils
 from sdc11073.etc import apply_map
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import Fault, faultcodeEnum
@@ -224,7 +224,7 @@ class SubscriptionBase:
         return RoundTripData(None, None)
 
     def _mk_notification_message(self, header_info: HeaderInformationBlock,
-                                 body_node: etree_.ElementBase) -> CreatedMessage:
+                                 body_node: xml_utils.LxmlElement) -> CreatedMessage:
         return self._msg_factory.mk_soap_message_etree_payload(header_info, body_node)
 
 
@@ -432,7 +432,7 @@ class SubscriptionsManagerBase:
                                  request_data.message_data.q_name, dispatch_identifier, request_data.peer_name)
         return subscription
 
-    def send_to_subscribers(self, payload: MessageType | etree_.ElementBase,
+    def send_to_subscribers(self, payload: MessageType | xml_utils.LxmlElement,
                             action: str,
                             mdib_version_group,
                             what: str):
@@ -456,7 +456,7 @@ class SubscriptionsManagerBase:
             except:
                 raise
 
-    def _send_notification_report(self, subscription, body_node: etree_.ElementBase, action: str):
+    def _send_notification_report(self, subscription, body_node: xml_utils.LxmlElement, action: str):
         try:
             subscription.send_notification_report(body_node, action)
         except ConnectionRefusedError as ex:

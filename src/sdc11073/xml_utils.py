@@ -26,7 +26,7 @@ def copy_element(node: LxmlElement, method: Callable[[LxmlElement], LxmlElement]
     ns_map_list: list[dict[str, str]] = []  # saves all namespaces
     while current is not None:
         ns_map_list.append({k: v for k, v in current.nsmap.items() if k})  # filter for default namespace
-        current = current.getparent()  # type: ignore[assignment]
+        current = current.getparent()
 
     # create new instance
     root_tree = node.getroottree()
