@@ -1040,6 +1040,11 @@ class _ElementListProperty(_ElementBase, ABC):
             setattr(instance, self._local_var_name, [])
             return getattr(instance, self._local_var_name)
 
+    def __set__(self, instance, py_value):
+        if isinstance(py_value, tuple):
+            py_value = list(py_value)
+        super().__set__(instance, py_value)
+
     def init_instance_data(self, instance: Any):
         setattr(instance, self._local_var_name, [])
 

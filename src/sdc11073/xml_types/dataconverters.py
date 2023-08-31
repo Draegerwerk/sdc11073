@@ -101,7 +101,7 @@ class ListConverter(NullConverter):
 
     def check_valid(self, py_value) -> bool:
         if STRICT_VALUE_CHECK and py_value is not None:
-            if not isinstance(py_value, (list, tuple)):
+            if not isinstance(py_value, list):
                 raise ValueError(f'Value must be list or a tuple, got {type(py_value)}')
             for elem in py_value:
                 self._element_converter.check_valid(elem)
