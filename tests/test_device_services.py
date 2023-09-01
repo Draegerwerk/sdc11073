@@ -64,7 +64,7 @@ class TestDeviceServices(unittest.TestCase):
         response = sub_dispatcher.do_post(http_header, path, peer_name,
                                           self.sdc_device.msg_factory.serialize_message(get_env))
         code, reason, response_string = response
-        self.assertTrue(f'/{get_service.port_type_name.localname}/GetMdibResponse'.encode('utf-8') in response_string)
+        self.assertTrue(f'/{get_service.port_type_name.localname}/GetMdibResponse'.encode() in response_string)
 
         context_service = self.sdc_device.hosted_services.context_service
         path = self.sdc_device.path_prefix + '/StateEvent'
@@ -76,7 +76,7 @@ class TestDeviceServices(unittest.TestCase):
         code, reason, response_string = response
 
         self.assertTrue(
-            f'/{context_service.port_type_name.localname}/GetContextStatesResponse'.encode('utf-8') in response_string)
+            f'/{context_service.port_type_name.localname}/GetContextStatesResponse'.encode() in response_string)
 
     def test_getMdib(self):
         get_service = self.sdc_device.hosted_services.get_service
