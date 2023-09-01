@@ -88,7 +88,6 @@ class HTTPReader:
         :param int max_bytes: maximum bytes to read.
         :rtype: bytes|None
         """
-
         buf = bytearray()
         delim_len = len(delimiter)
 

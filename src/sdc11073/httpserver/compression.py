@@ -73,7 +73,6 @@ class CompressionHandler:
         :param algorithm: one of strings provided by registered compression handlers
         :return: AbstractDataCompressor implementation
         """
-
         handler = cls.handlers.get(algorithm.lower())
         if not handler:
             txt = f"{algorithm} compression is not supported. Only {cls.available_encodings} are supported."
