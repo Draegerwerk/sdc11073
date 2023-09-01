@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import unittest
 
 from lxml import etree as etree_
