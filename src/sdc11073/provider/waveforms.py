@@ -62,7 +62,6 @@ class WaveformSender:
     WARN_RATE_REALTIMESAMPLES_BEHIND_SCHEDULE = 5  # max. every x seconds a message
 
     def __init__(self, mdib, logger, collect_rt_samples_period):
-        """"""
         self._mdib = mdib
         self._logger = logger
         self.collect_rt_samples_period = collect_rt_samples_period
