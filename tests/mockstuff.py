@@ -53,7 +53,7 @@ def _findServer(netloc):
     raise KeyError('{} is not in {}'.format(dev_addr, _mockhttpservers.keys()))
 
 
-class MockWsDiscovery(object):
+class MockWsDiscovery:
     def __init__(self, ipaddress):
         self._ipaddress = ipaddress
 
