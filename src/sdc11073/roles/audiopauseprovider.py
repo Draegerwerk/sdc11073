@@ -185,7 +185,7 @@ class AudioPauseProvider(GenericAudioPauseProvider):
             cancel_ap_operation = self._mk_operation(activate_op_cls,
                                                      handle='AP__CANCEL',
                                                      operation_target_handle=operation_target_container.Handle,
-                                                     coded_value=pm_types.CodedValue(nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE),
+                                                     coded_value=pm_types.CodedValue(nomenclature.NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE),
                                                      current_request_handler=self._cancel_global_audio_pause)
             ops.append(cancel_ap_operation)
             self._set_global_audio_pause_operations.append(cancel_ap_operation)
