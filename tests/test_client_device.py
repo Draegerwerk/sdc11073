@@ -1068,8 +1068,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 if mds_descriptor.MetaData is None:
                     cls = self.sdc_device.mdib.data_model.pm_types.MetaData
                     mds_descriptor.MetaData = cls()
-                mds_descriptor.MetaData.Manufacturer.append(pm_types.LocalizedText(u'My Company'))
-                mds_descriptor.MetaData.ModelName.append(pm_types.LocalizedText(u'pySDC'))
+                mds_descriptor.MetaData.Manufacturer.append(pm_types.LocalizedText('My Company'))
+                mds_descriptor.MetaData.ModelName.append(pm_types.LocalizedText('pySDC'))
                 mds_descriptor.MetaData.SerialNumber.append('pmDCBA-4321')
                 mds_descriptor.MetaData.ModelNumber = '1.09'
 
@@ -1079,7 +1079,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         cl_mds_descriptors = client_mdib.descriptions.NODETYPE.get(pm.MdsDescriptor)
         for cl_mds_descriptor in cl_mds_descriptors:
             self.assertEqual(cl_mds_descriptor.MetaData.ModelNumber, '1.09')
-            self.assertEqual(cl_mds_descriptor.MetaData.Manufacturer[-1].text, u'My Company')
+            self.assertEqual(cl_mds_descriptor.MetaData.Manufacturer[-1].text, 'My Company')
 
     def test_remove_mds(self):
         self.sdc_device.stop_realtime_sample_loop()
