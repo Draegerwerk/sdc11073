@@ -64,14 +64,14 @@ class TestDevSubscription(BicepsSubscription):
     notify_to = 'http://self.com:123'
     identifier = '0815'
     expires = 60
-    notifyRef = 'a ref string'
+    notify_ref = 'a ref string'
 
     def __init__(self, filter_,
                  soap_client_pool: SoapClientPool,
                  msg_factory):
         notify_ref_node = etree_.Element(ns_hlp.WSE.tag('References'))
         identNode = etree_.SubElement(notify_ref_node, ns_hlp.WSE.tag('Identifier'))
-        identNode.text = self.notifyRef
+        identNode.text = self.notify_ref
         base_urls = [SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
         accepted_encodings = ['foo']  # not needed here
         subscribe_request = Subscribe()
