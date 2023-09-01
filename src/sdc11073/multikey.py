@@ -65,7 +65,7 @@ class IndexDefinition(dict):
         return result[0]
 
     def getOne(self, key, allowNone=False):  # pylint: disable=invalid-name
-        warnings.warn('use get_one', DeprecationWarning)
+        warnings.warn('use get_one', DeprecationWarning, stacklevel=2)
         return self.get_one(key, allowNone)
 
     def mk_keys(self, obj):
