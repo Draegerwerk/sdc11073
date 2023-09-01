@@ -90,13 +90,12 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
                                     alert_signal_state.Presence = pm_types.AlertSignalPresence.ACK
                                 else:
                                     mgr.unget_state(alert_signal_state)
-                            else:  # SF958
-                                if alert_signal_state.ActivationState != pm_types.AlertActivation.PAUSED \
-                                        or alert_signal_state.Presence != pm_types.AlertSignalPresence.OFF:
-                                    alert_signal_state.ActivationState = pm_types.AlertActivation.PAUSED
-                                    alert_signal_state.Presence = pm_types.AlertSignalPresence.OFF
-                                else:
-                                    mgr.unget_state(alert_signal_state)
+                            elif alert_signal_state.ActivationState != pm_types.AlertActivation.PAUSED \
+                                    or alert_signal_state.Presence != pm_types.AlertSignalPresence.OFF:
+                                alert_signal_state.ActivationState = pm_types.AlertActivation.PAUSED
+                                alert_signal_state.Presence = pm_types.AlertSignalPresence.OFF
+                            else:
+                                mgr.unget_state(alert_signal_state)
 
     def _cancel_global_audio_pause(self, operation_instance, request):  # pylint: disable=unused-argument
         """ This is the code that executes the operation itself:
