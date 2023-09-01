@@ -1256,10 +1256,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         def are_equivalent(node1, node2):
             if node1.tag != node2.tag or node1.attrib != node2.attrib or node1.text != node2.text:
                 return False
-            for ch1, ch2 in zip(node1, node2):
-                if not are_equivalent(ch1, ch2):
-                    return False
-            return True
+            return all(are_equivalent(ch1, ch2) for ch1, ch2 in zip(node1, node2))
 
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
