@@ -149,7 +149,7 @@ class DPWSHostedService(_EventService):
 
     @staticmethod
     def _remove_annotations(root_node):
-        remove_annotations_string = b'''<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+        remove_annotations_string = b"""<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                                       xmlns:xs="http://www.w3.org/2001/XMLSchema">
           <xsl:output method="xml" indent="yes"/>
 
@@ -160,7 +160,7 @@ class DPWSHostedService(_EventService):
           </xsl:template>
 
           <xsl:template match="xs:annotation" />
-        </xsl:stylesheet>'''
+        </xsl:stylesheet>"""
         remove_annotations_doc = etree_.parse(BytesIO(remove_annotations_string))
         remove_annotations_xslt = etree_.XSLT(remove_annotations_doc)
         return remove_annotations_xslt(root_node).getroot()
