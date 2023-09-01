@@ -68,7 +68,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         self.wsd.stop()
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')

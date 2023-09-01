@@ -79,12 +79,12 @@ class TestDiscovery(unittest.TestCase):
 
         try:
             self.log_watcher_client.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         try:
             self.log_watcher_service.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
 

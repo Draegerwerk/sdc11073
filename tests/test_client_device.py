@@ -477,7 +477,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             sys.stderr.write(traceback.format_exc())
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
@@ -1337,7 +1337,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
             '############### tearDown {} done, checking logs... ##############\n'.format(self._testMethodName))
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
@@ -1399,7 +1399,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         self.wsd.stop()
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
@@ -1455,7 +1455,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.wsd.stop()
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
@@ -1540,7 +1540,7 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
         self.wsd.stop()
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))

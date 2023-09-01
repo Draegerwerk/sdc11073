@@ -99,7 +99,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.wsd.stop()
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             self._logger.warning(repr(ex))
             raise
         self._logger.info('############### tearDown %s done ##############\n', self._testMethodName)

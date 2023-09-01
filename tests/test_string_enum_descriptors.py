@@ -67,7 +67,7 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         self.wsd.stop()
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
