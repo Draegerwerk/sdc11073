@@ -24,6 +24,7 @@ Example:
 < prop1= 42
 >>> actor.prop2='Hello World'
 < prop2= Hello World
+
 """
 import inspect
 import weakref
