@@ -38,12 +38,6 @@ def dec_list(*args):
     return [Decimal(x) for x in args]
 
 
-def resetModule():
-    global _ports
-    _mockhttpservers.clear()
-    _ports = 10000
-
-
 def _findServer(netloc):
     dev_addr = netloc.split(':')
     dev_addr = tuple([dev_addr[0], int(dev_addr[1])])  # make port number an integer
