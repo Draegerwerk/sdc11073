@@ -60,7 +60,7 @@ class SchemaResolver(etree_.Resolver):
             self._logger.error('no schema file for url "{}": resolved to "{}", but file does not exist',
                                system_url, path)
             return None
-        return self.resolve_string(path.read_bytes(), context, base_url=path)
+        return self.resolve_string(path.read_bytes(), context, base_url=str(path))
 
     def _get_schema_file_path(self, url: str) -> pathlib.Path | None:
         return next((entry.local_schema_file for entry in self.namespaces if entry.schema_location_url == url), None)

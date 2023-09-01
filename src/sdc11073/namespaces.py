@@ -23,7 +23,7 @@ class PrefixNamespace(NamedTuple):
         return localname
 
 
-schema_folder = pathlib.Path(__file__).joinpath('xsd')
+schema_folder = pathlib.Path(__file__).parent.joinpath('xsd')
 
 
 class PrefixesEnum(PrefixNamespace, Enum):

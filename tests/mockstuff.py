@@ -159,6 +159,8 @@ class SomeDevice(SdcProvider):
                        chunk_size: int = 0):
         """Construct class with path to a mdib file."""
         mdib_xml_path = pathlib.Path(mdib_xml_path)
+        if not mdib_xml_path.is_absolute():
+            mdib_xml_path = pathlib.Path(__file__).parent.joinpath(mdib_xml_path)
         return cls(wsdiscovery, mdib_xml_path.read_bytes(), epr, validate, ssl_context_container,
                    max_subscription_duration = max_subscription_duration,
                    log_prefix=log_prefix,
