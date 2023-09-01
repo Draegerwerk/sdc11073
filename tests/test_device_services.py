@@ -23,7 +23,7 @@ class TestDeviceServices(unittest.TestCase):
 
     def setUp(self):
         basic_logging_setup()
-        ''' validate test data'''
+        """ validate test data"""
         print('############### setUp {}... ##############'.format(self._testMethodName))
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
