@@ -81,6 +81,7 @@ class EnumConverter(NullConverter):
 class StringConverter(NullConverter):
     """Convert None to empty string, everything else is unchanged."""
 
+    @staticmethod
     def to_py(xml_value):
         return xml_value or ''
 
