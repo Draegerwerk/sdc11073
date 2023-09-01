@@ -4,7 +4,7 @@ import uuid
 from sdc11073.xml_types import pm_types, msg_types
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.consumer import SdcConsumer
 from sdc11073.mdib import ConsumerMdib
 from sdc11073 import observableproperties
@@ -68,7 +68,7 @@ if __name__ == '__main__':
         # this will send a probe to the network and wait for responses
         # See MDPWS discovery mechanisms for details
         print('searching for sdc providers')
-        services = my_discovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter)
+        services = my_discovery.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter)
         # now iterate through the discovered services to check if we foundDevice
         # the specific provider we search for
         for one_service in services:

@@ -6,7 +6,7 @@ from decimal import Decimal
 from sdc11073 import network
 from sdc11073.consumer import SdcConsumer
 from sdc11073.definitions_base import ProtocolsRegistry
-from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ProviderMdib
@@ -240,7 +240,7 @@ class Test_Tutorial(unittest.TestCase):
         self.assertEqual(len(services), 1)
 
         # search for medical devices only (BICEPS Final version only)
-        services = my_client_ws_discovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
+        services = my_client_ws_discovery.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter,
                                                           timeout=SEARCH_TIMEOUT)
         self.assertGreaterEqual(len(services), 2)
 

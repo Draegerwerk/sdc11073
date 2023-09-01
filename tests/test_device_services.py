@@ -5,7 +5,7 @@ from lxml import etree as etree_
 
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
@@ -176,4 +176,4 @@ class TestDeviceServices(unittest.TestCase):
                     action_keys = [k for k in i.attrib.keys() if k.endswith('Action')]
                     for k in action_keys:
                         action = i.attrib[k]
-                        self.assertTrue(action.startswith(SDC_v1_Definitions.ActionsNamespace))
+                        self.assertTrue(action.startswith(SdcV1Definitions.ActionsNamespace))

@@ -104,7 +104,7 @@ class TestClientWaveform(unittest.TestCase):
         loghelper.basic_logging_setup()
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         self.sdc_client = SdcConsumer(DEV_ADDRESS,
-                                      sdc_definitions=definitions_sdc.SDC_v1_Definitions,
+                                      sdc_definitions=definitions_sdc.SdcV1Definitions,
                                       ssl_context_container=None,
                                       validate=CLIENT_VALIDATE)
 

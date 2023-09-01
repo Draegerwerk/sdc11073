@@ -1,7 +1,7 @@
 from http.client import HTTPException, NotConnected
 from unittest import TestCase, mock
 
-from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.loghelper import get_logger_adapter
 from sdc11073.pysoap.msgfactory import MessageFactory
 from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
@@ -21,8 +21,8 @@ class TestSoapClient(TestCase):
                                       socket_timeout=10,
                                       logger=self.logger,
                                       ssl_context=None,
-                                      sdc_definitions=SDC_v1_Definitions,
-                                      msg_reader=MessageReader(SDC_v1_Definitions, None, self.logger, validate=False))
+                                      sdc_definitions=SdcV1Definitions,
+                                      msg_reader=MessageReader(SdcV1Definitions, None, self.logger, validate=False))
 
     def test_get_from_url(self):
         """Check error handling of get_from_url method."""
@@ -43,13 +43,13 @@ class TestSoapClient(TestCase):
     def test_post_message_to(self):
         """Check error handling of post_message_to method."""
         # create a message to be sent
-        factory = MessageFactory(SDC_v1_Definitions, None, self.logger)
+        factory = MessageFactory(SdcV1Definitions, None, self.logger)
         inf = HeaderInformationBlock(action='some_action', addr_to='does_not_matter')
         payload = Renew()
         created_message = factory.mk_soap_message(inf, payload)
 
         # create a message to be received
-        factory = MessageFactory(SDC_v1_Definitions, None, get_logger_adapter('mock'))
+        factory = MessageFactory(SdcV1Definitions, None, get_logger_adapter('mock'))
         payload = RenewResponse()
         payload.Expires = 10
         inf = HeaderInformationBlock(action='some_action', addr_to='does_not_matter')

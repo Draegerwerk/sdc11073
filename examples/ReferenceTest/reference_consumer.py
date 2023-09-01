@@ -9,7 +9,7 @@ from sdc11073 import commlog
 from sdc11073 import observableproperties
 from sdc11073.certloader import mk_ssl_contexts_from_folder
 from sdc11073.consumer import SdcConsumer
-from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods
 from sdc11073.wsdiscovery import WSDiscovery
@@ -39,7 +39,7 @@ def run_ref_test():
     wsd.start()
     my_service = None
     while my_service is None:
-        services = wsd.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter)
+        services = wsd.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter)
         print('found {} services {}'.format(len(services), ', '.join([s.epr for s in services])))
         for s in services:
             if s.epr.endswith(search_epr):

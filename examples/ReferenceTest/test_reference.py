@@ -9,7 +9,7 @@ from decimal import Decimal
 from examples.ReferenceTest import reference_provider
 from sdc11073 import observableproperties
 from sdc11073.consumer import SdcConsumer
-from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.wsdiscovery import WSDiscovery, ScopesType
 from sdc11073.xml_types import msg_types, pm_qnames as pm
@@ -126,7 +126,7 @@ class Test_Reference(unittest.TestCase):
         client_discovery.start()
 
         print('looking for device with scope {}'.format(self.loc.scope_string))
-        services = client_discovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
+        services = client_discovery.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter,
                                                     scopes=ScopesType(self.loc.scope_string))
         print('found {} services {}'.format(len(services), ', '.join([s.epr for s in services])))
         client_discovery.stop()
