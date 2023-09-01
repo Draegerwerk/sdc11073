@@ -82,7 +82,7 @@ class MessageConverterMiddleware:
             http_reason = 'exception'
         finally:
             commlog.get_communication_logger().log_soap_response_out(response_xml_string, 'POST')
-            return http_status, http_reason, response_xml_string
+            return http_status, http_reason, response_xml_string  # noqa: B012
 
     def do_get(self, headers: dict, path: str, peer_name: str) -> (int, str, str, str):
         parsed_path = urlparse(path)
