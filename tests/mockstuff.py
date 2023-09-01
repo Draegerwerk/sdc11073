@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Union
 
 from lxml import etree as etree_
 
-import sdc11073.certloader
 from sdc11073.mdib import ProviderMdib
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import SdcProvider
@@ -21,6 +20,7 @@ from sdc11073.xml_types.dpws_types import ThisModelType, ThisDeviceType
 from sdc11073.xml_types.eventing_types import Subscribe
 
 if TYPE_CHECKING:
+    import sdc11073.certloader
     import uuid
     from ssl import SSLContext
     from sdc11073.pysoap.soapclientpool import SoapClientPool
