@@ -65,7 +65,7 @@ class SingleValueCollector:
                 return self.__get_result()
             unbind(self._obj, **{self._prop_name:self._on_data})
             self._state = self.CLOSED
-            raise CollectTimeoutError()
+            raise CollectTimeoutError
 
     def restart(self):
         """ Start to capture another value
