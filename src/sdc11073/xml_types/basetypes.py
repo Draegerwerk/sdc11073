@@ -97,7 +97,7 @@ class XMLTypeBase:
         return obj
 
     @classmethod
-    def value_class_from_node(cls, node):
+    def value_class_from_node(cls, _):
         return cls
 
 
