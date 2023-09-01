@@ -1,10 +1,10 @@
 from . import providerbase
-from .nomenclature import NomenclatureCodes as nc
+from sdc11073.roles import nomenclature
 from sdc11073.xml_types.pm_types import Coding
 
 # coded values for SDC audio pause
-MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE = Coding(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
-MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE = Coding(nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
+MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE = Coding(nomenclature.NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
+MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE = Coding(nomenclature.NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
 
 
 class GenericAudioPauseProvider(providerbase.ProviderRole):
@@ -171,17 +171,17 @@ class AudioPauseProvider(GenericAudioPauseProvider):
         activate_op_cls = operation_cls_getter(pm_names.ActivateOperationDescriptor)
         if not self._set_global_audio_pause_operations:
             self._logger.debug(
-                f'adding "set audio pause" operation, no descriptor in mdib (looked for code = {nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE})')
+                f'adding "set audio pause" operation, no descriptor in mdib (looked for code = {nomenclature.NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE})')
             set_ap_operation = self._mk_operation(activate_op_cls,
                                                   handle='AP__ON',
                                                   operation_target_handle=operation_target_container.Handle,
-                                                  coded_value=pm_types.CodedValue(nc.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE),
+                                                  coded_value=pm_types.CodedValue(nomenclature.NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE),
                                                   current_request_handler=self._set_global_audio_pause)
             self._set_global_audio_pause_operations.append(set_ap_operation)
             ops.append(set_ap_operation)
         if not self._cancel_global_audio_pause_operations:
             self._logger.debug(
-                f'adding "cancel audio pause" operation, no descriptor in mdib (looked for code = {nc.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE})')
+                f'adding "cancel audio pause" operation, no descriptor in mdib (looked for code = {nomenclature.NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE})')
             cancel_ap_operation = self._mk_operation(activate_op_cls,
                                                      handle='AP__CANCEL',
                                                      operation_target_handle=operation_target_container.Handle,
