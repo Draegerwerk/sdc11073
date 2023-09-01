@@ -262,9 +262,6 @@ class LogWatcher:
         if all_records:
             raise LogWatchError(all_records)
 
-    def filter(self):
-        return self._collecting
-
     def __enter__(self):
         return self
 
