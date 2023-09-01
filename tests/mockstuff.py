@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os.path
+import pathlib
 import threading
 from urllib.parse import SplitResult
 from decimal import Decimal
@@ -148,7 +149,7 @@ class SomeDevice(SdcProvider):
     def from_mdib_file(cls,
                        wsdiscovery: WsDiscoveryProtocol,
                        epr: str | uuid.UUID | None,
-                       mdib_xml_path: str,
+                       mdib_xml_path: str | pathlib.Path,
                        validate: bool =True,
                        ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
                        max_subscription_duration: int = 15,
@@ -157,13 +158,8 @@ class SomeDevice(SdcProvider):
                        specific_components: SdcProviderComponents | None = None,
                        chunk_size: int = 0):
         """Construct class with path to a mdib file."""
-        if not os.path.isabs(mdib_xml_path):
-            here = os.path.dirname(__file__)
-            mdib_xml_path = os.path.join(here, mdib_xml_path)
-
-        with open(mdib_xml_path, 'rb') as f:
-            mdib_xml_data = f.read()
-        return cls(wsdiscovery, mdib_xml_data, epr, validate, ssl_context_container,
+        mdib_xml_path = pathlib.Path(mdib_xml_path)
+        return cls(wsdiscovery, mdib_xml_path.read_bytes(), epr, validate, ssl_context_container,
                    max_subscription_duration = max_subscription_duration,
                    log_prefix=log_prefix,
                    default_components=default_components, specific_components=specific_components,
