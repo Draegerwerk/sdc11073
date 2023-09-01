@@ -138,7 +138,7 @@ class PeriodicReportsHandler:
         time.sleep(0.1)  # start delayed
         # create an interval timer for each period
         timers = {}
-        for period_ms in self._mdib.retrievability_periodic.keys():
+        for period_ms in self._mdib.retrievability_periodic:
             timers[period_ms] = intervaltimer.IntervalTimer(period_in_seconds=period_ms / 1000)
         while self._run_periodic_reports_thread:
             # find timer with the shortest remaining time
