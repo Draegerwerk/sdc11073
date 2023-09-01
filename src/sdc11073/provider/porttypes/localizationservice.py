@@ -72,7 +72,7 @@ class LocalizationStorage:
             number_of_lines = []
         if requested_handles is None:
             requested_handles = []
-        i_nls = [int(l) for l in number_of_lines]
+        i_nls = [int(line) for line in number_of_lines]
 
         if len(requested_handles) == 0:
             # If there is no Ref ELEMENT given in the request MESSAGE, then all texts are returned in
