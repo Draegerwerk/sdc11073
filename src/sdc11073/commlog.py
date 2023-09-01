@@ -1,4 +1,5 @@
 import os
+import pathlib
 import time
 from threading import Lock
 
@@ -35,15 +36,10 @@ class CommLogger:
         self._counter = 1
         self._io_lock = Lock()
 
-        self._mk_log_folder(log_folder)
+        pathlib.Path(log_folder).mkdir(parents=True, exist_ok=True)
 
     def set_broadcast_ip_filter(self, broadcast_ip_filter):
         self._broadcast_ip_filter = broadcast_ip_filter
-
-    @staticmethod
-    def _mk_log_folder(path):
-        if not os.path.exists(path):
-            os.makedirs(path)
 
     def _mk_filename(self, ip_type, direction, info):
         """
