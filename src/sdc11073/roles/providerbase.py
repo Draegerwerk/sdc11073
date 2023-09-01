@@ -20,7 +20,7 @@ class ProviderRole:
         """returns a callable for this operation or None.
         If a mdib already has operations defined, this method can connect a handler to a given operation descriptor.
         Use case: initialization from an existing mdib"""
-        return None
+        return
 
     def make_missing_operations(self, sco):  # pylint: disable=unused-argument, no-self-use
         """
