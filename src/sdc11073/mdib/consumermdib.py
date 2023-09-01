@@ -4,7 +4,6 @@ import time
 import traceback
 from collections import deque
 from dataclasses import dataclass
-from decimal import Decimal
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -15,6 +14,7 @@ from . import mdibbase
 from .consumermdibxtra import ConsumerMdibMethods
 
 if TYPE_CHECKING:
+    from decimal import Decimal
     from enum import Enum
 
     from sdc11073.consumer import SdcConsumer
