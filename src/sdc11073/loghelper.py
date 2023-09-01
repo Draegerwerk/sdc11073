@@ -70,7 +70,7 @@ class LoggerAdapter:
         if len(args) == len(kwargs) == 0:
             return _msg
 
-        if '%' in msg and not '{' in msg:
+        if '%' in msg and '{' not in msg:
             # traditional log formatting
             return _msg % args
 
