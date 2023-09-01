@@ -1279,7 +1279,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
 
         # common http server for all devices and clients
         self.httpserver = HttpServerThreadBase(
-            my_ipaddress='0.0.0.0',
+            my_ipaddress='0.0.0.0',  # noqa: S104
             ssl_context=None,
             supported_encodings=compression.CompressionHandler.available_encodings[:],
             logger=logging.getLogger('sdc.common_http_srv_a'))
