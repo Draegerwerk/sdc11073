@@ -191,8 +191,7 @@ def date_time_string(date_object: DateTypeUnion) -> str:
             date_object.hour, date_object.minute,
             _mk_seconds_string(date_object), _mk_tz_string(date_object))
     elif hasattr(date_object, 'day'):  # date object
-        date_string = '{:4d}-{:02d}-{:02d}'.format(
-            date_object.year, date_object.month, date_object.day)
+        date_string = f'{date_object.year:4d}-{date_object.month:02d}-{date_object.day:02d}'
     elif hasattr(date_object, 'month'):  # GYearMonth object
         date_string = f'{date_object.year:4d}-{date_object.month:02d}'
     elif hasattr(date_object, 'year'):  # GYear object
