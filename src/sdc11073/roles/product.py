@@ -99,7 +99,6 @@ class BaseProduct:
 
     def init_operations(self):
         """ register all actively provided operations """
-        pm_names = self._model.pm_names
         sco_handle = self._sco.sco_descriptor_container.Handle
         self._logger.info('init_operations for sco {}.', sco_handle)
 

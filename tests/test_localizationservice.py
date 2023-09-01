@@ -21,7 +21,7 @@ class TestLocationService(unittest.TestCase):
         for ref in self.ref_list:
             for lang, version, width, lines in product(self.lang_list, self.versions_list, self.width_list,
                                                        self.lines_list):
-                i_width = localizationservice._tw2i(width) if width else 1
+                _ = localizationservice._tw2i(width) if width else 1
                 if lines in (None, 1):
                     text = ref
                 else:

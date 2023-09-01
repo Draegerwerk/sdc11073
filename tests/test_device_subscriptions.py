@@ -120,7 +120,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
         # simulate data transfer from device to client
         xml_bytes = self.sdc_device.msg_factory.serialize_message(response)
-        received_response_message = self.sdc_device.msg_reader.read_received_message(xml_bytes)
+        _ = self.sdc_device.msg_reader.read_received_message(xml_bytes)
         # verify that header contains the identifier of client subscription
 
     def test_episodicContextReportEvent(self):

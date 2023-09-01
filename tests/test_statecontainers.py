@@ -559,7 +559,7 @@ class TestStateContainers(unittest.TestCase):
                                                                           pm_types.LocalizedText('Jim'),
                                                                           pm_types.LocalizedText('Jane')]))
 
-        node = state.mk_state_node(_my_tag, self.ns_mapper)
+        _ = state.mk_state_node(_my_tag, self.ns_mapper)
         state2 = sc.PatientContextStateContainer(descriptor_container=self.descr)
         state2.update_from_other_container(state)
         verifyEqual(state, state2)

@@ -5,7 +5,7 @@ from sdc11073 import loghelper
 
 
 def _run_test_cm(logger, level):
-    with loghelper.LogWatcher(logger, level) as w:
+    with loghelper.LogWatcher(logger, level):
         logger.debug('123')
         logger.info('234')
         logger.warning('345')

@@ -63,7 +63,6 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
     def _set_ntp_string(self, operation_instance, value):
         """This is the handler for the set ntp server operation.
          It sets the ReferenceSource value of clock state"""
-        pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
         operation_target_handle = self._get_operation_target_handle(operation_instance)
         self._logger.info('set value {} from {} to {}', operation_target_handle, operation_instance.current_value,
