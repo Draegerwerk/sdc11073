@@ -101,8 +101,7 @@ class TestLocationService(unittest.TestCase):
                                                                      number_of_lines=None)
             self.assertEqual(len(texts), len(self.ref_list) * len(self.lang_list))
             for t in texts:
-                self.assertTrue(t.TextWidth == width)
-            width = 'l'
+                self.assertEqual(t.TextWidth, width)
             texts = self.localization_storage.filter_localized_texts(requested_handles=None,
                                                                      requested_version=None,
                                                                      requested_langs=None,
@@ -110,7 +109,7 @@ class TestLocationService(unittest.TestCase):
                                                                      number_of_lines=None)
             self.assertEqual(len(texts), len(self.ref_list) * len(self.lang_list))
             for t in texts:
-                self.assertTrue(t.TextWidth == 'm')
+                self.assertEqual(t.TextWidth, width)
 
             widths = ['l', 'xl']
             texts = self.localization_storage.filter_localized_texts(requested_handles=None,
@@ -120,7 +119,7 @@ class TestLocationService(unittest.TestCase):
                                                                      number_of_lines=None)
             self.assertEqual(len(texts), len(self.ref_list) * len(self.lang_list) * 2)
             for t in texts:
-                self.assertTrue(t.TextWidth in ('m', 'xl'))
+                self.assertIn(t.TextWidth, ('m', 'xl'))
 
     def test_linesFilter(self):
         for line in (1, 2, 3, 4):
