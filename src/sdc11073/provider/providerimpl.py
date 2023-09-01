@@ -409,7 +409,7 @@ class SdcProvider:
             logger = loghelper.get_logger_adapter('sdc.device.httpsrv', self._log_prefix)
 
             self._http_server = HttpServerThreadBase(
-                my_ipaddress='0.0.0.0',
+                my_ipaddress='0.0.0.0',  # noqa: S104
                 ssl_context=self._ssl_context_container.server_context if self._ssl_context_container else None,
                 supported_encodings=self._compression_methods,
                 logger=logger,
