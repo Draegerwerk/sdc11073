@@ -101,6 +101,7 @@ class HTTPReader:
             buf += char
             if buf[-delim_len:] == delimiter:
                 return bytes(buf[:-delim_len])
+        return None
 
     @classmethod
     def read_request_body(cls, http_message, supported_encodings=None):
