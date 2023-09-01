@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import pathlib
 import time
@@ -28,15 +30,15 @@ class NullLogger:
 class CommLogger:
     """This is the logger that writes communication logs."""
 
-    def __init__(self, log_folder, log_out=False, log_in=False, broadcast_ip_filter=None):
-        self._log_folder = log_folder
+    def __init__(self, log_folder: str | pathlib.Path, log_out=False, log_in=False, broadcast_ip_filter=None):
+        self._log_folder = pathlib.Path(log_folder)
         self._log_out = log_out
         self._log_in = log_in
         self._broadcast_ip_filter = broadcast_ip_filter
         self._counter = 1
         self._io_lock = Lock()
 
-        pathlib.Path(log_folder).mkdir(parents=True, exist_ok=True)
+        log_folder.mkdir(parents=True, exist_ok=True)
 
     def set_broadcast_ip_filter(self, broadcast_ip_filter):
         self._broadcast_ip_filter = broadcast_ip_filter
@@ -56,13 +58,12 @@ class CommLogger:
         info_text = f'-{info}' if info else ''
         return f'{time_string}-{direction}-{ip_type}{info_text}.{extension}'
 
-    def _write_log(self, ttype, direction, xml, info):
-        path = os.path.join(self._log_folder, self._mk_filename(ttype, direction, info))
-        with self._io_lock, open(path, 'wb') as my_file:
-            if isinstance(xml, bytes):
-                my_file.write(xml)
-            else:
-                my_file.write(xml.encode('utf-8'))
+    def _write_log(self, ttype, direction, xml: str | bytes, info):
+        path = self._log_folder.joinpath(self._mk_filename(ttype, direction, info))
+        if not isinstance(xml, bytes):
+            xml = xml.encode('utf-8')
+        with self._io_lock:
+            path.write_bytes(xml)
 
     def log_multicast_msg_out(self, xml, info=None):
         if self._log_out:

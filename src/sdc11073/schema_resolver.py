@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
+import pathlib
 from io import StringIO
-from typing import TYPE_CHECKING, List, Union
+from typing import TYPE_CHECKING
 from urllib import parse
 
 from lxml import etree as etree_
@@ -10,9 +10,10 @@ from lxml import etree as etree_
 from . import loghelper
 
 if TYPE_CHECKING:
-    from .namespaces import PrefixNamespace, NamespaceHelper
+    from .namespaces import NamespaceHelper, PrefixNamespace
 
-def mk_schema_validator(namespaces: List[PrefixNamespace], ns_helper: NamespaceHelper) -> etree_.XMLSchema:
+
+def mk_schema_validator(namespaces: list[PrefixNamespace], ns_helper: NamespaceHelper) -> etree_.XMLSchema:
     schema_resolver = SchemaResolver(namespaces)
     parser = etree_.XMLParser(resolve_entities=True)
     parser.resolvers.add(schema_resolver)
@@ -34,7 +35,7 @@ def mk_schema_validator(namespaces: List[PrefixNamespace], ns_helper: NamespaceH
 
 class SchemaResolver(etree_.Resolver):
 
-    def __init__(self, namespaces: List[PrefixNamespace], log_prefix=None):
+    def __init__(self, namespaces: list[PrefixNamespace], log_prefix=None):
         super().__init__()
         self.namespaces = namespaces
         self._logger = loghelper.get_logger_adapter('sdc.schema_resolver', log_prefix)
@@ -54,19 +55,12 @@ class SchemaResolver(etree_.Resolver):
                 path = system_url
             if path.startswith('/') and path[2] == ':':  # invalid construct like /C:/Temp
                 path = path[1:]
-
-        if not os.path.exists(path):
+        path = pathlib.Path(path)
+        if not path.exists():
             self._logger.error('no schema file for url "{}": resolved to "{}", but file does not exist',
                                system_url, path)
             return None
-        with open(path, 'rb') as my_file:
-            xml_text = my_file.read()
-        return self.resolve_string(xml_text, context, base_url=path)
+        return self.resolve_string(path.read_bytes(), context, base_url=path)
 
-    def _get_schema_file_path(self, url: str) -> Union[str, None]:
-        """
-
-        :param url: url of the schema location
-        :return: str or None
-        """
+    def _get_schema_file_path(self, url: str) -> pathlib.Path | None:
         return next((entry.local_schema_file for entry in self.namespaces if entry.schema_location_url == url), None)
