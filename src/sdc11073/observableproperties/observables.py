@@ -3,6 +3,7 @@ An ObservablePropery must be declared as class attribute, similar to standard py
 You can bind callables to an ObservableProperty. The callable is called when the property value is set.
 
 Example:
+-------
 >>> class MyBaseClass:
 >>>     prop1 = ObservableProperty(21)
 >>>     prop2 = ObservableProperty(22)
