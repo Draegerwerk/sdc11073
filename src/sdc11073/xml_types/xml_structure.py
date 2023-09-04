@@ -32,7 +32,7 @@ from .dataconverters import (
     StringConverter,
     TimestampConverter,
 )
-from .. import xml_utils
+from sdc11073 import xml_utils
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -41,7 +41,6 @@ if TYPE_CHECKING:
     from sdc11073.xml_types.basetypes import XMLTypeBase
     from .dataconverters import DataConverterProtocol
     from .isoduration import DurationType
-    from sdc11073 import xml_utils
 
 STRICT_TYPES = True  # if True, only the expected types are excepted.
 MANDATORY_VALUE_CHECKING = True  # checks if mandatory values are present when xml is generated
