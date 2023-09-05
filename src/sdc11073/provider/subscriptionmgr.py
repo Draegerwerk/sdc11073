@@ -14,12 +14,13 @@ from ..xml_types.dpws_types import DeviceEventingFilterDialectURI
 if TYPE_CHECKING:
     from lxml import etree as etree_
     from ..dispatch import RequestData
+    from sdc11073 import xml_utils
 
 
 class BicepsSubscription(ActionBasedSubscription):
     """ This extends ActionBasedSubscription with the ability to send notifications.
     The class is used by ActionBasedSubscriptionsManager."""
-    def send_notification_report(self, body_node: etree_.ElementBase, action: str):
+    def send_notification_report(self, body_node: xml_utils.LxmlElement, action: str):
         if not self.is_valid:
             return
         inf = HeaderInformationBlock(addr_to=self.notify_to_address,

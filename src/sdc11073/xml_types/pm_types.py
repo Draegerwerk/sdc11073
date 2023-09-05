@@ -16,7 +16,8 @@ from . import xml_structure as cp
 from .basetypes import StringEnum, XMLTypeBase
 
 if TYPE_CHECKING:
-    from lxml.etree import ElementBase, QName
+    from lxml.etree import QName
+    from sdc11073 import xml_utils
 
     from sdc11073.xml_types.isoduration import DateTypeUnion, DurationType
 
@@ -284,7 +285,7 @@ class PropertyBasedPMType(XMLTypeBase):
     """
 
     @classmethod
-    def value_class_from_node(cls, node: ElementBase) -> type[PropertyBasedPMType]:
+    def value_class_from_node(cls, node: xml_utils.LxmlElement) -> type[PropertyBasedPMType]:
         """If node has a xsi:Type attribute, return the class that reflects that type, else cls."""
         xsi_type_str = node.get(QN_TYPE)
         if xsi_type_str is None:
@@ -317,7 +318,7 @@ class LocalizedText(PropertyBasedPMType):
         self.TextWidth = text_width
 
     @classmethod
-    def from_node(cls, node: ElementBase) -> LocalizedText:
+    def from_node(cls, node: xml_utils.LxmlElement) -> LocalizedText:
         """Construct class from a node."""
         obj = cls('')
         obj.update_from_node(node)
@@ -356,7 +357,7 @@ class Coding:
             raise TypeError('code must be a string!')
 
     @classmethod
-    def from_node(cls, node: ElementBase) -> Coding:
+    def from_node(cls, node: xml_utils.LxmlElement) -> Coding:
         """Construct class from a node."""
         code = node.get('Code')
         coding_system = node.get('CodingSystem', DEFAULT_CODING_SYSTEM)
@@ -398,7 +399,7 @@ class Translation(PropertyBasedPMType):
                 f'codingsystemversion={self.CodingSystemVersion})')
 
     @classmethod
-    def from_node(cls, node: ElementBase) -> Translation:
+    def from_node(cls, node: xml_utils.LxmlElement) -> Translation:
         """Construct class from a node."""
         obj = cls('')
         obj.update_from_node(node)
@@ -482,7 +483,7 @@ class CodedValue(PropertyBasedPMType):
         return have_matching_codes(self, other)
 
     @classmethod
-    def from_node(cls, node: ElementBase) -> CodedValue:
+    def from_node(cls, node: xml_utils.LxmlElement) -> CodedValue:
         """Construct class from a node."""
         obj = cls('')
         obj.update_from_node(node)
@@ -626,7 +627,7 @@ class Measurement(PropertyBasedPMType):
         self.MeasurementUnit = unit
 
     @classmethod
-    def from_node(cls, node: ElementBase) -> Measurement:
+    def from_node(cls, node: xml_utils.LxmlElement) -> Measurement:
         """Construct class from a node."""
         obj = cls(None, None)
         obj.update_from_node(node)
@@ -1402,7 +1403,7 @@ class RetrievabilityInfo(PropertyBasedPMType):
         self.UpdatePeriod = update_period
 
     @classmethod
-    def from_node(cls, node: ElementBase) -> RetrievabilityInfo:
+    def from_node(cls, node: xml_utils.LxmlElement) -> RetrievabilityInfo:
         """Construct class from a node."""
         obj = cls(RetrievabilityMethod.GET)  # any allowed value, will be overwritten in update_node
         obj.update_from_node(node)

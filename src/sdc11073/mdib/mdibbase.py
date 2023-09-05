@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.xml_types.pm_types import CodedValue
+    from sdc11073 import xml_utils
 
     from .descriptorcontainers import AbstractDescriptorContainer, AbstractOperationDescriptorContainer
     from .statecontainers import AbstractMultiStateContainer, AbstractStateContainer
@@ -348,7 +349,7 @@ class MdibBase:
                     self._logger.error('add_state_containers: {}, DescriptorHandle={}; {}', # noqa: PLE1205
                                        ex, state_container.DescriptorHandle, traceback.format_exc())
 
-    def _reconstruct_md_description(self) -> etree_.ElementBase:
+    def _reconstruct_md_description(self) -> xml_utils.LxmlElement:
         """Build dom tree of descriptors from current data."""
         pm = self.data_model.pm_names
         doc_nsmap = self.nsmapper.ns_map
@@ -364,7 +365,7 @@ class MdibBase:
     def make_descriptor_node(self,
                              descriptor_container: AbstractDescriptorContainer,
                              tag: etree_.QName,
-                             set_xsi_type: bool = True) -> etree_.ElementBase:
+                             set_xsi_type: bool = True) -> xml_utils.LxmlElement:
         """Create a lxml etree node with subtree from instance data.
 
         :param descriptor_container: a descriptor container instance
@@ -387,7 +388,7 @@ class MdibBase:
         descriptor_container.sort_child_nodes(node)
         return node
 
-    def _reconstruct_mdib(self, add_context_states: bool) -> etree_.ElementBase:
+    def _reconstruct_mdib(self, add_context_states: bool) -> xml_utils.LxmlElement:
         """Build dom tree of mdib from current data.
 
         If add_context_states is False, context states are not included.
@@ -413,13 +414,13 @@ class MdibBase:
                 md_state_node.append(state_container.mk_state_node(tag, self.nsmapper))
         return mdib_node
 
-    def reconstruct_md_description(self) -> (etree_.ElementBase, MdibVersionGroup):
+    def reconstruct_md_description(self) -> (xml_utils.LxmlElement, MdibVersionGroup):
         """Build dom tree of descriptors from current data."""
         with self.mdib_lock:
             node = self._reconstruct_md_description()
             return node, self.mdib_version_group
 
-    def reconstruct_mdib(self) -> (etree_.ElementBase, MdibVersionGroup):
+    def reconstruct_mdib(self) -> (xml_utils.LxmlElement, MdibVersionGroup):
         """Build dom tree from current data.
 
         This method does not include context states!
@@ -427,7 +428,7 @@ class MdibBase:
         with self.mdib_lock:
             return self._reconstruct_mdib(add_context_states=False), self.mdib_version_group
 
-    def reconstruct_mdib_with_context_states(self) -> (etree_.ElementBase, MdibVersionGroup):
+    def reconstruct_mdib_with_context_states(self) -> (xml_utils.LxmlElement, MdibVersionGroup):
         """Build dom tree from current data.
 
         This method includes the context states.

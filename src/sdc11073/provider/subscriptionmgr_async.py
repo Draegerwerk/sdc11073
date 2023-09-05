@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from sdc11073.pysoap.msgfactory import MessageFactory
     from sdc11073.pysoap.msgreader import ReceivedMessage
     from sdc11073.pysoap.soapclientpool import SoapClientPool
+    from sdc11073 import xml_utils
 
 
 def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str) -> tuple[str | None, str]:
@@ -43,7 +44,7 @@ def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str) -> tup
 class BicepsSubscriptionAsync(ActionBasedSubscription):
     """Async version of a single BICEPS subscription. It is used by BICEPSSubscriptionsManagerBaseAsync."""
 
-    async def async_send_notification_report(self, body_node: etree_.ElementBase, action: str):
+    async def async_send_notification_report(self, body_node: xml_utils.LxmlElement, action: str):
         """Send notification to subscriber."""
         if not self.is_valid or self.unsubscribed_at is not None:
             return
@@ -194,7 +195,7 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
         apply_map(lambda subscription: subscription.close_by_subscription_manager(), self._subscriptions.objects)
         self._subscriptions.clear()
 
-    def send_to_subscribers(self, payload: MessageType | etree_.ElementBase,
+    def send_to_subscribers(self, payload: MessageType | xml_utils.LxmlElement,
                             action: str,
                             mdib_version_group: MdibVersionGroup,
                             what: str):
@@ -231,7 +232,7 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
                         '{}: _send_to_subscribers {} returned {}', what, subscribers[counter], element)
 
     async def _async_send_notification_report(self, subscription: BicepsSubscriptionAsync,
-                                              body_node: etree_.ElementBase,
+                                              body_node: xml_utils.LxmlElement,
                                               action: str):
         try:
             self._logger.debug('send notification report {} to {}', action, subscription)  # noqa: PLE1205

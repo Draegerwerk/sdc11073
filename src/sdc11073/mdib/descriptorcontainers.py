@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from decimal import Decimal
 
     from lxml import etree as etree_
+    from sdc11073 import xml_utils
 
     from sdc11073.namespaces import NamespaceHelper
     from sdc11073.xml_types.isoduration import DurationType
@@ -86,7 +87,7 @@ class AbstractDescriptorProtocol(Protocol):
         ...
 
     @classmethod
-    def from_node(cls, node: etree_.ElementBase, parent_handle: str | None = None) -> AbstractDescriptorProtocol:
+    def from_node(cls, node: xml_utils.LxmlElement, parent_handle: str | None = None) -> AbstractDescriptorProtocol:
         """Create class and init its properties from the node."""
 
 
@@ -201,7 +202,7 @@ class AbstractDescriptorContainer(ContainerBase):
         return None if len(ret) == 0 else ret
 
     def mk_descriptor_node(self, tag: etree_.QName,
-                           ns_helper: NamespaceHelper, set_xsi_type: bool = True) -> etree_.ElementBase:
+                           ns_helper: NamespaceHelper, set_xsi_type: bool = True) -> xml_utils.LxmlElement:
         """Create a lxml etree node from instance data.
 
         :param tag: tag of node
@@ -226,7 +227,7 @@ class AbstractDescriptorContainer(ContainerBase):
                 return child.child_qname, set_xsi_type
         raise ValueError(f'{node_type} not known in child declarations of {self.__class__.__name__}')
 
-    def sort_child_nodes(self, node: etree_.ElementBase) -> None:
+    def sort_child_nodes(self, node: xml_utils.LxmlElement) -> None:
         """Bring all child elements of node in correct order (BICEPS schema).
 
         raises a ValueError if a child node exist that is not listed in ordered_tags
@@ -265,7 +266,7 @@ class AbstractDescriptorContainer(ContainerBase):
                 f'parent={self.parent_handle}')
 
     @classmethod
-    def from_node(cls, node: etree_.ElementBase, parent_handle: str | None = None) -> AbstractDescriptorContainer:
+    def from_node(cls, node: xml_utils.LxmlElement, parent_handle: str | None = None) -> AbstractDescriptorContainer:
         """Create class and init its properties from the node."""
         obj = cls(handle=None,  # will be determined in constructor from node value
                   parent_handle=parent_handle)

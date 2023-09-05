@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import copy
 import ssl
-import time
 import traceback
 import uuid
 from dataclasses import dataclass
@@ -13,7 +12,7 @@ from urllib.parse import urlparse, urlsplit
 from lxml import etree as etree_
 
 import sdc11073.certloader
-from sdc11073 import commlog, loghelper, network
+from sdc11073 import commlog, loghelper, network, xml_utils
 from sdc11073 import observableproperties as properties
 from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.dispatch import DispatchKey, MessageConverterMiddleware
@@ -30,7 +29,6 @@ from .components import default_sdc_consumer_components
 from .request_handler_deferred import EmptyResponse
 
 if TYPE_CHECKING:
-    from ssl import SSLContext
     from collections.abc import Iterable
     from sdc11073.dispatch.request import RequestData
     from sdc11073.xml_types.mex_types import HostedServiceType
@@ -41,7 +39,6 @@ if TYPE_CHECKING:
     from sdc11073.mdib.consumermdib import ConsumerMdib
     from sdc11073.consumer.serviceclients.serviceclientbase import HostedServiceClient
     from sdc11073.consumer.subscription import ConsumerSubscriptionManagerProtocol
-    from sdc11073.loghelper import LoggerAdapter
     from sdc11073.wsdiscovery.service import Service
     from .components import SdcConsumerComponents
 
@@ -65,7 +62,7 @@ class HostedServiceDescription:
         self.log_prefix = log_prefix
         self.meta_data: mex_types.Metadata | None = None
         self.wsdl_string = None
-        self.wsdl_node: etree_.ElementBase | None = None
+        self.wsdl_node: xml_utils.LxmlElement | None = None
         self._logger = loghelper.get_logger_adapter('sdc.client.hosted', log_prefix)
         self._url = urlparse(endpoint_address)
         self.services = {}
@@ -341,7 +338,7 @@ class SdcConsumer:
                      filter_type: eventing_types.FilterType,
                      actions: Iterable[DispatchKey],
                      expire_minutes: int = 60,
-                     any_elements: list | None = None,
+                     any_elements: list[xml_utils.LxmlElement] | None = None,
                      any_attributes: dict | None = None) -> ConsumerSubscription:
         """Send subscribe request to provider.
 
@@ -350,7 +347,7 @@ class SdcConsumer:
         :param filter_type: the filter that is sent to device
         :param actions: a list of DispatchKeys that this subscription shall handle
         :param expire_minutes: defaults to 1 hour
-        :param any_elements: optional list of etree.ElementBase objects
+        :param any_elements: optional list of lxml elements
         :param any_attributes: optional dictionary of name:str - value:str pairs
         :return: a subscription object that has callback already registered.
         """
