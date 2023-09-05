@@ -37,7 +37,9 @@ def copy_element(node: LxmlElement, method: Callable[[LxmlElement], LxmlElement]
     # walk from root to target
     ns_map_list.reverse()
     for i, step in enumerate(x_path_steps):
-        current = current.xpath(f'/{step}' if i == 0 else step, namespaces=ns_map_list[i])[0]
+        x_path_elements = current.xpath(f'/{step}' if i == 0 else step, namespaces=ns_map_list[i])
+        assert len(x_path_elements) == 1
+        current = x_path_elements[0]
     return current
 
 
