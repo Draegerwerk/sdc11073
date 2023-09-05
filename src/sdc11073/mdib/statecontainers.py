@@ -16,12 +16,13 @@ from .containerbase import ContainerBase
 if TYPE_CHECKING:
     from decimal import Decimal
 
-    from lxml.etree import ElementBase, QName
+    from lxml.etree import QName
 
     from sdc11073.location import SdcLocation
     from sdc11073.namespaces import NamespaceHelper
     from sdc11073.xml_types.isoduration import DurationType
     from sdc11073.xml_types.xml_structure import ExtensionLocalValue
+    from sdc11073 import xml_utils
 
     from .descriptorcontainers import AbstractDescriptorProtocol
 
@@ -52,7 +53,7 @@ class AbstractStateProtocol(Protocol):
                                     skipped_properties: list[str] | None = None):
         """Copy all properties except the skipped ones to self."""
 
-    def update_from_node(self, node: ElementBase):
+    def update_from_node(self, node: xml_utils.LxmlElement):
         """Update members from node."""
 
 
@@ -88,7 +89,7 @@ class AbstractStateContainer(ContainerBase):
 
     def mk_state_node(self, tag: QName,
                       nsmapper: NamespaceHelper,
-                      set_xsi_type: bool = True) -> ElementBase:
+                      set_xsi_type: bool = True) -> xml_utils.LxmlElement:
         """Create an etree node from instance data."""
         return super().mk_node(tag, nsmapper, set_xsi_type=set_xsi_type)
 
@@ -122,7 +123,7 @@ class AbstractStateContainer(ContainerBase):
         return f'{self.__class__.__name__} DescriptorHandle="{self.DescriptorHandle}" StateVersion={self.StateVersion}'
 
     @classmethod
-    def from_node(cls, node: ElementBase,
+    def from_node(cls, node: xml_utils.LxmlElement,
                   descriptor_container: AbstractDescriptorProtocol | None = None) -> AbstractStateContainer:
         """Create an instance from XML node."""
         obj = cls(descriptor_container)
@@ -553,7 +554,7 @@ class AbstractMultiStateContainer(AbstractStateContainer):
                 f'Update from a node with different handle is not possible! Have "{self.Handle}", got "{other.Handle}"')
         super().update_from_other_container(other, skipped_properties)
 
-    def mk_state_node(self, tag: QName, nsmapper: NamespaceHelper, set_xsi_type: bool = True) -> ElementBase:
+    def mk_state_node(self, tag: QName, nsmapper: NamespaceHelper, set_xsi_type: bool = True) -> xml_utils.LxmlElement:
         """Create an etree node from instance data."""
         if self.Handle is None:
             self.Handle = uuid.uuid4().hex

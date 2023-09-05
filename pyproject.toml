@@ -172,7 +172,7 @@ max-doc-length = 120 # https://beta.ruff.rs/docs/settings/#max-doc-length
 "__init__.py" = ["D104"]
 
 [tool.mypy]
-python_version = 3.9 # https://mypy.readthedocs.io/en/stable/config_file.html#confval-python_version
+python_version = "3.9" # https://mypy.readthedocs.io/en/stable/config_file.html#confval-python_version
 strict = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-strict
 disallow_untyped_calls = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-disallow_untyped_calls
 disallow_untyped_defs = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-disallow_untyped_defs

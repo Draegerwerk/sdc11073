@@ -10,6 +10,7 @@ from ..namespaces import default_ns_helper as ns_hlp
 from ..xml_types import mex_types
 from ..xml_types.addressing_types import EndpointReferenceType
 from ..xml_types.dpws_types import HostedServiceType
+from sdc11073 import xml_utils
 
 _wsdl_ns = ns_hlp.WSDL.namespace
 
@@ -22,7 +23,7 @@ _DISCOVERY_TYPE_NS = "http://standards.ieee.org/downloads/11073/11073-10207-2017
 WSDL_S12 = ns_hlp.WSDL12.namespace  # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
 
 
-def etree_from_file(path) -> etree_.ElementBase:
+def etree_from_file(path) -> xml_utils.LxmlElement:
     parser = etree_.ETCompatXMLParser(resolve_entities=False)
     doc = etree_.parse(path, parser=parser)
     return doc.getroot()

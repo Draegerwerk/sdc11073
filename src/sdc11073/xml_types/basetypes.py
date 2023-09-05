@@ -4,9 +4,14 @@ import enum
 import inspect
 import traceback
 from math import isclose
+from typing import TYPE_CHECKING
+
 from lxml import etree as etree_
 
 from .xml_structure import NodeStringProperty, NodeTextListProperty
+
+if TYPE_CHECKING:
+    from sdc11073 import xml_utils
 
 
 class StringEnum(str, enum.Enum):
@@ -35,7 +40,7 @@ class XMLTypeBase:
         self.update_node(node)
         return node
 
-    def update_node(self, node: etree_.ElementBase):
+    def update_node(self, node: xml_utils.LxmlElement):
         for prop_name, prop in self.sorted_container_properties():
             try:
                 prop.update_xml_value(self, node)
@@ -44,7 +49,7 @@ class XMLTypeBase:
                 raise ValueError(
                     f'In {self.__class__.__name__}.{prop_name}, {str(prop)} could not update: {traceback.format_exc()}') from ex
 
-    def update_from_node(self, node: etree_.ElementBase):
+    def update_from_node(self, node: xml_utils.LxmlElement):
         for dummy, prop in self.sorted_container_properties():
             prop.update_from_node(self, node)
 

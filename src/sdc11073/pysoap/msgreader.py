@@ -24,9 +24,10 @@ if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol
     from sdc11073.mdib.statecontainers import AbstractStateProtocol
     from sdc11073.namespaces import PrefixNamespace
+    from sdc11073 import xml_utils
 
 
-def validate_node(node: etree_.ElementBase, xml_schema: etree_.XMLSchema, logger: LoggerAdapter):
+def validate_node(node: xml_utils.LxmlElement, xml_schema: etree_.XMLSchema, logger: LoggerAdapter):
     """Let xml_schema instance validate the node."""
     try:
         xml_schema.assertValid(node)
@@ -41,7 +42,7 @@ def validate_node(node: etree_.ElementBase, xml_schema: etree_.XMLSchema, logger
         raise ValidationError(reason='document invalid', soap_fault=fault) from ex
 
 
-def _get_text(node: etree_.ElementBase, q_name: etree_.QName) -> str | None:
+def _get_text(node: xml_utils.LxmlElement, q_name: etree_.QName) -> str | None:
     if node is None:
         return None
     tmp = node.find(q_name)
@@ -64,7 +65,7 @@ class MdibVersionGroupReader:
     instance_id: int | None
 
     @classmethod
-    def from_node(cls, node: etree_.ElementBase) -> MdibVersionGroupReader:
+    def from_node(cls, node: xml_utils.LxmlElement) -> MdibVersionGroupReader:
         """Construct from a node with version attributes."""
         mdib_version = int(node.get('MdibVersion', '0'))
         sequence_id = node.get('SequenceId')
@@ -163,7 +164,7 @@ class MessageReader:
         mdib_node = received_message_data.p_msg.msg_node[0]
         return self.read_get_mdib_payload(mdib_node)
 
-    def read_get_mdib_payload(self, mdib_node: etree_.ElementBase) -> tuple[
+    def read_get_mdib_payload(self, mdib_node: xml_utils.LxmlElement) -> tuple[
     list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
         """Return list of all descriptors and states in mdib."""
         descriptors = []
@@ -184,7 +185,7 @@ class MessageReader:
             return self.read_get_mdib_payload(payload[0])
         return self.read_get_mdib_payload(payload)
 
-    def read_xml_text(self, xml_text: bytes) -> etree_.ElementBase:
+    def read_xml_text(self, xml_text: bytes) -> xml_utils.LxmlElement:
         """Parse imput, return a node."""
         parser = etree_.ETCompatXMLParser(resolve_entities=False)
         try:
@@ -195,10 +196,10 @@ class MessageReader:
         self._validate_node(node)
         return node
 
-    def _read_md_description_node(self, md_description_node: etree_.ElementBase) -> list[AbstractDescriptorProtocol]:
+    def _read_md_description_node(self, md_description_node: xml_utils.LxmlElement) -> list[AbstractDescriptorProtocol]:
         descriptions = []
 
-        def add_children(parent_node: etree_.ElementBase):
+        def add_children(parent_node: xml_utils.LxmlElement):
             p_handle = parent_node.get('Handle')
             for child_node in parent_node:
                 if child_node.get('Handle') is not None:
@@ -214,7 +215,7 @@ class MessageReader:
             add_children(mds_node)
         return descriptions
 
-    def _read_md_state_node(self, md_state_node: etree_.ElementBase) -> list[AbstractStateProtocol]:
+    def _read_md_state_node(self, md_state_node: xml_utils.LxmlElement) -> list[AbstractStateProtocol]:
         """Parse a GetMdStateResponse or the MdState part of GetMdibResponse."""
         state_containers = []
         all_state_nodes = md_state_node.findall(self.pm_names.State)
@@ -222,14 +223,14 @@ class MessageReader:
             state_containers.append(self._mk_state_container_from_node(state_node))
         return state_containers
 
-    def _mk_descriptor_container_from_node(self, node: etree_.ElementBase,
+    def _mk_descriptor_container_from_node(self, node: xml_utils.LxmlElement,
                                            parent_handle: str | None) -> AbstractDescriptorProtocol:
         node_type = node.get(QN_TYPE)
         node_type = text_to_qname(node_type, node.nsmap) if node_type is not None else etree_.QName(node.tag)
         descr_cls = self.get_descriptor_container_class(node_type)
         return descr_cls.from_node(node, parent_handle)
 
-    def _mk_state_container_from_node(self, node: etree_.ElementBase,
+    def _mk_state_container_from_node(self, node: xml_utils.LxmlElement,
                                       forced_type: etree_.QName | None = None) -> AbstractStateProtocol:
         """Create a state container from a node.
 
@@ -256,7 +257,7 @@ class MessageReader:
         state.node = node
         return state
 
-    def _validate_node(self, node: etree_.ElementBase):
+    def _validate_node(self, node: xml_utils.LxmlElement):
         if self._validate:
             validate_node(node, self._xml_schema, self._logger)
 
