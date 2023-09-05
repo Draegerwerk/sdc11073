@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fixed a bug where the `SdcConsumer` failed to determine the host network adapter if the ip contained in the `device_location` is on a different subnet
 - comparison of extensions would fail [#238](https://github.com/Draegerwerk/sdc11073/issues/238)
 - ExtensionLocalValue.value must be a list instead of a dictionary in order to allow multiple elements with same name.
+- fixed a bug where namespaces of xml are lost when coping lxml elements
 
 
 ### Changed

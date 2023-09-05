@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from lxml.etree import ElementBase
+    from sdc11073 import xml_utils
 
     from sdc11073.pysoap.soapenvelope import Soap12Envelope
 
@@ -20,7 +20,7 @@ class RequestManipulatorProtocol(Protocol):
     def manipulate_soapenvelope(self, soap_envelope: Soap12Envelope) -> Soap12Envelope | None:
         """Manipulate on Soap12Envelope level."""
 
-    def manipulate_domtree(self, domtree: ElementBase) -> ElementBase | None:
+    def manipulate_domtree(self, domtree: xml_utils.LxmlElement) -> xml_utils.LxmlElement | None:
         """Manipulate on etree.Element level."""
 
     def manipulate_string(self, xml_string: str) -> str | None:

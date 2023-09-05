@@ -12,6 +12,7 @@ from sdc11073.xml_types.basetypes import ElementWithText, MessageType, XMLTypeBa
 
 if TYPE_CHECKING:
     from sdc11073.xml_types.addressing_types import HeaderInformationBlock
+    from sdc11073 import xml_utils
 
 CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
 
@@ -44,7 +45,7 @@ class Soap12Envelope:
             self._nsmap[prefix.prefix] = prefix.namespace
         self.header_info_block = None
 
-    def add_header_element(self, element: etree_.ElementBase):
+    def add_header_element(self, element: xml_utils.LxmlElement):
         """Add element to soap header."""
         self._header_nodes.append(element)
 
@@ -53,12 +54,12 @@ class Soap12Envelope:
         self.header_info_block = header_info_block
 
     @property
-    def payload_element(self) -> etree_.ElementBase:
+    def payload_element(self) -> xml_utils.LxmlElement:
         """Get payload of soap envelope ( child node of Body element)."""
         return self._payload_element
 
     @payload_element.setter
-    def payload_element(self, element: etree_.ElementBase):
+    def payload_element(self, element: xml_utils.LxmlElement):
         if self._payload_element is not None:
             raise ApiUsageError('there can be only one body object')
         self._payload_element = element
@@ -69,7 +70,7 @@ class Soap12Envelope:
         return self._nsmap
 
     @property
-    def header_nodes(self) -> list[etree_.ElementBase]:
+    def header_nodes(self) -> list[xml_utils.LxmlElement]:
         """Get the list of header nodes."""
         return self._header_nodes
 
@@ -79,11 +80,11 @@ class ReceivedSoapMessage:
 
     __slots__ = ('msg_node', 'msg_name', 'raw_data', 'header_info_block', '_doc_root', 'header_node', 'body_node')
 
-    def __init__(self, xml_text: bytes, doc_root: etree_.ElementBase):
+    def __init__(self, xml_text: bytes, doc_root: xml_utils.LxmlElement):
         self.raw_data = xml_text
-        self._doc_root: etree_.ElementBase = doc_root
-        self.header_node: etree_.ElementBase = self._doc_root.find(ns_hlp.S12.tag('Header'))
-        self.body_node: etree_.ElementBase = self._doc_root.find(ns_hlp.S12.tag('Body'))
+        self._doc_root: xml_utils.LxmlElement = doc_root
+        self.header_node: xml_utils.LxmlElement = self._doc_root.find(ns_hlp.S12.tag('Header'))
+        self.body_node: xml_utils.LxmlElement = self._doc_root.find(ns_hlp.S12.tag('Body'))
         self.header_info_block: HeaderInformationBlock | None = None
         try:
             self.msg_node = self.body_node[0]

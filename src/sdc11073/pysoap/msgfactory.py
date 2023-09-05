@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from ..xml_types.msg_types import MessageType
     from ..definitions_base import BaseDefinitions
     from ..namespaces import PrefixNamespace
+    from sdc11073 import xml_utils
 
 
 class CreatedMessage:
@@ -103,7 +104,7 @@ class MessageFactory:
 
     def mk_soap_message_etree_payload(self,
                                       header_info: HeaderInformationBlock,
-                                      payload_element: Optional[etree_.ElementBase] = None):
+                                      payload_element: xml_utils.LxmlElement | None = None):
         nsh = self.ns_hlp
         my_ns_map = nsh.partial_map(nsh.S12, nsh.WSE, nsh.WSA)
         soap_envelope = Soap12Envelope(my_ns_map)

@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from sdc11073.pysoap.soapclient import SoapClientProtocol
     from sdc11073.xml_types.eventing_types import FilterType
     from sdc11073.xml_types.mex_types import HostedServiceType
+    from sdc11073 import xml_utils
 
 
 class ConsumerSubscriptionProtocol(Protocol):
@@ -90,9 +91,9 @@ class ConsumerSubscription:
         self.requested_expires: int | float = 0
         self.granted_expires: int | float = 0
 
-        self.notify_to_identifier: etree_.ElementBase | None = None
+        self.notify_to_identifier: xml_utils.LxmlElement | None = None
 
-        self.end_to_identifier: etree_.ElementBase | None = None
+        self.end_to_identifier: xml_utils.LxmlElement | None = None
 
         self._logger = loghelper.get_logger_adapter('sdc.client.subscr', log_prefix)
         self.event_counter = 0  # for display purpose, we count notifications
