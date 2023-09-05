@@ -485,9 +485,6 @@ class ExtensionLocalValue(list):
     compare_method = _compare_extension
     """may be overwritten by user if a custom comparison behaviour is required"""
 
-    # def __init__(self, value):
-    #     self.value = value or list()
-
     def __eq__(self, other):
         try:
             if len(self) != len(other):
