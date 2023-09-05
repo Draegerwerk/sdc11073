@@ -32,23 +32,22 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc2.DescriptorVersion, 0)
         self.assertEqual(dc2.SafetyClassification, 'Inf')
         self.assertEqual(dc.Type, None)
-        self.assertEqual(dc.ext_Extension, None)
+        self.assertEqual(len(dc.ext_Extension), 0)
 
         #test update from node
         dc.DescriptorVersion = 42
         dc.SafetyClassification = 'MedA'
         dc.Type = pmtypes.CodedValue('abc', 'def')
 
-        dc.ext_Extension = etree_.Element(namespaces.extTag('Extension'))
-        etree_.SubElement(dc.ext_Extension, 'foo', attrib={'someattr':'somevalue'})
-        etree_.SubElement(dc.ext_Extension, 'bar', attrib={'anotherattr':'differentvalue'})
+        dc.ext_Extension = [etree_.Element('foo', attrib={'someattr':'somevalue'})]
+        dc.ext_Extension.append(etree_.Element('bar', attrib={'anotherattr':'differentvalue'}))
 
         retrievability = msgtypes.Retrievability([msgtypes.RetrievabilityInfo(msgtypes.RetrievabilityMethod.GET),
                                                   msgtypes.RetrievabilityInfo(msgtypes.RetrievabilityMethod.PERIODIC,
                                                                               update_period=42.0)
                                                   ]
                                                  )
-        dc.retrievability = retrievability
+        dc.set_retrievability([retrievability])
 
         node = dc.mkNode()
         dc2.updateDescrFromNode(node)
@@ -59,9 +58,8 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc.codeId, 'abc')
         self.assertEqual(dc.codingSystem, 'def')
 
-        self.assertEqual(dc2.ext_Extension.tag, namespaces.extTag('Extension'))
         self.assertEqual(len(dc2.ext_Extension), 3)
-        self.assertEqual(dc2.retrievability, retrievability)
+        self.assertEqual(dc2.get_retrievability(), [retrievability])
 
 
     def test_AbstractMetricDescriptorContainer(self):     
