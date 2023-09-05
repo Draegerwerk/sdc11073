@@ -69,6 +69,18 @@ class TestExtensions(unittest.TestCase):
         self.assertNotEqual(inst1.ext_Extension, inst2.ext_Extension)
         self.assertNotEqual(inst1, inst2)
 
+    def test_compare_extension_with_other_types(self):
+        xml1 = b"""
+            <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <foo someattr="somevalue"/>
+            </ext:Extension>
+        """
+        xml1 = fromstring(xml1)  # noqa: S320
+
+        inst1 = ExtensionLocalValue([xml1])
+        self.assertFalse(inst1 == 42)
+        self.assertFalse(inst1 == [41])
+
     def test_element_order(self):
         xml1 = b"""
         <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
@@ -118,7 +130,6 @@ class TestExtensions(unittest.TestCase):
         inst2 = pmtypes.InstanceIdentifier.fromNode(fromstring(xml2)) # noqa: S320
         self.assertEqual(inst1.ext_Extension, inst2.ext_Extension)
         self.assertEqual(inst1, inst2)
-
 
     def test_fails_with_qname(self):
         xml1 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

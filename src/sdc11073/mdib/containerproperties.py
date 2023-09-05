@@ -13,6 +13,7 @@ import sdc11073.namespaces as namespaces
 from sdc11073 import isoduration
 from sdc11073.dataconverters import TimestampConverter, DecimalConverter, IntegerConverter, BooleanConverter, \
     DurationConverter, NullConverter
+from sdc11073.xmlparsing import copy_node_wo_parent
 
 
 class ElementNotFoundException(Exception):
@@ -493,10 +494,7 @@ class ExtensionLocalValue(list):
                 return False
         except TypeError:  # len of other cannot be determined
             return False
-        for my_element, other_element in zip(self, other):
-            if not ExtensionLocalValue.compare_method(my_element, other_element):
-                return False
-        return True
+        return all(self.__class__.compare_method(left, right) for left, right in zip(self, other))
 
 
 class ExtensionNodeProperty(_PropertyBase):
@@ -552,7 +550,7 @@ class ExtensionNodeProperty(_PropertyBase):
         if property_value is None or len(property_value.py_value) == 0:
             return  # nothing to add
         sub_node = self._getElementbyChildNamesList(node, self._subElementNames, createMissingNodes=True)
-        sub_node.extend(copy.copy(x) for x in property_value.py_value)
+        sub_node.extend(copy_node_wo_parent(x) for x in property_value.py_value)
 
 
 class SubElementProperty(_PropertyBase):
