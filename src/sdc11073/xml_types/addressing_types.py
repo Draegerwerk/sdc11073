@@ -22,21 +22,21 @@ class EndpointReferenceType(XMLTypeBase):
     Address = struct.NodeStringProperty(nsh.WSA.tag('Address'))
     ReferenceParameters = struct.AnyEtreeNodeListProperty(nsh.WSA.tag('ReferenceParameters'), is_optional=True)
     PortType = struct.NodeTextQNameProperty(nsh.WSA.tag('PortType'), is_optional=True)
-    _props = ['Address', 'ReferenceParameters', 'PortType']
+    _props = ('Address', 'ReferenceParameters', 'PortType')
 
 
 class Relationship(ElementWithText):
     """Relationship type of ws-addressing."""
 
     RelationshipType = struct.QNameAttributeProperty('RelationshipType')
-    _props = ['RelationshipType']
+    _props = ('RelationshipType',)
 
 
 class MustUnderStandTextElement(ElementWithText):
     """XML Element with text and mustUnderstand attribute."""
 
     _must_understand = struct.BooleanAttributeProperty(nsh.S12.tag('mustUnderstand'), default_py_value=True)
-    _props = ['_must_understand']
+    _props = ('_must_understand',)
 
     def __init__(self, text: str | None = None):
         super().__init__()
@@ -59,7 +59,7 @@ class HeaderInformationBlock(XMLTypeBase):
     From = struct.SubElementProperty(nsh.WSA.tag('From'),
                                      value_class=EndpointReferenceType,
                                      is_optional=True)
-    _props = ['MessageID', 'RelatesTo', 'To', 'Action', 'From']
+    _props = ('MessageID', 'RelatesTo', 'To', 'Action', 'From')
 
     def __init__(self, action: str | None = None,
                  message_id: str | None = None,

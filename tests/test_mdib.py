@@ -5,6 +5,7 @@ from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.mdib import ProviderMdib
 from sdc11073.xml_types.pm_types import Coding
+from sdc11073 import definitions_sdc
 
 mdib_folder = os.path.dirname(__file__)
 
@@ -16,7 +17,8 @@ class TestMdib(unittest.TestCase):
 
     def test_select_descriptors(self):
 
-        device_mdib_container = ProviderMdib.from_mdib_file(mdib_70041_path)
+        device_mdib_container = ProviderMdib.from_mdib_file(mdib_70041_path,
+                                                            protocol_definition=definitions_sdc.SDC_v1_Definitions)
         # from looking at the mdib file I know how many elements the tested paths shall return
         for path, expectedCount in [(('70041',), 1),
                                     (('70041', '69650'), 1),  # VMDs
@@ -33,11 +35,13 @@ class TestMdib(unittest.TestCase):
         # verify that a mdib with participant model as default namespace can be handled.
         # if creation does not raise any exception, all should be fine.
         device_mdib_container = ProviderMdib.from_mdib_file(
-            os.path.join(os.path.dirname(__file__), 'mdib_tns.xml'))
+            os.path.join(os.path.dirname(__file__), 'mdib_tns.xml'),
+        protocol_definition=definitions_sdc.SDC_v1_Definitions)
         self.assertTrue(device_mdib_container is not None)
 
     def test_get_metric_descriptor_by_code(self):
-        device_mdib_container = ProviderMdib.from_mdib_file(mdib_tns_path)
+        device_mdib_container = ProviderMdib.from_mdib_file(mdib_tns_path,
+                                                            protocol_definition=definitions_sdc.SDC_v1_Definitions)
         metric_container = device_mdib_container.get_metric_descriptor_by_code(vmd_code=Coding("130536"),
                                                                                channel_code=Coding("130637"),
                                                                                metric_code=Coding("196174"))
@@ -55,7 +59,8 @@ class TestMdib(unittest.TestCase):
 class TestMdibTransaction(unittest.TestCase):
 
     def setUp(self):
-        self.mdib = ProviderMdib.from_mdib_file(mdib_tns_path)
+        self.mdib = ProviderMdib.from_mdib_file(mdib_tns_path,
+                                                protocol_definition=definitions_sdc.SDC_v1_Definitions)
 
     def test_create_delete_descriptor(self):
         with self.mdib.transaction_manager() as mgr:

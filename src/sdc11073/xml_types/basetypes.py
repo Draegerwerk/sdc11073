@@ -4,7 +4,7 @@ import enum
 import inspect
 import traceback
 from math import isclose
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from lxml import etree as etree_
 
@@ -111,7 +111,7 @@ class ElementWithText(XMLTypeBase):
     """
     NODETYPE = None
     text: str = NodeStringProperty()  # this is the text of the node. Here attribute is lower case!
-    _props = ['text']
+    _props = ('text',)
 
     def __init__(self, text=None):
         super().__init__()
@@ -122,9 +122,9 @@ class ElementWithTextList(XMLTypeBase):
     """An Element with text, which is alist of words(string without whitespace).
     """
     # this is the text list of the node. Here attribute is lower case!
-    text: List[str] = NodeTextListProperty(sub_element_name=None,
+    text: list[str] = NodeTextListProperty(sub_element_name=None,
                                            value_class=str)
-    _props = ['text']
+    _props = ('text',)
 
 
 class MessageType(XMLTypeBase):
@@ -134,4 +134,4 @@ class MessageType(XMLTypeBase):
     in the soap header."""
     NODETYPE = None
     action = None
-    additional_namespaces = []  # derived class list namespaces other than PM and MSG
+    additional_namespaces = ()  # derived class list namespaces other than PM and MSG
