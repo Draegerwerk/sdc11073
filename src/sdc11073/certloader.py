@@ -33,19 +33,14 @@ def mk_ssl_contexts_from_folder(ca_folder: str | pathlib.Path,
     :return: container of SSLContext instances i.e. client_ssl_context and server_ssl_context.
     """
     ca_folder = pathlib.Path(ca_folder)
+    cyphers = None
     if cyphers_file:
-        with ca_folder.joinpath(cyphers_file).open(encoding='utf-8') as file:
-            while True:
-                # allow comment lines, starting with #
-                cyphers = file.readline()
-                if len(cyphers) == 0:  # end of file reached without having found a valid line
-                    cyphers = None
-                    break
-                cyphers = cyphers.strip().rstrip('\n').rstrip('\r')
-                if len(cyphers) > 0 and not cyphers.startswith("#"):
-                    break
-    else:
-        cyphers = None
+        for line in ca_folder.joinpath(cyphers_file).read_text().splitlines():
+            raw_cyphers = line.strip()
+            # allow comment lines, starting with #
+            if len(raw_cyphers) > 0 and not raw_cyphers.startswith("#"):
+                cyphers = raw_cyphers
+                break
     return mk_ssl_contexts(ca_folder.joinpath(private_key),
                            ca_folder.joinpath(certificate),
                            ca_folder.joinpath(ca_public_key) if ca_public_key else None,

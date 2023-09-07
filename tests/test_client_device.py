@@ -454,6 +454,19 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
             sdc11073.certloader.mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock(), cyphers_file='lorem')
         self.assertFalse(mocked.called)
 
+    @unittest.mock.patch('sdc11073.certloader.mk_ssl_contexts')
+    @unittest.mock.patch('pathlib.Path.read_text')
+    def test_cyphers(self, read_text_mock: unittest.mock.MagicMock, mk_ssl_contexts_mock: unittest.mock.MagicMock):
+        def _read_text():
+            return """# this is the ciphers file
+# this is a comment
+secret_ciphers_string
+ignored"""
+        read_text_mock.side_effect = _read_text
+        sdc11073.certloader.mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock(), cyphers_file='lorem')
+        mk_ssl_contexts_mock.assert_called_once()
+        self.assertEqual(mk_ssl_contexts_mock.call_args.args[3], 'secret_ciphers_string')
+
 
 class Test_Client_SomeDevice(unittest.TestCase):
     def setUp(self):
