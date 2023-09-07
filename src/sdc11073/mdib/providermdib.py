@@ -40,7 +40,7 @@ class ProviderMdib(mdibbase.MdibBase):
                  ):
         """Construct a ProviderMdib.
 
-        :param sdc_definitions: defaults to sdc11073.definitions_sdc.SDC_v1_Definitions
+        :param sdc_definitions: defaults to sdc11073.definitions_sdc.SdcV1Definitions
         :param log_prefix: a string
         :param extra_functionality: class for extra functionality, default is ProviderMdibMethods
         :param transaction_cls: runs the transaction, default is MdibUpdateTransaction

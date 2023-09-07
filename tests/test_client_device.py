@@ -1,6 +1,7 @@
 import copy
 import datetime
 import logging
+import pathlib
 import socket
 import ssl
 import sys
@@ -8,6 +9,7 @@ import time
 import traceback
 import unittest
 import unittest.mock
+import uuid
 from decimal import Decimal
 from itertools import product
 
@@ -44,7 +46,7 @@ from sdc11073.namespaces import default_ns_helper
 from tests import utils
 from tests.mockstuff import SomeDevice, dec_list
 
-ENABLE_COMMLOG = True
+ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
     comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
                                           log_out=True,
@@ -355,8 +357,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
             self.assertTrue(unittest.mock.call.listen(unittest.mock.ANY) in sock.method_calls or
                             unittest.mock.call.listen() in sock.method_calls or set(sock.w).intersection(branches))
 
-    @unittest.mock.patch('os.path.exists')
-    def test_mk_ssl_contexts(self, _):
+    def test_mk_ssl_contexts(self):
         """
         Test that sdc11073.certloader.mk_ssl_contexts_from_folder creates different contexts for client and device.
         """
@@ -377,7 +378,9 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         ssl_context_mock = unittest.mock.Mock(side_effect=ssl_context_init_side_effect)
 
         with unittest.mock.patch.object(ssl, 'SSLContext', new=ssl_context_mock):
-            return_value = sdc11073.certloader.mk_ssl_contexts_from_folder('')
+            return_value = sdc11073.certloader.mk_ssl_contexts(key_file=unittest.mock.MagicMock(),
+                                                               cert_file=unittest.mock.MagicMock(),
+                                                               ca_file=unittest.mock.MagicMock())
 
         self.assertNotEqual(return_value.client_context, return_value.server_context)
 
@@ -426,6 +429,30 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         wsd.stop()
 
         log_watcher.check()
+
+    def test_mk_ssl_raises_file_not_found_error(self):
+        """Verify that a FileNotFoundError is raised if a cypher file is specified but not found."""
+        with self.assertRaises(FileNotFoundError):
+            sdc11073.certloader.mk_ssl_contexts_from_folder(ca_folder=pathlib.Path())
+        with self.assertRaises(FileNotFoundError):
+            sdc11073.certloader.mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock())
+        with self.assertRaises(FileNotFoundError):
+            sdc11073.certloader.mk_ssl_contexts(key_file=pathlib.Path(str(uuid.uuid4())),
+                                                cert_file=unittest.mock.MagicMock())
+        with self.assertRaises(FileNotFoundError):
+            sdc11073.certloader.mk_ssl_contexts(key_file=unittest.mock.MagicMock(),
+                                                cert_file=pathlib.Path(str(uuid.uuid4())))
+        with self.assertRaises(FileNotFoundError):
+            sdc11073.certloader.mk_ssl_contexts(key_file=unittest.mock.MagicMock(),
+                                                cert_file=unittest.mock.MagicMock(),
+                                                ca_file=pathlib.Path(str(uuid.uuid4())))
+
+    @unittest.mock.patch('sdc11073.certloader.mk_ssl_contexts')
+    def test_mk_ssl_raises_file_not_found_error_with_cipher_file(self, mocked: unittest.mock.MagicMock):
+        """Verify that a FileNotFoundError is raised if a cypher file is specified but not found."""
+        with self.assertRaises(FileNotFoundError):
+            sdc11073.certloader.mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock(), cyphers_file='lorem')
+        self.assertFalse(mocked.called)
 
 
 class Test_Client_SomeDevice(unittest.TestCase):

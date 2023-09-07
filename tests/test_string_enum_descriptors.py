@@ -13,11 +13,11 @@ from tests import utils
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
-if ENABLE_COMMLOG:
-    comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
-                                          log_out=True,
-                                          log_in=True,
-                                          broadcast_ip_filter=None)
+
+comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
+                                      log_out=True,
+                                      log_in=True,
+                                      broadcast_ip_filter=None)
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
@@ -31,7 +31,8 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
 
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
-        comm_logger.start()
+        if ENABLE_COMMLOG:
+            comm_logger.start()
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         my_uuid = None  # let device create one
