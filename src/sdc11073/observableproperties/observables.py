@@ -27,6 +27,7 @@ Example:
 < prop2= Hello World
 
 """
+import contextlib
 import inspect
 import weakref
 from contextlib import contextmanager
@@ -88,10 +89,8 @@ class _ObservableValue:
             else:
                 func(self.value)  # call func
         for ref in obsolete_refs:
-            try:
+            with contextlib.suppress(ValueError):  # e.g. has been deleted by someone else in different thread
                 self._observers.remove(ref)
-            except ValueError:  # e.g. has been deleted by someone else in different thread.
-                pass
 
     def bind(self, func):
         self._observers.append(WeakRef(func))

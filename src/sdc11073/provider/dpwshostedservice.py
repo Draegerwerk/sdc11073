@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import typing
 from io import BytesIO
 
 from lxml import etree as etree_
@@ -10,7 +11,10 @@ from ..namespaces import default_ns_helper as ns_hlp
 from ..xml_types import mex_types
 from ..xml_types.addressing_types import EndpointReferenceType
 from ..xml_types.dpws_types import HostedServiceType
-from sdc11073 import xml_utils
+
+
+if typing.TYPE_CHECKING:
+    from sdc11073 import xml_utils
 
 _wsdl_ns = ns_hlp.WSDL.namespace
 

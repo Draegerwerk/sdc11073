@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import contextlib
 from collections import defaultdict
 from typing import TYPE_CHECKING, List, Optional, Union
 from .porttypebase import DPWSPortTypeBase
@@ -86,10 +88,8 @@ class LocalizationStorage:
         # create a flat list of all localized texts with the requested handles
         texts = []
         for handle in handles:
-            try:
+            with contextlib.suppress(KeyError):
                 texts.extend(self._localized_texts[handle])
-            except KeyError:
-                pass
 
         # filter languages:
         if requested_langs is not None and len(requested_langs) > 0:
@@ -189,10 +189,8 @@ class LocalizationStorage:
         # create a flat list of all localized texts with the requested handles
         texts = []
         for handle in handles:
-            try:
+            with contextlib.suppress(KeyError):
                 texts.extend(self._localized_texts[handle])
-            except KeyError:
-                pass
         return texts
 
 

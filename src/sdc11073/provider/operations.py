@@ -118,9 +118,9 @@ class SetMetricStateOperation(OperationDefinition):
 # find all classes in this module that have a member "OP_DESCR_QNAME"
 _classes = inspect.getmembers(sys.modules[__name__],
                               lambda member: inspect.isclass(member) and member.__module__ == __name__)
-_classes_with_QNAME = [c[1] for c in _classes if hasattr(c[1], 'OP_DESCR_QNAME') and c[1].OP_DESCR_QNAME is not None]
+_classes_with_qname = [c[1] for c in _classes if hasattr(c[1], 'OP_DESCR_QNAME') and c[1].OP_DESCR_QNAME is not None]
 # make a dictionary from found classes: (Key is OP_DESCR_QNAME, value is the class itself
-_operation_lookup_by_type = {c.OP_DESCR_QNAME: c for c in _classes_with_QNAME}
+_operation_lookup_by_type = {c.OP_DESCR_QNAME: c for c in _classes_with_qname}
 
 
 def get_operation_class(q_name):

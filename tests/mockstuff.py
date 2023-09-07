@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import logging
-import os.path
 import pathlib
 import threading
 from urllib.parse import SplitResult
 from decimal import Decimal
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from lxml import etree as etree_
 
@@ -22,12 +21,11 @@ from sdc11073.xml_types.eventing_types import Subscribe
 if TYPE_CHECKING:
     import sdc11073.certloader
     import uuid
-    from ssl import SSLContext
     from sdc11073.pysoap.soapclientpool import SoapClientPool
     from sdc11073.provider.providerimpl import WsDiscoveryProtocol
     from sdc11073.provider.components import SdcProviderComponents
 
-portsLock = threading.Lock()
+ports_lock = threading.Lock()
 _ports = 10000
 
 _mockhttpservers = {}
