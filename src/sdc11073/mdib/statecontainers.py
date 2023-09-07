@@ -154,7 +154,7 @@ class AllowedValuesType(pm_types.PropertyBasedPMType):  # pylint: disable=invali
     """Represents a list of values, in xml it is a list of pm.Value elements with one value as text."""
 
     Value: list[str] = x_struct.SubElementStringListProperty(pm.Value)
-    _props = ['Value']
+    _props = ('Value',)
 
     def is_empty(self) -> bool:
         """Return True if Value is empty."""

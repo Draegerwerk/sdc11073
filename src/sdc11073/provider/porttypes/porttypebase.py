@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional, ClassVar
 
 from lxml import etree as etree_
 
@@ -37,7 +37,7 @@ class DPWSPortTypeBase:
     port_type_name: Optional[etree_.QName] = None
     WSDLOperationBindings = ()  # overwrite in derived classes
     WSDLMessageDescriptions = ()  # overwrite in derived classes
-    additional_namespaces: List[PrefixNamespace] = []  # for special namespaces
+    additional_namespaces: ClassVar[list[PrefixNamespace]] = []  # for special namespaces
 
     def __init__(self, sdc_device, log_prefix: Optional[str] = None):
         """

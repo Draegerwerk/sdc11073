@@ -1,8 +1,9 @@
-"""Compression module for http. """
+"""Compression module for http."""
+import contextlib
 import zlib
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Type
+from typing import ClassVar
 
 try:
     import lz4.frame
@@ -30,13 +31,14 @@ class AbstractDataCompressor(ABC):
 
 class CompressionHandler:
     """Compression handler.
-    Should be used by servers and clients that are supposed to handle compression
+    Should be used by servers and clients that are supposed to handle compression.
     """
-    available_encodings = []  # initial default
-    handlers = {}
+
+    available_encodings: ClassVar[list[str]] = []  # initial default
+    handlers: ClassVar[dict[str, type[AbstractDataCompressor]]] = {}
 
     @classmethod
-    def register_handler(cls, handler: Type[AbstractDataCompressor]):
+    def register_handler(cls, handler: type[AbstractDataCompressor]):
         for alg in handler.algorithms:
             if alg.lower() in cls.available_encodings:
                 raise ValueError(f'Algorithm {alg} already registered, class = {cls.__name__} ')
@@ -56,7 +58,7 @@ class CompressionHandler:
         return cls.get_handler(algorithm).compress_payload(payload)
 
     @classmethod
-    def decompress_payload(cls, algorithm: str, payload:bytes):
+    def decompress_payload(cls, algorithm: str, payload: bytes):
         """Decompresses payload based on required algorithm.
         Raises CompressionException if algorithm is not supported.
 
@@ -68,9 +70,7 @@ class CompressionHandler:
 
     @classmethod
     def get_handler(cls, algorithm: str):
-        """
-
-        :param algorithm: one of strings provided by registered compression handlers
+        """:param algorithm: one of strings provided by registered compression handlers
         :return: AbstractDataCompressor implementation
         """
         handler = cls.handlers.get(algorithm.lower())
@@ -81,14 +81,13 @@ class CompressionHandler:
 
     @staticmethod
     def parse_header(header):
-        """
-        Examples of headers are:  Examples of its use are:
+        """Examples of headers are:  Examples of its use are:
 
-       Accept-Encoding: compress, gzip
-       Accept-Encoding:
-       Accept-Encoding: *
-       Accept-Encoding: compress;q=0.5, gzip;q=1.0
-       Accept-Encoding: gzip;q=1.0, identity; q=0.5, *;q=0
+        Accept-Encoding: compress, gzip
+        Accept-Encoding:
+        Accept-Encoding: *
+        Accept-Encoding: compress;q=0.5, gzip;q=1.0
+        Accept-Encoding: gzip;q=1.0, identity; q=0.5, *;q=0
 
         returns sorted list of compression algorithms by priority
         """
@@ -99,10 +98,9 @@ class CompressionHandler:
             for alg in (x.split(";") for x in header.split(",")):
                 alg_name = alg[0].strip()
                 parsed_headers[alg_name] = 1  # default
-                try:
+                with contextlib.suppress(ValueError, IndexError):
                     parsed_headers[alg_name] = float(alg[1].split("=")[1])
-                except (ValueError, IndexError):
-                    pass
+
         return [pair[0] for pair in sorted(parsed_headers.items(), key=lambda kv: kv[1], reverse=True)]
 
 
@@ -110,15 +108,14 @@ class GzipCompressionHandler(AbstractDataCompressor):
     algorithms = ('gzip',)
 
     @staticmethod
-    def compress_payload(payload:bytes):
+    def compress_payload(payload: bytes):
         if not isinstance(payload, bytes):
             raise TypeError(f'a bytes-like object is required, not "{payload.__class__.__name__}", payload={payload}')
         gzip_compress = zlib.compressobj(zlib.Z_DEFAULT_COMPRESSION, zlib.DEFLATED, 16 + zlib.MAX_WBITS)
-        data = gzip_compress.compress(payload) + gzip_compress.flush()
-        return data
+        return gzip_compress.compress(payload) + gzip_compress.flush()
 
     @staticmethod
-    def decompress_payload(payload:bytes):
+    def decompress_payload(payload: bytes):
         return zlib.decompress(payload, 16 + zlib.MAX_WBITS)
 
 
@@ -129,11 +126,11 @@ class Lz4CompressionHandler(AbstractDataCompressor):
     algorithms = ('x-lz4', 'lz4')
 
     @staticmethod
-    def compress_payload(payload:bytes):
+    def compress_payload(payload: bytes):
         return lz4.frame.compress(payload)
 
     @staticmethod
-    def decompress_payload(payload:bytes):
+    def decompress_payload(payload: bytes):
         return lz4.frame.decompress(payload)
 
 
