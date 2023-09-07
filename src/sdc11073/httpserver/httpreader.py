@@ -27,7 +27,7 @@ def mk_chunks(body, chunk_size=512):
     tail = body
     while True:
         head, tail = tail[:chunk_size], tail[chunk_size:]
-        data.write(f'{len(head):x}\r\n'.encode())
+        data.write(f'{len(head):x}\r\n'.encode())  # defaults to utf-8 encoding
         data.write(head)
         data.write(b'\r\n')
         if not head:

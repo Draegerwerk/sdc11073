@@ -34,7 +34,6 @@ def mk_ssl_contexts_from_folder(ca_folder: str | pathlib.Path,
     """
     ca_folder = pathlib.Path(ca_folder)
     if cyphers_file:
-        cyphers_file = ca_folder.joinpath(cyphers_file)
         with ca_folder.joinpath(cyphers_file).open(encoding='utf-8') as file:
             while True:
                 # allow comment lines, starting with #
@@ -69,6 +68,13 @@ def mk_ssl_contexts(key_file: pathlib.Path,
     :param ssl_passwd: optional password string
     :return: container of SSLContext instances i.e. client_ssl_context and server_ssl_context.
     """
+    if not key_file.exists():
+        raise FileNotFoundError(key_file)
+    if not cert_file.exists():
+        raise FileNotFoundError(cert_file)
+    if ca_file and not ca_file.exists():
+        raise FileNotFoundError(ca_file)
+
     client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     server_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
