@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 from statistics import mean, stdev
 from threading import Lock
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, ClassVar
 
 from sdc11073 import observableproperties as properties
 from sdc11073.exceptions import ApiUsageError
@@ -43,7 +43,7 @@ class DeterminationTimeWarner:
 
     ST_IN_RANGE = 0
     ST_OUT_OF_RANGE = 1
-    result_lookup = {
+    result_lookup: ClassVar[dict[tuple[int, int], tuple[_WarningState, bool]]] = {
         (ST_IN_RANGE, ST_IN_RANGE): (_WarningState.A_NO_LOG, False),
         (ST_IN_RANGE, ST_OUT_OF_RANGE): (_WarningState.A_OUT_OF_RANGE, False),
         (ST_OUT_OF_RANGE, ST_OUT_OF_RANGE): (_WarningState.A_STILL_OUT_OF_RANGE, True),

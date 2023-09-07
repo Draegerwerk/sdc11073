@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -16,11 +16,12 @@ if TYPE_CHECKING:
 class ProtocolsRegistry(type):
     """base class that has the only purpose to register classes that use this as metaclass."""
 
-    protocols = []
+    protocols: ClassVar[list[type[BaseDefinitions]]] = []
 
     def __new__(cls, name: str, *arg, **kwarg):
-        new_cls = super().__new__(cls, name, *arg, **kwarg)
+        new_cls: ProtocolsRegistry = super().__new__(cls, name, *arg, **kwarg)
         if name != 'BaseDefinitions':  # ignore the base class itself
+            new_cls: type[BaseDefinitions]
             cls.protocols.append(new_cls)
         return new_cls
 
@@ -100,7 +101,7 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     MedicalDeviceType: QName = None  # a QName, needed for types_match method
     ActionsNamespace: str = None  # needed for wsdl generation
     PortTypeNamespace: str = None  # needed for wsdl generation
-    MedicalDeviceTypesFilter: list[QName] = None  # list of QNames that are used / expected in "types" of wsdiscovery
+    MedicalDeviceTypesFilter: tuple[QName] | None = None  # QNames that are used / expected in "types" of wsdiscovery
     Actions = None
     data_model: AbstractDataModel = None
 

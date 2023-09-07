@@ -329,7 +329,7 @@ class SdcProvider:
         scopes = self._components.scopes_factory(self._mdib)
         x_addrs = self.get_xaddrs()
         self._wsdiscovery.publish_service(self.epr_urn,
-                                          self._mdib.sdc_definitions.MedicalDeviceTypesFilter,
+                                          list(self._mdib.sdc_definitions.MedicalDeviceTypesFilter),
                                           scopes,
                                           x_addrs)
 
