@@ -4,6 +4,13 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- http_server_timeout parameter to the SdcDevice interface in addition to it already
+  being a parameter in the SdcHandler interface
+
 ## [1.2.1] - 2023-09-05
 
 ### Fixed
