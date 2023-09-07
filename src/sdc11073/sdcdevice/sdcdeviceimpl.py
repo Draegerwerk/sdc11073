@@ -109,7 +109,7 @@ class SdcDevice(object):
         :param startRealtimeSampleLoop: flag
         :param periodic_reports_interval: if provided, a value in seconds
         :param shared_http_server: id provided, use this http server. Otherwise device creates its own.
-        :param http_server_timeout: the timeout for waiting on the start event of
+        :param http_server_timeout: the timeout in seconds for waiting on the start event of
                                     the http server thread of the underlying handler
         :return:
         """
