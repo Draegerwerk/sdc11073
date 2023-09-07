@@ -15,10 +15,10 @@ from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
-    commLogger = commlog.CommLogger(log_folder=r'c:\temp\sdc_commlog',
-                                    log_out=True,
-                                    log_in=True,
-                                    broadcast_ip_filter=None)
+    commLogger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
+                                         log_out=True,
+                                         log_in=True,
+                                         broadcast_ip_filter=None)
     commlog.defaultLogger = commLogger
 
 CLIENT_VALIDATE = True

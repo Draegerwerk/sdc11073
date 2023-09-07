@@ -23,11 +23,11 @@ from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
-    comm_logger = commlog.CommLogger(log_folder=r'c:\temp\sdc_commlog',
-                                     log_out=True,
-                                     log_in=True,
-                                     broadcast_ip_filter=None)
-    commlog.set_communication_logger(comm_logger)
+    comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
+                                          log_out=True,
+                                          log_in=True,
+                                          broadcast_ip_filter=None)
+    comm_logger.start()
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout

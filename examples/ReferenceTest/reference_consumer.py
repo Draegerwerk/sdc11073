@@ -22,13 +22,7 @@ ca_folder = os.getenv('ref_ca')  # noqa: SIM112
 ssl_passwd = os.getenv('ref_ssl_passwd') or None  # noqa: SIM112
 search_epr = os.getenv('ref_search_epr') or 'abc'  # noqa: SIM112
 
-ENABLE_COMMLOG = False
-if ENABLE_COMMLOG:
-    comm_logger = commlog.CommLogger(log_folder=r'c:\temp\sdc_refclient_commlog',
-                                     log_out=True,
-                                     log_in=True,
-                                     broadcast_ip_filter=None)
-    commlog.set_communication_logger(comm_logger)
+ENABLE_COMMLOG = True
 
 
 def run_ref_test():
@@ -261,7 +255,14 @@ if __name__ == '__main__':
         with open(xtra_log_config) as f:
             logging_setup2 = json.load(f)
             logging.config.dictConfig(logging_setup2)
-
+    comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_refclient_commlog',
+                                          log_out=True,
+                                          log_in=True,
+                                          broadcast_ip_filter=None)
+    if ENABLE_COMMLOG:
+        for name in commlog.LOGGER_NAMES:
+            logging.getLogger(name).setLevel(logging.DEBUG)
+        comm_logger.start()
     run_results = run_ref_test()
     for r in run_results:
         print(r)

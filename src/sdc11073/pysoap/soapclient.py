@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import socket
 import time
 import traceback
@@ -259,7 +260,7 @@ class SoapClient:
 
     def _send_soap_request(self, path: str, xml: bytes, log_msg: str) -> tuple[HTTPResponse, bytes]:
         """Send SOAP request."""
-        commlog.get_communication_logger().log_soap_request_out(xml, 'POST')
+        logging.getLogger(commlog.SOAP_REQUEST_OUT).debug(xml, extra={'http_method': 'POST'})
         self._log.debug("{}:POST to netloc='{}' path='{}'", log_msg, self._netloc, path)
 
         headers = {
@@ -349,7 +350,7 @@ class SoapClient:
         response_headers = {k.lower(): v for k, v in response.getheaders()}
 
         self._log.debug('{}: response:{}; content has {} Bytes ', log_msg, response_headers, len(content))
-        commlog.get_communication_logger().log_soap_response_in(content, 'POST')
+        logging.getLogger(commlog.SOAP_RESPONSE_IN).debug(content, extra={'http_method': 'POST'})
         return response, content
 
     def _make_get_headers(self) -> dict[str, str]:

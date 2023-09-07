@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import queue
 import random
 import selectors
@@ -16,10 +17,10 @@ from typing import TYPE_CHECKING, Any
 
 from lxml.etree import XMLSyntaxError
 
-from sdc11073.commlog import get_communication_logger
 from sdc11073.exceptions import ValidationError
 
 from .common import MULTICAST_IPV4_ADDRESS, MULTICAST_OUT_TTL, message_reader
+from sdc11073 import commlog
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -224,7 +225,7 @@ class _NetworkingThreadBase(ABC):
                 addr, data = incoming
                 if b"http://schemas.xmlsoap.org/ws/2005/04/discovery" in data:
                     continue  # older version of discovery standard, ignore completely.
-                get_communication_logger().log_discovery_msg_in(addr[0], data)
+                logging.getLogger(commlog.DISCOVERY_IN).debug(data, extra={'ip_address': addr[0]})
                 try:
                     try:
                         received_message = message_reader.read_received_message(data, validate=True)
@@ -252,10 +253,10 @@ class _NetworkingThreadBase(ABC):
                                msg.created_message.p_msg.header_info_block.Action.text,
                                msg.addr, msg.port,
                                msg.created_message.p_msg.header_info_block.MessageID)
-            get_communication_logger().log_discovery_msg_out(msg.addr, data)
+            logging.getLogger(commlog.DISCOVERY_OUT).debug(data, extra={'ip_address': msg.addr})
             self.sockets_collection.uni_out_socket.sendto(data, (msg.addr, msg.port))
         else:
-            get_communication_logger().log_multicast_msg_out(data)
+            logging.getLogger(commlog.MULTICAST_OUT).debug(data)
             self._logger.debug('send multicast %d bytes, msg (%d) action=%s: to=%s:%r id=%s',
                                len(data),
                                q_msg.repeat,
