@@ -99,15 +99,22 @@ class SdcDevice(object):
         """ device itself can also handle GET requests. This is the handler"""
         return self._handler.dispatchGetRequest(parseResult, headers)
 
-    def startAll(self, startRealtimeSampleLoop=True, periodic_reports_interval=None, shared_http_server=None):
+    def startAll(self,
+                 startRealtimeSampleLoop=True,
+                 periodic_reports_interval=None,
+                 shared_http_server=None,
+                 http_server_timeout=15.0):
         """
 
         :param startRealtimeSampleLoop: flag
         :param periodic_reports_interval: if provided, a value in seconds
         :param shared_http_server: id provided, use this http server. Otherwise device creates its own.
+        :param http_server_timeout: the timeout in seconds for waiting on the start event of
+                                    the http server thread of the underlying handler
         :return:
         """
-        return self._handler.startAll(startRealtimeSampleLoop, periodic_reports_interval, shared_http_server)
+        return self._handler.startAll(startRealtimeSampleLoop, periodic_reports_interval, shared_http_server,
+                                      http_server_timeout=http_server_timeout)
 
     def stopAll(self, closeAllConnections=True, sendSubscriptionEnd=True):
         return self._handler.stopAll(closeAllConnections, sendSubscriptionEnd)
