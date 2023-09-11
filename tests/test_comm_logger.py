@@ -102,3 +102,29 @@ class TestCommLogger(unittest.TestCase):
                          commlog.WSDL):
                 logging.getLogger(name).debug(str(uuid.uuid4()))
                 self.assertEqual(i, len(os.listdir(directory)))
+
+    def test_broadcast_filter_directory_logger(self):
+        """Test the comm directory logger broadcast filter."""
+        broadcast_ip_filter = uuid.uuid4().hex
+        with (tempfile.TemporaryDirectory() as directory,
+              commlog.DirectoryLogger(log_folder=directory,
+                                      log_out=True,
+                                      log_in=True,
+                                      broadcast_ip_filter=broadcast_ip_filter)):
+            self.assertEqual(0, len(os.listdir(directory)))
+
+            for i, name in enumerate((commlog.DISCOVERY_IN, commlog.DISCOVERY_OUT), start=1):
+                logger = logging.getLogger(name)
+                self.assertEqual(1, len(logger.handlers))
+                self.assertEqual(1, len(logger.handlers[0].filters))
+                self.assertIsInstance(logger.handlers[0].filters[0], commlog.IpFilter)
+                message = str(uuid.uuid4())
+                logger.debug(message, extra={'ip_address': str(uuid.uuid4())})
+                self.assertEqual(i - 1, len(os.listdir(directory)))
+                logger.debug(message)
+                self.assertEqual(i - 1, len(os.listdir(directory)))
+                logger.debug(message, extra={'ip_address': broadcast_ip_filter})
+                self.assertEqual(i, len(os.listdir(directory)))
+
+        for name in commlog.LOGGER_NAMES:
+            self.assertEqual(0, len(logging.getLogger(name).handlers))
