@@ -46,7 +46,7 @@ class ValuesCollectorPlus(observableproperties.ValuesCollector):
             observableproperties.unbind(self._obj, **{self._prop_name: self._on_data})
             self._cond.notify_all()
 
-sleep_timer = 10
+sleep_timer = 30
 
 
 def test_1b(wsd, my_service) -> str:
@@ -330,7 +330,25 @@ def run_ref_test():
     info = 'count waveform updates'
     print(step, info)
     is_ok, result = test_min_updates_per_handle(waveform_updates, min_updates)
-    log_result(is_ok, results, step, info)
+    log_result(is_ok, results, step, info+ ' notifications per second')
+    if len(waveform_updates) < 3:
+        log_result(False, results, step, info+' number of waveforms')
+    else:
+        log_result(True, results, step, info+' number of waveforms')
+
+#        print(f'expect 3 waveforms, got {len(waveform_updates)}')
+    expected_samples = 1000 * sleep_timer*0.9
+    for handle, reports in waveform_updates.items():
+        notifications = [n for n in reports if n.MetricValue is not None]
+        samples = sum([len(n.MetricValue.Samples) for n in notifications])
+        if samples < expected_samples:
+            log_result(False, results, step, info + f' waveform {handle} has {samples} samples, expecting {expected_samples}')
+            is_ok = False
+#            print(f'waveform {handle} has {samples} samples, expecting {expected_samples}')
+        else:
+            log_result(True, results, step, info + f' waveform {handle} has {samples} samples')
+
+
 
     pm = mdib.data_model.pm_names
     pm_types = mdib.data_model.pm_types
@@ -525,12 +543,30 @@ def run_ref_test():
         log_result(False, results, step, info, ex)
 
     step = '6e'
-    info = 'SetMetricStates Immediately sends finished'
+    info = 'SetMetricStates Immediately answers with finished'
     print(step, info)
+    operation = client.mdib.descriptions.NODETYPE.get_one(pm_qnames.SetMetricStateOperationDescriptor)
     try:
-        operation = client.mdib.descriptions.NODETYPE.get_one(pm_qnames.SetMetricStateOperationDescriptor)
-        # client.set_service_client.set_metric_state(operation.Handle, '42')
-        log_result(False, results, step, info, 'not implemented ')
+        coll = ValuesCollectorPlus(operation_invoked_subscriptions[0], 'notification_data', 5)
+        proposed_metric_state1 = client.mdib.xtra.mk_proposed_state("numeric_metric_0.channel_0.vmd_1.mds_0")
+        proposed_metric_state2 = client.mdib.xtra.mk_proposed_state("numeric_metric_0.channel_0.vmd_1.mds_0")
+        for st in (proposed_metric_state1, proposed_metric_state2):
+            if st.MetricValue is None:
+                st.mk_metric_value()
+                st.MetricValue.Value = Decimal(1)
+            else:
+                st.MetricValue.Value += Decimal(0.1)
+        client.set_service_client.set_metric_state(operation.Handle, [proposed_metric_state1, proposed_metric_state2])
+        time.sleep(3)
+        coll.finish()
+        coll_result = coll.result()
+        if len(coll_result) == 0:
+            log_result(False, results, step, info, 'no notification')
+        elif len(coll_result) > 1:
+            log_result(False, results, step, info, f'got {len(coll_result)} notifications, expect only one')
+        else:
+            first_notification = coll_result[0]
+            log_result(True, results, step, info, f'got {len(coll_result)} notifications : {first_notification}')
     except Exception as ex:
         print(traceback.format_exc())
         log_result(False, results, step, info, ex)

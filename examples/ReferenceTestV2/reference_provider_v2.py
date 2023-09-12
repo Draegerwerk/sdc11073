@@ -14,7 +14,7 @@ from sdc11073.location import SdcLocation
 from sdc11073.loghelper import LoggerAdapter
 from sdc11073.mdib import ProviderMdib, descriptorcontainers
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
-from sdc11073.provider.components import SdcProviderComponents
+from sdc11073.provider import components
 from sdc11073.provider import SdcProvider
 from sdc11073.provider.servicesfactory import DPWSHostedService
 from sdc11073.provider.servicesfactory import HostedServices, mk_dpws_hosts
@@ -73,7 +73,7 @@ def provide_realtime_data(sdc_provider):
         return
     mdib_waveforms = sdc_provider.mdib.descriptions.NODETYPE.get(pm_qnames.RealTimeSampleArrayMetricDescriptor)
     for waveform in mdib_waveforms:
-        wf_generator = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
+        wf_generator = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.001)
         waveform_provider.register_waveform_generator(waveform.Handle, wf_generator)
 
 
@@ -117,11 +117,27 @@ if __name__ == '__main__':
         ssl_contexts = None
     if USE_REFERENCE_PARAMETERS:
         tmp = {'StateEvent': SubscriptionsManagerReferenceParamAsync}
-        specific_components = SdcProviderComponents(subscriptions_manager_class=tmp,
-                                                  services_factory=mk_all_services_except_localization,
-                                                  soap_client_class=SoapClientAsync)
+        specific_components = components.SdcProviderComponents(
+            subscriptions_manager_class=tmp,
+            hosted_services={'Get': [components.GetService],
+                             'StateEvent': [components.StateEventService,
+                                            components.ContextService,
+                                            components.DescriptionEventService,
+                                            components.WaveformService],
+                             'Set': [components.SetService],
+                             'ContainmentTree': [components.ContainmentTreeService]},
+            soap_client_class=SoapClientAsync)
     else:
-        specific_components = None  # SdcDeviceComponents(services_factory=mk_all_services_except_localization)
+#        specific_components = SdcProviderComponents(services_factory=mk_all_services_except_localization,
+#                                                  soap_client_class=SoapClientAsync)
+        specific_components = components.SdcProviderComponents(
+            hosted_services={'Get': [components.GetService],
+                             'StateEvent': [components.StateEventService,
+                                            components.ContextService,
+                                            components.DescriptionEventService,
+                                            components.WaveformService],
+                             'Set': [components.SetService],
+                             'ContainmentTree': [components.ContainmentTreeService]})
     sdc_provider = SdcProvider(wsd, dpwsModel, dpwsDevice, my_mdib, my_uuid,
                           ssl_context_container=ssl_contexts,
                           specific_components=specific_components,
@@ -143,6 +159,7 @@ if __name__ == '__main__':
         patientContainer.CoreData.Birthname = "Birthname"
         patientContainer.CoreData.Title = "Title"
         patientContainer.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
+        patientContainer.Validator.extend(validators)
         identifiers = []
         patientContainer.Identification = identifiers
 
@@ -299,6 +316,9 @@ if __name__ == '__main__':
                     mgr.add_descriptor(vmd)
                     mgr.add_descriptor(channel)
                     mgr.add_descriptor(metric)
+                    mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(vmd))
+                    mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(channel))
+                    mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(metric))
             else:
                 with sdc_provider.mdib.transaction_manager() as mgr:
                     mgr.remove_descriptor(add_rm_vmd_handle)

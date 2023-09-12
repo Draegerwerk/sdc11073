@@ -28,11 +28,11 @@ class GenericMetricProvider(ProviderRole):
         operation_target_handle = operation_descriptor_container.OperationTarget
         op_target_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
 
-        if op_target_descriptor_container.NODETYPE not in (pm_names.StringMetricDescriptor,
-                                                           pm_names.EnumStringMetricDescriptor,
-                                                           pm_names.NumericMetricDescriptor,
-                                                           pm_names.RealTimeSampleArrayMetricDescriptor):
-            return None  # this is not metric provider role
+#        if op_target_descriptor_container.NODETYPE not in (pm_names.StringMetricDescriptor,
+#                                                           pm_names.EnumStringMetricDescriptor,
+#                                                           pm_names.NumericMetricDescriptor,
+#                                                           pm_names.RealTimeSampleArrayMetricDescriptor):
+#            return None  # this is not metric provider role
 
         if operation_descriptor_container.NODETYPE == pm_names.SetValueOperationDescriptor:
             if op_target_descriptor_container.NODETYPE == pm_names.NumericMetricDescriptor:
