@@ -28,7 +28,7 @@ class EndpointReferenceType(XMLTypeBase):
 class Relationship(ElementWithText):
     """Relationship type of ws-addressing."""
 
-    RelationshipType = struct.QNameAttributeProperty('RelationshipType')
+    RelationshipType = struct.AnyURIAttributeProperty('RelationshipType')
     _props = ('RelationshipType',)
 
 
