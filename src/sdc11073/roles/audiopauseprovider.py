@@ -38,7 +38,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
             return cancel_ap_operation
         return None
 
-    def _set_global_audio_pause(self, operation_instance, request):  # pylint: disable=unused-argument
+    def _set_global_audio_pause(self, operation_instance, soap_request, operation_request) -> list[str]:
         """ This is the code that executes the operation itself:
         SF1132: If global audio pause is initiated, all SystemSignalActivation/State for all alarm systems of the
         product with SystemSignalActivation/Manifestation evaluating to 'Aud' shall be set to 'Psd'.
@@ -54,7 +54,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
         alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(pm_names.AlertSystemDescriptor)
         if alert_system_descriptors is None:
             self._logger.error('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
-            return
+            return []
         with self._mdib.transaction_manager() as mgr:
             for alert_system_descriptor in alert_system_descriptors:
                 alert_system_state = mgr.get_state(alert_system_descriptor.Handle)
@@ -97,8 +97,9 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
                                     alert_signal_state.Presence = pm_types.AlertSignalPresence.OFF
                                 else:
                                     mgr.unget_state(alert_signal_state)
+        return []  # ToDo: what is the correct operation target?
 
-    def _cancel_global_audio_pause(self, operation_instance, request):  # pylint: disable=unused-argument
+    def _cancel_global_audio_pause(self, operation_instance, soap_request, operation_request) -> list[str]:  # pylint: disable=unused-argument
         """ This is the code that executes the operation itself:
         If global audio pause is initiated, all SystemSignalActivation/State for all alarm systems of the product with
         SystemSignalActivation/Manifestation evaluating to 'Aud' shall be set to 'Psd'.
@@ -142,6 +143,7 @@ class GenericAudioPauseProvider(providerbase.ProviderRole):
                                     alert_signal_state.Presence = pm_types.AlertSignalPresence.ON
                                 else:
                                     mgr.unget_state(alert_signal_state)
+        return []  # ToDo: what is the correct operation target?
 
 
 class AudioPauseProvider(GenericAudioPauseProvider):

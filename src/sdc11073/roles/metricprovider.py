@@ -28,11 +28,11 @@ class GenericMetricProvider(ProviderRole):
         operation_target_handle = operation_descriptor_container.OperationTarget
         op_target_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
 
-        if op_target_descriptor_container.NODETYPE not in (pm_names.StringMetricDescriptor,
-                                                           pm_names.EnumStringMetricDescriptor,
-                                                           pm_names.NumericMetricDescriptor,
-                                                           pm_names.RealTimeSampleArrayMetricDescriptor):
-            return None  # this is not metric provider role
+        # if op_target_descriptor_container.NODETYPE not in (pm_names.StringMetricDescriptor,
+        #                                                    pm_names.EnumStringMetricDescriptor,
+        #                                                    pm_names.NumericMetricDescriptor,
+        #                                                    pm_names.RealTimeSampleArrayMetricDescriptor):
+        #     return None  # this is not metric provider role
 
         if operation_descriptor_container.NODETYPE == pm_names.SetValueOperationDescriptor:
             if op_target_descriptor_container.NODETYPE == pm_names.NumericMetricDescriptor:
@@ -41,7 +41,7 @@ class GenericMetricProvider(ProviderRole):
                                           handle=operation_descriptor_container.Handle,
                                           operation_target_handle=operation_target_handle,
                                           coded_value=operation_descriptor_container.Type,
-                                          current_argument_handler=self._set_numeric_value)
+                                          current_request_handler=self._set_numeric_value)
             return None
         if operation_descriptor_container.NODETYPE == pm_names.SetStringOperationDescriptor:
             if op_target_descriptor_container.NODETYPE in (pm_names.StringMetricDescriptor,
@@ -51,7 +51,7 @@ class GenericMetricProvider(ProviderRole):
                                           handle=operation_descriptor_container.Handle,
                                           operation_target_handle=operation_target_handle,
                                           coded_value=operation_descriptor_container.Type,
-                                          current_argument_handler=self._set_string)
+                                          current_request_handler=self._set_string)
             return None
         if operation_descriptor_container.NODETYPE == pm_names.SetMetricStateOperationDescriptor:
             op_cls = operation_cls_getter(pm_names.SetMetricStateOperationDescriptor)
@@ -59,11 +59,11 @@ class GenericMetricProvider(ProviderRole):
                                            handle=operation_descriptor_container.Handle,
                                            operation_target_handle=operation_target_handle,
                                            coded_value=operation_descriptor_container.Type,
-                                           current_argument_handler=self._set_metric_state)
+                                           current_request_handler=self._set_metric_state)
             return operation
         return None
 
-    def _set_metric_state(self, operation_instance, value):
+    def _set_metric_state(self, operation_instance, soap_request, operation_request) -> list[str]:
         '''
 
         :param operation_instance: the operation
@@ -71,9 +71,10 @@ class GenericMetricProvider(ProviderRole):
         :return:
         '''
         # ToDo: consider ModifiableDate attribute
-        operation_instance.current_value = value
+        proposed_states = operation_request.argument
+        operation_instance.current_value = proposed_states
         with self._mdib.transaction_manager() as mgr:
-            for proposed_state in value:
+            for proposed_state in proposed_states:
                 state = mgr.get_state(proposed_state.DescriptorHandle)
                 if state.is_metric_state:
                     self._logger.info('updating {} with proposed metric state', state)
@@ -82,6 +83,7 @@ class GenericMetricProvider(ProviderRole):
                 else:
                     self._logger.warn('_set_metric_state operation: ignore invalid referenced type {} in operation',
                                       state.NODETYPE)
+        return [tmp.DescriptorHandle for tmp in proposed_states]  # this is a shortcoming of BICEPS:
 
     def on_pre_commit(self, mdib, transaction):
         if not self.activation_state_can_remove_metric_value:

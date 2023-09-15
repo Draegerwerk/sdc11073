@@ -23,19 +23,21 @@ class GenericContextProvider(providerbase.ProviderRole):
                 return None  # we do not handle this target type
             return self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                 operation_cls_getter,
-                                                                current_argument_handler=self._set_context_state)
+                                                                current_request_handler=self._set_context_state)
         return None
 
-    def _set_context_state(self, operation_instance, proposed_context_states):
+    def _set_context_state(self, operation_instance, request, operation_request) -> list[str]:
         """ This is the code that executes the operation itself.
         """
+        proposed_context_states = operation_request.argument
         pm_types = self._mdib.data_model.pm_types
         with self._mdib.transaction_manager() as mgr:
             for proposed_st in proposed_context_states:
                 old_state_container = None
                 if proposed_st.DescriptorHandle != proposed_st.Handle:
                     # this is an update for an existing state
-                    old_state_container = operation_instance.operation_target_storage.handle.get_one(
+                    # old_state_container = operation_instance.operation_target_storage.handle.get_one(
+                    old_state_container = self._mdib.context_states.handle.get_one(
                         proposed_st.Handle, allow_none=True)
                     if old_state_container is None:
                         raise ValueError(f'handle {proposed_st.Handle} not found')
@@ -51,7 +53,8 @@ class GenericContextProvider(providerbase.ProviderRole):
                     mgr.add_state(proposed_st)
 
                     # find all associated context states, disassociate them, set unbinding info, and add them to updates
-                    old_state_containers = operation_instance.operation_target_storage.descriptor_handle.get(
+                    # old_state_containers = operation_instance.operation_target_storage.descriptor_handle.get(
+                    old_state_containers = self._mdib.context_states.handle.get_one(
                         proposed_st.DescriptorHandle, [])
                     for old_state in old_state_containers:
                         if old_state.ContextAssociation != pm_types.ContextAssociation.DISASSOCIATED or old_state.UnbindingMdibVersion is None:

@@ -36,7 +36,7 @@ class ProviderRole:
     def on_post_commit(self, mdib, transaction):
         pass
 
-    def _set_numeric_value(self, operation_instance, value):
+    def _set_numeric_value(self, operation_instance, operation_request):
         """ sets a numerical metric value"""
         pm_types = self._mdib.data_model.pm_types
         operation_target_handle = self._get_operation_target_handle(operation_instance)
@@ -56,7 +56,7 @@ class ProviderRole:
                                                               pm_types.MetricCategory.PRESETTING):
                 state.MetricValue.Validity = pm_types.MeasurementValidity.VALID
 
-    def _set_string(self, operation_instance, value):
+    def _set_string(self, operation_instance, operation_request):
         """ sets a string value"""
         pm_types = self._mdib.data_model.pm_types
         operation_target_handle = self._get_operation_target_handle(operation_instance)
@@ -78,7 +78,7 @@ class ProviderRole:
 
     def _mk_operation_from_operation_descriptor(self, operation_descriptor_container,
                                                 operation_cls_getter,
-                                                current_argument_handler=None,
+                                                # current_argument_handler=None,
                                                 current_request_handler=None,
                                                 timeout_handler=None):
         """
@@ -93,14 +93,14 @@ class ProviderRole:
                                        operation_descriptor_container.Handle,
                                        operation_descriptor_container.OperationTarget,
                                        operation_descriptor_container.coding,
-                                       current_argument_handler,
+#                                       current_argument_handler,
                                        current_request_handler,
                                        timeout_handler)
         return operation
 
     def _mk_operation(self, cls, handle, operation_target_handle, # pylint: disable=no-self-use
-                      coded_value, current_argument_handler=None,
-                      current_request_handler=None, timeout_handler=None):
+                      coded_value, #current_argument_handler=None,
+                      current_request_handler, timeout_handler=None):
         """
 
         :param cls: one of the Operations defined in provider.sco
@@ -113,13 +113,14 @@ class ProviderRole:
         """
         operation = cls(handle=handle,
                         operation_target_handle=operation_target_handle,
+                        operation_handler=current_request_handler,
                         coded_value=coded_value)
-        if current_argument_handler:
-            # bind method to current_argument
-            properties.strongbind(operation, current_argument=partial(current_argument_handler, operation))
-        if current_request_handler:
-            # bind method to current_request
-            properties.strongbind(operation, current_request=partial(current_request_handler, operation))
+        # if current_argument_handler:
+        #     # bind method to current_argument
+        #     properties.strongbind(operation, current_argument=partial(current_argument_handler, operation))
+        # if current_request_handler:
+        #     # bind method to current_request
+        #     properties.strongbind(operation, current_request=partial(current_request_handler, operation))
         if timeout_handler:
             # bind method to current_request
             properties.strongbind(operation, on_timeout=partial(timeout_handler, operation))

@@ -587,6 +587,9 @@ class ActivateOperationDescriptorContainer(AbstractSetStateOperationDescriptorCo
     _props = ('Argument',)
     _child_elements_order = (pm_qnames.Argument,)
 
+    def __init__(self, *args, **kwargs):
+        return super().__init__(*args, **kwargs)
+
 
 class AbstractAlertDescriptorContainer(AbstractDescriptorContainer):
     """Represents AbstractAlertDescriptor in BICEPS."""

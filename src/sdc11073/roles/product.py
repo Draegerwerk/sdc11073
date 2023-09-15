@@ -34,7 +34,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
                                                handle=operation_descriptor_container.Handle,
                                                operation_target_handle=operation_target_handle,
                                                coded_value=operation_descriptor_container.Type,
-                                               current_argument_handler=self._set_component_state)
+                                               current_request_handler=self._set_component_state)
                 return operation
         elif operation_descriptor_container.NODETYPE == pm_names.ActivateOperationDescriptor:
             #  on what can activate be called?
@@ -48,16 +48,18 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
                 return self._mk_operation(op_cls,
                                           handle=operation_descriptor_container.Handle,
                                           operation_target_handle=operation_target_handle,
-                                          coded_value=operation_descriptor_container.Type)
+                                          coded_value=operation_descriptor_container.Type,
+                                          current_request_handler=self._do_nothing)
         return None
 
-    def _set_component_state(self, operation_instance, value):
+    def _set_component_state(self, operation_instance, soap_request, operation_request) -> list[str]:
         """
 
         :param operation_instance: the operation
         :param value: a list of proposed metric states
         :return:
         """
+        value = operation_request.argument
         # ToDo: consider ModifiableDate attribute
         operation_instance.current_value = value
         with self._mdib.transaction_manager() as mgr:
@@ -70,6 +72,9 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
                 else:
                     self._logger.warn('_set_component_state operation: ignore invalid referenced type {} in operation',
                                       state.NODETYPE)
+
+    def _do_nothing(self, operation_instance, soap_request, operation_request) -> list[str]:
+        return []
 
 
 class BaseProduct:

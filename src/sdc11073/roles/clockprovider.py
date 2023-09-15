@@ -47,7 +47,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                 f'instantiating "set ntp server" operation from existing descriptor handle={operation_descriptor_container.Handle}')
             set_ntp_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                              operation_cls_getter,
-                                                                             current_argument_handler=self._set_ntp_string)
+                                                                             current_request_handler=self._set_ntp_string)
             self._set_ntp_operations.append(set_ntp_operation)
             return set_ntp_operation
         if operation_descriptor_container.coding in (self.MDC_ACT_SET_TIME_ZONE.coding, self.OP_SET_TZ.coding):
@@ -55,14 +55,15 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
                 f'instantiating "set time zone" operation from existing descriptor handle={operation_descriptor_container.Handle}')
             set_tz_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                             operation_cls_getter,
-                                                                            current_argument_handler=self._set_tz_string)
+                                                                            current_request_handler=self._set_tz_string)
             self._set_tz_operations.append(set_tz_operation)
             return set_tz_operation
         return None  # ?
 
-    def _set_ntp_string(self, operation_instance, value):
+    def _set_ntp_string(self, operation_instance, soap_request, operation_request) -> list[str]:
         """This is the handler for the set ntp server operation.
          It sets the ReferenceSource value of clock state"""
+        value = operation_request.argument
         pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
         operation_target_handle = self._get_operation_target_handle(operation_instance)
@@ -82,10 +83,12 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             if state.NODETYPE != pm_names.ClockState:
                 raise ValueError(f'_set_ntp_string: expected ClockState, got {state.NODETYPE.localname}')
             state.ReferenceSource = [value]
+        return [operation_target_handle]
 
-    def _set_tz_string(self, operation_instance, value):
+    def _set_tz_string(self, operation_instance, soap_request, operation_request) -> list[str]:
         """This is the handler for the set time zone operation.
          It sets the TimeZone value of clock state."""
+        value = operation_request.argument
         pm_names = self._mdib.data_model.pm_names
         operation_target_handle = self._get_operation_target_handle(operation_instance)
         self._logger.info(f'set value {operation_target_handle} from {operation_instance.current_value} to {value}')
@@ -103,6 +106,7 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
             if state.NODETYPE != pm_names.ClockState:
                 raise ValueError(f'_set_ntp_string: expected ClockState, got {state.NODETYPE.localname}')
             state.TimeZone = value
+        return [operation_target_handle]
 
     def _create_clock_descriptor_container(self, handle: str,
                                            parent_handle: str,
@@ -140,7 +144,7 @@ class SDCClockProvider(GenericSDCClockProvider):
                                                    handle='SET_NTP_SRV_' + mds_container.handle,
                                                    operation_target_handle=clock_descriptor.handle,
                                                    coded_value=self.MDC_OP_SET_TIME_SYNC_REF_SRC,
-                                                   current_argument_handler=self._set_ntp_string)
+                                                   current_request_handler=self._set_ntp_string)
             self._set_ntp_operations.append(set_ntp_operation)
             ops.append(set_ntp_operation)
         if not self._set_tz_operations:
@@ -149,7 +153,7 @@ class SDCClockProvider(GenericSDCClockProvider):
                                                   handle='SET_TZONE_' + mds_container.handle,
                                                   operation_target_handle=clock_descriptor.handle,
                                                   coded_value=self.MDC_ACT_SET_TIME_ZONE,
-                                                  current_argument_handler=self._set_tz_string)
+                                                  current_request_handler=self._set_tz_string)
             self._set_tz_operations.append(set_tz_operation)
             ops.append(set_tz_operation)
         return ops

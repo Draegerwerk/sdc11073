@@ -20,7 +20,7 @@ class GenericPatientContextProvider(GenericContextProvider):
         if self._patient_context_descriptor_container and operation_descriptor_container.OperationTarget == self._patient_context_descriptor_container.Handle:
             pc_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                         operation_cls_getter,
-                                                                        current_argument_handler=self._set_context_state)
+                                                                        current_request_handler=self._set_context_state)
             self._set_patient_context_operations.append(pc_operation)
             return pc_operation
         return None
@@ -40,7 +40,6 @@ class PatientContextProvider(GenericPatientContextProvider):
                                               handle='opSetPatCtx',
                                               operation_target_handle=self._patient_context_descriptor_container.handle,
                                               coded_value=None,
-                                              current_argument_handler=self._set_context_state,
-                                              timeout_handler=None)
+                                              current_request_handler=self._set_context_state)
             ops.append(pc_operation)
         return ops

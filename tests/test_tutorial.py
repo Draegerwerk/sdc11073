@@ -91,23 +91,26 @@ class MyProvider1(ProviderRole):
             # This callback is called when a consumer calls the operation.
             operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                      operation_cls_getter,
-                                                                     current_argument_handler=self._handle_operation_1)
+                                                                     current_request_handler=self._handle_operation_1)
             return operation
         if operation_descriptor_container.coding == MY_CODE_2.coding:
             operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                      operation_cls_getter,
-                                                                     current_argument_handler=self._handle_operation_2)
+                                                                     current_request_handler=self._handle_operation_2)
             return operation
         return None
 
-    def _handle_operation_1(self, operation_instance, argument):
+    def _handle_operation_1(self, operation_instance, soap_request, operation_request):
         """This operation does not manipulate the mdib at all, it only registers the call."""
+        argument = operation_request.argument
         self.operation1_called += 1
         self.operation1_args = argument
         self._logger.info('_handle_operation_1 called arg={}', argument)
+        return []
 
-    def _handle_operation_2(self, operation_instance, argument):
+    def _handle_operation_2(self, operation_instance, soap_request, operation_request):
         """This operation manipulate it operation target, and only registers the call."""
+        argument = operation_request.argument
         self.operation2_called += 1
         self.operation2_args = argument
         self._logger.info('_handle_operation_2 called arg={}', argument)
@@ -116,6 +119,7 @@ class MyProvider1(ProviderRole):
             if my_state.MetricValue is None:
                 my_state.mk_metric_value()
             my_state.MetricValue.Value = argument
+        return []
 
 
 class MyProvider2(ProviderRole):
@@ -135,14 +139,15 @@ class MyProvider2(ProviderRole):
                     operation_descriptor_container.Handle))
             operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                      operation_cls_getter,
-                                                                     current_argument_handler=self._handle_operation_3)
+                                                                     current_request_handler=self._handle_operation_3)
             return operation
         else:
             return None
 
-    def _handle_operation_3(self, operation_instance, argument):
+    def _handle_operation_3(self, operation_instance, soap_request, operation_request):
         """This operation manipulate it operation target, and only registers the call."""
         self.operation3_called += 1
+        argument = operation_request.argument
         self.operation3_args = argument
         self._logger.info('_handle_operation_3 called')
         with self._mdib.transaction_manager() as mgr:
@@ -150,7 +155,7 @@ class MyProvider2(ProviderRole):
             if my_state.MetricValue is None:
                 my_state.mk_metric_value()
             my_state.MetricValue.Value = argument
-
+        return []
 
 class MyProductImpl(BaseProduct):
     """This class provides all handlers of the fictional product.

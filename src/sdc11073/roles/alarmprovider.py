@@ -40,7 +40,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             handler = self._delegate_alert_signal
         :param operation_descriptor_container:
         :param operation_cls_getter:
-        :return: None or an OperationDefinition instance
+        :return: None or an OperationDefinitionBase instance
         """
         pm_names = self._mdib.data_model.pm_names
         op_target_handle = operation_descriptor_container.OperationTarget
@@ -59,7 +59,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                     operation = self._mk_operation_from_operation_descriptor(
                         operation_descriptor_container,
                         operation_cls_getter,
-                        current_argument_handler=self._delegate_alert_signal,
+                        current_request_handler=self._delegate_alert_signal,
                         timeout_handler=self._end_delegate_alert_signal)
 
                     self._logger.debug(f'GenericAlarmProvider: added handler "self._setAlertState" '
@@ -297,7 +297,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 and tmp.Manifestation == delegable_signal_descriptor.Manifestation
                 and tmp.ConditionSignaled == delegable_signal_descriptor.ConditionSignaled]
 
-    def _delegate_alert_signal(self, operation_instance, value):
+    def _delegate_alert_signal(self, operation_instance, soap_request, operation_request) -> list[str]:
         """Handler for an operation call from remote.
         Sets ActivationState, Presence and ActualSignalGenerationDelay of the corresponding state in mdib.
         If this is a delegable signal, it also sets the ActivationState of the fallback signal.
@@ -306,6 +306,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         :param value: AlertSignalStateContainer instance
         :return:
         """
+        value = operation_request.argument
         pm_types = self._mdib.data_model.pm_types
         operation_target_handle = operation_instance.operation_target_handle
         # self._last_set_alert_signal_state[operation_target_handle] = time.time()
@@ -322,6 +323,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                     self._pause_fallback_alert_signals(descr, None, mgr)
                 else:
                     self._activate_fallback_alert_signals(descr, None, mgr)
+        return [operation_target_handle]
 
     def _end_delegate_alert_signal(self, operation_instance, _):
         pm_types = self._mdib.data_model.pm_types
@@ -333,6 +335,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             state.ActivationState = pm_types.AlertActivation.OFF
             descr = self._mdib.descriptions.handle.get_one(operation_target_handle)
             self._activate_fallback_alert_signals(descr, None, mgr)
+        return [operation_target_handle]
 
     def _worker_thread_loop(self):
         # delay start of operation
