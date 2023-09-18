@@ -189,6 +189,9 @@ exclude_also = [# https://coverage.readthedocs.io/en/latest/config.html#report-e
     "raise AssertionError",
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "def __repr__",
+    "def __str__",
 ]
 ignore_errors = true # https://coverage.readthedocs.io/en/latest/config.html#report-ignore-errors
 

@@ -57,7 +57,7 @@ class V1Model(AbstractDataModel):
         return self._ns_hlp
 
 
-class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
+class SdcV1Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     """Constants for SDC first version (assuming there will be successors in the future...)."""
 
     DpwsDeviceType = ns_hlp.DPWS.tag('Device')

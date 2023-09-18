@@ -40,14 +40,14 @@ class ProviderMdib(mdibbase.MdibBase):
                  ):
         """Construct a ProviderMdib.
 
-        :param sdc_definitions: defaults to sdc11073.definitions_sdc.SDC_v1_Definitions
+        :param sdc_definitions: defaults to sdc11073.definitions_sdc.SdcV1Definitions
         :param log_prefix: a string
         :param extra_functionality: class for extra functionality, default is ProviderMdibMethods
         :param transaction_cls: runs the transaction, default is MdibUpdateTransaction
         """
         if sdc_definitions is None:
-            from sdc11073.definitions_sdc import SDC_v1_Definitions  # lazy import, needed to brake cyclic imports
-            sdc_definitions = SDC_v1_Definitions
+            from sdc11073.definitions_sdc import SdcV1Definitions  # lazy import, needed to brake cyclic imports
+            sdc_definitions = SdcV1Definitions
         super().__init__(sdc_definitions,
                          loghelper.get_logger_adapter('sdc.device.mdib', log_prefix))
         if extra_functionality is None:

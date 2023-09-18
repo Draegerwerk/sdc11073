@@ -45,12 +45,9 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         pm_names = self._mdib.data_model.pm_names
         op_target_handle = operation_descriptor_container.OperationTarget
         op_target_descr = self._mdib.descriptions.handle.get_one(op_target_handle)
-        if operation_descriptor_container.NODETYPE == pm_names.SetValueOperationDescriptor:
-            pass
-        elif operation_descriptor_container.NODETYPE == pm_names.ActivateOperationDescriptor:
-            pass
-        elif operation_descriptor_container.NODETYPE == pm_names.SetAlertStateOperationDescriptor:
-            if op_target_descr.NODETYPE == pm_names.AlertSignalDescriptor and op_target_descr.SignalDelegationSupported:
+        if (operation_descriptor_container.NODETYPE == pm_names.SetAlertStateOperationDescriptor
+                and op_target_descr.NODETYPE == pm_names.AlertSignalDescriptor
+                and op_target_descr.SignalDelegationSupported):
                 modifiable_data = operation_descriptor_container.ModifiableData
                 if 'Presence' in modifiable_data \
                         and 'ActivationState' in modifiable_data \

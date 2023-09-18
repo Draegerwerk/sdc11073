@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Type
+from typing import Dict, Type, TYPE_CHECKING
 
 from .dpwshostedservice import DPWSHostedService
-from .porttypes.porttypebase import DPWSPortTypeBase
+
+if TYPE_CHECKING:
+    from .porttypes.porttypebase import DPWSPortTypeBase
 
 
 @dataclass(frozen=True)

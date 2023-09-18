@@ -9,16 +9,14 @@ from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import msg_types, pm_types
-from tests.mockstuff import SomeDevice
 from tests import utils
+from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
-if ENABLE_COMMLOG:
-    commLogger = commlog.CommLogger(log_folder=r'c:\temp\sdc_commlog',
-                                    log_out=True,
-                                    log_in=True,
-                                    broadcast_ip_filter=None)
-    commlog.defaultLogger = commLogger
+comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
+                                      log_out=True,
+                                      log_in=True,
+                                      broadcast_ip_filter=None)
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
@@ -33,6 +31,8 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
     def setUp(self):
         sys.stderr.write(f'\n############### start setUp {self._testMethodName} ##############\n')
         basic_logging_setup()
+        if ENABLE_COMMLOG:
+            comm_logger.start()
 
         logging.getLogger('sdc').info(f'############### start setUp {self._testMethodName} ##############')
         self.wsd = WSDiscovery('127.0.0.1')
@@ -68,10 +68,11 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         self.wsd.stop()
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
+        comm_logger.stop()
 
     def test_BasicConnect(self):
         # simply check that all descriptors are available in client after init_mdib

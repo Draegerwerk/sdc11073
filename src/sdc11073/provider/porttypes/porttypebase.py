@@ -86,7 +86,7 @@ class DPWSPortTypeBase:
         return port_type
 
     def __repr__(self):
-        return f'{self.__class__.__name__} Porttype={str(self.port_type_name)}'
+        return f'{self.__class__.__name__} Porttype={self.port_type_name!s}'
 
     def add_wsdl_messages(self, parent_node):
         """

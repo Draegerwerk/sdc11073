@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import logging
-import os.path
+import pathlib
 import threading
 from urllib.parse import SplitResult
 from decimal import Decimal
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from lxml import etree as etree_
 
-import sdc11073.certloader
 from sdc11073.mdib import ProviderMdib
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import SdcProvider
@@ -20,13 +19,13 @@ from sdc11073.xml_types.dpws_types import ThisModelType, ThisDeviceType
 from sdc11073.xml_types.eventing_types import Subscribe
 
 if TYPE_CHECKING:
+    import sdc11073.certloader
     import uuid
-    from ssl import SSLContext
     from sdc11073.pysoap.soapclientpool import SoapClientPool
     from sdc11073.provider.providerimpl import WsDiscoveryProtocol
     from sdc11073.provider.components import SdcProviderComponents
 
-portsLock = threading.Lock()
+ports_lock = threading.Lock()
 _ports = 10000
 
 _mockhttpservers = {}
@@ -38,12 +37,6 @@ def dec_list(*args):
     return [Decimal(x) for x in args]
 
 
-def resetModule():
-    global _ports
-    _mockhttpservers.clear()
-    _ports = 10000
-
-
 def _findServer(netloc):
     dev_addr = netloc.split(':')
     dev_addr = tuple([dev_addr[0], int(dev_addr[1])])  # make port number an integer
@@ -53,7 +46,7 @@ def _findServer(netloc):
     raise KeyError('{} is not in {}'.format(dev_addr, _mockhttpservers.keys()))
 
 
-class MockWsDiscovery(object):
+class MockWsDiscovery:
     def __init__(self, ipaddress):
         self._ipaddress = ipaddress
 
@@ -70,14 +63,14 @@ class TestDevSubscription(BicepsSubscription):
     notify_to = 'http://self.com:123'
     identifier = '0815'
     expires = 60
-    notifyRef = 'a ref string'
+    notify_ref = 'a ref string'
 
     def __init__(self, filter_,
                  soap_client_pool: SoapClientPool,
                  msg_factory):
         notify_ref_node = etree_.Element(ns_hlp.WSE.tag('References'))
         identNode = etree_.SubElement(notify_ref_node, ns_hlp.WSE.tag('Identifier'))
-        identNode.text = self.notifyRef
+        identNode.text = self.notify_ref
         base_urls = [SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
         accepted_encodings = ['foo']  # not needed here
         subscribe_request = Subscribe()
@@ -154,7 +147,7 @@ class SomeDevice(SdcProvider):
     def from_mdib_file(cls,
                        wsdiscovery: WsDiscoveryProtocol,
                        epr: str | uuid.UUID | None,
-                       mdib_xml_path: str,
+                       mdib_xml_path: str | pathlib.Path,
                        validate: bool =True,
                        ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
                        max_subscription_duration: int = 15,
@@ -163,13 +156,10 @@ class SomeDevice(SdcProvider):
                        specific_components: SdcProviderComponents | None = None,
                        chunk_size: int = 0):
         """Construct class with path to a mdib file."""
-        if not os.path.isabs(mdib_xml_path):
-            here = os.path.dirname(__file__)
-            mdib_xml_path = os.path.join(here, mdib_xml_path)
-
-        with open(mdib_xml_path, 'rb') as f:
-            mdib_xml_data = f.read()
-        return cls(wsdiscovery, mdib_xml_data, epr, validate, ssl_context_container,
+        mdib_xml_path = pathlib.Path(mdib_xml_path)
+        if not mdib_xml_path.is_absolute():
+            mdib_xml_path = pathlib.Path(__file__).parent.joinpath(mdib_xml_path)
+        return cls(wsdiscovery, mdib_xml_path.read_bytes(), epr, validate, ssl_context_container,
                    max_subscription_duration = max_subscription_duration,
                    log_prefix=log_prefix,
                    default_components=default_components, specific_components=specific_components,

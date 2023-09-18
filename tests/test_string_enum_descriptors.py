@@ -6,7 +6,6 @@ import unittest
 from sdc11073 import commlog
 from sdc11073 import loghelper
 from sdc11073.consumer import SdcConsumer
-from sdc11073.location import SdcLocation
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types
@@ -14,12 +13,11 @@ from tests import utils
 from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
-if ENABLE_COMMLOG:
-    commLogger = commlog.CommLogger(log_folder=r'c:\temp\sdc_commlog',
-                                    log_out=True,
-                                    log_in=True,
-                                    broadcast_ip_filter=None)
-    commlog.defaultLogger = commLogger
+
+comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
+                                      log_out=True,
+                                      log_in=True,
+                                      broadcast_ip_filter=None)
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
@@ -33,6 +31,8 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
 
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
+        if ENABLE_COMMLOG:
+            comm_logger.start()
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         my_uuid = None  # let device create one
@@ -67,9 +67,10 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         self.wsd.stop()
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
+        comm_logger.stop()
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
 
     def test_BasicConnect(self):

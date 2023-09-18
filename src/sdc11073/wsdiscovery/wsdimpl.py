@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Callable
 from urllib.parse import unquote, urlsplit
 
 from sdc11073 import network
-from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.namespaces import default_ns_helper as nsh
 from sdc11073.xml_types import wsd_types
@@ -222,7 +222,7 @@ class WSDiscovery:
         :param repeat_probe_interval: send another probe message after x seconds
         :return:
         """
-        return self.search_services(SDC_v1_Definitions.MedicalDeviceTypesFilter, scopes, timeout, repeat_probe_interval)
+        return self.search_services(SdcV1Definitions.MedicalDeviceTypesFilter, scopes, timeout, repeat_probe_interval)
 
     def search_multiple_types(self,
                               types_list: list[list[QName]],

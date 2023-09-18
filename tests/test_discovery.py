@@ -20,7 +20,6 @@ _formatter_string = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 # pylint: disable=protected-access
 
 def setUpModule():
-    global test_log
     wsd_log = logging.getLogger("wsd_client")
     wsd_log.setLevel(logging.DEBUG)
     # create console handler and set level to debug
@@ -80,12 +79,12 @@ class TestDiscovery(unittest.TestCase):
 
         try:
             self.log_watcher_client.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         try:
             self.log_watcher_service.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
 

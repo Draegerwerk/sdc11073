@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import ParseResult, parse_qsl, quote, unquote, urlencode, urlsplit, urlunparse
 
 if TYPE_CHECKING:
@@ -123,14 +123,14 @@ class SdcLocation:
         arguments_dict['root'] = root
         return cls(**arguments_dict)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         attr_names = (*self.url_elements, 'root')
         try:
             return all(getattr(self, attr_name) == getattr(other, attr_name) for attr_name in attr_names)
         except AttributeError:
             return False
 
-    def __ne__(self, other: Any) -> bool:
+    def __ne__(self, other: object) -> bool:
         return not self == other
 
     def __str__(self) -> str:

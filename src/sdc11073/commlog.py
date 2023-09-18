@@ -1,124 +1,171 @@
-import os
+"""Communication logger."""
+from __future__ import annotations
+
+import functools
+import logging
+import pathlib
+import threading
 import time
-from threading import Lock
+from typing import Any, Callable
 
-D_IN = 'in'
-D_OUT = 'out'
+MULTICAST_OUT = 'sdc_comm.multicast.out'
+DISCOVERY_IN = 'sdc_comm.discovery.in'
+DISCOVERY_OUT = 'sdc_comm.discovery.out'
+SOAP_REQUEST_IN = 'sdc_comm.soap.request.in'
+SOAP_REQUEST_OUT = 'sdc_comm.soap.request.out'
+SOAP_RESPONSE_IN = 'sdc_comm.soap.response.in'
+SOAP_RESPONSE_OUT = 'sdc_comm.soap.response.out'
+SOAP_SUBSCRIPTION_IN = 'sdc_comm.soap.subscription.in'
+WSDL = 'sdc_comm.wsdl'
 
-T_UDP = 'udp'
-T_UDP_MULTICAST = 'udpB'
-T_HTTP = 'http'
-T_WSDL = 'wsdl'
-
-T_HTTP_REQ = 'http_req'
-T_HTTP_RESP = 'http_resp'
+LOGGER_NAMES = (MULTICAST_OUT, DISCOVERY_IN, DISCOVERY_OUT, SOAP_REQUEST_IN, SOAP_REQUEST_OUT,
+                SOAP_RESPONSE_IN, SOAP_RESPONSE_OUT, SOAP_SUBSCRIPTION_IN, WSDL)
 
 
-class NullLogger:
-    """This is a dummy logger that does nothing."""
+class IpFilter(logging.Filter):
+    """Filter all messages for the specific ip address."""
 
-    def __getattr__(self, name):
-        return self.do_nothing
+    def __init__(self, ip: str):
+        super().__init__()
+        self.ip = ip
 
-    def do_nothing(self, *args, **kwargs):
-        pass
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D102
+        return self.ip == getattr(record, 'ip_address', None)
 
 
 class CommLogger:
-    """This is the logger that writes communication logs."""
+    """Base class to make configuring comm logger easy."""
 
-    def __init__(self, log_folder, log_out=False, log_in=False, broadcast_ip_filter=None):
-        self._log_folder = log_folder
-        self._log_out = log_out
-        self._log_in = log_in
-        self._broadcast_ip_filter = broadcast_ip_filter
+    def __init__(self):
+        self.handlers: dict[str, logging.Handler] = {}
+
+    def start(self) -> None:
+        """Start logger."""
+        for name, handler in self.handlers.items():
+            logger = logging.getLogger(name)
+            logger.addHandler(handler)
+            logger.setLevel(logging.DEBUG)
+
+    def stop(self) -> None:
+        """Stop logger."""
+        for name, handler in self.handlers.items():
+            logger = logging.getLogger(name)
+            logger.removeHandler(handler)
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *args, **kwargs):  # noqa: ANN002, ANN003
+        self.stop()
+
+
+class DirectoryLogger(CommLogger):
+    """Logger writing communication logs into a directory. Each message will be contained in a single file."""
+
+    D_IN = 'in'
+    D_OUT = 'out'
+
+    T_UDP = 'udp'
+    T_UDP_MULTICAST = 'udpB'
+    T_HTTP = 'http_subscr'
+    T_WSDL = 'wsdl'
+
+    T_HTTP_REQ = 'http_req'
+    T_HTTP_RESP = 'http_resp'
+
+    def __init__(self, log_folder: str | pathlib.Path, log_out: bool = False, log_in: bool = False,
+                 broadcast_ip_filter: str | None = None):
+        super().__init__()
+        self._log_folder = pathlib.Path(log_folder)
         self._counter = 1
-        self._io_lock = Lock()
+        self._io_lock = threading.Lock()
 
-        self._mk_log_folder(log_folder)
+        if log_in:
+            self.handlers.update({
+                DISCOVERY_IN: self._GenericHandler(functools.partial(self._write_log, self.T_UDP, self.D_IN)),
+                SOAP_REQUEST_IN: self._GenericHandler(functools.partial(self._write_log, self.T_HTTP_REQ, self.D_IN)),
+                SOAP_RESPONSE_IN: self._GenericHandler(functools.partial(self._write_log, self.T_HTTP_RESP, self.D_IN)),
+                SOAP_SUBSCRIPTION_IN: self._GenericHandler(functools.partial(self._write_log, self.T_HTTP, self.D_IN)),
+                WSDL: self._GenericHandler(functools.partial(self._write_log, self.T_WSDL, self.D_IN)),
+            })
+        if log_out:
+            self.handlers.update({
+                MULTICAST_OUT: self._GenericHandler(
+                    functools.partial(self._write_log, self.T_UDP_MULTICAST, self.D_OUT)),
+                DISCOVERY_OUT: self._GenericHandler(functools.partial(self._write_log, self.T_UDP, self.D_OUT)),
+                SOAP_REQUEST_OUT: self._GenericHandler(functools.partial(self._write_log, self.T_HTTP_REQ, self.D_OUT)),
+                SOAP_RESPONSE_OUT: self._GenericHandler(
+                    functools.partial(self._write_log, self.T_HTTP_RESP, self.D_OUT)),
+            })
+        if broadcast_ip_filter:
+            broadcast_filter = IpFilter(broadcast_ip_filter)
+            if DISCOVERY_IN in self.handlers:
+                self.handlers[DISCOVERY_IN].addFilter(broadcast_filter)
+            if DISCOVERY_OUT in self.handlers:
+                self.handlers[DISCOVERY_OUT].addFilter(broadcast_filter)
 
-    def set_broadcast_ip_filter(self, broadcast_ip_filter):
-        self._broadcast_ip_filter = broadcast_ip_filter
+    def __enter__(self):
+        self._log_folder.mkdir(parents=True, exist_ok=True)
+        return super().__enter__()
 
-    @staticmethod
-    def _mk_log_folder(path):
-        if not os.path.exists(path):
-            os.makedirs(path)
+    def _mk_filename(self, ip_type: str, direction: str, *infos: str) -> str:
+        """Create file name.
 
-    def _mk_filename(self, ip_type, direction, info):
-        """
         :param ip_type: "tcp" or "udp"
         :param direction: "in" or "out"
         :param info: becomes part of filename
         :return:
         """
-        assert ip_type in (T_UDP, T_UDP_MULTICAST, T_HTTP, T_HTTP_REQ, T_HTTP_RESP, T_WSDL)
-        assert direction in (D_IN, D_OUT)
-        extension = 'wsdl' if ip_type == T_WSDL else 'xml'
+        assert ip_type in (self.T_UDP, self.T_UDP_MULTICAST, self.T_HTTP,
+                           self.T_HTTP_REQ, self.T_HTTP_RESP, self.T_WSDL)
+        assert direction in (self.D_IN, self.D_OUT)
+        extension = 'wsdl' if ip_type == self.T_WSDL else 'xml'
         time_string = f'{time.time():06.3f}'[-8:]
         self._counter += 1
-        info_text = f'-{info}' if info else ''
+        info_text = f'-{"-".join(infos)}' if infos else ''
         return f'{time_string}-{direction}-{ip_type}{info_text}.{extension}'
 
-    def _write_log(self, ttype, direction, xml, info):
-        path = os.path.join(self._log_folder, self._mk_filename(ttype, direction, info))
+    def _write_log(self, ttype: str, direction: str, msg: bytes, *infos: str) -> None:
+        path = self._log_folder.joinpath(self._mk_filename(ttype, direction, *infos))
         with self._io_lock:
-            with open(path, 'wb') as my_file:
-                if isinstance(xml, bytes):
-                    my_file.write(xml)
-                else:
-                    my_file.write(xml.encode('utf-8'))
+            path.write_bytes(msg)
 
-    def log_multicast_msg_out(self, xml, info=None):
-        if self._log_out:
-            self._write_log(T_UDP_MULTICAST, D_OUT, xml, info)
+    class _GenericHandler(logging.Handler):
+        def __init__(self, emit: Callable):
+            super().__init__()
+            self._emit = emit
 
-    def log_discovery_msg_out(self, ipaddr, xml, info=None):
-        if self._log_out and (not self._broadcast_ip_filter or self._broadcast_ip_filter == ipaddr):
-            self._write_log(T_UDP, D_OUT, xml, info)
-
-    def log_discovery_msg_in(self, ipaddr, xml):
-        if self._log_in and (not self._broadcast_ip_filter or self._broadcast_ip_filter == ipaddr):
-            self._write_log(T_UDP, D_IN, xml, None)
-
-    def log_soap_request_in(self, xml, info=None):
-        if self._log_in:
-            self._write_log(T_HTTP_REQ, D_IN, xml, info)
-
-    def log_soap_request_out(self, xml, info=None):
-        if self._log_out:
-            self._write_log(T_HTTP_REQ, D_OUT, xml, info)
-
-    def log_soap_response_in(self, xml, info=None):
-        if self._log_in:
-            self._write_log(T_HTTP_RESP, D_IN, xml, info)
-
-    def log_soap_response_out(self, xml, info=None):
-        if self._log_out:
-            self._write_log(T_HTTP_RESP, D_OUT, xml, info)
-
-    def log_soap_subscription_msg_in(self, xml):
-        if self._log_in:
-            self._write_log(T_HTTP, D_IN, xml, 'subscr')
-
-    def log_wsdl(self, wsdl):
-        if self._log_in:
-            self._write_log(T_WSDL, D_IN, wsdl, None)
+        def emit(self, record: logging.LogRecord) -> None:
+            try:
+                msg = self.format(record).encode()  # defaults to utf-8
+                args = []
+                if ip := getattr(record, 'ip_address', None):
+                    args.append(ip)
+                if http_method := getattr(record, 'http_method', None):
+                    args.append(http_method)
+                self._emit(msg, *args)
+            except Exception:  # noqa: BLE001
+                self.handleError(record)
 
 
-class _LogManager:
-    def __init__(self):
-        self.comm_logger = NullLogger()
+class StreamLogger(CommLogger):
+    """Set a stream handler for each comm logger."""
 
-    def set_logger(self, comm_logger):
-        self.comm_logger = comm_logger
+    def __init__(self, stream: Any | None = None, broadcast_ip_filter: str | None = None):
+        super().__init__()
+        for name in LOGGER_NAMES:
+            self.handlers[name] = self._get_handler(stream)
 
-_MGR = _LogManager()
+        if broadcast_ip_filter:
+            broadcast_filter = IpFilter(broadcast_ip_filter)
+            if DISCOVERY_IN in self.handlers:
+                self.handlers[DISCOVERY_IN].addFilter(broadcast_filter)
+            if DISCOVERY_OUT in self.handlers:
+                self.handlers[DISCOVERY_OUT].addFilter(broadcast_filter)
 
-
-def get_communication_logger():
-    return _MGR.comm_logger
-
-
-def set_communication_logger(comm_logger):
-    _MGR.set_logger(comm_logger)
+    @staticmethod
+    def _get_handler(stream: Any | None) -> logging.StreamHandler:
+        handler = logging.StreamHandler(stream=stream)
+        handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(message)s'))
+        return handler
