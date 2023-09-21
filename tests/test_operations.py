@@ -8,7 +8,6 @@ from sdc11073 import commlog
 from sdc11073 import loghelper
 from sdc11073 import observableproperties
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
-from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.mdib.providerwaveform import Annotator
@@ -143,6 +142,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FAILED)
+        self.assertIsNone(result.OperationTarget)
         self.log_watcher.setPaused(False)
 
         # insert a new patient with correct handle, this shall succeed
@@ -153,6 +153,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
         self.assertIsNone(result.InvocationInfo.InvocationError)
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
+        self.assertIsNotNone(result.OperationTarget)
 
         # check client side patient context, this shall have been set via notification
         patient_context_state_container = client_mdib.context_states.NODETYPE.get_one(pm.PatientContextState)
@@ -178,6 +179,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
+        self.assertEqual(result.OperationTarget, proposed_context.Handle)
         patient_context_state_container = client_mdib.context_states.handle.get_one(
             patient_context_state_container.Handle)
         self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Karla')
@@ -198,9 +200,10 @@ class Test_BuiltinOperations(unittest.TestCase):
         proposed_context.CoreData.Race = pm_types.CodedValue('somerace')
         future = context.set_context_state(operation_handle, [proposed_context])
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.InvocationInfo.InvocationState
-        self.assertEqual(state, msg_types.InvocationState.FINISHED)
+        invocation_state = result.InvocationInfo.InvocationState
+        self.assertEqual(invocation_state, msg_types.InvocationState.FINISHED)
         self.assertIsNone(result.InvocationInfo.InvocationError)
+        self.assertIsNotNone(result.OperationTarget)
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
         patient_context_state_containers = client_mdib.context_states.NODETYPE.get(pm.PatientContextState, [])
         # sort by BindingMdibVersion
@@ -395,10 +398,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         client_mdib.init_mdib()
         coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC)
         my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
-        if my_operation_descriptor is None:
-            # try old code:
-            coding = pm_types.Coding(NomenclatureCodes.OP_SET_NTP)
-            my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding)
 
         operation_handle = my_operation_descriptor.Handle
         for value in ('169.254.0.199', '169.254.0.199:1234'):
@@ -427,10 +426,6 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         coding = pm_types.Coding(NomenclatureCodes.MDC_ACT_SET_TIME_ZONE)
         my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
-        if my_operation_descriptor is None:
-            # use old code:
-            coding = pm_types.Coding(NomenclatureCodes.OP_SET_TZ)
-            my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding)
 
         operation_handle = my_operation_descriptor.Handle
         for value in ('+03:00', '-03:00'):  # are these correct values?

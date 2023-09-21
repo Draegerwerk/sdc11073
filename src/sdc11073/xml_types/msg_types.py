@@ -384,6 +384,10 @@ class AbstractSet(MessageType):
     OperationHandleRef = cp.NodeStringProperty(msg.OperationHandleRef)
     _props = ('OperationHandleRef',)
 
+    @property
+    def argument(self):
+        return None
+
 
 class AbstractGetResponse(MessageType):
     MdibVersion = cp.IntegerAttributeProperty('MdibVersion', implied_py_value=0)
