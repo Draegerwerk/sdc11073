@@ -16,7 +16,7 @@ from sdc11073 import loghelper, multikey, observableproperties, xml_utils
 from sdc11073.etc import apply_map
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import Fault, faultcodeEnum
-from sdc11073.xml_types import eventing_types as evt_types
+from sdc11073.xml_types import eventing_types as evt_types, actions
 from sdc11073.xml_types import isoduration
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.basetypes import MessageType
@@ -433,9 +433,10 @@ class SubscriptionsManagerBase:
         return subscription
 
     def send_to_subscribers(self, payload: MessageType | xml_utils.LxmlElement,
-                            action: str,
+                            action: actions.Actions,
                             mdib_version_group,
                             what: str):
+        action = action.value
         subscribers = self._get_subscriptions_for_action(action)
         nsh = self.sdc_definitions.data_model.ns_helper
         # convert to element tree only once for all subscribers
@@ -481,7 +482,7 @@ class SubscriptionsManagerBase:
             self._logger.error('could not send notification report error= {}: {}', traceback.format_exc(), subscription)
             raise
 
-    def _get_subscriptions_for_action(self, action):
+    def _get_subscriptions_for_action(self, action: str):
         with self._subscriptions.lock:
             return [s for s in self._subscriptions.objects if s.matches(action)]
 

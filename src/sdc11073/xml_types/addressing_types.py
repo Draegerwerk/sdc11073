@@ -1,3 +1,10 @@
+"""Implementation the types described in ws-addressing core from 2006.
+
+More information can be found at
+- https://www.w3.org/TR/2006/REC-ws-addr-core-20060509/
+- https://www.w3.org/TR/2006/REC-ws-addr-soap-20060509/.
+"""
+
 from __future__ import annotations
 
 import copy
@@ -5,104 +12,113 @@ import uuid
 from typing import TYPE_CHECKING
 
 from sdc11073.namespaces import default_ns_helper as nsh
-
-from . import xml_structure as struct
-from .basetypes import ElementWithText, XMLTypeBase
+from sdc11073.xml_types import xml_structure as struct
+from sdc11073.xml_types.basetypes import ElementWithText, XMLTypeBase
 
 if TYPE_CHECKING:
     from lxml.etree import QName
+
     from sdc11073 import xml_utils
 
 _is_reference_parameter = nsh.WSA.tag('IsReferenceParameter')
 
 
 class EndpointReferenceType(XMLTypeBase):
-    """EndpointReferenceType of ws-addressing."""
+    """The wsa:EndpointReferenceType type is used wherever a Web service endpoint is referenced.
 
-    Address = struct.NodeStringProperty(nsh.WSA.tag('Address'))
-    ReferenceParameters = struct.AnyEtreeNodeListProperty(nsh.WSA.tag('ReferenceParameters'), is_optional=True)
-    PortType = struct.NodeTextQNameProperty(nsh.WSA.tag('PortType'), is_optional=True)
-    _props = ('Address', 'ReferenceParameters', 'PortType')
+    The following describes the contents of this type:
+    <wsa:EndpointReference>
+        <wsa:Address>xs:anyURI</wsa:Address>
+        <wsa:ReferenceParameters>xs:any*</wsa:ReferenceParameters> ?
+        <wsa:Metadata>xs:any*</wsa:Metadata>?
+    </wsa:EndpointReference>
+    """
+
+    Address = struct.AnyUriTextElement(nsh.WSA.tag('Address'))
+    ReferenceParameters: list[xml_utils.LxmlElement] | None = (
+        struct.AnyEtreeNodeListProperty(nsh.WSA.tag('ReferenceParameters'), is_optional=True))
+    Metadata: list[xml_utils.LxmlElement] | None = (
+        struct.AnyEtreeNodeListProperty(nsh.WSA.tag('Metadata'), is_optional=True))
+    _props = ('Address', 'ReferenceParameters', 'Metadata')
 
 
-class Relationship(ElementWithText):
-    """Relationship type of ws-addressing."""
+class RelatesTo(ElementWithText):
+    """Contributes one abstract [relationship] property value."""
 
-    RelationshipType = struct.QNameAttributeProperty('RelationshipType')
+    RelationshipType: str | None = struct.AnyUriTextElement(
+        nsh.WSA.tag('RelationshipType'),
+        is_optional=True,
+        implied_py_value='http://www.w3.org/2005/08/addressing/reply')
     _props = ('RelationshipType',)
 
 
-class MustUnderStandTextElement(ElementWithText):
-    """XML Element with text and mustUnderstand attribute."""
-
-    _must_understand = struct.BooleanAttributeProperty(nsh.S12.tag('mustUnderstand'), default_py_value=True)
-    _props = ('_must_understand',)
-
-    def __init__(self, text: str | None = None):
-        super().__init__()
-        self.text = text
-
-
 class HeaderInformationBlock(XMLTypeBase):
-    """HeaderInformationBlock contains data that ws-addressing requires in soap header."""
+    """HeaderInformationBlock contains data that ws-addressing requires in soap header.
 
-    MessageID = struct.AnyUriTextElement(nsh.WSA.tag('MessageID'))
+    <wsa:To>xs:anyURI</wsa:To> ?
+    <wsa:From>wsa:EndpointReferenceType</wsa:From> ?
+    <wsa:ReplyTo>wsa:EndpointReferenceType</wsa:ReplyTo> ?
+    <wsa:FaultTo>wsa:EndpointReferenceType</wsa:FaultTo> ?
+    <wsa:Action>xs:anyURI</wsa:Action>
+    <wsa:MessageID>xs:anyURI</wsa:MessageID> ?
+    <wsa:RelatesTo RelationshipType="xs:anyURI"?>xs:anyURI</wsa:RelatesTo> *
+
+    in soap this is xs:any with wsa:IsReferenceParameter='true' as list
+    <wsa:ReferenceParameters>xs:any*</wsa:ReferenceParameters> ?
+    """
+
+    To: str | None = struct.AnyUriTextElement(nsh.WSA.tag('To'), is_optional=True)
+    From: EndpointReferenceType | None = struct.SubElementProperty(nsh.WSA.tag('From'),
+                                                                   value_class=EndpointReferenceType,
+                                                                   is_optional=True)
+    ReplyTo: EndpointReferenceType | None = struct.SubElementProperty(nsh.WSA.tag('ReplyTo'),
+                                                                      value_class=EndpointReferenceType,
+                                                                      is_optional=True)
+    FaultTo: EndpointReferenceType | None = struct.SubElementProperty(nsh.WSA.tag('FaultTo'),
+                                                                      value_class=EndpointReferenceType,
+                                                                      is_optional=True)
+    Action: str = struct.AnyUriTextElement(nsh.WSA.tag('Action'))
+    # note: ws-addressing declares MessageId as optional, but it is required for ws-discovery
+    MessageID: str | None = struct.AnyUriTextElement(nsh.WSA.tag('MessageID'), is_optional=True)
+    # note: following the standard would require RelatesTo to be a list, but ws-discovery requires it to be 0..1
     RelatesTo = struct.SubElementProperty(nsh.WSA.tag('RelatesTo'),
-                                          value_class=Relationship,
+                                          value_class=RelatesTo,
                                           is_optional=True)
-    To = struct.SubElementProperty(nsh.WSA.tag('To'),
-                                   value_class=MustUnderStandTextElement,
-                                   is_optional=True)
-    Action = struct.SubElementProperty(nsh.WSA.tag('Action'),
-                                       value_class=MustUnderStandTextElement,
-                                       is_optional=True)
-    From = struct.SubElementProperty(nsh.WSA.tag('From'),
-                                     value_class=EndpointReferenceType,
-                                     is_optional=True)
-    _props = ('MessageID', 'RelatesTo', 'To', 'Action', 'From')
 
-    def __init__(self, action: str | None = None,
+    _props = ('To', 'From', 'ReplyTo', 'FaultTo', 'Action', 'MessageID', 'RelatesTo')
+
+    def __init__(self,  # noqa: PLR0913
+                 action: str | None = None,
                  message_id: str | None = None,
                  addr_to: str | None = None,
                  relates_to: str | None = None,
                  addr_from: str | None = None,
                  reference_parameters: list[xml_utils.LxmlElement] | None = None,
-                 relationship_type: QName | None = None):
+                 relationship_type: str | None = None):
         super().__init__()
-        if action is not None:
-            self.Action = MustUnderStandTextElement(action)
+        self.Action = action
         self.MessageID = message_id or uuid.uuid4().urn
         if addr_to is not None:
-            self.To = MustUnderStandTextElement(addr_to)
+            self.To = addr_to
         if relates_to is not None:
-            self.RelatesTo = Relationship()
+            self.RelatesTo = RelatesTo()
             self.RelatesTo.text = relates_to
             if relationship_type is not None:
                 self.RelatesTo.RelationshipType = relationship_type
-        self.From = addr_from
-        if reference_parameters is not None:
-            self.reference_parameters = reference_parameters
-        else:
-            self.reference_parameters = []
+        if addr_from is not None:
+            self.From = EndpointReferenceType()
+            self.From.Address = addr_from
+        self.reference_parameters: list[xml_utils.LxmlElement] = reference_parameters or []
 
-    @property
-    def action(self) -> str | None:
-        if self.Action is None:
-            return None
-        return self.Action.text
-
-    def set_to(self, to: str):
-        """Set To element in Soap header."""
-        self.To = MustUnderStandTextElement(to)
-
-    def mk_reply_header_block(self, action: str | None = None,
+    def mk_reply_header_block(self,
+                              action: str | None = None,
                               message_id: str | None = None,
                               addr_to: str | None = None) -> HeaderInformationBlock:
         """Create a HeaderInformationBlock with RelatesTo information of self."""
         reply_address = HeaderInformationBlock(action, message_id, addr_to)
-        reply_address.RelatesTo = Relationship()
+        reply_address.RelatesTo = RelatesTo()
         reply_address.RelatesTo.text = self.MessageID
-        reply_address.Action = MustUnderStandTextElement(action)
+        reply_address.Action = action
         return reply_address
 
     def as_etree_node(self, q_name: QName, ns_map: dict[str, str]) -> xml_utils.LxmlElement:
