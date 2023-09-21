@@ -117,7 +117,7 @@ class OperationsManager(OperationsManagerProtocol):  # inheriting from protocol 
             # now look for all related report parts and add them to result
             parts = [part for part in self._last_operation_invoked_reports if
                      part.InvocationInfo.TransactionId == transaction_id]
-            # now look for a final report parts
+            # now look for a final report part
             final_parts = [part for part in parts if
                            part.InvocationInfo.InvocationState not in self.nonFinalOperationStates]
             if final_parts:
@@ -136,29 +136,29 @@ class OperationsManager(OperationsManagerProtocol):  # inheriting from protocol 
         msg_types = self._msg_reader.msg_types
         operation_invoked_report = msg_types.OperationInvokedReport.from_node(message_data.p_msg.msg_node)
 
-        with self._transactions_lock:
-            for report_part in operation_invoked_report.ReportPart:
-                invocation_state = report_part.InvocationInfo.InvocationState
-                transaction_id = report_part.InvocationInfo.TransactionId
-                self._logger.debug(  # noqa: PLE1205
-                    '{}on_operation_invoked_report: got transaction_id {} state {}',
-                    self.log_prefix, transaction_id, invocation_state)
-                if transaction_id in self._transactions:
-                    self._transactions[transaction_id].report_parts.append(report_part)
-                    if invocation_state in self.nonFinalOperationStates:
-                        pass
-                    else:
-                        operation_data = self._transactions.pop(transaction_id, None)
-                        future_object = operation_data.future_ref()
-                        if future_object is None:
-                            # client gave up.
-                            self._logger.debug('transaction_id {} given up', transaction_id)  # noqa: PLE1205
-                        else:
-                            future_object.set_result(self._mk_operation_result(report_part,
-                                                                               operation_data.set_response,
-                                                                               operation_data.report_parts))
+        for report_part in operation_invoked_report.ReportPart:
+            invocation_state = report_part.InvocationInfo.InvocationState
+            transaction_id = report_part.InvocationInfo.TransactionId
+            self._logger.debug(  # noqa: PLE1205
+                '{}on_operation_invoked_report: got transaction_id {} state {}',
+                self.log_prefix, transaction_id, invocation_state)
+            if transaction_id in self._transactions:
+                self._transactions[transaction_id].report_parts.append(report_part)
+                if invocation_state in self.nonFinalOperationStates:
+                    pass
                 else:
-                    self._last_operation_invoked_reports.append(report_part)
+                    with self._transactions_lock:
+                        operation_data = self._transactions.pop(transaction_id, None)
+                    future_object = operation_data.future_ref()
+                    if future_object is None:
+                        # client gave up.
+                        self._logger.debug('transaction_id {} given up', transaction_id)  # noqa: PLE1205
+                    else:
+                        future_object.set_result(self._mk_operation_result(report_part,
+                                                                           operation_data.set_response,
+                                                                           operation_data.report_parts))
+            else:
+                self._last_operation_invoked_reports.append(report_part)
 
     def _mk_operation_result(self,
                              current_report_part: msg_types.OperationInvokedReportPart,
