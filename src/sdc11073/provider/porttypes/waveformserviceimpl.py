@@ -32,4 +32,4 @@ class WaveformService(DPWSPortTypeBase):
         report.set_mdib_version_group(mdib_version_group)
         report.State.extend(realtime_sample_states)
         self._logger.debug('sending real time samples report {}', realtime_sample_states)
-        subscription_mgr.send_to_subscribers(report, report.action, mdib_version_group, None)
+        subscription_mgr.send_to_subscribers(report, str(report.action), mdib_version_group, None)

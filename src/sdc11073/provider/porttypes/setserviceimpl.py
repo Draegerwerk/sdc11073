@@ -173,7 +173,7 @@ class SetService(ServiceWithOperations):
         self._logger.info(
             'notify_operation transaction={} operation_handle_ref={}, operationState={}, error={}, errorMessage={}',
             transaction_id, operation_handle_ref, invocation_state, error, error_message)
-        subscription_mgr.send_to_subscribers(body_node, report.action, mdib_version_group, 'notify_operation')
+        subscription_mgr.send_to_subscribers(body_node, str(report.action), mdib_version_group, 'notify_operation')
 
     def handled_actions(self) -> List[str]:
         return [self._sdc_device.sdc_definitions.Actions.OperationInvokedReport]

@@ -36,7 +36,7 @@ class DescriptionEventService(DPWSPortTypeBase):
         body_node = self.mk_description_modification_report_body(
             mdib_version_group, updated, created, deleted, updated_states)
         self._logger.debug('sending DescriptionModificationReport upd={} crt={} del={}', updated, created, deleted)
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group, 'send_descriptor_updates')
+        subscription_mgr.send_to_subscribers(body_node, str(action), mdib_version_group, 'send_descriptor_updates')
 
     def mk_description_modification_report_body(self, mdib_version_group, updated, created, deleted,
                                                 updated_states) -> xml_utils.LxmlElement:

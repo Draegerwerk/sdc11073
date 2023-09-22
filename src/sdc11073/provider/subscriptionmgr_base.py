@@ -433,10 +433,9 @@ class SubscriptionsManagerBase:
         return subscription
 
     def send_to_subscribers(self, payload: MessageType | xml_utils.LxmlElement,
-                            action: actions.Actions,
+                            action: str,
                             mdib_version_group,
                             what: str):
-        action = action.value
         subscribers = self._get_subscriptions_for_action(action)
         nsh = self.sdc_definitions.data_model.ns_helper
         # convert to element tree only once for all subscribers
