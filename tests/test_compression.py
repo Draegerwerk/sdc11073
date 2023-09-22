@@ -46,9 +46,7 @@ class Test_Compression(unittest.TestCase):
         self.wsd.stop()
 
     def _start_with_compression(self, compression_flag):
-        """ Starts Device and Client with correct settings  """
-
-        # start device with compression settings
+        """Start Device and Client with compression settings."""
         if compression_flag is None:
             self.sdc_device.set_used_compression()
         else:

@@ -70,7 +70,7 @@ class LoggerAdapter:
         if len(args) == len(kwargs) == 0:
             return _msg
 
-        if '%' in msg and not '{' in msg:
+        if '%' in msg and '{' not in msg:
             # traditional log formatting
             return _msg % args
 
@@ -122,7 +122,7 @@ def get_logger_adapter(name, prefix=None) -> LoggerAdapter:
     return LoggerAdapter(logging.getLogger(name), prefix)
 
 
-class LogWatchException(Exception):
+class LogWatchError(Exception):
     def __init__(self, issues):
         super().__init__()
         self.issues = issues
@@ -260,9 +260,9 @@ class LogWatcher:
         if stop:
             self.stop()
         if all_records:
-            raise LogWatchException(all_records)
+            raise LogWatchError(all_records)
 
-    def filter(self, record):  # pylint: disable=unused-argument
+    def filter(self, _):  # noqa: A003
         return self._collecting
 
     def __enter__(self):

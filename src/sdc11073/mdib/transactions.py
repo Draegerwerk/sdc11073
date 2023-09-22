@@ -153,30 +153,18 @@ class _TransactionBase:
             raise ApiUsageError('Mix of data types in transaction is not allowed!')
 
     def _get_states_update(self, container: AbstractStateProtocol | AbstractDescriptorProtocol) -> dict:
-        if container.is_state_container:
-            if container.is_realtime_sample_array_metric_state:
-                return self.rt_sample_state_updates
-            if container.is_metric_state:
-                return self.metric_state_updates
-            if container.is_alert_state:
-                return self.alert_state_updates
-            if container.is_component_state:
-                return self.component_state_updates
-            if container.is_operational_state:
-                return self.operational_state_updates
-            if container.is_context_state:
-                return self.context_state_updates
-        else:
-            if container.is_metric_descriptor:
-                return self.metric_state_updates
-            if container.is_operational_descriptor:
-                return self.operational_state_updates
-            if container.is_component_descriptor:
-                return self.component_state_updates
-            if container.is_alert_descriptor:
-                return self.alert_state_updates
-            if container.is_context_descriptor:
-                return self.context_state_updates
+        if getattr(container, 'is_realtime_sample_array_metric_state', False):
+            return self.rt_sample_state_updates
+        if getattr(container, 'is_metric_state', False) or getattr(container, 'is_metric_descriptor', False):
+            return self.metric_state_updates
+        if getattr(container, 'is_alert_state', False) or getattr(container, 'is_alert_descriptor', False):
+            return self.alert_state_updates
+        if getattr(container, 'is_component_state', False) or getattr(container, 'is_component_descriptor', False):
+            return self.component_state_updates
+        if getattr(container, 'is_operational_state', False) or getattr(container, 'is_operational_descriptor', False):
+            return self.operational_state_updates
+        if getattr(container, 'is_context_state', False) or getattr(container, 'is_context_descriptor', False):
+            return self.context_state_updates
         raise NotImplementedError(f'unhandled case {container}')
 
     def _get_states_storage(self, state_container: AbstractStateProtocol) -> MultiKeyLookup:

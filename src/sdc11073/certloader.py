@@ -1,6 +1,12 @@
+from __future__ import annotations
+
 import dataclasses
-import os
+import pathlib
 import ssl
+from typing import TYPE_CHECKING, Callable, Union
+
+if TYPE_CHECKING:
+    PasswordType = Union[Callable[[], Union[str, bytes]], str, bytes]  # taken from ssl._PasswordType
 
 
 @dataclasses.dataclass
@@ -9,12 +15,12 @@ class SSLContextContainer:
     server_context: ssl.SSLContext
 
 
-def mk_ssl_contexts_from_folder(ca_folder,
-                                private_key='userkey.pem',
-                                certificate='usercert.pem',
-                                ca_public_key='cacert.pem',
-                                cyphers_file=None,
-                                ssl_passwd=None) -> SSLContextContainer:
+def mk_ssl_contexts_from_folder(ca_folder: str | pathlib.Path,
+                                private_key: str = 'userkey.pem',
+                                certificate: str = 'usercert.pem',
+                                ca_public_key: str | None = 'cacert.pem',
+                                cyphers_file: str | pathlib.Path | None = None,
+                                ssl_passwd: PasswordType | None = None) -> SSLContextContainer:
     """Convenience method for easy creation of SSL context, assuming all needed files are in the same folder.
     Create an ssl context from files 'userkey.pem', 'usercert.pem', and optional 'cacert.pem' and cyphers file
     :param ca_folder: base path of all files
@@ -24,46 +30,29 @@ def mk_ssl_contexts_from_folder(ca_folder,
                    verify_mode of ssl contexts in the return value  will be set to CERT_REQUIRED
     :param cyphers_file: optional file that contains a cyphers string; comments are possible, start line with '#'
     :param ssl_passwd: optional password string
-    :return: container of SSLContext instances i.e. client_ssl_context and server_ssl_context
+    :return: container of SSLContext instances i.e. client_ssl_context and server_ssl_context.
     """
-    certfile = os.path.join(ca_folder, certificate)
-    if not os.path.exists(certfile):
-        raise FileNotFoundError(f'{certfile} not found')
-    keyfile = os.path.join(ca_folder, private_key)
-    if not os.path.exists(keyfile):
-        raise FileNotFoundError(f'{keyfile} not found')
-    if ca_public_key:
-        cafile = os.path.join(ca_folder, ca_public_key)
-        if not os.path.exists(cafile):
-            raise FileNotFoundError(f'{cafile} not found')
-    else:
-        cafile = None
+    ca_folder = pathlib.Path(ca_folder)
+    cyphers = None
     if cyphers_file:
-        cyphers_file_path = os.path.join(ca_folder, cyphers_file)
-        if not os.path.exists(cyphers_file_path):
-            raise FileNotFoundError(f'{cyphers_file_path} not found')
-        with open(cyphers_file_path, encoding='utf-8') as file:
-            while True:
-                # allow comment lines, starting with #
-                cyphers = file.readline()
-                if len(cyphers) == 0:  # end of file reached without having found a valid line
-                    cyphers = None
-                    break
-                cyphers = cyphers.strip()
-                cyphers = cyphers.rstrip('\n')
-                cyphers = cyphers.rstrip('\r')
-                if len(cyphers) > 0 and not cyphers.startswith("#"):
-                    break
-    else:
-        cyphers = None
-    return mk_ssl_contexts(keyfile, certfile, cafile, cyphers, ssl_passwd)
+        for line in ca_folder.joinpath(cyphers_file).read_text().splitlines():
+            raw_cyphers = line.strip()
+            # allow comment lines, starting with #
+            if len(raw_cyphers) > 0 and not raw_cyphers.startswith("#"):
+                cyphers = raw_cyphers
+                break
+    return mk_ssl_contexts(ca_folder.joinpath(private_key),
+                           ca_folder.joinpath(certificate),
+                           ca_folder.joinpath(ca_public_key) if ca_public_key else None,
+                           cyphers,
+                           ssl_passwd)
 
 
-def mk_ssl_contexts(key_file,
-                    cert_file,
-                    ca_file,
-                    cyphers=None,
-                    ssl_passwd=None) -> SSLContextContainer:
+def mk_ssl_contexts(key_file: pathlib.Path,
+                    cert_file: pathlib.Path,
+                    ca_file: pathlib.Path | None = None,
+                    cyphers: str | None = None,
+                    ssl_passwd: PasswordType | None = None) -> SSLContextContainer:
     """Convenience method for easy creation of SSL context.
     Create an ssl context from files 'userkey.pem', 'usercert.pem', 'cacert.pem' and optional 'cyphers.json'
     :param key_file: the private key pem file of the user
@@ -72,8 +61,15 @@ def mk_ssl_contexts(key_file,
                    verify_mode of ssl contexts in the return value  will be set to CERT_REQUIRED
     :param cyphers: optional cyphers string
     :param ssl_passwd: optional password string
-    :return: container of SSLContext instances i.e. client_ssl_context and server_ssl_context
+    :return: container of SSLContext instances i.e. client_ssl_context and server_ssl_context.
     """
+    if not key_file.exists():
+        raise FileNotFoundError(key_file)
+    if not cert_file.exists():
+        raise FileNotFoundError(cert_file)
+    if ca_file and not ca_file.exists():
+        raise FileNotFoundError(ca_file)
+
     client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     server_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 

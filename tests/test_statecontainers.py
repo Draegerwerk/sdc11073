@@ -1,4 +1,3 @@
-# coding: utf-8
 import datetime
 import unittest
 from decimal import Decimal
@@ -173,7 +172,7 @@ class TestStateContainers(unittest.TestCase):
         def verifyEqual(origin, copied):
             self.assertEqual(len(copied.MetricValue.Samples), len(origin.MetricValue.Samples))
             for c, o in zip(copied.MetricValue.Samples, origin.MetricValue.Samples):
-                self.assertTrue((isclose(c, o)))
+                self.assertTrue(isclose(c, o))
             self.assertEqual(copied.MetricValue.DeterminationTime, origin.MetricValue.DeterminationTime)
             self.assertEqual(copied.MetricValue.Annotation, origin.MetricValue.Annotation)
             self.assertEqual(copied.MetricValue.ApplyAnnotations, origin.MetricValue.ApplyAnnotations)
@@ -559,7 +558,7 @@ class TestStateContainers(unittest.TestCase):
                                                                           pm_types.LocalizedText('Jim'),
                                                                           pm_types.LocalizedText('Jane')]))
 
-        node = state.mk_state_node(_my_tag, self.ns_mapper)
+        _ = state.mk_state_node(_my_tag, self.ns_mapper)
         state2 = sc.PatientContextStateContainer(descriptor_container=self.descr)
         state2.update_from_other_container(state)
         verifyEqual(state, state2)

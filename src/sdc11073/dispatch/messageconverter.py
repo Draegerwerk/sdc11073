@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import traceback
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
@@ -23,12 +24,14 @@ class MessageConverterMiddleware:
         self._msg_reader = msg_reader
         self._msg_factory = msg_factory
         self._dispatcher: RequestHandlerProtocol = dispatcher
+        self._soap_request_in_logger = logging.getLogger(commlog.SOAP_REQUEST_IN)
+        self._soap_response_out_logger = logging.getLogger(commlog.SOAP_RESPONSE_OUT)
 
     def do_post(self, headers: dict, path: str, peer_name: str, request_bytes: bytes) -> (int, str, str):
         http_status = 200
         http_reason = 'Ok'
         response_xml_string = 'not set yet'
-        commlog.get_communication_logger().log_soap_request_in(request_bytes, 'POST')
+        self._soap_request_in_logger.debug(request_bytes, extra={'https_method': 'POST'})
 
         # try to read the request
         fault = None
@@ -52,7 +55,7 @@ class MessageConverterMiddleware:
             inf = HeaderInformationBlock(action=fault.action, addr_to=None)
             response = self._msg_factory.mk_soap_message(inf, payload=fault)
             response_xml_string = response.serialize()
-            commlog.get_communication_logger().log_soap_response_out(response_xml_string, 'POST')
+            self._soap_response_out_logger.debug(response_xml_string, extra={'http_method': 'POST'})
             return http_status, http_reason, response_xml_string
 
         # handle the request
@@ -81,18 +84,18 @@ class MessageConverterMiddleware:
             http_status = 500
             http_reason = 'exception'
         finally:
-            commlog.get_communication_logger().log_soap_response_out(response_xml_string, 'POST')
-            return http_status, http_reason, response_xml_string
+            self._soap_response_out_logger.debug(response_xml_string, extra={'http_method': 'POST'})
+            return http_status, http_reason, response_xml_string  # noqa: B012
 
     def do_get(self, headers: dict, path: str, peer_name: str) -> (int, str, str, str):
         parsed_path = urlparse(path)
         try:
             # GET has no content, log it to document duration of processing
-            commlog.get_communication_logger().log_soap_request_in('', 'GET')
+            self._soap_request_in_logger.debug(b'', extra={'http_method': 'GET'})
             request_data = RequestData(headers, path, peer_name)
             request_data.consume_current_path_element()  # uuid is already used
             response_string = self._dispatcher.on_get(request_data)
-            commlog.get_communication_logger().log_soap_response_out(response_string, 'GET')
+            self._soap_response_out_logger.debug(response_string, extra={'http_method': 'GET'})
             if parsed_path.query == 'wsdl':
                 content_type = "text/xml; charset=utf-8"
             else:

@@ -47,7 +47,7 @@ class XMLTypeBase:
             except Exception as ex:
                 # re-raise with some information about the data
                 raise ValueError(
-                    f'In {self.__class__.__name__}.{prop_name}, {str(prop)} could not update: {traceback.format_exc()}') from ex
+                    f'In {self.__class__.__name__}.{prop_name}, {prop!s} could not update: {traceback.format_exc()}') from ex
 
     def update_from_node(self, node: xml_utils.LxmlElement):
         for dummy, prop in self.sorted_container_properties():
@@ -100,7 +100,7 @@ class XMLTypeBase:
         return obj
 
     @classmethod
-    def value_class_from_node(cls, node):
+    def value_class_from_node(cls, _):
         return cls
 
 

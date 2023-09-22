@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 import unittest
 
 from lxml import etree as etree_
 
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
@@ -23,7 +22,7 @@ class TestDeviceServices(unittest.TestCase):
 
     def setUp(self):
         basic_logging_setup()
-        ''' validate test data'''
+        """ validate test data"""
         print('############### setUp {}... ##############'.format(self._testMethodName))
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
@@ -64,7 +63,7 @@ class TestDeviceServices(unittest.TestCase):
         response = sub_dispatcher.do_post(http_header, path, peer_name,
                                           self.sdc_device.msg_factory.serialize_message(get_env))
         code, reason, response_string = response
-        self.assertTrue(f'/{get_service.port_type_name.localname}/GetMdibResponse'.encode('utf-8') in response_string)
+        self.assertTrue(f'/{get_service.port_type_name.localname}/GetMdibResponse'.encode() in response_string)
 
         context_service = self.sdc_device.hosted_services.context_service
         path = self.sdc_device.path_prefix + '/StateEvent'
@@ -76,7 +75,7 @@ class TestDeviceServices(unittest.TestCase):
         code, reason, response_string = response
 
         self.assertTrue(
-            f'/{context_service.port_type_name.localname}/GetContextStatesResponse'.encode('utf-8') in response_string)
+            f'/{context_service.port_type_name.localname}/GetContextStatesResponse'.encode() in response_string)
 
     def test_getMdib(self):
         get_service = self.sdc_device.hosted_services.get_service
@@ -176,4 +175,4 @@ class TestDeviceServices(unittest.TestCase):
                     action_keys = [k for k in i.attrib.keys() if k.endswith('Action')]
                     for k in action_keys:
                         action = i.attrib[k]
-                        self.assertTrue(action.startswith(SDC_v1_Definitions.ActionsNamespace))
+                        self.assertTrue(action.startswith(SdcV1Definitions.ActionsNamespace))

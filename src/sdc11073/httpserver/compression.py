@@ -11,7 +11,7 @@ except ImportError:
     lz4 = None
 
 
-class CompressionException(Exception):
+class CompressionError(Exception):
     pass
 
 
@@ -76,7 +76,7 @@ class CompressionHandler:
         handler = cls.handlers.get(algorithm.lower())
         if not handler:
             txt = f"{algorithm} compression is not supported. Only {cls.available_encodings} are supported."
-            raise CompressionException(txt)
+            raise CompressionError(txt)
         return handler
 
     @staticmethod

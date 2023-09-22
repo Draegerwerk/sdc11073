@@ -8,9 +8,9 @@ from lxml import etree as etree_
 from .msgreader import validate_node
 from .soapenvelope import Soap12Envelope
 from ..schema_resolver import mk_schema_validator
-from ..xml_types.addressing_types import HeaderInformationBlock
 
 if TYPE_CHECKING:
+    from ..xml_types.addressing_types import HeaderInformationBlock
     from ..xml_types.msg_types import MessageType
     from ..definitions_base import BaseDefinitions
     from ..namespaces import PrefixNamespace

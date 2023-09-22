@@ -3,6 +3,7 @@ An ObservablePropery must be declared as class attribute, similar to standard py
 You can bind callables to an ObservableProperty. The callable is called when the property value is set.
 
 Example:
+-------
 >>> class MyBaseClass:
 >>>     prop1 = ObservableProperty(21)
 >>>     prop2 = ObservableProperty(22)
@@ -24,7 +25,9 @@ Example:
 < prop1= 42
 >>> actor.prop2='Hello World'
 < prop2= Hello World
+
 """
+import contextlib
 import inspect
 import weakref
 from contextlib import contextmanager
@@ -86,10 +89,8 @@ class _ObservableValue:
             else:
                 func(self.value)  # call func
         for ref in obsolete_refs:
-            try:
+            with contextlib.suppress(ValueError):  # e.g. has been deleted by someone else in different thread
                 self._observers.remove(ref)
-            except ValueError:  # e.g. has been deleted by someone else in different thread.
-                pass
 
     def bind(self, func):
         self._observers.append(WeakRef(func))

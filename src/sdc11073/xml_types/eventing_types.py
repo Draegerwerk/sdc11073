@@ -23,7 +23,7 @@ class DeliveryType(XMLTypeBase):
 
 class FilterType(ElementWithText):
     Dialect = cp.AnyURIAttributeProperty('Dialect')
-    any = xml_structure.AnyEtreeNodeListProperty(None, is_optional=True)
+    any = xml_structure.AnyEtreeNodeListProperty(None, is_optional=True)  # noqa: A003
     _props = ('Dialect', 'any')
 
 
