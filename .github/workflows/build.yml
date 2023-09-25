@@ -116,5 +116,5 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: "8c8b98c0-4c00-4f83-a598-81f3857e63e9"
           verbose: true
