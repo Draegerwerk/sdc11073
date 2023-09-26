@@ -155,7 +155,7 @@ class MessageReader:
                 mdib_version_group = MdibVersionGroupReader.from_node(message.msg_node)
             except ValueError:
                 mdib_version_group = None
-        return ReceivedMessage(self, message, message.header_info_block.Action.text,
+        return ReceivedMessage(self, message, message.header_info_block.Action,
                                message.msg_name, mdib_version_group)
 
     def read_get_mdib_response(self, received_message_data: ReceivedMessage) -> tuple[

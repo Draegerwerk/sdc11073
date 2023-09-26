@@ -105,9 +105,9 @@ class DirectoryLogger(CommLogger):
             if DISCOVERY_OUT in self.handlers:
                 self.handlers[DISCOVERY_OUT].addFilter(broadcast_filter)
 
-    def __enter__(self):
+    def start(self) -> None:
         self._log_folder.mkdir(parents=True, exist_ok=True)
-        return super().__enter__()
+        super().start()
 
     def _mk_filename(self, ip_type: str, direction: str, *infos: str) -> str:
         """Create file name.

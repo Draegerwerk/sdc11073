@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Changed
+
+- change python classes of `addressing_types.py` to match ws-addressing standard of 2006 instead of 2004 
+
 ## [2.0.0a6] - 2023-09-11
 
 ### Added

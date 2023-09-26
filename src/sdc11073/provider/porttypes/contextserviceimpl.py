@@ -113,7 +113,7 @@ class ContextService(ServiceWithOperations):
         body_node = report.as_etree_node(report.NODETYPE, ns_map)
 
         self._logger.debug('sending episodic context report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, report.action, mdib_version_group,
+        subscription_mgr.send_to_subscribers(body_node, report.action.value, mdib_version_group,
                                              'send_episodic_context_report')
 
     def send_periodic_context_report(self, periodic_states_list: List[PeriodicStates],
@@ -127,5 +127,5 @@ class ContextService(ServiceWithOperations):
         fill_periodic_report_body(report, periodic_states_list)
         self._logger.debug('sending periodic context report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(report, report.action, mdib_version_group,
+        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group,
                                              'send_periodic_context_report')
