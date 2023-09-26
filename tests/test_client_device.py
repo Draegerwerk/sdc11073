@@ -305,6 +305,8 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
             m.branches = list()
 
             m.family = s.family
+            m.proto = s.proto
+            m.type = s.type
 
             return m
 
@@ -428,7 +430,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
             sdc_client.stop_all()
         wsd.stop()
 
-        # log_watcher.check()
+        log_watcher.check()
 
     def test_mk_ssl_raises_file_not_found_error(self):
         """Verify that a FileNotFoundError is raised if a cypher file is specified but not found."""
