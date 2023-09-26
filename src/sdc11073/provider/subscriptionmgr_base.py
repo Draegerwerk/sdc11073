@@ -480,7 +480,7 @@ class SubscriptionsManagerBase:
             self._logger.error('could not send notification report error= {}: {}', traceback.format_exc(), subscription)
             raise
 
-    def _get_subscriptions_for_action(self, action):
+    def _get_subscriptions_for_action(self, action: str):
         with self._subscriptions.lock:
             return [s for s in self._subscriptions.objects if s.matches(action)]
 

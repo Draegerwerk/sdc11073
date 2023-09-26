@@ -1,17 +1,25 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
-from .porttypebase import ServiceWithOperations, WSDLMessageDescription, WSDLOperationBinding, msg_prefix
-from .porttypebase import mk_wsdl_two_way_operation, mk_wsdl_one_way_operation
+from sdc11073.dispatch import DispatchKey
+from sdc11073.namespaces import PrefixesEnum
+
+from .porttypebase import (
+    ServiceWithOperations,
+    WSDLMessageDescription,
+    WSDLOperationBinding,
+    mk_wsdl_one_way_operation,
+    mk_wsdl_two_way_operation,
+    msg_prefix,
+)
 from .stateeventserviceimpl import fill_episodic_report_body, fill_periodic_report_body
-from ...dispatch import DispatchKey
-from ...namespaces import PrefixesEnum
 
 if TYPE_CHECKING:
-    from ...mdib.statecontainers import AbstractStateContainer
-    from ..periodicreports import PeriodicStates
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
+    from sdc11073.mdib.statecontainers import AbstractStateContainer
+    from sdc11073.provider.periodicreports import PeriodicStates
 
 
 class ContextService(ServiceWithOperations):
@@ -81,7 +89,7 @@ class ContextService(ServiceWithOperations):
                         # MDS descriptor, then all context states that are part of this MDS SHALL be included in the result list.
                         descr = self._mdib.descriptions.handle.get_one(handle, allow_none=True)
                         if descr:
-                            if descr.NODETYPE == pm_names.MdsDescriptor:
+                            if pm_names.MdsDescriptor == descr.NODETYPE:
                                 tmp = list(self._mdib.context_states.objects)
                     if tmp:
                         for state in tmp:
@@ -101,8 +109,8 @@ class ContextService(ServiceWithOperations):
         mk_wsdl_one_way_operation(port_type, operation_name='EpisodicContextReport')
         mk_wsdl_one_way_operation(port_type, operation_name='PeriodicContextReport')
 
-    def send_episodic_context_report(self, states: List[AbstractStateContainer],
-                                     mdib_version_group):
+    def send_episodic_context_report(self, states: list[AbstractStateContainer],
+                                     mdib_version_group: MdibVersionGroup):
         data_model = self._sdc_definitions.data_model
         nsh = data_model.ns_helper
         subscription_mgr = self.hosting_service.subscriptions_manager
@@ -113,10 +121,10 @@ class ContextService(ServiceWithOperations):
         body_node = report.as_etree_node(report.NODETYPE, ns_map)
 
         self._logger.debug('sending episodic context report {}', states)
-        subscription_mgr.send_to_subscribers(body_node, report.action, mdib_version_group)
+        subscription_mgr.send_to_subscribers(body_node, report.action.value, mdib_version_group)
 
-    def send_periodic_context_report(self, periodic_states_list: List[PeriodicStates],
-                                     mdib_version_group):
+    def send_periodic_context_report(self, periodic_states_list: list[PeriodicStates],
+                                     mdib_version_group: MdibVersionGroup):
         data_model = self._sdc_definitions.data_model
         subscription_mgr = self.hosting_service.subscriptions_manager
         report = data_model.msg_types.PeriodicContextReport()
@@ -126,4 +134,4 @@ class ContextService(ServiceWithOperations):
         fill_periodic_report_body(report, periodic_states_list)
         self._logger.debug('sending periodic context report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(report, report.action, mdib_version_group)
+        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group)

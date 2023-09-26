@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from enum import Enum
 
     from sdc11073.provider.sco import OperationDefinition
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
 
 
 @runtime_checkable
@@ -26,7 +27,7 @@ class SetServiceProtocol(Protocol):
                          operation: OperationDefinition,
                          transaction_id: int,
                          invocation_state: Enum,
-                         mdib_version_group,
+                         mdib_version_group: MdibVersionGroup,
                          operation_target: str | None = None,
                          error: Enum | None = None,
                          error_message: str | None = None):
@@ -88,7 +89,7 @@ class SetService(ServiceWithOperations):
         hosting_service.register_post_handler(DispatchKey(actions.SetComponentState, msg_names.SetComponentState),
                                               self._on_set_component_state)
 
-    def _on_activate(self, request_data):  # pylint:disable=unused-argument
+    def _on_activate(self, request_data):
         """Handler for Active calls.
         It enqueues an operation and generates the expected operation invoked report.
         """
@@ -99,7 +100,7 @@ class SetService(ServiceWithOperations):
         response = data_model.msg_types.ActivateResponse()
         return self._handle_operation_request(request_data, activate, response)
 
-    def _on_set_value(self, request_data):  # pylint:disable=unused-argument
+    def _on_set_value(self, request_data):
         """Handler for SetValue calls.
         It enqueues an operation and generates the expected operation invoked report.
         """
@@ -110,7 +111,7 @@ class SetService(ServiceWithOperations):
         response = data_model.msg_types.SetValueResponse()
         return self._handle_operation_request(request_data, set_value, response)
 
-    def _on_set_string(self, request_data):  # pylint:disable=unused-argument
+    def _on_set_string(self, request_data):
         """Handler for SetString calls.
         It enqueues an operation and generates the expected operation invoked report.
         """
@@ -121,7 +122,7 @@ class SetService(ServiceWithOperations):
         response = data_model.msg_types.SetStringResponse()
         return self._handle_operation_request(request_data, set_string, response)
 
-    def _on_set_metric_state(self, request_data):  # pylint:disable=unused-argument
+    def _on_set_metric_state(self, request_data):
         """Handler for SetMetricState calls.
         It enqueues an operation and generates the expected operation invoked report.
         """
@@ -132,7 +133,7 @@ class SetService(ServiceWithOperations):
         response = data_model.msg_types.SetMetricStateResponse()
         return self._handle_operation_request(request_data, set_metric_state, response)
 
-    def _on_set_alert_state(self, request_data):  # pylint:disable=unused-argument
+    def _on_set_alert_state(self, request_data):
         """Handler for SetMetricState calls.
         It enqueues an operation and generates the expected operation invoked report.
         """
@@ -143,7 +144,7 @@ class SetService(ServiceWithOperations):
         response = data_model.msg_types.SetAlertStateResponse()
         return self._handle_operation_request(request_data, set_alert_state, response)
 
-    def _on_set_component_state(self, request_data):  # pylint:disable=unused-argument
+    def _on_set_component_state(self, request_data):
         """Handler for SetComponentState calls.
         It enqueues an operation and generates the expected operation invoked report.
         """
@@ -158,7 +159,7 @@ class SetService(ServiceWithOperations):
                          operation: OperationDefinition,
                          transaction_id: int,
                          invocation_state: Enum,
-                         mdib_version_group,
+                         mdib_version_group: MdibVersionGroup,
                          operation_target: str | None = None,
                          error: Enum | None = None,
                          error_message: str | None = None):
@@ -188,9 +189,9 @@ class SetService(ServiceWithOperations):
         self._logger.info(
             'notify_operation transaction={} operation_handle_ref={}, operationState={}, error={}, errorMessage={}',
             transaction_id, operation_handle_ref, invocation_state, error, error_message)
-        subscription_mgr.send_to_subscribers(body_node, report.action, mdib_version_group)
+        subscription_mgr.send_to_subscribers(body_node, report.action.value, mdib_version_group)
 
-    def handled_actions(self) -> list[str]:
+    def handled_actions(self) -> List[str]:
         return [self._sdc_device.sdc_definitions.Actions.OperationInvokedReport]
 
     def add_wsdl_port_type(self, parent_node):

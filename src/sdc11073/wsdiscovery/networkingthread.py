@@ -250,7 +250,7 @@ class _NetworkingThreadBase(ABC):
             self._logger.debug('send unicast %d bytes (%d) action=%s: to=%s:%r id=%s',
                                len(data),
                                q_msg.repeat,
-                               msg.created_message.p_msg.header_info_block.Action.text,
+                               msg.created_message.p_msg.header_info_block.Action,
                                msg.addr, msg.port,
                                msg.created_message.p_msg.header_info_block.MessageID)
             logging.getLogger(commlog.DISCOVERY_OUT).debug(data, extra={'ip_address': msg.addr})
@@ -260,7 +260,7 @@ class _NetworkingThreadBase(ABC):
             self._logger.debug('send multicast %d bytes, msg (%d) action=%s: to=%s:%r id=%s',
                                len(data),
                                q_msg.repeat,
-                               msg.created_message.p_msg.header_info_block.Action.text,
+                               msg.created_message.p_msg.header_info_block.Action,
                                msg.addr, msg.port,
                                msg.created_message.p_msg.header_info_block.MessageID)
             self.sockets_collection.multi_out_uni_in.sendto(data, (msg.addr, msg.port))

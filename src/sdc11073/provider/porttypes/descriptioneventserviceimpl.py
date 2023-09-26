@@ -1,15 +1,23 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
-from ...namespaces import PrefixesEnum
-from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_one_way_operation
-from .porttypebase import msg_prefix
+from sdc11073.namespaces import PrefixesEnum
+
+from .porttypebase import (
+    DPWSPortTypeBase,
+    WSDLMessageDescription,
+    WSDLOperationBinding,
+    mk_wsdl_one_way_operation,
+    msg_prefix,
+)
 
 if TYPE_CHECKING:
-    from ...mdib.descriptorcontainers import AbstractDescriptorContainer
-    from ...mdib.statecontainers import AbstractStateContainer
     from sdc11073 import xml_utils
+    from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
+    from sdc11073.mdib.statecontainers import AbstractStateContainer
+
 
 class DescriptionEventService(DPWSPortTypeBase):
     port_type_name = PrefixesEnum.SDC.tag('DescriptionEventService')
@@ -24,22 +32,24 @@ class DescriptionEventService(DPWSPortTypeBase):
         port_type = self._mk_port_type_node(parent_node, True)
         mk_wsdl_one_way_operation(port_type, operation_name='DescriptionModificationReport')
 
-    def send_descriptor_updates(self, updated: List[AbstractDescriptorContainer],
-                                created: List[AbstractDescriptorContainer],
-                                deleted: List[AbstractDescriptorContainer],
-                                updated_states: List[AbstractStateContainer],
-                                mdib_version_group):
+    def send_descriptor_updates(self, updated: list[AbstractDescriptorContainer],
+                                created: list[AbstractDescriptorContainer],
+                                deleted: list[AbstractDescriptorContainer],
+                                updated_states: list[AbstractStateContainer],
+                                mdib_version_group: MdibVersionGroup):
         subscription_mgr = self.hosting_service.subscriptions_manager
         action = self._sdc_definitions.Actions.DescriptionModificationReport
-        # body_node = self._msg_factory.mk_description_modification_report_body(
-        #     mdib_version_group, updated, created, deleted, updated_states)
         body_node = self.mk_description_modification_report_body(
             mdib_version_group, updated, created, deleted, updated_states)
         self._logger.debug('sending DescriptionModificationReport upd={} crt={} del={}', updated, created, deleted)
-        subscription_mgr.send_to_subscribers(body_node, action, mdib_version_group)
+        subscription_mgr.send_to_subscribers(body_node, action.value, mdib_version_group)
 
-    def mk_description_modification_report_body(self, mdib_version_group, updated, created, deleted,
-                                                updated_states) -> xml_utils.LxmlElement:
+    def mk_description_modification_report_body(self,
+                                                mdib_version_group: MdibVersionGroup,
+                                                updated: list[AbstractDescriptorContainer],
+                                                created: list[AbstractDescriptorContainer],
+                                                deleted: list[AbstractDescriptorContainer],
+                                                updated_states: list[AbstractStateContainer]) -> xml_utils.LxmlElement:
         # This method creates one ReportPart for every descriptor.
         # An optimization is possible by grouping all descriptors with the same parent handle into one ReportPart.
         # This is not implemented, and I think it is not needed.

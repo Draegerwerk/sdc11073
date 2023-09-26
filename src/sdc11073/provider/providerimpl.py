@@ -305,7 +305,7 @@ class SdcProvider:
         probe_matches.ProbeMatch.append(probe_match)
         needed_namespaces = [_nsm.DPWS, _nsm.MDPWS]
         response = self.msg_factory.mk_reply_soap_message(request, probe_matches, needed_namespaces)
-        response.p_msg.header_info_block.set_to(WSA_ANONYMOUS)
+        response.p_msg.header_info_block.To = WSA_ANONYMOUS
         return response
 
     def set_location(self, location: SdcLocation,

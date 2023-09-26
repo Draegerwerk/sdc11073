@@ -84,7 +84,7 @@ class TestDevSubscription(BicepsSubscription):
                          msg_factory=msg_factory, log_prefix='test')
         self.reports = []
 
-    def send_notification_report(self, body_node, action):
+    def send_notification_report(self, body_node, action: str):
         info_block = HeaderInformationBlock(action=action,
                                             addr_to=self.notify_to_address,
                                             reference_parameters=self.notify_ref_params)
