@@ -11,10 +11,10 @@ from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
 from sdc11073.dispatch import (
     DispatchKey,
-    RequestDispatcher,
     MessageConverterMiddleware,
     PathElementRegistry,
     RequestData,
+    RequestDispatcher,
 )
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.httpserver import compression
@@ -28,16 +28,15 @@ from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
 
 from .components import default_sdc_provider_components
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
-from .waveforms import WaveformSender
 
 if TYPE_CHECKING:
-    from ssl import SSLContext
-
     from sdc11073.location import SdcLocation
     from sdc11073.mdib.providermdib import ProviderMdib
-    from sdc11073.pysoap.msgfactory import CreatedMessage
-    from sdc11073.xml_types.wsd_types import ScopesType
     from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
+    from sdc11073.pysoap.msgfactory import CreatedMessage
+    from sdc11073.roles.product import BaseProduct
+    from sdc11073.roles.protocols import WaveformProviderProtocol
+    from sdc11073.xml_types.wsd_types import ScopesType
 
     from .components import SdcProviderComponents
 
@@ -191,9 +190,10 @@ class SdcProvider:
         self._soap_client_pool = SoapClientPool(self._mk_soap_client, log_prefix)
         self._sco_operations_registries = {}  # key is mds handle ?
         self._service_factory = None
-        self.product_roles_lookup = {}
+        self.product_roles_lookup: dict[str, BaseProduct] = {}
         self.hosted_services = None
         self._periodic_reports_handler = PeriodicReportsNullHandler()
+        self.waveform_provider: WaveformProviderProtocol | None = None
         self._setup_components()
         self.base_urls = []  # will be set after httpserver is started
         properties.bind(device_mdib_container, transaction=self._send_episodic_reports)
@@ -245,11 +245,14 @@ class SdcProvider:
                                           log_prefix=self._log_prefix)
             self._sco_operations_registries[sco_descr.Handle] = sco_operations_registry
 
-            product_roles = self._components.role_provider_class(self._mdib,
-                                                                 sco_operations_registry,
-                                                                 self._log_prefix)
+            product_roles = self._components.sco_role_provider_class(self._mdib,
+                                                                     sco_operations_registry,
+                                                                     self._log_prefix)
             self.product_roles_lookup[sco_descr.Handle] = product_roles
             product_roles.init_operations()
+        self.waveform_provider = self._components.waveform_provider_class(self._mdib,
+                                                                          self._log_prefix)
+
         # product roles might have added descriptors, set source mds for all
         self._mdib.xtra.set_all_source_mds()
 
@@ -462,14 +465,14 @@ class SdcProvider:
         self._soap_client_pool.close_all()
 
     def start_rt_sample_loop(self):
-        if self._waveform_sender:
+        if self.waveform_provider.is_running:
             raise ApiUsageError(' realtime send loop already started')
-        self._waveform_sender = WaveformSender(self._mdib, self._logger, self.collect_rt_samples_period)
-        self._waveform_sender.start()
+        self.waveform_provider.start()
+
+        # if self._waveform_sender:
 
     def stop_realtime_sample_loop(self):
-        if self._waveform_sender:
-            self._waveform_sender.stop()
+        self.waveform_provider.stop()
 
     def get_xaddrs(self):
         addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery

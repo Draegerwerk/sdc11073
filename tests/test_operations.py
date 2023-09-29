@@ -8,13 +8,11 @@ from sdc11073 import commlog
 from sdc11073 import loghelper
 from sdc11073 import observableproperties
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
-from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ConsumerMdib
-from sdc11073.mdib.providerwaveform import Annotator
 from sdc11073.roles.nomenclature import NomenclatureCodes
 from sdc11073.consumer import SdcConsumer
-from sdc11073.provider import waveforms
+from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import RequestDispatcher
@@ -35,7 +33,7 @@ NOTIFICATION_TIMEOUT = 5  # also jenkins related value
 
 
 def provide_realtime_data(sdc_device):
-    waveform_provider = sdc_device.mdib.xtra.waveform_provider
+    waveform_provider = sdc_device.waveform_provider
     if waveform_provider is None:
         return
     paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
@@ -49,11 +47,10 @@ def provide_realtime_data(sdc_device):
                                                   co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
     # make SinusGenerator (0x34F05501) the annotator source
-    annotator = Annotator(annotation=pm_types.Annotation(pm_types.CodedValue('a', 'b')),
-                          trigger_handle='0x34F05501',
-                          annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506'])
-    waveform_provider.register_annotation_generator(annotator)
-
+    waveform_provider.add_annotation_generator(pm_types.CodedValue('a', 'b'),
+                                               trigger_handle='0x34F05501',
+                                               annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506']
+                                               )
 
 class Test_BuiltinOperations(unittest.TestCase):
     """Test role providers (located in sdc11073.roles)."""

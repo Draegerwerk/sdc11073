@@ -71,7 +71,7 @@ if __name__ == '__main__':
                                 serial_number='12345')
     # create a device (provider) class that will do all the SDC magic
     # set role provider that supports Ensemble Contexts.
-    specific_components = SdcProviderComponents(role_provider_class=ExtendedProduct)
+    specific_components = SdcProviderComponents(sco_role_provider_class=ExtendedProduct)
     sdc_provider = SdcProvider(ws_discovery=my_discovery,
                                epr=my_uuid,
                                this_model=dpws_model,

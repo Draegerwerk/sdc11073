@@ -210,14 +210,15 @@ class MinimalProduct(BaseProduct):
 class ExtendedProduct(MinimalProduct):
     def __init__(self, mdib, sco, log_prefix=None):
         super().__init__(mdib, sco, log_prefix)
-        self._ordered_providers.extend([AudioPauseProvider(mdib, log_prefix=log_prefix),
-                                        clockprovider.GenericSDCClockProvider(mdib, log_prefix=log_prefix),
+        self._ordered_providers.extend([
+                                        # AudioPauseProvider(mdib, log_prefix=log_prefix),
+                                        # clockprovider.GenericSDCClockProvider(mdib, log_prefix=log_prefix),
                                         contextprovider.EnsembleContextProvider(mdib, log_prefix=log_prefix),
                                         contextprovider.LocationContextProvider(mdib, log_prefix=log_prefix),
-                                        patientcontextprovider.GenericPatientContextProvider(mdib,
-                                                                                             log_prefix=log_prefix),
-                                        alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
-                                        self.metric_provider,
-                                        operationprovider.OperationProvider(mdib, log_prefix=log_prefix),
-                                        GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix)
+                                        # patientcontextprovider.GenericPatientContextProvider(mdib,
+                                        #                                                      log_prefix=log_prefix),
+                                        # alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
+                                        # self.metric_provider,
+                                        # operationprovider.OperationProvider(mdib, log_prefix=log_prefix),
+                                        # GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix)
                                         ])

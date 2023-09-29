@@ -29,7 +29,7 @@ WSDL_S12 = ns_hlp.WSDL12.namespace  # old soap 12 namespace, used in wsdl 1.1. u
 
 def etree_from_file(path) -> xml_utils.LxmlElement:
     parser = etree_.ETCompatXMLParser(resolve_entities=False)
-    doc = etree_.parse(path, parser=parser)
+    doc = etree_.parse(str(path), parser=parser)
     return doc.getroot()
 
 

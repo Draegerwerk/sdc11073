@@ -26,7 +26,6 @@ from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ConsumerMdib
-from sdc11073.mdib.providerwaveform import Annotator
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
@@ -36,7 +35,7 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.consumer import SdcConsumer
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
-from sdc11073.provider import waveforms
+from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.provider.components import (SdcProviderComponents,
                                           default_sdc_provider_components_async,
                                           default_sdc_provider_components_sync)
@@ -63,7 +62,7 @@ mdib_70041 = '70041_MDIB_multi.xml'
 
 
 def provide_realtime_data(sdc_device):
-    waveform_provider = sdc_device.mdib.xtra.waveform_provider
+    waveform_provider = sdc_device.waveform_provider
     if waveform_provider is None:
         return
     paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
@@ -77,10 +76,10 @@ def provide_realtime_data(sdc_device):
                                                   co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
     # make SinusGenerator (0x34F05501) the annotator source
-    annotator = Annotator(annotation=pm_types.Annotation(pm_types.CodedValue('a', 'b')),
-                          trigger_handle='0x34F05501',
-                          annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506'])
-    waveform_provider.register_annotation_generator(annotator)
+    waveform_provider.add_annotation_generator(pm_types.CodedValue('a', 'b'),
+                                               trigger_handle='0x34F05501',
+                                               annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506']
+                                               )
 
 
 def runtest_basic_connect(unit_test, sdc_client):
@@ -146,7 +145,7 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
 
     # now disable one waveform
     d_handle = d_handles[0]
-    waveform_provider = sdc_device.mdib.xtra.waveform_provider
+    waveform_provider = sdc_device.waveform_provider
     waveform_provider.set_activation_state(d_handle, pm_types.ComponentActivation.OFF)
     time.sleep(0.5)
     container = client_mdib.states.descriptor_handle.get_one(d_handle)
