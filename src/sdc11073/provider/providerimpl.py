@@ -146,7 +146,6 @@ class SdcProvider:
             self._urlschema = 'http'
 
         self.collect_rt_samples_period = 0.1  # in seconds
-        self._waveform_sender = None
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
         # look for schemas added by services
         additional_schema_specs = []
@@ -475,13 +474,13 @@ class SdcProvider:
         self._soap_client_pool.close_all()
 
     def start_rt_sample_loop(self):
-        if self._waveform_sender:
+        if self.waveform_provider.is_running:
             raise ApiUsageError(' realtime send loop already started')
         self.waveform_provider.start()
 
     def stop_realtime_sample_loop(self):
-        if self._waveform_sender:
-            self._waveform_sender.stop()
+        if self.waveform_provider.is_running:
+            self.waveform_provider.stop()
 
     def get_xaddrs(self):
         addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery

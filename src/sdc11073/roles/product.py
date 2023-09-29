@@ -1,18 +1,22 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from sdc11073 import loghelper
 
-from . import alarmprovider, clockprovider, contextprovider, metricprovider, operationprovider, patientcontextprovider
+from .alarmprovider import GenericAlarmProvider
 from .audiopauseprovider import AudioPauseProvider
+from .clockprovider import GenericSDCClockProvider
 from .componentprovider import GenericSetComponentStateOperationProvider
+from .contextprovider import EnsembleContextProvider, LocationContextProvider
+from .metricprovider import GenericMetricProvider
+from .operationprovider import OperationProvider
+from .patientcontextprovider import GenericPatientContextProvider
 
 if TYPE_CHECKING:
-    from lxml.etree import QName
     from sdc11073.mdib import ProviderMdib
-    from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
+    from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
     from .providerbase import OperationClassGetter, ProviderRole
 
 
@@ -20,7 +24,7 @@ class BaseProduct:
     """A Product is associated to a single sco.
 
     It provides the operation handlers for the operations in this sco.
-     If a mdib contains multiple sco instances, there must be multiple Products.
+    If a mdib contains multiple sco instances, there must be multiple Products.
     """
 
     def __init__(self,
@@ -31,7 +35,7 @@ class BaseProduct:
         self._sco = sco
         self._mdib = mdib
         self._model = mdib.data_model
-        self._ordered_providers: list[ProviderRole] = []  # order matters, each provider can hide operations of later ones
+        self._ordered_providers: list[ProviderRole] = []  # order matters, first come, first serve
         # start with most specific providers, end with most general ones
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
@@ -86,7 +90,7 @@ class BaseProduct:
                                                                         allow_none=True)  # descriptor container
         if operation_target_descr is None:
             # this operation is incomplete, the operation target does not exist. Registration not possible.
-            self._logger.warn(
+            self._logger.warning(
                 f'Operation {operation_descriptor_container.Handle}: '
                 f'target {operation_target_handle} does not exist, will not register operation')
             return None
@@ -127,41 +131,31 @@ class GenericProduct(BaseProduct):
 
         self._ordered_providers.extend([audio_pause_provider, day_night_provider, clock_provider])
         self._ordered_providers.extend(
-            [patientcontextprovider.GenericPatientContextProvider(mdib, log_prefix=log_prefix),
-             alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
-             metricprovider.GenericMetricProvider(mdib, log_prefix=log_prefix),
-             operationprovider.OperationProvider(mdib, log_prefix=log_prefix),
-             GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix)
+            [GenericPatientContextProvider(mdib, log_prefix=log_prefix),
+             GenericAlarmProvider(mdib, log_prefix=log_prefix),
+             GenericMetricProvider(mdib, log_prefix=log_prefix),
+             OperationProvider(mdib, log_prefix=log_prefix),
+             GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix),
              ])
 
 
 class MinimalProduct(BaseProduct):
     def __init__(self, mdib, sco, log_prefix=None):
         super().__init__(mdib, sco, log_prefix)
-        self.metric_provider = metricprovider.GenericMetricProvider(mdib, log_prefix=log_prefix)  # needed in a test
+        self.metric_provider = GenericMetricProvider(mdib, log_prefix=log_prefix)  # needed in a test
         self._ordered_providers.extend([AudioPauseProvider(mdib, log_prefix=log_prefix),
-                                        clockprovider.GenericSDCClockProvider(mdib, log_prefix=log_prefix),
-                                        patientcontextprovider.GenericPatientContextProvider(mdib,
-                                                                                             log_prefix=log_prefix),
-                                        alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
+                                        GenericSDCClockProvider(mdib, log_prefix=log_prefix),
+                                        GenericPatientContextProvider(mdib, log_prefix=log_prefix),
+                                        GenericAlarmProvider(mdib, log_prefix=log_prefix),
                                         self.metric_provider,
-                                        operationprovider.OperationProvider(mdib, log_prefix=log_prefix),
-                                        GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix)
+                                        OperationProvider(mdib, log_prefix=log_prefix),
+                                        GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix),
                                         ])
 
 
 class ExtendedProduct(MinimalProduct):
     def __init__(self, mdib, sco, log_prefix=None):
         super().__init__(mdib, sco, log_prefix)
-        self._ordered_providers.extend([
-                                        # AudioPauseProvider(mdib, log_prefix=log_prefix),
-                                        # clockprovider.GenericSDCClockProvider(mdib, log_prefix=log_prefix),
-                                        contextprovider.EnsembleContextProvider(mdib, log_prefix=log_prefix),
-                                        contextprovider.LocationContextProvider(mdib, log_prefix=log_prefix),
-                                        # patientcontextprovider.GenericPatientContextProvider(mdib,
-                                        #                                                      log_prefix=log_prefix),
-                                        # alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
-                                        # self.metric_provider,
-                                        # operationprovider.OperationProvider(mdib, log_prefix=log_prefix),
-                                        # GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix)
+        self._ordered_providers.extend([EnsembleContextProvider(mdib, log_prefix=log_prefix),
+                                        LocationContextProvider(mdib, log_prefix=log_prefix),
                                         ])

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING, Callable
 
 from lxml.etree import QName
 
 from sdc11073 import loghelper
-from sdc11073.mdib.statecontainers import MetricStateProtocol
-from sdc11073.provider.operations import ExecuteResult, OperationDefinitionBase
+from sdc11073.provider.operations import OperationDefinitionBase
 
 if TYPE_CHECKING:
     from sdc11073.mdib import ProviderMdib
@@ -15,7 +14,6 @@ if TYPE_CHECKING:
     from sdc11073.provider.operations import ExecuteHandler, TimeoutHandler
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
     from sdc11073.xml_types.pm_types import CodedValue, SafetyClassification
-    from sdc11073.provider.operations import ExecuteParameters
 
 OperationClassGetter = Callable[[QName], type[OperationDefinitionBase]]
 
@@ -70,55 +68,6 @@ class ProviderRole:
 
         Derived classes can overwrite this method.
         """
-
-    def _set_numeric_value(self, params: ExecuteParameters) -> ExecuteResult:
-        """Set a numerical metric value (ExecuteHandler)."""
-        value = params.operation_request.argument
-        pm_types = self._mdib.data_model.pm_types
-        self._logger.info('set value of %s via %s from %r to %r',
-                          params.operation_instance.operation_target_handle,
-                          params.operation_instance.handle,
-                          params.operation_instance.current_value, value)
-        params.operation_instance.current_value = value
-        with self._mdib.transaction_manager() as mgr:
-            _state = mgr.get_state(params.operation_instance.operation_target_handle)
-            state = cast(MetricStateProtocol, _state)
-            if state.MetricValue is None:
-                state.mk_metric_value()
-            state.MetricValue.Value = value
-            # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
-            # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
-            metric_descriptor_container = self._mdib.descriptions.handle.get_one(
-                params.operation_instance.operation_target_handle)
-            if metric_descriptor_container.MetricCategory in (pm_types.MetricCategory.SETTING,
-                                                              pm_types.MetricCategory.PRESETTING):
-                state.MetricValue.Validity = pm_types.MeasurementValidity.VALID
-        return ExecuteResult(params.operation_instance.operation_target_handle,
-                             self._mdib.data_model.msg_types.InvocationState.FINISHED)
-
-    def _set_string(self, params: ExecuteParameters) -> ExecuteResult:
-        """Set a string value (ExecuteHandler)."""
-        value = params.operation_request.argument
-        pm_types = self._mdib.data_model.pm_types
-        self._logger.info('set value %s from %s to %s',
-                          params.operation_instance.operation_target_handle,
-                          params.operation_instance.current_value, value)
-        params.operation_instance.current_value = value
-        with self._mdib.transaction_manager() as mgr:
-            _state = mgr.get_state(params.operation_instance.operation_target_handle)
-            state = cast(MetricStateProtocol, _state)
-            if state.MetricValue is None:
-                state.mk_metric_value()
-            state.MetricValue.Value = value
-            # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
-            # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
-            metric_descriptor_container = self._mdib.descriptions.handle.get_one(
-                params.operation_instance.operation_target_handle)
-            if metric_descriptor_container.MetricCategory in (pm_types.MetricCategory.SETTING,
-                                                              pm_types.MetricCategory.PRESETTING):
-                state.MetricValue.Validity = pm_types.MeasurementValidity.VALID
-        return ExecuteResult(params.operation_instance.operation_target_handle,
-                             self._mdib.data_model.msg_types.InvocationState.FINISHED)
 
     def _mk_operation_from_operation_descriptor(self,
                                                 operation_descriptor_container: AbstractOperationDescriptorProtocol,
