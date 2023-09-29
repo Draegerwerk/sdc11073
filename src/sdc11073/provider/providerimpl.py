@@ -30,13 +30,18 @@ from .components import default_sdc_provider_components
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 
 if TYPE_CHECKING:
+    from enum import Enum
     from sdc11073.location import SdcLocation
     from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
     from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.roles.product import BaseProduct
     from sdc11073.roles.protocols import WaveformProviderProtocol
+    from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
+    from sdc11073.xml_types.msg_types import AbstractSet
     from sdc11073.xml_types.wsd_types import ScopesType
+    from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
+    from .operations import OperationDefinitionBase
 
     from .components import SdcProviderComponents
 
@@ -245,14 +250,11 @@ class SdcProvider:
                                           log_prefix=self._log_prefix)
             self._sco_operations_registries[sco_descr.Handle] = sco_operations_registry
 
-            product_roles = self._components.sco_role_provider_class(self._mdib,
-                                                                     sco_operations_registry,
-                                                                     self._log_prefix)
+            product_roles = self._components.role_provider_class(self._mdib,
+                                                                 sco_operations_registry,
+                                                                 self._log_prefix)
             self.product_roles_lookup[sco_descr.Handle] = product_roles
             product_roles.init_operations()
-        self.waveform_provider = self._components.waveform_provider_class(self._mdib,
-                                                                          self._log_prefix)
-
         # product roles might have added descriptors, set source mds for all
         self._mdib.xtra.set_all_source_mds()
 
@@ -363,12 +365,18 @@ class SdcProvider:
                 return op
         return None
 
-    def enqueue_operation(self, operation, request, operation_request, transaction_id):
+    def handle_operation_request(self,
+                                 operation: OperationDefinitionBase,
+                                 request: ReceivedSoapMessage,
+                                 operation_request: AbstractSet,
+                                 transaction_id: int) -> Enum:
+        """Find the responsible sco and forward request to it."""
         for sco in self._sco_operations_registries.values():
             has_this_operation = sco.get_operation_by_handle(operation.handle) is not None
             if has_this_operation:
-                return sco.enqueue_operation(operation, request, operation_request, transaction_id)
-        return None
+                return sco.handle_operation_request(operation, request, operation_request, transaction_id)
+        self._logger.error('no sco has operation {}', operation.handle)
+        return self.mdib.data_model.msg_types.InvocationState.FAILED
 
     def get_toplevel_sco_list(self) -> list:
         pm_names = self._mdib.data_model.pm_names
@@ -465,14 +473,14 @@ class SdcProvider:
         self._soap_client_pool.close_all()
 
     def start_rt_sample_loop(self):
-        if self.waveform_provider.is_running:
+        if self._waveform_sender:
             raise ApiUsageError(' realtime send loop already started')
-        self.waveform_provider.start()
-
-        # if self._waveform_sender:
+        self._waveform_sender = WaveformSender(self._mdib, self._logger, self.collect_rt_samples_period)
+        self._waveform_sender.start()
 
     def stop_realtime_sample_loop(self):
-        self.waveform_provider.stop()
+        if self._waveform_sender:
+            self._waveform_sender.stop()
 
     def get_xaddrs(self):
         addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery

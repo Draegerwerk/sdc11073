@@ -50,11 +50,11 @@ MdibVersion="5795" SequenceId="urn:uuid:4ed313b2-f925-418a-8476-6f3b4d06ee3e" In
 					</Operation>
 					<Operation xsi:type="SetStringOperationDescriptor" OperationTarget="CL.mds0" Handle="SET_NTP_SRV_mds0" DescriptorVersion="0">
 						<ns2:Extension/>
-						<Type Code="194041"/>
+						<Type Code="128505"/>
 					</Operation>
 					<Operation xsi:type="SetStringOperationDescriptor" OperationTarget="CL.mds0" Handle="SET_TZONE_mds0" DescriptorVersion="0">
 						<ns2:Extension/>
-						<Type Code="194040"/>
+						<Type Code="68632"/>
 					</Operation>
 					<Operation xsi:type="SetContextStateOperationDescriptor" OperationTarget="PC.mds0" Handle="opSetPatCtx" DescriptorVersion="0">
 						<ns2:Extension/>

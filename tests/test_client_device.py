@@ -304,6 +304,8 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
             m.branches = list()
 
             m.family = s.family
+            m.proto = s.proto
+            m.type = s.type
 
             return m
 
@@ -395,8 +397,8 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
 
     @staticmethod
     def _run_client_with_device(ssl_context_container):
-        log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         basic_logging_setup()
+        log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         wsd = WSDiscovery('127.0.0.1')
         wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
@@ -747,9 +749,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 sdc_client.stop_all()
 
     def test_metric_report(self):
-        logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.client.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)
         runtest_metric_reports(self, self.sdc_device, self.sdc_client, self.logger)
 
     def test_roundtrip_times(self):
@@ -966,7 +965,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_description_modification(self):
         descriptor_handle = '0x34F00100'
-        logging.getLogger('sdc.device').setLevel(logging.DEBUG)
         # set value of a metric
         first_value = Decimal(12)
         with self.sdc_device.mdib.transaction_manager() as mgr:
@@ -1390,9 +1388,6 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         runtest_realtime_samples(self, self.sdc_device_2, self.sdc_client_2)
 
     def test_metric_report_common(self):
-        logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.client.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)
         runtest_metric_reports(self, self.sdc_device_1, self.sdc_client_1, self.logger, test_periodic_reports=False)
         runtest_metric_reports(self, self.sdc_device_2, self.sdc_client_2, self.logger, test_periodic_reports=False)
 
@@ -1606,7 +1601,4 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
         runtest_realtime_samples(self, self.sdc_device, self.sdc_client)
 
     def test_metric_report_sync(self):
-        logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.client.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)
         runtest_metric_reports(self, self.sdc_device, self.sdc_client, self.logger)

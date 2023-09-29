@@ -197,8 +197,7 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
 
     def send_to_subscribers(self, payload: MessageType | xml_utils.LxmlElement,
                             action: str,
-                            mdib_version_group: MdibVersionGroup,
-                            what: str):
+                            mdib_version_group: MdibVersionGroup):
         """Send payload to all subscribers."""
         with self._subscriptions.lock:
             if not self._async_send_thread.running:
@@ -219,9 +218,8 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             for subscriber in subscribers:
                 tasks.append(self._async_send_notification_report(subscriber, body_node, action))
 
-            if what:
-                self._logger.debug('{}: sending report to {}',  # noqa: PLE1205
-                                   what, [s.notify_to_address for s in subscribers])
+            self._logger.debug('sending report %s to %r',
+                               action, [s.notify_to_address for s in subscribers])
             result = self._async_send_thread.run_coro(self._coro_send_to_subscribers(tasks))
             if result is None:
                 self._logger.info('could not send notifications, async send loop is not running.')
@@ -229,7 +227,7 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             for counter, element in enumerate(result):
                 if isinstance(element, Exception):
                     self._logger.warning(  # noqa: PLE1205
-                        '{}: _send_to_subscribers {} returned {}', what, subscribers[counter], element)
+                        '{}: _send_to_subscribers {} returned {}', action, subscribers[counter], element)
 
     async def _async_send_notification_report(self, subscription: BicepsSubscriptionAsync,
                                               body_node: xml_utils.LxmlElement,

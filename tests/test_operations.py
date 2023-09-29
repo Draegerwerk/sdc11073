@@ -140,6 +140,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FAILED)
+        self.assertIsNone(result.OperationTarget)
         self.log_watcher.setPaused(False)
 
         # insert a new patient with correct handle, this shall succeed
@@ -150,6 +151,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
         self.assertIsNone(result.InvocationInfo.InvocationError)
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
+        self.assertIsNotNone(result.OperationTarget)
 
         # check client side patient context, this shall have been set via notification
         patient_context_state_container = client_mdib.context_states.NODETYPE.get_one(pm.PatientContextState)
@@ -175,6 +177,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
+        self.assertEqual(result.OperationTarget, proposed_context.Handle)
         patient_context_state_container = client_mdib.context_states.handle.get_one(
             patient_context_state_container.Handle)
         self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Karla')
@@ -195,9 +198,10 @@ class Test_BuiltinOperations(unittest.TestCase):
         proposed_context.CoreData.Race = pm_types.CodedValue('somerace')
         future = context.set_context_state(operation_handle, [proposed_context])
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.InvocationInfo.InvocationState
-        self.assertEqual(state, msg_types.InvocationState.FINISHED)
+        invocation_state = result.InvocationInfo.InvocationState
+        self.assertEqual(invocation_state, msg_types.InvocationState.FINISHED)
         self.assertIsNone(result.InvocationInfo.InvocationError)
+        self.assertIsNotNone(result.OperationTarget)
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
         patient_context_state_containers = client_mdib.context_states.NODETYPE.get(pm.PatientContextState, [])
         # sort by BindingMdibVersion
@@ -392,10 +396,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         client_mdib.init_mdib()
         coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC)
         my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
-        if my_operation_descriptor is None:
-            # try old code:
-            coding = pm_types.Coding(NomenclatureCodes.OP_SET_NTP)
-            my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding)
 
         operation_handle = my_operation_descriptor.Handle
         for value in ('169.254.0.199', '169.254.0.199:1234'):
@@ -424,10 +424,6 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         coding = pm_types.Coding(NomenclatureCodes.MDC_ACT_SET_TIME_ZONE)
         my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
-        if my_operation_descriptor is None:
-            # use old code:
-            coding = pm_types.Coding(NomenclatureCodes.OP_SET_TZ)
-            my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding)
 
         operation_handle = my_operation_descriptor.Handle
         for value in ('+03:00', '-03:00'):  # are these correct values?
@@ -547,3 +543,49 @@ class Test_BuiltinOperations(unittest.TestCase):
         future2 = set_service.set_string(operation_handle=operation_handle, requested_string=value)
         result2 = future2.result(timeout=SET_TIMEOUT)
         self.assertGreater(result2.InvocationInfo.TransactionId, result.InvocationInfo.TransactionId)
+
+    def test_delayed_processing(self):
+        """Verify that flag 'delayed_processing' changes responses as expected."""
+        logging.getLogger('sdc.client.op_mgr').setLevel(logging.DEBUG)
+        logging.getLogger('sdc.device.op_reg').setLevel(logging.DEBUG)
+        logging.getLogger('sdc.device.SetService').setLevel(logging.DEBUG)
+        logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
+        set_service = self.sdc_client.client('Set')
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC)
+        my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
+
+        operation_handle = my_operation_descriptor.Handle
+        operation = self.sdc_device.get_operation_by_handle(operation_handle)
+        for value in ('169.254.0.199', '169.254.0.199:1234'):
+            self._logger.info('ntp server = %s', value)
+            operation.delayed_processing = True  # first OperationInvokedReport shall have InvocationState.WAIT
+            coll = observableproperties.SingleValueCollector(self.sdc_client, 'operation_invoked_report')
+            future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
+            result = future.result(timeout=SET_TIMEOUT)
+            received_message = coll.result(timeout=5)
+            msg_types = received_message.msg_reader.msg_types
+            operation_invoked_report = msg_types.OperationInvokedReport.from_node(received_message.p_msg.msg_node)
+            self.assertEqual(operation_invoked_report.ReportPart[0].InvocationInfo.InvocationState,
+                             msg_types.InvocationState.WAIT)
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            self.assertIsNone(result.InvocationInfo.InvocationError)
+            self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
+            time.sleep(0.5)
+            # disable delayed processing
+            self._logger.info("disable delayed processing")
+            operation.delayed_processing = False  # first OperationInvokedReport shall have InvocationState.FINISHED
+            coll = observableproperties.SingleValueCollector(self.sdc_client, 'operation_invoked_report')
+            future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
+            result = future.result(timeout=SET_TIMEOUT)
+            received_message = coll.result(timeout=5)
+            msg_types = received_message.msg_reader.msg_types
+            operation_invoked_report = msg_types.OperationInvokedReport.from_node(received_message.p_msg.msg_node)
+            self.assertEqual(operation_invoked_report.ReportPart[0].InvocationInfo.InvocationState,
+                             msg_types.InvocationState.FINISHED)
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            self.assertIsNone(result.InvocationInfo.InvocationError)
+            self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))

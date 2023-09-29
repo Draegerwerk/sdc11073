@@ -1,104 +1,46 @@
-from . import alarmprovider
-from . import clockprovider
-from . import contextprovider
-from . import metricprovider
-from . import operationprovider
-from . import patientcontextprovider
-from . import providerbase
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from sdc11073 import loghelper
+
+from . import alarmprovider, clockprovider, contextprovider, metricprovider, operationprovider, patientcontextprovider
 from .audiopauseprovider import AudioPauseProvider
-from .. import loghelper
+from .componentprovider import GenericSetComponentStateOperationProvider
 
-
-class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
-    """
-    Responsible for SetComponentState Operations
-    """
-
-    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
-        """ Can handle following cases:
-        SetComponentStateOperationDescriptor, target = any AbstractComponentDescriptor: => handler = _set_component_state
-        """
-        pm_names = self._mdib.data_model.pm_names
-        operation_target_handle = operation_descriptor_container.OperationTarget
-        op_target_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
-
-        if operation_descriptor_container.NODETYPE == pm_names.SetComponentStateOperationDescriptor:
-            if op_target_descriptor_container.NODETYPE in (pm_names.MdsDescriptor,
-                                                           pm_names.ChannelDescriptor,
-                                                           pm_names.VmdDescriptor,
-                                                           pm_names.ClockDescriptor,
-                                                           pm_names.ScoDescriptor,
-                                                           ):
-                op_cls = operation_cls_getter(pm_names.SetComponentStateOperationDescriptor)
-                operation = self._mk_operation(op_cls,
-                                               handle=operation_descriptor_container.Handle,
-                                               operation_target_handle=operation_target_handle,
-                                               coded_value=operation_descriptor_container.Type,
-                                               current_argument_handler=self._set_component_state)
-                return operation
-        elif operation_descriptor_container.NODETYPE == pm_names.ActivateOperationDescriptor:
-            #  on what can activate be called?
-            if op_target_descriptor_container.NODETYPE in (pm_names.MdsDescriptor,
-                                                           pm_names.ChannelDescriptor,
-                                                           pm_names.VmdDescriptor,
-                                                           pm_names.ScoDescriptor,
-                                                           ):
-                # no generic handler to be called!
-                op_cls = operation_cls_getter(pm_names.ActivateOperationDescriptor)
-                return self._mk_operation(op_cls,
-                                          handle=operation_descriptor_container.Handle,
-                                          operation_target_handle=operation_target_handle,
-                                          coded_value=operation_descriptor_container.Type)
-        return None
-
-    def _set_component_state(self, operation_instance, value):
-        """
-
-        :param operation_instance: the operation
-        :param value: a list of proposed metric states
-        :return:
-        """
-        # ToDo: consider ModifiableDate attribute
-        operation_instance.current_value = value
-        with self._mdib.transaction_manager() as mgr:
-            for proposed_state in value:
-                state = mgr.get_state(proposed_state.DescriptorHandle)
-                if state.is_component_state:
-                    self._logger.info('updating {} with proposed component state', state)
-                    state.update_from_other_container(proposed_state,
-                                                      skipped_properties=['StateVersion', 'DescriptorVersion'])
-                else:
-                    self._logger.warn('_set_component_state operation: ignore invalid referenced type {} in operation',
-                                      state.NODETYPE)
+if TYPE_CHECKING:
+    from sdc11073.mdib import ProviderMdib
+    from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
+    from sdc11073.mdib.transactions import TransactionManagerProtocol
+    from sdc11073.provider.operations import OperationDefinitionBase
+    from sdc11073.provider.sco import AbstractScoOperationsRegistry
+    from .providerbase import OperationClassGetter, ProviderRole
 
 
 class BaseProduct:
-    """A Product is associated to a single sco. If a mdib contains multiple sco instances,
-    there will be multiple Products."""
+    """A Product is associated to a single sco.
 
-    def __init__(self, mdib, sco, log_prefix):
-        """
+    It provides the operation handlers for the operations in this sco.
+     If a mdib contains multiple sco instances, there must be multiple Products.
+    """
 
-        :param mdib: the device mdib
-        'param sco: sco of device
-        :param log_prefix: str
-        """
+    def __init__(self,
+                 mdib: ProviderMdib,
+                 sco: AbstractScoOperationsRegistry,
+                 log_prefix: str | None = None):
+        """Create a product."""
         self._sco = sco
         self._mdib = mdib
         self._model = mdib.data_model
-        self._ordered_providers = []  # order matters, each provider can hide operations of later ones
+        self._ordered_providers: list[ProviderRole] = []  # order matters, each provider can hide operations of later ones
         # start with most specific providers, end with most general ones
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
-    def _all_providers_sorted(self):
+    def _all_providers_sorted(self) -> list[ProviderRole]:
         return self._ordered_providers
 
-    @staticmethod
-    def _without_none_values(some_list):
-        return [e for e in some_list if e is not None]
-
     def init_operations(self):
-        """ register all actively provided operations """
+        """Register all actively provided operations."""
         sco_handle = self._sco.sco_descriptor_container.Handle
         self._logger.info('init_operations for sco {}.', sco_handle)
 

@@ -5,15 +5,15 @@ from io import BytesIO
 
 from lxml import etree as etree_
 
-from ..dispatch import RequestDispatcher, DispatchKey
-from ..namespaces import EventingActions
-from ..namespaces import default_ns_helper as ns_hlp
-from ..xml_types import mex_types
-from ..xml_types.addressing_types import EndpointReferenceType
-from ..xml_types.dpws_types import HostedServiceType
-
+from sdc11073.dispatch import DispatchKey, RequestDispatcher
+from sdc11073.namespaces import EventingActions
+from sdc11073.namespaces import default_ns_helper as ns_hlp
+from sdc11073.xml_types import mex_types
+from sdc11073.xml_types.addressing_types import EndpointReferenceType
+from sdc11073.xml_types.dpws_types import HostedServiceType
 
 if typing.TYPE_CHECKING:
+    import pathlib
     from sdc11073 import xml_utils
 
 _wsdl_ns = ns_hlp.WSDL.namespace
@@ -27,14 +27,14 @@ _DISCOVERY_TYPE_NS = "http://standards.ieee.org/downloads/11073/11073-10207-2017
 WSDL_S12 = ns_hlp.WSDL12.namespace  # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
 
 
-def etree_from_file(path) -> xml_utils.LxmlElement:
+def etree_from_file(path: str | pathlib.Path) -> xml_utils.LxmlElement:
     parser = etree_.ETCompatXMLParser(resolve_entities=False)
     doc = etree_.parse(str(path), parser=parser)
     return doc.getroot()
 
 
 class _EventService(RequestDispatcher):
-    """ A service that offers subscriptions"""
+    """A service that offers subscriptions."""
 
     def __init__(self, sdc_device, subscriptions_manager, offered_subscriptions):
         super().__init__()
@@ -72,12 +72,10 @@ class _EventService(RequestDispatcher):
 
 
 class DPWSHostedService(_EventService):
-    """ Container for DPWSPortTypeBase instances"""
+    """Container for DPWSPortTypeBase instances."""
 
     def __init__(self, sdc_device, subscriptions_manager, path_element, port_type_impls):
-        """
-
-        :param sdc_device:
+        """:param sdc_device:
         :param path_element:
         :param port_type_impls: list of DPWSPortTypeBase
         """
@@ -111,7 +109,7 @@ class DPWSHostedService(_EventService):
         return dpws_hosted
 
     def _on_get_wsdl(self) -> bytes:
-        """ return wsdl"""
+        """Return wsdl."""
         self._logger.debug('_onGetWsdl returns {}', self._wsdl_string)
         return self._wsdl_string
 

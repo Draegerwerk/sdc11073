@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 from collections import namedtuple
-from typing import TYPE_CHECKING, Optional, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from lxml import etree as etree_
 
-from ... import loghelper
-from ...namespaces import PrefixesEnum
+from sdc11073 import loghelper
+from sdc11073.namespaces import PrefixesEnum
 
 if TYPE_CHECKING:
-    from ...pysoap.msgfactory import CreatedMessage
-    from ...namespaces import PrefixNamespace
     from sdc11073 import xml_utils
+    from sdc11073.dispatch.request import RequestData
+    from sdc11073.namespaces import PrefixNamespace
+    from sdc11073.pysoap.msgfactory import CreatedMessage
+    from sdc11073.xml_types.msg_types import AbstractSet, AbstractSetResponse
 
 msg_prefix = PrefixesEnum.MSG.prefix
 
@@ -30,18 +32,21 @@ WSDLOperationBinding = namedtuple('WSDLOperationBinding', 'name input output')
 
 
 class DPWSPortTypeBase:
-    """ Base class of all PortType implementations. Its responsibilities are:
-        - handling of messages
-        - creation of wsdl information.
-        Handlers are registered in the hosting service instance. """
-    port_type_name: Optional[etree_.QName] = None
+    """Base class of all PortType implementations.
+
+    Its responsibilities are:
+    - handling of messages
+    - creation of wsdl information.
+    Handlers are registered in the hosting service instance.
+    """
+
+    port_type_name: etree_.QName | None = None
     WSDLOperationBindings = ()  # overwrite in derived classes
     WSDLMessageDescriptions = ()  # overwrite in derived classes
     additional_namespaces: ClassVar[list[PrefixNamespace]] = []  # for special namespaces
 
-    def __init__(self, sdc_device, log_prefix: Optional[str] = None):
-        """
-        :param sdc_device: the sdc device
+    def __init__(self, sdc_device, log_prefix: str | None = None):
+        """:param sdc_device: the sdc device
         :param log_prefix: optional string
         """
         self._sdc_device = sdc_device
@@ -55,7 +60,7 @@ class DPWSPortTypeBase:
         self.offered_subscriptions = self._mk_offered_subscriptions()
 
     def register_hosting_service(self, dpws_hosted_service):
-        """Register callbacks in hosting_service"""
+        """Register callbacks in hosting_service."""
         self.hosting_service = dpws_hosted_service
 
     @property
@@ -65,11 +70,12 @@ class DPWSPortTypeBase:
     def add_wsdl_port_type(self, parent_node):
         raise NotImplementedError
 
-    def _mk_port_type_node(self, parent_node: xml_utils.LxmlElement, is_event_source: bool =False) -> xml_utils.LxmlElement:
-        """ Needed for wsdl message
+    def _mk_port_type_node(self, parent_node: xml_utils.LxmlElement,
+                           is_event_source: bool = False) -> xml_utils.LxmlElement:
+        """Needed for wsdl message
         :param parent_node: where to add data
         :param is_event_source: true if port type provides notification
-        :return: the new created node (is already child of parent_node)
+        :return: the new created node (is already child of parent_node).
         """
         if self.port_type_name is None:
             raise ValueError('self.port_type_name is not set, cannot create port type node')
@@ -89,8 +95,7 @@ class DPWSPortTypeBase:
         return f'{self.__class__.__name__} Porttype={self.port_type_name!s}'
 
     def add_wsdl_messages(self, parent_node):
-        """
-        add wsdl:message node to parent_node.
+        """Add wsdl:message node to parent_node.
         xml looks like this:
         <wsdl:message name="GetMdDescription">
             <wsdl:part element="msg:GetMdDescription" name="parameters" />
@@ -106,8 +111,7 @@ class DPWSPortTypeBase:
                                           'element': element_name})
 
     def add_wsdl_binding(self, parent_node, porttype_prefix):
-        """
-        add wsdl:binding node to parent_node.
+        """Add wsdl:binding node to parent_node.
         xml looks like this:
         <wsdl:binding name="GetBinding" type="msg:Get">
             <s12:binding style="document" transport="http://schemas.xmlsoap.org/soap/http" />
@@ -147,8 +151,9 @@ class DPWSPortTypeBase:
                 etree_.SubElement(wsdl_output, etree_.QName(WSDL_S12, 'body'), attrib={'use': wsdl_op.output})
 
     def _mk_offered_subscriptions(self) -> list:
-        """ Takes action strings from sdc_definitions.Actions.
-        The name of the WSDLOperationBinding is used to reference the action string."""
+        """Takes action strings from sdc_definitions.Actions.
+        The name of the WSDLOperationBinding is used to reference the action string.
+        """
         actions = self._sdc_device.mdib.sdc_definitions.Actions
         offered_subscriptions = []
         for bdg in self.WSDLOperationBindings:
@@ -160,29 +165,28 @@ class DPWSPortTypeBase:
 
 class ServiceWithOperations(DPWSPortTypeBase):
 
-    def _handle_operation_request(self, request_data, request, set_response) -> CreatedMessage:
-        """
-
-        :param request_data:
-        :param request: AbstractSet
-        :param set_response: AbstractSetResponse
-        :return: CreatedMessage
-        """
+    def _handle_operation_request(self, request_data: RequestData,
+                                  request: AbstractSet,
+                                  set_response: AbstractSetResponse) -> CreatedMessage:
+        """Handle thew operation request by forwarding it to provider."""
         data_model = self._sdc_definitions.data_model
         operation = self._sdc_device.get_operation_by_handle(request.OperationHandleRef)
-        transaction_id  = self._sdc_device.generate_transaction_id()
+        transaction_id = self._sdc_device.generate_transaction_id()
         set_response.InvocationInfo.TransactionId = transaction_id
         if operation is None:
             error_text = f'no handler registered for "{request.OperationHandleRef}"'
-            self._logger.warn('handle operation request: {}', error_text)
+            self._logger.warning('handle operation request: {}', error_text)
             set_response.InvocationInfo.InvocationState = data_model.msg_types.InvocationState.FAILED
             set_response.InvocationInfo.InvocationError = data_model.msg_types.InvocationError.INVALID_VALUE
             set_response.InvocationInfo.add_error_message(error_text)
         else:
-            self._sdc_device.enqueue_operation(operation, request_data.message_data.p_msg, request, transaction_id)
-            self._logger.info('operation request "{}" enqueued, transaction id = {}',
-                              request.OperationHandleRef, set_response.InvocationInfo.TransactionId)
-            set_response.InvocationInfo.InvocationState = data_model.msg_types.InvocationState.WAIT
+            invocation_state = self._sdc_device.handle_operation_request(operation,
+                                                                         request_data.message_data.p_msg,
+                                                                         request,
+                                                                         transaction_id)
+            self._logger.info('operation request "{}" handled, transaction id = {}, invocation-state={}',
+                              request.OperationHandleRef, set_response.InvocationInfo.TransactionId, invocation_state)
+            set_response.InvocationInfo.InvocationState = invocation_state
 
         set_response.MdibVersion = self._mdib.mdib_version
         set_response.SequenceId = self._mdib.sequence_id
@@ -205,10 +209,9 @@ def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_m
 
 def mk_wsdl_two_way_operation(parent_node: xml_utils.LxmlElement,
                               operation_name: str,
-                              input_message_name: Optional[str] = None,
-                              output_message_name: Optional[str] = None) -> xml_utils.LxmlElement:
-    """
-    A helper for wsdl generation. A two-way-operation defines a 'normal' request and response operation.
+                              input_message_name: str | None = None,
+                              output_message_name: str | None = None) -> xml_utils.LxmlElement:
+    """A helper for wsdl generation. A two-way-operation defines a 'normal' request and response operation.
     :param parent_node: info shall be added to this node
     :param operation_name: a string
     :param input_message_name: only needed if message name is not equal to operation_name
@@ -225,9 +228,8 @@ def mk_wsdl_two_way_operation(parent_node: xml_utils.LxmlElement,
 
 def mk_wsdl_one_way_operation(parent_node: xml_utils.LxmlElement,
                               operation_name: str,
-                              output_message_name: Optional[str] = None) -> xml_utils.LxmlElement:
-    """
-    A helper for wsdl generation. A one-way-operation is a subscription.
+                              output_message_name: str | None = None) -> xml_utils.LxmlElement:
+    """A helper for wsdl generation. A one-way-operation is a subscription.
     :param parent_node: info shall be added to this node
     :param operation_name: a string
     :param output_message_name: only needed if message name is not equal to operation_name
@@ -241,8 +243,7 @@ def mk_wsdl_one_way_operation(parent_node: xml_utils.LxmlElement,
 
 
 def _add_policy_dpws_profile(parent_node):
-    """
-    :param parent_node:
+    """:param parent_node:
     :return: <wsp:Policy>
             <dpws:Profile wsp:Optional="true"/>
             <mdpws:Profile wsp:Optional="true"/>

@@ -1,13 +1,20 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
-from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_one_way_operation
-from .porttypebase import msg_prefix
-from ...namespaces import PrefixesEnum
+from sdc11073.namespaces import PrefixesEnum
+
+from .porttypebase import (
+    DPWSPortTypeBase,
+    WSDLMessageDescription,
+    WSDLOperationBinding,
+    mk_wsdl_one_way_operation,
+    msg_prefix,
+)
 
 if TYPE_CHECKING:
-    from ...mdib.statecontainers import AbstractStateContainer
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
+    from sdc11073.mdib.statecontainers import AbstractStateContainer
 
 
 class WaveformService(DPWSPortTypeBase):
@@ -24,12 +31,12 @@ class WaveformService(DPWSPortTypeBase):
         # unclear if this is needed, it seems wsdl uses Waveform name, action uses WaveformStream
         return [self._sdc_device.mdib.sdc_definitions.Actions.Waveform]
 
-    def send_realtime_samples_report(self, realtime_sample_states: List[AbstractStateContainer],
-                                     mdib_version_group):
+    def send_realtime_samples_report(self, realtime_sample_states: list[AbstractStateContainer],
+                                     mdib_version_group: MdibVersionGroup):
         data_model = self._sdc_definitions.data_model
         subscription_mgr = self.hosting_service.subscriptions_manager
         report = data_model.msg_types.WaveformStream()
         report.set_mdib_version_group(mdib_version_group)
         report.State.extend(realtime_sample_states)
         self._logger.debug('sending real time samples report {}', realtime_sample_states)
-        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group, None)
+        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group)

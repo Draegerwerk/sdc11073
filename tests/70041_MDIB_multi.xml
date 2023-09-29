@@ -105,7 +105,7 @@
                 <msg:By Method="Ep"/>
               </msg:Retrievability>
             </ext:Extension>
-            <pm:Type Code="194041">
+            <pm:Type Code="128505">
               <pm:ConceptDescription Lang="en-US">An operation to Set the active reference source of a clock for time synchronization.</pm:ConceptDescription>
             </pm:Type>
           </pm:Operation>
@@ -116,7 +116,7 @@
                 <msg:By Method="Ep"/>
               </msg:Retrievability>
             </ext:Extension>
-            <pm:Type Code="194040">
+            <pm:Type Code="68632">
               <pm:ConceptDescription Lang="en-US">An operation to set the time zone of a clock.</pm:ConceptDescription>
             </pm:Type>
           </pm:Operation>
