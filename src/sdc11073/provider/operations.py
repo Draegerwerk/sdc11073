@@ -62,9 +62,9 @@ class OperationDefinitionBase:
     current_request = properties.ObservableProperty(fire_only_on_changed_value=False)
     current_argument = properties.ObservableProperty(fire_only_on_changed_value=False)
     on_timeout = properties.ObservableProperty(fire_only_on_changed_value=False)
-    OP_DESCR_QNAME = None
-    OP_STATE_QNAME = None
-    OP_QNAME = None
+    OP_DESCR_QNAME: QName | None = None  # to be defined in derived classes
+    OP_STATE_QNAME: QName | None = None # to be defined in derived classes
+    OP_QNAME: QName | None = None # to be defined in derived classes
 
     def __init__(self,  # noqa: PLR0913
                  handle: str,
@@ -89,9 +89,10 @@ class OperationDefinitionBase:
         self.handle: str = handle
         self.operation_target_handle: str = operation_target_handle
         # documentation of operation_target_handle:
-        # A HANDLE reference this operation is targeted to. In case of a single state this is the HANDLE of the descriptor.
-        # In case that multiple states may belong to one descriptor (pm:AbstractMultiState), OperationTarget is the HANDLE
-        # of one of the state instances (if the state is modified by the operation).
+        # A HANDLE reference this operation is targeted to. In case of a single state this is the HANDLE of the
+        # descriptor.
+        # In case that multiple states may belong to one descriptor (pm:AbstractMultiState),
+        # OperationTarget is the HANDLE of one of the state instances (if the state is modified by the operation).
         self._operation_handler = operation_handler
         self._timeout_handler = timeout_handler
         self._coded_value = coded_value
@@ -183,8 +184,9 @@ class OperationDefinitionBase:
         return properties.ValuesCollector(self, 'current_value', number_of_values)
 
     def __str__(self):
-        code = '?' if self._descriptor_container is None else self._descriptor_container.Type
-        return f'{self.__class__.__name__} handle={self.handle} code={code} operation-target={self.operation_target_handle}'
+        code = None if self._descriptor_container is None else self._descriptor_container.Type
+        return (f'{self.__class__.__name__} handle={self.handle} code={code} '
+               f'operation-target={self.operation_target_handle}')
 
 
 class SetStringOperation(OperationDefinitionBase):
