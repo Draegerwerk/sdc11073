@@ -56,7 +56,7 @@ class SdcProviderComponents:
     operation_cls_getter: Callable[[QName], type] = None
     sco_operations_registry_class: type[AbstractScoOperationsRegistry] = None
     subscriptions_manager_class: dict[str, type[SubscriptionManagerProtocol]] = None
-    sco_role_provider_class: type = None
+    role_provider_class: type = None
     waveform_provider_class: type = None
     scopes_factory: Callable[[ProviderMdib], ScopesType] = None
     hosted_services: dict = None
@@ -74,7 +74,7 @@ class SdcProviderComponents:
         _merge('services_factory')
         _merge('operation_cls_getter')
         _merge('sco_operations_registry_class')
-        _merge('sco_role_provider_class')
+        _merge('role_provider_class')
         _merge('waveform_provider_class')
         _merge('scopes_factory')
         if other.hosted_services is not None:
@@ -95,7 +95,7 @@ default_sdc_provider_components_sync = SdcProviderComponents(
     sco_operations_registry_class=ScoOperationsRegistry,
     subscriptions_manager_class={'StateEvent': PathDispatchingSubscriptionsManager,
                                  'Set': PathDispatchingSubscriptionsManager},
-    sco_role_provider_class=MinimalProduct,
+    role_provider_class=MinimalProduct,
     waveform_provider_class=GenericWaveformProvider,
     scopes_factory=mk_scopes,
     # this defines the structure of the services: keys are the names of the dpws hosts,

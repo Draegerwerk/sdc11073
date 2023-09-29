@@ -4,36 +4,35 @@ import time
 import traceback
 from decimal import Context
 from threading import Event, Thread
-from typing import TYPE_CHECKING, Protocol, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from sdc11073 import loghelper
 from sdc11073.intervaltimer import IntervalTimer
 
 from . import waveforms
-from .realtimesamples import RtSampleArray, Annotator
+from .realtimesamples import Annotator, RtSampleArray
 
 if TYPE_CHECKING:
     from sdc11073.definitions_base import AbstractDataModel
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
     from sdc11073.mdib.transactions import RtDataMdibUpdateTransaction
-    from sdc11073.provider.sco import AbstractScoOperationsRegistry
     from sdc11073.xml_types.pm_types import ComponentActivation
 
     from .realtimesamples import AnnotatorProtocol
 
 
 class WaveformGeneratorProtocol(Protocol):
-    """A waveform generator creates a infinite sequence of float values."""
+    """A waveform generator creates an infinite sequence of float values."""
 
-    def __init__(self, min_value: float, max_value: float, waveformperiod: float, sampleperiod: float):
+    def __init__(self, min_value: float, max_value: float, waveform_period: float, sample_period: float):
         ...
 
     def next_samples(self, count: int) -> list[float]:
         """Get next values from generator."""
         ...
 
-    sampleperiod: float
+    sample_period: float
 
 
 class _SampleArrayGenerator:
@@ -67,15 +66,15 @@ class _SampleArrayGenerator:
         """
         if self._activation_state != self._model.pm_types.ComponentActivation.ON:
             self.current_rt_sample_array = RtSampleArray(
-                self._model, None, self._generator.sampleperiod, [], self._activation_state)
+                self._model, None, self._generator.sample_period, [], self._activation_state)
         else:
             now = time.time()
             observation_time = self._last_timestamp or now
-            samples_count = int((now - observation_time) / self._generator.sampleperiod)
+            samples_count = int((now - observation_time) / self._generator.sample_period)
             samples = self._generator.next_samples(samples_count)
-            self._last_timestamp = observation_time + self._generator.sampleperiod * samples_count
+            self._last_timestamp = observation_time + self._generator.sample_period * samples_count
             self.current_rt_sample_array = RtSampleArray(
-                self._model, observation_time, self._generator.sampleperiod, samples, self._activation_state)
+                self._model, observation_time, self._generator.sample_period, samples, self._activation_state)
         return self.current_rt_sample_array
 
     def set_waveform_generator(self, generator: WaveformGeneratorProtocol):
@@ -109,21 +108,13 @@ class GenericWaveformProvider:
         self._last_log_time = 0
         self._last_logged_delay = 0
 
-    # def init_operations(self, sco: AbstractScoOperationsRegistry):
-    #     """WaveformProvider has no operations, only a background thread that generates waveform data.
-    #
-    #     - set initial values of all AlertSystemStateContainers.
-    #     - set initial values of all AlertStateContainers.
-    #     - start a worker thread that periodically updates AlertSystemStateContainers.
-    #     """
-
     def register_waveform_generator(self, descriptor_handle: str, wf_generator: WaveformGeneratorProtocol):
         """Add wf_generator to waveform sources.
 
         :param descriptor_handle: the handle of the RealtimeSampleArray that shall accept this data
         :param wf_generator: a waveforms.WaveformGenerator instance
         """
-        sample_period = wf_generator.sampleperiod
+        sample_period = wf_generator.sample_period
         descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle)
         if descriptor_container.SamplePeriod != sample_period:
             # we must inform subscribers
@@ -136,10 +127,6 @@ class GenericWaveformProvider:
             self._waveform_generators[descriptor_handle] = _SampleArrayGenerator(self._mdib.data_model,
                                                                                  descriptor_handle,
                                                                                  wf_generator)
-
-    # def register_annotation_generator(self, annotator: AnnotatorProtocol):
-    #     """Add annotator to list of annotators."""
-    #     self._annotators[annotator.trigger_handle] = annotator
 
     def add_annotation_generator(self,
                                  coded_value: Any,
@@ -224,8 +211,8 @@ class GenericWaveformProvider:
                     max_value += 1
             generator = generator_class(min_value=min_value,
                                         max_value=max_value,
-                                        waveformperiod=2.0,
-                                        sampleperiod=waveform.SamplePeriod)
+                                        waveform_period=2.0,
+                                        sample_period=waveform.SamplePeriod)
             self.register_waveform_generator(waveform.Handle, generator)
         return [waveform.Handle for waveform in all_waveforms]
 

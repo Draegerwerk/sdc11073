@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
-    from lxml.etree import QName
 
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
@@ -12,6 +11,7 @@ if TYPE_CHECKING:
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
     from sdc11073.xml_types.pm_types import ComponentActivation
 
+    from .providerbase import OperationClassGetter
     from .waveformprovider.realtimesamples import AnnotatorProtocol
     from .waveformprovider.waveforms import WaveformGeneratorBase
 
@@ -35,7 +35,7 @@ class ProviderRoleProtocol(Protocol):
 
     def make_operation_instance(self,
                                 operation_descriptor_container: AbstractOperationDescriptorProtocol,
-                                operation_cls_getter: Callable[[QName], type]) -> OperationDefinitionBase | None:
+                                operation_cls_getter: OperationClassGetter) -> type[OperationDefinitionBase] | None:
         """Return a callable for this operation or None.
 
         If a mdib already has operations defined, this method can connect a handler to a given operation descriptor.
@@ -59,7 +59,34 @@ class ProviderRoleProtocol(Protocol):
         ...
 
 
+class ProductProtocol:
+    """A Product aggregates multiple role providers."""
+
+    def __init__(self,
+                 mdib: ProviderMdib,
+                 sco: AbstractScoOperationsRegistry,
+                 log_prefix: str | None = None):
+        """Create a product."""
+        ...
+
+    def init_operations(self):
+        """Register all actively provided operations."""
+        ...
+
+    def stop(self):
+        """Stop all role providers."""
+        ...
+
+    def make_operation_instance(self,
+                                operation_descriptor_container: AbstractOperationDescriptorProtocol,
+                                operation_cls_getter: OperationClassGetter) -> type[OperationDefinitionBase] | None:
+        """Call make_operation_instance of all role providers, until the first returns not None."""
+        ...
+
+
 class WaveformProviderProtocol(Protocol):
+    """WaveformProvider is not a role provider of a product, it is separate."""
+
     is_running: bool
 
     def __init__(self, mdib: ProviderMdib, log_prefix: str):

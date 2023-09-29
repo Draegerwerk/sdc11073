@@ -79,9 +79,9 @@ class TestDeviceSubscriptions(unittest.TestCase):
 
         waveform_provider = self.sdc_device.waveform_provider
 
-        tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.01)
-        st = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.01)
-        si = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=5.0, sampleperiod=0.01)
+        tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveform_period=2.0, sample_period=0.01)
+        st = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=2.0, sample_period=0.01)
+        si = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveform_period=5.0, sample_period=0.01)
 
         waveform_provider.register_waveform_generator(HANDLES[0], tr)
         waveform_provider.register_waveform_generator(HANDLES[1], st)

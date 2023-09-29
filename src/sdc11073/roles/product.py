@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from sdc11073 import loghelper
 
@@ -9,10 +9,9 @@ from .audiopauseprovider import AudioPauseProvider
 from .componentprovider import GenericSetComponentStateOperationProvider
 
 if TYPE_CHECKING:
+    from lxml.etree import QName
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactions import TransactionManagerProtocol
-    from sdc11073.provider.operations import OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
     from .providerbase import OperationClassGetter, ProviderRole
 
@@ -78,8 +77,10 @@ class BaseProduct:
         for role_handler in self._all_providers_sorted():
             role_handler.stop()
 
-    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
-        """ try to get an operation for this operation_descriptor_container ( given in mdib) """
+    def make_operation_instance(self,
+                                operation_descriptor_container: AbstractOperationDescriptorProtocol,
+                                operation_cls_getter: OperationClassGetter):
+        """Call make_operation_instance of all role providers, until the first returns not None."""
         operation_target_handle = operation_descriptor_container.OperationTarget
         operation_target_descr = self._mdib.descriptions.handle.get_one(operation_target_handle,
                                                                         allow_none=True)  # descriptor container

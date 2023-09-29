@@ -297,7 +297,7 @@ class SoapClient:
             if ex.errno in (10053, 10054):
                 self._log.warn("{}: could not send request to {}, OSError={!r}", log_msg, self.netloc, ex)
             else:
-                self._log.warn("{}: could not send request to {}, OSError={!r}", log_msg, self.netloc,
+                self._log.warn("{}: could not send request to {}, OSError={}", log_msg, self.netloc,
                                traceback.format_exc())
             self._has_connection_error = True
             self._close_without_lock()

@@ -367,7 +367,7 @@ class Test_Tutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        specific_components = SdcProviderComponents(sco_role_provider_class=MyProductImpl)
+        specific_components = SdcProviderComponents(role_provider_class=MyProductImpl)
         # use the minimalistic mdib from reference test:
         mdib_path = os.path.join(here, '../examples/ReferenceTest/reference_mdib.xml')
         my_generic_device = createGenericDevice(my_ws_discovery,

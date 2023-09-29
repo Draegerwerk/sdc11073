@@ -34,13 +34,13 @@ class WaveformGeneratorBase:
                  values_generator: curve_generator,
                  min_value: float,
                  max_value: float,
-                 waveformperiod: float,
-                 sampleperiod: float):
-        if sampleperiod >= waveformperiod:
+                 waveform_period: float,
+                 sample_period: float):
+        if sample_period >= waveform_period:
             raise ValueError(
-                f'please choose a waveformperiod >> sampleperiod. currently use have wp={waveformperiod}, sp={sampleperiod}')
-        self.sampleperiod = sampleperiod
-        samples = int(waveformperiod / sampleperiod)
+                f'please choose a waveformperiod >> sampleperiod. currently use have wp={waveform_period}, sp={sample_period}')
+        self.sample_period = sample_period
+        samples = int(waveform_period / sample_period)
         self._values = values_generator(min_value, max_value, samples)
         self._generator = itertools.cycle(self._values)
 
@@ -52,19 +52,19 @@ class WaveformGeneratorBase:
 class TriangleGenerator(WaveformGeneratorBase):
     """Generator of infinite triangle curve."""
 
-    def __init__(self, min_value: float, max_value: float, waveformperiod: float, sampleperiod: float):
-        super().__init__(triangle, min_value, max_value, waveformperiod, sampleperiod)
+    def __init__(self, min_value: float, max_value: float, waveform_period: float, sample_period: float):
+        super().__init__(triangle, min_value, max_value, waveform_period, sample_period)
 
 
 class SawtoothGenerator(WaveformGeneratorBase):
     """Generator of infinite saw tooth curve."""
 
-    def __init__(self, min_value: float, max_value: float, waveformperiod: float, sampleperiod: float):
-        super().__init__(sawtooth, min_value, max_value, waveformperiod, sampleperiod)
+    def __init__(self, min_value: float, max_value: float, waveform_period: float, sample_period: float):
+        super().__init__(sawtooth, min_value, max_value, waveform_period, sample_period)
 
 
 class SinusGenerator(WaveformGeneratorBase):
     """Generator of infinite sinus curve."""
 
-    def __init__(self, min_value: float, max_value: float, waveformperiod: float, sampleperiod: float):
-        super().__init__(sinus, min_value, max_value, waveformperiod, sampleperiod)
+    def __init__(self, min_value: float, max_value: float, waveform_period: float, sample_period: float):
+        super().__init__(sinus, min_value, max_value, waveform_period, sample_period)

@@ -35,12 +35,11 @@ if TYPE_CHECKING:
     from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
     from sdc11073.pysoap.msgfactory import CreatedMessage
-    from sdc11073.roles.product import BaseProduct
-    from sdc11073.roles.protocols import WaveformProviderProtocol
+    # from sdc11073.roles.product import BaseProduct
+    from sdc11073.roles.protocols import WaveformProviderProtocol, ProductProtocol
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
     from sdc11073.xml_types.msg_types import AbstractSet
     from sdc11073.xml_types.wsd_types import ScopesType
-    from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
     from .operations import OperationDefinitionBase
 
     from .components import SdcProviderComponents
@@ -195,7 +194,7 @@ class SdcProvider:
         self._soap_client_pool = SoapClientPool(self._mk_soap_client, log_prefix)
         self._sco_operations_registries = {}  # key is mds handle ?
         self._service_factory = None
-        self.product_roles_lookup: dict[str, BaseProduct] = {}
+        self.product_roles_lookup: dict[str, ProductProtocol] = {}
         self.hosted_services = None
         self._periodic_reports_handler = PeriodicReportsNullHandler()
         self.waveform_provider: WaveformProviderProtocol | None = None
@@ -251,10 +250,13 @@ class SdcProvider:
             self._sco_operations_registries[sco_descr.Handle] = sco_operations_registry
 
             product_roles = self._components.role_provider_class(self._mdib,
-                                                                 sco_operations_registry,
-                                                                 self._log_prefix)
+                                                                     sco_operations_registry,
+                                                                     self._log_prefix)
             self.product_roles_lookup[sco_descr.Handle] = product_roles
             product_roles.init_operations()
+        self.waveform_provider = self._components.waveform_provider_class(self._mdib,
+                                                                          self._log_prefix)
+
         # product roles might have added descriptors, set source mds for all
         self._mdib.xtra.set_all_source_mds()
 
@@ -265,8 +267,8 @@ class SdcProvider:
             return self.hosted_services.localization_service.localization_storage
         return None
 
-    def _on_get_metadata(self, request_data):  # pylint: disable=unused-argument
-        self._logger.info('_on_get_metadata from {}', request_data.peer_name)
+    def _on_get_metadata(self, request_data):
+        self._logger.info('_on_get_metadata from %s', request_data.peer_name)
         metadata = mex_types.Metadata()
         section = mex_types.ThisModelMetadataSection()
         section.MetadataReference = self.model
@@ -475,8 +477,7 @@ class SdcProvider:
     def start_rt_sample_loop(self):
         if self._waveform_sender:
             raise ApiUsageError(' realtime send loop already started')
-        self._waveform_sender = WaveformSender(self._mdib, self._logger, self.collect_rt_samples_period)
-        self._waveform_sender.start()
+        self.waveform_provider.start()
 
     def stop_realtime_sample_loop(self):
         if self._waveform_sender:

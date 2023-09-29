@@ -54,7 +54,7 @@ class TestDeviceWaveform(unittest.TestCase):
         now = time.time()
         time.sleep(1)
         for h in HANDLES:
-            period = waveform_generators[h]._generator.sampleperiod
+            period = waveform_generators[h]._generator.sample_period
             expected_count = 1.0 / period
             rt_sample_array = waveform_generators[h].get_next_sample_array()
             # sleep is not very precise, therefore verify that number of sample is in a certain range
@@ -106,9 +106,9 @@ class TestDeviceWaveform(unittest.TestCase):
 
         waveform_provider = self.sdc_device.waveform_provider
 
-        tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.02)
-        st = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.02)
-        si = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=5.0, sampleperiod=0.02)
+        tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveform_period=2.0, sample_period=0.02)
+        st = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=2.0, sample_period=0.02)
+        si = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveform_period=5.0, sample_period=0.02)
 
         waveform_provider.register_waveform_generator(HANDLES[0], tr)
         waveform_provider.register_waveform_generator(HANDLES[1], st)
