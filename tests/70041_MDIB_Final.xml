@@ -144,6 +144,30 @@
               <pm:ConceptDescription Lang="en-US">An operation to set the time zone of a clock.</pm:ConceptDescription>
             </pm:Type>
           </pm:Operation>
+          <pm:Operation xsi:type="pm:SetStringOperationDescriptor" Handle="0x34F06409.op" DescriptorVersion="2" SafetyClassification="MedA" OperationTarget="0x34F06409" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="0815">
+              <pm:ConceptDescription Lang="en-US">An operation to set the patient category.</pm:ConceptDescription>
+            </pm:Type>
+          </pm:Operation>
+
+          <pm:Operation xsi:type="pm:SetValueOperationDescriptor" Handle="0x34F04383.op" DescriptorVersion="2" SafetyClassification="MedA" OperationTarget="0x34F04383" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="0815-1">
+              <pm:ConceptDescription Lang="en-US">An operation to set a numeric value.</pm:ConceptDescription>
+            </pm:Type>
+          </pm:Operation>
+
         </pm:Sco>
         <pm:MetaData>
           <pm:Udi>
