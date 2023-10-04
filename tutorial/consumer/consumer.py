@@ -78,7 +78,7 @@ if __name__ == '__main__':
                 print("Got a match: {}".format(one_service))
                 # now create a new SDCClient (=Consumer) that can be used
                 # for all interactions with the communication partner
-                my_client = SdcConsumer.from_wsd_service(one_service, ssl_context=None)
+                my_client = SdcConsumer.from_wsd_service(one_service, ssl_context_container=None)
                 # start all services on the client to make sure we get updates
                 my_client.start_all()
                 # all data interactions happen through the MDIB (MedicalDeviceInformationBase)
