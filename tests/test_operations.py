@@ -612,53 +612,53 @@ class Test_BuiltinOperations(unittest.TestCase):
             operation_state = client_mdib.states.descriptor_handle.get_one(operation_handle)
             self.assertEqual(operation_state.OperatingMode, op_mode)
 
-            def test_set_string_value(self):
-                """Verify that metricprovider instantiated an operation for SetString call.
+    def test_set_string_value(self):
+        """Verify that metricprovider instantiated an operation for SetString call.
 
-                 OperationTarget of operation 0815 is an EnumStringMetricState.
-                 """
-                set_service = self.sdc_client.client('Set')
-                client_mdib = ConsumerMdib(self.sdc_client)
-                client_mdib.init_mdib()
-                coding = pm_types.Coding('0815')
-                my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
+         OperationTarget of operation 0815 is an EnumStringMetricState.
+         """
+        set_service = self.sdc_client.client('Set')
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+        coding = pm_types.Coding('0815')
+        my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
 
-                operation_handle = my_operation_descriptor.Handle
-                for value in ('ADULT', 'PEDIATRIC'):
-                    self._logger.info('string value = %s', value)
-                    future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
-                    result = future.result(timeout=SET_TIMEOUT)
-                    state = result.InvocationInfo.InvocationState
-                    self.assertEqual(state, msg_types.InvocationState.FINISHED)
-                    self.assertIsNone(result.InvocationInfo.InvocationError)
-                    self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
+        operation_handle = my_operation_descriptor.Handle
+        for value in ('ADULT', 'PEDIATRIC'):
+            self._logger.info('string value = %s', value)
+            future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
+            result = future.result(timeout=SET_TIMEOUT)
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            self.assertIsNone(result.InvocationInfo.InvocationError)
+            self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
-                    # verify that the corresponding state has been updated
-                    state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
-                    self.assertEqual(state.MetricValue.Value, value)
+            # verify that the corresponding state has been updated
+            state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
+            self.assertEqual(state.MetricValue.Value, value)
 
-            def test_set_metric_value(self):
-                """Verify that metricprovider instantiated an operation for SetNumericValue call.
+    def test_set_metric_value(self):
+        """Verify that metricprovider instantiated an operation for SetNumericValue call.
 
-                 OperationTarget of operation 0815-1 is a NumericMetricState.
-                 """
-                set_service = self.sdc_client.client('Set')
-                client_mdib = ConsumerMdib(self.sdc_client)
-                client_mdib.init_mdib()
-                coding = pm_types.Coding('0815-1')
-                my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
+         OperationTarget of operation 0815-1 is a NumericMetricState.
+         """
+        set_service = self.sdc_client.client('Set')
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+        coding = pm_types.Coding('0815-1')
+        my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
 
-                operation_handle = my_operation_descriptor.Handle
-                for value in (Decimal(1), Decimal(42)):
-                    self._logger.info('metric value = %s', value)
-                    future = set_service.set_numeric_value(operation_handle=operation_handle,
-                                                           requested_numeric_value=value)
-                    result = future.result(timeout=SET_TIMEOUT)
-                    state = result.InvocationInfo.InvocationState
-                    self.assertEqual(state, msg_types.InvocationState.FINISHED)
-                    self.assertIsNone(result.InvocationInfo.InvocationError)
-                    self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
+        operation_handle = my_operation_descriptor.Handle
+        for value in (Decimal(1), Decimal(42)):
+            self._logger.info('metric value = %s', value)
+            future = set_service.set_numeric_value(operation_handle=operation_handle,
+                                                   requested_numeric_value=value)
+            result = future.result(timeout=SET_TIMEOUT)
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            self.assertIsNone(result.InvocationInfo.InvocationError)
+            self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
-                    # verify that the corresponding state has been updated
-                    state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
-                    self.assertEqual(state.MetricValue.Value, value)
+            # verify that the corresponding state has been updated
+            state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
+            self.assertEqual(state.MetricValue.Value, value)
