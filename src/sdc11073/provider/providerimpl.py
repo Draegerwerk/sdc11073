@@ -31,17 +31,18 @@ from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 
 if TYPE_CHECKING:
     from enum import Enum
+
     from sdc11073.location import SdcLocation
     from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
     from sdc11073.pysoap.msgfactory import CreatedMessage
-    from sdc11073.roles.protocols import WaveformProviderProtocol, ProductProtocol
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
+    from sdc11073.roles.protocols import ProductProtocol, WaveformProviderProtocol
     from sdc11073.xml_types.msg_types import AbstractSet
     from sdc11073.xml_types.wsd_types import ScopesType
-    from .operations import OperationDefinitionBase
 
     from .components import SdcProviderComponents
+    from .operations import OperationDefinitionBase
 
 
 class _PathElementDispatcher(PathElementRegistry):
@@ -248,8 +249,8 @@ class SdcProvider:
             self._sco_operations_registries[sco_descr.Handle] = sco_operations_registry
 
             product_roles = self._components.role_provider_class(self._mdib,
-                                                                     sco_operations_registry,
-                                                                     self._log_prefix)
+                                                                 sco_operations_registry,
+                                                                 self._log_prefix)
             self.product_roles_lookup[sco_descr.Handle] = product_roles
             product_roles.init_operations()
         self.waveform_provider = self._components.waveform_provider_class(self._mdib,

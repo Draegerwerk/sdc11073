@@ -8,7 +8,7 @@ from sdc11073.pysoap.msgfactory import MessageFactory
 from sdc11073.pysoap.msgreader import MessageReader
 from sdc11073.pysoap.soapclient import SoapClient
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
-from sdc11073.roles.product import MinimalProduct
+from sdc11073.roles.product import DefaultProduct
 from sdc11073.roles.waveformprovider.waveformproviderimpl import GenericWaveformProvider
 
 from .operations import get_operation_class
@@ -95,7 +95,7 @@ default_sdc_provider_components_sync = SdcProviderComponents(
     sco_operations_registry_class=ScoOperationsRegistry,
     subscriptions_manager_class={'StateEvent': PathDispatchingSubscriptionsManager,
                                  'Set': PathDispatchingSubscriptionsManager},
-    role_provider_class=MinimalProduct,
+    role_provider_class=DefaultProduct,
     waveform_provider_class=GenericWaveformProvider,
     scopes_factory=mk_scopes,
     # this defines the structure of the services: keys are the names of the dpws hosts,
