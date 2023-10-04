@@ -35,7 +35,6 @@ if TYPE_CHECKING:
     from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
     from sdc11073.pysoap.msgfactory import CreatedMessage
-    # from sdc11073.roles.product import BaseProduct
     from sdc11073.roles.protocols import WaveformProviderProtocol, ProductProtocol
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
     from sdc11073.xml_types.msg_types import AbstractSet
