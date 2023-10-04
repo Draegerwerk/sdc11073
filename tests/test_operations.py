@@ -293,6 +293,11 @@ class Test_BuiltinOperations(unittest.TestCase):
         """Tests AudioPauseProvider
 
         """
+        # switch one alert system off
+        alert_system_off = 'Asy.3208'
+        with self.sdc_device.mdib.transaction_manager() as mgr:
+            state = mgr.get_state(alert_system_off)
+            state.ActivationState = pm_types.AlertActivation.OFF
         alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
         self.assertTrue(alert_system_descriptors is not None)
         self.assertGreater(len(alert_system_descriptors), 0)
@@ -314,7 +319,8 @@ class Test_BuiltinOperations(unittest.TestCase):
         for alert_system_descriptor in alert_system_descriptors:
             state = self.sdc_client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
             # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
-            self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
+            if alert_system_descriptor.Handle != alert_system_off:
+                self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
 
         coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
         operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
