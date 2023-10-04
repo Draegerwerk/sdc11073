@@ -64,7 +64,6 @@ class OperationDefinitionBase:
     on_timeout = properties.ObservableProperty(fire_only_on_changed_value=False)
     OP_DESCR_QNAME: QName | None = None  # to be defined in derived classes
     OP_STATE_QNAME: QName | None = None # to be defined in derived classes
-    OP_QNAME: QName | None = None # to be defined in derived classes
 
     def __init__(self,  # noqa: PLR0913
                  handle: str,
@@ -194,7 +193,6 @@ class SetStringOperation(OperationDefinitionBase):
 
     OP_DESCR_QNAME = pm.SetStringOperationDescriptor
     OP_STATE_QNAME = pm.SetStringOperationState
-    OP_QNAME = msg.SetString
 
 
 class SetValueOperation(OperationDefinitionBase):
@@ -202,7 +200,6 @@ class SetValueOperation(OperationDefinitionBase):
 
     OP_DESCR_QNAME = pm.SetValueOperationDescriptor
     OP_STATE_QNAME = pm.SetValueOperationState
-    OP_QNAME = msg.SetValue
 
 
 class SetContextStateOperation(OperationDefinitionBase):
@@ -210,7 +207,6 @@ class SetContextStateOperation(OperationDefinitionBase):
 
     OP_DESCR_QNAME = pm.SetContextStateOperationDescriptor
     OP_STATE_QNAME = pm.SetContextStateOperationState
-    OP_QNAME = msg.SetContextState
 
 
 class ActivateOperation(OperationDefinitionBase):
@@ -218,7 +214,6 @@ class ActivateOperation(OperationDefinitionBase):
 
     OP_DESCR_QNAME = pm.ActivateOperationDescriptor
     OP_STATE_QNAME = pm.ActivateOperationState
-    OP_QNAME = msg.Activate
 
 
 class SetAlertStateOperation(OperationDefinitionBase):
@@ -226,7 +221,6 @@ class SetAlertStateOperation(OperationDefinitionBase):
 
     OP_DESCR_QNAME = pm.SetAlertStateOperationDescriptor
     OP_STATE_QNAME = pm.SetAlertStateOperationState
-    OP_QNAME = msg.SetAlertState
 
 
 class SetComponentStateOperation(OperationDefinitionBase):
@@ -234,7 +228,6 @@ class SetComponentStateOperation(OperationDefinitionBase):
 
     OP_DESCR_QNAME = pm.SetComponentStateOperationDescriptor
     OP_STATE_QNAME = pm.SetComponentStateOperationState
-    OP_QNAME = msg.SetComponentState
 
 
 class SetMetricStateOperation(OperationDefinitionBase):
@@ -242,7 +235,6 @@ class SetMetricStateOperation(OperationDefinitionBase):
 
     OP_DESCR_QNAME = pm.SetMetricStateOperationDescriptor
     OP_STATE_QNAME = pm.SetMetricStateOperationState
-    OP_QNAME = msg.SetMetricState
 
 
 # mapping of states: xsi:type information to classes
