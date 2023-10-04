@@ -221,7 +221,7 @@ class MetricStateProtocol(AbstractStateProtocol):
     MetricValue: None | pm_types.NumericMetricValue | pm_types.StringMetricValue | pm_types.SampleArrayValue
 
     def mk_metric_value(self) -> pm_types.NumericMetricValue | pm_types.StringMetricValue | pm_types.SampleArrayValue:
-        pass
+        ...
 
 
 class NumericMetricStateContainer(AbstractMetricStateContainer):

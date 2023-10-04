@@ -320,7 +320,8 @@ class ConsumerMdibMethods:
         self._mdib.process_incoming_alert_states_report(received_message_data.mdib_version_group, report)
 
     def _on_operational_state_report(self, received_message_data: ReceivedMessage):
-        report = self._msg_reader.process_incoming_states_report(received_message_data)
+        cls = self._mdib.data_model.msg_types.EpisodicOperationalStateReport
+        report = cls.from_node(received_message_data.p_msg.msg_node)
         self._mdib.process_incoming_operational_states_report(received_message_data.mdib_version_group, report)
 
     def _on_waveform_report_profiled(self, received_message_data: ReceivedMessage):

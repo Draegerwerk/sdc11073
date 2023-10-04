@@ -170,17 +170,6 @@ class OperationDefinitionBase:
             state = mgr.get_state(self.handle)
             state.OperatingMode = mode
 
-    def collect_values(self, number_of_values: int | None = None) \
-            -> properties.ValuesCollector | properties.SingleValueCollector:
-        """Async way to retrieve next value(s).
-
-        Returns a Future-like object that has a result() method.
-        For details see properties.SingleValueCollector and propertiesValuesCollector documentation.
-        """
-        if number_of_values is None:
-            return properties.SingleValueCollector(self, 'current_value')
-        return properties.ValuesCollector(self, 'current_value', number_of_values)
-
     def __str__(self):
         code = None if self._descriptor_container is None else self._descriptor_container.Type
         return (f'{self.__class__.__name__} handle={self.handle} code={code} '
