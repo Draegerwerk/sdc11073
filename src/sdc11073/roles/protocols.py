@@ -93,18 +93,22 @@ class WaveformProviderProtocol(Protocol):
         ...
 
     def register_waveform_generator(self, descriptor_handle: str, wf_generator: WaveformGeneratorBase):
+        """Add waveform generator to waveform sources."""
         ...
 
     def add_annotation_generator(self,
                                  coded_value: Any,
                                  trigger_handle: str,
                                  annotated_handles: list[str]) -> AnnotatorProtocol:
+        """Add annotator to list of annotators."""
         ...
 
     def start(self):
+        """Start whatever needs to be started in implementation."""
         ...
 
     def stop(self):
+        """Stop whatever needs to be stopped in implementation."""
         ...
 
     def set_activation_state(self, descriptor_handle: str, component_activation_state: ComponentActivation):

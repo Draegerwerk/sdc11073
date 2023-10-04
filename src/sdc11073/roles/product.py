@@ -17,7 +17,8 @@ if TYPE_CHECKING:
     from sdc11073.mdib import ProviderMdib
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from .providerbase import OperationClassGetter, ProviderRole
+    from .providerbase import OperationClassGetter# , ProviderRole
+    from .protocols import ProviderRoleProtocol
 
 
 class BaseProduct:
@@ -35,11 +36,11 @@ class BaseProduct:
         self._sco = sco
         self._mdib = mdib
         self._model = mdib.data_model
-        self._ordered_providers: list[ProviderRole] = []  # order matters, first come, first serve
+        self._ordered_providers: list[ProviderRoleProtocol] = []  # order matters, first come, first serve
         # start with most specific providers, end with most general ones
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
-    def _all_providers_sorted(self) -> list[ProviderRole]:
+    def _all_providers_sorted(self) -> list[ProviderRoleProtocol]:
         return self._ordered_providers
 
     def init_operations(self):
