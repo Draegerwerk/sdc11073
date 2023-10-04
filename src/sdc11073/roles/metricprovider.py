@@ -148,7 +148,6 @@ class GenericMetricProvider(ProviderRole):
     def _set_string(self, params: ExecuteParameters) -> ExecuteResult:
         """Set a string value (ExecuteHandler)."""
         value = params.operation_request.argument
-        pm_types = self._mdib.data_model.pm_types
         self._logger.info('set value %s from %s to %s',
                           params.operation_instance.operation_target_handle,
                           params.operation_instance.current_value, value)
@@ -159,12 +158,5 @@ class GenericMetricProvider(ProviderRole):
             if state.MetricValue is None:
                 state.mk_metric_value()
             state.MetricValue.Value = value
-            # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
-            # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
-            metric_descriptor_container = self._mdib.descriptions.handle.get_one(
-                params.operation_instance.operation_target_handle)
-            if metric_descriptor_container.MetricCategory in (pm_types.MetricCategory.SETTING,
-                                                              pm_types.MetricCategory.PRESETTING):
-                state.MetricValue.Validity = pm_types.MeasurementValidity.VALID
         return ExecuteResult(params.operation_instance.operation_target_handle,
                              self._mdib.data_model.msg_types.InvocationState.FINISHED)
