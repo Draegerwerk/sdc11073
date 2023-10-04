@@ -10,10 +10,8 @@ from sdc11073 import observableproperties
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ConsumerMdib
-from sdc11073.mdib.providerwaveform import Annotator
 from sdc11073.roles.nomenclature import NomenclatureCodes
 from sdc11073.consumer import SdcConsumer
-from sdc11073.provider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import RequestDispatcher
@@ -33,27 +31,6 @@ SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequen
 NOTIFICATION_TIMEOUT = 5  # also jenkins related value
 
 
-def provide_realtime_data(sdc_device):
-    waveform_provider = sdc_device.mdib.xtra.waveform_provider
-    if waveform_provider is None:
-        return
-    paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
-    waveform_provider.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
-
-    flow = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=1.2, sampleperiod=0.01)
-    waveform_provider.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
-
-    co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveformperiod=1.0, sampleperiod=0.01)
-    waveform_provider.register_waveform_generator('0x34F05506',
-                                                  co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
-
-    # make SinusGenerator (0x34F05501) the annotator source
-    annotator = Annotator(annotation=pm_types.Annotation(pm_types.CodedValue('a', 'b')),
-                          trigger_handle='0x34F05501',
-                          annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506'])
-    waveform_provider.register_annotation_generator(annotator)
-
-
 class Test_BuiltinOperations(unittest.TestCase):
     """Test role providers (located in sdc11073.roles)."""
 
@@ -68,7 +45,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
-        # provide_realtime_data(self.sdc_device)
 
         time.sleep(0.5)  # allow init of devices to complete
 
