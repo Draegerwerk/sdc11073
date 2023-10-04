@@ -68,7 +68,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
-        provide_realtime_data(self.sdc_device)
+        # provide_realtime_data(self.sdc_device)
 
         time.sleep(0.5)  # allow init of devices to complete
 
@@ -597,3 +597,17 @@ class Test_BuiltinOperations(unittest.TestCase):
             self.assertEqual(state, msg_types.InvocationState.FINISHED)
             self.assertIsNone(result.InvocationInfo.InvocationError)
             self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
+
+    def test_set_operating_mode(self):
+        logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
+        logging.getLogger('ssdc.client.subscr').setLevel(logging.DEBUG)
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+
+        operation_handle = 'SVO.37.3569'
+        operation = self.sdc_device.get_operation_by_handle(operation_handle)
+        for op_mode in (pm_types.OperatingMode.NA, pm_types.OperatingMode.ENABLED):
+            operation.set_operating_mode(op_mode)
+            time.sleep(1)
+            operation_state = client_mdib.states.descriptor_handle.get_one(operation_handle)
+            self.assertEqual(operation_state.OperatingMode, op_mode)
