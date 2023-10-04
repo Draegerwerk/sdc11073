@@ -31,9 +31,10 @@ from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 
 if TYPE_CHECKING:
     from enum import Enum
-
     from sdc11073.location import SdcLocation
     from sdc11073.mdib.providermdib import ProviderMdib
+    from sdc11073.mdib.transactions import TransactionProcessor
+    from sdc11073.mdib.statecontainers import AbstractStateProtocol
     from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
     from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
@@ -43,7 +44,6 @@ if TYPE_CHECKING:
 
     from .components import SdcProviderComponents
     from .operations import OperationDefinitionBase
-
 
 class _PathElementDispatcher(PathElementRegistry):
     """Dispatch to one of the registered instances, based on path element.
@@ -266,7 +266,7 @@ class SdcProvider:
             return self.hosted_services.localization_service.localization_storage
         return None
 
-    def _on_get_metadata(self, request_data):
+    def _on_get_metadata(self, request_data: RequestData) -> CreatedMessage:
         self._logger.info('_on_get_metadata from %s', request_data.peer_name)
         metadata = mex_types.Metadata()
         section = mex_types.ThisModelMetadataSection()
@@ -299,7 +299,7 @@ class SdcProvider:
                     needed_namespaces.append(e)
         return self.msg_factory.mk_reply_soap_message(request_data, metadata, needed_namespaces)
 
-    def _on_probe_request(self, request):
+    def _on_probe_request(self, request: RequestData) -> CreatedMessage:
         _nsm = self._mdib.nsmapper
         probe_matches = ProbeMatchesType()
         probe_match = ProbeMatchType()
@@ -312,8 +312,9 @@ class SdcProvider:
         response.p_msg.header_info_block.To = WSA_ANONYMOUS
         return response
 
-    def set_location(self, location: SdcLocation,
-                     validators=None,
+    def set_location(self,
+                     location: SdcLocation,
+                     validators: list | None = None,
                      publish_now: bool = True):
         """:param location: an SdcLocation instance
         :param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
@@ -329,9 +330,7 @@ class SdcProvider:
             self.publish()
 
     def publish(self):
-        """Publish device on the network (sends HELLO message)
-        :return:
-        """
+        """Publish device on the network (sends HELLO message)."""
         scopes = self._components.scopes_factory(self._mdib)
         x_addrs = self.get_xaddrs()
         self._wsdiscovery.publish_service(self.epr_urn,
@@ -341,25 +340,27 @@ class SdcProvider:
 
     @property
     def mdib(self) -> ProviderMdib:
+        """Return mdib reference."""
         return self._mdib
 
     @property
-    def epr_urn(self):
-        # End Point Reference, e.g 'urn:uuid:8c26f673-fdbf-4380-b5ad-9e2454a65b6b'
+    def epr_urn(self) -> str:
+        """Return end point reference, e.g 'urn:uuid:8c26f673-fdbf-4380-b5ad-9e2454a65b6b'."""
         try:
             return self._epr.urn
         except AttributeError:
             return self._epr
 
     @property
-    def path_prefix(self):
-        # http path prefix of service e.g '8c26f673fdbf4380b5ad9e2454a65b6b'
+    def path_prefix(self) -> str:
+        """Return http path prefix of service e.g '8c26f673fdbf4380b5ad9e2454a65b6b'."""
         try:
             return self._epr.hex
         except AttributeError:
             return self._epr
 
-    def get_operation_by_handle(self, operation_handle):
+    def get_operation_by_handle(self, operation_handle: str) -> OperationDefinitionBase | None:
+        """Return OperationDefinitionBase for given handle or None if it does not exist."""
         for sco in self._sco_operations_registries.values():
             op = sco.get_operation_by_handle(operation_handle)
             if op is not None:
@@ -376,19 +377,13 @@ class SdcProvider:
             has_this_operation = sco.get_operation_by_handle(operation.handle) is not None
             if has_this_operation:
                 return sco.handle_operation_request(operation, request, operation_request, transaction_id)
-        self._logger.error('no sco has operation {}', operation.handle)
+        self._logger.error('no sco has operation %s', operation.handle)
         return self.mdib.data_model.msg_types.InvocationState.FAILED
 
-    def get_toplevel_sco_list(self) -> list:
-        pm_names = self._mdib.data_model.pm_names
-        mds_handles = [d.Handle for d in self._mdib.descriptions.NODETYPE.get(pm_names.MdsDescriptor, [])]
-        ret = []
-        for sco in self._sco_operations_registries.values():
-            if sco.sco_descriptor_container.parent_handle in mds_handles:
-                ret.append(sco)
-        return ret
-
-    def start_all(self, start_rtsample_loop=True, periodic_reports_interval=None, shared_http_server=None):
+    def start_all(self,
+                  start_rtsample_loop: bool =True,
+                  periodic_reports_interval: float | None = None,
+                  shared_http_server=None):
         """:param start_rtsample_loop: flag
         :param periodic_reports_interval: if provided, a value in seconds
         :param shared_http_server: if provided, use this http server, else device creates its own.
@@ -410,7 +405,7 @@ class SdcProvider:
 
     def _start_services(self, shared_http_server=None):
         """Start the services."""
-        self._logger.info('starting services, addr = {}', self._wsdiscovery.get_active_addresses())
+        self._logger.info('starting services, addr = %r', self._wsdiscovery.get_active_addresses())
         for sco in self._sco_operations_registries.values():
             sco.start_worker()
 
@@ -451,11 +446,11 @@ class SdcProvider:
                 SplitResult(self._urlschema, f'{addr}:{port}', self.path_prefix, query=None, fragment=None))
 
         for host_ip in host_ips:
-            self._logger.info('serving Services on {}:{}', host_ip, port)
+            self._logger.info('serving Services on %s:%d', host_ip, port)
         for subscriptions_manager in self._subscriptions_managers.values():
             subscriptions_manager.set_base_urls(self.base_urls)
 
-    def stop_all(self, send_subscription_end=True):
+    def stop_all(self, send_subscription_end: bool = True):
         self.stop_realtime_sample_loop()
         if self._periodic_reports_handler:
             self._periodic_reports_handler.stop()
@@ -466,7 +461,7 @@ class SdcProvider:
         try:
             self._wsdiscovery.clear_service(self.epr_urn)
         except KeyError:
-            self._logger.info('epr "{}" not known in self._wsdiscovery', self.epr_urn)
+            self._logger.info('epr "%s" not known in self._wsdiscovery', self.epr_urn)
         for role in self.product_roles_lookup.values():
             role.stop()
         if self._is_internal_http_server and self._http_server is not None:
@@ -482,7 +477,7 @@ class SdcProvider:
         if self.waveform_provider.is_running:
             self.waveform_provider.stop()
 
-    def get_xaddrs(self):
+    def get_xaddrs(self) -> list[str]:
         addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery
         port = self._http_server.my_port
         xaddrs = []
@@ -490,7 +485,7 @@ class SdcProvider:
             xaddrs.append(f'{self._urlschema}://{addr}:{port}/{self.path_prefix}')
         return xaddrs
 
-    def _send_episodic_reports(self, transaction_processor):
+    def _send_episodic_reports(self, transaction_processor: TransactionProcessor):
         mdib_version_group = self._mdib.mdib_version_group
         if transaction_processor.has_descriptor_updates:
             port_type_impl = self.hosted_services.description_event_service
@@ -541,11 +536,12 @@ class SdcProvider:
             port_type_impl = self.hosted_services.waveform_service
             port_type_impl.send_realtime_samples_report(states, mdib_version_group)
 
-    def _send_rt_notifications(self, rt_states):
+    def _send_rt_notifications(self, rt_states: list[AbstractStateProtocol]):
         if len(rt_states) > 0:
             port_type_impl = self.hosted_services.waveform_service
             port_type_impl.send_realtime_samples_report(rt_states, self._mdib.mdib_version_group)
 
-    def set_used_compression(self, *compression_methods):
+    def set_used_compression(self, *compression_methods: str):
+        """Set supported compression methods, e.g. 'gzip'."""
         del self._compression_methods[:]
         self._compression_methods.extend(compression_methods)

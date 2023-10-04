@@ -87,7 +87,7 @@ class MessageFactory:
                         header_info: HeaderInformationBlock,
                         payload: MessageType,
                         ns_list: Optional[list] = None,
-                        use_defaults=True):
+                        use_defaults=True) -> CreatedMessage:
         nsh = self.ns_hlp
         if use_defaults:
             ns_set = {nsh.S12, nsh.WSA, nsh.MSG, nsh.PM}  # default
@@ -104,7 +104,7 @@ class MessageFactory:
 
     def mk_soap_message_etree_payload(self,
                                       header_info: HeaderInformationBlock,
-                                      payload_element: xml_utils.LxmlElement | None = None):
+                                      payload_element: xml_utils.LxmlElement | None = None) -> CreatedMessage:
         nsh = self.ns_hlp
         my_ns_map = nsh.partial_map(nsh.S12, nsh.WSE, nsh.WSA)
         soap_envelope = Soap12Envelope(my_ns_map)
@@ -115,7 +115,7 @@ class MessageFactory:
     def mk_reply_soap_message(self,
                               request,
                               response_payload: MessageType,
-                              ns_map: Optional[list] = None):
+                              ns_map: Optional[list] = None) -> CreatedMessage:
         nsh = self.ns_hlp
         ns_set = {nsh.S12, nsh.WSA, nsh.MSG, nsh.PM}  # default
         ns_set.update(response_payload.additional_namespaces)
