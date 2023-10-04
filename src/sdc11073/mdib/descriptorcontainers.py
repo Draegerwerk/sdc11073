@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
 from sdc11073 import observableproperties as properties
 from sdc11073.xml_types import ext_qnames as ext
@@ -18,8 +18,8 @@ if TYPE_CHECKING:
     from decimal import Decimal
 
     from lxml import etree as etree_
-    from sdc11073 import xml_utils
 
+    from sdc11073 import xml_utils
     from sdc11073.namespaces import NamespaceHelper
     from sdc11073.xml_types.isoduration import DurationType
     from sdc11073.xml_types.xml_structure import ExtensionLocalValue
@@ -78,6 +78,7 @@ class AbstractDescriptorProtocol(Protocol):
     Type: pm_types.CodedValue | None
     source_mds: str
     parent_handle: str | None
+    coding: pm_types.Coding | None
 
     def __init__(self, handle: str, parent_handle: str | None):
         ...
@@ -523,6 +524,15 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
                                                                        implied_py_value=pm_types.AccessLevel.USER,
                                                                        enum_cls=pm_types.AccessLevel)
     _props = ('OperationTarget', 'MaxTimeToFinish', 'InvocationEffectiveTimeout', 'Retriggerable', 'AccessLevel')
+
+
+class AbstractOperationDescriptorProtocol(AbstractDescriptorProtocol):
+    """Protocol definition for AbstractOperationDescriptorContainer."""
+    OperationTarget: str
+    MaxTimeToFinish: DurationType | None
+    InvocationEffectiveTimeout: DurationType | None
+    Retriggerable: bool
+    AccessLevel: pm_types.AccessLevel
 
 
 class SetValueOperationDescriptorContainer(AbstractOperationDescriptorContainer):

@@ -31,13 +31,15 @@ from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 from .waveforms import WaveformSender
 
 if TYPE_CHECKING:
-    from ssl import SSLContext
-
+    from enum import Enum
     from sdc11073.location import SdcLocation
     from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.pysoap.msgfactory import CreatedMessage
+    from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
+    from sdc11073.xml_types.msg_types import AbstractSet
     from sdc11073.xml_types.wsd_types import ScopesType
     from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
+    from .operations import OperationDefinitionBase
 
     from .components import SdcProviderComponents
 
@@ -360,12 +362,18 @@ class SdcProvider:
                 return op
         return None
 
-    def enqueue_operation(self, operation, request, operation_request, transaction_id):
+    def handle_operation_request(self,
+                                 operation: OperationDefinitionBase,
+                                 request: ReceivedSoapMessage,
+                                 operation_request: AbstractSet,
+                                 transaction_id: int) -> Enum:
+        """Find the responsible sco and forward request to it."""
         for sco in self._sco_operations_registries.values():
             has_this_operation = sco.get_operation_by_handle(operation.handle) is not None
             if has_this_operation:
-                return sco.enqueue_operation(operation, request, operation_request, transaction_id)
-        return None
+                return sco.handle_operation_request(operation, request, operation_request, transaction_id)
+        self._logger.error('no sco has operation {}', operation.handle)
+        return self.mdib.data_model.msg_types.InvocationState.FAILED
 
     def get_toplevel_sco_list(self) -> list:
         pm_names = self._mdib.data_model.pm_names

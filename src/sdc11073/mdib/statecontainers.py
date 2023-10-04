@@ -217,6 +217,13 @@ class AbstractMetricStateContainer(AbstractStateContainer):
     _props = ('BodySite', 'PhysicalConnector', 'ActivationState', 'ActiveDeterminationPeriod', 'LifeTimePeriod')
 
 
+class MetricStateProtocol(AbstractStateProtocol):
+    MetricValue: None | pm_types.NumericMetricValue | pm_types.StringMetricValue | pm_types.SampleArrayValue
+
+    def mk_metric_value(self) -> pm_types.NumericMetricValue | pm_types.StringMetricValue | pm_types.SampleArrayValue:
+        ...
+
+
 class NumericMetricStateContainer(AbstractMetricStateContainer):
     """Represents NumericMetricState in BICEPS."""
 

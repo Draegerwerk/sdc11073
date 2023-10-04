@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
-from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_one_way_operation
-from .porttypebase import msg_prefix
-from ...namespaces import PrefixesEnum
+from sdc11073.namespaces import PrefixesEnum
+
+from .porttypebase import (
+    DPWSPortTypeBase,
+    WSDLMessageDescription,
+    WSDLOperationBinding,
+    mk_wsdl_one_way_operation,
+    msg_prefix,
+)
 
 if TYPE_CHECKING:
-    from ...mdib.statecontainers import AbstractStateContainer
-    from ..periodicreports import PeriodicStates
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
+    from sdc11073.mdib.statecontainers import AbstractStateContainer
+    from sdc11073.provider.periodicreports import PeriodicStates
 
 
 class StateEventService(DPWSPortTypeBase):
@@ -58,19 +65,18 @@ class StateEventService(DPWSPortTypeBase):
         mk_wsdl_one_way_operation(port_type, operation_name='PeriodicMetricReport')
         mk_wsdl_one_way_operation(port_type, operation_name='EpisodicMetricReport')
 
-    def send_episodic_metric_report(self, states: List[AbstractStateContainer],
-                                    mdib_version_group):
+    def send_episodic_metric_report(self, states: list[AbstractStateContainer],
+                                    mdib_version_group: MdibVersionGroup):
         data_model = self._sdc_definitions.data_model
         subscription_mgr = self.hosting_service.subscriptions_manager
         report = data_model.msg_types.EpisodicMetricReport()
         report.set_mdib_version_group(mdib_version_group)
         fill_episodic_report_body(report, states)
         self._logger.debug('sending episodic metric report {}', states)
-        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group,
-                                             'send_episodic_metric_report')
+        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group)
 
-    def send_periodic_metric_report(self, periodic_states_list: List[PeriodicStates],
-                                    mdib_version_group):
+    def send_periodic_metric_report(self, periodic_states_list: list[PeriodicStates],
+                                    mdib_version_group: MdibVersionGroup):
         data_model = self._sdc_definitions.data_model
         subscription_mgr = self.hosting_service.subscriptions_manager
         report = data_model.msg_types.PeriodicMetricReport()
@@ -78,22 +84,20 @@ class StateEventService(DPWSPortTypeBase):
         fill_periodic_report_body(report, periodic_states_list)
         self._logger.debug('sending periodic metric report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group,
-                                             'send_periodic_metric_report')
+        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group)
 
-    def send_episodic_alert_report(self, states: List[AbstractStateContainer],
-                                   mdib_version_group):
+    def send_episodic_alert_report(self, states: list[AbstractStateContainer],
+                                   mdib_version_group: MdibVersionGroup):
         data_model = self._sdc_definitions.data_model
         subscription_mgr = self.hosting_service.subscriptions_manager
         report = data_model.msg_types.EpisodicAlertReport()
         report.set_mdib_version_group(mdib_version_group)
         fill_episodic_report_body(report, states)
         self._logger.debug('sending episodic alert report {}', states)
-        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group,
-                                             'send_episodic_alert_report')
+        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group)
 
-    def send_periodic_alert_report(self, periodic_states_list: List[PeriodicStates],
-                                   mdib_version_group):
+    def send_periodic_alert_report(self, periodic_states_list: list[PeriodicStates],
+                                   mdib_version_group: MdibVersionGroup):
         data_model = self._sdc_definitions.data_model
         subscription_mgr = self.hosting_service.subscriptions_manager
         report = data_model.msg_types.PeriodicAlertReport()
@@ -101,22 +105,20 @@ class StateEventService(DPWSPortTypeBase):
         fill_periodic_report_body(report, periodic_states_list)
         self._logger.debug('sending periodic alert report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group,
-                                             'send_periodic_alert_report')
+        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group)
 
-    def send_episodic_operational_state_report(self, states: List[AbstractStateContainer],
-                                               mdib_version_group):
+    def send_episodic_operational_state_report(self, states: list[AbstractStateContainer],
+                                               mdib_version_group: MdibVersionGroup):
         data_model = self._sdc_definitions.data_model
         subscription_mgr = self.hosting_service.subscriptions_manager
         report = data_model.msg_types.EpisodicOperationalStateReport()
         report.set_mdib_version_group(mdib_version_group)
         fill_episodic_report_body(report, states)
         self._logger.debug('sending episodic operational state report {}', states)
-        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group,
-                                             'send_episodic_operational_state_report')
+        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group)
 
-    def send_periodic_operational_state_report(self, periodic_states_list: List[PeriodicStates],
-                                               mdib_version_group):
+    def send_periodic_operational_state_report(self, periodic_states_list: list[PeriodicStates],
+                                               mdib_version_group: MdibVersionGroup):
         data_model = self._sdc_definitions.data_model
         subscription_mgr = self.hosting_service.subscriptions_manager
         report = data_model.msg_types.PeriodicOperationalStateReport()
@@ -124,22 +126,20 @@ class StateEventService(DPWSPortTypeBase):
         fill_periodic_report_body(report, periodic_states_list)
         self._logger.debug('sending periodic operational state report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group,
-                                             'send_periodic_operational_state_report')
+        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group)
 
-    def send_episodic_component_state_report(self, states: List[AbstractStateContainer],
-                                             mdib_version_group):
+    def send_episodic_component_state_report(self, states: list[AbstractStateContainer],
+                                             mdib_version_group: MdibVersionGroup):
         data_model = self._sdc_definitions.data_model
         subscription_mgr = self.hosting_service.subscriptions_manager
         report = data_model.msg_types.EpisodicComponentReport()
         report.set_mdib_version_group(mdib_version_group)
         fill_episodic_report_body(report, states)
         self._logger.debug('sending episodic component report {}', states)
-        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group,
-                                             'send_episodic_component_state_report')
+        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group)
 
-    def send_periodic_component_state_report(self, periodic_states_list: List[PeriodicStates],
-                                             mdib_version_group):
+    def send_periodic_component_state_report(self, periodic_states_list: list[PeriodicStates],
+                                             mdib_version_group: MdibVersionGroup):
         data_model = self._sdc_definitions.data_model
         subscription_mgr = self.hosting_service.subscriptions_manager
         report = data_model.msg_types.PeriodicComponentReport()
@@ -147,12 +147,11 @@ class StateEventService(DPWSPortTypeBase):
         fill_periodic_report_body(report, periodic_states_list)
         self._logger.debug('sending periodic component report, contains last {} episodic updates',
                            len(periodic_states_list))
-        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group,
-                                             'send_periodic_component_state_report')
+        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group)
 
 
 def fill_episodic_report_body(report, states):
-    """Helper that splits states list into separate lists per source mds and adds them to report accordingly. """
+    """Helper that splits states list into separate lists per source mds and adds them to report accordingly."""
     lookup = _separate_states_by_source_mds(states)
     for source_mds_handle, states in lookup.items():
         report_part = report.add_report_part()

@@ -136,7 +136,7 @@ class _NotificationsSplitter:
             actions.EpisodicMetricReport: 'episodic_metric_report',
             actions.EpisodicAlertReport: 'episodic_alert_report',
             actions.EpisodicComponentReport: 'episodic_component_report',
-            actions.EpisodicOperationalStateReport: 'operational_state_report',
+            actions.EpisodicOperationalStateReport: 'episodic_operational_state_report',
             actions.EpisodicContextReport: 'episodic_context_report',
             actions.PeriodicMetricReport: 'periodic_metric_report',
             actions.PeriodicAlertReport: 'periodic_alert_report',

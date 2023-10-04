@@ -24,24 +24,30 @@ def ensure_log_stream():
 
 
 def reset_log_levels(root_logger_name='sdc'):
+    sub_logger_name = root_logger_name + '.'
     for name in logging.Logger.manager.loggerDict:
-        if name.startswith(root_logger_name):
+        if name.startswith(sub_logger_name) or name == root_logger_name:
             logging.getLogger(name).setLevel(logging.NOTSET)
 
 
 def reset_handlers(root_logger_name='sdc'):
+    sub_logger_name = root_logger_name + '.'
     for name in logging.Logger.manager.loggerDict:
-        if name.startswith(root_logger_name):
+        if name.startswith(sub_logger_name) or name == root_logger_name:
             logger = logging.getLogger(name)
             for handler in logger.handlers:
                 logger.removeHandler(handler)
 
 
 def basic_logging_setup(root_logger_name='sdc', level=logging.INFO, log_file_name=None):
-    logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=level)
     reset_log_levels(root_logger_name)
     reset_handlers(root_logger_name)
+    logger = logging.getLogger(root_logger_name)
+    logger.setLevel(level)
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
     if log_file_name:
         file_handler = logging_handlers.RotatingFileHandler(log_file_name,
                                                             maxBytes=5000000,

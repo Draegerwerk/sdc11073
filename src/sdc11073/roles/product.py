@@ -1,104 +1,50 @@
-from . import alarmprovider
-from . import clockprovider
-from . import contextprovider
-from . import metricprovider
-from . import operationprovider
-from . import patientcontextprovider
-from . import providerbase
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from sdc11073 import loghelper
+
+from .alarmprovider import GenericAlarmProvider
 from .audiopauseprovider import AudioPauseProvider
-from .. import loghelper
+from .clockprovider import GenericSDCClockProvider
+from .componentprovider import GenericSetComponentStateOperationProvider
+from .contextprovider import EnsembleContextProvider, LocationContextProvider
+from .metricprovider import GenericMetricProvider
+from .operationprovider import OperationProvider
+from .patientcontextprovider import GenericPatientContextProvider
 
+if TYPE_CHECKING:
+    from sdc11073.mdib import ProviderMdib
+    from sdc11073.provider.sco import AbstractScoOperationsRegistry
 
-class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
-    """
-    Responsible for SetComponentState Operations
-    """
-
-    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
-        """ Can handle following cases:
-        SetComponentStateOperationDescriptor, target = any AbstractComponentDescriptor: => handler = _set_component_state
-        """
-        pm_names = self._mdib.data_model.pm_names
-        operation_target_handle = operation_descriptor_container.OperationTarget
-        op_target_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
-
-        if operation_descriptor_container.NODETYPE == pm_names.SetComponentStateOperationDescriptor:
-            if op_target_descriptor_container.NODETYPE in (pm_names.MdsDescriptor,
-                                                           pm_names.ChannelDescriptor,
-                                                           pm_names.VmdDescriptor,
-                                                           pm_names.ClockDescriptor,
-                                                           pm_names.ScoDescriptor,
-                                                           ):
-                op_cls = operation_cls_getter(pm_names.SetComponentStateOperationDescriptor)
-                operation = self._mk_operation(op_cls,
-                                               handle=operation_descriptor_container.Handle,
-                                               operation_target_handle=operation_target_handle,
-                                               coded_value=operation_descriptor_container.Type,
-                                               current_argument_handler=self._set_component_state)
-                return operation
-        elif operation_descriptor_container.NODETYPE == pm_names.ActivateOperationDescriptor:
-            #  on what can activate be called?
-            if op_target_descriptor_container.NODETYPE in (pm_names.MdsDescriptor,
-                                                           pm_names.ChannelDescriptor,
-                                                           pm_names.VmdDescriptor,
-                                                           pm_names.ScoDescriptor,
-                                                           ):
-                # no generic handler to be called!
-                op_cls = operation_cls_getter(pm_names.ActivateOperationDescriptor)
-                return self._mk_operation(op_cls,
-                                          handle=operation_descriptor_container.Handle,
-                                          operation_target_handle=operation_target_handle,
-                                          coded_value=operation_descriptor_container.Type)
-        return None
-
-    def _set_component_state(self, operation_instance, value):
-        """
-
-        :param operation_instance: the operation
-        :param value: a list of proposed metric states
-        :return:
-        """
-        # ToDo: consider ModifiableDate attribute
-        operation_instance.current_value = value
-        with self._mdib.transaction_manager() as mgr:
-            for proposed_state in value:
-                state = mgr.get_state(proposed_state.DescriptorHandle)
-                if state.is_component_state:
-                    self._logger.info('updating {} with proposed component state', state)
-                    state.update_from_other_container(proposed_state,
-                                                      skipped_properties=['StateVersion', 'DescriptorVersion'])
-                else:
-                    self._logger.warn('_set_component_state operation: ignore invalid referenced type {} in operation',
-                                      state.NODETYPE)
+    from .providerbase import ProviderRole
 
 
 class BaseProduct:
-    """A Product is associated to a single sco. If a mdib contains multiple sco instances,
-    there will be multiple Products."""
+    """A Product is associated to a single sco.
 
-    def __init__(self, mdib, sco, log_prefix):
-        """
+    It provides the operation handlers for the operations in this sco.
+    If a mdib contains multiple sco instances, there must be multiple Products.
+    """
 
-        :param mdib: the device mdib
-        'param sco: sco of device
-        :param log_prefix: str
-        """
+    def __init__(self,
+                 mdib: ProviderMdib,
+                 sco: AbstractScoOperationsRegistry,
+                 log_prefix: str | None = None):
+        """Create a product."""
         self._sco = sco
         self._mdib = mdib
         self._model = mdib.data_model
-        self._ordered_providers = []  # order matters, each provider can hide operations of later ones
+        self._ordered_providers: list[
+            ProviderRole] = []  # order matters, each provider can hide operations of later ones
         # start with most specific providers, end with most general ones
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
-    def _all_providers_sorted(self):
+    def _all_providers_sorted(self) -> list[ProviderRole]:
         return self._ordered_providers
 
-    @staticmethod
-    def _without_none_values(some_list):
-        return [e for e in some_list if e is not None]
-
     def init_operations(self):
-        """ register all actively provided operations """
+        """Register all actively provided operations."""
         sco_handle = self._sco.sco_descriptor_container.Handle
         self._logger.info('init_operations for sco {}.', sco_handle)
 
@@ -137,13 +83,13 @@ class BaseProduct:
             role_handler.stop()
 
     def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
-        """ try to get an operation for this operation_descriptor_container ( given in mdib) """
+        """Try to get an operation for this operation_descriptor_container ( given in mdib)."""
         operation_target_handle = operation_descriptor_container.OperationTarget
         operation_target_descr = self._mdib.descriptions.handle.get_one(operation_target_handle,
                                                                         allow_none=True)  # descriptor container
         if operation_target_descr is None:
             # this operation is incomplete, the operation target does not exist. Registration not possible.
-            self._logger.warn(
+            self._logger.warning(
                 f'Operation {operation_descriptor_container.Handle}: '
                 f'target {operation_target_handle} does not exist, will not register operation')
             return None
@@ -184,26 +130,25 @@ class GenericProduct(BaseProduct):
 
         self._ordered_providers.extend([audio_pause_provider, day_night_provider, clock_provider])
         self._ordered_providers.extend(
-            [patientcontextprovider.GenericPatientContextProvider(mdib, log_prefix=log_prefix),
-             alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
-             metricprovider.GenericMetricProvider(mdib, log_prefix=log_prefix),
-             operationprovider.OperationProvider(mdib, log_prefix=log_prefix),
-             GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix)
+            [GenericPatientContextProvider(mdib, log_prefix=log_prefix),
+             GenericAlarmProvider(mdib, log_prefix=log_prefix),
+             GenericMetricProvider(mdib, log_prefix=log_prefix),
+             OperationProvider(mdib, log_prefix=log_prefix),
+             GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix),
              ])
 
 
 class MinimalProduct(BaseProduct):
     def __init__(self, mdib, sco, log_prefix=None):
         super().__init__(mdib, sco, log_prefix)
-        self.metric_provider = metricprovider.GenericMetricProvider(mdib, log_prefix=log_prefix)  # needed in a test
+        self.metric_provider = GenericMetricProvider(mdib, log_prefix=log_prefix)  # needed in a test
         self._ordered_providers.extend([AudioPauseProvider(mdib, log_prefix=log_prefix),
-                                        clockprovider.GenericSDCClockProvider(mdib, log_prefix=log_prefix),
-                                        patientcontextprovider.GenericPatientContextProvider(mdib,
-                                                                                             log_prefix=log_prefix),
-                                        alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
+                                        GenericSDCClockProvider(mdib, log_prefix=log_prefix),
+                                        GenericPatientContextProvider(mdib, log_prefix=log_prefix),
+                                        GenericAlarmProvider(mdib, log_prefix=log_prefix),
                                         self.metric_provider,
-                                        operationprovider.OperationProvider(mdib, log_prefix=log_prefix),
-                                        GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix)
+                                        OperationProvider(mdib, log_prefix=log_prefix),
+                                        GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix),
                                         ])
 
 
@@ -211,13 +156,12 @@ class ExtendedProduct(MinimalProduct):
     def __init__(self, mdib, sco, log_prefix=None):
         super().__init__(mdib, sco, log_prefix)
         self._ordered_providers.extend([AudioPauseProvider(mdib, log_prefix=log_prefix),
-                                        clockprovider.GenericSDCClockProvider(mdib, log_prefix=log_prefix),
-                                        contextprovider.EnsembleContextProvider(mdib, log_prefix=log_prefix),
-                                        contextprovider.LocationContextProvider(mdib, log_prefix=log_prefix),
-                                        patientcontextprovider.GenericPatientContextProvider(mdib,
-                                                                                             log_prefix=log_prefix),
-                                        alarmprovider.GenericAlarmProvider(mdib, log_prefix=log_prefix),
+                                        GenericSDCClockProvider(mdib, log_prefix=log_prefix),
+                                        EnsembleContextProvider(mdib, log_prefix=log_prefix),
+                                        LocationContextProvider(mdib, log_prefix=log_prefix),
+                                        GenericPatientContextProvider(mdib, log_prefix=log_prefix),
+                                        GenericAlarmProvider(mdib, log_prefix=log_prefix),
                                         self.metric_provider,
-                                        operationprovider.OperationProvider(mdib, log_prefix=log_prefix),
-                                        GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix)
+                                        OperationProvider(mdib, log_prefix=log_prefix),
+                                        GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix),
                                         ])
