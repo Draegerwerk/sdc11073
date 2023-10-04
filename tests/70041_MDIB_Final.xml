@@ -71,7 +71,7 @@
               </msg:Retrievability>
               <ece:InvocationPerformedFrom Location="SameLocation" ext:MustUnderstand="true"/>
             </ext:Extension>
-            <pm:Type Code="193820">
+            <pm:Type Code="128284">
               <pm:ConceptDescription Lang="en-US">An operation to initiate global all audio pause</pm:ConceptDescription>
             </pm:Type>
           </pm:Operation>
@@ -83,7 +83,7 @@
               </msg:Retrievability>
               <ece:InvocationPerformedFrom Location="SameLocation" ext:MustUnderstand="true"/>
             </ext:Extension>
-            <pm:Type Code="193821">
+            <pm:Type Code="128285">
               <pm:ConceptDescription Lang="en-US">An operation to cancel global all audio pause</pm:ConceptDescription>
             </pm:Type>
           </pm:Operation>
