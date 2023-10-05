@@ -1,7 +1,7 @@
 from . import xml_structure as struct
 from .basetypes import XMLTypeBase, MessageType, ElementWithTextList
 from .addressing_types import EndpointReferenceType
-from ..namespaces import default_ns_helper
+from sdc11073.namespaces import default_ns_helper
 from typing import Optional
 
 ########## Meta Data Exchange #########

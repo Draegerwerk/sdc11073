@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from http.server import HTTPServer
 
 from .httprequesthandler import DispatchingRequestHandler
-from ..dispatch import PathElementRegistry
-from ..loghelper import LoggerAdapter
+from sdc11073.dispatch import PathElementRegistry
+from sdc11073.loghelper import LoggerAdapter
 
 
 @dataclass(frozen=True)

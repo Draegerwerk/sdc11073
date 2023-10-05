@@ -1,7 +1,7 @@
 from urllib.parse import quote_plus
 
-from ..location import SdcLocation
-from ..xml_types.wsd_types import ScopesType
+from sdc11073.location import SdcLocation
+from sdc11073.xml_types.wsd_types import ScopesType
 
 
 def mk_scopes(mdib) -> ScopesType:

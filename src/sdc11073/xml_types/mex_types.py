@@ -3,7 +3,7 @@ from .dpws_types import HostServiceType, HostedServiceType
 from .dpws_types import ThisDeviceType, ThisModelType, DeviceMetadataDialectURI, DeviceRelationshipTypeURI
 from .msg_types import MessageType
 from .pm_types import PropertyBasedPMType
-from ..namespaces import default_ns_helper
+from sdc11073.namespaces import default_ns_helper
 
 ########## Meta Data Exchange #########
 wsx_tag = default_ns_helper.WSX.tag  # shortcut
