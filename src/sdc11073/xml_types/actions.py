@@ -1,5 +1,5 @@
 from enum import Enum
-from ..namespaces import default_ns_helper as ns_hlp
+from sdc11073.namespaces import default_ns_helper as ns_hlp
 
 _ActionsNamespace = ns_hlp.SDC.namespace
 

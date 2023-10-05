@@ -5,15 +5,15 @@ from typing import TYPE_CHECKING
 
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from .subscriptionmgr_base import ActionBasedSubscription, SubscriptionsManagerBase
-from .. import observableproperties
-from ..httpserver.compression import CompressionHandler
-from ..pysoap.soapclient import HTTPReturnCodeError
-from ..xml_types import eventing_types as evt_types
-from ..xml_types.dpws_types import DeviceEventingFilterDialectURI
+from sdc11073 import observableproperties
+from sdc11073.httpserver.compression import CompressionHandler
+from sdc11073.pysoap.soapclient import HTTPReturnCodeError
+from sdc11073.xml_types import eventing_types as evt_types
+from sdc11073.xml_types.dpws_types import DeviceEventingFilterDialectURI
 
 if TYPE_CHECKING:
     from lxml import etree as etree_
-    from ..dispatch import RequestData
+    from sdc11073.dispatch import RequestData
     from sdc11073 import xml_utils
 
 

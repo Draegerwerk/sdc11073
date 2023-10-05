@@ -4,8 +4,8 @@ from .addressing_types import EndpointReferenceType
 from .basetypes import XMLTypeBase, ElementWithText, MessageType
 from .dataconverters import DurationConverter
 from .dpws_types import DeviceEventingFilterDialectURI
-from ..namespaces import EventingActions
-from ..namespaces import default_ns_helper
+from sdc11073.namespaces import EventingActions
+from sdc11073.namespaces import default_ns_helper
 
 wse_tag = default_ns_helper.WSE.tag
 xml_tag = default_ns_helper.XML.tag
