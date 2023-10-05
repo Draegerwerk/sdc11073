@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING, List, Optional, Union
 from .porttypebase import DPWSPortTypeBase
 from .porttypebase import WSDLMessageDescription, WSDLOperationBinding
 from .porttypebase import mk_wsdl_two_way_operation, msg_prefix
-from ...dispatch import DispatchKey
-from ...namespaces import PrefixesEnum
+from sdc11073.dispatch import DispatchKey
+from sdc11073.namespaces import PrefixesEnum
 
 if TYPE_CHECKING:
-    from ...xml_types.pm_types import LocalizedText
+    from sdc11073.xml_types.pm_types import LocalizedText
 
 def _tw2i(text_width_string):
     """ text width to int"""
