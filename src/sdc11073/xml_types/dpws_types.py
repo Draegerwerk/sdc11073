@@ -5,7 +5,7 @@ from typing import Union, Optional
 
 from .addressing_types import EndpointReferenceType
 from . import xml_structure as cp
-from ..namespaces import default_ns_helper
+from sdc11073.namespaces import default_ns_helper
 from .basetypes import XMLTypeBase, ElementWithText
 
 

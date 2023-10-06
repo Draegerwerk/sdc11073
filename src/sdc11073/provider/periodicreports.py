@@ -4,7 +4,7 @@ from collections import namedtuple
 from functools import reduce
 
 from sdc11073 import intervaltimer
-from ..loghelper import get_logger_adapter
+from sdc11073.loghelper import get_logger_adapter
 
 PeriodicStates = namedtuple('PeriodicStates', 'mdib_version states')
 

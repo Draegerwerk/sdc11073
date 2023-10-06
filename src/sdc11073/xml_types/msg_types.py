@@ -10,16 +10,16 @@ from .actions import Actions
 from .basetypes import MessageType
 from .dataconverters import UnsignedIntConverter, DecimalConverter
 from .pm_types import PropertyBasedPMType, LocalizedText, InstanceIdentifier, LocalizedTextWidth, ContainmentTree
-from ..mdib.descriptorcontainers import AbstractDescriptorContainer, MdsDescriptorContainer, VmdDescriptorContainer
-from ..mdib.descriptorcontainers import ChannelDescriptorContainer, AbstractMetricDescriptorContainer
-from ..mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
-from ..mdib.statecontainers import AbstractAlertStateContainer, AbstractDeviceComponentStateContainer
-from ..mdib.statecontainers import AbstractMetricStateContainer
-from ..mdib.statecontainers import AbstractOperationStateContainer
-from ..mdib.statecontainers import AbstractStateContainer, AbstractContextStateContainer
-from ..mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
-from ..mdib.statecontainers import get_container_class as get_state_container_class
-from ..namespaces import default_ns_helper
+from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer, MdsDescriptorContainer, VmdDescriptorContainer
+from sdc11073.mdib.descriptorcontainers import ChannelDescriptorContainer, AbstractMetricDescriptorContainer
+from sdc11073.mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
+from sdc11073.mdib.statecontainers import AbstractAlertStateContainer, AbstractDeviceComponentStateContainer
+from sdc11073.mdib.statecontainers import AbstractMetricStateContainer
+from sdc11073.mdib.statecontainers import AbstractOperationStateContainer
+from sdc11073.mdib.statecontainers import AbstractStateContainer, AbstractContextStateContainer
+from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
+from sdc11073.mdib.statecontainers import get_container_class as get_state_container_class
+from sdc11073.namespaces import default_ns_helper
 
 
 # pylint: disable=invalid-name

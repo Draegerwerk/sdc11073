@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from .request import RequestData
-from .. import commlog
-from ..exceptions import HTTPRequestHandlingError
-from ..pysoap.soapenvelope import Fault, faultcodeEnum
-from ..xml_types.addressing_types import HeaderInformationBlock
+from sdc11073 import commlog
+from sdc11073.exceptions import HTTPRequestHandlingError
+from sdc11073.pysoap.soapenvelope import Fault, faultcodeEnum
+from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 
 if TYPE_CHECKING:
     from .dispatchkey import RequestHandlerProtocol

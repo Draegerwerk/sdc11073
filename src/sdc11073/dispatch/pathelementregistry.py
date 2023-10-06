@@ -1,7 +1,7 @@
 from typing import Union, Any
-from ..pysoap.soapenvelope import Fault, faultcodeEnum
-from ..exceptions import ApiUsageError
-from ..exceptions import InvalidPathError
+from sdc11073.pysoap.soapenvelope import Fault, faultcodeEnum
+from sdc11073.exceptions import ApiUsageError
+from sdc11073.exceptions import InvalidPathError
 
 class PathElementRegistry:
     """ A string - object lookup"""

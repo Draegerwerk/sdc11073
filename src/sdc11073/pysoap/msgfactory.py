@@ -7,13 +7,13 @@ from lxml import etree as etree_
 
 from .msgreader import validate_node
 from .soapenvelope import Soap12Envelope
-from ..schema_resolver import mk_schema_validator
+from sdc11073.schema_resolver import mk_schema_validator
 
 if TYPE_CHECKING:
-    from ..xml_types.addressing_types import HeaderInformationBlock
-    from ..xml_types.msg_types import MessageType
-    from ..definitions_base import BaseDefinitions
-    from ..namespaces import PrefixNamespace
+    from sdc11073.xml_types.addressing_types import HeaderInformationBlock
+    from sdc11073.xml_types.msg_types import MessageType
+    from sdc11073.definitions_base import BaseDefinitions
+    from sdc11073.namespaces import PrefixNamespace
     from sdc11073 import xml_utils
 
 
