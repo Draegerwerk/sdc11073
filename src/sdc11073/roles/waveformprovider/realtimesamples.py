@@ -37,21 +37,24 @@ class RtSampleArray:
         self.apply_annotations = []
 
     def _nearest_index(self, timestamp: float) -> int | None:
-        # first check if timestamp is outside the range of this sample array. Accept 0.5*sample period as tolerance.
+        """Find the realtime sample that's determination time is nearest to given timestamp."""
         if self.determination_time is None:  # when deactivated, determinationTime is None
             return None
-        if timestamp < (self.determination_time - self.sample_period * 0.5):
-            return None
-        if timestamp >= self.determination_time + len(self.samples) * self.sample_period + self.sample_period * 0.5:
-            return None
+        # check if timestamp is too old. Accept 0.5*sample period as tolerance.
+        # self.determination_time is the timestamp of the first element in the array
+        delta = self.sample_period * 0.5
+        if timestamp < (self.determination_time - delta):
+            return None  # timestamp too small (== to old)
+        youngest_determination_time = self.determination_time + len(self.samples) * self.sample_period
+        # check if timestamp is too young. Accept 0.5*sample period as tolerance.
+        if timestamp >= youngest_determination_time + delta:
+            return None  # timestamp too big (== to young)
+        # calculate the position
         pos = (timestamp - self.determination_time) / self.sample_period
-        return int(pos) + 1 if pos % 1 >= 0.5 else int(pos)
+        return int(pos) + 1 if pos % 1 >= 0.5 else int(pos)  # return the nearest element
 
     def add_annotations_at(self, annotation: Annotation, timestamps: Iterable[float]):
-        """Add annotation at the waveform samples nearest to timestamps.
-
-        :param timestamps: a list of time stamps (time.time based)
-        """
+        """Add annotation at the waveform samples nearest to timestamps."""
         applied = False
         annotation_index = len(self.annotations)  # Index is zero-based
         for timestamp in timestamps:
@@ -76,10 +79,8 @@ class AnnotatorProtocol(Protocol):
     def get_annotation_timestamps(self, rt_sample_array: RtSampleArray) -> list[float]:
         """Analyze the rt_sample_array and return timestamps for annotations.
 
-        :param rt_sample_array: the RtSampleArray that is checked
-        :return: list of timestamps, can be empty.
+        Return a list of timestamps, can be empty.
         """
-
 
 class Annotator:
     """Annotator is a sample of how to apply annotations.
@@ -90,7 +91,7 @@ class Annotator:
     def __init__(self, annotation: Annotation, trigger_handle: str, annotated_handles: list[str]):
         """Construct an annotator.
 
-        :param annotation:: Annotation
+        :param annotation: Annotation
         :param trigger_handle: the handle of the state that triggers an annotation
         :param annotated_handles: list of handles that get annotated
         """
@@ -100,11 +101,7 @@ class Annotator:
         self._last_value = 0.0
 
     def get_annotation_timestamps(self, rt_sample_array: RtSampleArray) -> list[float]:
-        """Analyze the rt_sample_array and return timestamps for annotations..
-
-        :param rt_sample_array:
-        :return:
-        """
+        """Analyze the rt_sample_array and return timestamps for annotations."""
         ret = []
         for i, rt_sample in enumerate(rt_sample_array.samples):
             if self._last_value <= 0 and rt_sample > 0:

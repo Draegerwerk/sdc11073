@@ -12,7 +12,6 @@ from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.roles.nomenclature import NomenclatureCodes
 from sdc11073.consumer import SdcConsumer
-from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import RequestDispatcher
@@ -443,7 +442,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.sdc_device.mdib.descriptions.add_object(my_operation_descriptor)
         sco_handle = 'Sco.mds0'
         sco = self.sdc_device._sco_operations_registries[sco_handle]
-        role_provider = self.sdc_device.product_roles_lookup[sco_handle]
+        role_provider = self.sdc_device.product_lookup[sco_handle]
 
         op = role_provider.metric_provider.make_operation_instance(
             my_operation_descriptor, sco.operation_cls_getter)
@@ -485,7 +484,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.sdc_device.mdib.descriptions.add_object(my_operation_descriptor)
         sco_handle = 'Sco.mds0'
         sco = self.sdc_device._sco_operations_registries[sco_handle]
-        role_provider = self.sdc_device.product_roles_lookup[sco_handle]
+        role_provider = self.sdc_device.product_lookup[sco_handle]
         op = role_provider.make_operation_instance(my_operation_descriptor, sco.operation_cls_getter)
         sco.register_operation(op)
         self.sdc_device.mdib.xtra.mk_state_containers_for_all_descriptors()

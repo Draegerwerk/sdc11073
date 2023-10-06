@@ -57,7 +57,7 @@ class SdcProviderComponents:
     sco_operations_registry_class: type[AbstractScoOperationsRegistry] = None
     subscriptions_manager_class: dict[str, type[SubscriptionManagerProtocol]] = None
     role_provider_class: type = None
-    waveform_provider_class: type = None
+    waveform_provider_class: type | None = None
     scopes_factory: Callable[[ProviderMdib], ScopesType] = None
     hosted_services: dict = None
 

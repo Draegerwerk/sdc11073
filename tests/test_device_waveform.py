@@ -30,7 +30,7 @@ class TestDeviceWaveform(unittest.TestCase):
             desc.TechnicalRange.append(pm_types.Range(Decimal(0), Decimal(10)))
             desc.MetricAvailability = pm_types.MetricAvailability.CONTINUOUS
             desc.MetricCategory = pm_types.MetricCategory.MEASUREMENT
-            desc.Resolution = Decimal(0.01)
+            desc.Resolution = Decimal("0.01")
             self.mdib.descriptions.add_object(desc)
         self.mdib.xtra.mk_state_containers_for_all_descriptors()
 

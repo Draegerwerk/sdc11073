@@ -31,14 +31,12 @@ class ProviderRoleProtocol(Protocol):
 
     def stop(self):
         """Stop worker threads etc."""
-        ...
 
     def init_operations(self, sco: AbstractScoOperationsRegistry):
         """Init instance.
 
         Method is called on start.
         """
-        ...
 
     def make_operation_instance(self,
                                 operation_descriptor_container: AbstractOperationDescriptorProtocol,
@@ -48,18 +46,15 @@ class ProviderRoleProtocol(Protocol):
         If a mdib already has operations defined, this method can connect a handler to a given operation descriptor.
         Use case: initialization from an existing mdib
         """
-        ...
 
     def make_missing_operations(self, sco: AbstractScoOperationsRegistry) -> list[OperationDefinitionBase]:
         """Make_missing_operations is called after all existing operations from mdib have been registered.
 
         If a role provider needs to add operations beyond that, it can do it here.
         """
-        ...
 
     def on_pre_commit(self, mdib: ProviderMdib, transaction: TransactionManagerProtocol):
         """Manipulate operation (e.g. add more states)."""
-        ...
 
     def on_post_commit(self, mdib: ProviderMdib, transaction: TransactionManagerProtocol):
         """Implement actions after the transaction."""

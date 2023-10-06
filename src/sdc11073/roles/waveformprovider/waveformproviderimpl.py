@@ -61,8 +61,7 @@ class _SampleArrayGenerator:
     def get_next_sample_array(self) -> RtSampleArray:
         """Read sample values from waveform generator and calculate determination time.
 
-        If activation state is not 'On', no samples are returned.
-        @return: RtSampleArray instance.
+        If activation state is not 'On', the returned RtSampleArray contains no samples.
         """
         if self._activation_state != self._model.pm_types.ComponentActivation.ON:
             self.current_rt_sample_array = RtSampleArray(
@@ -93,10 +92,10 @@ class GenericWaveformProvider:
 
     DEFAULT_WORKER_THREAD_INTERVAL = 0.1  # seconds
 
-    WARN_LIMIT_REALTIMESAMPLES_BEHIND_SCHEDULE = 0.2  # warn limit when real time samples cannot be sent in time (typically because receiver is too slow)
+    WARN_LIMIT_REALTIMESAMPLES_BEHIND_SCHEDULE = 0.2  # warn limit when real time samples cannot be sent in time
     WARN_RATE_REALTIMESAMPLES_BEHIND_SCHEDULE = 5  # max. every x seconds a message
 
-    def __init__(self, mdib: ProviderMdib, log_prefix: str):
+    def __init__(self, mdib: ProviderMdib, log_prefix: str = ''):
         self._mdib = mdib
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
@@ -218,10 +217,6 @@ class GenericWaveformProvider:
         return [waveform.Handle for waveform in all_waveforms]
 
     def _worker_thread_loop(self):
-        # delay start of operation
-        shall_stop = self._stop_worker.wait(timeout=self.notifications_interval)
-        if shall_stop:
-            return
         timer = IntervalTimer(period_in_seconds=self.notifications_interval)
         try:
             while True:
@@ -242,9 +237,9 @@ class GenericWaveformProvider:
 
     def _update_rt_samples(self, state: RealTimeSampleArrayMetricStateContainer):
         """Update waveforms state from waveform generator (if available)."""
-        ctxt = Context(prec=10)
         wf_generator = self._waveform_generators.get(state.DescriptorHandle)
         if wf_generator:
+            ctxt = Context(prec=10)
             rt_sample_array = wf_generator.get_next_sample_array()
             samples = [ctxt.create_decimal(s) for s in rt_sample_array.samples]
             if state.MetricValue is None:

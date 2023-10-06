@@ -95,7 +95,8 @@ class ProviderMdib(mdibbase.MdibBase):
                 self.current_transaction = None
 
     @contextmanager
-    def rt_sample_transaction(self):
+    def rt_sample_transaction(self) -> AbstractContextManager[RtDataMdibUpdateTransaction]:
+        """Start a transaction only for realtime samples, for performance reasons."""
         with self._tr_lock, self.mdib_lock:
             try:
                 self.current_transaction = RtDataMdibUpdateTransaction(self, self._logger)

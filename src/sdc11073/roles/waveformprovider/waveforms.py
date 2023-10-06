@@ -2,7 +2,7 @@ import itertools
 import math
 from typing import Callable
 
-curve_generator = Callable[[float, float, int], list[float]]
+CurveGenerator = Callable[[float, float, int], list[float]]
 
 
 def sinus(min_value: float, max_value: float, samples: int) -> list[float]:
@@ -31,14 +31,16 @@ class WaveformGeneratorBase:
     """Generator of infinite curve, data is provided by a curve generator."""
 
     def __init__(self,
-                 values_generator: curve_generator,
+                 values_generator: CurveGenerator,
                  min_value: float,
                  max_value: float,
                  waveform_period: float,
                  sample_period: float):
         if sample_period >= waveform_period:
             raise ValueError(
-                f'please choose a waveformperiod >> sampleperiod. currently use have wp={waveform_period}, sp={sample_period}')
+                f'Choose a waveformperiod > sampleperiod. currently have wp={waveform_period}, sp={sample_period}')
+        if sample_period <= 0 or waveform_period <= 0:
+            raise ValueError('no values <= 0 allowed for sample_period and waveform_period')
         self.sample_period = sample_period
         samples = int(waveform_period / sample_period)
         self._values = values_generator(min_value, max_value, samples)
