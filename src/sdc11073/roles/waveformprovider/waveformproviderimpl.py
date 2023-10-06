@@ -196,6 +196,7 @@ class GenericWaveformProvider:
         for waveform in all_waveforms:
             min_value = 0
             max_value = 1
+            sample_period = waveform.SamplePeriod if waveform.SamplePeriod > 0 else 0.01  # guarantee usable value
             try:
                 tech_range = waveform.TechnicalRange[0]
             except IndexError:
@@ -212,7 +213,7 @@ class GenericWaveformProvider:
             generator = generator_class(min_value=min_value,
                                         max_value=max_value,
                                         waveform_period=2.0,
-                                        sample_period=waveform.SamplePeriod)
+                                        sample_period=sample_period)
             self.register_waveform_generator(waveform.Handle, generator)
         return [waveform.Handle for waveform in all_waveforms]
 

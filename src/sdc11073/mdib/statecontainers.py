@@ -697,7 +697,7 @@ classes_with_nodetype = [c[1] for c in classes if hasattr(c[1], 'NODETYPE') and 
 _state_lookup_by_type = {c.NODETYPE: c for c in classes_with_nodetype}
 
 
-def get_container_class(type_qname: QName) -> AbstractStateProtocol:
+def get_container_class(type_qname: QName) -> type[AbstractStateProtocol]:
     """Return class for given type.
 
     :param type_qname: the QName of the expected NODETYPE.

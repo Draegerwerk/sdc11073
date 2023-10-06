@@ -36,7 +36,7 @@ class Subscribe(MessageType):
     Delivery = cp.SubElementProperty(wse_tag('Delivery'),
                                      value_class=DeliveryType,
                                      default_py_value=DeliveryType())
-    Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
+    Expires = cp.NodeDurationProperty(wse_tag('Expires'))
     Filter = cp.SubElementProperty(wse_tag('Filter'),
                                    value_class=FilterType,
                                    is_optional=True)
@@ -58,7 +58,7 @@ class SubscribeResponse(MessageType):
     SubscriptionManager = cp.SubElementProperty(wse_tag('SubscriptionManager'),
                                                 value_class=EndpointReferenceType,
                                                 default_py_value=EndpointReferenceType())
-    Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
+    Expires = cp.NodeDurationProperty(wse_tag('Expires'))
     _props = ('SubscriptionManager', 'Expires')
     additional_namespaces = (default_ns_helper.WSE,)
 
@@ -106,7 +106,7 @@ class SubscriptionEnd(MessageType):
 class Renew(MessageType):
     NODETYPE = wse_tag('Renew')
     action = EventingActions.Renew
-    Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
+    Expires = cp.NodeDurationProperty(wse_tag('Expires'))
     _props = ('Expires',)
     additional_namespaces = (default_ns_helper.WSE,)
 
@@ -114,7 +114,7 @@ class Renew(MessageType):
 class RenewResponse(MessageType):
     NODETYPE = wse_tag('RenewResponse')
     action = EventingActions.RenewResponse
-    Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
+    Expires = cp.NodeDurationProperty(wse_tag('Expires'))
     _props = ('Expires',)
     additional_namespaces = (default_ns_helper.WSE,)
 
@@ -128,6 +128,6 @@ class GetStatus(MessageType):
 class GetStatusResponse(MessageType):
     NODETYPE = wse_tag('GetStatusResponse')
     action = EventingActions.GetStatusResponse
-    Expires = cp.NodeTextProperty(wse_tag('Expires'), value_converter=DurationConverter)
+    Expires = cp.NodeDurationProperty(wse_tag('Expires'))
     _props = ('Expires',)
     additional_namespaces = (default_ns_helper.WSE,)

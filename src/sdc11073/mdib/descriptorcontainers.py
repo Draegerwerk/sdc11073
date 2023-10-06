@@ -510,10 +510,6 @@ class DistributionSampleArrayMetricDescriptorContainer(AbstractMetricDescriptorC
                              pm_qnames.DomainUnit,
                              pm_qnames.DistributionRange)
 
-class AbstractOperationDescriptorProtocol(AbstractDescriptorProtocol):
-    OperationTarget: str
-    MaxTimeToFinish: DurationType | None
-
 
 class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
     """Represents AbstractOperationDescriptor in BICEPS."""
@@ -532,6 +528,7 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
 
 class AbstractOperationDescriptorProtocol(AbstractDescriptorProtocol):
     """Protocol definition for AbstractOperationDescriptorContainer."""
+
     OperationTarget: str
     MaxTimeToFinish: DurationType | None
     InvocationEffectiveTimeout: DurationType | None
