@@ -8,7 +8,8 @@ from sdc11073.pysoap.msgfactory import MessageFactory
 from sdc11073.pysoap.msgreader import MessageReader
 from sdc11073.pysoap.soapclient import SoapClient
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
-from sdc11073.roles.product import MinimalProduct
+from sdc11073.roles.product import DefaultProduct
+from sdc11073.roles.waveformprovider.waveformproviderimpl import GenericWaveformProvider
 
 from .operations import get_operation_class
 from .porttypes.containmenttreeserviceimpl import ContainmentTreeService
@@ -56,6 +57,7 @@ class SdcProviderComponents:
     sco_operations_registry_class: type[AbstractScoOperationsRegistry] = None
     subscriptions_manager_class: dict[str, type[SubscriptionManagerProtocol]] = None
     role_provider_class: type = None
+    waveform_provider_class: type | None = None
     scopes_factory: Callable[[ProviderMdib], ScopesType] = None
     hosted_services: dict = None
 
@@ -73,6 +75,7 @@ class SdcProviderComponents:
         _merge('operation_cls_getter')
         _merge('sco_operations_registry_class')
         _merge('role_provider_class')
+        _merge('waveform_provider_class')
         _merge('scopes_factory')
         if other.hosted_services is not None:
             self.hosted_services = other.hosted_services
@@ -92,7 +95,8 @@ default_sdc_provider_components_sync = SdcProviderComponents(
     sco_operations_registry_class=ScoOperationsRegistry,
     subscriptions_manager_class={'StateEvent': PathDispatchingSubscriptionsManager,
                                  'Set': PathDispatchingSubscriptionsManager},
-    role_provider_class=MinimalProduct,
+    role_provider_class=DefaultProduct,
+    waveform_provider_class=GenericWaveformProvider,
     scopes_factory=mk_scopes,
     # this defines the structure of the services: keys are the names of the dpws hosts,
     # value is a list of port type implementation classes

@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any, Callable, Protocol
 from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
 from sdc11073.exceptions import ApiUsageError
-from sdc11073.xml_types import msg_qnames as msg
 from sdc11073.xml_types import pm_qnames as pm
 
 if TYPE_CHECKING:

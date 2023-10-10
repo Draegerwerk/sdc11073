@@ -95,7 +95,8 @@ class ProviderMdib(mdibbase.MdibBase):
                 self.current_transaction = None
 
     @contextmanager
-    def _rt_sample_transaction(self):
+    def rt_sample_transaction(self) -> AbstractContextManager[RtDataMdibUpdateTransaction]:
+        """Start a transaction only for realtime samples, for performance reasons."""
         with self._tr_lock, self.mdib_lock:
             try:
                 self.current_transaction = RtDataMdibUpdateTransaction(self, self._logger)
@@ -103,7 +104,7 @@ class ProviderMdib(mdibbase.MdibBase):
                 if callable(self.pre_commit_handler):
                     self.pre_commit_handler(self, self.current_transaction)
                 if self.current_transaction.error:
-                    self._logger.info('_rt_sample_transaction: transaction without updates!')
+                    self._logger.info('rt_sample_transaction: transaction without updates!')
                 else:
                     self._process_internal_rt_transaction()
                     if callable(self.post_commit_handler):

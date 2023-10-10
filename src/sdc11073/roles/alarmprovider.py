@@ -396,7 +396,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                     self._update_alert_system_states(self._mdib, mgr, tr_states)
             except Exception:
                 exc = traceback.format_exc()
-                self._logger.error('_checkAlertStates: %r', exc)
+                self._logger.error('_checkAlertStates: %s', exc)
 
     def _get_alert_system_states_needing_update(self) -> list[AbstractStateProtocol]:
         """:return: all AlertSystemStateContainers of those last"""

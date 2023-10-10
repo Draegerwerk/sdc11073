@@ -628,7 +628,7 @@ class SetContextState(AbstractSet):
 class SetValue(AbstractSet):
     NODETYPE = msg.SetValue
     action = Actions.SetValue
-    RequestedNumericValue = cp.NodeTextProperty(msg.RequestedNumericValue, value_converter=DecimalConverter)
+    RequestedNumericValue = cp.NodeDecimalProperty(msg.RequestedNumericValue)
     _props = ('RequestedNumericValue',)
 
     @property

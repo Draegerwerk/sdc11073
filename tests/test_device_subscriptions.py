@@ -9,7 +9,8 @@ from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ProviderMdib
 from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
-from sdc11073.provider import waveforms, SdcProvider
+from sdc11073.provider import SdcProvider
+from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.provider.components import default_sdc_provider_components_sync
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
@@ -76,11 +77,11 @@ class TestDeviceSubscriptions(unittest.TestCase):
         mgr = self.sdc_device.hosted_services.state_event_service.hosting_service.subscriptions_manager
         mgr._subscriptions.add_object(test_subscription)
 
-        waveform_provider = self.sdc_device.mdib.xtra.waveform_provider
+        waveform_provider = self.sdc_device.waveform_provider
 
-        tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.01)
-        st = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=2.0, sampleperiod=0.01)
-        si = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=5.0, sampleperiod=0.01)
+        tr = waveforms.TriangleGenerator(min_value=0, max_value=10, waveform_period=2.0, sample_period=0.01)
+        st = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=2.0, sample_period=0.01)
+        si = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveform_period=5.0, sample_period=0.01)
 
         waveform_provider.register_waveform_generator(HANDLES[0], tr)
         waveform_provider.register_waveform_generator(HANDLES[1], st)

@@ -528,6 +528,7 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
 
 class AbstractOperationDescriptorProtocol(AbstractDescriptorProtocol):
     """Protocol definition for AbstractOperationDescriptorContainer."""
+
     OperationTarget: str
     MaxTimeToFinish: DurationType | None
     InvocationEffectiveTimeout: DurationType | None
