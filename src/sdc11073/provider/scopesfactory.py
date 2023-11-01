@@ -1,7 +1,7 @@
 from urllib.parse import quote_plus
 
-from ..location import SdcLocation
-from ..xml_types.wsd_types import ScopesType
+from sdc11073.location import SdcLocation
+from sdc11073.xml_types.wsd_types import ScopesType
 
 
 def mk_scopes(mdib) -> ScopesType:
@@ -14,7 +14,7 @@ def mk_scopes(mdib) -> ScopesType:
     pm_names = mdib.data_model.pm_names
     scope = ScopesType()
     locations = mdib.context_states.NODETYPE.get(pm_names.LocationContextState, [])
-    assoc_loc = [l for l in locations if l.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
+    assoc_loc = [loc for loc in locations if loc.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
     if len(assoc_loc) == 1:
         loc = assoc_loc[0]
         det = loc.LocationDetail

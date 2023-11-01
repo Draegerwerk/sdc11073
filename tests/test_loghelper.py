@@ -5,7 +5,7 @@ from sdc11073 import loghelper
 
 
 def _run_test_cm(logger, level):
-    with loghelper.LogWatcher(logger, level) as w:
+    with loghelper.LogWatcher(logger, level):
         logger.debug('123')
         logger.info('234')
         logger.warning('345')
@@ -17,10 +17,10 @@ class TestLogWatcher(unittest.TestCase):
         logger = logging.getLogger('TestLogWatcher_CM')
         logger.setLevel(logging.DEBUG)
         _run_test_cm(logger, logging.ERROR)  # no exception
-        self.assertRaises(loghelper.LogWatchException, _run_test_cm, logger, logging.WARN)
+        self.assertRaises(loghelper.LogWatchError, _run_test_cm, logger, logging.WARN)
         try:
             _run_test_cm(logger, logging.INFO)
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             self.assertEqual(len(ex.issues), 2)
             for e in ex.issues:
                 print(e)
@@ -46,4 +46,4 @@ class TestLogWatcher(unittest.TestCase):
         logger.warning('456')
         records = lw2.getAllRecords()
         self.assertEqual(len(records), 1)
-        self.assertRaises(loghelper.LogWatchException, lw2.check)
+        self.assertRaises(loghelper.LogWatchError, lw2.check)

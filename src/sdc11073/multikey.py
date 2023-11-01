@@ -64,10 +64,6 @@ class IndexDefinition(dict):
             raise ValueError(f'get_one: key "{key}" has {len(result)} objects')
         return result[0]
 
-    def getOne(self, key, allowNone=False):  # pylint: disable=invalid-name
-        warnings.warn('use get_one', DeprecationWarning)
-        return self.get_one(key, allowNone)
-
     def mk_keys(self, obj):
         key = self._get_key_func(obj)
         if not self._index_none_values and key is None:

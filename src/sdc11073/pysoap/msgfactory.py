@@ -7,13 +7,13 @@ from lxml import etree as etree_
 
 from .msgreader import validate_node
 from .soapenvelope import Soap12Envelope
-from ..schema_resolver import mk_schema_validator
-from ..xml_types.addressing_types import HeaderInformationBlock
+from sdc11073.schema_resolver import mk_schema_validator
 
 if TYPE_CHECKING:
-    from ..xml_types.msg_types import MessageType
-    from ..definitions_base import BaseDefinitions
-    from ..namespaces import PrefixNamespace
+    from sdc11073.xml_types.addressing_types import HeaderInformationBlock
+    from sdc11073.xml_types.msg_types import MessageType
+    from sdc11073.definitions_base import BaseDefinitions
+    from sdc11073.namespaces import PrefixNamespace
     from sdc11073 import xml_utils
 
 
@@ -87,7 +87,7 @@ class MessageFactory:
                         header_info: HeaderInformationBlock,
                         payload: MessageType,
                         ns_list: Optional[list] = None,
-                        use_defaults=True):
+                        use_defaults=True) -> CreatedMessage:
         nsh = self.ns_hlp
         if use_defaults:
             ns_set = {nsh.S12, nsh.WSA, nsh.MSG, nsh.PM}  # default
@@ -104,7 +104,7 @@ class MessageFactory:
 
     def mk_soap_message_etree_payload(self,
                                       header_info: HeaderInformationBlock,
-                                      payload_element: xml_utils.LxmlElement | None = None):
+                                      payload_element: xml_utils.LxmlElement | None = None) -> CreatedMessage:
         nsh = self.ns_hlp
         my_ns_map = nsh.partial_map(nsh.S12, nsh.WSE, nsh.WSA)
         soap_envelope = Soap12Envelope(my_ns_map)
@@ -115,7 +115,7 @@ class MessageFactory:
     def mk_reply_soap_message(self,
                               request,
                               response_payload: MessageType,
-                              ns_map: Optional[list] = None):
+                              ns_map: Optional[list] = None) -> CreatedMessage:
         nsh = self.ns_hlp
         ns_set = {nsh.S12, nsh.WSA, nsh.MSG, nsh.PM}  # default
         ns_set.update(response_payload.additional_namespaces)

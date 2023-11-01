@@ -57,13 +57,13 @@ class V1Model(AbstractDataModel):
         return self._ns_hlp
 
 
-class SDC_v1_Definitions(BaseDefinitions):  # pylint: disable=invalid-name
+class SdcV1Definitions(BaseDefinitions):  # pylint: disable=invalid-name
     """Constants for SDC first version (assuming there will be successors in the future...)."""
 
     DpwsDeviceType = ns_hlp.DPWS.tag('Device')
     MedicalDeviceType = ns_hlp.MDPWS.tag('MedicalDevice')
     ActionsNamespace = ns_hlp.SDC.namespace
     PortTypeNamespace = ns_hlp.SDC.namespace
-    MedicalDeviceTypesFilter = [DpwsDeviceType, MedicalDeviceType]
+    MedicalDeviceTypesFilter = (DpwsDeviceType, MedicalDeviceType)
     Actions = actions.Actions
     data_model = V1Model()

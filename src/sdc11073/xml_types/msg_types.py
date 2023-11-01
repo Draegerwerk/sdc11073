@@ -10,16 +10,16 @@ from .actions import Actions
 from .basetypes import MessageType
 from .dataconverters import UnsignedIntConverter, DecimalConverter
 from .pm_types import PropertyBasedPMType, LocalizedText, InstanceIdentifier, LocalizedTextWidth, ContainmentTree
-from ..mdib.descriptorcontainers import AbstractDescriptorContainer, MdsDescriptorContainer, VmdDescriptorContainer
-from ..mdib.descriptorcontainers import ChannelDescriptorContainer, AbstractMetricDescriptorContainer
-from ..mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
-from ..mdib.statecontainers import AbstractAlertStateContainer, AbstractDeviceComponentStateContainer
-from ..mdib.statecontainers import AbstractMetricStateContainer
-from ..mdib.statecontainers import AbstractOperationStateContainer
-from ..mdib.statecontainers import AbstractStateContainer, AbstractContextStateContainer
-from ..mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
-from ..mdib.statecontainers import get_container_class as get_state_container_class
-from ..namespaces import default_ns_helper
+from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer, MdsDescriptorContainer, VmdDescriptorContainer
+from sdc11073.mdib.descriptorcontainers import ChannelDescriptorContainer, AbstractMetricDescriptorContainer
+from sdc11073.mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
+from sdc11073.mdib.statecontainers import AbstractAlertStateContainer, AbstractDeviceComponentStateContainer
+from sdc11073.mdib.statecontainers import AbstractMetricStateContainer
+from sdc11073.mdib.statecontainers import AbstractOperationStateContainer
+from sdc11073.mdib.statecontainers import AbstractStateContainer, AbstractContextStateContainer
+from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
+from sdc11073.mdib.statecontainers import get_container_class as get_state_container_class
+from sdc11073.namespaces import default_ns_helper
 
 
 # pylint: disable=invalid-name
@@ -56,15 +56,15 @@ class InvocationError(StringEnum):
 ### Reports ###
 class AbstractReportPart(PropertyBasedPMType):
     SourceMds = cp.NodeStringProperty(msg.SourceMds, is_optional=True)
-    _props = ['SourceMds']
+    _props = ('SourceMds',)
 
 
 class AbstractReport(MessageType):
     MdibVersion = cp.IntegerAttributeProperty('MdibVersion', implied_py_value=0)
     SequenceId = cp.StringAttributeProperty('SequenceId')
     InstanceId = cp.IntegerAttributeProperty('InstanceId')
-    _props = ['MdibVersion', 'SequenceId', 'InstanceId']
-    additional_namespaces = [default_ns_helper.XSI]
+    _props = ('MdibVersion', 'SequenceId', 'InstanceId')
+    additional_namespaces = (default_ns_helper.XSI,)
 
     def set_mdib_version_group(self, mdib_version_group):
         self.MdibVersion = mdib_version_group.mdib_version
@@ -85,7 +85,7 @@ class MetricReportPart(ReportPartValuesList):
                                            value_class=AbstractContextStateContainer,
                                            cls_getter=get_state_container_class,
                                            ns_helper=default_ns_helper)
-    _props = ['MetricState']
+    _props = ('MetricState',)
 
     @property
     def values_list(self):
@@ -94,7 +94,7 @@ class MetricReportPart(ReportPartValuesList):
 
 class AbstractMetricReport(AbstractReport):
     ReportPart = cp.SubElementListProperty(msg.ReportPart, value_class=MetricReportPart)
-    _props = ['ReportPart']
+    _props = ('ReportPart',)
 
     def add_report_part(self) -> MetricReportPart:
         self.ReportPart.append(MetricReportPart())
@@ -117,7 +117,7 @@ class ContextReportPart(ReportPartValuesList):
                                             value_class=AbstractContextStateContainer,
                                             cls_getter=get_state_container_class,
                                             ns_helper=default_ns_helper)
-    _props = ['ContextState']
+    _props = ('ContextState',)
 
     @property
     def values_list(self):
@@ -126,7 +126,7 @@ class ContextReportPart(ReportPartValuesList):
 
 class AbstractContextReport(AbstractReport):
     ReportPart = cp.SubElementListProperty(msg.ReportPart, value_class=ContextReportPart)
-    _props = ['ReportPart']
+    _props = ('ReportPart',)
 
     def add_report_part(self) -> ContextReportPart:
         self.ReportPart.append(ContextReportPart())
@@ -149,7 +149,7 @@ class OperationalStateReportPart(ReportPartValuesList):
                                               value_class=AbstractOperationStateContainer,
                                               cls_getter=get_state_container_class,
                                               ns_helper=default_ns_helper)
-    _props = ['OperationState']
+    _props = ('OperationState',)
 
     @property
     def values_list(self):
@@ -158,7 +158,7 @@ class OperationalStateReportPart(ReportPartValuesList):
 
 class AbstractOperationalStateReport(AbstractReport):
     ReportPart = cp.SubElementListProperty(msg.ReportPart, value_class=OperationalStateReportPart)
-    _props = ['ReportPart']
+    _props = ('ReportPart',)
 
     def add_report_part(self) -> OperationalStateReportPart:
         self.ReportPart.append(OperationalStateReportPart())
@@ -181,7 +181,7 @@ class AlertReportPart(ReportPartValuesList):
                                           value_class=AbstractAlertStateContainer,
                                           cls_getter=get_state_container_class,
                                           ns_helper=default_ns_helper)
-    _props = ['AlertState']
+    _props = ('AlertState',)
 
     @property
     def values_list(self):
@@ -190,7 +190,7 @@ class AlertReportPart(ReportPartValuesList):
 
 class AbstractAlertReport(AbstractReport):
     ReportPart = cp.SubElementListProperty(msg.ReportPart, value_class=AlertReportPart)
-    _props = ['ReportPart']
+    _props = ('ReportPart',)
 
     def add_report_part(self) -> AlertReportPart:
         self.ReportPart.append(AlertReportPart())
@@ -213,7 +213,7 @@ class ComponentReportPart(ReportPartValuesList):
                                               value_class=AbstractDeviceComponentStateContainer,
                                               cls_getter=get_state_container_class,
                                               ns_helper=default_ns_helper)
-    _props = ['ComponentState']
+    _props = ('ComponentState',)
 
     @property
     def values_list(self):
@@ -222,7 +222,7 @@ class ComponentReportPart(ReportPartValuesList):
 
 class AbstractComponentReport(AbstractReport):
     ReportPart = cp.SubElementListProperty(msg.ReportPart, value_class=ComponentReportPart)
-    _props = ['ReportPart']
+    _props = ('ReportPart',)
 
     def add_report_part(self) -> ComponentReportPart:
         self.ReportPart.append(ComponentReportPart())
@@ -245,7 +245,7 @@ class InvocationInfo(PropertyBasedPMType):
     InvocationState = cp.NodeEnumTextProperty(msg.InvocationState, InvocationState)
     InvocationError = cp.NodeEnumTextProperty(msg.InvocationError, InvocationError, is_optional=True)
     InvocationErrorMessage = cp.SubElementListProperty(msg.InvocationErrorMessage, value_class=LocalizedText)
-    _props = ['TransactionId', 'InvocationState', 'InvocationError', 'InvocationErrorMessage']
+    _props = ('TransactionId', 'InvocationState', 'InvocationError', 'InvocationErrorMessage')
 
     def __repr__(self):
         if self.InvocationError:
@@ -267,14 +267,14 @@ class OperationInvokedReportPart(AbstractReportPart):
     InvocationSource = cp.SubElementProperty(msg.InvocationSource, value_class=InstanceIdentifier)
     OperationHandleRef = cp.HandleRefAttributeProperty('OperationHandleRef', is_optional=False)
     OperationTarget = cp.HandleRefAttributeProperty('OperationTarget')
-    _props = ['InvocationInfo', 'InvocationSource', 'OperationHandleRef', 'OperationTarget']
+    _props = ('InvocationInfo', 'InvocationSource', 'OperationHandleRef', 'OperationTarget')
 
 
 class OperationInvokedReport(AbstractReport):
     NODETYPE = msg.OperationInvokedReport
     action = Actions.OperationInvokedReport
     ReportPart = cp.SubElementListProperty(msg.ReportPart, value_class=OperationInvokedReportPart)
-    _props = ['ReportPart']
+    _props = ('ReportPart',)
 
     def add_report_part(self) -> OperationInvokedReportPart:
         self.ReportPart.append(OperationInvokedReportPart())
@@ -289,7 +289,7 @@ class AbstractSetResponse(MessageType):
     MdibVersion = cp.VersionCounterAttributeProperty('MdibVersion', implied_py_value=0)
     SequenceId = cp.AnyURIAttributeProperty('SequenceId', is_optional=False)
     InstanceId = cp.UnsignedIntAttributeProperty('InstanceId')
-    _props = ['Extension', 'InvocationInfo', 'MdibVersion', 'SequenceId', 'InstanceId']
+    _props = ('Extension', 'InvocationInfo', 'MdibVersion', 'SequenceId', 'InstanceId')
 
 
 class SetContextStateResponse(AbstractSetResponse):
@@ -336,7 +336,7 @@ class WaveformStream(AbstractReport):
                                      value_class=RealTimeSampleArrayMetricStateContainer,
                                      cls_getter=get_state_container_class,
                                      ns_helper=default_ns_helper)
-    _props = ['State']
+    _props = ('State',)
 
 
 ### DescriptionModificationReport ###
@@ -353,14 +353,14 @@ class DescriptionModificationReportPart(AbstractReportPart):
     ModificationType = cp.EnumAttributeProperty('ModificationType',
                                                 enum_cls=DescriptionModificationType,
                                                 implied_py_value=DescriptionModificationType.UPDATE)
-    _props = ['Descriptor', 'State', 'ParentDescriptor', 'ModificationType']
+    _props = ('Descriptor', 'State', 'ParentDescriptor', 'ModificationType')
 
 
 class DescriptionModificationReport(AbstractReport):
     NODETYPE = msg.DescriptionModificationReport
     action = Actions.DescriptionModificationReport
     ReportPart = cp.SubElementListProperty(msg.ReportPart, value_class=DescriptionModificationReportPart)
-    _props = ['ReportPart']
+    _props = ('ReportPart',)
 
     def add_report_part(self) -> DescriptionModificationReportPart:
         self.ReportPart.append(DescriptionModificationReportPart())
@@ -382,14 +382,18 @@ class AbstractGet(MessageType):
 
 class AbstractSet(MessageType):
     OperationHandleRef = cp.NodeStringProperty(msg.OperationHandleRef)
-    _props = ['OperationHandleRef']
+    _props = ('OperationHandleRef',)
+
+    @property
+    def argument(self):
+        return None
 
 
 class AbstractGetResponse(MessageType):
     MdibVersion = cp.IntegerAttributeProperty('MdibVersion', implied_py_value=0)
     SequenceId = cp.StringAttributeProperty('SequenceId')
     InstanceId = cp.IntegerAttributeProperty('InstanceId')
-    _props = ['MdibVersion', 'SequenceId', 'InstanceId']
+    _props = ('MdibVersion', 'SequenceId', 'InstanceId')
 
     def set_mdib_version_group(self, mdib_version_group):
         self.MdibVersion = mdib_version_group.mdib_version
@@ -406,7 +410,7 @@ class Channel(PropertyBasedPMType):
                                       value_class=AbstractMetricDescriptorContainer,
                                       cls_getter=get_descriptor_container_class,
                                       ns_helper=default_ns_helper)
-    _props = ['container', 'Metric']
+    _props = ('container', 'Metric')
 
 
 class Vmd(PropertyBasedPMType):
@@ -415,7 +419,7 @@ class Vmd(PropertyBasedPMType):
                                      cls_getter=get_descriptor_container_class,
                                      ns_helper=default_ns_helper)
     Channel = cp.SubElementListProperty(pm.Channel, value_class=Channel)
-    _props = ['container', 'Channel']
+    _props = ('container', 'Channel')
 
 
 class Mds(PropertyBasedPMType):
@@ -424,12 +428,12 @@ class Mds(PropertyBasedPMType):
                                      cls_getter=get_descriptor_container_class,
                                      ns_helper=default_ns_helper)
     Vmd = cp.SubElementListProperty(pm.Vmd, value_class=Vmd)
-    _props = ['container', 'Vmd']
+    _props = ('container', 'Vmd')
 
 
 class MdDescription(PropertyBasedPMType):
     Mds = cp.SubElementListProperty(pm.Mds, value_class=Mds)
-    _props = ['Mds']
+    _props = ('Mds',)
 
 
 class MdState(PropertyBasedPMType):
@@ -438,7 +442,7 @@ class MdState(PropertyBasedPMType):
                                      cls_getter=get_state_container_class,
                                      ns_helper=default_ns_helper
                                      )
-    _props = ['State']
+    _props = ('State',)
 
 
 # class Mdib(PropertyBasedPMType):
@@ -457,14 +461,14 @@ class GetMdibResponse(AbstractGetResponse):
     NODETYPE = msg.GetMdibResponse
     action = Actions.GetMdibResponse
     Mdib = cp.AnyEtreeNodeProperty(None)
-    _props = ['Mdib']
+    _props = ('Mdib',)
 
 
 class GetMdDescription(AbstractGet):
     NODETYPE = msg.GetMdDescription
     action = Actions.GetMdDescription
     HandleRef = cp.SubElementHandleRefListProperty(msg.HandleRef)
-    _props = ['HandleRef']
+    _props = ('HandleRef',)
 
 
 class GetMdDescriptionResponse(AbstractGetResponse):
@@ -473,28 +477,28 @@ class GetMdDescriptionResponse(AbstractGetResponse):
     MdDescription = cp.SubElementProperty(msg.MdDescription,
                                           value_class=MdDescription,
                                           default_py_value=MdDescription())
-    _props = ['MdDescription']
+    _props = ('MdDescription',)
 
 
 class GetMdState(AbstractGet):
     NODETYPE = msg.GetMdState
     action = Actions.GetMdState
     HandleRef = cp.SubElementHandleRefListProperty(msg.HandleRef)
-    _props = ['HandleRef']
+    _props = ('HandleRef',)
 
 
 class GetMdStateResponse(AbstractGetResponse):
     NODETYPE = msg.GetMdStateResponse
     action = Actions.GetMdStateResponse
     MdState = cp.SubElementProperty(msg.MdState, value_class=MdState, default_py_value=MdState())
-    _props = ['MdState']
+    _props = ('MdState',)
 
 
 class GetDescriptor(AbstractGet):
     NODETYPE = msg.GetDescriptor
     action = Actions.GetDescriptor
     HandleRef = cp.SubElementHandleRefListProperty(msg.HandleRef)
-    _props = ['HandleRef']
+    _props = ('HandleRef',)
 
 
 class GetDescriptorResponse(AbstractGetResponse):
@@ -505,28 +509,28 @@ class GetDescriptorResponse(AbstractGetResponse):
                                           cls_getter=get_state_container_class,
                                           ns_helper=default_ns_helper
                                           )
-    _props = ['Descriptor']
+    _props = ('Descriptor',)
 
 
 class GetContainmentTree(AbstractGet):
     NODETYPE = msg.GetContainmentTree
     action = Actions.GetContainmentTree
     HandleRef = cp.SubElementHandleRefListProperty(msg.HandleRef)
-    _props = ['HandleRef']
+    _props = ('HandleRef',)
 
 
 class GetContainmentTreeResponse(AbstractGetResponse):
     NODETYPE = msg.GetContainmentTreeResponse
     action = Actions.GetContainmentTreeResponse
     ContainmentTree = cp.SubElementListProperty(msg.ContainmentTree, value_class=ContainmentTree)
-    _props = ['ContainmentTree']
+    _props = ('ContainmentTree',)
 
 
 class GetContextStates(AbstractGet):
     NODETYPE = msg.GetContextStates
     action = Actions.GetContextStates
     HandleRef = cp.SubElementHandleRefListProperty(msg.HandleRef)
-    _props = ['HandleRef']
+    _props = ('HandleRef',)
 
 
 class GetContextStatesResponse(AbstractGetResponse):
@@ -537,7 +541,7 @@ class GetContextStatesResponse(AbstractGetResponse):
                                             cls_getter=get_state_container_class,
                                             ns_helper=default_ns_helper
                                             )
-    _props = ['ContextState']
+    _props = ('ContextState',)
 
 
 class GetContextStatesByIdentification(AbstractGet):
@@ -545,7 +549,7 @@ class GetContextStatesByIdentification(AbstractGet):
     action = Actions.GetContextStatesByIdentification
     Identification = cp.SubElementListProperty(msg.Identification, value_class=InstanceIdentifier)
     ContextType = cp.QNameAttributeProperty('ContextType')
-    _props = ['HandleRef']
+    _props = ('HandleRef',)
 
 
 class GetContextStatesByIdentificationResponse(AbstractGetResponse):
@@ -556,14 +560,14 @@ class GetContextStatesByIdentificationResponse(AbstractGetResponse):
                                             cls_getter=get_state_container_class,
                                             ns_helper=default_ns_helper
                                             )
-    _props = ['ContextState']
+    _props = ('ContextState',)
 
 
 class GetContextStatesByFilter(AbstractGet):
     NODETYPE = msg.GetContextStatesByFilter
     action = Actions.GetContextStatesByFilter
     Filter = cp.SubElementStringListProperty(msg.Filter)
-    _props = ['HandleRef']
+    _props = ('HandleRef',)
 
 
 class GetContextStatesByFilterResponse(AbstractGetResponse):
@@ -574,7 +578,7 @@ class GetContextStatesByFilterResponse(AbstractGetResponse):
                                             cls_getter=get_state_container_class,
                                             ns_helper=default_ns_helper
                                             )
-    _props = ['ContextState']
+    _props = ('ContextState',)
 
 
 class GetSupportedLanguages(AbstractGet):
@@ -586,7 +590,7 @@ class GetSupportedLanguagesResponse(AbstractGetResponse):
     NODETYPE = msg.GetSupportedLanguagesResponse
     action = Actions.GetSupportedLanguagesResponse
     Lang = cp.SubElementStringListProperty(msg.Lang)
-    _props = ['Lang']
+    _props = ('Lang',)
 
 
 class GetLocalizedText(AbstractGet):
@@ -597,14 +601,14 @@ class GetLocalizedText(AbstractGet):
     Lang = cp.SubElementStringListProperty(msg.Lang)
     TextWidth = cp.SubElementTextListProperty(msg.TextWidth, value_class=LocalizedTextWidth)
     NumberOfLines = cp.SubElementTextListProperty(msg.NumberOfLines, value_class=int)
-    _props = ['Ref', 'Version', 'Lang', 'TextWidth', 'NumberOfLines']
+    _props = ('Ref', 'Version', 'Lang', 'TextWidth', 'NumberOfLines')
 
 
 class GetLocalizedTextResponse(AbstractGetResponse):
     NODETYPE = msg.GetLocalizedTextResponse
     action = Actions.GetLocalizedTextResponse
     Text = cp.SubElementListProperty(msg.Text, value_class=LocalizedText)
-    _props = ['Text']
+    _props = ('Text',)
 
 
 class SetContextState(AbstractSet):
@@ -614,7 +618,7 @@ class SetContextState(AbstractSet):
                                                     value_class=AbstractContextStateContainer,
                                                     cls_getter=get_state_container_class,
                                                     ns_helper=default_ns_helper)
-    _props = ['ProposedContextState']
+    _props = ('ProposedContextState',)
 
     @property
     def argument(self):
@@ -624,8 +628,8 @@ class SetContextState(AbstractSet):
 class SetValue(AbstractSet):
     NODETYPE = msg.SetValue
     action = Actions.SetValue
-    RequestedNumericValue = cp.NodeTextProperty(msg.RequestedNumericValue, value_converter=DecimalConverter)
-    _props = ['RequestedNumericValue']
+    RequestedNumericValue = cp.NodeDecimalProperty(msg.RequestedNumericValue)
+    _props = ('RequestedNumericValue',)
 
     @property
     def argument(self):
@@ -636,7 +640,7 @@ class SetString(AbstractSet):
     NODETYPE = msg.SetString
     action = Actions.SetString
     RequestedStringValue = cp.NodeStringProperty(msg.RequestedStringValue)
-    _props = ['RequestedStringValue']
+    _props = ('RequestedStringValue',)
 
     @property
     def argument(self):
@@ -650,7 +654,7 @@ class SetAlertState(AbstractSet):
                                               value_class=AbstractAlertStateContainer,
                                               cls_getter=get_state_container_class,
                                               ns_helper=default_ns_helper)
-    _props = ['ProposedAlertState']
+    _props = ('ProposedAlertState',)
 
     @property
     def argument(self):
@@ -664,7 +668,7 @@ class SetMetricState(AbstractSet):
                                                    value_class=AbstractMetricStateContainer,
                                                    cls_getter=get_state_container_class,
                                                    ns_helper=default_ns_helper)
-    _props = ['ProposedMetricState']
+    _props = ('ProposedMetricState',)
 
     @property
     def argument(self):
@@ -673,14 +677,14 @@ class SetMetricState(AbstractSet):
 
 class Argument(PropertyBasedPMType):
     ArgValue = cp.NodeStringProperty(msg.ArgValue)
-    _props = ['ArgValue']
+    _props = ('ArgValue',)
 
 
 class Activate(AbstractSet):
     NODETYPE = msg.Activate
     action = Actions.Activate
     Argument = cp.SubElementListProperty(msg.Argument, value_class=Argument)
-    _props = ['Argument']
+    _props = ('Argument',)
 
     def add_argument(self, arg_value):
         arg = Argument()
@@ -699,7 +703,7 @@ class SetComponentState(AbstractSet):
                                                       value_class=AbstractDeviceComponentStateContainer,
                                                       cls_getter=get_state_container_class,
                                                       ns_helper=default_ns_helper)
-    _props = ['ProposedComponentState']
+    _props = ('ProposedComponentState',)
 
     @property
     def argument(self):

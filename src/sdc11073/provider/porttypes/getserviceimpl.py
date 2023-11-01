@@ -1,7 +1,7 @@
 from .porttypebase import DPWSPortTypeBase, WSDLMessageDescription, WSDLOperationBinding, mk_wsdl_two_way_operation
 from .porttypebase import msg_prefix
-from ...dispatch import DispatchKey
-from ...namespaces import PrefixesEnum
+from sdc11073.dispatch import DispatchKey
+from sdc11073.namespaces import PrefixesEnum
 
 
 class GetService(DPWSPortTypeBase):

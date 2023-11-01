@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 import ssl
 import traceback
 import uuid
@@ -95,7 +96,7 @@ class HostedServiceDescription:
             except AttributeError:
                 encoding = 'UTF-8'
             self.wsdl_string = self.wsdl_bytes.decode(encoding)
-            commlog.get_communication_logger().log_wsdl(self.wsdl_string)
+            logging.getLogger(commlog.WSDL).debug(self.wsdl_string)
         except etree_.XMLSyntaxError as ex:
             self._logger.error(  # noqa: PLE1205
                 'could not read wsdl from {}: error={}, data=\n{}', actual_path, ex, self.wsdl_bytes)
@@ -135,7 +136,7 @@ class _NotificationsSplitter:
             actions.EpisodicMetricReport: 'episodic_metric_report',
             actions.EpisodicAlertReport: 'episodic_alert_report',
             actions.EpisodicComponentReport: 'episodic_component_report',
-            actions.EpisodicOperationalStateReport: 'operational_state_report',
+            actions.EpisodicOperationalStateReport: 'episodic_operational_state_report',
             actions.EpisodicContextReport: 'episodic_context_report',
             actions.PeriodicMetricReport: 'periodic_metric_report',
             actions.PeriodicAlertReport: 'periodic_alert_report',

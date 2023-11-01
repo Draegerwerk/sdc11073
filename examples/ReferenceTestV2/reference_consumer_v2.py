@@ -3,12 +3,11 @@ import time
 import traceback
 import uuid
 from collections import defaultdict
-from concurrent import futures
 from decimal import Decimal
 from sdc11073 import commlog
 from sdc11073 import observableproperties
 from sdc11073.certloader import mk_ssl_contexts_from_folder
-from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods
 from sdc11073.consumer import SdcConsumer
@@ -20,7 +19,7 @@ ConsumerMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0
 adapter_ip = os.getenv('ref_ip') or '127.0.0.1'
 ca_folder = os.getenv('ref_ca')
 ssl_passwd = os.getenv('ref_ssl_passwd') or None
-search_epr = os.getenv('ref_search_epr') or 'abc'  # 'abc' # abc is fixed ending in reference_device uuid.
+search_epr = os.getenv('ref_search_epr') or 'bcd'  # 'bcd' is fixed ending in reference_device v2 uuid.
 
 numeric_metric_handle = "numeric_metric_0.channel_0.vmd_0.mds_0"
 alert_condition_handle = "alert_condition_0.vmd_0.mds_1"
@@ -138,7 +137,7 @@ def run_ref_test():
 
     my_service = None
     while my_service is None:
-        services = wsd.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter)
+        services = wsd.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter)
         print('found {} services {}'.format(len(services), ', '.join([s.epr for s in services])))
         for s in services:
             if s.epr.endswith(search_epr):
@@ -152,15 +151,6 @@ def run_ref_test():
     result = test_1b(wsd, my_service)
     results.append(result)
     print(f'{result} : resolve and check response')
-
-    # print('Test step 1c: connect to device...')
-    # try:
-    #     client = test_1c(my_service)
-    #     results.append('### Test 1c ### passed')
-    # except:
-    #     print (traceback.format_exc())
-    #     results.append('### Test 1c ### failed')
-    #     return results
 
     # 2. BICEPS Services Discovery and binding
     # a) The Reference Provider answers to TransferGet
@@ -278,9 +268,7 @@ def run_ref_test():
             component_updates[k].append(v)
 
     def on_waveform_updates(waveforms_by_handle):
-        # print('on_waveform_updates', alerts_by_handle)
         for k, v in waveforms_by_handle.items():
-            # print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
             waveform_updates[k].append(v)
 
     def on_description_modification(description_modification_report):
@@ -336,7 +324,6 @@ def run_ref_test():
     else:
         log_result(True, results, step, info+' number of waveforms')
 
-#        print(f'expect 3 waveforms, got {len(waveform_updates)}')
     expected_samples = 1000 * sleep_timer*0.9
     for handle, reports in waveform_updates.items():
         notifications = [n for n in reports if n.MetricValue is not None]
@@ -344,11 +331,8 @@ def run_ref_test():
         if samples < expected_samples:
             log_result(False, results, step, info + f' waveform {handle} has {samples} samples, expecting {expected_samples}')
             is_ok = False
-#            print(f'waveform {handle} has {samples} samples, expecting {expected_samples}')
         else:
             log_result(True, results, step, info + f' waveform {handle} has {samples} samples')
-
-
 
     pm = mdib.data_model.pm_names
     pm_types = mdib.data_model.pm_types
@@ -376,7 +360,6 @@ def run_ref_test():
     step = '4h'
     info = 'Enable/Disable operations'
     results.append(f'{step} => failed, not implemented {info}')
-
 
     """
     5 Description Modifications:
@@ -450,7 +433,6 @@ def run_ref_test():
         * Immediately sends finished
         * Action: Alter values of metrics """
 
-
     step = '6b'
     info = 'SetContextState'
     print(step, info)
@@ -463,7 +445,7 @@ def run_ref_test():
         try:
             for i, p in enumerate(patient_context_descriptors):
                 pat = client.context_service_client.mk_proposed_context_object(p.Handle)
-                pat.CoreData.Familyname = uuid.uuid4().hex # f'Fam{i}'
+                pat.CoreData.Familyname = uuid.uuid4().hex
                 pat.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
                 generated_family_names.append(pat.CoreData.Familyname)
                 client.context_service_client.set_context_state(set_context_state_handle, [pat])
@@ -478,7 +460,6 @@ def run_ref_test():
                         if patient.ContextAssociation != pm_types.ContextAssociation.ASSOCIATED:
                             log_result(False, results, step, info,
                                        extra_info=f'new patient {patient.CoreData.Familyname} is {patient.ContextAssociation}')
-                            # print(f'{step} => failed {info}, new patient {patient.CoreData.Familyname} is {patient.ContextAssociation}')
                             all_ok = False
                     else:
                         if patient.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED:
@@ -499,7 +480,8 @@ def run_ref_test():
     if len(operation_invoked_subscriptions) == 0:
         log_result(False, results, step, info, 'OperationInvokedReport not subscribed, cannot test')
     elif len(operation_invoked_subscriptions) > 1:
-        log_result(False, results, step, info, f'found {len(operation_invoked_subscriptions)} OperationInvokedReport subscribed, cannot test')
+        log_result(False, results, step, info,
+                   f'found {len(operation_invoked_subscriptions)} OperationInvokedReport subscribed, cannot test')
     else:
         try:
             coll = ValuesCollectorPlus(operation_invoked_subscriptions[0], 'notification_data',5)
@@ -537,7 +519,6 @@ def run_ref_test():
         elif len(coll_result) >= 3:
             log_result(True, results, step, info, f'got {len(coll_result)} notifications')
 
-        # log_result(False, results, step, info, 'not implemented ')
     except Exception as ex:
         print(traceback.format_exc())
         log_result(False, results, step, info, ex)
@@ -582,102 +563,6 @@ def run_ref_test():
     time.sleep(2)
     return results
 
-    # print('Test step 9: call SetString operation')
-    # setstring_operations = mdib.descriptions.NODETYPE.get(pm.SetStringOperationDescriptor, [])
-    # setst_handle = 'string.ch0.vmd1_sco_0'
-    # if len(setstring_operations) == 0:
-    #     print('Test step 9(SetString) failed, no SetString operation found')
-    #     results.append('### Test 9 ### failed')
-    # else:
-    #     for s in setstring_operations:
-    #         if s.Handle != setst_handle:
-    #             continue
-    #         print('setString Op ={}'.format(s))
-    #         try:
-    #             fut = client.set_service_client.set_string(s.Handle, 'hoppeldipop')
-    #             try:
-    #                 res = fut.result(timeout=10)
-    #                 print(res)
-    #                 if res.InvocationInfo.InvocationState != msgtypes.InvocationState.FINISHED:
-    #                     print('set string operation {} did not finish with "Fin":{}'.format(s.Handle, res))
-    #                     results.append('### Test 9(SetString) ### failed')
-    #                 else:
-    #                     print('set string operation {} ok:{}'.format(s.Handle, res))
-    #                     results.append('### Test 9(SetString) ### passed')
-    #             except futures.TimeoutError:
-    #                 print('timeout error')
-    #                 results.append('### Test 9(SetString) ### failed')
-    #         except Exception as ex:
-    #             print(f'Test 9(SetString): {ex}')
-    #             results.append('### Test 9(SetString) ### failed')
-    #
-    # print('Test step 9: call SetValue operation')
-    # setvalue_operations = mdib.descriptions.NODETYPE.get(pm.SetValueOperationDescriptor, [])
-    # #    print('setvalue_operations', setvalue_operations)
-    # setval_handle = 'numeric.ch0.vmd1_sco_0'
-    # if len(setvalue_operations) == 0:
-    #     print('Test step 9 failed, no SetValue operation found')
-    #     results.append('### Test 9(SetValue) ### failed')
-    # else:
-    #     for s in setvalue_operations:
-    #         if s.Handle != setval_handle:
-    #             continue
-    #         print('setNumericValue Op ={}'.format(s))
-    #         try:
-    #             fut = client.set_service_client.set_numeric_value(s.Handle, 42)
-    #             try:
-    #                 res = fut.result(timeout=10)
-    #                 print(res)
-    #                 if res.InvocationInfo.InvocationState != msgtypes.InvocationState.FINISHED:
-    #                     print('set value operation {} did not finish with "Fin":{}'.format(s.Handle, res))
-    #                 else:
-    #                     print('set value operation {} ok:{}'.format(s.Handle, res))
-    #                     results.append('### Test 9(SetValue) ### passed')
-    #             except futures.TimeoutError:
-    #                 print('timeout error')
-    #                 results.append('### Test 9(SetValue) ### failed')
-    #         except Exception as ex:
-    #             print(f'Test 9(SetValue): {ex}')
-    #             results.append('### Test 9(SetValue) ### failed')
-    #
-    # print('Test step 9: call Activate operation')
-    # activate_operations = mdib.descriptions.NODETYPE.get(pm.ActivateOperationDescriptor, [])
-    # activate_handle = 'actop.vmd1_sco_0'
-    # if len(setstring_operations) == 0:
-    #     print('Test step 9 failed, no Activate operation found')
-    #     results.append('### Test 9(Activate) ### failed')
-    # else:
-    #     for s in activate_operations:
-    #         if s.Handle != activate_handle:
-    #             continue
-    #         print('activate Op ={}'.format(s))
-    #         try:
-    #             fut = client.set_service_client.activate(s.Handle, 'hoppeldipop')
-    #             try:
-    #                 res = fut.result(timeout=10)
-    #                 print(res)
-    #                 if res.InvocationInfo.InvocationState != msgtypes.InvocationState.FINISHED:
-    #                     print('activate operation {} did not finish with "Fin":{}'.format(s.Handle, res))
-    #                     results.append('### Test 9(Activate) ### failed')
-    #                 else:
-    #                     print('activate operation {} ok:{}'.format(s.Handle, res))
-    #                     results.append('### Test 9(Activate) ### passed')
-    #             except futures.TimeoutError:
-    #                 print('timeout error')
-    #                 results.append('### Test 9(Activate) ### failed')
-    #         except Exception as ex:
-    #             print(f'Test 9(Activate): {ex}')
-    #             results.append('### Test 9(Activate) ### failed')
-
-    # print('Test step 10: cancel all subscriptions')
-    # success = client._subscription_mgr.unsubscribe_all()
-    # if success:
-    #     results.append('### Test 10(unsubscribe) ### passed')
-    # else:
-    #     results.append('### Test 10(unsubscribe) ### failed')
-    # time.sleep(2)
-    # return results
-
 
 if __name__ == '__main__':
     xtra_log_config = os.getenv('ref_xtra_log_cnf')  # or None
@@ -687,7 +572,7 @@ if __name__ == '__main__':
 
     here = os.path.dirname(__file__)
 
-    with open(os.path.join(here, 'logging_default.jsn')) as f:
+    with open(os.path.join(here, 'logging_default.json')) as f:
         logging_setup = json.load(f)
     logging.config.dictConfig(logging_setup)
     if xtra_log_config is not None:

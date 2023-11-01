@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import TYPE_CHECKING
 
@@ -127,7 +128,7 @@ class SoapClientAsync:
                 'user_agent': 'pysoap',
                 'Connection': 'keep-alive',
             }
-            commlog.get_communication_logger().log_soap_request_out(xml_request, 'POST')
+            logging.getLogger(commlog.SOAP_REQUEST_OUT).debug(xml_request, extra={'http_method': 'POST'})
 
             if self.supported_encodings:
                 headers['Accept-Encoding'] = ','.join(self.supported_encodings)

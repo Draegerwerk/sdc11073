@@ -7,7 +7,6 @@ from decimal import Decimal
 from time import sleep
 from uuid import UUID
 import datetime
-from typing import TYPE_CHECKING
 
 from sdc11073.certloader import mk_ssl_contexts_from_folder
 from sdc11073.location import SdcLocation
@@ -19,7 +18,7 @@ from sdc11073.provider import SdcProvider
 from sdc11073.provider.servicesfactory import DPWSHostedService
 from sdc11073.provider.servicesfactory import HostedServices, mk_dpws_hosts
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
-from sdc11073.provider import waveforms
+from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types, pm_qnames
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
@@ -27,7 +26,7 @@ from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 here = os.path.dirname(__file__)
 default_mdib_path = os.path.join(here, 'mdib_test_sequence_2_v4(temp).xml')
 mdib_path = os.getenv('ref_mdib') or default_mdib_path
-xtra_log_config = os.getenv('ref_xtra_log_cnf')  # or None
+xtra_log_config = os.getenv('ref_xtra_log_cnf')
 
 My_UUID_str = '12345678-6f55-11ea-9697-123456789bcd'
 
@@ -68,17 +67,17 @@ def mk_all_services_except_localization(sdc_provider, components, subscription_m
 
 
 def provide_realtime_data(sdc_provider):
-    waveform_provider = sdc_provider.mdib.xtra.waveform_provider
+    waveform_provider = sdc_provider.waveform_provider
     if waveform_provider is None:
         return
     mdib_waveforms = sdc_provider.mdib.descriptions.NODETYPE.get(pm_qnames.RealTimeSampleArrayMetricDescriptor)
     for waveform in mdib_waveforms:
-        wf_generator = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.001)
+        wf_generator = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=1.1, sample_period=0.001)
         waveform_provider.register_waveform_generator(waveform.Handle, wf_generator)
 
 
 if __name__ == '__main__':
-    with open(os.path.join(here, 'logging_default.jsn')) as f:
+    with open(os.path.join(here, 'logging_default.json')) as f:
         logging_setup = json.load(f)
     logging.config.dictConfig(logging_setup)
     if xtra_log_config is not None:
@@ -128,8 +127,6 @@ if __name__ == '__main__':
                              'ContainmentTree': [components.ContainmentTreeService]},
             soap_client_class=SoapClientAsync)
     else:
-#        specific_components = SdcProviderComponents(services_factory=mk_all_services_except_localization,
-#                                                  soap_client_class=SoapClientAsync)
         specific_components = components.SdcProviderComponents(
             hosted_services={'Get': [components.GetService],
                              'StateEvent': [components.StateEventService,
@@ -299,7 +296,6 @@ if __name__ == '__main__':
                     print(f'mds lang = {state.Lang}')
             except Exception as ex:
                 print(traceback.format_exc())
-
 
             # add or rm vmd
             add_rm_metric_handle = 'add_rm_metric'

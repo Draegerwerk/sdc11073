@@ -154,7 +154,7 @@ class AllowedValuesType(pm_types.PropertyBasedPMType):  # pylint: disable=invali
     """Represents a list of values, in xml it is a list of pm.Value elements with one value as text."""
 
     Value: list[str] = x_struct.SubElementStringListProperty(pm.Value)
-    _props = ['Value']
+    _props = ('Value',)
 
     def is_empty(self) -> bool:
         """Return True if Value is empty."""
@@ -215,6 +215,13 @@ class AbstractMetricStateContainer(AbstractStateContainer):
         'ActiveDeterminationPeriod')
     LifeTimePeriod: DurationType | None = x_struct.DurationAttributeProperty('LifeTimePeriod')
     _props = ('BodySite', 'PhysicalConnector', 'ActivationState', 'ActiveDeterminationPeriod', 'LifeTimePeriod')
+
+
+class MetricStateProtocol(AbstractStateProtocol):
+    MetricValue: None | pm_types.NumericMetricValue | pm_types.StringMetricValue | pm_types.SampleArrayValue
+
+    def mk_metric_value(self) -> pm_types.NumericMetricValue | pm_types.StringMetricValue | pm_types.SampleArrayValue:
+        ...
 
 
 class NumericMetricStateContainer(AbstractMetricStateContainer):
@@ -690,7 +697,7 @@ classes_with_nodetype = [c[1] for c in classes if hasattr(c[1], 'NODETYPE') and 
 _state_lookup_by_type = {c.NODETYPE: c for c in classes_with_nodetype}
 
 
-def get_container_class(type_qname: QName) -> AbstractStateProtocol:
+def get_container_class(type_qname: QName) -> type[AbstractStateProtocol]:
     """Return class for given type.
 
     :param type_qname: the QName of the expected NODETYPE.

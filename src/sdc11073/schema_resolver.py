@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
+import pathlib
 from io import StringIO
-from typing import TYPE_CHECKING, List, Union
+from typing import TYPE_CHECKING
 from urllib import parse
 
 from lxml import etree as etree_
@@ -10,9 +10,10 @@ from lxml import etree as etree_
 from . import loghelper
 
 if TYPE_CHECKING:
-    from .namespaces import PrefixNamespace, NamespaceHelper
+    from .namespaces import NamespaceHelper, PrefixNamespace
 
-def mk_schema_validator(namespaces: List[PrefixNamespace], ns_helper: NamespaceHelper) -> etree_.XMLSchema:
+
+def mk_schema_validator(namespaces: list[PrefixNamespace], ns_helper: NamespaceHelper) -> etree_.XMLSchema:
     schema_resolver = SchemaResolver(namespaces)
     parser = etree_.XMLParser(resolve_entities=True)
     parser.resolvers.add(schema_resolver)
@@ -34,38 +35,32 @@ def mk_schema_validator(namespaces: List[PrefixNamespace], ns_helper: NamespaceH
 
 class SchemaResolver(etree_.Resolver):
 
-    def __init__(self, namespaces: List[PrefixNamespace], log_prefix=None):
+    def __init__(self, namespaces: list[PrefixNamespace], log_prefix=None):
         super().__init__()
         self.namespaces = namespaces
         self._logger = loghelper.get_logger_adapter('sdc.schema_resolver', log_prefix)
 
-    def resolve(self, url, id, context):  # pylint: disable=unused-argument, redefined-builtin, invalid-name
+    def resolve(self, system_url, _, context):  # pylint: disable=unused-argument, redefined-builtin, invalid-name
         # first check if there is a lookup defined
-        self._logger.debug('try to resolve {}', url)
-        path = self._get_schema_file_path(url)
+        self._logger.debug('try to resolve {}', system_url)
+        path = self._get_schema_file_path(system_url)
         if path:
-            self._logger.debug('could resolve url {} via lookup to {}', url, path)
+            self._logger.debug('could resolve url {} via lookup to {}', system_url, path)
         else:
             # no lookup, parse url
-            parsed = parse.urlparse(url)
+            parsed = parse.urlparse(system_url)
             if parsed.scheme == 'file':
                 path = parsed.path  # get the path part
             else:  # the url is a path
-                path = url
+                path = system_url
             if path.startswith('/') and path[2] == ':':  # invalid construct like /C:/Temp
                 path = path[1:]
-
-        if not os.path.exists(path):
-            self._logger.error('no schema file for url "{}": resolved to "{}", but file does not exist', url, path)
+        path = pathlib.Path(path)
+        if not path.exists():
+            self._logger.error('no schema file for url "{}": resolved to "{}", but file does not exist',
+                               system_url, path)
             return None
-        with open(path, 'rb') as my_file:
-            xml_text = my_file.read()
-        return self.resolve_string(xml_text, context, base_url=path)
+        return self.resolve_string(path.read_bytes(), context, base_url=str(path))
 
-    def _get_schema_file_path(self, url: str) -> Union[str, None]:
-        """
-
-        :param url: url of the schema location
-        :return: str or None
-        """
+    def _get_schema_file_path(self, url: str) -> pathlib.Path | None:
         return next((entry.local_schema_file for entry in self.namespaces if entry.schema_location_url == url), None)

@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
 from sdc11073 import observableproperties as properties
 from sdc11073.xml_types import ext_qnames as ext
@@ -18,8 +18,8 @@ if TYPE_CHECKING:
     from decimal import Decimal
 
     from lxml import etree as etree_
-    from sdc11073 import xml_utils
 
+    from sdc11073 import xml_utils
     from sdc11073.namespaces import NamespaceHelper
     from sdc11073.xml_types.isoduration import DurationType
     from sdc11073.xml_types.xml_structure import ExtensionLocalValue
@@ -78,6 +78,7 @@ class AbstractDescriptorProtocol(Protocol):
     Type: pm_types.CodedValue | None
     source_mds: str
     parent_handle: str | None
+    coding: pm_types.Coding | None
 
     def __init__(self, handle: str, parent_handle: str | None):
         ...
@@ -124,7 +125,9 @@ class AbstractDescriptorContainer(ContainerBase):
     _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'Extension', 'Type')
     _child_elements_order = (ext.Extension, pm_qnames.Type)  # child elements in BICEPS order
     STATE_QNAME = None
-    extension_class_lookup = {msg.Retrievability: pm_types.Retrievability}
+    extension_class_lookup: ClassVar[dict[etree_.QName, type[pm_types.PropertyBasedPMType]]] = {
+        msg.Retrievability: pm_types.Retrievability
+    }
 
     def __init__(self, handle: str | None, parent_handle: str | None):
         """Parent Handle can only be None for a Mds Descriptor. every other descriptor has a parent."""
@@ -521,6 +524,16 @@ class AbstractOperationDescriptorContainer(AbstractDescriptorContainer):
                                                                        implied_py_value=pm_types.AccessLevel.USER,
                                                                        enum_cls=pm_types.AccessLevel)
     _props = ('OperationTarget', 'MaxTimeToFinish', 'InvocationEffectiveTimeout', 'Retriggerable', 'AccessLevel')
+
+
+class AbstractOperationDescriptorProtocol(AbstractDescriptorProtocol):
+    """Protocol definition for AbstractOperationDescriptorContainer."""
+
+    OperationTarget: str
+    MaxTimeToFinish: DurationType | None
+    InvocationEffectiveTimeout: DurationType | None
+    Retriggerable: bool
+    AccessLevel: pm_types.AccessLevel
 
 
 class SetValueOperationDescriptorContainer(AbstractOperationDescriptorContainer):

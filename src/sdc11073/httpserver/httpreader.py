@@ -27,7 +27,7 @@ def mk_chunks(body, chunk_size=512):
     tail = body
     while True:
         head, tail = tail[:chunk_size], tail[chunk_size:]
-        data.write(f'{len(head):x}\r\n'.encode('utf-8'))
+        data.write(f'{len(head):x}\r\n'.encode())  # defaults to utf-8 encoding
         data.write(head)
         data.write(b'\r\n')
         if not head:
@@ -88,7 +88,6 @@ class HTTPReader:
         :param int max_bytes: maximum bytes to read.
         :rtype: bytes|None
         """
-
         buf = bytearray()
         delim_len = len(delimiter)
 
@@ -101,6 +100,7 @@ class HTTPReader:
             buf += char
             if buf[-delim_len:] == delimiter:
                 return bytes(buf[:-delim_len])
+        return None
 
     @classmethod
     def read_request_body(cls, http_message, supported_encodings=None):

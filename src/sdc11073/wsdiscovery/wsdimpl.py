@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Callable
 from urllib.parse import unquote, urlsplit
 
 from sdc11073 import network
-from sdc11073.definitions_sdc import SDC_v1_Definitions
+from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.namespaces import default_ns_helper as nsh
 from sdc11073.xml_types import wsd_types
@@ -102,10 +102,10 @@ def _is_scope_in_list(uri: str, match_by: str, srv_sc: wsd_types.ScopesType) -> 
 
 
 def matches_filter(service: Service,
-                   types: list[QName] | None,
+                   types: Iterable[QName] | None,
                    scopes: wsd_types.ScopesType | None) -> bool:
     """Check if service matches the types and scopes."""
-    if types is not None and len(types) > 0:
+    if types is not None:
         for ttype in types:
             if not _is_type_in_list(ttype, service.types):
                 return False
@@ -117,7 +117,7 @@ def matches_filter(service: Service,
 
 
 def filter_services(services: Iterable[Service],
-                    types: list[QName] | None,
+                    types: Iterable[QName] | None,
                     scopes: wsd_types.ScopesType | None) -> list[Service]:
     """Filter services that match types and scopes."""
     return [service for service in services if matches_filter(service, types, scopes)]
@@ -183,7 +183,7 @@ class WSDiscovery:
             self._server_started = False
 
     def search_services(self,
-                        types: list[QName] | None = None,
+                        types: Iterable[QName] | None = None,
                         scopes: wsd_types.ScopesType | None = None,
                         timeout: int | float | None = 5,
                         repeat_probe_interval: int | None = 3) -> list[Service]:
@@ -198,6 +198,7 @@ class WSDiscovery:
         if not self._server_started:
             raise RuntimeError("Server not started")
 
+        types = list(types) if types is not None else None
         start = time.monotonic()
         end = start + timeout
         now = time.monotonic()
@@ -221,7 +222,7 @@ class WSDiscovery:
         :param repeat_probe_interval: send another probe message after x seconds
         :return:
         """
-        return self.search_services(SDC_v1_Definitions.MedicalDeviceTypesFilter, scopes, timeout, repeat_probe_interval)
+        return self.search_services(SdcV1Definitions.MedicalDeviceTypesFilter, scopes, timeout, repeat_probe_interval)
 
     def search_multiple_types(self,
                               types_list: list[list[QName]],
@@ -545,7 +546,8 @@ class WSDiscovery:
                                                                                 ns_map=nsh.partial_map(nsh.WSD)))
             self._networking_thread.add_unicast_message(created_message, addr[0], addr[1])
 
-    def _send_probe(self, types: list[QName] | None = None, scopes: wsd_types.ScopesType | None = None):
+    def _send_probe(self, types: Iterable[QName] | None = None, scopes: wsd_types.ScopesType | None = None):
+        types = list(types) if types is not None else None  # enforce iteration
         self._logger.debug('sending probe types=%r scopes=%r', types_info(types), scopes)
         payload = wsd_types.ProbeType()
         payload.Types = types

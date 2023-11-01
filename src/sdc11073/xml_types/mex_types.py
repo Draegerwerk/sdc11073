@@ -3,7 +3,7 @@ from .dpws_types import HostServiceType, HostedServiceType
 from .dpws_types import ThisDeviceType, ThisModelType, DeviceMetadataDialectURI, DeviceRelationshipTypeURI
 from .msg_types import MessageType
 from .pm_types import PropertyBasedPMType
-from ..namespaces import default_ns_helper
+from sdc11073.namespaces import default_ns_helper
 
 ########## Meta Data Exchange #########
 wsx_tag = default_ns_helper.WSX.tag  # shortcut
@@ -16,7 +16,7 @@ class GetMetadata(MessageType):
     action = 'http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Request'
     Dialect = cp.AnyUriTextElement(wsx_tag('Dialect'), is_optional=True)
     Identifier = cp.AnyUriTextElement(wsx_tag('Identifier'), is_optional=True)
-    _props = ['Dialect', 'Identifier']
+    _props = ('Dialect', 'Identifier')
 
 
 class ThisModelMetadataSection(PropertyBasedPMType):
@@ -27,7 +27,7 @@ class ThisModelMetadataSection(PropertyBasedPMType):
                                          default_py_value=DeviceMetadataDialectURI.THIS_MODEL,
                                          is_optional=False)
     Identifier = cp.AnyURIAttributeProperty('Identifier')
-    _props = ['MetadataReference', 'Location', 'Dialect', 'Identifier']
+    _props = ('MetadataReference', 'Location', 'Dialect', 'Identifier')
 
 
 class ThisDeviceMetadataSection(PropertyBasedPMType):
@@ -38,14 +38,14 @@ class ThisDeviceMetadataSection(PropertyBasedPMType):
                                          default_py_value=DeviceMetadataDialectURI.THIS_DEVICE,
                                          is_optional=False)
     Identifier = cp.AnyURIAttributeProperty('Identifier')
-    _props = ['MetadataReference', 'Location', 'Dialect', 'Identifier']
+    _props = ('MetadataReference', 'Location', 'Dialect', 'Identifier')
 
 
 class MetaDataRelationship(PropertyBasedPMType):
     Type = cp.AnyURIAttributeProperty(attribute_name='Type', default_py_value=DeviceRelationshipTypeURI.HOST)
     Host = cp.SubElementProperty(dpws_tag('Host'), value_class=HostServiceType)
     Hosted = cp.SubElementListProperty(dpws_tag('Hosted'), value_class=HostedServiceType)
-    _props = ['Type', 'Host', 'Hosted']
+    _props = ('Type', 'Host', 'Hosted')
 
 
 class RelationshipMetadataSection(PropertyBasedPMType):
@@ -57,7 +57,7 @@ class RelationshipMetadataSection(PropertyBasedPMType):
                                          default_py_value=DeviceMetadataDialectURI.RELATIONSHIP,
                                          is_optional=False)
     Identifier = cp.AnyURIAttributeProperty('Identifier')
-    _props = ['MetadataReference', 'Location', 'Dialect', 'Identifier']
+    _props = ('MetadataReference', 'Location', 'Dialect', 'Identifier')
 
 
 class LocationMetadataSection(PropertyBasedPMType):
@@ -66,7 +66,7 @@ class LocationMetadataSection(PropertyBasedPMType):
                                          default_py_value=default_ns_helper.WSDL.namespace,
                                          is_optional=False)
     Identifier = cp.AnyURIAttributeProperty('Identifier')
-    _props = ['Location', 'Dialect', 'Identifier']
+    _props = ('Location', 'Dialect', 'Identifier')
 
 
 dialect_lookup = {DeviceMetadataDialectURI.THIS_MODEL: (ThisModelMetadataSection,
@@ -89,7 +89,7 @@ class Metadata(MessageType):
     action = f'{default_ns_helper.WXF.namespace}/GetResponse'
     MetadataSection = cp.SubElementListProperty(wsx_tag('MetadataSection'),
                                                 value_class=PropertyBasedPMType)
-    _props = ['MetadataSection']
+    _props = ('MetadataSection',)
 
     def __init__(self):
         super().__init__()

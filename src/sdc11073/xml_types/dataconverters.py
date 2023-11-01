@@ -67,10 +67,7 @@ class EnumConverter(NullConverter):
         return value
 
     def to_xml(self, py_value):
-        if hasattr(py_value, 'value'):
-            return py_value.value
-        else:
-            return py_value
+        return py_value.value if hasattr(py_value, 'value') else py_value
 
     def check_valid(self, py_value) -> bool:
         if STRICT_VALUE_CHECK and py_value is not None:
@@ -81,6 +78,7 @@ class EnumConverter(NullConverter):
 class StringConverter(NullConverter):
     """Convert None to empty string, everything else is unchanged."""
 
+    @staticmethod
     def to_py(xml_value):
         return xml_value or ''
 
@@ -101,8 +99,8 @@ class ListConverter(NullConverter):
 
     def check_valid(self, py_value) -> bool:
         if STRICT_VALUE_CHECK and py_value is not None:
-            if not isinstance(py_value, (list, tuple)):
-                raise ValueError(f'Value must be list or a tuple, got {type(py_value)}')
+            if not isinstance(py_value, list):
+                raise ValueError(f'Value must be an instance of {type(list)}, got {type(py_value)}')
             for elem in py_value:
                 self._element_converter.check_valid(elem)
 

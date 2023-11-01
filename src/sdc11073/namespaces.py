@@ -1,15 +1,18 @@
 """ A helper for xml name space handling"""
-import os
-from collections import namedtuple
+from __future__ import annotations
+
+import pathlib
 from enum import Enum
-from typing import Optional, Type
+from typing import Optional, Type, NamedTuple
 
 from lxml import etree as etree_
 
-_PrefixNamespaceTuple = namedtuple('_PrefixNamespaceTuple', 'prefix namespace schema_location_url local_schema_file')
 
-
-class PrefixNamespace(_PrefixNamespaceTuple):
+class PrefixNamespace(NamedTuple):
+    prefix: str
+    namespace: str
+    schema_location_url: str | None
+    local_schema_file: pathlib.Path | None
 
     def tag(self, localname: str) -> etree_.QName:
         return etree_.QName(self.namespace, localname)
@@ -20,22 +23,22 @@ class PrefixNamespace(_PrefixNamespaceTuple):
         return localname
 
 
-schemaFolder = os.path.join(os.path.dirname(__file__), 'xsd')
+schema_folder = pathlib.Path(__file__).parent.joinpath('xsd')
 
 
 class PrefixesEnum(PrefixNamespace, Enum):
     MSG = PrefixNamespace('msg',
                           'http://standards.ieee.org/downloads/11073/11073-10207-2017/message',
                           "http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_MessageModel.xsd",
-                          os.path.join(schemaFolder, 'BICEPS_MessageModel.xsd'))
+                          schema_folder.joinpath('BICEPS_MessageModel.xsd'))
     PM = PrefixNamespace('dom',
                          'http://standards.ieee.org/downloads/11073/11073-10207-2017/participant',
                          "http://standards.ieee.org/downloads/11073/11073-10207-2017/BICEPS_ParticipantModel.xsd",
-                         os.path.join(schemaFolder, 'BICEPS_ParticipantModel.xsd'))
+                         schema_folder.joinpath('BICEPS_ParticipantModel.xsd'))
     EXT = PrefixNamespace('ext',
                           'http://standards.ieee.org/downloads/11073/11073-10207-2017/extension',
                           "http://standards.ieee.org/downloads/11073/11073-10207-2017/ExtensionPoint.xsd",
-                          os.path.join(schemaFolder, 'ExtensionPoint.xsd'))
+                          schema_folder.joinpath('ExtensionPoint.xsd'))
     MDPWS = PrefixNamespace('mdpws',
                             'http://standards.ieee.org/downloads/11073/11073-20702-2016',
                             None,
@@ -47,11 +50,11 @@ class PrefixesEnum(PrefixNamespace, Enum):
     WSE = PrefixNamespace('wse',
                           'http://schemas.xmlsoap.org/ws/2004/08/eventing',
                           "http://schemas.xmlsoap.org/ws/2004/08/eventing",
-                          os.path.join(schemaFolder, 'eventing.xsd'))
+                          schema_folder.joinpath('eventing.xsd'))
     XSD = PrefixNamespace('xsd',
                           'http://www.w3.org/2001/XMLSchema',
                           'http://www.w3.org/2001/xml.xsd',
-                          os.path.join(schemaFolder, 'xml.xsd'))
+                          schema_folder.joinpath('xml.xsd'))
     XSI = PrefixNamespace('xsi',
                           'http://www.w3.org/2001/XMLSchema-instance',
                           None,
@@ -59,23 +62,23 @@ class PrefixesEnum(PrefixNamespace, Enum):
     WSA = PrefixNamespace('wsa',
                           'http://www.w3.org/2005/08/addressing',
                           'http://www.w3.org/2006/03/addressing/ws-addr.xsd',
-                          os.path.join(schemaFolder, 'ws-addr.xsd'))
+                          schema_folder.joinpath('ws-addr.xsd'))
     WSX = PrefixNamespace('wsx',  # Meta Data Exchange
                           'http://schemas.xmlsoap.org/ws/2004/09/mex',
                           'http://schemas.xmlsoap.org/ws/2004/09/mex',
-                          os.path.join(schemaFolder, 'MetadataExchange.xsd'))
+                          schema_folder.joinpath('MetadataExchange.xsd'))
     DPWS = PrefixNamespace('dpws',
                            'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01',
                            'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01',
-                           os.path.join(schemaFolder, 'wsdd-dpws-1.1-schema-os.xsd'))
+                           schema_folder.joinpath('wsdd-dpws-1.1-schema-os.xsd'))
     WSD = PrefixNamespace('wsd',
                           'http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01',
                           'http://docs.oasis-open.org/ws-dd/discovery/1.1/os/wsdd-discovery-1.1-schema-os.xsd',
-                          os.path.join(schemaFolder, 'wsdd-discovery-1.1-schema-os.xsd'))
+                          schema_folder.joinpath('wsdd-discovery-1.1-schema-os.xsd'))
     S12 = PrefixNamespace('s12',
                           'http://www.w3.org/2003/05/soap-envelope',
                           'http://www.w3.org/2003/05/soap-envelope',
-                          os.path.join(schemaFolder, 'soap-envelope.xsd'))
+                          schema_folder.joinpath('soap-envelope.xsd'))
     XML = PrefixNamespace('xml',
                           'http://www.w3.org/XML/1998/namespace',
                           None,
@@ -87,7 +90,7 @@ class PrefixesEnum(PrefixNamespace, Enum):
     WSDL = PrefixNamespace('wsdl',
                            'http://schemas.xmlsoap.org/wsdl/',
                            'http://schemas.xmlsoap.org/wsdl/',
-                           os.path.join(schemaFolder, 'wsdl.xsd'))
+                           schema_folder.joinpath('wsdl.xsd'))
     WSDL12 = PrefixNamespace('wsdl12',
                              'http://schemas.xmlsoap.org/wsdl/soap12/',
                              None,

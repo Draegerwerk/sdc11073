@@ -1,27 +1,36 @@
+from __future__ import annotations
+
 import os
 import unittest
 import uuid
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sdc11073 import network
 from sdc11073.consumer import SdcConsumer
 from sdc11073.definitions_base import ProtocolsRegistry
-from sdc11073.definitions_sdc import SDC_v1_Definitions
-from sdc11073.location import SdcLocation
+from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ProviderMdib
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.provider import SdcProvider
 from sdc11073.provider.components import SdcProviderComponents
+from sdc11073.provider.operations import ExecuteResult
 from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.wsdiscovery import WSDiscovery, WSDiscoverySingleAdapter
 from sdc11073.xml_types import msg_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
+from sdc11073.xml_types.msg_types import InvocationState
 from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.xml_types.wsd_types import ScopesType
 from tests import utils
+
+if TYPE_CHECKING:
+    from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
+    from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
+    from sdc11073.roles.providerbase import OperationClassGetter
 
 loopback_adapter = next(adapter for adapter in network.get_adapters() if adapter.is_loopback)
 
@@ -78,7 +87,9 @@ class MyProvider1(ProviderRole):
         self.operation2_called = 0
         self.operation2_args = None
 
-    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
+    def make_operation_instance(self,
+                                operation_descriptor_container: AbstractOperationDescriptorProtocol,
+                                operation_cls_getter: OperationClassGetter) -> OperationDefinitionBase | None:
         """If the role provider is responsible for handling of calls to this operation_descriptor_container,
         it creates an operation instance and returns it, otherwise it returns None.
         """
@@ -91,31 +102,35 @@ class MyProvider1(ProviderRole):
             # This callback is called when a consumer calls the operation.
             operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                      operation_cls_getter,
-                                                                     current_argument_handler=self._handle_operation_1)
+                                                                     self._handle_operation_1)
             return operation
         if operation_descriptor_container.coding == MY_CODE_2.coding:
             operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                      operation_cls_getter,
-                                                                     current_argument_handler=self._handle_operation_2)
+                                                                     self._handle_operation_2)
             return operation
         return None
 
-    def _handle_operation_1(self, operation_instance, argument):
+    def _handle_operation_1(self, params: ExecuteParameters) -> ExecuteResult:
         """This operation does not manipulate the mdib at all, it only registers the call."""
+        argument = params.operation_request.argument
         self.operation1_called += 1
         self.operation1_args = argument
         self._logger.info('_handle_operation_1 called arg={}', argument)
+        return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FINISHED)
 
-    def _handle_operation_2(self, operation_instance, argument):
+    def _handle_operation_2(self, params: ExecuteParameters) -> ExecuteResult:
         """This operation manipulate it operation target, and only registers the call."""
+        argument = params.operation_request.argument
         self.operation2_called += 1
         self.operation2_args = argument
         self._logger.info('_handle_operation_2 called arg={}', argument)
         with self._mdib.transaction_manager() as mgr:
-            my_state = mgr.get_state(operation_instance.operation_target_handle)
+            my_state = mgr.get_state(params.operation_instance.operation_target_handle)
             if my_state.MetricValue is None:
                 my_state.mk_metric_value()
             my_state.MetricValue.Value = argument
+        return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FINISHED)
 
 
 class MyProvider2(ProviderRole):
@@ -128,28 +143,33 @@ class MyProvider2(ProviderRole):
         self.operation3_args = None
         self.operation3_called = 0
 
-    def make_operation_instance(self, operation_descriptor_container, operation_cls_getter):
+    def make_operation_instance(self,
+                                operation_descriptor_container: AbstractOperationDescriptorProtocol,
+                                operation_cls_getter: OperationClassGetter) -> OperationDefinitionBase | None:
+
         if operation_descriptor_container.coding == MY_CODE_3.coding:
             self._logger.info(
                 'instantiating operation 3 from existing descriptor handle={}'.format(
                     operation_descriptor_container.Handle))
             operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                      operation_cls_getter,
-                                                                     current_argument_handler=self._handle_operation_3)
+                                                                     self._handle_operation_3)
             return operation
         else:
             return None
 
-    def _handle_operation_3(self, operation_instance, argument):
+    def _handle_operation_3(self, params: ExecuteParameters) -> ExecuteResult:
         """This operation manipulate it operation target, and only registers the call."""
         self.operation3_called += 1
+        argument = params.operation_request.argument
         self.operation3_args = argument
         self._logger.info('_handle_operation_3 called')
         with self._mdib.transaction_manager() as mgr:
-            my_state = mgr.get_state(operation_instance.operation_target_handle)
+            my_state = mgr.get_state(params.operation_instance.operation_target_handle)
             if my_state.MetricValue is None:
                 my_state.mk_metric_value()
             my_state.MetricValue.Value = argument
+        return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FINISHED)
 
 
 class MyProductImpl(BaseProduct):
@@ -230,9 +250,6 @@ class Test_Tutorial(unittest.TestCase):
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
         # TODO: enable this step once https://github.com/Draegerwerk/sdc11073/issues/223 has been fixed
-        # services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT)
-        # self.assertTrue(len(self.my_location.matching_services(services)), 1)
-        # self.assertTrue(len(self.my_location2.matching_services(services)), 1)
 
         # now search only for devices in my_location2
         services = my_client_ws_discovery.search_services(scopes=ScopesType(self.my_location2.scope_string),
@@ -240,7 +257,7 @@ class Test_Tutorial(unittest.TestCase):
         self.assertEqual(len(services), 1)
 
         # search for medical devices only (BICEPS Final version only)
-        services = my_client_ws_discovery.search_services(types=SDC_v1_Definitions.MedicalDeviceTypesFilter,
+        services = my_client_ws_discovery.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter,
                                                           timeout=SEARCH_TIMEOUT)
         self.assertGreaterEqual(len(services), 2)
 
@@ -377,7 +394,7 @@ class Test_Tutorial(unittest.TestCase):
         my_mdib.init_mdib()
 
         sco_handle = 'sco.mds0'
-        my_product_impl = my_generic_device.product_roles_lookup[sco_handle]
+        my_product_impl = my_generic_device.product_lookup[sco_handle]
         # call activate operation:
         # A client should NEVER! use the handle of the operation directly, always use the code(s) to identify things.
         # Handles are random values without any meaning, they are only unique id's in the mdib.
@@ -397,7 +414,7 @@ class Test_Tutorial(unittest.TestCase):
 
         # call set_string operation
         sco_handle = 'sco.vmd1.mds0'
-        my_product_impl = my_generic_device.product_roles_lookup[sco_handle]
+        my_product_impl = my_generic_device.product_lookup[sco_handle]
 
         self._logger.info('looking for operations with code {}', MY_CODE_2.coding)
         op = my_mdib.descriptions.coding.get_one(MY_CODE_2.coding)

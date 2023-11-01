@@ -8,13 +8,10 @@ from sdc11073 import commlog
 from sdc11073 import loghelper
 from sdc11073 import observableproperties
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
-from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ConsumerMdib
-from sdc11073.mdib.providerwaveform import Annotator
 from sdc11073.roles.nomenclature import NomenclatureCodes
 from sdc11073.consumer import SdcConsumer
-from sdc11073.provider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import RequestDispatcher
@@ -23,36 +20,15 @@ from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
-    comm_logger = commlog.CommLogger(log_folder=r'c:\temp\sdc_commlog',
-                                     log_out=True,
-                                     log_in=True,
-                                     broadcast_ip_filter=None)
-    commlog.set_communication_logger(comm_logger)
+    comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
+                                          log_out=True,
+                                          log_in=True,
+                                          broadcast_ip_filter=None)
+    comm_logger.start()
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
 NOTIFICATION_TIMEOUT = 5  # also jenkins related value
-
-
-def provide_realtime_data(sdc_device):
-    waveform_provider = sdc_device.mdib.xtra.waveform_provider
-    if waveform_provider is None:
-        return
-    paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
-    waveform_provider.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
-
-    flow = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=1.2, sampleperiod=0.01)
-    waveform_provider.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
-
-    co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveformperiod=1.0, sampleperiod=0.01)
-    waveform_provider.register_waveform_generator('0x34F05506',
-                                                  co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
-
-    # make SinusGenerator (0x34F05501) the annotator source
-    annotator = Annotator(annotation=pm_types.Annotation(pm_types.CodedValue('a', 'b')),
-                          trigger_handle='0x34F05501',
-                          annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506'])
-    waveform_provider.register_annotation_generator(annotator)
 
 
 class Test_BuiltinOperations(unittest.TestCase):
@@ -69,7 +45,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
-        provide_realtime_data(self.sdc_device)
 
         time.sleep(0.5)  # allow init of devices to complete
 
@@ -99,7 +74,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.wsd.stop()
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             self._logger.warning(repr(ex))
             raise
         self._logger.info('############### tearDown %s done ##############\n', self._testMethodName)
@@ -143,6 +118,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FAILED)
+        self.assertIsNone(result.OperationTarget)
         self.log_watcher.setPaused(False)
 
         # insert a new patient with correct handle, this shall succeed
@@ -153,6 +129,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
         self.assertIsNone(result.InvocationInfo.InvocationError)
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
+        self.assertIsNotNone(result.OperationTarget)
 
         # check client side patient context, this shall have been set via notification
         patient_context_state_container = client_mdib.context_states.NODETYPE.get_one(pm.PatientContextState)
@@ -178,6 +155,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
+        self.assertEqual(result.OperationTarget, proposed_context.Handle)
         patient_context_state_container = client_mdib.context_states.handle.get_one(
             patient_context_state_container.Handle)
         self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Karla')
@@ -198,9 +176,10 @@ class Test_BuiltinOperations(unittest.TestCase):
         proposed_context.CoreData.Race = pm_types.CodedValue('somerace')
         future = context.set_context_state(operation_handle, [proposed_context])
         result = future.result(timeout=SET_TIMEOUT)
-        state = result.InvocationInfo.InvocationState
-        self.assertEqual(state, msg_types.InvocationState.FINISHED)
+        invocation_state = result.InvocationInfo.InvocationState
+        self.assertEqual(invocation_state, msg_types.InvocationState.FINISHED)
         self.assertIsNone(result.InvocationInfo.InvocationError)
+        self.assertIsNotNone(result.OperationTarget)
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
         patient_context_state_containers = client_mdib.context_states.NODETYPE.get(pm.PatientContextState, [])
         # sort by BindingMdibVersion
@@ -290,6 +269,11 @@ class Test_BuiltinOperations(unittest.TestCase):
         """Tests AudioPauseProvider
 
         """
+        # switch one alert system off
+        alert_system_off = 'Asy.3208'
+        with self.sdc_device.mdib.transaction_manager() as mgr:
+            state = mgr.get_state(alert_system_off)
+            state.ActivationState = pm_types.AlertActivation.OFF
         alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
         self.assertTrue(alert_system_descriptors is not None)
         self.assertGreater(len(alert_system_descriptors), 0)
@@ -311,7 +295,8 @@ class Test_BuiltinOperations(unittest.TestCase):
         for alert_system_descriptor in alert_system_descriptors:
             state = self.sdc_client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
             # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
-            self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
+            if alert_system_descriptor.Handle != alert_system_off:
+                self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
 
         coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
         operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
@@ -395,10 +380,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         client_mdib.init_mdib()
         coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC)
         my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
-        if my_operation_descriptor is None:
-            # try old code:
-            coding = pm_types.Coding(NomenclatureCodes.OP_SET_NTP)
-            my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding)
 
         operation_handle = my_operation_descriptor.Handle
         for value in ('169.254.0.199', '169.254.0.199:1234'):
@@ -427,10 +408,6 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         coding = pm_types.Coding(NomenclatureCodes.MDC_ACT_SET_TIME_ZONE)
         my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
-        if my_operation_descriptor is None:
-            # use old code:
-            coding = pm_types.Coding(NomenclatureCodes.OP_SET_TZ)
-            my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding)
 
         operation_handle = my_operation_descriptor.Handle
         for value in ('+03:00', '-03:00'):  # are these correct values?
@@ -465,7 +442,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.sdc_device.mdib.descriptions.add_object(my_operation_descriptor)
         sco_handle = 'Sco.mds0'
         sco = self.sdc_device._sco_operations_registries[sco_handle]
-        role_provider = self.sdc_device.product_roles_lookup[sco_handle]
+        role_provider = self.sdc_device.product_lookup[sco_handle]
 
         op = role_provider.metric_provider.make_operation_instance(
             my_operation_descriptor, sco.operation_cls_getter)
@@ -507,7 +484,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.sdc_device.mdib.descriptions.add_object(my_operation_descriptor)
         sco_handle = 'Sco.mds0'
         sco = self.sdc_device._sco_operations_registries[sco_handle]
-        role_provider = self.sdc_device.product_roles_lookup[sco_handle]
+        role_provider = self.sdc_device.product_lookup[sco_handle]
         op = role_provider.make_operation_instance(my_operation_descriptor, sco.operation_cls_getter)
         sco.register_operation(op)
         self.sdc_device.mdib.xtra.mk_state_containers_for_all_descriptors()
@@ -550,3 +527,114 @@ class Test_BuiltinOperations(unittest.TestCase):
         future2 = set_service.set_string(operation_handle=operation_handle, requested_string=value)
         result2 = future2.result(timeout=SET_TIMEOUT)
         self.assertGreater(result2.InvocationInfo.TransactionId, result.InvocationInfo.TransactionId)
+
+    def test_delayed_processing(self):
+        """Verify that flag 'delayed_processing' changes responses as expected."""
+        logging.getLogger('sdc.client.op_mgr').setLevel(logging.DEBUG)
+        logging.getLogger('sdc.device.op_reg').setLevel(logging.DEBUG)
+        logging.getLogger('sdc.device.SetService').setLevel(logging.DEBUG)
+        logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
+        set_service = self.sdc_client.client('Set')
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC)
+        my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
+
+        operation_handle = my_operation_descriptor.Handle
+        operation = self.sdc_device.get_operation_by_handle(operation_handle)
+        for value in ('169.254.0.199', '169.254.0.199:1234'):
+            self._logger.info('ntp server = %s', value)
+            operation.delayed_processing = True  # first OperationInvokedReport shall have InvocationState.WAIT
+            coll = observableproperties.SingleValueCollector(self.sdc_client, 'operation_invoked_report')
+            future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
+            result = future.result(timeout=SET_TIMEOUT)
+            received_message = coll.result(timeout=5)
+            msg_types = received_message.msg_reader.msg_types
+            operation_invoked_report = msg_types.OperationInvokedReport.from_node(received_message.p_msg.msg_node)
+            self.assertEqual(operation_invoked_report.ReportPart[0].InvocationInfo.InvocationState,
+                             msg_types.InvocationState.WAIT)
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            self.assertIsNone(result.InvocationInfo.InvocationError)
+            self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
+            time.sleep(0.5)
+            # disable delayed processing
+            self._logger.info("disable delayed processing")
+            operation.delayed_processing = False  # first OperationInvokedReport shall have InvocationState.FINISHED
+            coll = observableproperties.SingleValueCollector(self.sdc_client, 'operation_invoked_report')
+            future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
+            result = future.result(timeout=SET_TIMEOUT)
+            received_message = coll.result(timeout=5)
+            msg_types = received_message.msg_reader.msg_types
+            operation_invoked_report = msg_types.OperationInvokedReport.from_node(received_message.p_msg.msg_node)
+            self.assertEqual(operation_invoked_report.ReportPart[0].InvocationInfo.InvocationState,
+                             msg_types.InvocationState.FINISHED)
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            self.assertIsNone(result.InvocationInfo.InvocationError)
+            self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
+
+    def test_set_operating_mode(self):
+        logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
+        logging.getLogger('ssdc.client.subscr').setLevel(logging.DEBUG)
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+
+        operation_handle = 'SVO.37.3569'
+        operation = self.sdc_device.get_operation_by_handle(operation_handle)
+        for op_mode in (pm_types.OperatingMode.NA, pm_types.OperatingMode.ENABLED):
+            operation.set_operating_mode(op_mode)
+            time.sleep(1)
+            operation_state = client_mdib.states.descriptor_handle.get_one(operation_handle)
+            self.assertEqual(operation_state.OperatingMode, op_mode)
+
+    def test_set_string_value(self):
+        """Verify that metricprovider instantiated an operation for SetString call.
+
+         OperationTarget of operation 0815 is an EnumStringMetricState.
+         """
+        set_service = self.sdc_client.client('Set')
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+        coding = pm_types.Coding('0815')
+        my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
+
+        operation_handle = my_operation_descriptor.Handle
+        for value in ('ADULT', 'PEDIATRIC'):
+            self._logger.info('string value = %s', value)
+            future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
+            result = future.result(timeout=SET_TIMEOUT)
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            self.assertIsNone(result.InvocationInfo.InvocationError)
+            self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
+
+            # verify that the corresponding state has been updated
+            state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
+            self.assertEqual(state.MetricValue.Value, value)
+
+    def test_set_metric_value(self):
+        """Verify that metricprovider instantiated an operation for SetNumericValue call.
+
+         OperationTarget of operation 0815-1 is a NumericMetricState.
+         """
+        set_service = self.sdc_client.client('Set')
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+        coding = pm_types.Coding('0815-1')
+        my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
+
+        operation_handle = my_operation_descriptor.Handle
+        for value in (Decimal(1), Decimal(42)):
+            self._logger.info('metric value = %s', value)
+            future = set_service.set_numeric_value(operation_handle=operation_handle,
+                                                   requested_numeric_value=value)
+            result = future.result(timeout=SET_TIMEOUT)
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            self.assertIsNone(result.InvocationInfo.InvocationError)
+            self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
+
+            # verify that the corresponding state has been updated
+            state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
+            self.assertEqual(state.MetricValue.Value, value)

@@ -6,8 +6,6 @@ from typing import TYPE_CHECKING, Any
 
 from sdc11073.xml_types.pm_types import RetrievabilityMethod
 
-from .providerwaveform import DefaultWaveformSource
-
 if TYPE_CHECKING:
     from sdc11073.location import SdcLocation
     from sdc11073.xml_types.pm_types import (
@@ -26,11 +24,8 @@ if TYPE_CHECKING:
 class ProviderMdibMethods:
     """Extra methods for provider mdib tht are not core functionality."""
 
-    waveform_provider_cls = DefaultWaveformSource
-
     def __init__(self, provider_mdib: ProviderMdib):
         self._mdib = provider_mdib
-        self.waveform_provider = self.waveform_provider_cls(provider_mdib)
         self.descriptor_factory = DescriptorFactory(provider_mdib)
         self.default_instance_identifiers = (provider_mdib.data_model.pm_types.InstanceIdentifier(
             root='rootWithNoMeaning', extension_string='System'),)
@@ -143,13 +138,6 @@ class ProviderMdibMethods:
         for mds_descriptor in all_mds_descriptors:
             for descr in self._mdib.get_all_descriptors_in_subtree(mds_descriptor):
                 descr.set_source_mds(mds_descriptor.Handle)
-
-    def update_all_rt_samples(self):
-        """Update all waveforms, by calling waveform_provider."""
-        if self.waveform_provider is None:
-            return
-        with self._mdib._rt_sample_transaction() as transaction:  # noqa: SLF001
-            self.waveform_provider.update_all_realtime_samples(transaction)
 
     def get_mds_descriptor(self, container: AbstractDescriptorProtocol | AbstractStateProtocol) \
             -> AbstractDescriptorProtocol | None:

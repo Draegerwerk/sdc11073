@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from decimal import Decimal
     from sdc11073.namespaces import NamespaceHelper
     from sdc11073.xml_types.basetypes import XMLTypeBase
+    from sdc11073.mdib.containerbase import ContainerBase
     from .dataconverters import DataConverterProtocol
     from .isoduration import DurationType
 
@@ -755,6 +756,28 @@ class NodeIntProperty(NodeTextProperty):
         super().__init__(sub_element_name, IntegerConverter, default_py_value, implied_py_value,
                          is_optional, min_length)
 
+class NodeDecimalProperty(NodeTextProperty):
+    """Python representation is an int."""
+
+    def __init__(self, sub_element_name: etree_.QName | None = None,  # noqa: PLR0913
+                 default_py_value: Decimal | None = None,
+                 implied_py_value: Decimal | None = None,
+                 is_optional: bool = False,
+                 min_length: int = 0):
+        super().__init__(sub_element_name, DecimalConverter, default_py_value, implied_py_value,
+                         is_optional, min_length)
+
+class NodeDurationProperty(NodeTextProperty):
+    """Python representation is an int."""
+
+    def __init__(self, sub_element_name: etree_.QName | None = None,  # noqa: PLR0913
+                 default_py_value: isoduration.DurationType | None = None,
+                 implied_py_value: isoduration.DurationType | None = None,
+                 is_optional: bool = False,
+                 min_length: int = 0):
+        super().__init__(sub_element_name, DurationConverter, default_py_value, implied_py_value,
+                         is_optional, min_length)
+
 
 class NodeTextQNameProperty(_ElementBase):
     """The handled data is a single qualified name in the text of an element in the form prefix:localname."""
@@ -975,7 +998,7 @@ class ContainerProperty(_ElementBase):
     """ContainerProperty supports xsi:type information from xml and instantiates value accordingly."""
 
     def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
-                 value_class: type[XMLTypeBase],
+                 value_class: type[ContainerBase],
                  cls_getter: Callable[[etree_.QName], type],
                  ns_helper: NamespaceHelper,
                  is_optional: bool = False):
@@ -1040,6 +1063,11 @@ class _ElementListProperty(_ElementBase, ABC):
             setattr(instance, self._local_var_name, [])
             return getattr(instance, self._local_var_name)
 
+    def __set__(self, instance, py_value):
+        if isinstance(py_value, tuple):
+            py_value = list(py_value)
+        super().__set__(instance, py_value)
+
     def init_instance_data(self, instance: Any):
         setattr(instance, self._local_var_name, [])
 
@@ -1096,7 +1124,7 @@ class ContainerListProperty(_ElementListProperty):
     """
 
     def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
-                 value_class: type[XMLTypeBase],
+                 value_class: type[ContainerBase],
                  cls_getter: Callable[[etree_.QName], type],
                  ns_helper: NamespaceHelper,
                  is_optional: bool = True):

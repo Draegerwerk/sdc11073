@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 from statistics import mean, stdev
 from threading import Lock
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, ClassVar
 
 from sdc11073 import observableproperties as properties
 from sdc11073.exceptions import ApiUsageError
@@ -43,7 +43,7 @@ class DeterminationTimeWarner:
 
     ST_IN_RANGE = 0
     ST_OUT_OF_RANGE = 1
-    result_lookup = {
+    result_lookup: ClassVar[dict[tuple[int, int], tuple[_WarningState, bool]]] = {
         (ST_IN_RANGE, ST_IN_RANGE): (_WarningState.A_NO_LOG, False),
         (ST_IN_RANGE, ST_OUT_OF_RANGE): (_WarningState.A_OUT_OF_RANGE, False),
         (ST_OUT_OF_RANGE, ST_OUT_OF_RANGE): (_WarningState.A_STILL_OUT_OF_RANGE, True),
@@ -320,7 +320,8 @@ class ConsumerMdibMethods:
         self._mdib.process_incoming_alert_states_report(received_message_data.mdib_version_group, report)
 
     def _on_operational_state_report(self, received_message_data: ReceivedMessage):
-        report = self._msg_reader.process_incoming_states_report(received_message_data)
+        cls = self._mdib.data_model.msg_types.EpisodicOperationalStateReport
+        report = cls.from_node(received_message_data.p_msg.msg_node)
         self._mdib.process_incoming_operational_states_report(received_message_data.mdib_version_group, report)
 
     def _on_waveform_report_profiled(self, received_message_data: ReceivedMessage):

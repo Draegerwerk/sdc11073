@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.dispatch import RequestData
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.pysoap.msgfactory import CreatedMessage, MessageFactory
     from sdc11073.pysoap.soapclientpool import SoapClientPool
 
@@ -202,7 +203,7 @@ class SubscriptionBase:
             self._logger.info('could not send subscription end message, error = {}', ex)  # noqa: PLE1205
 
     def close_by_subscription_manager(self):
-        self._logger.info('close subscription id={} to {}',   # noqa: PLE1205
+        self._logger.info('close subscription id={} to {}',  # noqa: PLE1205
                           self.identifier_uuid, self.notify_to_address)
         self._is_closed = True
         self._soap_client_pool.forget_usr(self.notify_to_url.netloc, self)
@@ -434,8 +435,7 @@ class SubscriptionsManagerBase:
 
     def send_to_subscribers(self, payload: MessageType | xml_utils.LxmlElement,
                             action: str,
-                            mdib_version_group,
-                            what: str):
+                            mdib_version_group: MdibVersionGroup):
         subscribers = self._get_subscriptions_for_action(action)
         nsh = self.sdc_definitions.data_model.ns_helper
         # convert to element tree only once for all subscribers
@@ -449,8 +449,7 @@ class SubscriptionsManagerBase:
 
         self.sent_to_subscribers = (action, mdib_version_group, body_node)  # update observable
         for subscriber in subscribers:
-            if what:
-                self._logger.debug('{}: sending report to {}', what, subscriber.notify_to_address)
+            self._logger.debug('{}: sending report to {}', action, subscriber.notify_to_address)
             try:
                 self._send_notification_report(subscriber, body_node, action)
             except:
@@ -481,7 +480,7 @@ class SubscriptionsManagerBase:
             self._logger.error('could not send notification report error= {}: {}', traceback.format_exc(), subscription)
             raise
 
-    def _get_subscriptions_for_action(self, action):
+    def _get_subscriptions_for_action(self, action: str):
         with self._subscriptions.lock:
             return [s for s in self._subscriptions.objects if s.matches(action)]
 

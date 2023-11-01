@@ -11,7 +11,9 @@ if sys.version_info >= (3, 10):
 
     LxmlElement: TypeAlias = _Element
 else:
-    LxmlElement = _Element
+    from typing_extensions import TypeAlias
+
+    LxmlElement: TypeAlias = _Element
 
 
 def copy_element(node: LxmlElement, method: Callable[[LxmlElement], LxmlElement] = copy.deepcopy) -> LxmlElement:

@@ -1,14 +1,16 @@
 from __future__ import annotations
+
+import contextlib
 from collections import defaultdict
 from typing import TYPE_CHECKING, List, Optional, Union
 from .porttypebase import DPWSPortTypeBase
 from .porttypebase import WSDLMessageDescription, WSDLOperationBinding
 from .porttypebase import mk_wsdl_two_way_operation, msg_prefix
-from ...dispatch import DispatchKey
-from ...namespaces import PrefixesEnum
+from sdc11073.dispatch import DispatchKey
+from sdc11073.namespaces import PrefixesEnum
 
 if TYPE_CHECKING:
-    from ...xml_types.pm_types import LocalizedText
+    from sdc11073.xml_types.pm_types import LocalizedText
 
 def _tw2i(text_width_string):
     """ text width to int"""
@@ -72,7 +74,7 @@ class LocalizationStorage:
             number_of_lines = []
         if requested_handles is None:
             requested_handles = []
-        i_nls = [int(l) for l in number_of_lines]
+        i_nls = [int(line) for line in number_of_lines]
 
         if len(requested_handles) == 0:
             # If there is no Ref ELEMENT given in the request MESSAGE, then all texts are returned in
@@ -86,10 +88,8 @@ class LocalizationStorage:
         # create a flat list of all localized texts with the requested handles
         texts = []
         for handle in handles:
-            try:
+            with contextlib.suppress(KeyError):
                 texts.extend(self._localized_texts[handle])
-            except KeyError:
-                pass
 
         # filter languages:
         if requested_langs is not None and len(requested_langs) > 0:
@@ -189,10 +189,8 @@ class LocalizationStorage:
         # create a flat list of all localized texts with the requested handles
         texts = []
         for handle in handles:
-            try:
+            with contextlib.suppress(KeyError):
                 texts.extend(self._localized_texts[handle])
-            except KeyError:
-                pass
         return texts
 
 

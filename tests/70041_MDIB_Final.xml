@@ -54,7 +54,31 @@
               <pm:ConceptDescription Lang="en-US">Normal</pm:ConceptDescription>
             </pm:Type>
           </pm:AlertSignal>
-        
+
+          <pm:AlertSignal Handle="0xD3C00100.loc.Aud" DescriptorVersion="2" SafetyClassification="MedA" ConditionSignaled="0xD3C00100" Manifestation="Aud" Latching="false">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="194088">
+              <pm:ConceptDescription Lang="en-US">Normal</pm:ConceptDescription>
+            </pm:Type>
+          </pm:AlertSignal>
+
+          <pm:AlertSignal Handle="0xD3C00100.loc.Aud2" DescriptorVersion="2" SafetyClassification="MedA" ConditionSignaled="0xD3C00100" Manifestation="Aud" Latching="false" AcknowledgementSupported="true">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="194088">
+              <pm:ConceptDescription Lang="en-US">Normal</pm:ConceptDescription>
+            </pm:Type>
+          </pm:AlertSignal>
+
 		</pm:AlertSystem>
         <pm:Sco Handle="Sco.mds0" DescriptorVersion="2">
           <ext:Extension>
@@ -71,7 +95,7 @@
               </msg:Retrievability>
               <ece:InvocationPerformedFrom Location="SameLocation" ext:MustUnderstand="true"/>
             </ext:Extension>
-            <pm:Type Code="193820">
+            <pm:Type Code="128284">
               <pm:ConceptDescription Lang="en-US">An operation to initiate global all audio pause</pm:ConceptDescription>
             </pm:Type>
           </pm:Operation>
@@ -83,7 +107,7 @@
               </msg:Retrievability>
               <ece:InvocationPerformedFrom Location="SameLocation" ext:MustUnderstand="true"/>
             </ext:Extension>
-            <pm:Type Code="193821">
+            <pm:Type Code="128285">
               <pm:ConceptDescription Lang="en-US">An operation to cancel global all audio pause</pm:ConceptDescription>
             </pm:Type>
           </pm:Operation>
@@ -105,7 +129,7 @@
                 <msg:By Method="Ep"/>
               </msg:Retrievability>
             </ext:Extension>
-            <pm:Type Code="194041">
+            <pm:Type Code="128505">
               <pm:ConceptDescription Lang="en-US">An operation to Set the active reference source of a clock for time synchronization.</pm:ConceptDescription>
             </pm:Type>
           </pm:Operation>
@@ -116,10 +140,34 @@
                 <msg:By Method="Ep"/>
               </msg:Retrievability>
             </ext:Extension>
-            <pm:Type Code="194040">
+            <pm:Type Code="68632">
               <pm:ConceptDescription Lang="en-US">An operation to set the time zone of a clock.</pm:ConceptDescription>
             </pm:Type>
           </pm:Operation>
+          <pm:Operation xsi:type="pm:SetStringOperationDescriptor" Handle="0x34F06409.op" DescriptorVersion="2" SafetyClassification="MedA" OperationTarget="0x34F06409" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="0815">
+              <pm:ConceptDescription Lang="en-US">An operation to set the patient category.</pm:ConceptDescription>
+            </pm:Type>
+          </pm:Operation>
+
+          <pm:Operation xsi:type="pm:SetValueOperationDescriptor" Handle="0x34F04383.op" DescriptorVersion="2" SafetyClassification="MedA" OperationTarget="0x34F04383" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
+            <ext:Extension>
+              <msg:Retrievability>
+                <msg:By Method="Get"/>
+                <msg:By Method="Ep"/>
+              </msg:Retrievability>
+            </ext:Extension>
+            <pm:Type Code="0815-1">
+              <pm:ConceptDescription Lang="en-US">An operation to set a numeric value.</pm:ConceptDescription>
+            </pm:Type>
+          </pm:Operation>
+
         </pm:Sco>
         <pm:MetaData>
           <pm:Udi>

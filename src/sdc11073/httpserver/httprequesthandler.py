@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from .compression import CompressionHandler
 from .httpreader import HTTPReader, mk_chunks
-from ..exceptions import InvalidPathError
+from sdc11073.exceptions import InvalidPathError
 
 
 class DispatchingRequestHandler(BaseHTTPRequestHandler):

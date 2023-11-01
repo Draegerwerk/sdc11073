@@ -1,6 +1,7 @@
 import copy
 import datetime
 import logging
+import pathlib
 import socket
 import ssl
 import sys
@@ -8,6 +9,7 @@ import time
 import traceback
 import unittest
 import unittest.mock
+import uuid
 from decimal import Decimal
 from itertools import product
 
@@ -24,7 +26,6 @@ from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ConsumerMdib
-from sdc11073.mdib.providerwaveform import Annotator
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
@@ -34,7 +35,7 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.consumer import SdcConsumer
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
-from sdc11073.provider import waveforms
+from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.provider.components import (SdcProviderComponents,
                                           default_sdc_provider_components_async,
                                           default_sdc_provider_components_sync)
@@ -46,11 +47,11 @@ from tests.mockstuff import SomeDevice, dec_list
 
 ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
-    comm_logger = commlog.CommLogger(log_folder=r'c:\temp\sdc_commlog',
-                                     log_out=True,
-                                     log_in=True,
-                                     broadcast_ip_filter=None)
-    commlog.set_communication_logger(comm_logger)
+    comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
+                                          log_out=True,
+                                          log_in=True,
+                                          broadcast_ip_filter=None)
+    comm_logger.start()
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
@@ -61,24 +62,24 @@ mdib_70041 = '70041_MDIB_multi.xml'
 
 
 def provide_realtime_data(sdc_device):
-    waveform_provider = sdc_device.mdib.xtra.waveform_provider
+    waveform_provider = sdc_device.waveform_provider
     if waveform_provider is None:
         return
-    paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveformperiod=1.1, sampleperiod=0.01)
+    paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=1.1, sample_period=0.01)
     waveform_provider.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
 
-    flow = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveformperiod=1.2, sampleperiod=0.01)
+    flow = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveform_period=1.2, sample_period=0.01)
     waveform_provider.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
 
-    co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveformperiod=1.0, sampleperiod=0.01)
+    co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveform_period=1.0, sample_period=0.01)
     waveform_provider.register_waveform_generator('0x34F05506',
                                                   co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
 
     # make SinusGenerator (0x34F05501) the annotator source
-    annotator = Annotator(annotation=pm_types.Annotation(pm_types.CodedValue('a', 'b')),
-                          trigger_handle='0x34F05501',
-                          annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506'])
-    waveform_provider.register_annotation_generator(annotator)
+    waveform_provider.add_annotation_generator(pm_types.CodedValue('a', 'b'),
+                                               trigger_handle='0x34F05501',
+                                               annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506']
+                                               )
 
 
 def runtest_basic_connect(unit_test, sdc_client):
@@ -144,7 +145,7 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
 
     # now disable one waveform
     d_handle = d_handles[0]
-    waveform_provider = sdc_device.mdib.xtra.waveform_provider
+    waveform_provider = sdc_device.waveform_provider
     waveform_provider.set_activation_state(d_handle, pm_types.ComponentActivation.OFF)
     time.sleep(0.5)
     container = client_mdib.states.descriptor_handle.get_one(d_handle)
@@ -303,6 +304,8 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
             m.branches = list()
 
             m.family = s.family
+            m.proto = s.proto
+            m.type = s.type
 
             return m
 
@@ -355,8 +358,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
             self.assertTrue(unittest.mock.call.listen(unittest.mock.ANY) in sock.method_calls or
                             unittest.mock.call.listen() in sock.method_calls or set(sock.w).intersection(branches))
 
-    @unittest.mock.patch('os.path.exists')
-    def test_mk_ssl_contexts(self, _):
+    def test_mk_ssl_contexts(self):
         """
         Test that sdc11073.certloader.mk_ssl_contexts_from_folder creates different contexts for client and device.
         """
@@ -377,7 +379,9 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         ssl_context_mock = unittest.mock.Mock(side_effect=ssl_context_init_side_effect)
 
         with unittest.mock.patch.object(ssl, 'SSLContext', new=ssl_context_mock):
-            return_value = sdc11073.certloader.mk_ssl_contexts_from_folder('')
+            return_value = sdc11073.certloader.mk_ssl_contexts(key_file=unittest.mock.MagicMock(),
+                                                               cert_file=unittest.mock.MagicMock(),
+                                                               ca_file=unittest.mock.MagicMock())
 
         self.assertNotEqual(return_value.client_context, return_value.server_context)
 
@@ -393,8 +397,8 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
 
     @staticmethod
     def _run_client_with_device(ssl_context_container):
-        log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         basic_logging_setup()
+        log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         wsd = WSDiscovery('127.0.0.1')
         wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
@@ -426,6 +430,43 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         wsd.stop()
 
         log_watcher.check()
+
+    def test_mk_ssl_raises_file_not_found_error(self):
+        """Verify that a FileNotFoundError is raised if a cypher file is specified but not found."""
+        with self.assertRaises(FileNotFoundError):
+            sdc11073.certloader.mk_ssl_contexts_from_folder(ca_folder=pathlib.Path())
+        with self.assertRaises(FileNotFoundError):
+            sdc11073.certloader.mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock())
+        with self.assertRaises(FileNotFoundError):
+            sdc11073.certloader.mk_ssl_contexts(key_file=pathlib.Path(str(uuid.uuid4())),
+                                                cert_file=unittest.mock.MagicMock())
+        with self.assertRaises(FileNotFoundError):
+            sdc11073.certloader.mk_ssl_contexts(key_file=unittest.mock.MagicMock(),
+                                                cert_file=pathlib.Path(str(uuid.uuid4())))
+        with self.assertRaises(FileNotFoundError):
+            sdc11073.certloader.mk_ssl_contexts(key_file=unittest.mock.MagicMock(),
+                                                cert_file=unittest.mock.MagicMock(),
+                                                ca_file=pathlib.Path(str(uuid.uuid4())))
+
+    @unittest.mock.patch('sdc11073.certloader.mk_ssl_contexts')
+    def test_mk_ssl_raises_file_not_found_error_with_cipher_file(self, mocked: unittest.mock.MagicMock):
+        """Verify that a FileNotFoundError is raised if a cypher file is specified but not found."""
+        with self.assertRaises(FileNotFoundError):
+            sdc11073.certloader.mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock(), cyphers_file='lorem')
+        self.assertFalse(mocked.called)
+
+    @unittest.mock.patch('sdc11073.certloader.mk_ssl_contexts')
+    @unittest.mock.patch('pathlib.Path.read_text')
+    def test_cyphers(self, read_text_mock: unittest.mock.MagicMock, mk_ssl_contexts_mock: unittest.mock.MagicMock):
+        def _read_text():
+            return """# this is the ciphers file
+# this is a comment
+secret_ciphers_string
+ignored"""
+        read_text_mock.side_effect = _read_text
+        sdc11073.certloader.mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock(), cyphers_file='lorem')
+        mk_ssl_contexts_mock.assert_called_once()
+        self.assertEqual(mk_ssl_contexts_mock.call_args.args[3], 'secret_ciphers_string')
 
 
 class Test_Client_SomeDevice(unittest.TestCase):
@@ -477,7 +518,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             sys.stderr.write(traceback.format_exc())
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
@@ -708,9 +749,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 sdc_client.stop_all()
 
     def test_metric_report(self):
-        logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.client.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)
         runtest_metric_reports(self, self.sdc_device, self.sdc_client, self.logger)
 
     def test_roundtrip_times(self):
@@ -927,7 +965,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_description_modification(self):
         descriptor_handle = '0x34F00100'
-        logging.getLogger('sdc.device').setLevel(logging.DEBUG)
         # set value of a metric
         first_value = Decimal(12)
         with self.sdc_device.mdib.transaction_manager() as mgr:
@@ -1068,8 +1105,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 if mds_descriptor.MetaData is None:
                     cls = self.sdc_device.mdib.data_model.pm_types.MetaData
                     mds_descriptor.MetaData = cls()
-                mds_descriptor.MetaData.Manufacturer.append(pm_types.LocalizedText(u'My Company'))
-                mds_descriptor.MetaData.ModelName.append(pm_types.LocalizedText(u'pySDC'))
+                mds_descriptor.MetaData.Manufacturer.append(pm_types.LocalizedText('My Company'))
+                mds_descriptor.MetaData.ModelName.append(pm_types.LocalizedText('pySDC'))
                 mds_descriptor.MetaData.SerialNumber.append('pmDCBA-4321')
                 mds_descriptor.MetaData.ModelNumber = '1.09'
 
@@ -1079,7 +1116,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         cl_mds_descriptors = client_mdib.descriptions.NODETYPE.get(pm.MdsDescriptor)
         for cl_mds_descriptor in cl_mds_descriptors:
             self.assertEqual(cl_mds_descriptor.MetaData.ModelNumber, '1.09')
-            self.assertEqual(cl_mds_descriptor.MetaData.Manufacturer[-1].text, u'My Company')
+            self.assertEqual(cl_mds_descriptor.MetaData.Manufacturer[-1].text, 'My Company')
 
     def test_remove_mds(self):
         self.sdc_device.stop_realtime_sample_loop()
@@ -1256,10 +1293,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         def are_equivalent(node1, node2):
             if node1.tag != node2.tag or node1.attrib != node2.attrib or node1.text != node2.text:
                 return False
-            for ch1, ch2 in zip(node1, node2):
-                if not are_equivalent(ch1, ch2):
-                    return False
-            return True
+            return all(are_equivalent(ch1, ch2) for ch1, ch2 in zip(node1, node2))
 
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
@@ -1282,7 +1316,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
 
         # common http server for all devices and clients
         self.httpserver = HttpServerThreadBase(
-            my_ipaddress='0.0.0.0',
+            my_ipaddress='0.0.0.0',  # noqa: S104
             ssl_context=None,
             supported_encodings=compression.CompressionHandler.available_encodings[:],
             logger=logging.getLogger('sdc.common_http_srv_a'))
@@ -1340,7 +1374,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
             '############### tearDown {} done, checking logs... ##############\n'.format(self._testMethodName))
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
@@ -1354,9 +1388,6 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         runtest_realtime_samples(self, self.sdc_device_2, self.sdc_client_2)
 
     def test_metric_report_common(self):
-        logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.client.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)
         runtest_metric_reports(self, self.sdc_device_1, self.sdc_client_1, self.logger, test_periodic_reports=False)
         runtest_metric_reports(self, self.sdc_device_2, self.sdc_client_2, self.logger, test_periodic_reports=False)
 
@@ -1402,7 +1433,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         self.wsd.stop()
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
@@ -1458,7 +1489,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.wsd.stop()
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
@@ -1543,7 +1574,7 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
         self.wsd.stop()
         try:
             self.log_watcher.check()
-        except loghelper.LogWatchException as ex:
+        except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
@@ -1570,7 +1601,4 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
         runtest_realtime_samples(self, self.sdc_device, self.sdc_client)
 
     def test_metric_report_sync(self):
-        logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.client.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)
         runtest_metric_reports(self, self.sdc_device, self.sdc_client, self.logger)
