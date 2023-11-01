@@ -8,16 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- added a way to proccess operations sync (directly send FINISHED)
+- added a way to process operations directly (directly send 'Fin' instead of Wait, Started,...)
 
 ### Fixed
 - basic_logging_setup only handles sdc logger, no more side effect due to calling logging.basicConfig. 
-
+- 
 ### Changed
 - change python classes of `addressing_types.py` to match ws-addressing standard of 2006 instead of 2004 
 - The final OperationInvokedReport has OperationTargetRef parameter set. 
   This required refactoring of Operations handling.
 - moved waveform generator from mdib to roles.waveformprovider
+- alert provider performs self check one second before SelfCheckInterval elapses
 
 ## [2.0.0a6] - 2023-09-11
 
