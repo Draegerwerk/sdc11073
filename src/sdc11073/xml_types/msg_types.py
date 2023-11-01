@@ -5,6 +5,7 @@ from abc import abstractmethod
 from . import ext_qnames as ext
 from . import msg_qnames as msg
 from . import pm_qnames as pm
+from . import pm_types
 from . import xml_structure as cp
 from .actions import Actions
 from .basetypes import MessageType
@@ -374,6 +375,19 @@ class DescriptionModificationReport(AbstractReport):
             for d in report_part.Descriptor:
                 d.parent_handle = report_part.ParentDescriptor
         return instance
+
+
+class SystemErrorReportPart(AbstractReportPart):
+    ErrorCode = cp.SubElementProperty(msg.ErrorCode, value_class=pm_types.CodedValue)
+    ErrorInfo = cp.SubElementListProperty(msg.ErrorInfo, value_class=pm_types.LocalizedText)
+    _props = ('ErrorCode', 'ErrorInfo')
+
+
+class SystemErrorReport(AbstractReport):
+    NODETYPE = msg.SystemErrorReport
+    action = Actions.SystemErrorReport
+    ReportPart = cp.SubElementListProperty(msg.ReportPart, value_class=SystemErrorReportPart)
+    _props = ('ReportPart',)
 
 
 class AbstractGet(MessageType):

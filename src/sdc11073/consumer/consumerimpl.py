@@ -145,6 +145,7 @@ class _NotificationsSplitter:
             actions.PeriodicContextReport: 'periodic_context_report',
             actions.DescriptionModificationReport: 'description_modification_report',
             actions.OperationInvokedReport: 'operation_invoked_report',
+            actions.SystemErrorReport: 'system_error_report'
         }
 
 
@@ -164,20 +165,21 @@ class SdcConsumer:
 
     # the following observables can be used to observe the incoming notifications by message type.
     # They contain only the body node of the notification, not the envelope
-    waveform_report = properties.ObservableProperty()
-    episodic_metric_report = properties.ObservableProperty()
-    episodic_alert_report = properties.ObservableProperty()
-    episodic_component_report = properties.ObservableProperty()
-    episodic_operational_state_report = properties.ObservableProperty()
-    episodic_context_report = properties.ObservableProperty()
-    periodic_metric_report = properties.ObservableProperty()
-    periodic_alert_report = properties.ObservableProperty()
-    periodic_component_report = properties.ObservableProperty()
-    periodic_operational_state_report = properties.ObservableProperty()
-    periodic_context_report = properties.ObservableProperty()
-    description_modification_report = properties.ObservableProperty()
-    operation_invoked_report = properties.ObservableProperty()
-    subscription_end_data = properties.ObservableProperty()  # SubscriptionEndData
+    waveform_report: ReceivedMessage = properties.ObservableProperty()
+    episodic_metric_report: ReceivedMessage = properties.ObservableProperty()
+    episodic_alert_report: ReceivedMessage = properties.ObservableProperty()
+    episodic_component_report: ReceivedMessage = properties.ObservableProperty()
+    episodic_operational_state_report: ReceivedMessage = properties.ObservableProperty()
+    episodic_context_report: ReceivedMessage = properties.ObservableProperty()
+    periodic_metric_report: ReceivedMessage = properties.ObservableProperty()
+    periodic_alert_report: ReceivedMessage = properties.ObservableProperty()
+    periodic_component_report: ReceivedMessage = properties.ObservableProperty()
+    periodic_operational_state_report: ReceivedMessage = properties.ObservableProperty()
+    periodic_context_report: ReceivedMessage = properties.ObservableProperty()
+    description_modification_report: ReceivedMessage = properties.ObservableProperty()
+    operation_invoked_report: ReceivedMessage = properties.ObservableProperty()
+    subscription_end_data: ReceivedMessage = properties.ObservableProperty()
+    system_error_report: ReceivedMessage = properties.ObservableProperty()
 
     SSL_CIPHERS = None  # None : use SSL default
 
@@ -424,6 +426,7 @@ class SdcConsumer:
     def start_all(self, not_subscribed_actions: list[str] | None = None,  # noqa: PLR0913
                   fixed_renew_interval: float | None = None,
                   subscribe_periodic_reports: bool = False,
+                  subscribe_system_error_report: bool = True,
                   shared_http_server: Any | None = None,
                   check_get_service: bool = True) -> None:
         """Start background threads, read metadata from device, instantiate detected port type clients and subscribe.
@@ -432,7 +435,9 @@ class SdcConsumer:
         :param fixed_renew_interval: an interval in seconds or None
                     if None, renew is sent when remaining time <= 50% of granted time
                     if set, subscription renew is sent in this interval.
-        :param subscribe_periodic_reports:
+        :param subscribe_periodic_reports: if True, periodic reports are also subscribed.
+        :param subscribe_system_error_report: if True, SystemErrorReport is subscribed
+                Subscription to SystemErrorReport is not supported by all stacks, in that case set flag to False.
         :param shared_http_server: if provided, use this http server, else client creates its own.
         :param check_get_service: if True (default) it checks that a GetService is detected,
                which is the minimal requirement for a sdc provider.
@@ -504,6 +509,8 @@ class SdcConsumer:
                 subscribe_actions = {a for a in available_actions if a.action not in not_subscribed_actions_set}
                 if not subscribe_periodic_reports:
                     subscribe_actions = {a for a in subscribe_actions if a.action not in periodic_actions}
+                if not subscribe_system_error_report:
+                    subscribe_actions = {a for a in subscribe_actions if a.action != self.sdc_definitions.Actions.SystemErrorReport}
                 if len(subscribe_actions) > 0:
                     filter_type = eventing_types.FilterType()
                     filter_type.text = ' '.join(x.action for x in subscribe_actions)
