@@ -10,6 +10,8 @@ from . import providerbase
 
 class GenericAlarmProvider(providerbase.ProviderRole):
     WORKERTHREAD_INTERVAL = 1.0 # seconds
+    self_check_safety_margin = 1.0  # how many seconds before SelfCheckInterval elapses a new self check is performed.
+
     def __init__(self, log_prefix):
         super().__init__(log_prefix)
 
@@ -389,10 +391,10 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             all_alert_systems_descr = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('AlertSystemDescriptor'), list())
             for alert_system_descr in all_alert_systems_descr:
                 alert_system_state = self._mdib.states.descriptorHandle.getOne(alert_system_descr.handle, allowNone=True)
-                selfcheck_period = alert_system_descr.SelfCheckPeriod
-                if selfcheck_period is not None:
-                    last_selfcheck = alert_system_state.LastSelfCheck or 0.0
-                    if time.time() - last_selfcheck >= selfcheck_period:
+                self_check_period = alert_system_descr.SelfCheckPeriod
+                if self_check_period is not None:
+                    last_self_check = alert_system_state.LastSelfCheck or 0.0
+                    if time.time() - last_self_check >= self_check_period - self.self_check_safety_margin:
                         alertStatesNeedingUpdate.append(alert_system_state)
         except:
             exc = traceback.format_exc()
