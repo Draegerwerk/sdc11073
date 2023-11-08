@@ -31,6 +31,7 @@ from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
 from sdc11073.xml_types import pm_types, msg_types, msg_qnames as msg, pm_qnames as pm
+from sdc11073.xml_types.actions import periodic_actions
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.consumer import SdcConsumer
 from sdc11073.consumer.components import SdcConsumerComponents
@@ -419,7 +420,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
                                  ssl_context_container=ssl_context_container,
                                  validate=CLIENT_VALIDATE,
                                  specific_components=specific_components)
-        sdc_client.start_all(subscribe_periodic_reports=True)
+        sdc_client.start_all(not_subscribed_actions=periodic_actions)
         time.sleep(1.5)
 
         log_watcher.setPaused(True)
@@ -497,9 +498,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                       sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                       ssl_context_container=None,
                                       validate=CLIENT_VALIDATE,
-                                      specific_components=specific_components,)
-        self.sdc_client.start_all(subscribe_periodic_reports=True,
-                                  subscribe_system_error_report=True)
+                                      specific_components=specific_components)
+        self.sdc_client.start_all()  # with periodic reports and system error report
         time.sleep(1)
         sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
         self.logger.info('############### setUp done {} ##############'.format(self._testMethodName))
@@ -641,7 +641,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         # make renew period much longer than max subscription duration
         # => all subscription expired,  all soap clients closed
         self.logger.info('starting client again  with fixed_renew_interval=1000')
-        self.sdc_client.start_all(fixed_renew_interval=1000)
+        self.sdc_client.start_all(not_subscribed_actions=periodic_actions,
+                                  fixed_renew_interval=1000)
         time.sleep(1)
         self.assertGreater(len(self.sdc_device._soap_client_pool._soap_clients), 0)
         sleep_time = int(self.sdc_device._max_subscription_duration + 3)
@@ -739,7 +740,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                      validate=CLIENT_VALIDATE,
                                      specific_components=specific_components,
                                      log_prefix='consumer2 ')
-            sdc_client.start_all(subscribe_periodic_reports=True)
+            sdc_client.start_all(not_subscribed_actions=periodic_actions)
 
             cl_mdib = ConsumerMdib(sdc_client)
             cl_mdib.init_mdib()
@@ -1365,7 +1366,8 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
                                         epr="client1",
                                         validate=CLIENT_VALIDATE,
                                         log_prefix='<cl1> ')
-        self.sdc_client_1.start_all(shared_http_server=self.httpserver)
+        self.sdc_client_1.start_all(shared_http_server=self.httpserver,
+                                    not_subscribed_actions=periodic_actions)
 
         x_addr = self.sdc_device_2.get_xaddrs()
         self.sdc_client_2 = SdcConsumer(x_addr[0],
@@ -1374,7 +1376,8 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
                                         epr="client2",
                                         validate=CLIENT_VALIDATE,
                                         log_prefix='<cl2> ')
-        self.sdc_client_2.start_all(shared_http_server=self.httpserver)
+        self.sdc_client_2.start_all(shared_http_server=self.httpserver,
+                                    not_subscribed_actions=periodic_actions)
 
         self._all_cl_dev = ((self.sdc_client_1, self.sdc_device_1),
                             (self.sdc_client_2, self.sdc_device_2))
@@ -1439,7 +1442,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
                                       validate=CLIENT_VALIDATE,
                                       log_prefix='<Final> ',
                                       request_chunk_size=512)
-        self.sdc_client.start_all()
+        self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
 
         time.sleep(1)
         sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
@@ -1495,7 +1498,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
                                       log_prefix='<Final> ',
                                       specific_components=specific_components,
                                       request_chunk_size=512)
-        self.sdc_client.start_all()
+        self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
 
         time.sleep(1)
         sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
@@ -1580,7 +1583,7 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
                                       validate=CLIENT_VALIDATE,
                                       log_prefix='',
                                       request_chunk_size=512)
-        self.sdc_client.start_all(subscribe_periodic_reports=True)
+        self.sdc_client.start_all()  # subscribe all
 
         time.sleep(1)
         sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))

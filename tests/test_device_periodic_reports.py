@@ -61,7 +61,7 @@ class Test_Device_PeriodicReports(unittest.TestCase):
 
     def test_periodic_reports(self):
         """Test waits 10 seconds and counts reports that have been received in that time."""
-        self.sdc_client.start_all(subscribe_periodic_reports=True)
+        self.sdc_client.start_all()
 
         metric_coll = ValuesCollector(self.sdc_client, 'periodic_metric_report', 5)
         alert_coll = ValuesCollector(self.sdc_client, 'periodic_alert_report', 2)

@@ -9,6 +9,7 @@ from sdc11073.consumer import SdcConsumer
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types
+from sdc11073.xml_types.actions import periodic_actions
 from tests import utils
 from tests.mockstuff import SomeDevice
 
@@ -51,7 +52,7 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
                                       ssl_context_container=None,
                                       validate=CLIENT_VALIDATE)
 
-        self.sdc_client.start_all()
+        self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
 
         time.sleep(1)
         sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
