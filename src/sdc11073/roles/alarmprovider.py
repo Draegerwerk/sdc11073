@@ -343,7 +343,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         value = params.operation_request.argument
         pm_types = self._mdib.data_model.pm_types
         operation_target_handle = params.operation_instance.operation_target_handle
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.alert_state_transaction() as mgr:
             state = mgr.get_state(operation_target_handle)
             self._logger.info('delegate alert signal %s of %s from %s to %s', operation_target_handle, state,
                               state.ActivationState, value.ActivationState)
@@ -363,7 +363,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         """TimeoutHandler for delegated signal."""
         pm_types = self._mdib.data_model.pm_types
         operation_target_handle = operation_instance.operation_target_handle
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.alert_state_transaction() as mgr:
             state = mgr.get_state(operation_target_handle)
             self._logger.info('timeout alert signal delegate operation=%s target=%s',
                               operation_instance.handle, operation_target_handle)
@@ -391,7 +391,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         states_needing_update = self._get_alert_system_states_needing_update()
         if len(states_needing_update) > 0:
             try:
-                with self._mdib.transaction_manager() as mgr:
+                with self._mdib.alert_state_transaction() as mgr:
                     tr_states = [mgr.get_state(s.DescriptorHandle) for s in states_needing_update]
                     self._update_alert_system_states(self._mdib, mgr, tr_states)
             except Exception:

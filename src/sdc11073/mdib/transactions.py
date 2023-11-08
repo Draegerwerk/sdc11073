@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass
+from enum import Enum
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, Protocol
 
@@ -21,6 +22,16 @@ if TYPE_CHECKING:
     )
 
 
+class TransactionType(Enum):
+    descriptor = 1
+    metric = 2
+    alert = 3
+    component = 4
+    context = 5
+    operational = 6
+    rt_sample = 7
+
+
 @dataclass(frozen=True)
 class _TrItem:
     """Transaction Item with old and new container."""
@@ -32,7 +43,9 @@ class _TrItem:
 class TransactionManagerProtocol(Protocol):
     """Interface of a TransactionManager."""
 
-    def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
+    def __init__(self, device_mdib_container: ProviderMdib,
+                 transaction_type: TransactionType,
+                 logger: LoggerAdapter):
         ...
 
     def get_descriptor_in_transaction(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
@@ -87,8 +100,12 @@ class TransactionManagerProtocol(Protocol):
 
 
 class _TransactionBase:
-    def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
+    def __init__(self,
+                 device_mdib_container: ProviderMdib,
+                 transaction_type: TransactionType,
+                 logger: LoggerAdapter):
         self._device_mdib_container = device_mdib_container
+        self._transaction_type = transaction_type
         self._logger = logger
         self.descriptor_updates = {}
         self.metric_state_updates = {}
@@ -101,7 +118,11 @@ class _TransactionBase:
         self._closed = False
         self.mdib_version = None
         self._current_update_dict = None  # used to check for data type
-        self.is_descriptor_update = False
+        # self.is_descriptor_update = False
+
+    @property
+    def is_descriptor_update(self):
+        return self._transaction_type == TransactionType.descriptor
 
     def get_descriptor_in_transaction(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
         """Look for new or updated descriptor in current transaction and in mdib."""
@@ -144,13 +165,57 @@ class _TransactionBase:
         """
         if self._current_update_dict is None:
             self._current_update_dict = update_dict
-            if self._current_update_dict is self.descriptor_updates:
-                self.is_descriptor_update = True
+            # if self._current_update_dict is self.descriptor_updates:
+            #     self.is_descriptor_update = True
         elif self.is_descriptor_update:
             # in description modification reports it is allowed to update states as well
             return
         elif self._current_update_dict is not update_dict:
             raise ApiUsageError('Mix of data types in transaction is not allowed!')
+
+    # def _verify_correct_state_type(self, state: AbstractStateProtocol):
+    #     if (state.is_context_state and self._transaction_type != TransactionType.context) or\
+    #        (state.is_realtime_sample_array_metric_state and self._transaction_type != TransactionType.rt_sample) or\
+    #        (state.is_component_state and self._transaction_type != TransactionType.component) or\
+    #        (state.is_operational_state and self._transaction_type != TransactionType.operational) or\
+    #        (state.is_alert_state and self._transaction_type != TransactionType.alert) or\
+    #        (state.is_metric_state and self._transaction_type != TransactionType.metric) or\
+    #        self._transaction_type == TransactionType.descriptor:
+    #         raise ApiUsageError('Mix of data types in transaction is not allowed!')
+
+    def _verify_correct_state_type(self, state: AbstractStateProtocol):
+        # description modification report can contain any type of state, everything else must match exactly
+        if self._transaction_type == TransactionType.descriptor or\
+            (state.is_context_state and self._transaction_type == TransactionType.context) or\
+            (state.is_realtime_sample_array_metric_state and self._transaction_type == TransactionType.rt_sample) or\
+            (state.is_component_state and self._transaction_type == TransactionType.component) or\
+            (state.is_operational_state and self._transaction_type == TransactionType.operational) or\
+            (state.is_alert_state and self._transaction_type == TransactionType.alert) or\
+            (state.is_metric_state and self._transaction_type == TransactionType.metric):
+            return
+        raise ApiUsageError('Mix of data types in transaction is not allowed!')
+
+    def _verify_correct_descr_type(self, descriptor: AbstractDescriptorProtocol):
+        # description modification report can contain any type of state, everything else must match exactly
+        if self._transaction_type == TransactionType.descriptor or\
+           (descriptor.is_context_descriptor and self._transaction_type == TransactionType.context) or\
+           (descriptor.is_realtime_sample_array_metric_descriptor and self._transaction_type == TransactionType.rt_sample) or\
+           (descriptor.is_component_descriptor and self._transaction_type == TransactionType.component) or\
+           (descriptor.is_operational_descriptor and self._transaction_type == TransactionType.operational) or\
+           (descriptor.is_alert_descriptor and self._transaction_type == TransactionType.alert) or\
+           (descriptor.is_metric_descriptor and self._transaction_type == TransactionType.metric):
+                return
+        raise ApiUsageError('Mix of data types in transaction is not allowed!')
+
+    # def _verify_correct_descr_type(self, descriptor: AbstractDescriptorProtocol):
+    #     if (descriptor.is_context_descriptor and self._transaction_type != TransactionType.context) or\
+    #        (descriptor.is_realtime_sample_array_metric_descriptor and self._transaction_type != TransactionType.rt_sample) or\
+    #        (descriptor.is_component_descriptor and self._transaction_type != TransactionType.component) or\
+    #        (descriptor.is_operational_descriptor and self._transaction_type != TransactionType.operational) or\
+    #        (descriptor.is_alert_descriptor and self._transaction_type != TransactionType.alert) or\
+    #        (descriptor.is_metric_descriptor and self._transaction_type != TransactionType.metric) or\
+    #        self._transaction_type == TransactionType.descriptor:
+    #         raise ApiUsageError('Mix of data types in transaction is not allowed!')
 
     def _get_states_update(self, container: AbstractStateProtocol | AbstractDescriptorProtocol) -> dict:
         if getattr(container, 'is_realtime_sample_array_metric_state', False):
@@ -166,6 +231,7 @@ class _TransactionBase:
         if getattr(container, 'is_context_state', False) or getattr(container, 'is_context_descriptor', False):
             return self.context_state_updates
         raise NotImplementedError(f'unhandled case {container}')
+
 
     def _get_states_storage(self, state_container: AbstractStateProtocol) -> MultiKeyLookup:
         if state_container.is_context_state:
@@ -201,6 +267,11 @@ class RtDataMdibUpdateTransaction(_TransactionBase):
 
     It handles this specific purpose with less overhead compared to regular transaction.
     """
+
+    def __init__(self,
+                 device_mdib_container: ProviderMdib,
+                 logger: LoggerAdapter):
+        super().__init__(device_mdib_container, TransactionType.rt_sample, logger)
 
     @tr_method_wrapper
     def get_real_time_sample_array_metric_state(self, descriptor_handle: str) -> AbstractStateContainer:
@@ -240,8 +311,10 @@ class MdibUpdateTransaction(_TransactionBase):
     this can have multiple notifications with the same mdib version.).
     """
 
-    def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
-        super().__init__(device_mdib_container, logger)
+    def __init__(self, device_mdib_container: ProviderMdib,
+                 transaction_type: TransactionType,
+                 logger: LoggerAdapter):
+        super().__init__(device_mdib_container, transaction_type, logger)
         # lookups for states that are modified due to descriptor changes
         self.descriptor_state_new = {}
         self.descriptor_state_upd = {}
@@ -262,7 +335,10 @@ class MdibUpdateTransaction(_TransactionBase):
         :param state_container: optional state container for descriptor_container
         :return: None
         """
-        self._verify_correct_update_dict(self.descriptor_updates)
+        if self._transaction_type != TransactionType.descriptor:
+            raise ApiUsageError('Mix of data types in transaction is not allowed!')
+
+        # self._verify_correct_update_dict(self.descriptor_updates)
         descriptor_handle = descriptor_container.Handle
         if descriptor_handle in self.descriptor_updates:
             raise ValueError(f'Descriptor {descriptor_handle} already in updated set!')
@@ -282,7 +358,9 @@ class MdibUpdateTransaction(_TransactionBase):
     @tr_method_wrapper
     def remove_descriptor(self, descriptor_handle: str):
         """Remove existing descriptor from mdib."""
-        self._verify_correct_update_dict(self.descriptor_updates)
+        if self._transaction_type != TransactionType.descriptor:
+            raise ApiUsageError('Mix of data types in transaction is not allowed!')
+        # self._verify_correct_update_dict(self.descriptor_updates)
         if descriptor_handle in self.descriptor_updates:
             raise ValueError(f'DescriptorHandle {descriptor_handle} already in updated set!')
         orig_descriptor_container = self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
@@ -296,7 +374,9 @@ class MdibUpdateTransaction(_TransactionBase):
         and notification messages will be sent to clients.
         @return: a copy of the state.
         """
-        self._verify_correct_update_dict(self.descriptor_updates)
+        if self._transaction_type != TransactionType.descriptor:
+            raise ApiUsageError('Mix of data types in transaction is not allowed!')
+        # self._verify_correct_update_dict(self.descriptor_updates)
         if descriptor_handle in self.descriptor_updates:
             raise ValueError(f'DescriptorHandle {descriptor_handle} already in updated set!')
         orig_descriptor_container = self._device_mdib_container.descriptions.handle.get_one(descriptor_handle)
@@ -337,9 +417,11 @@ class MdibUpdateTransaction(_TransactionBase):
         :param adjust_state_version:
         :return: None
         """
+        self._verify_correct_state_type(state_container)
+
         my_multi_key = self._get_states_storage(state_container)
         my_updates = self._get_states_update(state_container)
-        self._verify_correct_update_dict(my_updates)
+        # self._verify_correct_update_dict(my_updates)
 
         descriptor_handle = state_container.DescriptorHandle
         if self.is_descriptor_update:
@@ -380,6 +462,8 @@ class MdibUpdateTransaction(_TransactionBase):
         :return: a copy of the state
         """
         descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
+        self._verify_correct_descr_type(descriptor_container)
+
         if descriptor_container.is_realtime_sample_array_metric_descriptor:
             return self._get_real_time_sample_array_metric_state(descriptor_container)
         if descriptor_container.is_context_descriptor:
@@ -406,7 +490,10 @@ class MdibUpdateTransaction(_TransactionBase):
         :param context_state_handle: the handle of the object that shall be read.
         @return: a copy of the state.
         """
-        self._verify_correct_update_dict(self.context_state_updates)
+        if self._transaction_type != TransactionType.context:
+            raise ApiUsageError('Mix of data types in transaction is not allowed!')
+
+        # self._verify_correct_update_dict(self.context_state_updates)
         if context_state_handle is None:
             raise ValueError('no handle for context state specified')
         if context_state_handle in self.context_state_updates:
@@ -436,7 +523,9 @@ class MdibUpdateTransaction(_TransactionBase):
            :param set_associated: if True, BindingMdibVersion, BindingStartTime and ContextAssociation are set.
         :return: the new state.
         """
-        self._verify_correct_update_dict(self.context_state_updates)
+        if self._transaction_type != TransactionType.context:
+            raise ApiUsageError('Mix of data types in transaction is not allowed!')
+        # self._verify_correct_update_dict(self.context_state_updates)
         descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
         if context_state_handle is None:
             old_state_container = None
@@ -475,8 +564,11 @@ class MdibUpdateTransaction(_TransactionBase):
             self,
             descriptor_container: AbstractDescriptorProtocol,
     ) -> AbstractStateProtocol:
+        if self._transaction_type != TransactionType.rt_sample:
+            raise ApiUsageError('Mix of data types in transaction is not allowed!')
+
         descriptor_handle = descriptor_container.Handle
-        self._verify_correct_update_dict(self.rt_sample_state_updates)
+        # self._verify_correct_update_dict(self.rt_sample_state_updates)
         if descriptor_handle in self.rt_sample_state_updates:
             raise ValueError(f'DescriptorHandle {descriptor_handle} already in updated set!')
         state_container = self._device_mdib_container.states.descriptor_handle.get_one(descriptor_handle,
@@ -526,7 +618,7 @@ class TransactionProcessor:
     def all_states(self) -> list[AbstractStateContainer]:
         """Return all states in this transaction."""
         return self.metric_updates + self.alert_updates + self.comp_updates + self.ctxt_updates \
-            + self.op_updates + self.rt_updates
+               + self.op_updates + self.rt_updates
 
     def process_transaction(self):
         """Run transaction."""

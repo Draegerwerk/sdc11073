@@ -119,7 +119,7 @@ class TestDeviceServices(unittest.TestCase):
     def test_changeAlarmPrio(self):
         get_service = self.sdc_device.hosted_services.get_service
         path = '123'
-        with self.sdc_device.mdib.transaction_manager() as tr:
+        with self.sdc_device.mdib.descriptor_transaction() as tr:
             alarmConditionDescriptor = tr.get_descriptor('0xD3C00109')
             alarmConditionDescriptor.Priority = AlertConditionPriority.LOW
         get_env = self._mk_get_request(self.sdc_device, get_service.port_type_name.localname, 'GetMdDescription', path)

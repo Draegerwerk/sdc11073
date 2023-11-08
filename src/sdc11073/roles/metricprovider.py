@@ -81,7 +81,7 @@ class GenericMetricProvider(ProviderRole):
         # ToDo: consider ModifiableDate attribute
         proposed_states = params.operation_request.argument
         params.operation_instance.current_value = proposed_states
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.metric_state_transaction() as mgr:
             for proposed_state in proposed_states:
                 state = mgr.get_state(proposed_state.DescriptorHandle)
                 if state.is_metric_state:
@@ -129,7 +129,7 @@ class GenericMetricProvider(ProviderRole):
                           params.operation_instance.handle,
                           params.operation_instance.current_value, value)
         params.operation_instance.current_value = value
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.metric_state_transaction() as mgr:
             _state = mgr.get_state(params.operation_instance.operation_target_handle)
             state = cast(MetricStateProtocol, _state)
             if state.MetricValue is None:
@@ -152,7 +152,7 @@ class GenericMetricProvider(ProviderRole):
                           params.operation_instance.operation_target_handle,
                           params.operation_instance.current_value, value)
         params.operation_instance.current_value = value
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.metric_state_transaction() as mgr:
             _state = mgr.get_state(params.operation_instance.operation_target_handle)
             state = cast(MetricStateProtocol, _state)
             if state.MetricValue is None:

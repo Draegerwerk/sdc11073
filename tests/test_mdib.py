@@ -63,7 +63,7 @@ class TestMdibTransaction(unittest.TestCase):
                                                 protocol_definition=definitions_sdc.SdcV1Definitions)
 
     def test_create_delete_descriptor(self):
-        with self.mdib.transaction_manager() as mgr:
+        with self.mdib.descriptor_transaction() as mgr:
             parent_descriptor = self.mdib.descriptions.handle.get_one("ch0.vmd0")
             descriptor_container = self.mdib.data_model.mk_descriptor_container(
                 pm.NumericMetricDescriptor, handle="testHandle", parent_descriptor=parent_descriptor)
@@ -78,7 +78,7 @@ class TestMdibTransaction(unittest.TestCase):
         self.assertIsNotNone(descr)
         self.assertIsNotNone(state)
 
-        with self.mdib.transaction_manager() as mgr:
+        with self.mdib.descriptor_transaction() as mgr:
             mgr.remove_descriptor("testHandle")
         tr = self.mdib.transaction
         self.assertEqual(0, len(tr.descr_created))
@@ -91,7 +91,7 @@ class TestMdibTransaction(unittest.TestCase):
         self.assertIsNone(state)
 
     def test_create_descriptor_without_state(self):
-        with self.mdib.transaction_manager() as mgr:  # now without state
+        with self.mdib.descriptor_transaction() as mgr:  # now without state
             parent_descriptor = self.mdib.descriptions.handle.get_one("ch0.vmd0")
             descriptor_container = self.mdib.data_model.mk_descriptor_container(
                 pm.NumericMetricDescriptor, handle="testHandle", parent_descriptor=parent_descriptor)
@@ -102,7 +102,7 @@ class TestMdibTransaction(unittest.TestCase):
         self.assertEqual(1, len(tr.all_states()))
 
     def test_update_descriptor_get_twice(self):
-        with self.mdib.transaction_manager() as mgr:
+        with self.mdib.descriptor_transaction() as mgr:
             metric_descriptor = mgr.get_descriptor('numeric.ch0.vmd0')
             metric_descriptor.DeterminationPeriod = 29.0
             state = mgr.get_state('numeric.ch0.vmd0')
@@ -112,13 +112,13 @@ class TestMdibTransaction(unittest.TestCase):
             self.assertRaises(ApiUsageError, mgr.get_state, 'numeric.ch1.vmd0')
 
     def test_update_descriptor_wrong_state(self):
-        with self.mdib.transaction_manager() as mgr:
+        with self.mdib.descriptor_transaction() as mgr:
             metric_descriptor = mgr.get_descriptor('numeric.ch0.vmd0')
             metric_descriptor.DeterminationPeriod = 29.0
             self.assertRaises(ApiUsageError, mgr.get_state, 'numeric.ch1.vmd0')
 
     def test_get_mixed_states(self):
-        with self.mdib.transaction_manager() as mgr:
+        with self.mdib.metric_state_transaction() as mgr:
             state = mgr.get_state('numeric.ch0.vmd0')
             self.assertEqual(state.DescriptorHandle, 'numeric.ch0.vmd0')
             self.assertRaises(ApiUsageError, mgr.get_state, 'ch0.vmd0')

@@ -5,6 +5,7 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from sdc11073.xml_types.pm_types import RetrievabilityMethod
+from .transactions import TransactionType
 
 if TYPE_CHECKING:
     from sdc11073.location import SdcLocation
@@ -67,7 +68,7 @@ class ProviderMdibMethods:
         """
         mdib = self._mdib
         pm = mdib.data_model.pm_names
-        with mdib.transaction_manager() as mgr:
+        with mdib.context_state_transaction() as mgr:
             all_location_contexts = mdib.context_states.NODETYPE.get(pm.LocationContextState, [])
             # set all to currently associated Locations to Disassociated
             associated_locations = [loc for loc in all_location_contexts if

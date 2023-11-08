@@ -192,7 +192,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         # create a patient locally on device, then test update from client
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_context_report')
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.context_state_transaction() as mgr:
             st = mgr.mk_context_state(patient_descriptor_container.Handle)
             st.CoreData.Givenname = 'Max123'
             st.CoreData.Middlename = ['Willy']
@@ -271,7 +271,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         """
         # switch one alert system off
         alert_system_off = 'Asy.3208'
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.alert_state_transaction() as mgr:
             state = mgr.get_state(alert_system_off)
             state.ActivationState = pm_types.AlertActivation.OFF
         alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
