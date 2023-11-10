@@ -25,6 +25,7 @@ from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.xml_types.msg_types import InvocationState
 from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.xml_types.wsd_types import ScopesType
+from sdc11073.xml_types.actions import periodic_actions_and_system_error_report
 from tests import utils
 
 if TYPE_CHECKING:
@@ -290,7 +291,7 @@ class Test_Tutorial(unittest.TestCase):
 
         my_client = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
         self.my_clients.append(my_client)
-        my_client.start_all()
+        my_client.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
         ############# Mdib usage ##############################
         # In data oriented tests a mdib instance is very handy:
         # The mdib collects all data and makes it easily available for the test
@@ -332,7 +333,7 @@ class Test_Tutorial(unittest.TestCase):
 
         my_client = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
         self.my_clients.append(my_client)
-        my_client.start_all()
+        my_client.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
         my_mdib = ConsumerMdib(my_client)
         my_mdib.init_mdib()
 
@@ -389,7 +390,7 @@ class Test_Tutorial(unittest.TestCase):
         self.service = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
         my_client = self.service
         self.my_clients.append(my_client)
-        my_client.start_all()
+        my_client.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
         my_mdib = ConsumerMdib(my_client)
         my_mdib.init_mdib()
 

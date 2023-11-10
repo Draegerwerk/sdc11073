@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.mdib.statecontainers import AbstractStateContainer
     from sdc11073.provider.periodicreports import PeriodicStates
+    from sdc11073.xml_types.msg_types import SystemErrorReportPart
 
 
 class StateEventService(DPWSPortTypeBase):
@@ -149,6 +150,15 @@ class StateEventService(DPWSPortTypeBase):
                            len(periodic_states_list))
         subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group)
 
+    def send_system_error_report(self, report_parts: list[SystemErrorReportPart],
+                                 mdib_version_group: MdibVersionGroup):
+        data_model = self._sdc_definitions.data_model
+        subscription_mgr = self.hosting_service.subscriptions_manager
+        report = data_model.msg_types.SystemErrorReport()
+        report.ReportPart.extend(report_parts)
+        report.set_mdib_version_group(mdib_version_group)
+        self._logger.debug('sending SystemErrorReport')
+        subscription_mgr.send_to_subscribers(report, report.action.value, mdib_version_group)
 
 def fill_episodic_report_body(report, states):
     """Helper that splits states list into separate lists per source mds and adds them to report accordingly."""

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - added a way to process operations directly (directly send 'Fin' instead of Wait, Started,...)
+- added handling of SystemErrorReports.
 
 ### Fixed
 - basic_logging_setup only handles sdc logger, no more side effect due to calling logging.basicConfig. 
