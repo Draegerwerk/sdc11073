@@ -1189,7 +1189,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         coll = observableproperties.SingleValueCollector(client_mdib, 'updated_descriptors_by_handle')
         descriptor_handle = '0x34F00100'
-        with self.sdc_device.mdib.descriptor_transaction(set_determination_time=False) as mgr:
+        with self.sdc_device.mdib.descriptor_transaction() as mgr:
             descr = mgr.get_descriptor(descriptor_handle)
             descr.DeterminationPeriod = 42
         data = coll.result(timeout=NOTIFICATION_TIMEOUT)

@@ -5,7 +5,6 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 from sdc11073.xml_types.pm_types import RetrievabilityMethod
-from .transactions import TransactionType
 
 if TYPE_CHECKING:
     from sdc11073.location import SdcLocation

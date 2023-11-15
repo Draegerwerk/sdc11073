@@ -173,7 +173,7 @@ class GenericWaveformProvider:
         """
         for descriptor_handle, wf_generator in self._waveform_generators.items():
             if wf_generator.is_active:
-                state = transaction.get_real_time_sample_array_metric_state(descriptor_handle)
+                state = transaction.get_state(descriptor_handle)
                 self._update_rt_samples(state)
         self._add_all_annotations()
 
@@ -226,7 +226,7 @@ class GenericWaveformProvider:
                 behind_schedule_seconds = timer.wait_next_interval_begin()
                 self._log_waveform_timing(behind_schedule_seconds)
                 try:
-                    with self._mdib.rt_sample_fast_transaction() as transaction:
+                    with self._mdib.rt_sample_state_transaction() as transaction:
                         self.update_all_realtime_samples(transaction)
                     self._log_waveform_timing(behind_schedule_seconds)
                 except Exception:  # noqa: BLE001
