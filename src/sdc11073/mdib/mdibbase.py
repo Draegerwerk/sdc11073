@@ -385,8 +385,7 @@ class MdibBase:
         # append all child containers, then bring all child elements in correct order
         for child in child_list:
             child_tag, set_xsi = descriptor_container.tag_name_for_child_descriptor(child.NODETYPE)
-            child_node = self.make_descriptor_node(child, node, child_tag, set_xsi)
-            node.append(child_node)
+            self.make_descriptor_node(child, node, child_tag, set_xsi)
         descriptor_container.sort_child_nodes(node)
         return node
 
