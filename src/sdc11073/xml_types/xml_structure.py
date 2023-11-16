@@ -822,8 +822,7 @@ class NodeTextQNameProperty(_ElementBase):
                 sub_node.text = None
         else:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
-            value = docname_from_qname(py_value, sub_node.nsmap)
-            sub_node.text = value
+            sub_node.text = py_value  # this adds the namesoace to sube_node.nsmap
 
 
 def _compare_extension(left: xml_utils.LxmlElement, right: xml_utils.LxmlElement) -> bool:
@@ -1106,7 +1105,7 @@ class SubElementListProperty(_ElementListProperty):
 
         if py_value is not None:
             for val in py_value:
-                sub_node = val.as_etree_node(self._sub_element_name, node.nsmap)
+                sub_node = val.as_etree_node(self._sub_element_name, node.nsmap, node)
                 if hasattr(val, 'NODETYPE') and hasattr(self.value_class, 'NODETYPE') \
                         and val.NODETYPE != self.value_class.NODETYPE:
                     # set xsi type
