@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2023-11-16
+
 ### Added
 
 - support for python version 3.12
@@ -13,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - alert provider performs self check one second before SelfCheckInterval elapses
 
+### Fixed
+- fix possible invalid prefix if QName is a node text.
 
 ## [1.3.0] - 2023-09-08
 

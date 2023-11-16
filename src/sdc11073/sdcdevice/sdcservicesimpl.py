@@ -555,14 +555,13 @@ class GetService(DPWSPortTypeImpl):
                                                       nsmap=nsmap)
 
         if includeMds:
-            mdDescriptionNode, mdib_version_group = self._mdib.reconstructMdDescription()
+            mdDescriptionNode, mdib_version_group = self._mdib.reconstructMdDescription(getMdDescriptionResponseNode)
             mdDescriptionNode.tag = msgTag('MdDescription')  # rename according to message
             mdib_version_group.update_node(getMdDescriptionResponseNode)
         else:
-            mdDescriptionNode = etree_.Element(msgTag('MdDescription'))
+            mdDescriptionNode = etree_.SubElement(getMdDescriptionResponseNode, msgTag('MdDescription'))
             self._mdib.mdib_version_group.update_node(getMdDescriptionResponseNode)
 
-        getMdDescriptionResponseNode.append(mdDescriptionNode)
         responseSoapEnvelope.addBodyElement(getMdDescriptionResponseNode)
         self._logger.debug('_onGetMdDescription returns {}', lambda: responseSoapEnvelope.as_xml(pretty=False))
         return responseSoapEnvelope

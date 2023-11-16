@@ -145,8 +145,7 @@ class AbstractDescriptorContainer(ContainerBase):
         ret = []
         # add all child container nodes
         for c in containers:
-            n = c.mkDescriptorNode()
-            node.append(n)
+            n = c.mkDescriptorNode(node)
             ret.append((c, n))
         return ret
 
@@ -181,19 +180,20 @@ class AbstractDescriptorContainer(ContainerBase):
                 continue
         return ret
 
-    def mkDescriptorNode(self, setXsiType=True, tag=None):
+    def mkDescriptorNode(self, parent_node, setXsiType=True, tag=None):
         """
         Creates a lxml etree node from instance data.
+        :param parent_node: parent node
         :param setXsiType:
         :param tag: tag of node, defaults to self.nodeName
         :return: an etree node
         """
         myTag = tag or self.nodeName
-        node = etree_.Element(myTag, attrib={'Handle': self.handle},
+        node = etree_.SubElement(parent_node, myTag, attrib={'Handle': self.handle},
                               nsmap=self.nsmapper.partialMap(Prefix.PM, Prefix.XSI))
-        self._updateNode(node, setXsiType)
         order = self._sortedChildNames()
         self._sortChildNodes(node, order)
+        self._updateNode(node, setXsiType)
         return node
 
     def _sortChildNodes(self, node, ordered_tags):
@@ -283,9 +283,9 @@ class MdsDescriptorContainer(AbstractComplexDeviceComponentDescriptorContainer):
                      )
             self._sortChildNodes(metaDataNode, order)
 
-    def mkDescriptorNode(self, setXsiType=True, tag=None):
+    def mkDescriptorNode(self, parent_node, setXsiType=True, tag=None):
         """returns a node without any child with a handle"""
-        node = super(MdsDescriptorContainer, self).mkDescriptorNode(setXsiType, tag)
+        node = super(MdsDescriptorContainer, self).mkDescriptorNode(parent_node, setXsiType, tag)
         self._sortMetaData(node)
         return node
 
