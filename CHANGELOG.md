@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - support for python version 3.12
 
+### Fixed
+- namespace handling of pm:ActivateOperationDescriptor/pm:Argument/pm:Arg which is of type xsd:QName
+
 ### Changed
 - alert provider performs self check one second before SelfCheckInterval elapses
 

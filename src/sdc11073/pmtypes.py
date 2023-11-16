@@ -820,7 +820,7 @@ class Argument(PropertyBasedPMType):
         argNameNode = node.find(namespaces.domTag('ArgName'))
         argName = CodedValue.fromNode(argNameNode)
         argNode = node.find(namespaces.domTag('Arg'))
-        arg_QName = namespaces.txt2QName(argNode.text, node.nsmap)
+        arg_QName = namespaces.txt2QName(argNode.text, argNode.nsmap)
         return cls(argName, arg_QName)
 
     def __repr__(self):

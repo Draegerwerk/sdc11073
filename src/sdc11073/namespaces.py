@@ -67,7 +67,7 @@ WSA_IS_REFERENCE_PARAMETER = '{' + Prefix_Namespace.WSA.namespace + '}IsReferenc
 
 def docNameFromQName(qName, ns_map):
     """ returns the docprefix:name string, or only name (if default namespace is used) """
-    prefixmap = dict ((v,k) for k, v in ns_map.items())
+    prefixmap = {v: k for k, v in ns_map.items()}
     prefix = prefixmap[qName.namespace]
     if prefix is None:
         return qName.localname
@@ -130,11 +130,18 @@ class DocNamespaceHelper(object):
 QN_TYPE = xsiTag('type')   # frequently used QName, central definition
 
 
+class QNameNamespacemap(etree_.QName):
+    """Class to store a namespacemap for a QName"""
+    def __init__(self, text_or_uri, tag=None, ns_map=None):
+        self.nsmap = ns_map
+        super().__init__(text_or_uri, tag)
+
+
 def txt2QName(text, doc_nsmap):
     elements = text.split(':')
     prefix = None if len(elements) == 1 else elements[0]
     name = elements[-1]
     try:
-        return etree_.QName(doc_nsmap[prefix], name)
+        return QNameNamespacemap(doc_nsmap[prefix], name, ns_map=doc_nsmap)
     except KeyError:
         raise KeyError('Cannot make QName for {}, prefix is not in nsmap: {}'.format(text, doc_nsmap.keys()))

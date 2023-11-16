@@ -111,14 +111,14 @@ class _PropertyBase(object):
         raise NotImplementedError
 
     @staticmethod
-    def _getElementbyChildNamesList(node, subElementNames, createMissingNodes):
+    def _getElementbyChildNamesList(node, subElementNames, createMissingNodes, nsmap=None):
         for n in subElementNames:
             subNode = node.find(n)
             if subNode is None:
                 if not createMissingNodes:
                     raise ElementNotFoundException(
                         'Element {} not found in {}, path={}'.format(n, node.tag, subElementNames))
-                subNode = etree_.SubElement(node, n)  # create this node
+                subNode = etree_.SubElement(node, n, nsmap=nsmap)  # create this node
             node = subNode
         return node
 
@@ -449,12 +449,12 @@ class NodeTextQNameProperty(_PropertyBase):
             if subNode is not None:
                 parentNode.remove(subNode)
         else:
-            subNode = self._getElementbyChildNamesList(node, self._subElementNames, createMissingNodes=True)
-            if property_value.xml_value is not None:
-                value = property_value.xml_value
-            else:
-                value = namespaces.docNameFromQName(property_value.py_value, subNode.nsmap)
-            subNode.text = value
+            subNode = self._getElementbyChildNamesList(node,
+                                                       self._subElementNames,
+                                                       createMissingNodes=True,
+                                                       nsmap=property_value.py_value.nsmap)
+
+            subNode.text = namespaces.docNameFromQName(property_value.py_value, subNode.nsmap)
 
 
 def _compare_extension(left: etree_.ElementBase, right: etree_.ElementBase) -> bool:
