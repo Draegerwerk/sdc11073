@@ -127,8 +127,11 @@ class TestMdibTransaction(unittest.TestCase):
 
 
     def test_activate_operation_argument(self):
-        """Test that pm:ActivateOperationDescriptor/pm:argument/pm:Arg is handled correctly
-        because its value is a QName"""
+        """Test that pm:ActivateOperationDescriptor/pm:argument/pm:Arg is handled correctly.
+
+        QName as node text is beyond what xml libraries can handle automatically,
+        it must be handled specifically in sdc11073 code.
+        """
 
         @dataclass
         class TestData:
@@ -204,5 +207,6 @@ class TestMdibTransaction(unittest.TestCase):
             arg_nodes = mdib_node.xpath('//*/pm:Arg', namespaces={'pm': "http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"})
             arg_node = arg_nodes[0]
             prefix = arg_node.text.split(':')[0]
-            self.assertTrue('msg' in arg_node.nsmap)
             self.assertTrue(prefix in arg_node.nsmap)
+            self.assertEqual(test_data.expected_qname.namespace, arg_node.nsmap[prefix])
+            self.assertEqual(test_data.expected_qname.localname, arg_node.text.split(':')[1])
