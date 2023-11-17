@@ -121,9 +121,11 @@ class HeaderInformationBlock(XMLTypeBase):
         reply_address.Action = action
         return reply_address
 
-    def as_etree_node(self, q_name: QName, ns_map: dict[str, str]) -> xml_utils.LxmlElement:
+    def as_etree_node(self,
+                      q_name: QName, ns_map: dict[str, str],
+                      parent_node: xml_utils.LxmlElement | None = None) -> xml_utils.LxmlElement:
         """Create etree Element form instance data."""
-        node = super().as_etree_node(q_name, ns_map)
+        node = super().as_etree_node(q_name, ns_map, parent_node)
         for param in self.reference_parameters:
             tmp = copy.deepcopy(param)
             tmp.set(_is_reference_parameter, 'true')
