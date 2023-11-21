@@ -6,7 +6,7 @@ from lxml import etree
 from sdc11073.consumer import SdcConsumer
 from sdc11073.httpserver import compression
 from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.location import SdcLocation
+from sdc11073.xml_types.actions import periodic_actions
 from sdc11073.xml_types.pm_types import InstanceIdentifier
 from tests import utils
 from tests.mockstuff import SomeDevice
@@ -67,7 +67,7 @@ class Test_Compression(unittest.TestCase):
             self.sdc_client.set_used_compression()
         else:
             self.sdc_client.set_used_compression(compression_flag)
-        self.sdc_client.start_all()
+        self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
         time.sleep(0.5)
 
         # Get http connection to execute the call

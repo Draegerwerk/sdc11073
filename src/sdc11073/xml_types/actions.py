@@ -1,11 +1,13 @@
 from enum import Enum
+
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 
 _ActionsNamespace = ns_hlp.SDC.namespace
 
 
 class Actions(str, Enum):
-    """ Central definition of all action strings used in BICEPS"""
+    """Central definition of all action strings used in BICEPS."""
+
     OperationInvokedReport = _ActionsNamespace + '/SetService/OperationInvokedReport'
     EpisodicContextReport = _ActionsNamespace + '/ContextService/EpisodicContextReport'
     EpisodicMetricReport = _ActionsNamespace + '/StateEventService/EpisodicMetricReport'
@@ -54,3 +56,15 @@ class Actions(str, Enum):
     GetDescriptorResponse = _ActionsNamespace + '/ContainmentTreeService/GetDescriptorResponse'
     GetContainmentTree = _ActionsNamespace + '/ContainmentTreeService/GetContainmentTree'
     GetContainmentTreeResponse = _ActionsNamespace + '/ContainmentTreeService/GetContainmentTreeResponse'
+
+
+# some sets of actions, useful when user wants to exclude some actions from subscriptions.
+# these are the typical sets:
+periodic_actions = {Actions.PeriodicContextReport,
+                    Actions.PeriodicMetricReport,
+                    Actions.PeriodicOperationalStateReport,
+                    Actions.PeriodicAlertReport,
+                    Actions.PeriodicComponentReport,
+                    }
+
+periodic_actions_and_system_error_report = set(periodic_actions).add(Actions.SystemErrorReport)
