@@ -222,7 +222,7 @@ class AbstractDeviceComponentStateContainer(AbstractStateContainer):
     PhysicalConnector = cp.SubElementProperty([domTag('PhysicalConnector')],
                                               valueClass=pmtypes.PhysicalConnectorInfo)  # optional
 
-    ActivationState = cp.NodeAttributeProperty('ActivationState')  # pmtypes.ComponentActivation
+    ActivationState = cp.NodeAttributeProperty('ActivationState', impliedPyValue=pmtypes.ComponentActivation.ON)
     OperatingHours = cp.IntegerAttributeProperty('OperatingHours')  # optional, unsigned int
     OperatingCycles = cp.IntegerAttributeProperty('OperatingCycles')  # optional, unsigned int
     _props = (
