@@ -36,15 +36,6 @@ if ENABLE_COMMLOG:
     commlog.set_communication_logger(comm_logger)
 
 
-class ValuesCollectorPlus(observableproperties.ValuesCollector):
-    """ add a finish call
-    """
-    def finish(self):
-        with self._cond:
-            self._state = self.FINISHED
-            observableproperties.unbind(self._obj, **{self._prop_name: self._on_data})
-            self._cond.notify_all()
-
 sleep_timer = 30
 
 
@@ -72,7 +63,7 @@ def connect_client(my_service) -> SdcConsumer:
                                                  private_key='user_private_key_encrypted.pem',
                                                  certificate='user_certificate_root_signed.pem',
                                                  ca_public_key='root_certificate.pem',
-                                                 ssl_passwd=ssl_passwd,
+                                                 ssl_passwd=ssl_passwd
                                                  )
     else:
         ssl_contexts = None
@@ -476,7 +467,7 @@ def run_ref_test():
     print(step, info)
     subscriptions = client.subscription_mgr.subscriptions.values()
     operation_invoked_subscriptions = [subscr for subscr in subscriptions
-                                       if subscr.short_filter_string == 'OperationInvokedReport']
+                                       if 'OperationInvokedReport' in subscr.short_filter_string]
     if len(operation_invoked_subscriptions) == 0:
         log_result(False, results, step, info, 'OperationInvokedReport not subscribed, cannot test')
     elif len(operation_invoked_subscriptions) > 1:
@@ -484,22 +475,25 @@ def run_ref_test():
                    f'found {len(operation_invoked_subscriptions)} OperationInvokedReport subscribed, cannot test')
     else:
         try:
-            coll = ValuesCollectorPlus(operation_invoked_subscriptions[0], 'notification_data',5)
-            operation = client.mdib.descriptions.NODETYPE.get_one(pm_qnames.SetValueOperationDescriptor)
-            client.set_service_client.set_numeric_value(operation.Handle, Decimal(42))
-            time.sleep(2)
-            coll.finish()
-            coll_result = coll.result()
-            messages = []
-            for entry in coll_result:
-                messages.append(msg_types.OperationInvokedReport.from_node(entry.p_msg.msg_node))
-            if len(coll_result) == 0:
-                log_result(False, results, step, info, 'no notification')
-            elif len(coll_result) > 1:
-                log_result(False, results, step, info, f'got {len(coll_result)} notifications, expect only one')
+            operations = client.mdib.descriptions.NODETYPE.get(pm_qnames.SetValueOperationDescriptor, [])
+            my_ops = [op for op in operations if op.Type.Code == "67108888"]
+            if len(my_ops) != 1:
+                log_result(False, results, step, info, f'found {len(my_ops)} operations with code "67108888"')
             else:
-                first_notification = coll_result[0]
-                log_result(True, results, step, info, f'got {len(coll_result)} notifications : {first_notification}')
+                operation = my_ops[0]
+                future_object = client.set_service_client.set_numeric_value(operation.Handle, Decimal(42))
+                operation_result = future_object.result()
+                if len(operation_result.report_parts) == 0:
+                    log_result(False, results, step, info, 'no notification')
+                elif len(operation_result.report_parts) > 1:
+                    log_result(False, results, step, info, f'got {len(operation_result.report_parts)} notifications, expect only one')
+                else:
+                    log_result(True, results, step, info, f'got {len(operation_result.report_parts)} notifications')
+                if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
+                    log_result(False, results, step, info,
+                               f'got result {operation_result.InvocationInfo.InvocationState} '
+                               f'{operation_result.InvocationInfo.InvocationError} '
+                               f'{operation_result.InvocationInfo.InvocationErrorMessage}')
         except Exception as ex:
             print(traceback.format_exc())
             log_result(False, results, step, info, ex)
@@ -507,17 +501,32 @@ def run_ref_test():
     step = '6d'
     info = 'SetString: Initiates a transaction that sends Wait, Start and Finished'
     print(step, info)
-    operation = client.mdib.descriptions.NODETYPE.get_one(pm_qnames.SetStringOperationDescriptor)
     try:
-        coll = ValuesCollectorPlus(operation_invoked_subscriptions[0], 'notification_data', 5)
-        client.set_service_client.set_string(operation.Handle, '42')
-        time.sleep(2)
-        coll.finish()
-        coll_result = coll.result()
-        if len(coll_result) == 0:
-            log_result(False, results, step, info, 'no notification')
-        elif len(coll_result) >= 3:
-            log_result(True, results, step, info, f'got {len(coll_result)} notifications')
+        operations = client.mdib.descriptions.NODETYPE.get(pm_qnames.SetStringOperationDescriptor, [])
+        my_ops = [op for op in operations if op.Type.Code == "67108889"]
+        if len(my_ops) != 1:
+            log_result(False, results, step, info, f'found {len(my_ops)} operations with code "67108889"')
+        else:
+            operation = my_ops[0]
+            future_object = client.set_service_client.set_string(operation.Handle, 'STANDBY')
+            operation_result = future_object.result()
+            if len(operation_result.report_parts) == 0:
+                log_result(False, results, step, info, 'no notification')
+            elif len(operation_result.report_parts) >= 3:
+                # check order of operation invoked reports (simple expectation, there could be multiple WAIT in theory)
+                expectation = [msg_types.InvocationState.WAIT,
+                                  msg_types.InvocationState.START,
+                                  msg_types.InvocationState.FINISHED]
+                inv_states = [p.InvocationInfo.InvocationState for p in operation_result.report_parts]
+                if inv_states != expectation:
+                    log_result(False, results, step, info, f'wrong order {inv_states}')
+                else:
+                    log_result(True, results, step, info, f'got {len(operation_result.report_parts)} notifications')
+            if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
+                log_result(False, results, step, info,
+                           f'got result {operation_result.InvocationInfo.InvocationState} '
+                           f'{operation_result.InvocationInfo.InvocationError} '
+                           f'{operation_result.InvocationInfo.InvocationErrorMessage}')
 
     except Exception as ex:
         print(traceback.format_exc())
@@ -526,28 +535,34 @@ def run_ref_test():
     step = '6e'
     info = 'SetMetricStates Immediately answers with finished'
     print(step, info)
-    operation = client.mdib.descriptions.NODETYPE.get_one(pm_qnames.SetMetricStateOperationDescriptor)
     try:
-        coll = ValuesCollectorPlus(operation_invoked_subscriptions[0], 'notification_data', 5)
-        proposed_metric_state1 = client.mdib.xtra.mk_proposed_state("numeric_metric_0.channel_0.vmd_1.mds_0")
-        proposed_metric_state2 = client.mdib.xtra.mk_proposed_state("numeric_metric_0.channel_0.vmd_1.mds_0")
-        for st in (proposed_metric_state1, proposed_metric_state2):
-            if st.MetricValue is None:
-                st.mk_metric_value()
-                st.MetricValue.Value = Decimal(1)
-            else:
-                st.MetricValue.Value += Decimal(0.1)
-        client.set_service_client.set_metric_state(operation.Handle, [proposed_metric_state1, proposed_metric_state2])
-        time.sleep(3)
-        coll.finish()
-        coll_result = coll.result()
-        if len(coll_result) == 0:
-            log_result(False, results, step, info, 'no notification')
-        elif len(coll_result) > 1:
-            log_result(False, results, step, info, f'got {len(coll_result)} notifications, expect only one')
+        operations = client.mdib.descriptions.NODETYPE.get(pm_qnames.SetMetricStateOperationDescriptor, [])
+        my_ops = [op for op in operations if op.Type.Code == "67108890"]
+        if len(my_ops) != 1:
+            log_result(False, results, step, info, f'found {len(my_ops)} operations with code "67108890"')
         else:
-            first_notification = coll_result[0]
-            log_result(True, results, step, info, f'got {len(coll_result)} notifications : {first_notification}')
+            operation = my_ops[0]
+            proposed_metric_state1 = client.mdib.xtra.mk_proposed_state("numeric_metric_0.channel_0.vmd_1.mds_0")
+            proposed_metric_state2 = client.mdib.xtra.mk_proposed_state("numeric_metric_1.channel_0.vmd_1.mds_0")
+            for st in (proposed_metric_state1, proposed_metric_state2):
+                if st.MetricValue is None:
+                    st.mk_metric_value()
+                    st.MetricValue.Value = Decimal(1)
+                else:
+                    st.MetricValue.Value += Decimal(0.1)
+            future_object = client.set_service_client.set_metric_state(operation.Handle, [proposed_metric_state1, proposed_metric_state2])
+            operation_result = future_object.result()
+            if len(operation_result.report_parts) == 0:
+                log_result(False, results, step, info, 'no notification')
+            elif len(operation_result.report_parts) > 1:
+                log_result(False, results, step, info, f'got {len(operation_result.report_parts)} notifications, expect only one')
+            else:
+                log_result(True, results, step, info, f'got {len(operation_result.report_parts)} notifications')
+            if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
+                log_result(False, results, step, info,
+                           f'got result {operation_result.InvocationInfo.InvocationState} '
+                           f'{operation_result.InvocationInfo.InvocationError} '
+                           f'{operation_result.InvocationInfo.InvocationErrorMessage}')
     except Exception as ex:
         print(traceback.format_exc())
         log_result(False, results, step, info, ex)

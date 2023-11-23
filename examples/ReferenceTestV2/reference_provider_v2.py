@@ -142,6 +142,11 @@ if __name__ == '__main__':
                              )
     sdc_provider.start_all()
 
+    # disable delayed processing for 2 operations
+
+    sdc_provider.get_operation_by_handle('set_value_0.sco.mds_0').delayed_processing = False
+    sdc_provider.get_operation_by_handle('set_metric_0.sco.vmd_1.mds_0').delayed_processing = False
+
     validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
     sdc_provider.set_location(loc, validators)
     provide_realtime_data(sdc_provider)
@@ -318,6 +323,14 @@ if __name__ == '__main__':
             else:
                 with sdc_provider.mdib.transaction_manager() as mgr:
                     mgr.remove_descriptor(add_rm_vmd_handle)
+
+            # enable disable operation
+            with sdc_provider.mdib.transaction_manager() as mgr:
+                op_state = mgr.get_state('activate_0.sco.mds_0')
+                op_state.OperatingMode = pm_types.OperatingMode.ENABLED \
+                    if op_state.OperatingMode == pm_types.OperatingMode.ENABLED \
+                    else pm_types.OperatingMode.DISABLED
+                print(f'operation activate_0.sco.mds_0 {op_state.OperatingMode}')
 
             sleep(5)
     except KeyboardInterrupt:
