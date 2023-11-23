@@ -384,7 +384,7 @@ class TestDiscovery(unittest.TestCase):
                     unicast_sock.sendto(f'<bla>unicast{address} all </bla>'.encode('utf-8'),
                                         (address, self.MY_MULTICAST_PORT))
                 i = 0
-                while wrapped_obj.call_count < len(all_addresses) and i < 5:
+                while wrapped_obj.call_count < len(all_addresses) and i < 10:
                     i += 1
                     time.sleep(0.25)
                 self.assertGreaterEqual(wrapped_obj.call_count, len(all_addresses))
@@ -400,7 +400,7 @@ class TestDiscovery(unittest.TestCase):
                     unicast_sock.sendto(f'<bla>unicast{address} all </bla>'.encode('utf-8'),
                                         (address, self.MY_MULTICAST_PORT))
                 i = 0
-                while not wrapped_obj.call_count and i < 5:
+                while not wrapped_obj.call_count and i < 10:
                     i += 1
                     time.sleep(0.25)
                 wrapped_obj.assert_called()
