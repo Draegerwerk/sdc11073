@@ -385,7 +385,10 @@ class TestDiscovery(unittest.TestCase):
                 for address in all_addresses:
                     unicast_sock.sendto(f'<bla>unicast{address} all </bla>'.encode('utf-8'),
                                         (address, self.MY_MULTICAST_PORT))
-                time.sleep(0.5)
+                i = 0
+                while wrapped_obj.call_count < len(all_addresses) and i < 10:
+                    i += 1
+                    time.sleep(0.25)
                 self.assertGreaterEqual(wrapped_obj.call_count, len(all_addresses))
 
             wsd_service_all.stop()  # do not interfere with next instance
@@ -398,7 +401,10 @@ class TestDiscovery(unittest.TestCase):
                 for address in all_addresses:
                     unicast_sock.sendto(f'<bla>unicast{address} all </bla>'.encode('utf-8'),
                                         (address, self.MY_MULTICAST_PORT))
-                time.sleep(0.5)
+                i = 0
+                while not wrapped_obj.call_count and i < 10:
+                    i += 1
+                    time.sleep(0.25)
                 wrapped_obj.assert_called()
         finally:
             unicast_sock.close()

@@ -6,7 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.3.1] - 2023-11-16
+## [1.3.1] - 2023-11-28
+
+### Fixed
+
+- set the implied value for AbstractDeviceComponentState/ActivationState to "On"
 
 ### Added
 
