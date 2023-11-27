@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- set the implied value for AbstractDeviceComponentState/ActivationState to "On"
+
 ### Added
 
 - support for python version 3.12
