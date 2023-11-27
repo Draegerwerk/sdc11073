@@ -68,6 +68,8 @@ class HTTPReturnCodeError(HTTPException):
 class SoapClientProtocol(Protocol):
     """The expected interface of a soap client."""
 
+    sock_name: tuple[str, int] | None
+
     def __init__(self,
                  netloc: str,
                  socket_timeout: int | float,
@@ -158,6 +160,7 @@ class SoapClient:
         self._lock = Lock()
         self._chunk_size = chunk_size
         self._has_connection_error = False  # used to avoid implicit connects after an error
+        self.sock_name: tuple[str, int] | None = None
 
     @property
     def netloc(self) -> str:
@@ -186,8 +189,9 @@ class SoapClient:
         self._has_connection_error = False
         self._http_connection = self._mk_http_connection()
         self._http_connection.connect()  # connect now so that we have own address and port for logging
-        my_addr = self._http_connection.sock.getsockname()
-        self._log.info('soap client No. {} uses connection={}:{}', self._client_number, my_addr[0], my_addr[1])
+        self.sock_name = self._http_connection.sock.getsockname()
+        self._log.info('soap client No. {} uses connection={}:{}',
+                       self._client_number, self.sock_name[0], self.sock_name[1])
 
     def close(self):
         """Close connection."""
@@ -195,6 +199,7 @@ class SoapClient:
             self._close_without_lock()
 
     def _close_without_lock(self):
+        self.sock_name = None
         if self._http_connection is not None:
             self._log.info('closing soapClientNo {} for {}', self._client_number, self._netloc)
             self._http_connection.close()
