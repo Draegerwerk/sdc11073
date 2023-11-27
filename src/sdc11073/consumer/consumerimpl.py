@@ -446,7 +446,7 @@ class SdcConsumer:
         self._mk_hosted_services(self.host_description)
         self._logger.debug('Services: {}', self._service_clients.keys())  # noqa: PLE1205
 
-        used_ip = self.get_soap_client(self._device_location).sock.getsockname()[0]
+        used_ip = self.get_soap_client(self._device_location).sock_name[0]
         self._network_adapter = network.get_adapter_containing_ip(used_ip)
         self._logger.info('SdcConsumer for {} uses network adapter {}',  # noqa: PLE1205
                           self._device_location,
