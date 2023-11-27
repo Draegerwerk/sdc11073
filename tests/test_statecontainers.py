@@ -285,7 +285,7 @@ class TestStateContainers(unittest.TestCase):
         sc = statecontainers.AbstractDeviceComponentStateContainer(nsmapper=self.nsmapper,
                                                                    descriptorContainer=self.dc,
                                                                    node=None)
-        self.assertEqual(sc.ActivationState, None)
+        self.assertEqual(sc.ActivationState, pmtypes.ComponentActivation.ON)
         self.assertEqual(sc.OperatingHours, None)
         self.assertEqual(sc.OperatingCycles, None)
         self.assertEqual(sc.PhysicalConnector, None)
