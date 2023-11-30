@@ -80,7 +80,7 @@ class ContainerBase:
                 new_value = getattr(other_container, prop_name)
                 setattr(self, prop_name, copy.copy(new_value))
 
-    def mk_copy(self, copy_node: bool = True) -> ContainerBase:
+    def mk_copy(self, copy_node: bool = False) -> ContainerBase:
         """Make a copy of self."""
         copied = copy.copy(self)
         if copy_node and self.node is not None:
