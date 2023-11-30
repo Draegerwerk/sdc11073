@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pathlib
+import traceback
 from io import StringIO
 from typing import TYPE_CHECKING
 from urllib import parse
@@ -43,24 +44,28 @@ class SchemaResolver(etree_.Resolver):
     def resolve(self, system_url, _, context):  # pylint: disable=unused-argument, redefined-builtin, invalid-name
         # first check if there is a lookup defined
         self._logger.debug('try to resolve {}', system_url)
-        path = self._get_schema_file_path(system_url)
-        if path:
-            self._logger.debug('could resolve url {} via lookup to {}', system_url, path)
-        else:
-            # no lookup, parse url
-            parsed = parse.urlparse(system_url)
-            if parsed.scheme == 'file':
-                path = parsed.path  # get the path part
-            else:  # the url is a path
-                path = system_url
-            if path.startswith('/') and path[2] == ':':  # invalid construct like /C:/Temp
-                path = path[1:]
-        path = pathlib.Path(path)
-        if not path.exists():
-            self._logger.error('no schema file for url "{}": resolved to "{}", but file does not exist',
-                               system_url, path)
-            return None
-        return self.resolve_string(path.read_bytes(), context, base_url=str(path))
+        try:
+            path = self._get_schema_file_path(system_url)
+            if path:
+                self._logger.debug('could resolve url {} via lookup to {}', system_url, path)
+            else:
+                # no lookup, parse url
+                parsed = parse.urlparse(system_url)
+                if parsed.scheme == 'file':
+                    path = parsed.path  # get the path part
+                else:  # the url is a path
+                    path = system_url
+                if path.startswith('/') and path[2] == ':':  # invalid construct like /C:/Temp
+                    path = path[1:]
+            path = pathlib.Path(path)
+            if not path.exists():
+                self._logger.error('no schema file for url "{}": resolved to "{}", but file does not exist',
+                                   system_url, path)
+                return None
+            return self.resolve_string(path.read_bytes(), context, base_url=str(path))
+        except Exception:
+            self._logger.error('error resolving %s: %s', system_url, traceback.format_exc())
+            raise
 
     def _get_schema_file_path(self, url: str) -> pathlib.Path | None:
         return next((entry.local_schema_file for entry in self.namespaces if entry.schema_location_url == url), None)
