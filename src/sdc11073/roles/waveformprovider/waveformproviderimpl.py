@@ -220,7 +220,7 @@ class GenericWaveformProvider:
         timer = IntervalTimer(period_in_seconds=self.notifications_interval)
         try:
             while True:
-                shall_stop = self._stop_worker.wait(timeout=self.notifications_interval)
+                shall_stop = self._stop_worker.is_set()
                 if shall_stop:
                     return
                 behind_schedule_seconds = timer.wait_next_interval_begin()
