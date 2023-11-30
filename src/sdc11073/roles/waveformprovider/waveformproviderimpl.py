@@ -278,7 +278,7 @@ class GenericWaveformProvider:
         if now - last_log_time < self.WARN_RATE_REALTIMESAMPLES_BEHIND_SCHEDULE:
             return
         if last_logged_delay >= self.WARN_LIMIT_REALTIMESAMPLES_BEHIND_SCHEDULE > behind_schedule_seconds:
-            self._logger.info('RealTimeSampleTimer delay is back inside limit of %2f seconds (mdib version=%d',
+            self._logger.info('RealTimeSampleTimer delay is back inside limit of %2f seconds (mdib version=%d)',
                               self.WARN_LIMIT_REALTIMESAMPLES_BEHIND_SCHEDULE, self._mdib.mdib_version)
             self._last_logged_delay = behind_schedule_seconds
             self._last_log_time = now
