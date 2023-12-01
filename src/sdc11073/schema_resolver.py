@@ -1,17 +1,17 @@
 from __future__ import annotations
 
+import pathlib
 import time
 import traceback
 from io import StringIO
 from typing import TYPE_CHECKING, Any
 
 from lxml import etree as etree_
+from urllib import parse
 
 from . import loghelper
 
 if TYPE_CHECKING:
-    import pathlib
-
     from .namespaces import NamespaceHelper, PrefixNamespace
 
 
@@ -60,9 +60,18 @@ class SchemaResolver(etree_.Resolver):
             path = self._get_schema_file_path(system_url)
             if path:
                 self._logger.debug('could resolve url %s via lookup to %s', system_url, path)
-                return self.resolve_string(path.read_bytes(), context, base_url=str(path))
-            self._logger.error('no schema file for url "%s": ', system_url)
-            return None
+            else:
+                # no lookup, parse url
+                parsed = parse.urlparse(system_url)
+                path = parsed.path if parsed.scheme == 'file' else system_url
+                if path.startswith('/') and path[2] == ':':  # invalid construct like /C:/Temp
+                    path = path[1:]
+            path = pathlib.Path(path)
+            if not path.exists():
+                self._logger.error('no schema file for url "%s": resolved to "%s", but file does not exist',
+                                   system_url, path)
+                return None
+            return self.resolve_string(path.read_bytes(), context, base_url=str(path))
         except Exception:
             self._logger.error('error resolving %s: %s', system_url, traceback.format_exc())
             raise
