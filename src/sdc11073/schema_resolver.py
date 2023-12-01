@@ -43,14 +43,13 @@ class SchemaResolver(etree_.Resolver):
 
     def resolve(self, system_url, _, context):
         """Look for xml file location in self.namespaces."""
-        self._logger.debug('try to resolve {}', system_url)
+        self._logger.debug('try to resolve %s', system_url)
         try:
             path = self._get_schema_file_path(system_url)
             if path:
-                self._logger.debug('could resolve url {} via lookup to {}', system_url, path)
+                self._logger.debug('could resolve url %s via lookup to %s', system_url, path)
                 return self.resolve_string(path.read_bytes(), context, base_url=str(path))
-            self._logger.error('no schema file for url "{}": resolved to "{}", but file does not exist',
-                               system_url, path)
+            self._logger.error('no schema file for url "%s": ', system_url)
             return None
         except Exception:
             self._logger.error('error resolving %s: %s', system_url, traceback.format_exc())
