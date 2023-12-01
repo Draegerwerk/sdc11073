@@ -13,7 +13,7 @@ class TestMdib(unittest.TestCase):
     def test_selectDescriptors(self):
 
         deviceMdibContainer = mdib.DeviceMdibContainer.fromMdibFile(os.path.join(mdibFolder, '70041_MDIB_Final.xml'))
-        # from looking at the mdib file I know how many elements the tested pathes shall return
+        # from looking at the mdib file I know how many elements the tested paths shall return
         for path, expectedCount in [(('70041',), 1),
                                     (('70041', '69650'), 1),  # VMDs
                                     (('70041', '69650', '69651'), 1),  # Channels
@@ -131,7 +131,10 @@ class TestMdib(unittest.TestCase):
                  TestData(mdib_text=mdib_dummy.format('', '', delaration_any_uri.format(xsd_prefix), f"{xsd_prefix}:"),
                           expected_qname=expected_qname_any_uri),
                  TestData(mdib_text=mdib_dummy.format('', delaration_any_uri.format(xsd_prefix), '', f"{xsd_prefix}:"),
-                          expected_qname=expected_qname_any_uri)]
+                          expected_qname=expected_qname_any_uri),
+                 TestData(mdib_text=mdib_dummy.format('xmlns="urn:oid:1.23.3.123.2"', '', '', ''),
+                          expected_qname=expected_qname_any_uri)
+                 ]
 
         for test_data in mdibs:
             # parse mdib data into container and reconstruct mdib data back to a msg:GetMdibResponse
@@ -141,7 +144,7 @@ class TestMdib(unittest.TestCase):
             mdib_node, mdib_version_group = mdib_container.reconstructMdibWithContextStates()
             arg_nodes = mdib_node.xpath('//*/pm:Arg', namespaces={'pm': "__BICEPS_ParticipantModel__"})
             arg_node = arg_nodes[0]
-            prefix = arg_node.text.split(':')[0]
+            prefix = arg_node.text.split(':')[0] if ":" in arg_node.text else None
             self.assertTrue('msg' in arg_node.nsmap)
             self.assertTrue(prefix in arg_node.nsmap)
 

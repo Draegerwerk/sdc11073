@@ -450,8 +450,10 @@ class NodeTextQNameProperty(_PropertyBase):
                 parentNode.remove(subNode)
         else:
             subNode = self._getElementbyChildNamesList(node, self._subElementNames, createMissingNodes=True)
-            subNode.text = property_value.py_value
-
+            if subNode.nsmap.get(None) == property_value.py_value.namespace:
+                subNode.text = property_value.py_value.localname
+            else:
+                subNode.text = property_value.py_value
 
 def _compare_extension(left: etree_.ElementBase, right: etree_.ElementBase) -> bool:
     # xml comparison

@@ -191,8 +191,6 @@ class AbstractDescriptorContainer(ContainerBase):
         myTag = tag or self.nodeName
         node = etree_.SubElement(parent_node, myTag, attrib={'Handle': self.handle},
                               nsmap=self.nsmapper.partialMap(Prefix.PM, Prefix.XSI))
-        order = self._sortedChildNames()
-        self._sortChildNodes(node, order)
         self._updateNode(node, setXsiType)
         return node
 
