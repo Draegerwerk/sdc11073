@@ -326,15 +326,16 @@ class MdibContainer(object):
     setMdStates = addStateContainers # backwards compatibility
 
 
-    def _reconstructMdDescription(self):
+    def _reconstructMdDescription(self, parent_node):
         """build dom tree from current data
         @return: an etree_ node
         """
         doc_nsmap = self.nsmapper.docNssmap
         rootContainers = self.descriptions.parentHandle.get(None) or []
-        mdDescriptionNode = etree_.Element(namespaces.domTag('MdDescription'),
-                                           attrib={'DescriptionVersion':str(self.mdDescriptionVersion)},
-                                           nsmap=doc_nsmap)
+        mdDescriptionNode = etree_.SubElement(parent_node,
+                                              namespaces.domTag('MdDescription'),
+                                              attrib={'DescriptionVersion':str(self.mdDescriptionVersion)},
+                                              nsmap=doc_nsmap)
 
         def connectDescriptors(parentContainer, parentNode):
             childContainers = parentContainer.getOrderedChildContainers()
@@ -344,8 +345,7 @@ class MdibContainer(object):
                 connectDescriptors(childContainer, node)
 
         for rootContainer in rootContainers:
-            n = rootContainer.mkDescriptorNode()
-            mdDescriptionNode.append(n)
+            n = rootContainer.mkDescriptorNode(mdDescriptionNode)
             connectDescriptors(rootContainer, n)
         return mdDescriptionNode
 
@@ -358,8 +358,7 @@ class MdibContainer(object):
         doc_nsmap = self.nsmapper.docNssmap
         mdibNode = etree_.Element(namespaces.msgTag('Mdib'), nsmap=doc_nsmap)
         self.mdib_version_group.update_node(mdibNode)
-        mdDescriptionNode = self._reconstructMdDescription()
-        mdibNode.append(mdDescriptionNode)
+        self._reconstructMdDescription(mdibNode)
 
         # add a list of states
         mdStateNode = etree_.SubElement(mdibNode, namespaces.domTag('MdState'),
@@ -378,12 +377,12 @@ class MdibContainer(object):
 
         return mdibNode
 
-    def reconstructMdDescription(self):
+    def reconstructMdDescription(self, parent_node):
         """build dom tree from current data
         @return: a tuple etree_ node, mdibVersion
         """
         with self.mdibLock:
-            node = self._reconstructMdDescription()
+            node = self._reconstructMdDescription(parent_node)
             return node, self.mdib_version_group
 
     def reconstructMdib(self):
