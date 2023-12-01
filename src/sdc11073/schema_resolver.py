@@ -41,28 +41,17 @@ class SchemaResolver(etree_.Resolver):
         self.namespaces = namespaces
         self._logger = loghelper.get_logger_adapter('sdc.schema_resolver', log_prefix)
 
-    def resolve(self, system_url, _, context):  # pylint: disable=unused-argument, redefined-builtin, invalid-name
-        # first check if there is a lookup defined
+    def resolve(self, system_url, _, context):
+        """Look for xml file location in self.namespaces."""
         self._logger.debug('try to resolve {}', system_url)
         try:
             path = self._get_schema_file_path(system_url)
             if path:
                 self._logger.debug('could resolve url {} via lookup to {}', system_url, path)
-            else:
-                # no lookup, parse url
-                parsed = parse.urlparse(system_url)
-                if parsed.scheme == 'file':
-                    path = parsed.path  # get the path part
-                else:  # the url is a path
-                    path = system_url
-                if path.startswith('/') and path[2] == ':':  # invalid construct like /C:/Temp
-                    path = path[1:]
-            path = pathlib.Path(path)
-            if not path.exists():
-                self._logger.error('no schema file for url "{}": resolved to "{}", but file does not exist',
-                                   system_url, path)
-                return None
-            return self.resolve_string(path.read_bytes(), context, base_url=str(path))
+                return self.resolve_string(path.read_bytes(), context, base_url=str(path))
+            self._logger.error('no schema file for url "{}": resolved to "{}", but file does not exist',
+                               system_url, path)
+            return None
         except Exception:
             self._logger.error('error resolving %s: %s', system_url, traceback.format_exc())
             raise
