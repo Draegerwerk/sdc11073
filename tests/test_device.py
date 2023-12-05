@@ -4,7 +4,6 @@ import unittest
 
 from sdc11073 import wsdiscovery
 from sdc11073.xml_types import pm_types
-from sdc11073.location import SdcLocation
 from tests import utils
 from tests.mockstuff import SomeDevice
 

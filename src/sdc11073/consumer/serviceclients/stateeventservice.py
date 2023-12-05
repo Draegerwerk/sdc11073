@@ -18,4 +18,5 @@ class StateEventClient(HostedServiceClient):
                      DispatchKey(Actions.PeriodicAlertReport, msg_qnames.PeriodicAlertReport),
                      DispatchKey(Actions.PeriodicComponentReport, msg_qnames.PeriodicComponentReport),
                      DispatchKey(Actions.PeriodicOperationalStateReport, msg_qnames.PeriodicOperationalStateReport),
+                     DispatchKey(Actions.SystemErrorReport, msg_qnames.SystemErrorReport),
                      )

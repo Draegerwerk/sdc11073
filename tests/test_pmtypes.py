@@ -1,6 +1,5 @@
 import unittest
 from unittest import mock
-
 from lxml.etree import QName, fromstring, tostring
 
 from sdc11073.xml_types import pm_types, xml_structure
@@ -68,6 +67,12 @@ class TestPmTypes(unittest.TestCase):
         arg = pm_types.ActivateOperationDescriptorArgument.from_node(node)
         self.assertEqual(arg.ArgName, pm_types.CodedValue("202890"))
         self.assertEqual(arg.Arg, QName("dummy", "Something"))
+        # verify that as_etree_node -> from_node conversion creates an identical arg
+        node2 = arg.as_etree_node(
+            QName("http://standards.ieee.org/downloads/11073/11073-10207-2017/participant", 'Argument'),
+            ns_map={"pm": "http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"})
+        arg2 = pm_types.ActivateOperationDescriptorArgument.from_node(node2)
+        self.assertEqual(arg, arg2)
 
 
 class TestExtensions(unittest.TestCase):

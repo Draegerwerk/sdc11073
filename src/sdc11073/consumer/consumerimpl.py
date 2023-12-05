@@ -145,6 +145,7 @@ class _NotificationsSplitter:
             actions.PeriodicContextReport: 'periodic_context_report',
             actions.DescriptionModificationReport: 'description_modification_report',
             actions.OperationInvokedReport: 'operation_invoked_report',
+            actions.SystemErrorReport: 'system_error_report'
         }
 
 
@@ -164,20 +165,21 @@ class SdcConsumer:
 
     # the following observables can be used to observe the incoming notifications by message type.
     # They contain only the body node of the notification, not the envelope
-    waveform_report = properties.ObservableProperty()
-    episodic_metric_report = properties.ObservableProperty()
-    episodic_alert_report = properties.ObservableProperty()
-    episodic_component_report = properties.ObservableProperty()
-    episodic_operational_state_report = properties.ObservableProperty()
-    episodic_context_report = properties.ObservableProperty()
-    periodic_metric_report = properties.ObservableProperty()
-    periodic_alert_report = properties.ObservableProperty()
-    periodic_component_report = properties.ObservableProperty()
-    periodic_operational_state_report = properties.ObservableProperty()
-    periodic_context_report = properties.ObservableProperty()
-    description_modification_report = properties.ObservableProperty()
-    operation_invoked_report = properties.ObservableProperty()
-    subscription_end_data = properties.ObservableProperty()  # SubscriptionEndData
+    waveform_report: ReceivedMessage = properties.ObservableProperty()
+    episodic_metric_report: ReceivedMessage = properties.ObservableProperty()
+    episodic_alert_report: ReceivedMessage = properties.ObservableProperty()
+    episodic_component_report: ReceivedMessage = properties.ObservableProperty()
+    episodic_operational_state_report: ReceivedMessage = properties.ObservableProperty()
+    episodic_context_report: ReceivedMessage = properties.ObservableProperty()
+    periodic_metric_report: ReceivedMessage = properties.ObservableProperty()
+    periodic_alert_report: ReceivedMessage = properties.ObservableProperty()
+    periodic_component_report: ReceivedMessage = properties.ObservableProperty()
+    periodic_operational_state_report: ReceivedMessage = properties.ObservableProperty()
+    periodic_context_report: ReceivedMessage = properties.ObservableProperty()
+    description_modification_report: ReceivedMessage = properties.ObservableProperty()
+    operation_invoked_report: ReceivedMessage = properties.ObservableProperty()
+    subscription_end_data: ReceivedMessage = properties.ObservableProperty()
+    system_error_report: ReceivedMessage = properties.ObservableProperty()
 
     SSL_CIPHERS = None  # None : use SSL default
 
@@ -421,9 +423,8 @@ class SdcConsumer:
         """Return the subscription manager."""
         return self._subscription_mgr
 
-    def start_all(self, not_subscribed_actions: list[str] | None = None,  # noqa: PLR0913
+    def start_all(self, not_subscribed_actions: Iterable[str] | None = None,
                   fixed_renew_interval: float | None = None,
-                  subscribe_periodic_reports: bool = False,
                   shared_http_server: Any | None = None,
                   check_get_service: bool = True) -> None:
         """Start background threads, read metadata from device, instantiate detected port type clients and subscribe.
@@ -432,7 +433,6 @@ class SdcConsumer:
         :param fixed_renew_interval: an interval in seconds or None
                     if None, renew is sent when remaining time <= 50% of granted time
                     if set, subscription renew is sent in this interval.
-        :param subscribe_periodic_reports:
         :param shared_http_server: if provided, use this http server, else client creates its own.
         :param check_get_service: if True (default) it checks that a GetService is detected,
                which is the minimal requirement for a sdc provider.
@@ -446,7 +446,7 @@ class SdcConsumer:
         self._mk_hosted_services(self.host_description)
         self._logger.debug('Services: {}', self._service_clients.keys())  # noqa: PLE1205
 
-        used_ip = self.get_soap_client(self._device_location).sock.getsockname()[0]
+        used_ip = self.get_soap_client(self._device_location).sock_name[0]
         self._network_adapter = network.get_adapter_containing_ip(used_ip)
         self._logger.info('SdcConsumer for {} uses network adapter {}',  # noqa: PLE1205
                           self._device_location,
@@ -477,12 +477,12 @@ class SdcConsumer:
         # flag 'self.all_subscribed' tells mdib that mdib state versions shall not have any gaps
         # => log warnings for missing versions
         self.all_subscribed = True
-        not_subscribed_actions_set = set()
+        not_subscribed_actions_set = set() if not_subscribed_actions is None else set(not_subscribed_actions)
         if not_subscribed_actions:
-            not_subscribed_episodic_actions = [a for a in not_subscribed_actions if "Periodic" not in a]
+            not_subscribed_episodic_actions = [a for a in not_subscribed_actions
+                                               if ("Episodic" in a or "DescriptionModificationReport" in a)]
             if not_subscribed_episodic_actions:
                 self.all_subscribed = False
-                not_subscribed_actions_set = set(not_subscribed_actions)
 
         # start operationInvoked subscription and tell all
         operations_manager_class = self._components.operations_manager_class
@@ -502,8 +502,6 @@ class SdcConsumer:
                         available_actions.extend(client.get_available_subscriptions())
             if len(available_actions) > 0:
                 subscribe_actions = {a for a in available_actions if a.action not in not_subscribed_actions_set}
-                if not subscribe_periodic_reports:
-                    subscribe_actions = {a for a in subscribe_actions if a.action not in periodic_actions}
                 if len(subscribe_actions) > 0:
                     filter_type = eventing_types.FilterType()
                     filter_type.text = ' '.join(x.action for x in subscribe_actions)
