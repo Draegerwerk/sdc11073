@@ -4,7 +4,7 @@ import copy
 import inspect
 from typing import Any
 
-from lxml.etree import Element, QName
+from lxml.etree import Element, SubElement, QName
 
 from sdc11073 import observableproperties as properties
 from sdc11073.namespaces import QN_TYPE, NamespaceHelper
@@ -34,18 +34,27 @@ class ContainerBase:
         """Ignore default value and implied value, e.g. return None if value is not present in xml."""
         return getattr(self.__class__, attr_name).get_actual_value(self)
 
-    def mk_node(self, tag: QName, ns_helper: NamespaceHelper, set_xsi_type: bool = False) -> xml_utils.LxmlElement:
+    def mk_node(self,
+                tag: QName,
+                ns_helper: NamespaceHelper,
+                parent_node: xml_utils.LxmlElement | None = None,
+                set_xsi_type: bool = False) -> xml_utils.LxmlElement:
         """Create an etree node from instance data.
 
         :param tag: tag of the newly created node
         :param ns_helper: namespaces.NamespaceHelper instance
+        :param parent_node: optional parent node
         :param set_xsi_type: if True, adds Type attribute to node
         :return: etree node
         """
         ns_map = ns_helper.partial_map(ns_helper.PM,
                                        ns_helper.MSG,
                                        ns_helper.XSI)
-        node = Element(tag, nsmap=ns_map)
+        if parent_node is not None:
+            node = SubElement(parent_node, tag, nsmap=ns_map)
+        else:
+            node = Element(tag, nsmap=ns_map)
+
         self.update_node(node, ns_helper, set_xsi_type)
         return node
 

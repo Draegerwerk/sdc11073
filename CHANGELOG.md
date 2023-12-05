@@ -13,10 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - basic_logging_setup only handles sdc logger, no more side effect due to calling logging.basicConfig. 
+- fix possible invalid prefix if QName is a node text.
 - fixed wrong response for SetContextState message. [#287](https://github.com/Draegerwerk/sdc11073/issues/287
 - fixed connection problem when provider closes socket after first request. [#289](https://github.com/Draegerwerk/sdc11073/issues/289
 - change default in ContainerBase.mk_copy to not copy node due to performance problems. [#294](https://github.com/Draegerwerk/sdc11073/issues/294
-- 
+- waveform provider too slow
+
 ### Changed
 - change python classes of `addressing_types.py` to match ws-addressing standard of 2006 instead of 2004 
 - The final OperationInvokedReport has OperationTargetRef parameter set. 
