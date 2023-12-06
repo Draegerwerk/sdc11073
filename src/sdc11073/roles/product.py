@@ -138,8 +138,8 @@ class BaseProduct:
         for role_handler in self._all_providers_sorted():
             operation = role_handler.make_operation_instance(operation_descriptor_container, operation_cls_getter)
             if operation is not None:
-                self._logger.debug('%s provided operation for {operation_descriptor_container}',
-                                   role_handler.__class__.__name__)
+                self._logger.debug('%s provided operation for %s',
+                                   role_handler.__class__.__name__, operation_descriptor_container)
                 return operation
             self._logger.debug('%s: no handler for %s', role_handler.__class__.__name__, operation_descriptor_container)
         return None
