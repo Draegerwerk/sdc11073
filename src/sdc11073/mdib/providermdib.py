@@ -15,7 +15,7 @@ from sdc11073.pysoap.msgreader import MessageReader
 from . import mdibbase
 from .providermdibxtra import ProviderMdibMethods
 # from .transactions import MdibUpdateTransaction, RtDataMdibUpdateTransaction
-from .transactions import mk_transaction as mk_transaction_old
+# from .transactions import mk_transaction as mk_transaction_old
 from .transactionsprotocol import TransactionType, AnyTransactionManagerProtocol
 from .modulartransactions import mk_transaction
 
@@ -47,7 +47,7 @@ class ProviderMdib(mdibbase.MdibBase):
         :param sdc_definitions: defaults to sdc11073.definitions_sdc.SdcV1Definitions
         :param log_prefix: a string
         :param extra_functionality: class for extra functionality, default is ProviderMdibMethods
-        :param transaction_factory: optional alternative transactions factory
+        :param transaction_factory: optional alternative transactions factory.
         """
         if sdc_definitions is None:
             from sdc11073.definitions_sdc import SdcV1Definitions  # lazy import, needed to brake cyclic imports
@@ -66,7 +66,7 @@ class ProviderMdib(mdibbase.MdibBase):
 
         self.pre_commit_handler = None  # pre_commit_handler can modify transaction if needed before it is committed
         self.post_commit_handler = None  # post_commit_handler can modify mdib if needed after it is committed
-        self._transaction_factory = transaction_factory or mk_transaction_old
+        self._transaction_factory = transaction_factory or mk_transaction
         self._retrievability_episodic = []  # a list of handles
         self.retrievability_periodic = defaultdict(list)
 

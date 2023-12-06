@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   This required refactoring of Operations handling.
 - moved waveform generator from mdib to roles.waveformprovider
 - alert provider performs self check one second before SelfCheckInterval elapses
+- new interface for transactions: split transaction into different kinds, e.g. descriptor_transaction, metric_state_transaction, etc.
 
 ## [2.0.0a6] - 2023-09-11
 

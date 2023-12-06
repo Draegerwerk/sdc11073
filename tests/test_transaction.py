@@ -3,7 +3,7 @@ from sdc11073.mdib.providermdib import ProviderMdib
 from sdc11073.xml_types import pm_qnames, pm_types
 from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.exceptions import ApiUsageError
-from sdc11073.mdib.modulartransactions import mk_transaction #Transaction
+from sdc11073.mdib.modulartransactions import mk_transaction
 mdib_file = 'mdib_tns.xml'
 
 
@@ -13,7 +13,7 @@ class TestTransactions(unittest.TestCase):
     def setUp(self):
         self._mdib = ProviderMdib.from_mdib_file(mdib_file,
                                                  protocol_definition=SdcV1Definitions)
-        self._mdib._transaction_factory = mk_transaction  #Transaction
+        self._mdib._transaction_factory = mk_transaction
 
     def test_alert_state_update(self):
         """Verify that alert_state_transaction works as expected.
