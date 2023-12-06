@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol, AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactions import TransactionManagerProtocol
+    from sdc11073.mdib.transactionsprotocol import TransactionManagerProtocol
     from sdc11073.provider.operations import OperationDefinitionBase, OperationDefinitionProtocol, ExecuteParameters
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 

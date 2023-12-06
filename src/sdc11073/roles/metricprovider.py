@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactions import TransactionManagerProtocol, _TrItem
+    from sdc11073.mdib.transactionsprotocol import TransactionManagerProtocol, TransactionItem
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
 
     from .providerbase import OperationClassGetter
@@ -104,7 +104,7 @@ class GenericMetricProvider(ProviderRole):
         if transaction.rt_sample_state_updates:
             self._handle_metrics_component_activation(transaction.rt_sample_state_updates.values())
 
-    def _handle_metrics_component_activation(self, metric_state_updates: Iterable[_TrItem]):
+    def _handle_metrics_component_activation(self, metric_state_updates: Iterable[TransactionItem]):
         """Check if MetricValue shall be removed."""
         for tr_item in metric_state_updates:
             new_state = cast(AbstractMetricStateContainer, tr_item.new)

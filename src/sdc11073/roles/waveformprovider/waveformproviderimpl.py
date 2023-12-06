@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from sdc11073.definitions_base import AbstractDataModel
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
-    from sdc11073.mdib.transactions import RtDataMdibUpdateTransaction
+    from sdc11073.mdib.transactionsprotocol import RtDataMdibUpdateTransaction
     from sdc11073.xml_types.pm_types import ComponentActivation
 
     from .realtimesamples import AnnotatorProtocol

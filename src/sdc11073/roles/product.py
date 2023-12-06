@@ -16,7 +16,7 @@ from .patientcontextprovider import GenericPatientContextProvider
 if TYPE_CHECKING:
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactions import TransactionManagerProtocol
+    from sdc11073.mdib.transactionsprotocol import TransactionManagerProtocol
     from sdc11073.provider.operations import OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 

@@ -7,10 +7,8 @@ from typing import TYPE_CHECKING, Protocol, Union
 from .statecontainers import AbstractMultiStateProtocol, AbstractStateProtocol
 
 if TYPE_CHECKING:
-    from sdc11073.loghelper import LoggerAdapter
 
     from .descriptorcontainers import AbstractDescriptorProtocol
-    from .providermdib import ProviderMdib
 
 
 class TransactionType(Enum):
@@ -68,11 +66,6 @@ class TransactionItem:
 class AbstractTransactionManagerProtocol(Protocol):
     """Interface of a TransactionManager."""
 
-    # def __init__(self, device_mdib_container: ProviderMdib,
-    #              transaction_type: TransactionType,
-    #              logger: LoggerAdapter) -> None:
-    #     ...
-
     def process_transaction(self, set_determination_time: bool) -> TransactionResultProtocol:
         """Process the transaction."""
 
@@ -86,60 +79,9 @@ class AbstractTransactionManagerProtocol(Protocol):
     rt_sample_state_updates: dict[str, TransactionItem]
     error: bool
 
-# class TransactionManagerProtocol(Protocol):
-#     """Interface of a TransactionManager."""
-#
-#     def __init__(self, device_mdib_container: ProviderMdib,
-#                  transaction_type: TransactionType,
-#                  logger: LoggerAdapter):
-#         ...
-#
-#     def get_descriptor_in_transaction(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
-#         """Look for new or updated descriptor in current transaction and in mdib."""
-#
-#     def add_descriptor(self,
-#                        descriptor_container: AbstractDescriptorProtocol,
-#                        state_container: AbstractStateProtocol | None = None):
-#         """Add a new descriptor to mdib."""
-#
-#     def remove_descriptor(self, descriptor_handle: str):
-#         """Remove existing descriptor from mdib."""
-#
-#     def get_descriptor(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
-#         """Get a descriptor from mdib."""
-#
-#     def has_state(self, descriptor_handle: str) -> bool:
-#         """Check if transaction has a state with given handle."""
-#
-#     def get_state_transaction_item(self, handle: str) -> _TrItem | None:
-#
-#     def add_state(self, state_container: AbstractStateProtocol, adjust_state_version: bool = True):
-#         """Add a new state to mdib."""
-#
-#     def unget_state(self, state_container: AbstractStateProtocol):
-#         """Forget a state that was provided before by a get_state or add_state call."""
-#
-#     def get_state(self, descriptor_handle: str) -> AbstractStateProtocol:
-#         """Read a state from mdib and add it to the transaction."""
-#
-#     def get_context_state(self, context_state_handle: str) -> AbstractMultiStateProtocol:
-#         """Read a ContextState from mdib with given state handle."""
-#
-#     def mk_context_state(self, descriptor_handle: str,
-#                          set_associated: bool = False) -> AbstractMultiStateProtocol:
-#         """Create a new ContextStateContainer."""
-#
-#     def process_transaction(self, set_determination_time: bool) -> TransactionProcessor:
-#         """Process the transaction."""
-#
 
 class DescriptorTransactionManagerProtocol(AbstractTransactionManagerProtocol):
-    """Interface of a TransactionManager."""
-
-    # def __init__(self, device_mdib_container: ProviderMdib,
-    #              transaction_type: TransactionType,
-    #              logger: LoggerAdapter):
-    #     ...
+    """Interface of a TransactionManager that modifies descriptors."""
 
     def get_descriptor_in_transaction(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
         """Look for new or updated descriptor in current transaction and in mdib."""
@@ -219,3 +161,4 @@ class ContextStateTransactionManagerProtocol(StateTransactionManagerProtocol):
 AnyTransactionManagerProtocol = Union[ContextStateTransactionManagerProtocol,
                                       StateTransactionManagerProtocol,
                                       DescriptorTransactionManagerProtocol]
+

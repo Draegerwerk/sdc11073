@@ -3,7 +3,7 @@ from sdc11073.mdib.providermdib import ProviderMdib
 from sdc11073.xml_types import pm_qnames, pm_types
 from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.exceptions import ApiUsageError
-from sdc11073.mdib.modulartransactions import mk_transaction
+from sdc11073.mdib.transactions import mk_transaction
 mdib_file = 'mdib_tns.xml'
 
 

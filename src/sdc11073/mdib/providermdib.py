@@ -9,20 +9,26 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from sdc11073 import loghelper
 from sdc11073.definitions_base import ProtocolsRegistry
+from sdc11073.loghelper import LoggerAdapter
 from sdc11073.observableproperties import ObservableProperty
 from sdc11073.pysoap.msgreader import MessageReader
 
 from . import mdibbase
 from .providermdibxtra import ProviderMdibMethods
-# from .transactions import MdibUpdateTransaction, RtDataMdibUpdateTransaction
-# from .transactions import mk_transaction as mk_transaction_old
-from .transactionsprotocol import TransactionType, AnyTransactionManagerProtocol
-from .modulartransactions import mk_transaction
+from .transactions import mk_transaction
+from .transactionsprotocol import AnyTransactionManagerProtocol, TransactionType
 
 if TYPE_CHECKING:
     from sdc11073.definitions_base import BaseDefinitions
-    from sdc11073.loghelper import LoggerAdapter
-    from .transactionsprotocol import DescriptorTransactionManagerProtocol, StateTransactionManagerProtocol, ContextStateTransactionManagerProtocol
+
+    from .transactionsprotocol import (
+        ContextStateTransactionManagerProtocol,
+        DescriptorTransactionManagerProtocol,
+        StateTransactionManagerProtocol,
+    )
+
+TransactionFactory = Callable[[mdibbase.MdibBase, TransactionType, LoggerAdapter],
+                              AnyTransactionManagerProtocol]
 
 
 class ProviderMdib(mdibbase.MdibBase):
@@ -39,8 +45,7 @@ class ProviderMdib(mdibbase.MdibBase):
                  sdc_definitions: type[BaseDefinitions] | None = None,
                  log_prefix: str | None = None,
                  extra_functionality: type | None = None,
-                 transaction_factory: Callable[[ProviderMdib, TransactionType, LoggerAdapter],
-                                               AnyTransactionManagerProtocol] | None = None,
+                 transaction_factory: TransactionFactory | None = None,
                  ):
         """Construct a ProviderMdib.
 
@@ -77,8 +82,9 @@ class ProviderMdib(mdibbase.MdibBase):
 
     @contextmanager
     def _transaction_manager(self,
-                            transaction_type: TransactionType,
-                            set_determination_time: bool = True) -> AbstractContextManager[AnyTransactionManagerProtocol]:
+                             transaction_type: TransactionType,
+                             set_determination_time: bool = True) -> AbstractContextManager[
+        AnyTransactionManagerProtocol]:
         """Start a transaction, return a new transaction manager."""
         with self._tr_lock, self.mdib_lock:
             try:
@@ -99,7 +105,6 @@ class ProviderMdib(mdibbase.MdibBase):
             finally:
                 self.current_transaction = None
 
-
     @contextmanager
     def context_state_transaction(self) -> AbstractContextManager[ContextStateTransactionManagerProtocol]:
         """Return a transaction for context state updates."""
@@ -107,21 +112,21 @@ class ProviderMdib(mdibbase.MdibBase):
             yield mgr
 
     @contextmanager
-    def alert_state_transaction(self,set_determination_time: bool = True) \
+    def alert_state_transaction(self, set_determination_time: bool = True) \
             -> AbstractContextManager[StateTransactionManagerProtocol]:
         """Return a transaction for alert state updates."""
         with self._transaction_manager(TransactionType.alert, set_determination_time) as mgr:
             yield mgr
 
     @contextmanager
-    def metric_state_transaction(self,set_determination_time: bool = True) \
+    def metric_state_transaction(self, set_determination_time: bool = True) \
             -> AbstractContextManager[StateTransactionManagerProtocol]:
         """Return a transaction for metric state updates (not real time samples!)."""
         with self._transaction_manager(TransactionType.metric, set_determination_time) as mgr:
             yield mgr
 
     @contextmanager
-    def rt_sample_state_transaction(self, set_determination_time: bool = False)\
+    def rt_sample_state_transaction(self, set_determination_time: bool = False) \
             -> AbstractContextManager[StateTransactionManagerProtocol]:
         """Return a transaction for real time sample state updates."""
         with self._transaction_manager(TransactionType.rt_sample, set_determination_time) as mgr:
@@ -147,21 +152,6 @@ class ProviderMdib(mdibbase.MdibBase):
         """
         with self._transaction_manager(TransactionType.descriptor) as mgr:
             yield mgr
-
-    # def _process_internal_rt_transaction(self):
-    #     mgr = self.current_transaction
-    #     # handle real time samples
-    #     if len(mgr.rt_sample_state_updates) > 0:
-    #         self.mdib_version += 1
-    #         updates = []
-    #         self._logger.debug('transaction_manager: rtSample updates = {}',  # noqa: PLE1205
-    #                            mgr.rt_sample_state_updates)
-    #         for transaction_item in mgr.rt_sample_state_updates.values():
-    #             updates.append(transaction_item.new)
-    #         # makes copies of all states for sending, so that they can't be affected by transactions after this one
-    #         updates = [s.mk_copy(copy_node=False) for s in updates]
-    #         self.rt_updates = updates
-    #     mgr.mdib_version = self.mdib_version
 
     @classmethod
     def from_mdib_file(cls,
