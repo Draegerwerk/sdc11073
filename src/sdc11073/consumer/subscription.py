@@ -300,7 +300,7 @@ class ConsumerSubscription:
 class ConsumerSubscriptionManagerProtocol(Protocol):
     """Factory for Subscription objects."""
 
-    all_subscriptions_okay: bool
+    all_subscriptions_subscribed: bool
 
     def __init__(self,  # noqa: PLR0913
                  msg_reader: MessageReader,
@@ -351,7 +351,7 @@ class ConsumerSubscriptionManager(threading.Thread,
     subscription instance of the consumer. Reference parameters are not used.
     """
 
-    all_subscriptions_okay: bool = properties.ObservableProperty(True)  # a boolean
+    all_subscriptions_subscribed: bool = properties.ObservableProperty(True)  # a boolean
 
     def __init__(self, msg_reader: MessageReader,  # noqa: PLR0913
                  msg_factory: MessageFactory,
@@ -405,10 +405,10 @@ class ConsumerSubscriptionManager(threading.Thread,
         finally:
             self._logger.info('terminating subscriptions check loop! self._run={}', self._run)  # noqa: PLE1205
 
-    def _check_all_subscriptions_okay(self):
+    def _check_all_subscriptions_subscribed(self):
         with self._subscriptions_lock:
-            not_okay = [s for s in self.subscriptions.values() if not s.is_subscribed]
-            self.all_subscriptions_okay = (len(not_okay) == 0)
+            not_subscribed = [s for s in self.subscriptions.values() if not s.is_subscribed]
+            self.all_subscriptions_subscribed = len(not_subscribed) == 0
 
     def _fixed_renew_interval_loop(self):
         """Renew subscriptions in a fixed period."""
@@ -418,7 +418,7 @@ class ConsumerSubscriptionManager(threading.Thread,
                     time.sleep(1)
                     if not self._run:
                         return
-                self._check_all_subscriptions_okay()
+                self._check_all_subscriptions_subscribed()
                 with self._subscriptions_lock:
                     # copy list of subscriptions in order to release lock early
                     subscriptions = list(self.subscriptions.values())
@@ -437,7 +437,7 @@ class ConsumerSubscriptionManager(threading.Thread,
                 time.sleep(1)
                 if not self._run:
                     return
-                self._check_all_subscriptions_okay()
+                self._check_all_subscriptions_subscribed()
                 with self._subscriptions_lock:
                     # copy list of subscriptions in order to release lock early
                     subscriptions = list(self.subscriptions.values())

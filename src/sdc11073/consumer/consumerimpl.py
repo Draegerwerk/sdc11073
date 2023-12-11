@@ -523,10 +523,10 @@ class SdcConsumer:
 
         # connect self.is_connected observable to all_subscriptions_okay observable in subscriptions manager
         def set_is_connected(is_ok: bool):
-            self.is_connected = is_ok
+            self.is_connected = is_ok and len(self._subscription_mgr.subscriptions) > 0
 
-        properties.strongbind(self._subscription_mgr, all_subscriptions_okay=set_is_connected)
-        self.is_connected = self._subscription_mgr.all_subscriptions_okay
+        properties.strongbind(self._subscription_mgr, all_subscriptions_subscribed=set_is_connected)
+        set_is_connected(self._subscription_mgr.all_subscriptions_subscribed)
 
     def stop_all(self, unsubscribe: bool = True):
         """Stop all threads, optionally unsubscribe."""
