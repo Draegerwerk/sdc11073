@@ -3,6 +3,7 @@ import time
 import uuid
 from sdc11073.xml_types import pm_types, msg_types
 from sdc11073.xml_types import pm_qnames as pm
+from sdc11073.xml_types.actions import periodic_actions
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.consumer import SdcConsumer
@@ -80,7 +81,7 @@ if __name__ == '__main__':
                 # for all interactions with the communication partner
                 my_client = SdcConsumer.from_wsd_service(one_service, ssl_context_container=None)
                 # start all services on the client to make sure we get updates
-                my_client.start_all()
+                my_client.start_all(not_subscribed_actions=periodic_actions)
                 # all data interactions happen through the MDIB (MedicalDeviceInformationBase)
                 # that contains data as described in the BICEPS standard
                 # this variable will contain the data from the provider

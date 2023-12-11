@@ -58,7 +58,7 @@ class Test_BuiltinOperations(unittest.TestCase):
                                       ssl_context_container=None,
                                       validate=CLIENT_VALIDATE,
                                       specific_components=specific_components)
-        self.sdc_client.start_all(subscribe_periodic_reports=True)
+        self.sdc_client.start_all()
         time.sleep(1)
         self._logger.info('############### setUp done %s ##############', self._testMethodName)
         time.sleep(0.5)
@@ -334,7 +334,7 @@ class Test_BuiltinOperations(unittest.TestCase):
                                   validate=CLIENT_VALIDATE,
                                   specific_components=specific_components,
                                   log_prefix='client2')
-        sdc_client2.start_all(subscribe_periodic_reports=True)
+        sdc_client2.start_all()
         try:
             client_mdib2 = ConsumerMdib(sdc_client2)
             client_mdib2.init_mdib()
