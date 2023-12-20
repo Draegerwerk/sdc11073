@@ -209,6 +209,11 @@ class TestStateContainers(unittest.TestCase):
             state2.update_from_other_container(state)
             verify_equal(state, state2)
 
+            with self.assertRaises(ValueError) as cm:
+                state2.mk_metric_value()
+            the_exception = cm.exception
+            self.assertEqual(the_exception.args[0], 'State (descriptor handle="123") already has a metric value')
+
     def test_AbstractDeviceComponentStateContainer(self):
 
         def verify_equal(origin, copied):
