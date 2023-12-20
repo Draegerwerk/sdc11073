@@ -183,28 +183,28 @@ class TestStateContainers(unittest.TestCase):
 
         for descr_cls, state_cls in metric_cls:
             descr = descr_cls(handle='123', parent_handle='456')
-    
+
             state = state_cls(descriptor_container=descr)
             self.assertIsNone(state.MetricValue)
             state.mk_metric_value()
             self.assertTrue(isinstance(state.MetricValue, pm_types.SampleArrayValue))
-    
+
             state.MetricValue.Samples = dec_list(1, 2, 3, 4, 5.5)
             state.MetricValue.DeterminationTime = 1234567
             state.MetricValue.Annotations = []
             state.MetricValue.ApplyAnnotation = []
             state.ActivationState = pm_types.ComponentActivation.FAILURE
-    
+
             # test creation from other container
-            state2 =state_cls(descriptor_container=descr)
+            state2 = state_cls(descriptor_container=descr)
             state2.update_from_other_container(state)
             verify_equal(state, state2)
-    
+
             state.MetricValue.Samples = dec_list(5.5, 6.6)
             state.MetricValue.DeterminationTime = 2345678
             state.MetricValue.Annotations = [pm_types.Annotation(pm_types.CodedValue('a', 'b'))]
             state.MetricValue.ApplyAnnotation = [pm_types.ApplyAnnotation(1, 2)]
-    
+
             state.increment_state_version()
             state2.update_from_other_container(state)
             verify_equal(state, state2)
