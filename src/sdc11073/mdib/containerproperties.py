@@ -491,6 +491,9 @@ class ExtensionLocalValue(list):
             return False
         return all(self.__class__.compare_method(left, right) for left, right in zip(self, other))
 
+    def __ne__(self, other):
+        return not self == other
+
 
 class ExtensionNodeProperty(_PropertyBase):
     """Represents an ext:Extension Element that contains 0...n child elements of any kind.
