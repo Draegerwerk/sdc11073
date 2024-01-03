@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- fixed a bug where comparing `ExtensionLocalValue` would fail is using `!=` operator [#304](https://github.com/Draegerwerk/sdc11073/issues/304)
+- fixed a bug where comparing `ExtensionLocalValue` would fail when using the `!=` operator [#304](https://github.com/Draegerwerk/sdc11073/issues/304)
 
 ## [1.3.1] - 2023-12-04
 

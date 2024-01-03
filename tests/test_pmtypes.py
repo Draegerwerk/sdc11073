@@ -274,19 +274,16 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
         self.assertEqual(inst1, inst2)
 
     def test_operators_of_extension_local_value(self):
-        xml1 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <ext:Extension xmlns:ext="__ExtensionPoint__"
-                xmlns:what="123.456.789">
-                <what:ItIsNotKnown><what:Unknown>what:lorem</what:Unknown></what:ItIsNotKnown>
-        </ext:Extension>""")  # noqa: S320
-        xml2 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-        <ext:Extension xmlns:ext="__ExtensionPoint__"
-                xmlns:what="123.456.789">
-                <what:ItIsNotKnown>
-                dsafasdf
-                <what:Unknown>what:lorem</what:Unknown>
-                </what:ItIsNotKnown>
-        </ext:Extension>""")  # noqa: S320
+        xml1 = fromstring(b"""
+            <ext:Extension xmlns:ext="__ExtensionPoint__">
+                <foo someattr="somevalue"/>
+            </ext:Extension>
+        """)  # noqa: S320
+        xml2 = fromstring(b"""
+            <ext:Extension xmlns:ext="__ExtensionPoint__">
+                <foo someattr="somevalue"/>
+            </ext:Extension>
+        """)  # noqa: S320
         inst1 = ExtensionLocalValue([xml1])
         inst2 = ExtensionLocalValue([xml2])
         self.assertEqual(inst1, inst2)
@@ -294,3 +291,13 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
         self.assertFalse(inst1 != inst1)
         self.assertTrue(inst1 == inst2)
         self.assertFalse(inst1 != inst2)
+
+        xml2 = fromstring(b"""
+            <ext:Extension xmlns:ext="__ExtensionPoint__">
+                <bar anotherattr="differentvalue"/>
+            </ext:Extension>
+        """)  # noqa: S320
+        inst2 = ExtensionLocalValue([xml2])
+        self.assertNotEqual(inst1, inst2)
+        self.assertFalse(inst1 == inst2)
+        self.assertTrue(inst1 != inst2)

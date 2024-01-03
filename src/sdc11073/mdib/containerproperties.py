@@ -456,7 +456,7 @@ class NodeTextQNameProperty(_PropertyBase):
                 subNode.text = property_value.py_value
 
 def _compare_extension(left: etree_.ElementBase, right: etree_.ElementBase) -> bool:
-    # xml comparison
+    # SDPi R0019 and R0020 forbid the usage of XML mixed content or xml schema qname type in extensions
     try:
         if left.tag != right.tag:  # compare expanded names
             return False
