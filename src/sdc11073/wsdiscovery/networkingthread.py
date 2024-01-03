@@ -154,18 +154,19 @@ class _NetworkingThreadBase(ABC):
     def _repeated_enqueue_msg(self,
                               msg: OutgoingMessage,
                               delay_params: _UdpRepeatParams):
-        initial_delay_ms = random.randint(0, delay_params.max_initial_delay_ms)
-        next_send = time.time() + initial_delay_ms / 1000.0
-        delta_t = random.randrange(delay_params.min_delay_ms, delay_params.max_delay_ms) / 1000.0  # millisec -> seconds
-        self._send_queue.put(self._EnqueuedMessage(next_send, msg, 1))
-        for i in range(delay_params.repeat):
-            next_send += delta_t
-            self._send_queue.put(self._EnqueuedMessage(next_send, msg, i + 2))
-            delta_t = min(delta_t * 2, delay_params.upper_delay_ms)
+        if not self._quit_send_event.is_set():
+            initial_delay_ms = random.randint(0, delay_params.max_initial_delay_ms)
+            next_send = time.time() + initial_delay_ms / 1000.0
+            delta_t = random.randrange(delay_params.min_delay_ms, delay_params.max_delay_ms) / 1000.0  # millisec -> seconds
+            self._send_queue.put(self._EnqueuedMessage(next_send, msg, 1))
+            for i in range(delay_params.repeat):
+                next_send += delta_t
+                self._send_queue.put(self._EnqueuedMessage(next_send, msg, i + 2))
+                delta_t = min(delta_t * 2, delay_params.upper_delay_ms)
 
     def _run_send(self):
         """send-loop."""
-        while not self._quit_send_event.is_set():
+        while not self._quit_send_event.is_set() or not self._send_queue.empty():
             if self._send_queue.empty():
                 time.sleep(SEND_LOOP_IDLE_SLEEP)  # nothing to do currently
                 continue
