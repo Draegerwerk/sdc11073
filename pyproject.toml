@@ -189,10 +189,10 @@ warn_unused_ignores = true # https://mypy.readthedocs.io/en/stable/config_file.h
 exclude_also = [# https://coverage.readthedocs.io/en/latest/config.html#report-exclude-also
     "raise AssertionError",
     "raise NotImplementedError",
-    "if TYPE_CHECKING:",
-    "if typing.TYPE_CHECKING:",
+    "if (typing\\.)?TYPE_CHECKING:",
     "def __repr__",
     "def __str__",
+    "self\\._?logger\\.(info|debug|warning|error|exception|critical)"
 ]
 ignore_errors = true # https://coverage.readthedocs.io/en/latest/config.html#report-ignore-errors
 
