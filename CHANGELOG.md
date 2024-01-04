@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - change default in ContainerBase.mk_copy to not copy node due to performance problems. [#294](https://github.com/Draegerwerk/sdc11073/issues/294
 - waveform provider too slow
 - create MetricValue for DistributionSampleArrayMetricState
+- dropping of Bye-messages when stopping wsdiscovery
 
 ### Changed
 - change python classes of `addressing_types.py` to match ws-addressing standard of 2006 instead of 2004 
