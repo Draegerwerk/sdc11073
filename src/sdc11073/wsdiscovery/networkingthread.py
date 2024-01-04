@@ -9,18 +9,22 @@ import struct
 import threading
 import time
 import traceback
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from enum import IntEnum
-from typing import TYPE_CHECKING, Any
+from typing import Any
+from typing import TYPE_CHECKING
 
 from lxml.etree import XMLSyntaxError
-
+from sdc11073 import commlog
 from sdc11073.exceptions import ValidationError
 
-from .common import MULTICAST_IPV4_ADDRESS, MULTICAST_OUT_TTL, message_reader
-from sdc11073 import commlog
+from .common import MULTICAST_IPV4_ADDRESS
+from .common import MULTICAST_OUT_TTL
+from .common import message_reader
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -66,6 +70,10 @@ class OutgoingMessage:
     addr: str
     port: int
     msg_type: _MessageType
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(addr={self.addr}, port={self.port}, " \
+               f"msg_type={self.msg_type}, created_message={self.created_message.serialize()})"
 
 
 @dataclass(frozen=True)
@@ -154,15 +162,18 @@ class _NetworkingThreadBase(ABC):
     def _repeated_enqueue_msg(self,
                               msg: OutgoingMessage,
                               delay_params: _UdpRepeatParams):
-        if not self._quit_send_event.is_set():
-            initial_delay_ms = random.randint(0, delay_params.max_initial_delay_ms)
-            next_send = time.time() + initial_delay_ms / 1000.0
-            delta_t = random.randrange(delay_params.min_delay_ms, delay_params.max_delay_ms) / 1000.0  # millisec -> seconds
-            self._send_queue.put(self._EnqueuedMessage(next_send, msg, 1))
-            for i in range(delay_params.repeat):
-                next_send += delta_t
-                self._send_queue.put(self._EnqueuedMessage(next_send, msg, i + 2))
-                delta_t = min(delta_t * 2, delay_params.upper_delay_ms)
+        if self._quit_send_event.is_set():
+            self._logger.warning('_repeated_enqueue_msg: sending thread not running - message will be dropped - %s',
+                                 msg)
+            return
+        initial_delay_ms = random.randint(0, delay_params.max_initial_delay_ms)
+        next_send = time.time() + initial_delay_ms / 1000.0
+        delta_t = random.randrange(delay_params.min_delay_ms, delay_params.max_delay_ms) / 1000.0  # millisec -> seconds
+        self._send_queue.put(self._EnqueuedMessage(next_send, msg, 1))
+        for i in range(delay_params.repeat):
+            next_send += delta_t
+            self._send_queue.put(self._EnqueuedMessage(next_send, msg, i + 2))
+            delta_t = min(delta_t * 2, delay_params.upper_delay_ms)
 
     def _run_send(self):
         """send-loop."""
