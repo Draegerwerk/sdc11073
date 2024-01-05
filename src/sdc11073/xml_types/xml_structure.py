@@ -826,7 +826,7 @@ class NodeTextQNameProperty(_ElementBase):
 
 
 def _compare_extension(left: xml_utils.LxmlElement, right: xml_utils.LxmlElement) -> bool:
-    # xml comparison
+    # SDPi R0019 and R0020 forbid the usage of XML mixed content or xml schema qname type in extensions
     try:
         if left.tag != right.tag:  # compare expanded names
             return False
@@ -859,6 +859,9 @@ class ExtensionLocalValue(list[xml_utils.LxmlElement]):
         except TypeError: # len of other cannot be determined
             return False
         return all(self.__class__.compare_method(left, right) for left, right in zip(self, other))
+
+    def __ne__(self, other):
+        return not self == other
 
 
 class ExtensionNodeProperty(_ElementBase):
