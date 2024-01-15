@@ -338,7 +338,6 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
         inst3.ExtExtension = my_generator()
         self.assertEqual(inst2.ExtExtension, inst3.ExtExtension)
 
-
     def test_mixed_content_is_ignored(self):
         xml1 = fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
@@ -356,3 +355,32 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
         inst1 = xml_structure.ExtensionLocalValue([xml1])
         inst2 = xml_structure.ExtensionLocalValue([xml2])
         self.assertEqual(inst1, inst2)
+
+    def test_operators_of_extension_local_value(self):
+        xml1 = fromstring(b"""
+            <ext:Extension xmlns:ext="__ExtensionPoint__">
+                <foo someattr="somevalue"/>
+            </ext:Extension>
+        """)  # noqa: S320
+        xml2 = fromstring(b"""
+            <ext:Extension xmlns:ext="__ExtensionPoint__">
+                <foo someattr="somevalue"/>
+            </ext:Extension>
+        """)  # noqa: S320
+        inst1 = xml_structure.ExtensionLocalValue([xml1])
+        inst2 = xml_structure.ExtensionLocalValue([xml2])
+        self.assertEqual(inst1, inst2)
+        self.assertTrue(inst1 == inst1)
+        self.assertFalse(inst1 != inst1)
+        self.assertTrue(inst1 == inst2)
+        self.assertFalse(inst1 != inst2)
+
+        xml2 = fromstring(b"""
+            <ext:Extension xmlns:ext="__ExtensionPoint__">
+                <bar anotherattr="differentvalue"/>
+            </ext:Extension>
+        """)  # noqa: S320
+        inst2 = xml_structure.ExtensionLocalValue([xml2])
+        self.assertNotEqual(inst1, inst2)
+        self.assertFalse(inst1 == inst2)
+        self.assertTrue(inst1 != inst2)
