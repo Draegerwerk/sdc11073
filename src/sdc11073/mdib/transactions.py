@@ -238,7 +238,6 @@ class DescriptorTransaction(_TransactionBase):
                         new_descriptor.Handle, new_descriptor.DescriptorVersion)
                     self._mdib.descriptions.replace_object_no_lock(new_descriptor)
 
-            updates = self._handle_state_updates(self.alert_state_updates)
             for updates_dict, dest_list in ((self.alert_state_updates, proc.alert_updates),
                                             (self.metric_state_updates, proc.metric_updates),
                                             (self.context_state_updates, proc.ctxt_updates),
