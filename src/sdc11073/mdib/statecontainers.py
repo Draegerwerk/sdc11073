@@ -298,10 +298,24 @@ class DistributionSampleArrayMetricStateContainer(AbstractMetricStateContainer):
     """Represents DistributionSampleArrayMetricState in BICEPS."""
 
     NODETYPE = pm.DistributionSampleArrayMetricState
-    _metric_value = x_struct.SubElementProperty(pm.MetricValue, value_class=pm_types.SampleArrayValue, is_optional=True)
+    MetricValue = x_struct.SubElementProperty(pm.MetricValue, value_class=pm_types.SampleArrayValue, is_optional=True)
     PhysiologicalRange: list[pm_types.Range] = x_struct.SubElementListProperty(pm.PhysiologicalRange,
                                                                                value_class=pm_types.Range)
-    _props = ('_metric_value', 'PhysiologicalRange')
+    _props = ('MetricValue', 'PhysiologicalRange')
+
+    def mk_metric_value(self) -> pm_types.SampleArrayValue:
+        """Instantiate self.MetricValue."""
+        if self.MetricValue is None:
+            self.MetricValue = pm_types.SampleArrayValue()
+            return self.MetricValue
+        raise ValueError(f'State (descriptor handle="{self.DescriptorHandle}") already has a metric value')
+
+    def __repr__(self) -> str:
+        samples_count = 0
+        if self.MetricValue is not None and self.MetricValue.Samples is not None:
+            samples_count = len(self.MetricValue.Samples)
+        return (f'{self.__class__.__name__} DescriptorHandle="{self.DescriptorHandle}" '
+                f'Activation="{self.ActivationState}" Samples={samples_count}')
 
 
 class AbstractDeviceComponentStateContainer(AbstractStateContainer):
@@ -626,7 +640,6 @@ class LocationContextStateContainer(AbstractContextStateContainer):
         None elements are replaces by an empty string.
         """
         return '/'.join([getattr(sdc_location, attr) or '' for attr in sdc_location.url_elements])
-
 
     @classmethod
     def from_sdc_location(cls, descriptor_container: AbstractDescriptorProtocol,
