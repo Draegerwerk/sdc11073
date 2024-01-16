@@ -65,6 +65,7 @@ class ConsumerSubscription:
     notification_msg = properties.ObservableProperty()
     notification_data = properties.ObservableProperty()
     IDENT_TAG = etree_.QName('http.local.com', 'MyClIdentifier')
+    is_subscribed = properties.ObservableProperty(False)
 
     def __init__(self, msg_factory: MessageFactory,  # noqa: PLR0913
                  data_model: AbstractDataModel,
@@ -220,6 +221,7 @@ class ConsumerSubscription:
             if response_action == EventingActions.UnsubscribeResponse:
                 self._logger.info(  # noqa: PLE1205
                     'unsubscribe: end of subscription {} was confirmed.', self.notification_url)
+                self.is_subscribed = False
             else:
                 self._logger.error(  # noqa: PLE1205
                     'unsubscribe: unexpected response action: {}', received_message_data.p_msg.raw_data)
@@ -300,8 +302,6 @@ class ConsumerSubscription:
 class ConsumerSubscriptionManagerProtocol(Protocol):
     """Factory for Subscription objects."""
 
-    all_subscriptions_subscribed: bool
-
     def __init__(self,  # noqa: PLR0913
                  msg_reader: MessageReader,
                  msg_factory: MessageFactory,
@@ -351,8 +351,6 @@ class ConsumerSubscriptionManager(threading.Thread,
     subscription instance of the consumer. Reference parameters are not used.
     """
 
-    all_subscriptions_subscribed: bool = properties.ObservableProperty(True)  # a boolean
-
     def __init__(self, msg_reader: MessageReader,  # noqa: PLR0913
                  msg_factory: MessageFactory,
                  data_model: AbstractDataModel,
@@ -377,7 +375,7 @@ class ConsumerSubscriptionManager(threading.Thread,
         self._data_model = data_model
         self._get_soap_client_func = get_soap_client_func
         self._renew_interval = fixed_renew_interval
-        self.subscriptions = {}
+        self.subscriptions: dict[str, ConsumerSubscription] = {}
         self._subscriptions_lock = threading.Lock()
 
         self._run = False
@@ -405,11 +403,6 @@ class ConsumerSubscriptionManager(threading.Thread,
         finally:
             self._logger.info('terminating subscriptions check loop! self._run={}', self._run)  # noqa: PLE1205
 
-    def _check_all_subscriptions_subscribed(self):
-        with self._subscriptions_lock:
-            not_subscribed = [s for s in self.subscriptions.values() if not s.is_subscribed]
-            self.all_subscriptions_subscribed = len(not_subscribed) == 0
-
     def _fixed_renew_interval_loop(self):
         """Renew subscriptions in a fixed period."""
         while self._run:
@@ -418,7 +411,6 @@ class ConsumerSubscriptionManager(threading.Thread,
                     time.sleep(1)
                     if not self._run:
                         return
-                self._check_all_subscriptions_subscribed()
                 with self._subscriptions_lock:
                     # copy list of subscriptions in order to release lock early
                     subscriptions = list(self.subscriptions.values())
@@ -437,7 +429,6 @@ class ConsumerSubscriptionManager(threading.Thread,
                 time.sleep(1)
                 if not self._run:
                     return
-                self._check_all_subscriptions_subscribed()
                 with self._subscriptions_lock:
                     # copy list of subscriptions in order to release lock early
                     subscriptions = list(self.subscriptions.values())

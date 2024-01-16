@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import functools
 import logging
 import ssl
 import traceback
@@ -157,7 +158,7 @@ class SdcConsumer:
     What if not???? => raise exception in _discover_hosted_services.
     """
 
-    is_connected = properties.ObservableProperty(False)  # a boolean
+    subscription_status = properties.ObservableProperty({})  # a dict of ConsumerSubscription
 
     # observable properties for all notifications
     # all incoming Notifications can be observed in state_event_report ( as soap envelope)
@@ -216,6 +217,8 @@ class SdcConsumer:
             self._components.merge(specific_components)
         splitted = urlsplit(self._device_location)
         self._device_uses_https = splitted.scheme.lower() == 'https'
+
+        self.subscription_status: dict[str, bool] = {}
 
         # available after start_all
         self._network_adapter: network.NetworkAdapter | None = None
@@ -332,6 +335,14 @@ class SdcConsumer:
         :return: a subscription object.
         """
         subscription = self._subscription_mgr.mk_subscription(dpws_hosted, filter_type)
+
+        def update_subscription_status(subscription_filter: str, status: bool):
+            subscription_status = dict(self.subscription_status)
+            subscription_status[subscription_filter] = status
+            self.subscription_status = subscription_status  # trigger observable if status has changed
+        properties.strongbind(subscription, is_subscribed=functools.partial(update_subscription_status,
+                                                                            filter_type.text))
+
         # direct subscribed notifications to this subscription
         for action in actions:
             self._services_dispatcher.register_post_handler(action, subscription.on_notification)
@@ -519,12 +530,10 @@ class SdcConsumer:
                         self.sdc_definitions.data_model.ns_helper.WSE.tag('SubscriptionEnd')),
             self._on_subscription_end)
 
-        # connect self.is_connected observable to all_subscriptions_okay observable in subscriptions manager
-        def set_is_connected(is_ok: bool):
-            self.is_connected = is_ok and len(self._subscription_mgr.subscriptions) > 0
-
-        properties.strongbind(self._subscription_mgr, all_subscriptions_subscribed=set_is_connected)
-        set_is_connected(self._subscription_mgr.all_subscriptions_subscribed)
+    @property
+    def is_connected(self) -> bool:
+        """Indicates whether all subscriptions are subscribed."""
+        return all(self.subscription_status.values()) and any([self.subscription_status])
 
     def stop_all(self, unsubscribe: bool = True):
         """Stop all threads, optionally unsubscribe."""

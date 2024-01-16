@@ -1210,14 +1210,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.log_watcher.setPaused(True)
         time.sleep(1)
         self.assertEqual(self.sdc_client.is_connected, True)
-        collectors = []
-        coll = observableproperties.SingleValueCollector(self.sdc_client,
-                                                         'is_connected')  # waiter for the next state transition
-        collectors.append(coll)
+        collectors = [observableproperties.SingleValueCollector(s, 'is_subscribed')
+                      for s in self.sdc_client.subscription_mgr.subscriptions.values()]
         self.sdc_device.stop_all(send_subscription_end=False)
         for coll in collectors:
-            is_connected = coll.result(timeout=15)
-            self.assertEqual(is_connected, False)
+            is_subscribed = coll.result(timeout=15)
+            self.assertFalse(is_subscribed)
+        self.assertFalse(self.sdc_client.is_connected)
         self.sdc_client.stop_all(unsubscribe=False)  # without unsubscribe, is faster and would make no sense anyway
 
     def test_is_connected_friendly(self):
@@ -1225,14 +1224,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.log_watcher.setPaused(True)
         time.sleep(1)
         self.assertEqual(self.sdc_client.is_connected, True)
-        collectors = []
-        coll = observableproperties.SingleValueCollector(self.sdc_client,
-                                                         'is_connected')  # waiter for the next state transition
-        collectors.append(coll)
+        collectors = [observableproperties.SingleValueCollector(s, 'is_subscribed')
+                      for s in self.sdc_client.subscription_mgr.subscriptions.values()]
         self.sdc_device.stop_all(send_subscription_end=True)
         for coll in collectors:
-            is_connected = coll.result(timeout=15)
-            self.assertEqual(is_connected, False)
+            is_subscribed = coll.result(timeout=15)
+            self.assertFalse(is_subscribed)
+        self.assertFalse(self.sdc_client.is_connected)
         self.sdc_client.stop_all(unsubscribe=False)  # without unsubscribe, is faster and would make no sense anyway
 
     # def test_invalid_request(self):
