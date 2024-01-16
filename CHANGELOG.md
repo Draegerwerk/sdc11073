@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fixed a bug where comparing `ExtensionLocalValue` would fail when using the `!=` operator [#305](https://github.com/Draegerwerk/sdc11073/issues/305)
 
+### Changed
+
+- `SdcConsumer` provides a dictionary with the current connection status of each subscription it is subscribed to [#271](https://github.com/Draegerwerk/sdc11073/issues/271)
+
 ## [2.0.0a7] - 2024-01-04
 
 ### Added
@@ -20,9 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - basic_logging_setup only handles sdc logger, no more side effect due to calling logging.basicConfig. 
 - fix possible invalid prefix if QName is a node text.
-- fixed wrong response for SetContextState message. [#287](https://github.com/Draegerwerk/sdc11073/issues/287
-- fixed connection problem when provider closes socket after first request. [#289](https://github.com/Draegerwerk/sdc11073/issues/289
-- change default in ContainerBase.mk_copy to not copy node due to performance problems. [#294](https://github.com/Draegerwerk/sdc11073/issues/294
+- fixed wrong response for SetContextState message. [#287](https://github.com/Draegerwerk/sdc11073/issues/287)
+- fixed connection problem when provider closes socket after first request. [#289](https://github.com/Draegerwerk/sdc11073/issues/289)
+- change default in ContainerBase.mk_copy to not copy node due to performance problems. [#294](https://github.com/Draegerwerk/sdc11073/issues/294)
 - waveform provider too slow
 - create MetricValue for DistributionSampleArrayMetricState
 - dropping of Bye-messages when stopping wsdiscovery

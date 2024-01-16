@@ -158,7 +158,7 @@ class SdcConsumer:
     What if not???? => raise exception in _discover_hosted_services.
     """
 
-    subscription_status = properties.ObservableProperty({})  # a dict of ConsumerSubscription
+    subscription_status = properties.ObservableProperty({})
 
     # observable properties for all notifications
     # all incoming Notifications can be observed in state_event_report ( as soap envelope)
