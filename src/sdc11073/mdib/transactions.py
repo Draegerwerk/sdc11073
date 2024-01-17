@@ -140,7 +140,11 @@ class DescriptorTransaction(_TransactionBase):
         return descriptor_container
 
     def get_state(self, descriptor_handle: str) -> AbstractStateProtocol:
-        """Read a state from mdib and add it to the transaction."""
+        """Read a state from mdib and add it to the transaction.
+
+        This method only allows to get a state if the corresponding descriptor is already part of the transaction.
+        if not, it raises an ApiUsageError.
+        """
         if descriptor_handle is None:
             raise ValueError('no handle for state specified')
         if descriptor_handle not in self.descriptor_updates:
@@ -161,7 +165,11 @@ class DescriptorTransaction(_TransactionBase):
         return copied_state
 
     def add_state(self, state_container: AbstractStateProtocol, adjust_state_version: bool = True):
-        """Add a new state to mdib."""
+        """Add a new state to mdib.
+
+        This method only allows to add a state if the corresponding descriptor is already part of the transaction.
+        if not, it raises an ApiUsageError.
+"""
         if state_container.is_context_state:
             # prevent this for simplicity reasons
             raise ApiUsageError('transaction does not support extra handling of context states!')
@@ -179,7 +187,11 @@ class DescriptorTransaction(_TransactionBase):
         updates_dict[state_container.DescriptorHandle] = TransactionItem(None, state_container)
 
     def process_transaction(self, set_determination_time: bool) -> TransactionResultProtocol:  # noqa: ARG002
-        """Process transaction and create a TransactionResult."""
+        """Process transaction and create a TransactionResult.
+
+        The parameter set_determination_time is only present in order to implement the interface correctly.
+        Determination time is not set, because descriptors have no modification time.
+        """
         proc = TransactionResult()
         if self.descriptor_updates:
             self._mdib.mdib_version += 1
