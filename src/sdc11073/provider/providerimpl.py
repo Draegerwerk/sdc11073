@@ -382,7 +382,7 @@ class SdcProvider:
         return self.mdib.data_model.msg_types.InvocationState.FAILED
 
     def start_all(self,
-                  start_rtsample_loop: bool =True,
+                  start_rtsample_loop: bool = True,
                   periodic_reports_interval: float | None = None,
                   shared_http_server=None):
         """:param start_rtsample_loop: flag

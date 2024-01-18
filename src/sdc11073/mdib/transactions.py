@@ -169,18 +169,16 @@ class DescriptorTransaction(_TransactionBase):
 
         This method only allows to add a state if the corresponding descriptor is already part of the transaction.
         if not, it raises an ApiUsageError.
-"""
-        if state_container.is_context_state:
-            # prevent this for simplicity reasons
-            raise ApiUsageError('transaction does not support extra handling of context states!')
-
+        """
         if state_container.DescriptorHandle not in self.descriptor_updates:
             raise ApiUsageError('transaction has no descriptor for this state!')
-
         updates_dict = self._get_states_update(state_container)
 
         if state_container.DescriptorHandle in updates_dict:
             raise ValueError(f'State {state_container.DescriptorHandle} already in updated set!')
+
+        # set reference to descriptor
+        state_container.descriptor_container = self.descriptor_updates[state_container.DescriptorHandle].new
 
         if adjust_state_version:
             self._mdib.states.set_version(state_container)

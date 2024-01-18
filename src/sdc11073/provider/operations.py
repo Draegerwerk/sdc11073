@@ -26,6 +26,8 @@ class OperationDefinitionProtocol(Protocol):
     handle: str
     operation_target_handle: str
     current_value: Any
+    last_called_time: float | None
+    descriptor_container: AbstractDescriptorProtocol
 
 
 @dataclass
