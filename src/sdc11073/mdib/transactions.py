@@ -252,6 +252,7 @@ class DescriptorTransaction(_TransactionBase):
                                             (self.metric_state_updates, proc.metric_updates),
                                             (self.context_state_updates, proc.ctxt_updates),
                                             (self.component_state_updates, proc.comp_updates),
+                                            (self.operational_state_updates, proc.op_updates),
                                             (self.rt_sample_state_updates, proc.rt_updates),
                                             ):
                 updates = self._handle_state_updates(updates_dict)
