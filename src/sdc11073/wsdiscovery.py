@@ -526,7 +526,7 @@ class MessageCreator:
             doc, header, body = self.createByeMessage(env)
         else:
             raise ValueError(f'unknown action {action}')
-        return tostring(doc)
+        return tostring(doc, xml_declaration=True, encoding='utf-8')
 
     def createProbeMessage(self, env):
         doc, header, body = self._createSkelSoapMessage(env.getAction(), env.getMessageId(),
