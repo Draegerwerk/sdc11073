@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fixed a bug where comparing `ExtensionLocalValue` would fail when using the `!=` operator [#304](https://github.com/Draegerwerk/sdc11073/issues/304)
 - fixed missing xml header in discovery messages [#314](https://github.com/Draegerwerk/sdc11073/issues/314)
+- fixed possible error in alarmprovider [#293](https://github.com/Draegerwerk/sdc11073/issues/293)
 
 ## [1.3.1] - 2023-12-04
 

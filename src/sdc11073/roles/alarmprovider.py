@@ -403,15 +403,15 @@ class GenericAlarmProvider(providerbase.ProviderRole):
 
     def _updateAlertSystemState_CurrentAlerts(self):
         """ updates AlertSystemState present alarms list"""
-        alertStatesNeedingUpdate = self._getAlertSystemStates_needingUpdate()
-        if len(alertStatesNeedingUpdate) > 0:
-            try:
-                with self._mdib.mdibUpdateTransaction() as tr:
+        try:
+            with self._mdib.mdibUpdateTransaction() as tr:
+                alertStatesNeedingUpdate = self._getAlertSystemStates_needingUpdate()
+                if len(alertStatesNeedingUpdate) > 0:
                     tr_states = [tr.getAlertState(s.descriptorHandle) for s in alertStatesNeedingUpdate]
                     self._updateAlertSystemStates(self._mdib, tr, tr_states)
-            except:
-                exc = traceback.format_exc()
-                self._logger.error('_checkAlertStates: {}', exc)
+        except:
+            exc = traceback.format_exc()
+            self._logger.error('_checkAlertStates: {}', exc)
 
     # def _handleDelegateTimeouts(self):
     #     if self._lastActivateAllDelegableAlerts:
