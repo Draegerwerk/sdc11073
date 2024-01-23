@@ -154,7 +154,7 @@ class ProviderMdibMethods:
             tmp = self._mdib.descriptions.handle.get_one(parent_handle, allow_none=True)
             if tmp is None:
                 if self._mdib.current_transaction:
-                    tmp = self._mdib.current_transaction.get_descriptor_in_transaction(parent_handle)
+                    tmp = self._mdib.current_transaction.actual_descriptor(parent_handle)
             if tmp is None:
                 raise KeyError(f'could not find mds descriptor for handle {container.Handle}')
         return None

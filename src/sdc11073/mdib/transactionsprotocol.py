@@ -42,6 +42,10 @@ class TransactionResultProtocol(Protocol):
     op_updates = list[AbstractStateProtocol]
     rt_updates = list[AbstractStateProtocol]
 
+    has_descriptor_updates: bool
+
+    def all_states(self) -> list[AbstractStateProtocol]:
+        """Return all states in this transaction."""
 
 class TransactionItemProtocol(Protocol):
     """A container for the old and the new version of a state or descriptor.
@@ -83,7 +87,7 @@ class AbstractTransactionManagerProtocol(Protocol):
 class DescriptorTransactionManagerProtocol(AbstractTransactionManagerProtocol):
     """Interface of a TransactionManager that modifies descriptors."""
 
-    def get_descriptor_in_transaction(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
+    def actual_descriptor(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
         """Look for new or updated descriptor in current transaction and in mdib."""
 
     def add_descriptor(self,
@@ -126,7 +130,7 @@ class DescriptorTransactionManagerProtocol(AbstractTransactionManagerProtocol):
 class StateTransactionManagerProtocol(AbstractTransactionManagerProtocol):
     """Interface of a TransactionManager that modifies states (except context states)."""
 
-    def get_descriptor_in_transaction(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
+    def actual_descriptor(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
         """Look for new or updated descriptor in current transaction and in mdib."""
 
     def has_state(self, descriptor_handle: str) -> bool:

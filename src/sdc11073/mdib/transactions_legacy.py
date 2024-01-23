@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import time
 import uuid
+import warnings
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -26,6 +27,9 @@ if TYPE_CHECKING:
         AbstractStateProtocol,
     )
     from .transactionsprotocol import AnyTransactionManagerProtocol, TransactionResultProtocol
+
+
+warnings.warn("the legacy transaction module is deprecated", DeprecationWarning, stacklevel=2)
 
 
 class _TransactionBase:
@@ -52,7 +56,7 @@ class _TransactionBase:
     def is_descriptor_update(self) -> bool:
         return self._transaction_type == TransactionType.descriptor
 
-    def get_descriptor_in_transaction(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
+    def actual_descriptor(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
         """Look for new or updated descriptor in current transaction and in mdib."""
         tr_container = self.descriptor_updates.get(descriptor_handle)
         if tr_container is not None:
@@ -63,7 +67,7 @@ class _TransactionBase:
 
     def _get_state_container(self, descriptor_handle: str) -> tuple[AbstractStateProtocol, AbstractStateProtocol]:
         """Return old state, new state."""
-        descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
+        descriptor_container = self.actual_descriptor(descriptor_handle)
         old_state_container = self._device_mdib_container.states.descriptor_handle.get_one(descriptor_container.Handle,
                                                                                            allow_none=False)
         new_state_container = old_state_container.mk_copy()
@@ -73,7 +77,7 @@ class _TransactionBase:
     def _mk_state_container(self, descriptor_handle: str, adjust_state_version: bool = True) \
             -> tuple[AbstractStateProtocol | None, AbstractStateProtocol | None]:
         """Return old container, new container."""
-        descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
+        descriptor_container = self.actual_descriptor(descriptor_handle)
         old_state_container = self._device_mdib_container.states.descriptor_handle.get_one(descriptor_container.Handle,
                                                                                            allow_none=True)
         if old_state_container is None:
@@ -339,7 +343,7 @@ class MdibUpdateTransaction(_TransactionBase):
             raise ValueError(f'State {descriptor_handle} already in updated set!')
 
         if state_container.descriptor_container is None:
-            descr = self.get_descriptor_in_transaction(descriptor_handle)
+            descr = self.actual_descriptor(descriptor_handle)
             state_container.descriptor_container = descr
         if adjust_state_version:
             my_multi_key.set_version(state_container)
@@ -366,7 +370,7 @@ class MdibUpdateTransaction(_TransactionBase):
         :param descriptor_handle: a string
         :return: a copy of the state
         """
-        descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
+        descriptor_container = self.actual_descriptor(descriptor_handle)
         self._verify_correct_descr_type(descriptor_container)
 
         if descriptor_container.is_realtime_sample_array_metric_descriptor:
@@ -429,7 +433,7 @@ class MdibUpdateTransaction(_TransactionBase):
         """
         if self._transaction_type != TransactionType.context:
             raise ApiUsageError('Mix of data types in transaction is not allowed!')
-        descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
+        descriptor_container = self.actual_descriptor(descriptor_handle)
         if context_state_handle is None:
             old_state_container = None
         else:
@@ -477,7 +481,7 @@ class MdibUpdateTransaction(_TransactionBase):
         state_container = self._device_mdib_container.states.descriptor_handle.get_one(descriptor_handle,
                                                                                        allow_none=True)
         if state_container is None:
-            descriptor_container = self.get_descriptor_in_transaction(descriptor_handle)
+            descriptor_container = self.actual_descriptor(descriptor_handle)
             new_state = self._device_mdib_container.data_model.mk_state_container(descriptor_container)
             if not new_state.is_realtime_sample_array_metric_state:
                 raise ValueError(
@@ -521,7 +525,7 @@ class ProcessTransactionResult:
         self.rt_updates = []
         self.has_descriptor_updates = False  # for easier handling
 
-    def all_states(self) -> list[AbstractStateContainer]:
+    def all_states(self) -> list[AbstractStateProtocol]:
         """Return all states in this transaction."""
         return self.metric_updates + self.alert_updates + self.comp_updates + self.ctxt_updates \
                + self.op_updates + self.rt_updates
@@ -587,8 +591,7 @@ class ProcessTransactionResult:
                         new_descriptor.Handle, new_descriptor.DescriptorVersion)
                     self.descr_created.append(new_descriptor.mk_copy())
                     self._mdib.descriptions.add_object_no_lock(new_descriptor)
-                    # R0033: A SERVICE PROVIDER SHALL increment pm:AbstractDescriptor/@DescriptorVersion by one
-                    #   if a direct child descriptor is added or deleted.
+                    # increment DescriptorVersion if a child descriptor is added or deleted.
                     if new_descriptor.parent_handle is not None \
                             and new_descriptor.parent_handle not in to_be_created_handles:
                         # only update parent if it is not also created in this transaction
@@ -601,8 +604,7 @@ class ProcessTransactionResult:
                     all_descriptors = self._mdib.get_all_descriptors_in_subtree(orig_descriptor)
                     self._mdib.rm_descriptors_and_states(all_descriptors)
                     self.descr_deleted.extend([d.mk_copy() for d in all_descriptors])
-                    # R0033: A SERVICE PROVIDER SHALL increment pm:AbstractDescriptor/@DescriptorVersion by one
-                    #   if a direct child descriptor is added or deleted.
+                    # increment DescriptorVersion if a child descriptor is added or deleted.
                     if orig_descriptor.parent_handle is not None \
                             and orig_descriptor.parent_handle not in to_be_deleted_handles:
                         # only update parent if it is not also deleted in this transaction

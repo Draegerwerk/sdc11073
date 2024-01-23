@@ -178,8 +178,8 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         # find all alert systems for the changed alert conditions
         alert_system_states = set()
         for tmp in changed_alert_conditions:
-            alert_descriptor = transaction.get_descriptor_in_transaction(tmp.DescriptorHandle)
-            alert_system_descriptor = transaction.get_descriptor_in_transaction(alert_descriptor.parent_handle)
+            alert_descriptor = transaction.actual_descriptor(tmp.DescriptorHandle)
+            alert_system_descriptor = transaction.actual_descriptor(alert_descriptor.parent_handle)
             if alert_system_descriptor.Handle in transaction.alert_state_updates:
                 tmp_st = transaction.alert_state_updates[alert_system_descriptor.Handle]
                 if tmp_st.new is not None:

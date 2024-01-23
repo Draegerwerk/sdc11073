@@ -1235,33 +1235,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(is_connected, False)
         self.sdc_client.stop_all(unsubscribe=False)  # without unsubscribe, is faster and would make no sense anyway
 
-    # def test_invalid_request(self):
-    #     """MDPWS R0012: If a HOSTED SERVICE receives a MESSAGE that is inconsistent with its WSDL description, the HOSTED
-    #     SERVICE SHOULD generate a SOAP Fault with a Code Value of 'Sender', unless a 'MustUnderstand' or
-    #     'VersionMismatch' Fault is generated
-    #     """
-    #     self.log_watcher.setPaused(True)
-    #     self.sdc_client.get_service_client._validate = False  # want to send an invalid request
-    #     try:
-    #         method = self.sdc_device.mdib.data_model.ns_helper.msgTag('Nonsense')
-    #         action_string = 'Nonsense'
-    #         message = self.sdc_client.get_service_client._msg_factory._mk_get_method_message(
-    #             self.sdc_client.get_service_client.endpoint_reference.address,
-    #             action_string,
-    #             method)
-    #         self.sdc_client.get_service_client.post_message(message)
-    #
-    #     except HTTPReturnCodeError as ex:
-    #         self.assertEqual(ex.status, 400)
-    #         self.assertEqual(ex.soap_fault.code, 's12:Sender')
-    #     else:
-    #         self.fail('HTTPReturnCodeError not raised')
 
     def test_invalid_request(self):
-        """MDPWS R0012: If a HOSTED SERVICE receives a MESSAGE that is inconsistent with its WSDL description, the HOSTED
-        SERVICE SHOULD generate a SOAP Fault with a Code Value of 'Sender', unless a 'MustUnderstand' or
-        'VersionMismatch' Fault is generated
-        """
         self.log_watcher.setPaused(True)
         self.sdc_client.get_service_client._validate = False  # want to send an invalid request
         try:

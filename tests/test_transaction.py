@@ -26,7 +26,7 @@ class TestTransactions(unittest.TestCase):
         - updated state is referenced in transaction_result
         - ApiUsageError is thrown if state of wrong kind is added,
         """
-        self.mdib_version = self._mdib.mdib_version
+        mdib_version = self._mdib.mdib_version
         alert_conditions = self._mdib.descriptions.NODETYPE.get(pm_qnames.AlertConditionDescriptor)
         metrics = self._mdib.descriptions.NODETYPE.get(pm_qnames.NumericMetricDescriptor)
         old_state = self._mdib.states.descriptor_handle.get_one(alert_conditions[0].Handle).mk_copy()
@@ -34,7 +34,7 @@ class TestTransactions(unittest.TestCase):
         with self._mdib.alert_state_transaction() as mgr:
             state = mgr.get_state(alert_conditions[0].Handle)
             state.Presence = True
-        self.assertEqual(self.mdib_version + 1, self._mdib.mdib_version)
+        self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
         updated_state = self._mdib.states.descriptor_handle.get_one(alert_conditions[0].Handle)
         self.assertEqual(state_version + 1, updated_state.StateVersion)
         transaction_result = self._mdib.transaction
@@ -43,7 +43,7 @@ class TestTransactions(unittest.TestCase):
 
         with self._mdib.alert_state_transaction() as mgr:
             self.assertRaises(ApiUsageError, mgr.get_state, metrics[0].Handle)
-        self.assertEqual(self.mdib_version + 1, self._mdib.mdib_version)
+        self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
 
     def test_metric_state_update(self):
         """Verify that metric_state_transaction works as expected.
@@ -53,7 +53,7 @@ class TestTransactions(unittest.TestCase):
         - updated state is referenced in transaction_result
         - ApiUsageError is thrown if state of wrong kind is added,
         """
-        self.mdib_version = self._mdib.mdib_version
+        mdib_version = self._mdib.mdib_version
         alert_conditions = self._mdib.descriptions.NODETYPE.get(pm_qnames.AlertConditionDescriptor)
         metrics = self._mdib.descriptions.NODETYPE.get(pm_qnames.NumericMetricDescriptor)
         old_state = self._mdib.states.descriptor_handle.get_one(metrics[0].Handle).mk_copy()
@@ -62,7 +62,7 @@ class TestTransactions(unittest.TestCase):
         with self._mdib.metric_state_transaction() as mgr:
             state = mgr.get_state(metrics[0].Handle)
             state.LifeTimePeriod = 2
-        self.assertEqual(self.mdib_version + 1, self._mdib.mdib_version)
+        self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
         updated_state = self._mdib.states.descriptor_handle.get_one(metrics[0].Handle)
         self.assertEqual(state_version + 1, updated_state.StateVersion)
 
@@ -72,7 +72,7 @@ class TestTransactions(unittest.TestCase):
 
         with self._mdib.metric_state_transaction() as mgr:
             self.assertRaises(ApiUsageError, mgr.get_state, alert_conditions[0].Handle)
-        self.assertEqual(self.mdib_version + 1, self._mdib.mdib_version)
+        self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
 
     def test_operational_state_update(self):
         """Verify that operational_state_transaction works as expected.
@@ -82,7 +82,7 @@ class TestTransactions(unittest.TestCase):
         - updated state is referenced in transaction_result
         - ApiUsageError is thrown if state of wrong kind is added,
         """
-        self.mdib_version = self._mdib.mdib_version
+        mdib_version = self._mdib.mdib_version
         op_descriptors = self._mdib.descriptions.NODETYPE.get(pm_qnames.SetAlertStateOperationDescriptor)
         metrics = self._mdib.descriptions.NODETYPE.get(pm_qnames.NumericMetricDescriptor)
         old_state = self._mdib.states.descriptor_handle.get_one(op_descriptors[0].Handle).mk_copy()
@@ -91,7 +91,7 @@ class TestTransactions(unittest.TestCase):
         with self._mdib.operational_state_transaction() as mgr:
             state = mgr.get_state(op_descriptors[0].Handle)
             state.OperationMode = pm_types.OperatingMode.DISABLED
-        self.assertEqual(self.mdib_version + 1, self._mdib.mdib_version)
+        self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
         updated_state = self._mdib.states.descriptor_handle.get_one(op_descriptors[0].Handle)
         self.assertEqual(state_version + 1, updated_state.StateVersion)
 
@@ -101,7 +101,7 @@ class TestTransactions(unittest.TestCase):
 
         with self._mdib.operational_state_transaction() as mgr:
             self.assertRaises(ApiUsageError, mgr.get_state, metrics[0].Handle)
-        self.assertEqual(self.mdib_version + 1, self._mdib.mdib_version)
+        self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
 
     def text_context_state_transaction(self):
         """Verify that context_state_transaction works as expected.
@@ -112,7 +112,7 @@ class TestTransactions(unittest.TestCase):
         - updated state is referenced in transaction_result
         - ApiUsageError is thrown if state of wrong kind is added
         """
-        self.mdib_version = self._mdib.mdib_version
+        mdib_version = self._mdib.mdib_version
         location_descr = self._mdib.descriptions.NODETYPE.get(pm_qnames.LocationContextDescriptor)
 
         with self._mdib.context_state_transaction() as mgr:
@@ -120,7 +120,7 @@ class TestTransactions(unittest.TestCase):
             state.Givenname = 'foo'
             state.Familyname = 'bar'
         self.assertIsNotNone(state.Handle)
-        self.assertEqual(self.mdib_version + 1, self._mdib.mdib_version)
+        self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
 
         transaction_processor = self._mdib.transaction
         self.assertEqual(len(transaction_processor.ctxt_updates), 1)
@@ -131,12 +131,12 @@ class TestTransactions(unittest.TestCase):
         handle = transaction_processor.ctxt_updates[0].Handle
         with self._mdib.context_state_transaction() as mgr:
             state = mgr.get_context_state(handle)
-        self.assertEqual(self.mdib_version + 2, self._mdib.mdib_version)
+        self.assertEqual(mdib_version + 2, self._mdib.mdib_version)
         transaction_processor = self._mdib.transaction
         self.assertEqual(len(transaction_processor.ctxt_updates), 1)
 
     def test_description_modification(self):
-        self.mdib_version = self._mdib.mdib_version
+        mdib_version = self._mdib.mdib_version
         alert_conditions = self._mdib.descriptions.NODETYPE.get(pm_qnames.AlertConditionDescriptor)
         metrics = self._mdib.descriptions.NODETYPE.get(pm_qnames.NumericMetricDescriptor)
         with self._mdib.descriptor_transaction() as mgr:
@@ -145,7 +145,7 @@ class TestTransactions(unittest.TestCase):
             mgr.get_state(alert_conditions[0].Handle)
             mgr.get_descriptor(metrics[0].Handle)
             mgr.get_state(metrics[0].Handle)
-        self.assertEqual(self.mdib_version + 1, self._mdib.mdib_version)
+        self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
         transaction_processor = self._mdib.transaction
         self.assertEqual(len(transaction_processor.metric_updates), 1)
         self.assertEqual(len(transaction_processor.alert_updates), 1)
@@ -155,4 +155,4 @@ class TestTransactions(unittest.TestCase):
         with self._mdib.descriptor_transaction() as mgr:
             mgr.get_descriptor(alert_conditions[0].Handle)
             self.assertRaises(ApiUsageError, mgr.get_state, metrics[0].Handle)
-        self.assertEqual(self.mdib_version + 2, self._mdib.mdib_version)
+        self.assertEqual(mdib_version + 2, self._mdib.mdib_version)

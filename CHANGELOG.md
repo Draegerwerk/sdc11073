@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fixed a bug where comparing `ExtensionLocalValue` would fail when using the `!=` operator [#305](https://github.com/Draegerwerk/sdc11073/issues/305)
 - added a safety sleep in consumer when starting http server
 
+### Changed
+- new interface for transactions: split transaction into different kinds, e.g. descriptor_transaction, metric_state_transaction, etc.
+
 ## [2.0.0a7] - 2024-01-04
 
 ### Added
@@ -34,7 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   This required refactoring of Operations handling.
 - moved waveform generator from mdib to roles.waveformprovider
 - alert provider performs self check one second before SelfCheckInterval elapses
-- new interface for transactions: split transaction into different kinds, e.g. descriptor_transaction, metric_state_transaction, etc.
 
 ## [2.0.0a6] - 2023-09-11
 

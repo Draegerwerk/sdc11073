@@ -63,13 +63,15 @@ class _TransactionBase:
             return self.operational_state_updates
         if getattr(container, 'is_context_state', False) or getattr(container, 'is_context_descriptor', False):
             return self.context_state_updates
-        raise NotImplementedError(f'unhandled case {container}')
+        raise NotImplementedError(f'Unhandled case {container}')
 
     def get_state_transaction_item(self, handle: str) -> TransactionItem | None:
         """If transaction has a state with given handle, return the transaction-item, otherwise None.
 
         :param handle: the Handle of a context state or the DescriptorHandle in all other cases
         """
+        if handle in (None, ''):
+            raise ValueError('No handle for state specified')
         for lookup in (self.metric_state_updates,
                        self.alert_state_updates,
                        self.component_state_updates,
@@ -93,8 +95,15 @@ class DescriptorTransaction(_TransactionBase):
                  logger: LoggerAdapter):
         super().__init__(device_mdib_container, logger)
 
-    def get_descriptor_in_transaction(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
-        """Look for new or updated descriptor in current transaction and in mdib."""
+    def actual_descriptor(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
+        """Return the actual descriptor in open transaction or from mdib.
+
+        This method does not add the descriptor to the transaction!
+        The descriptor can already be part of the transaction, and e.g. in pre_commit handlers of role providers
+        it can be necessary to have access to it.
+        """
+        if descriptor_handle in (None, ''):
+            raise ValueError('No handle for descriptor specified')
         tr_container = self.descriptor_updates.get(descriptor_handle)
         if tr_container is not None:
             if tr_container.new is None:  # descriptor is deleted in this transaction!
@@ -111,7 +120,7 @@ class DescriptorTransaction(_TransactionBase):
         if descriptor_handle in self.descriptor_updates:
             raise ValueError(f'Descriptor {descriptor_handle} already in updated set!')
         if descriptor_handle in self._mdib.descriptions.handle:
-            raise ValueError(f'cannot create Descriptor {descriptor_handle}, it already exists!')
+            raise ValueError(f'Cannot create descriptor {descriptor_handle}, it already exists in mdib!')
         if adjust_descriptor_version:
             self._mdib.descriptions.set_version(descriptor_container)
         if descriptor_container.source_mds is None:
@@ -119,11 +128,14 @@ class DescriptorTransaction(_TransactionBase):
         self.descriptor_updates[descriptor_handle] = TransactionItem(None, descriptor_container)
         if state_container is not None:
             if state_container.DescriptorHandle != descriptor_handle:
-                raise ValueError(f'State {state_container.DescriptorHandle} != {descriptor_handle}!')
+                raise ValueError(
+                    f'State {state_container.DescriptorHandle} does not match descriptor {descriptor_handle}!')
             self.add_state(state_container)
 
     def remove_descriptor(self, descriptor_handle: str):
         """Remove existing descriptor from mdib."""
+        if descriptor_handle in (None, ''):
+            raise ValueError('No handle for descriptor specified')
         if descriptor_handle in self.descriptor_updates:
             raise ValueError(f'Descriptor {descriptor_handle} already in updated set!')
         orig_descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle)
@@ -131,6 +143,8 @@ class DescriptorTransaction(_TransactionBase):
 
     def get_descriptor(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
         """Get a descriptor from mdib."""
+        if descriptor_handle in (None, ''):
+            raise ValueError('No handle for descriptor specified')
         if descriptor_handle in self.descriptor_updates:
             raise ValueError(f'Descriptor {descriptor_handle} already in updated set!')
         orig_descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle)
@@ -145,14 +159,14 @@ class DescriptorTransaction(_TransactionBase):
         This method only allows to get a state if the corresponding descriptor is already part of the transaction.
         if not, it raises an ApiUsageError.
         """
-        if descriptor_handle is None:
-            raise ValueError('no handle for state specified')
+        if descriptor_handle in (None, ''):
+            raise ValueError('No handle for state specified')
         if descriptor_handle not in self.descriptor_updates:
-            raise ApiUsageError('transaction does not contain the corresponding descriptor!')
+            raise ApiUsageError('Transaction does not contain the corresponding descriptor!')
         descriptor = self.descriptor_updates[descriptor_handle].new
         if descriptor.is_context_descriptor:
             # prevent this for simplicity reasons
-            raise ApiUsageError('transaction does not support extra handling of context states!')
+            raise ApiUsageError('Transaction does not support extra handling of context states!')
 
         updates_dict = self._get_states_update(descriptor)
         if descriptor_handle in updates_dict:
@@ -171,18 +185,25 @@ class DescriptorTransaction(_TransactionBase):
         if not, it raises an ApiUsageError.
         """
         if state_container.DescriptorHandle not in self.descriptor_updates:
-            raise ApiUsageError('transaction has no descriptor for this state!')
+            raise ApiUsageError('Transaction has no descriptor for this state!')
         updates_dict = self._get_states_update(state_container)
 
-        if state_container.DescriptorHandle in updates_dict:
-            raise ValueError(f'State {state_container.DescriptorHandle} already in updated set!')
+        if state_container.is_context_state:
+            if state_container.Handle is None:
+                state_container.Handle = uuid.uuid4().hex
+            key = state_container.Handle
+        else:
+            key = state_container.DescriptorHandle
+
+        if key in updates_dict:
+            raise ValueError(f'State {key} already in updated set!')
 
         # set reference to descriptor
         state_container.descriptor_container = self.descriptor_updates[state_container.DescriptorHandle].new
 
         if adjust_state_version:
             self._mdib.states.set_version(state_container)
-        updates_dict[state_container.DescriptorHandle] = TransactionItem(None, state_container)
+        updates_dict[key] = TransactionItem(None, state_container)
 
     def process_transaction(self, set_determination_time: bool) -> TransactionResultProtocol:  # noqa: ARG002
         """Process transaction and create a TransactionResult.
@@ -220,8 +241,7 @@ class DescriptorTransaction(_TransactionBase):
                         new_descriptor.Handle, new_descriptor.DescriptorVersion)
                     proc.descr_created.append(new_descriptor.mk_copy())
                     self._mdib.descriptions.add_object_no_lock(new_descriptor)
-                    # R0033: A SERVICE PROVIDER SHALL increment pm:AbstractDescriptor/@DescriptorVersion by one
-                    #   if a direct child descriptor is added or deleted.
+                    # increment DescriptorVersion if a child descriptor is added or deleted.
                     if new_descriptor.parent_handle is not None \
                             and new_descriptor.parent_handle not in to_be_created_handles:
                         # only update parent if it is not also created in this transaction
@@ -234,8 +254,7 @@ class DescriptorTransaction(_TransactionBase):
                     all_descriptors = self._mdib.get_all_descriptors_in_subtree(orig_descriptor)
                     self._mdib.rm_descriptors_and_states(all_descriptors)
                     proc.descr_deleted.extend([d.mk_copy() for d in all_descriptors])
-                    # R0033: A SERVICE PROVIDER SHALL increment pm:AbstractDescriptor/@DescriptorVersion by one
-                    #   if a direct child descriptor is added or deleted.
+                    # increment DescriptorVersion if a child descriptor is added or deleted.
                     if orig_descriptor.parent_handle is not None \
                             and orig_descriptor.parent_handle not in to_be_deleted_handles:
                         # only update parent if it is not also deleted in this transaction
@@ -285,7 +304,7 @@ class DescriptorTransaction(_TransactionBase):
                 # update descriptor version
                 if tr_item.new is None:
                     raise ValueError(
-                        f'state deleted? that should not be possible! handle = {descriptor_container.Handle}')
+                        f'State deleted? That should not be possible! handle = {descriptor_container.Handle}')
                 tr_item.new.update_descriptor_version()
             else:
                 old_state = self._mdib.states.descriptor_handle.get_one(
@@ -338,8 +357,8 @@ class StateTransactionBase(_TransactionBase):
 
         If the type of the state does not match the transaction type, an ApiUsageError is thrown.
         """
-        if descriptor_handle is None:
-            raise ValueError('no handle for state specified')
+        if descriptor_handle in (None, ''):
+            raise ValueError('No handle for state specified')
         if descriptor_handle in self._state_updates:
             raise ValueError(f'State {descriptor_handle} already in updated set!')
 
@@ -352,7 +371,7 @@ class StateTransactionBase(_TransactionBase):
         self._state_updates[descriptor_handle] = TransactionItem(mdib_state, copied_state)
         return copied_state
 
-    def get_descriptor_in_transaction(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
+    def actual_descriptor(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
         """Look descriptor in mdib, state transaction cannot have descriptor changes."""
         return self._mdib.descriptions.handle.get_one(descriptor_handle)
 
@@ -375,12 +394,13 @@ class AlertStateTransaction(StateTransactionBase):
         if set_determination_time:
             for tr_item in self._state_updates.values():
                 new_state = tr_item.new
+                old_state = tr_item.old
                 if new_state is None or not hasattr(new_state, 'Presence'):
                     continue
-                if tr_item.old is None:
+                if old_state is None:
                     if new_state.Presence:
                         new_state.DeterminationTime = time.time()
-                elif new_state.is_alert_condition and new_state.Presence != tr_item.old.Presence:
+                elif new_state.is_alert_condition and new_state.Presence != old_state.Presence:
                     new_state.DeterminationTime = time.time()
         proc = TransactionResult()
         if self._state_updates:
@@ -501,8 +521,8 @@ class ContextStateTransaction(_TransactionBase):
 
     def get_context_state(self, context_state_handle: str) -> AbstractMultiStateProtocol:
         """Read a ContextState from mdib with given state handle."""
-        if context_state_handle is None:
-            raise ValueError('no handle for context state specified')
+        if context_state_handle in (None, ''):
+            raise ValueError('No handle for context state specified')
         if context_state_handle in self._state_updates:
             raise ValueError(f'Context State {context_state_handle} already in updated set!')
 
@@ -516,14 +536,17 @@ class ContextStateTransaction(_TransactionBase):
                          context_state_handle: str | None = None,
                          adjust_state_version: bool = True,
                          set_associated: bool = False) -> AbstractMultiStateProtocol:
-        """Create a new ContextStateContainer."""
-        if descriptor_handle is None:
-            raise ValueError('no descriptor handle for context state specified')
+        """Create a new ContextStateContainer and add it to transaction.
+
+        If context_state_handle is None, a unique handle is generated.
+        """
+        if descriptor_handle in (None, ''):
+            raise ValueError('No descriptor handle for context state specified')
         if context_state_handle in self._state_updates:
             raise ValueError(f'Context State {context_state_handle} already in updated set!')
         descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle, allow_none=False)
         if not descriptor_container.is_context_descriptor:
-            raise ValueError('descriptor is not a context descriptor!')
+            raise ValueError(f'Descriptor {descriptor_handle} is not a context descriptor!')
 
         if context_state_handle is not None:
             old_state_container = self._mdib.context_states.handle.get_one(context_state_handle, allow_none=True)
@@ -548,7 +571,7 @@ class ContextStateTransaction(_TransactionBase):
         """Add a new state to mdib."""
         if not state_container.is_context_state:
             # prevent this for simplicity reasons
-            raise ApiUsageError('transaction only handles context states!')
+            raise ApiUsageError('Transaction only handles context states!')
 
         if state_container.descriptor_container is None:
             descr = self._mdib.descriptions.handle.get_one(state_container.DescriptorHandle)
@@ -595,7 +618,7 @@ class TransactionResult:
         """Return True if at least one descriptor is in result."""
         return len(self.descr_updated) > 0 or len(self.descr_created) > 0 or len(self.descr_deleted) > 0
 
-    def all_states(self) -> list[AbstractStateContainer]:
+    def all_states(self) -> list[AbstractStateProtocol]:
         """Return all states in this transaction."""
         return self.metric_updates + self.alert_updates + self.comp_updates + self.ctxt_updates \
                + self.op_updates + self.rt_updates
