@@ -147,7 +147,7 @@ class Test_Reference(unittest.TestCase):
         mdib = ConsumerMdib(client)
         mdib.init_mdib()
         self.assertGreater(len(mdib.descriptions.objects), 0)  # at least one descriptor
-        self.assertTrue(client._subscription_mgr.all_subscriptions_okay)  # at least one descriptor
+        self.assertTrue(client.is_connected)  # at least one descriptor
 
         # we want to exec. ALL following steps, therefore collect data and do test at the end.
         print('Test step 5: check that at least one patient context exists')
