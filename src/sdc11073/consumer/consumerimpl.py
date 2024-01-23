@@ -159,6 +159,8 @@ class SdcConsumer:
     """
 
     subscription_status = properties.ObservableProperty({})
+    # indicates whether all subscriptions have been subscribed to and are renewed successfully
+    is_connected = properties.ObservableProperty(False)
 
     # observable properties for all notifications
     # all incoming Notifications can be observed in state_event_report ( as soap envelope)
@@ -524,16 +526,16 @@ class SdcConsumer:
                         self._logger.error('start_all: could not subscribe: error = {}, actions= {}',  # noqa: PLE1205
                                            traceback.format_exc(), subscribe_actions)
 
+        def _update_is_connected(subscription_status: dict[str, bool]):
+            self.is_connected = all(subscription_status.values()) and any(subscription_status)
+        properties.strongbind(self, subscription_status=_update_is_connected)
+        _update_is_connected(self.subscription_status)
+
         # register callback for end of subscription
         self._services_dispatcher.register_post_handler(
             DispatchKey(EventingActions.SubscriptionEnd,
                         self.sdc_definitions.data_model.ns_helper.WSE.tag('SubscriptionEnd')),
             self._on_subscription_end)
-
-    @property
-    def is_connected(self) -> bool:
-        """Indicates whether all subscriptions are subscribed."""
-        return all(self.subscription_status.values()) and any([self.subscription_status])
 
     def stop_all(self, unsubscribe: bool = True):
         """Stop all threads, optionally unsubscribe."""

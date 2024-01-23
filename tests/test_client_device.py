@@ -1212,6 +1212,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(self.sdc_client.is_connected, True)
         collectors = [observableproperties.SingleValueCollector(s, 'is_subscribed')
                       for s in self.sdc_client.subscription_mgr.subscriptions.values()]
+        collectors.append(observableproperties.SingleValueCollector(self.sdc_client, 'is_connected'))
         self.sdc_device.stop_all(send_subscription_end=False)
         for coll in collectors:
             is_subscribed = coll.result(timeout=15)
@@ -1226,6 +1227,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(self.sdc_client.is_connected, True)
         collectors = [observableproperties.SingleValueCollector(s, 'is_subscribed')
                       for s in self.sdc_client.subscription_mgr.subscriptions.values()]
+        collectors.append(observableproperties.SingleValueCollector(self.sdc_client, 'is_connected'))
         self.sdc_device.stop_all(send_subscription_end=True)
         for coll in collectors:
             is_subscribed = coll.result(timeout=15)
