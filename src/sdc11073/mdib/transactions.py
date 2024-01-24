@@ -50,21 +50,6 @@ class _TransactionBase:
             updates_list.append(transaction_item.new.mk_copy(copy_node=False))
         return updates_list
 
-    def _get_states_update(self, container: AbstractStateProtocol | AbstractDescriptorProtocol) -> dict:
-        if getattr(container, 'is_realtime_sample_array_metric_state', False):
-            return self.rt_sample_state_updates
-        if getattr(container, 'is_metric_state', False) or getattr(container, 'is_metric_descriptor', False):
-            return self.metric_state_updates
-        if getattr(container, 'is_alert_state', False) or getattr(container, 'is_alert_descriptor', False):
-            return self.alert_state_updates
-        if getattr(container, 'is_component_state', False) or getattr(container, 'is_component_descriptor', False):
-            return self.component_state_updates
-        if getattr(container, 'is_operational_state', False) or getattr(container, 'is_operational_descriptor', False):
-            return self.operational_state_updates
-        if getattr(container, 'is_context_state', False) or getattr(container, 'is_context_descriptor', False):
-            return self.context_state_updates
-        raise NotImplementedError(f'Unhandled case {container}')
-
     def get_state_transaction_item(self, handle: str) -> TransactionItem | None:
         """If transaction has a state with given handle, return the transaction-item, otherwise None.
 
@@ -332,6 +317,22 @@ class DescriptorTransaction(_TransactionBase):
             parent_descriptor_container.increment_descriptor_version()
             proc.descr_updated.append(parent_descriptor_container.mk_copy())
             self._update_corresponding_state(parent_descriptor_container)
+
+    def _get_states_update(self, container: AbstractStateProtocol | AbstractDescriptorProtocol) -> dict:
+        if getattr(container, 'is_realtime_sample_array_metric_state', False) \
+                or getattr(container, 'is_realtime_sample_array_metric_descriptor', False):
+            return self.rt_sample_state_updates
+        if getattr(container, 'is_metric_state', False) or getattr(container, 'is_metric_descriptor', False):
+            return self.metric_state_updates
+        if getattr(container, 'is_alert_state', False) or getattr(container, 'is_alert_descriptor', False):
+            return self.alert_state_updates
+        if getattr(container, 'is_component_state', False) or getattr(container, 'is_component_descriptor', False):
+            return self.component_state_updates
+        if getattr(container, 'is_operational_state', False) or getattr(container, 'is_operational_descriptor', False):
+            return self.operational_state_updates
+        if getattr(container, 'is_context_state', False) or getattr(container, 'is_context_descriptor', False):
+            return self.context_state_updates
+        raise NotImplementedError(f'Unhandled case {container}')
 
 
 class StateTransactionBase(_TransactionBase):
