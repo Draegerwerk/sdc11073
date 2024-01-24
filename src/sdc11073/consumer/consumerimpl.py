@@ -641,6 +641,7 @@ class SdcConsumer:
             self._http_server.start()
             self._http_server.started_evt.wait(timeout=5)
             # it sometimes still happens that http server is not completely started without waiting.
+            #TODO: find better solution, see issue #320
             time.sleep(1)
             self._logger.info('serving EventSink on {}', self._http_server.base_url)  # noqa: PLE1205
         else:
