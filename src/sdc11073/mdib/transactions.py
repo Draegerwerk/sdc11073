@@ -70,7 +70,7 @@ class _TransactionBase:
 
         :param handle: the Handle of a context state or the DescriptorHandle in all other cases
         """
-        if handle in (None, ''):
+        if not handle:
             raise ValueError('No handle for state specified')
         for lookup in (self.metric_state_updates,
                        self.alert_state_updates,
@@ -102,7 +102,7 @@ class DescriptorTransaction(_TransactionBase):
         The descriptor can already be part of the transaction, and e.g. in pre_commit handlers of role providers
         it can be necessary to have access to it.
         """
-        if descriptor_handle in (None, ''):
+        if not descriptor_handle:
             raise ValueError('No handle for descriptor specified')
         tr_container = self.descriptor_updates.get(descriptor_handle)
         if tr_container is not None:
@@ -134,7 +134,7 @@ class DescriptorTransaction(_TransactionBase):
 
     def remove_descriptor(self, descriptor_handle: str):
         """Remove existing descriptor from mdib."""
-        if descriptor_handle in (None, ''):
+        if not descriptor_handle:
             raise ValueError('No handle for descriptor specified')
         if descriptor_handle in self.descriptor_updates:
             raise ValueError(f'Descriptor {descriptor_handle} already in updated set!')
@@ -143,7 +143,7 @@ class DescriptorTransaction(_TransactionBase):
 
     def get_descriptor(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
         """Get a descriptor from mdib."""
-        if descriptor_handle in (None, ''):
+        if not descriptor_handle:
             raise ValueError('No handle for descriptor specified')
         if descriptor_handle in self.descriptor_updates:
             raise ValueError(f'Descriptor {descriptor_handle} already in updated set!')
@@ -159,7 +159,7 @@ class DescriptorTransaction(_TransactionBase):
         This method only allows to get a state if the corresponding descriptor is already part of the transaction.
         if not, it raises an ApiUsageError.
         """
-        if descriptor_handle in (None, ''):
+        if not descriptor_handle:
             raise ValueError('No handle for state specified')
         if descriptor_handle not in self.descriptor_updates:
             raise ApiUsageError('Transaction does not contain the corresponding descriptor!')
@@ -357,7 +357,7 @@ class StateTransactionBase(_TransactionBase):
 
         If the type of the state does not match the transaction type, an ApiUsageError is thrown.
         """
-        if descriptor_handle in (None, ''):
+        if not descriptor_handle:
             raise ValueError('No handle for state specified')
         if descriptor_handle in self._state_updates:
             raise ValueError(f'State {descriptor_handle} already in updated set!')
@@ -521,7 +521,7 @@ class ContextStateTransaction(_TransactionBase):
 
     def get_context_state(self, context_state_handle: str) -> AbstractMultiStateProtocol:
         """Read a ContextState from mdib with given state handle."""
-        if context_state_handle in (None, ''):
+        if not context_state_handle:
             raise ValueError('No handle for context state specified')
         if context_state_handle in self._state_updates:
             raise ValueError(f'Context State {context_state_handle} already in updated set!')
@@ -540,7 +540,7 @@ class ContextStateTransaction(_TransactionBase):
 
         If context_state_handle is None, a unique handle is generated.
         """
-        if descriptor_handle in (None, ''):
+        if not descriptor_handle:
             raise ValueError('No descriptor handle for context state specified')
         if context_state_handle in self._state_updates:
             raise ValueError(f'Context State {context_state_handle} already in updated set!')
