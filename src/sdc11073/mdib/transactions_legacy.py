@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import time
 import uuid
-import warnings
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -27,9 +26,6 @@ if TYPE_CHECKING:
         AbstractStateProtocol,
     )
     from .transactionsprotocol import AnyTransactionManagerProtocol, TransactionResultProtocol
-
-
-warnings.warn("the legacy transaction module is deprecated", DeprecationWarning, stacklevel=2)
 
 
 class _TransactionBase:
