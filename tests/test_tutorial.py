@@ -126,7 +126,7 @@ class MyProvider1(ProviderRole):
         self.operation2_called += 1
         self.operation2_args = argument
         self._logger.info('_handle_operation_2 called arg={}', argument)
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.metric_state_transaction() as mgr:
             my_state = mgr.get_state(params.operation_instance.operation_target_handle)
             if my_state.MetricValue is None:
                 my_state.mk_metric_value()
@@ -165,7 +165,7 @@ class MyProvider2(ProviderRole):
         argument = params.operation_request.argument
         self.operation3_args = argument
         self._logger.info('_handle_operation_3 called')
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.metric_state_transaction() as mgr:
             my_state = mgr.get_state(params.operation_instance.operation_target_handle)
             if my_state.MetricValue is None:
                 my_state.mk_metric_value()

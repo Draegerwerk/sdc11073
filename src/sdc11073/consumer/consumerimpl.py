@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import copy
+import functools
 import logging
 import ssl
+import time
 import traceback
 import uuid
 from dataclasses import dataclass
@@ -31,18 +33,19 @@ from .request_handler_deferred import EmptyResponse
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from sdc11073.dispatch.request import RequestData
-    from sdc11073.xml_types.mex_types import HostedServiceType
-    from sdc11073.pysoap.soapclient import SoapClientProtocol
-    from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
-    from sdc11073.pysoap.msgfactory import MessageFactory
-    from sdc11073.definitions_base import AbstractDataModel, BaseDefinitions
-    from sdc11073.mdib.consumermdib import ConsumerMdib
+
     from sdc11073.consumer.serviceclients.serviceclientbase import HostedServiceClient
     from sdc11073.consumer.subscription import ConsumerSubscriptionManagerProtocol
+    from sdc11073.definitions_base import AbstractDataModel, BaseDefinitions
+    from sdc11073.dispatch.request import RequestData
+    from sdc11073.mdib.consumermdib import ConsumerMdib
+    from sdc11073.pysoap.msgfactory import MessageFactory
+    from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
+    from sdc11073.pysoap.soapclient import SoapClientProtocol
     from sdc11073.wsdiscovery.service import Service
-    from .components import SdcConsumerComponents
+    from sdc11073.xml_types.mex_types import HostedServiceType
 
+    from .components import SdcConsumerComponents
     from .subscription import ConsumerSubscription
 
 
@@ -145,7 +148,7 @@ class _NotificationsSplitter:
             actions.PeriodicContextReport: 'periodic_context_report',
             actions.DescriptionModificationReport: 'description_modification_report',
             actions.OperationInvokedReport: 'operation_invoked_report',
-            actions.SystemErrorReport: 'system_error_report'
+            actions.SystemErrorReport: 'system_error_report',
         }
 
 
@@ -157,7 +160,9 @@ class SdcConsumer:
     What if not???? => raise exception in _discover_hosted_services.
     """
 
-    is_connected = properties.ObservableProperty(False)  # a boolean
+    subscription_status = properties.ObservableProperty({})
+    # indicates whether all subscriptions have been subscribed to and are renewed successfully
+    is_connected = properties.ObservableProperty(False)
 
     # observable properties for all notifications
     # all incoming Notifications can be observed in state_event_report ( as soap envelope)
@@ -216,6 +221,8 @@ class SdcConsumer:
             self._components.merge(specific_components)
         splitted = urlsplit(self._device_location)
         self._device_uses_https = splitted.scheme.lower() == 'https'
+
+        self.subscription_status: dict[str, bool] = {}
 
         # available after start_all
         self._network_adapter: network.NetworkAdapter | None = None
@@ -332,6 +339,14 @@ class SdcConsumer:
         :return: a subscription object.
         """
         subscription = self._subscription_mgr.mk_subscription(dpws_hosted, filter_type)
+
+        def update_subscription_status(subscription_filter: str, status: bool):
+            subscription_status = dict(self.subscription_status)
+            subscription_status[subscription_filter] = status
+            self.subscription_status = subscription_status  # trigger observable if status has changed
+        properties.strongbind(subscription, is_subscribed=functools.partial(update_subscription_status,
+                                                                            filter_type.text))
+
         # direct subscribed notifications to this subscription
         for action in actions:
             self._services_dispatcher.register_post_handler(action, subscription.on_notification)
@@ -457,11 +472,6 @@ class SdcConsumer:
             raise RuntimeError(f'GetService not detected! found services = {list(self._service_clients.keys())}')
 
         self._start_event_sink(shared_http_server)
-        periodic_actions = {self.sdc_definitions.Actions.PeriodicMetricReport,
-                            self.sdc_definitions.Actions.PeriodicAlertReport,
-                            self.sdc_definitions.Actions.PeriodicComponentReport,
-                            self.sdc_definitions.Actions.PeriodicContextReport,
-                            self.sdc_definitions.Actions.PeriodicOperationalStateReport}
 
         # start subscription manager
         subscription_manager_class = self._components.subscription_manager_class
@@ -513,18 +523,16 @@ class SdcConsumer:
                         self._logger.error('start_all: could not subscribe: error = {}, actions= {}',  # noqa: PLE1205
                                            traceback.format_exc(), subscribe_actions)
 
+        def _update_is_connected(subscription_status: dict[str, bool]):
+            self.is_connected = all(subscription_status.values()) and any(subscription_status)
+        properties.strongbind(self, subscription_status=_update_is_connected)
+        _update_is_connected(self.subscription_status)
+
         # register callback for end of subscription
         self._services_dispatcher.register_post_handler(
             DispatchKey(EventingActions.SubscriptionEnd,
                         self.sdc_definitions.data_model.ns_helper.WSE.tag('SubscriptionEnd')),
             self._on_subscription_end)
-
-        # connect self.is_connected observable to all_subscriptions_okay observable in subscriptions manager
-        def set_is_connected(is_ok: bool):
-            self.is_connected = is_ok
-
-        properties.strongbind(self._subscription_mgr, all_subscriptions_okay=set_is_connected)
-        self.is_connected = self._subscription_mgr.all_subscriptions_okay
 
     def stop_all(self, unsubscribe: bool = True):
         """Stop all threads, optionally unsubscribe."""
@@ -589,7 +597,7 @@ class SdcConsumer:
             self._soap_clients[key] = soap_client
         return soap_client
 
-    def _mk_soap_client(self, scheme: str,  # noqa: PLR0913
+    def _mk_soap_client(self, scheme: str,
                         netloc: str) -> SoapClientProtocol:
         _ssl_context = \
             self._ssl_context_container.client_context if scheme == "https" and self._ssl_context_container else None
@@ -643,6 +651,9 @@ class SdcConsumer:
             )
             self._http_server.start()
             self._http_server.started_evt.wait(timeout=5)
+            # it sometimes still happens that http server is not completely started without waiting.
+            #TODO: find better solution, see issue #320
+            time.sleep(1)
             self._logger.info('serving EventSink on {}', self._http_server.base_url)  # noqa: PLE1205
         else:
             self._http_server = shared_http_server

@@ -67,7 +67,7 @@ class ProviderMdibMethods:
         """
         mdib = self._mdib
         pm = mdib.data_model.pm_names
-        with mdib.transaction_manager() as mgr:
+        with mdib.context_state_transaction() as mgr:
             all_location_contexts = mdib.context_states.NODETYPE.get(pm.LocationContextState, [])
             # set all to currently associated Locations to Disassociated
             associated_locations = [loc for loc in all_location_contexts if
@@ -154,7 +154,7 @@ class ProviderMdibMethods:
             tmp = self._mdib.descriptions.handle.get_one(parent_handle, allow_none=True)
             if tmp is None:
                 if self._mdib.current_transaction:
-                    tmp = self._mdib.current_transaction.get_descriptor_in_transaction(parent_handle)
+                    tmp = self._mdib.current_transaction.actual_descriptor(parent_handle)
             if tmp is None:
                 raise KeyError(f'could not find mds descriptor for handle {container.Handle}')
         return None
