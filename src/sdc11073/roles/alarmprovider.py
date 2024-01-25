@@ -396,8 +396,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                     tr_states = [mgr.get_state(s.DescriptorHandle) for s in states_needing_update]
                     self._update_alert_system_states(self._mdib, mgr, tr_states)
         except Exception:
-            exc = traceback.format_exc()
-            self._logger.error('_checkAlertStates: %s', exc)
+            self._logger.error('_update_alert_system_state_current_alerts: %s', traceback.format_exc())
 
     def _get_alert_system_states_needing_update(self) -> list[AbstractStateProtocol]:
         """:return: all AlertSystemStateContainers of those last"""
@@ -416,6 +415,5 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                         if time.time() - last_self_check >= self_check_period - self.self_check_safety_margin:
                             states_needing_update.append(alert_system_state)
         except Exception:
-            exc = traceback.format_exc()
-            self._logger.error('_get_alert_system_states_needing_update: %r', exc)
+            self._logger.error('_get_alert_system_states_needing_update: %r', traceback.format_exc())
         return states_needing_update

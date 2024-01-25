@@ -75,7 +75,7 @@ class GenericAudioPauseProvider(ProviderRole):
         with self._mdib.alert_state_transaction() as mgr:
             alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(pm_names.AlertSystemDescriptor)
             if alert_system_descriptors is None:
-                self._logger.error('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
+                self._logger.warning('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
                 return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FAILED)
 
             for alert_system_descriptor in alert_system_descriptors:
@@ -133,7 +133,7 @@ class GenericAudioPauseProvider(ProviderRole):
         with self._mdib.alert_state_transaction() as mgr:
             alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(pm_names.AlertSystemDescriptor)
             if alert_system_descriptors is None:
-                self._logger.error('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
+                self._logger.warning('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
                 return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FAILED)
 
             for alert_system_descriptor in alert_system_descriptors:
