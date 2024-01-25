@@ -86,7 +86,7 @@ class GenericSDCClockProvider(ProviderRole):
         self._logger.info('set value %s from %s to %s',
                           params.operation_instance.operation_target_handle,
                           params.operation_instance.current_value, value)
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.component_state_transaction() as mgr:
             state = mgr.get_state(params.operation_instance.operation_target_handle)
             if pm_names.MdsState == state.NODETYPE:
                 mds_handle = state.DescriptorHandle
@@ -109,7 +109,7 @@ class GenericSDCClockProvider(ProviderRole):
         self._logger.info('set value %s from %s to %s',
                           params.operation_instance.operation_target_handle,
                           params.operation_instance.current_value, value)
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.component_state_transaction() as mgr:
             state = mgr.get_state(params.operation_instance.operation_target_handle)
             if pm_names.MdsState == state.NODETYPE:
                 mds_handle = state.DescriptorHandle

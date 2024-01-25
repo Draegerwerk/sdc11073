@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactions import TransactionManagerProtocol, _TrItem
+    from sdc11073.mdib.transactionsprotocol import TransactionManagerProtocol, TransactionItem
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
 
     from .providerbase import OperationClassGetter
@@ -81,7 +81,7 @@ class GenericMetricProvider(ProviderRole):
         # ToDo: consider ModifiableDate attribute
         proposed_states = params.operation_request.argument
         params.operation_instance.current_value = proposed_states
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.metric_state_transaction() as mgr:
             for proposed_state in proposed_states:
                 state = mgr.get_state(proposed_state.DescriptorHandle)
                 if state.is_metric_state:
@@ -104,7 +104,7 @@ class GenericMetricProvider(ProviderRole):
         if transaction.rt_sample_state_updates:
             self._handle_metrics_component_activation(transaction.rt_sample_state_updates.values())
 
-    def _handle_metrics_component_activation(self, metric_state_updates: Iterable[_TrItem]):
+    def _handle_metrics_component_activation(self, metric_state_updates: Iterable[TransactionItem]):
         """Check if MetricValue shall be removed."""
         for tr_item in metric_state_updates:
             new_state = cast(AbstractMetricStateContainer, tr_item.new)
@@ -129,7 +129,7 @@ class GenericMetricProvider(ProviderRole):
                           params.operation_instance.handle,
                           params.operation_instance.current_value, value)
         params.operation_instance.current_value = value
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.metric_state_transaction() as mgr:
             _state = mgr.get_state(params.operation_instance.operation_target_handle)
             state = cast(MetricStateProtocol, _state)
             if state.MetricValue is None:
@@ -152,7 +152,7 @@ class GenericMetricProvider(ProviderRole):
                           params.operation_instance.operation_target_handle,
                           params.operation_instance.current_value, value)
         params.operation_instance.current_value = value
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.metric_state_transaction() as mgr:
             _state = mgr.get_state(params.operation_instance.operation_target_handle)
             state = cast(MetricStateProtocol, _state)
             if state.MetricValue is None:

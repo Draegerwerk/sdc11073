@@ -62,7 +62,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
         value = params.operation_request.argument
         # ToDo: consider ModifiableDate attribute
         params.operation_instance.current_value = value
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.component_state_transaction() as mgr:
             for proposed_state in value:
                 state = mgr.get_state(proposed_state.DescriptorHandle)
                 if state.is_component_state:

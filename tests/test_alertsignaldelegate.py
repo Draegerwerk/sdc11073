@@ -88,7 +88,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         # set an alarm condition and start local signal
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.alert_state_transaction() as mgr:
             alert_condition_state = mgr.get_state('ac0.mds0')
             alert_condition_state.ActivationState = pm_types.AlertActivation.ON
             alert_condition_state.Presence = True

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from sdc11073.definitions_base import AbstractDataModel
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
-    from sdc11073.mdib.transactions import RtDataMdibUpdateTransaction
+    from sdc11073.mdib.transactionsprotocol import RtDataMdibUpdateTransaction
     from sdc11073.xml_types.pm_types import ComponentActivation
 
     from .realtimesamples import AnnotatorProtocol
@@ -117,7 +117,7 @@ class GenericWaveformProvider:
         descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle)
         if descriptor_container.SamplePeriod != sample_period:
             # we must inform subscribers
-            with self._mdib.transaction_manager() as mgr:
+            with self._mdib.descriptor_transaction() as mgr:
                 descr = mgr.get_descriptor(descriptor_handle)
                 descr.SamplePeriod = sample_period
         if descriptor_handle in self._waveform_generators:
@@ -159,7 +159,7 @@ class GenericWaveformProvider:
         """Set the activation state of waveform generator and of Metric state in mdib."""
         wf_generator = self._waveform_generators[descriptor_handle]
         wf_generator.set_activation_state(component_activation_state)
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.rt_sample_state_transaction() as mgr:
             state = mgr.get_state(descriptor_handle)
             state.ActivationState = component_activation_state
             # if the generator is not active, there shall be no MetricValue
@@ -173,7 +173,7 @@ class GenericWaveformProvider:
         """
         for descriptor_handle, wf_generator in self._waveform_generators.items():
             if wf_generator.is_active:
-                state = transaction.get_real_time_sample_array_metric_state(descriptor_handle)
+                state = transaction.get_state(descriptor_handle)
                 self._update_rt_samples(state)
         self._add_all_annotations()
 
@@ -226,7 +226,7 @@ class GenericWaveformProvider:
                 behind_schedule_seconds = timer.wait_next_interval_begin()
                 self._log_waveform_timing(behind_schedule_seconds)
                 try:
-                    with self._mdib.rt_sample_transaction() as transaction:
+                    with self._mdib.rt_sample_state_transaction() as transaction:
                         self.update_all_realtime_samples(transaction)
                     self._log_waveform_timing(behind_schedule_seconds)
                 except Exception:  # noqa: BLE001

@@ -5,6 +5,7 @@ import copy
 import functools
 import logging
 import ssl
+import time
 import traceback
 import uuid
 from dataclasses import dataclass
@@ -32,18 +33,19 @@ from .request_handler_deferred import EmptyResponse
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from sdc11073.dispatch.request import RequestData
-    from sdc11073.xml_types.mex_types import HostedServiceType
-    from sdc11073.pysoap.soapclient import SoapClientProtocol
-    from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
-    from sdc11073.pysoap.msgfactory import MessageFactory
-    from sdc11073.definitions_base import AbstractDataModel, BaseDefinitions
-    from sdc11073.mdib.consumermdib import ConsumerMdib
+
     from sdc11073.consumer.serviceclients.serviceclientbase import HostedServiceClient
     from sdc11073.consumer.subscription import ConsumerSubscriptionManagerProtocol
+    from sdc11073.definitions_base import AbstractDataModel, BaseDefinitions
+    from sdc11073.dispatch.request import RequestData
+    from sdc11073.mdib.consumermdib import ConsumerMdib
+    from sdc11073.pysoap.msgfactory import MessageFactory
+    from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
+    from sdc11073.pysoap.soapclient import SoapClientProtocol
     from sdc11073.wsdiscovery.service import Service
-    from .components import SdcConsumerComponents
+    from sdc11073.xml_types.mex_types import HostedServiceType
 
+    from .components import SdcConsumerComponents
     from .subscription import ConsumerSubscription
 
 
@@ -146,7 +148,7 @@ class _NotificationsSplitter:
             actions.PeriodicContextReport: 'periodic_context_report',
             actions.DescriptionModificationReport: 'description_modification_report',
             actions.OperationInvokedReport: 'operation_invoked_report',
-            actions.SystemErrorReport: 'system_error_report'
+            actions.SystemErrorReport: 'system_error_report',
         }
 
 
@@ -470,11 +472,6 @@ class SdcConsumer:
             raise RuntimeError(f'GetService not detected! found services = {list(self._service_clients.keys())}')
 
         self._start_event_sink(shared_http_server)
-        periodic_actions = {self.sdc_definitions.Actions.PeriodicMetricReport,
-                            self.sdc_definitions.Actions.PeriodicAlertReport,
-                            self.sdc_definitions.Actions.PeriodicComponentReport,
-                            self.sdc_definitions.Actions.PeriodicContextReport,
-                            self.sdc_definitions.Actions.PeriodicOperationalStateReport}
 
         # start subscription manager
         subscription_manager_class = self._components.subscription_manager_class
@@ -600,7 +597,7 @@ class SdcConsumer:
             self._soap_clients[key] = soap_client
         return soap_client
 
-    def _mk_soap_client(self, scheme: str,  # noqa: PLR0913
+    def _mk_soap_client(self, scheme: str,
                         netloc: str) -> SoapClientProtocol:
         _ssl_context = \
             self._ssl_context_container.client_context if scheme == "https" and self._ssl_context_container else None
@@ -654,6 +651,9 @@ class SdcConsumer:
             )
             self._http_server.start()
             self._http_server.started_evt.wait(timeout=5)
+            # it sometimes still happens that http server is not completely started without waiting.
+            #TODO: find better solution, see issue #320
+            time.sleep(1)
             self._logger.info('serving EventSink on {}', self._http_server.base_url)  # noqa: PLE1205
         else:
             self._http_server = shared_http_server
