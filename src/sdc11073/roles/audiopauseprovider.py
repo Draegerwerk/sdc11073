@@ -72,11 +72,12 @@ class GenericAudioPauseProvider(ProviderRole):
         """
         pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
-        alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(pm_names.AlertSystemDescriptor)
-        if alert_system_descriptors is None:
-            self._logger.error('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
-            return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FAILED)
         with self._mdib.alert_state_transaction() as mgr:
+            alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(pm_names.AlertSystemDescriptor)
+            if alert_system_descriptors is None:
+                self._logger.error('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
+                return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FAILED)
+
             for alert_system_descriptor in alert_system_descriptors:
                 _alert_system_state = mgr.get_state(alert_system_descriptor.Handle)
                 alert_system_state = cast(AlertSystemStateContainer, _alert_system_state)
@@ -129,8 +130,12 @@ class GenericAudioPauseProvider(ProviderRole):
         """
         pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
-        alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(pm_names.AlertSystemDescriptor)
         with self._mdib.alert_state_transaction() as mgr:
+            alert_system_descriptors = self._mdib.descriptions.NODETYPE.get(pm_names.AlertSystemDescriptor)
+            if alert_system_descriptors is None:
+                self._logger.error('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
+                return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FAILED)
+
             for alert_system_descriptor in alert_system_descriptors:
                 _alert_system_state = mgr.get_state(alert_system_descriptor.Handle)
                 alert_system_state = cast(AlertSystemStateContainer, _alert_system_state)

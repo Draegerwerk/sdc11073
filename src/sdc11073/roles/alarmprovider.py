@@ -389,15 +389,15 @@ class GenericAlarmProvider(providerbase.ProviderRole):
 
     def _update_alert_system_state_current_alerts(self):
         """Update AlertSystemState present alarms list."""
-        states_needing_update = self._get_alert_system_states_needing_update()
-        if len(states_needing_update) > 0:
-            try:
-                with self._mdib.alert_state_transaction() as mgr:
+        try:
+            with self._mdib.alert_state_transaction() as mgr:
+                states_needing_update = self._get_alert_system_states_needing_update()
+                if len(states_needing_update) > 0:
                     tr_states = [mgr.get_state(s.DescriptorHandle) for s in states_needing_update]
                     self._update_alert_system_states(self._mdib, mgr, tr_states)
-            except Exception:
-                exc = traceback.format_exc()
-                self._logger.error('_checkAlertStates: %s', exc)
+        except Exception:
+            exc = traceback.format_exc()
+            self._logger.error('_checkAlertStates: %s', exc)
 
     def _get_alert_system_states_needing_update(self) -> list[AbstractStateProtocol]:
         """:return: all AlertSystemStateContainers of those last"""
