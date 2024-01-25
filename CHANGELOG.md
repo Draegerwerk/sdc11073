@@ -10,14 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - fixed a bug where comparing `ExtensionLocalValue` would fail when using the `!=` operator [#305](https://github.com/Draegerwerk/sdc11073/issues/305)
+- fixed wrong typing info in LocalizedText
 - added a safety sleep in consumer when starting http server
 - - fixed possible caching errors in AlarmProvider and AudioPauseProvider 
 
 ### Changed
 - new interface for transactions: split transaction into different kinds, e.g. descriptor_transaction, metric_state_transaction, etc.
-
-### Changed
-
 - `SdcConsumer` provides a dictionary with the current connection status of each subscription it is subscribed to [#271](https://github.com/Draegerwerk/sdc11073/issues/271)
 
 ## [2.0.0a7] - 2024-01-04
