@@ -296,10 +296,12 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         # find all delegable Alert Signals in main alert system
         # set ActivationState to "On"
         # set all corresponding local alert signals to paused
-        allAlertConditionDescriptors = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('AlertConditionDescriptor'), [])
-        allAlertConditionDescriptors += self._mdib.descriptions.NODETYPE.get(namespaces.domTag('LimitAlertConditionDescriptor'), [])
         self._lastActivateAllDelegableAlerts = time.time()
         with self._mdib.mdibUpdateTransaction() as mgr:
+            allAlertConditionDescriptors = self._mdib.descriptions.NODETYPE.get(
+                namespaces.domTag('AlertConditionDescriptor'), [])
+            allAlertConditionDescriptors += self._mdib.descriptions.NODETYPE.get(
+                namespaces.domTag('LimitAlertConditionDescriptor'), [])
             for acd in allAlertConditionDescriptors:
                 signalDescriptors = self._mdib.descriptions.ConditionSignaled.get(acd.handle, [])
                 for sd in signalDescriptors:

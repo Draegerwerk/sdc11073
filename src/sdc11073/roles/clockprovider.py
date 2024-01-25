@@ -86,11 +86,11 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
         """This is the handler for the set ntp server operation.
          It sets the ReferenceSource value of clock state"""
         operationDescriptorHandle = operationInstance.handle
-        operationDescriptorContainer = self._mdib.descriptions.handle.getOne(operationDescriptorHandle)
-        operationTargetHandle = operationDescriptorContainer.OperationTarget
-        self._logger.info('set value {} from {} to {}', operationTargetHandle, operationInstance.currentValue,
-                          value)
         with self._mdib.mdibUpdateTransaction() as mgr:
+            operationDescriptorContainer = self._mdib.descriptions.handle.getOne(operationDescriptorHandle)
+            operationTargetHandle = operationDescriptorContainer.OperationTarget
+            self._logger.info('set value {} from {} to {}', operationTargetHandle, operationInstance.currentValue,
+                              value)
             state = mgr.getComponentState(operationTargetHandle)
             if state.NODETYPE == namespaces.domTag('MdsState'):
                 mdsHandle = state.descriptorHandle
@@ -109,11 +109,11 @@ class GenericSDCClockProvider(providerbase.ProviderRole):
         """This is the handler for the set time zone operation.
          It sets the TimeZone value of clock state."""
         operationDescriptorHandle = operationInstance.handle
-        operationDescriptorContainer = self._mdib.descriptions.handle.getOne(operationDescriptorHandle)
-        operationTargetHandle = operationDescriptorContainer.OperationTarget
-        self._logger.info('set value {} from {} to {}', operationTargetHandle, operationInstance.currentValue,
-                          value)
         with self._mdib.mdibUpdateTransaction() as mgr:
+            operationDescriptorContainer = self._mdib.descriptions.handle.getOne(operationDescriptorHandle)
+            operationTargetHandle = operationDescriptorContainer.OperationTarget
+            self._logger.info('set value {} from {} to {}', operationTargetHandle, operationInstance.currentValue,
+                              value)
             state = mgr.getComponentState(operationTargetHandle)
             if state.NODETYPE == namespaces.domTag('MdsState'):
                 mdsHandle = state.descriptorHandle
