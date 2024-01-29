@@ -14,9 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - added a safety sleep in consumer when starting http server
 - fixed possible caching errors in AlarmProvider and AudioPauseProvider 
 
+
 ### Changed
 - new interface for transactions: split transaction into different kinds, e.g. descriptor_transaction, metric_state_transaction, etc.
 - `SdcConsumer` provides a dictionary with the current connection status of each subscription it is subscribed to [#271](https://github.com/Draegerwerk/sdc11073/issues/271)
+- added `force_ssl_connect` parameter to constructor of consumer.
 
 ## [2.0.0a7] - 2024-01-04
 
