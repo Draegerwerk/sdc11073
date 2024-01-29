@@ -197,10 +197,13 @@ class SdcConsumer:
                  default_components: SdcConsumerComponents | None = None,
                  specific_components: SdcConsumerComponents | None = None,
                  request_chunk_size: int = 0,
-                 socket_timeout: int = 5):
+                 socket_timeout: int = 5,
+                 force_ssl_connect: bool  = False
+                 ):
         """Construct a SdcConsumer.
 
-        :param device_location: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
+        :param device_location: the XAddr location for meta data,
+                                e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         :param sdc_definitions: a class derived from BaseDefinitions
         :param epr: the path of this client in http server
         :param ssl_context_container: used for ssl connection to device and for own HTTP Server (notifications receiver)
@@ -209,9 +212,24 @@ class SdcConsumer:
         :param specific_components: a SdcConsumerComponents instance or None
         :param request_chunk_size: if value > 0, message is split into chunks of this size
         :param socket_timeout: timeout for connections to provider
+        :param force_ssl_connect: True: only accept ssl connections (requires a ssl_context_container)
+                                  False: if ssl_context_container is provided, consumer first tries an
+                                         encrypted connection, and if this raises an SSLError,
+                                         it tries an unencrypted connection
         """
         if not device_location.startswith('http'):
             raise ValueError('Invalid device_location, it must be match http(s)://<netloc> syntax')
+        self.is_ssl_connection: bool | None
+        if force_ssl_connect is True:
+            if ssl_context_container is None:
+                raise ValueError(
+                    'Invalid combination of ssl_connect (True) and ssl_context_container (None) parameters')
+            self.is_ssl_connection = True
+        elif ssl_context_container is None:
+            self.is_ssl_connection = False
+        else:
+            self.is_ssl_connection = None  # options allow both, needs to be decided when connecting
+
         self._device_location = device_location
         self.sdc_definitions = sdc_definitions
         if default_components is None:
@@ -219,8 +237,6 @@ class SdcConsumer:
         self._components = copy.deepcopy(default_components)
         if specific_components is not None:
             self._components.merge(specific_components)
-        splitted = urlsplit(self._device_location)
-        self._device_uses_https = splitted.scheme.lower() == 'https'
 
         self.subscription_status: dict[str, bool] = {}
 
@@ -321,6 +337,8 @@ class SdcConsumer:
 
         Replace servers ip address with own ip address (server might have 0.0.0.0).
         """
+        if self._http_server is None:
+            return ''
         p = urlparse(self._http_server.base_url)
         tmp = f'{p.scheme}://{self._network_adapter.ip}:{p.port}{p.path}'
         sep = '' if tmp.endswith('/') else '/'
@@ -453,9 +471,10 @@ class SdcConsumer:
                which is the minimal requirement for a sdc provider.
         :return: None
         """
-        if self.host_description is None:
-            self._logger.debug('reading meta data from {}', self._device_location)  # noqa: PLE1205
-            self.host_description = self._get_metadata()
+        self._logger.debug('connecting to %s', self._device_location)
+        self._connect()
+        self._logger.debug('reading meta data from %s', self._device_location)
+        self.host_description = self._get_metadata()
 
         # now query also metadata of hosted services
         self._mk_hosted_services(self.host_description)
@@ -552,24 +571,41 @@ class SdcConsumer:
         del self._compression_methods[:]
         self._compression_methods.extend(compression_methods)
 
-    def _get_metadata(self) -> mex_types.Metadata:
+    def _connect(self):
         _url = urlparse(self._device_location)
-        wsc = self.get_soap_client(self._device_location)
-
-        if self._ssl_context_container is not None and _url.scheme == 'https':
-            if wsc.is_closed():
-                wsc.connect()
-            sock = wsc.sock
+        if self.is_ssl_connection is not None:
+            # decision was already made in constructor
+            soap_client = self.get_soap_client(self._device_location)
+            soap_client.connect()
+        else:
+            soap_client = self.get_soap_client(self._device_location) # this is a ssl connection
+            try:
+                soap_client.connect()
+                self.is_ssl_connection = True
+            except ssl.SSLError:
+                # could not connect with ssl, try without it
+                soap_client.close()
+                self._forget_soap_client(soap_client)
+                self.is_ssl_connection = False
+                soap_client = self.get_soap_client(self._device_location)
+                # if this also fails, something else is wrong and error needs handling on application level.
+                soap_client.connect()
+                self.is_ssl_connection = False
+        if self.is_ssl_connection:
+            sock = soap_client.sock
             self.peer_certificate = sock.getpeercert(binary_form=False)
             self.binary_peer_certificate = sock.getpeercert(binary_form=True)  # in case the application needs it...
-
             self._logger.info('Peer Certificate: {}', self.peer_certificate)  # noqa: PLE1205
+
+    def _get_metadata(self) -> mex_types.Metadata:
+        _url = urlparse(self._device_location)
+        soap_client = self.get_soap_client(self._device_location)
         nsh = self.sdc_definitions.data_model.ns_helper
         inf = HeaderInformationBlock(action=f'{nsh.WXF.namespace}/Get',
                                      addr_to=self._device_location)
         message = self.msg_factory.mk_soap_message_etree_payload(inf, payload_element=None)
 
-        received_message_data = wsc.post_message_to(_url.path, message, msg='getMetadata')
+        received_message_data = soap_client.post_message_to(_url.path, message, msg='getMetadata')
         return mex_types.Metadata.from_node(received_message_data.p_msg.body_node)
 
     def send_probe(self) -> ProbeMatchesType:
@@ -587,20 +623,25 @@ class SdcConsumer:
     def get_soap_client(self, address: str) -> SoapClientProtocol:
         """Return the soap client for address.
 
-        Method creates a new soap client if needed.
+        Method creates a new soap client if needed and considers self.is_ssl_connection value.
         """
         _url = urlparse(address)
-        key = (_url.scheme, _url.netloc)
+        use_ssl = self.is_ssl_connection is not False # if is_ssl_connection is still None, default to use_ssl = True
+        key = (use_ssl, _url.netloc)
         soap_client = self._soap_clients.get(key)
         if soap_client is None:
-            soap_client = self._mk_soap_client(_url.scheme, _url.netloc)
+            soap_client = self._mk_soap_client(use_ssl, _url.netloc)
             self._soap_clients[key] = soap_client
         return soap_client
 
-    def _mk_soap_client(self, scheme: str,
-                        netloc: str) -> SoapClientProtocol:
-        _ssl_context = \
-            self._ssl_context_container.client_context if scheme == "https" and self._ssl_context_container else None
+    def _forget_soap_client(self, soap_client: SoapClientProtocol):
+        for key, value in self._soap_clients.items():
+            if value is soap_client:
+                del self._soap_clients[key]
+                return
+
+    def _mk_soap_client(self,  use_ssl: bool, netloc: str) -> SoapClientProtocol:
+        _ssl_context = self._ssl_context_container.client_context if use_ssl else None
         cls = self._components.soap_client_class
         return cls(netloc,
                    self._socket_timeout,
@@ -641,7 +682,7 @@ class SdcConsumer:
     def _start_event_sink(self, shared_http_server: Any):
         if shared_http_server is None:
             self._is_internal_http_server = True
-            ssl_context_container = self._ssl_context_container if self._device_uses_https else None
+            ssl_context_container = self._ssl_context_container if self.is_ssl_connection else None
             logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', self.log_prefix)
             self._http_server = HttpServerThreadBase(
                 str(self._network_adapter.ip),
@@ -652,7 +693,7 @@ class SdcConsumer:
             self._http_server.start()
             self._http_server.started_evt.wait(timeout=5)
             # it sometimes still happens that http server is not completely started without waiting.
-            #TODO: find better solution, see issue #320
+            # TODO: find better solution, see issue #320
             time.sleep(1)
             self._logger.info('serving EventSink on {}', self._http_server.base_url)  # noqa: PLE1205
         else:
