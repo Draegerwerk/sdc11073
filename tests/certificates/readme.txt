@@ -1,1 +1,1 @@
-The certificates in this folder are simple self-signed ones and only server the purpose of testing ssl related topics.
+The certificates in this folder are self-signed and only serve the purpose of testing ssl related topics.

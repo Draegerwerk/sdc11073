@@ -10,7 +10,7 @@ import traceback
 import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse, urlsplit
+from urllib.parse import urlparse
 
 from lxml import etree as etree_
 
@@ -198,7 +198,7 @@ class SdcConsumer:
                  specific_components: SdcConsumerComponents | None = None,
                  request_chunk_size: int = 0,
                  socket_timeout: int = 5,
-                 force_ssl_connect: bool  = False
+                 force_ssl_connect: bool = False,
                  ):
         """Construct a SdcConsumer.
 
@@ -220,7 +220,7 @@ class SdcConsumer:
         if not device_location.startswith('http'):
             raise ValueError('Invalid device_location, it must be match http(s)://<netloc> syntax')
         self.is_ssl_connection: bool | None
-        if force_ssl_connect is True:
+        if force_ssl_connect:
             if ssl_context_container is None:
                 raise ValueError(
                     'Invalid combination of ssl_connect (True) and ssl_context_container (None) parameters')
@@ -362,6 +362,7 @@ class SdcConsumer:
             subscription_status = dict(self.subscription_status)
             subscription_status[subscription_filter] = status
             self.subscription_status = subscription_status  # trigger observable if status has changed
+
         properties.strongbind(subscription, is_subscribed=functools.partial(update_subscription_status,
                                                                             filter_type.text))
 
@@ -544,6 +545,7 @@ class SdcConsumer:
 
         def _update_is_connected(subscription_status: dict[str, bool]):
             self.is_connected = all(subscription_status.values()) and any(subscription_status)
+
         properties.strongbind(self, subscription_status=_update_is_connected)
         _update_is_connected(self.subscription_status)
 
@@ -572,13 +574,11 @@ class SdcConsumer:
         self._compression_methods.extend(compression_methods)
 
     def _connect(self):
-        _url = urlparse(self._device_location)
+        soap_client = self.get_soap_client(self._device_location)
         if self.is_ssl_connection is not None:
             # decision was already made in constructor
-            soap_client = self.get_soap_client(self._device_location)
             soap_client.connect()
         else:
-            soap_client = self.get_soap_client(self._device_location) # this is a ssl connection
             try:
                 soap_client.connect()
                 self.is_ssl_connection = True
@@ -590,7 +590,6 @@ class SdcConsumer:
                 soap_client = self.get_soap_client(self._device_location)
                 # if this also fails, something else is wrong and error needs handling on application level.
                 soap_client.connect()
-                self.is_ssl_connection = False
         if self.is_ssl_connection:
             sock = soap_client.sock
             self.peer_certificate = sock.getpeercert(binary_form=False)
@@ -626,7 +625,7 @@ class SdcConsumer:
         Method creates a new soap client if needed and considers self.is_ssl_connection value.
         """
         _url = urlparse(address)
-        use_ssl = self.is_ssl_connection is not False # if is_ssl_connection is still None, default to use_ssl = True
+        use_ssl = self.is_ssl_connection is not False  # if is_ssl_connection is still None, default to use_ssl = True
         key = (use_ssl, _url.netloc)
         soap_client = self._soap_clients.get(key)
         if soap_client is None:
@@ -640,7 +639,7 @@ class SdcConsumer:
                 del self._soap_clients[key]
                 return
 
-    def _mk_soap_client(self,  use_ssl: bool, netloc: str) -> SoapClientProtocol:
+    def _mk_soap_client(self, use_ssl: bool, netloc: str) -> SoapClientProtocol:
         _ssl_context = self._ssl_context_container.client_context if use_ssl else None
         cls = self._components.soap_client_class
         return cls(netloc,
