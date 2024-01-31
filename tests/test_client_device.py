@@ -12,7 +12,7 @@ import unittest.mock
 import uuid
 from decimal import Decimal
 from itertools import product
-
+from http.client import NotConnected
 from lxml import etree as etree_
 
 import sdc11073.certloader
@@ -1602,3 +1602,113 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
 
     def test_metric_report_sync(self):
         runtest_metric_reports(self, self.sdc_device, self.sdc_client, self.logger)
+
+
+class TestEncryptionCombinations(unittest.TestCase):
+    """Check combinations of encrypted and unencrypted connections."""
+
+    def setUp(self):
+        basic_logging_setup()
+        self.logger = get_logger_adapter('sdc.test')
+        self.logger.info('############### start setUp %s ##############', self._testMethodName)
+
+        # test uses a simple self signed certificate, certificate verify would fail
+        client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        server_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        client_ssl_context.check_hostname = False
+        client_ssl_context.verify_mode = ssl.CERT_NONE
+        server_ssl_context.verify_mode = ssl.CERT_NONE
+
+        ca_folder = pathlib.Path(__file__).parent.joinpath('certificates')
+        client_ssl_context.load_cert_chain(certfile=ca_folder.joinpath('test_certificate.pem'),
+                                           keyfile=ca_folder.joinpath('test_private_key.pem'),
+                                           password='password')
+        server_ssl_context.load_cert_chain(certfile=ca_folder.joinpath('test_certificate.pem'),
+                                           keyfile=ca_folder.joinpath('test_private_key.pem'),
+                                           password='password')
+
+        self.ssl_context_container = sdc11073.certloader.SSLContextContainer(client_context=client_ssl_context,
+                                                                             server_context=server_ssl_context)
+
+        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd.start()
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
+                                                    default_components=default_sdc_provider_components_async,
+                                                    max_subscription_duration=10)  # shorter duration for faster tests
+        self.sdc_device_ssl = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
+                                                    default_components=default_sdc_provider_components_async,
+                                                    max_subscription_duration=10,  # shorter duration for faster tests
+                                                    ssl_context_container=self.ssl_context_container)
+
+        self.sdc_device.start_all()
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
+
+        self.sdc_device_ssl.start_all()
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+        self.sdc_device_ssl.set_location(utils.random_location(), self._loc_validators)
+
+        time.sleep(0.5)  # allow init of devices to complete
+        self.logger.info('############### setUp done %s ##############', self._testMethodName)
+        time.sleep(0.5)
+        self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
+
+    def tearDown(self):
+        self.logger.info('############### tearDown %s ... ##############\n', self._testMethodName)
+        self.log_watcher.setPaused(True)
+        self.sdc_device.stop_all()
+        self.sdc_device_ssl.stop_all()
+        try:
+            self.log_watcher.check()
+        except loghelper.LogWatchError as ex:
+            sys.stderr.write(repr(ex))
+            raise
+        self.logger.info('############### tearDown %s done ##############\n', self._testMethodName)
+
+    def test_basic_connect(self):
+        """Verify correct behavior of different combinations (un)encrypted provider and (un)encrypted consumer."""
+        # test connect to unencrypted provider
+        x_addr = self.sdc_device.get_xaddrs()[0]
+
+        # verify that invalid combination of arguments raises a ValueError
+        self.assertRaises(ValueError, SdcConsumer, x_addr, self.sdc_device.mdib.sdc_definitions,
+                          ssl_context_container=None, force_ssl_connect=True)
+
+        # verify that a forced ssl connect to an unencrypted provider raises an SSL Error
+        consumer = SdcConsumer(x_addr,
+                               self.sdc_device.mdib.sdc_definitions,
+                               self.ssl_context_container,
+                               force_ssl_connect=True)
+        self.assertRaises(ssl.SSLError, consumer.start_all)
+
+        # verify that an unforced ssl connect to an unencrypted provider is successful
+        consumer = SdcConsumer(x_addr,
+                               self.sdc_device.mdib.sdc_definitions,
+                               self.ssl_context_container,
+                               force_ssl_connect=False)
+        try:
+            consumer.start_all()
+            self.assertTrue(consumer.is_connected)
+            self.assertFalse(consumer.is_ssl_connection)
+        finally:
+            consumer.stop_all(unsubscribe=False)
+
+        # test connection to encrypted provider
+        x_addr = self.sdc_device_ssl.get_xaddrs()[0]
+
+        # verify that connect without certificates raises an error
+        consumer = SdcConsumer(x_addr,
+                               self.sdc_device.mdib.sdc_definitions,
+                               ssl_context_container=None,
+                               force_ssl_connect=False)
+        self.assertRaises(NotConnected, consumer.start_all)
+
+
+        # verify that connect with certificates works
+        consumer = SdcConsumer(x_addr,
+                               self.sdc_device.mdib.sdc_definitions,
+                               self.ssl_context_container,
+                               force_ssl_connect=False)
+        consumer.start_all()
+        self.assertTrue(consumer.is_connected)
+        self.assertTrue(consumer.is_ssl_connection)
