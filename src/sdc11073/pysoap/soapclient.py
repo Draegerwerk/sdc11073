@@ -42,11 +42,14 @@ class HTTPReturnCodeError(httplib.HTTPException):
         self.reason = reason
         self.soapfault = soapfault
 
-    def __repr__(self):
+    def __str__(self):
         if self.soapfault:
-            return 'HTTPReturnCodeError(status={}, reason={}'.format(self.status, self.soapfault)
+            return 'HTTPReturnCodeError(status={}, reason={})'.format(self.status, self.soapfault)
         else:
-            return 'HTTPReturnCodeError(status={}, reason={}'.format(self.status, self.reason)
+            return 'HTTPReturnCodeError(status={}, reason={})'.format(self.status, self.reason)
+
+    def __repr__(self):
+        return 'HTTPReturnCodeError(status={}, reason={}, soapfault={})'.format(self.status, self.reason, self.soapfault)
 
 
 
