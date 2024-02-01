@@ -166,7 +166,7 @@ class ClSubscription(object):
             resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._device_epr, soapEnvelope, msg=msg)
             self._handleSubscribeResponse(resultSoapEnvelope)
         except HTTPReturnCodeError as ex:
-            self._logger.error('could not subscribe: {}'.format(HTTPReturnCodeError))
+            self._logger.error('could not subscribe: {}'.format(ex))
 
     def _add_device_references(self, soapEnvelope):
         """ add references for requests to device (renew, getstatus, unsubscribe)"""
