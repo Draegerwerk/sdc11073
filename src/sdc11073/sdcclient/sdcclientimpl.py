@@ -421,7 +421,7 @@ class SdcClient(object):
             self.isConnected = isOk
 
         properties.strongbind(self._subscriptionMgr, allSubscriptionsOkay=setIsConnected)
-        self.isConnected = self._subscriptionMgr.allSubscriptionsOkay
+        self.isConnected = all(s.isSubscribed for s in self._subscriptionMgr.subscriptions.values())
 
     def stopAll(self, unsubscribe=True, closeAllConnections=True):
         if self._subscriptionMgr is not None:
