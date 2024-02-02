@@ -1,3 +1,5 @@
+"""wsdiscovery networking input output."""
+
 from __future__ import annotations
 
 import logging
@@ -9,29 +11,23 @@ import struct
 import threading
 import time
 import traceback
-from abc import ABC
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections import deque
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Any
 from typing import TYPE_CHECKING
 
 from lxml.etree import XMLSyntaxError
+
 from sdc11073 import commlog
 from sdc11073.exceptions import ValidationError
-
-from .common import MULTICAST_IPV4_ADDRESS
-from .common import MULTICAST_OUT_TTL
-from .common import message_reader
+from sdc11073.wsdiscovery.common import MULTICAST_IPV4_ADDRESS, MULTICAST_OUT_TTL, message_reader
 
 if TYPE_CHECKING:
     from logging import Logger
 
     from sdc11073.pysoap.msgfactory import CreatedMessage
-
-    from .wsdimpl import WSDiscovery
+    from sdc11073.wsdiscovery.wsdimpl import WSDiscovery
 
 BUFFER_SIZE = 0xffff
 DP_MAX_TIMEOUT = 5000  # 5 seconds
@@ -46,7 +42,7 @@ class _UdpRepeatParams:
     min_delay_ms: int  # minimum delay for first repetition in ms
     max_delay_ms: int  # maximal delay for first repetition in ms
     upper_delay_ms: int  # max. delay between repetitions in ms
-                         # (gap is doubled for each further repetition, but not more than this value)
+    # (gap is doubled for each further repetition, but not more than this value)
 
 
 unicast_repeat_params = _UdpRepeatParams(500, 2, 50, 250, 500)
@@ -72,8 +68,8 @@ class OutgoingMessage:
     msg_type: _MessageType
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(addr={self.addr}, port={self.port}, " \
-               f"msg_type={self.msg_type}, created_message={self.created_message.serialize()})"
+        return (f"{self.__class__.__name__}(addr={self.addr}, port={self.port}, "
+                f"msg_type={self.msg_type}, created_message={self.created_message.serialize()})")
 
 
 @dataclass(frozen=True)
@@ -90,7 +86,7 @@ class _NetworkingThreadBase(ABC):
     @dataclass(order=True)
     class _EnqueuedMessage:
         send_time: float
-        msg: Any = field(compare=False)
+        msg: OutgoingMessage = field(compare=False)
         repeat: int
 
     def __init__(self,
@@ -110,21 +106,22 @@ class _NetworkingThreadBase(ABC):
         self._send_queue = queue.PriorityQueue(10000)
         self._read_queue = queue.Queue(10000)
         self._known_message_ids = deque(maxlen=50)
-        self._select_in = []
-        self._full_selector = selectors.DefaultSelector()
+        self._sockets: list[socket.socket] = []
+        self._inbound_selector = selectors.DefaultSelector()
+        self._outbound_selector = selectors.DefaultSelector()
         self.sockets_collection = self._mk_sockets(my_ip_address)
 
     @abstractmethod
     def _mk_sockets(self, addr: str):
         ...
 
-    def _register(self, sock: socket.SocketType):
-        self._select_in.append(sock)
-        self._full_selector.register(sock, selectors.EVENT_READ)
+    def _register_inbound_socket(self, sock: socket.SocketType):
+        self._sockets.append(sock)
+        self._inbound_selector.register(sock, selectors.EVENT_READ)
 
-    def _unregister(self, sock: socket.SocketType):
-        self._select_in.remove(sock)
-        self._full_selector.unregister(sock)
+    def _register_outbound_socket(self, sock: socket.SocketType):
+        self._sockets.append(sock)
+        self._outbound_selector.register(sock, selectors.EVENT_WRITE)
 
     @staticmethod
     def _make_mreq(addr: str) -> bytes:
@@ -183,7 +180,19 @@ class _NetworkingThreadBase(ABC):
                 continue
             if self._send_queue.queue[0].send_time <= time.time():
                 enqueued_msg = self._send_queue.get()
-                self._send_msg(enqueued_msg)
+                msg_sent = False
+                while not msg_sent:
+                    for key, _ in self._outbound_selector.select(timeout=0.1):
+                        sock: socket.SocketType = key.fileobj
+                        if (enqueued_msg.msg.msg_type == _MessageType.UNICAST
+                                and sock == self.sockets_collection.uni_out_socket):
+                            msg_sent = True
+                            self._send_msg(enqueued_msg, sock)
+
+                        if (enqueued_msg.msg.msg_type == _MessageType.MULTICAST
+                                and sock == self.sockets_collection.multi_out_uni_in):
+                            msg_sent = True
+                            self._send_msg(enqueued_msg, sock)
             else:
                 time.sleep(SEND_LOOP_BUSY_SLEEP)  # this creates a 10ms raster for sending, but that is good enough
 
@@ -192,10 +201,8 @@ class _NetworkingThreadBase(ABC):
         while not self._quit_recv_event.is_set():
             try:
                 self._recv_messages()
-            except:  # noqa: E722
-                # use bare except here, this is a catch-all that keeps thread running.
-                if not self._quit_recv_event.is_set():  # only log error if it does not happen during stop
-                    self._logger.error('_run_recv:%s', traceback.format_exc())
+            except:  # noqa: E722. use bare except here, this is a catch-all that keeps thread running.
+                self._logger.exception('exception during receiving')
 
     def is_from_my_socket(self, addr: str) -> bool:
         if addr[0] == self._my_ip_address:
@@ -209,7 +216,7 @@ class _NetworkingThreadBase(ABC):
 
     def _recv_messages(self):
         """For performance reasons this thread only writes to a queue, no parsing etc."""
-        for key, _ in self._full_selector.select(timeout=0.1):
+        for key, _ in self._inbound_selector.select(timeout=0.1):
             sock: socket.SocketType = key.fileobj
             try:
                 data, addr = sock.recvfrom(BUFFER_SIZE)
@@ -252,30 +259,30 @@ class _NetworkingThreadBase(ABC):
                             continue
                         self._known_message_ids.appendleft(mid)
                         self._wsd.handle_received_message(received_message, addr)
-                except Exception:
+                except Exception:  # noqa: BLE001
                     self._logger.error('_run_q_read: %s', traceback.format_exc())
 
-    def _send_msg(self, q_msg: _EnqueuedMessage):
+    def _send_msg(self, q_msg: _EnqueuedMessage, s: socket.socket):
         msg = q_msg.msg
         data = msg.created_message.serialize()
-        if msg.msg_type == _MessageType.UNICAST:
-            self._logger.debug('send unicast %d bytes (%d) action=%s: to=%s:%r id=%s',
-                               len(data),
-                               q_msg.repeat,
-                               msg.created_message.p_msg.header_info_block.Action,
-                               msg.addr, msg.port,
-                               msg.created_message.p_msg.header_info_block.MessageID)
-            logging.getLogger(commlog.DISCOVERY_OUT).debug(data, extra={'ip_address': msg.addr})
-            self.sockets_collection.uni_out_socket.sendto(data, (msg.addr, msg.port))
+        is_unicast = msg.msg_type == _MessageType.UNICAST
+        self._logger.debug(f'send {"unicast" if is_unicast else "multicast"} '  # noqa: G004
+                           f'%d bytes (%d) action=%s: to=%s:%r id=%s',
+                           len(data),
+                           q_msg.repeat,
+                           msg.created_message.p_msg.header_info_block.Action,
+                           msg.addr, msg.port,
+                           msg.created_message.p_msg.header_info_block.MessageID)
+        try:
+            s.sendto(data, (msg.addr, msg.port))
+        except:  # noqa: E722. use bare except here, this is a catch-all that keeps thread running.
+            self._logger.exception('exception during sending')
         else:
-            logging.getLogger(commlog.MULTICAST_OUT).debug(data)
-            self._logger.debug('send multicast %d bytes, msg (%d) action=%s: to=%s:%r id=%s',
-                               len(data),
-                               q_msg.repeat,
-                               msg.created_message.p_msg.header_info_block.Action,
-                               msg.addr, msg.port,
-                               msg.created_message.p_msg.header_info_block.MessageID)
-            self.sockets_collection.multi_out_uni_in.sendto(data, (msg.addr, msg.port))
+            # log this if there was no exception during send
+            if is_unicast:
+                logging.getLogger(commlog.DISCOVERY_OUT).debug(data, extra={'ip_address': msg.addr})
+            else:
+                logging.getLogger(commlog.MULTICAST_OUT).debug(data)
 
     def start(self):
         self._logger.debug('%s: starting ', self.__class__.__name__)
@@ -306,10 +313,10 @@ class _NetworkingThreadBase(ABC):
         self._recv_thread = None
         self._send_thread = None
         self._qread_thread = None
-        for sock in self._select_in:
+        for sock in self._sockets:
             sock.close()
-        self.sockets_collection.uni_out_socket.close()
-        self._full_selector.close()
+        self._inbound_selector.close()
+        self._outbound_selector.close()
         self._logger.debug('%s: ... join done', self.__class__.__name__)
 
 
@@ -330,8 +337,9 @@ class NetworkingThreadWindows(_NetworkingThreadBase):
         multicast_out_sock = self._create_multicast_out_socket(addr)
         uni_out_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        self._register(multicast_out_sock)
-        self._register(multicast_in_sock)
+        self._register_outbound_socket(multicast_out_sock)
+        self._register_outbound_socket(uni_out_socket)
+        self._register_inbound_socket(multicast_in_sock)
         return _SocketsCollection(multicast_in_sock,
                                   multicast_out_sock,
                                   uni_out_socket,
@@ -364,9 +372,10 @@ class NetworkingThreadPosix(_NetworkingThreadBase):
         unicast_in_sock = self._create_unicast_in_socket(addr, self.multicast_port)
         multicast_out_sock = self._create_multicast_out_socket(addr)
         uni_out_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._register(multicast_out_sock)
-        self._register(unicast_in_sock)
-        self._register(multicast_in_sock)
+        self._register_outbound_socket(multicast_out_sock)
+        self._register_outbound_socket(uni_out_socket)
+        self._register_inbound_socket(unicast_in_sock)
+        self._register_inbound_socket(multicast_in_sock)
         return _SocketsCollection(multicast_in_sock,
                                   multicast_out_sock,
                                   uni_out_socket,
