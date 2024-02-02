@@ -300,9 +300,9 @@ class _NetworkingThreadBase(ABC):
 
     def join(self):
         self._logger.debug('%s: join... ', self.__class__.__name__)
-        self._recv_thread.join(1)
-        self._send_thread.join(1)
-        self._qread_thread.join(1)
+        self._recv_thread.join()
+        self._send_thread.join()
+        self._qread_thread.join()
         self._recv_thread = None
         self._send_thread = None
         self._qread_thread = None
