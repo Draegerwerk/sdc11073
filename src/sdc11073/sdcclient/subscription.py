@@ -166,7 +166,7 @@ class ClSubscription(object):
             resultSoapEnvelope = self.dpwsHosted.soapClient.postSoapEnvelopeTo(self._device_epr, soapEnvelope, msg=msg)
             self._handleSubscribeResponse(resultSoapEnvelope)
         except HTTPReturnCodeError as ex:
-            self._logger.error('could not subscribe: {}'.format(HTTPReturnCodeError))
+            self._logger.error('could not subscribe: {}'.format(ex))
 
     def _add_device_references(self, soapEnvelope):
         """ add references for requests to device (renew, getstatus, unsubscribe)"""
@@ -383,9 +383,9 @@ class SubscriptionManager(threading.Thread):
                             return
                         # check if all subscriptions are okay
                         with self._subscriptionsLock:
-                            not_okay = [s for s in self.subscriptions.values() if not s.isSubscribed]
-                            subscribed = [s.isSubscribed for s in self.subscriptions.values()]
-                            self.allSubscriptionsOkay = (len(not_okay) == 0)
+                            subscribed_successful = [s.isSubscribed for s in self.subscriptions.values()]
+                            # checks if all subscriptions are subscribed and if there are any subscriptions
+                            self.allSubscriptionsOkay = all(subscribed_successful) and bool(subscribed_successful)
                     with self._subscriptionsLock:
                         subscriptions = list(self.subscriptions.values())
                     for subscription in subscriptions:
