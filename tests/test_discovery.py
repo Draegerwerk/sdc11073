@@ -355,7 +355,7 @@ class TestDiscovery(unittest.TestCase):
                                              scopes=utils.random_scope(),
                                              x_addrs=[f"localhost:{8080 + i}/{uuid.uuid4()}"])
 
-        time.sleep(3.02)
+        time.sleep(10)
         test_log.info('starting client...')
         self.wsd_client.start()
         services = self.wsd_client.search_services(timeout=self.SEARCH_TIMEOUT)

@@ -75,8 +75,8 @@ class OutgoingMessage:
 @dataclass(frozen=True)
 class _SocketsCollection:
     multi_in: socket.socket
-    multi_out_uni_in: socket.socket
-    uni_out_socket: socket.socket
+    multi_out: socket.socket  # this is also unicast_in on windows
+    uni_out: socket.socket
     uni_in: socket.socket | None
 
 
@@ -111,7 +111,7 @@ class _NetworkingThreadBase(ABC):
         self._ports_ignored_for_incoming_messages: list[str] = []
         self._inbound_selector = selectors.DefaultSelector()
         self._outbound_selector = selectors.DefaultSelector()
-        self.sockets_collection = self._mk_sockets(my_ip_address)
+        self.sockets_collection: _SocketsCollection = self._mk_sockets(my_ip_address)
 
     @abstractmethod
     def _mk_sockets(self, addr: str):
@@ -192,12 +192,12 @@ class _NetworkingThreadBase(ABC):
                     for key, _ in self._outbound_selector.select(timeout=0.1):
                         sock: socket.SocketType = key.fileobj
                         if (enqueued_msg.msg.msg_type == _MessageType.UNICAST
-                                and sock == self.sockets_collection.uni_out_socket):
+                                and sock == self.sockets_collection.uni_out):
                             msg_sent = True
                             self._send_msg(enqueued_msg, sock)
 
                         if (enqueued_msg.msg.msg_type == _MessageType.MULTICAST
-                                and sock == self.sockets_collection.multi_out_uni_in):
+                                and sock == self.sockets_collection.multi_out):
                             msg_sent = True
                             self._send_msg(enqueued_msg, sock)
             else:
@@ -259,7 +259,7 @@ class _NetworkingThreadBase(ABC):
                     else:
                         mid = received_message.p_msg.header_info_block.MessageID
                         if mid in self._known_message_ids:
-                            self._logger.debug('incoming message already known :%s (from %r, Id %s).',
+                            self._logger.debug('incoming message already known: %s (from %r, Id %s).',
                                                received_message.action, addr, mid)
                             continue
                         self._known_message_ids.appendleft(mid)
@@ -341,15 +341,18 @@ class NetworkingThreadWindows(_NetworkingThreadBase):
 
     def _mk_sockets(self, addr: str) -> _SocketsCollection:
         multicast_in_sock = self._create_multicast_in_socket(addr, self.multicast_port)
-        multicast_out_sock = self._create_multicast_out_socket(addr)
+        # windows does not support to reuse the port, such that the multicast out port will be used for unicast in
+        # one solution would be to specify the ReplyTo field in the soap header
+        multi_out_uni_in = self._create_multicast_out_socket(addr)
 
         uni_out_socket = self._create_unicast_out_socket(addr)
 
-        self._register_outbound_socket(multicast_out_sock)
+        self._register_outbound_socket(multi_out_uni_in)
         self._register_outbound_socket(uni_out_socket)
+        self._register_inbound_socket(multi_out_uni_in)
         self._register_inbound_socket(multicast_in_sock)
         return _SocketsCollection(multicast_in_sock,
-                                  multicast_out_sock,
+                                  multi_out_uni_in,
                                   uni_out_socket,
                                   None)
 
