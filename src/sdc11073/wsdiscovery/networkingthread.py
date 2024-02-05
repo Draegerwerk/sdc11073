@@ -107,6 +107,8 @@ class _NetworkingThreadBase(ABC):
         self._read_queue = queue.Queue(10000)
         self._known_message_ids = deque(maxlen=50)
         self._sockets: list[socket.socket] = []
+        # ports from which messages will be ignored, because they origin from sockets from this instance
+        self._ports_ignored_for_incoming_messages: list[str] = []
         self._inbound_selector = selectors.DefaultSelector()
         self._outbound_selector = selectors.DefaultSelector()
         self.sockets_collection = self._mk_sockets(my_ip_address)
@@ -131,11 +133,16 @@ class _NetworkingThreadBase(ABC):
     def _create_multicast_out_socket(addr: str) -> socket.SocketType:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, MULTICAST_OUT_TTL)
-        if addr is None:
-            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.INADDR_ANY)
-        else:
-            _addr = socket.inet_aton(addr)
-            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, _addr)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(addr))
+
+        sock.bind((addr, 0))
+        return sock
+
+    @staticmethod
+    def _create_unicast_out_socket(addr: str) -> socket.SocketType:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # set port explicitly when creating (it would otherwise be set after sending first message via this socket)
+        sock.bind((addr, 0))
         return sock
 
     def add_unicast_message(self,
@@ -205,14 +212,12 @@ class _NetworkingThreadBase(ABC):
                 self._logger.exception('exception during receiving')
 
     def is_from_my_socket(self, addr: str) -> bool:
-        if addr[0] == self._my_ip_address:
-            try:
-                sock_name = self.sockets_collection.multi_out_uni_in.getsockname()
-                if addr[1] == sock_name[1]:  # compare ports
-                    return True
-            except OSError as ex:  # port is not opened?
-                self._logger.warning(str(ex))
-        return False
+        if addr[0] != self._my_ip_address:
+            # if the address is different then the incoming message is not from our sockets
+            return False
+
+        # True if the message has been sent from a port contained in the blacklisted port
+        return any(addr[1] == port for port in self._ports_ignored_for_incoming_messages)
 
     def _recv_messages(self):
         """For performance reasons this thread only writes to a queue, no parsing etc."""
@@ -286,6 +291,8 @@ class _NetworkingThreadBase(ABC):
 
     def start(self):
         self._logger.debug('%s: starting ', self.__class__.__name__)
+        for sock in self._sockets:
+            self._ports_ignored_for_incoming_messages.append(sock.getsockname()[1])
         self._recv_thread = threading.Thread(target=self._run_recv, name='wsd.recvThread')
         self._qread_thread = threading.Thread(target=self._run_q_read, name='wsd.qreadThread')
         self._send_thread = threading.Thread(target=self._run_send, name='wsd.sendThread')
@@ -335,7 +342,8 @@ class NetworkingThreadWindows(_NetworkingThreadBase):
     def _mk_sockets(self, addr: str) -> _SocketsCollection:
         multicast_in_sock = self._create_multicast_in_socket(addr, self.multicast_port)
         multicast_out_sock = self._create_multicast_out_socket(addr)
-        uni_out_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        uni_out_socket = self._create_unicast_out_socket(addr)
 
         self._register_outbound_socket(multicast_out_sock)
         self._register_outbound_socket(uni_out_socket)
@@ -347,7 +355,7 @@ class NetworkingThreadWindows(_NetworkingThreadBase):
 
 
 class NetworkingThreadPosix(_NetworkingThreadBase):
-    """Implementation for Windows. Socket creation is OS specific."""
+    """Implementation for posix. Socket creation is OS specific."""
 
     def _create_multicast_in_socket(self, addr: str, port: int) -> socket.SocketType:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -358,7 +366,8 @@ class NetworkingThreadPosix(_NetworkingThreadBase):
         self._logger.info('UDP socket listens on %s:%d', addr, port)
         return sock
 
-    def _create_unicast_in_socket(self, addr: str, port: int) -> socket.SocketType:
+    @staticmethod
+    def _create_unicast_in_socket(addr: str, port: int) -> socket.SocketType:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((addr, port))
@@ -367,11 +376,12 @@ class NetworkingThreadPosix(_NetworkingThreadBase):
 
     def _mk_sockets(self, addr: str) -> _SocketsCollection:
         multicast_in_sock = self._create_multicast_in_socket(addr, self.multicast_port)
+        multicast_out_sock = self._create_multicast_out_socket(addr)
 
         # The unicast_in_sock is needed for handling of unicast messages on multicast port
         unicast_in_sock = self._create_unicast_in_socket(addr, self.multicast_port)
-        multicast_out_sock = self._create_multicast_out_socket(addr)
-        uni_out_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        uni_out_socket = self._create_unicast_out_socket(addr)
+
         self._register_outbound_socket(multicast_out_sock)
         self._register_outbound_socket(uni_out_socket)
         self._register_inbound_socket(unicast_in_sock)
