@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import platform
 import random
 import time
 from enum import Enum
@@ -18,7 +17,7 @@ from sdc11073.xml_types import wsd_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 
 from .common import MULTICAST_IPV4_ADDRESS, MULTICAST_PORT, message_factory
-from .networkingthread import NetworkingThreadPosix, NetworkingThreadWindows
+from sdc11073.wsdiscovery.networkingthread import NetworkingThread
 from .service import Service
 
 if TYPE_CHECKING:
@@ -607,12 +606,7 @@ class WSDiscovery:
     def _start_threads(self):
         if self._networking_thread is not None:
             return
-        if platform.system() != 'Windows':
-            self._networking_thread = NetworkingThreadPosix(str(self._adapter.ip), self, self._logger,
-                                                            self.multicast_port)
-        else:
-            self._networking_thread = NetworkingThreadWindows(str(self._adapter.ip), self, self._logger,
-                                                              self.multicast_port)
+        self._networking_thread = NetworkingThread(str(self._adapter.ip), self, self._logger, self.multicast_port)
         self._networking_thread.start()
 
     def _stop_threads(self):
