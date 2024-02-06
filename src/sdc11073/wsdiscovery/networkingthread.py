@@ -382,14 +382,15 @@ class NetworkingThreadPosix(_NetworkingThreadBase):
         multicast_out_sock = self._create_multicast_out_socket(addr)
 
         # The unicast_in_sock is needed for handling of unicast messages on multicast port
-        unicast_in_sock = self._create_unicast_in_socket(addr, self.multicast_port)
+        #unicast_in_sock = self._create_unicast_in_socket(addr, self.multicast_port)
         uni_out_socket = self._create_unicast_out_socket(addr)
 
         self._register_outbound_socket(multicast_out_sock)
         self._register_outbound_socket(uni_out_socket)
-        self._register_inbound_socket(unicast_in_sock)
+        self._register_inbound_socket(multicast_out_sock)
+        #self._register_inbound_socket(unicast_in_sock)
         self._register_inbound_socket(multicast_in_sock)
         return _SocketsCollection(multicast_in_sock,
                                   multicast_out_sock,
                                   uni_out_socket,
-                                  unicast_in_sock)
+                                  None)
