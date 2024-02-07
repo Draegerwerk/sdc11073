@@ -26,6 +26,8 @@ class OperationDefinitionProtocol(Protocol):
     handle: str
     operation_target_handle: str
     current_value: Any
+    last_called_time: float | None
+    descriptor_container: AbstractDescriptorProtocol
 
 
 @dataclass
@@ -81,7 +83,7 @@ class OperationDefinitionBase:
                                    if False, device returns FINISHED/FAILED, and sends same state in notification
         """
         self._logger = loghelper.get_logger_adapter(f'sdc.device.op.{self.__class__.__name__}', log_prefix)
-        self._mdib = None
+        self._mdib: ProviderMdib | None = None
         self._descriptor_container = None
         self._operation_state_container = None
         self.handle: str = handle
@@ -166,7 +168,7 @@ class OperationDefinitionBase:
 
     def set_operating_mode(self, mode: OperatingMode):
         """Set OperatingMode member in state in transaction context."""
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.operational_state_transaction() as mgr:
             state = mgr.get_state(self.handle)
             state.OperatingMode = mode
 

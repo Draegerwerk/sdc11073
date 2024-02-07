@@ -1,19 +1,19 @@
 import unittest
 
 from lxml import etree as etree_
-
-from sdc11073.xml_types import pm_qnames as pm
-from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.definitions_sdc import SdcV1Definitions
-from sdc11073.location import SdcLocation
+from sdc11073.dispatch.request import RequestData
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
-from sdc11073.xml_types.pm_types import AlertConditionPriority
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapenvelope import Soap12Envelope
-from sdc11073.dispatch.request import RequestData
 from sdc11073.wsdiscovery import WSDiscovery
-from tests import mockstuff, utils
+from sdc11073.xml_types import pm_qnames as pm
+from sdc11073.xml_types.addressing_types import HeaderInformationBlock
+from sdc11073.xml_types.pm_types import AlertConditionPriority
+
+from tests import mockstuff
+from tests import utils
 
 _sdc_ns = ns_hlp.SDC.namespace
 
@@ -68,7 +68,7 @@ class TestDeviceServices(unittest.TestCase):
         context_service = self.sdc_device.hosted_services.context_service
         path = self.sdc_device.path_prefix + '/StateEvent'
         get_env = self._mk_get_request(self.sdc_device, context_service.port_type_name.localname, 'GetContextStates',
-                                     path)
+                                       path)
         http_header = {}
         response = sub_dispatcher.do_post(http_header, path, peer_name,
                                           self.sdc_device.msg_factory.serialize_message(get_env))
@@ -119,7 +119,7 @@ class TestDeviceServices(unittest.TestCase):
     def test_changeAlarmPrio(self):
         get_service = self.sdc_device.hosted_services.get_service
         path = '123'
-        with self.sdc_device.mdib.transaction_manager() as tr:
+        with self.sdc_device.mdib.descriptor_transaction() as tr:
             alarmConditionDescriptor = tr.get_descriptor('0xD3C00109')
             alarmConditionDescriptor.Priority = AlertConditionPriority.LOW
         get_env = self._mk_get_request(self.sdc_device, get_service.port_type_name.localname, 'GetMdDescription', path)
@@ -138,7 +138,7 @@ class TestDeviceServices(unittest.TestCase):
         context_service = self.sdc_device.hosted_services.context_service
         path = '123'
         get_env = self._mk_get_request(self.sdc_device, context_service.port_type_name.localname, 'GetContextStates',
-                                     path)
+                                       path)
         http_header = {}
         request = RequestData(http_header, path, 'foo')
         request.message_data = self.msg_reader.read_received_message(
@@ -151,7 +151,8 @@ class TestDeviceServices(unittest.TestCase):
         locationContextNodes = response.p_msg.payload_element.xpath(query, namespaces=_ns.ns_map)
         self.assertEqual(len(locationContextNodes), 1)
         identificationNode = locationContextNodes[0].find(pm.Identification)
-        self.assertEqual(identificationNode.get('Extension'), '{}/{}/{}/{}/{}/{}'.format(loc.fac, loc.bldng, loc.flr, loc.poc, loc.rm,loc.bed))
+        self.assertEqual(identificationNode.get('Extension'),
+                         '{}/{}/{}/{}/{}/{}'.format(loc.fac, loc.bldng, loc.flr, loc.poc, loc.rm, loc.bed))
 
         locationDetailNode = locationContextNodes[0].find(pm.LocationDetail)
         self.assertEqual(locationDetailNode.get('PoC'), loc.poc)

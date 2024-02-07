@@ -35,8 +35,11 @@ class XMLTypeBase:
         for _, prop in self.sorted_container_properties():
             prop.init_instance_data(self)
 
-    def as_etree_node(self, q_name: etree_.QName, ns_map: dict):
-        node = etree_.Element(q_name, nsmap=ns_map)
+    def as_etree_node(self, q_name: etree_.QName, ns_map: dict, parent_node: etree_.Element | None = None):
+        if parent_node is not None:
+            node = etree_.SubElement(parent_node, q_name, nsmap=ns_map)
+        else:
+            node = etree_.Element(q_name, nsmap=ns_map)
         self.update_node(node)
         return node
 

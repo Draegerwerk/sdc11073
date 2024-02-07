@@ -12,7 +12,7 @@ import unittest.mock
 import uuid
 from decimal import Decimal
 from itertools import product
-
+from http.client import NotConnected
 from lxml import etree as etree_
 
 import sdc11073.certloader
@@ -195,7 +195,7 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
     my_physical_connector = pm_types.PhysicalConnectorInfo([pm_types.LocalizedText('ABC')], 1)
     now = time.time()
     logger.info('updating state {} value to {}', descriptor_handle, first_value)
-    with sdc_device.mdib.transaction_manager(set_determination_time=False) as mgr:
+    with sdc_device.mdib.metric_state_transaction(set_determination_time=False) as mgr:
         st = mgr.get_state(descriptor_handle)
         if st.MetricValue is None:
             st.mk_metric_value()
@@ -221,7 +221,7 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
 
     coll = observableproperties.SingleValueCollector(sdc_client,
                                                      'episodic_metric_report')  # wait for the next EpisodicMetricReport
-    with sdc_device.mdib.transaction_manager() as mgr:
+    with sdc_device.mdib.metric_state_transaction() as mgr:
         st = mgr.get_state(descriptor_handle)
         st.MetricValue.Value = new_value
 
@@ -788,7 +788,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             # wait for the next EpisodicAlertReport
             coll = observableproperties.SingleValueCollector(self.sdc_client,
                                                              'episodic_alert_report')
-            with self.sdc_device.mdib.transaction_manager() as mgr:
+            with self.sdc_device.mdib.alert_state_transaction() as mgr:
                 st = mgr.get_state(descriptor_handle)
                 st.ActivationState = _activation_state
                 st.ActualPriority = _actual_priority
@@ -808,7 +808,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                                                       (0, 1, 2)):
             # wait for the next EpisodicAlertReport
             coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_alert_report')
-            with self.sdc_device.mdib.transaction_manager() as mgr:
+            with self.sdc_device.mdib.alert_state_transaction() as mgr:
                 st = mgr.get_state(descriptor_handle)
                 st.ActivationState = _activation_state
                 st.Presence = _presence
@@ -834,7 +834,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         patientDescriptorContainer = self.sdc_device.mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
 
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_context_report')
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.context_state_transaction() as mgr:
             tr_MdibVersion = self.sdc_device.mdib.mdib_version
             st = mgr.mk_context_state(patientDescriptorContainer.Handle, set_associated=True)
             st.CoreData.Givenname = 'Max'
@@ -869,7 +869,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         # test update of same patient
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_context_report')
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.context_state_transaction() as mgr:
             st = mgr.get_context_state(patient_context_state_container.Handle)
             st.CoreData.Givenname = 'Moritz'
         coll.result(timeout=NOTIFICATION_TIMEOUT)
@@ -969,7 +969,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         descriptor_handle = '0x34F00100'
         # set value of a metric
         first_value = Decimal(12)
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.metric_state_transaction() as mgr:
             # mgr automatically increases the StateVersion
             st = mgr.get_state(descriptor_handle)
             if st.MetricValue is None:
@@ -990,7 +990,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         coll = observableproperties.SingleValueCollector(self.sdc_client,
                                                          'description_modification_report')
         new_determination_period = 3.14159
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.descriptor_transaction() as mgr:
             descr = mgr.get_descriptor(descriptor_handle)
             descr.DeterminationPeriod = new_determination_period
         coll.result(timeout=NOTIFICATION_TIMEOUT)
@@ -1018,7 +1018,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         new_handle = 'a_generated_descriptor'
         node_name = pm.NumericMetricDescriptor
         cls = self.sdc_device.mdib.data_model.get_descriptor_container_class(node_name)
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.descriptor_transaction() as mgr:
             new_descriptor_container = cls(handle=new_handle,
                                            parent_handle=descriptor_container.parent_handle,
                                            )
@@ -1034,7 +1034,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         # test deleting a descriptor
         coll = observableproperties.SingleValueCollector(self.sdc_client,
                                                          'description_modification_report')
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.descriptor_transaction() as mgr:
             mgr.remove_descriptor(new_handle)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         cl_descriptor_container = client_mdib.descriptions.handle.get_one(new_handle, allow_none=True)
@@ -1049,7 +1049,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
         # update descriptors
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.descriptor_transaction() as mgr:
             alert_descriptor = mgr.get_descriptor(alert_descriptor_handle)
             limit_alert_descriptor = mgr.get_descriptor(limit_alert_descriptor_handle)
 
@@ -1069,7 +1069,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         # set alert state presence to true
         time.sleep(0.01)
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_alert_report')
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.alert_state_transaction() as mgr:
             alert_state = mgr.get_state(alert_descriptor_handle)
 
             limit_alert_state = mgr.get_state(limit_alert_descriptor_handle)
@@ -1099,7 +1099,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                          pm_types.AlertConditionMonitoredLimits.NONE)  # default
 
     def test_metadata_modification(self):
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.descriptor_transaction() as mgr:
             # set Metadata
             mds_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.MdsDescriptor)
             for tmp_mds_descriptor in mds_descriptors:
@@ -1130,7 +1130,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         state_descriptor_handles = list(self.sdc_device.mdib.states.descriptor_handle.keys())
         context_state_handles = list(self.sdc_device.mdib.context_states.handle.keys())
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.descriptor_transaction() as mgr:
             mds_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.MdsDescriptor)
             for descr in mds_descriptors:
                 mgr.remove_descriptor(descr.Handle)
@@ -1164,7 +1164,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         coll = observableproperties.SingleValueCollector(client_mdib, 'metrics_by_handle')
         descriptor_handle = '0x34F00100'
         first_value = Decimal('12')
-        with self.sdc_device.mdib.transaction_manager(set_determination_time=False) as mgr:
+        with self.sdc_device.mdib.metric_state_transaction(set_determination_time=False) as mgr:
             st = mgr.get_state(descriptor_handle)
             if st.MetricValue is None:
                 st.mk_metric_value()
@@ -1180,7 +1180,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         coll = observableproperties.SingleValueCollector(client_mdib,
                                                          'alert_by_handle')  # wait for the next EpisodicAlertReport
         descriptor_handle = '0xD3C00108'  # an AlertConditionDescriptorHandle
-        with self.sdc_device.mdib.transaction_manager(set_determination_time=False) as mgr:
+        with self.sdc_device.mdib.alert_state_transaction(set_determination_time=False) as mgr:
             st = mgr.get_state(descriptor_handle)
             st.Presence = True
             st.Rank = 3
@@ -1191,7 +1191,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         coll = observableproperties.SingleValueCollector(client_mdib, 'updated_descriptors_by_handle')
         descriptor_handle = '0x34F00100'
-        with self.sdc_device.mdib.transaction_manager(set_determination_time=False) as mgr:
+        with self.sdc_device.mdib.descriptor_transaction() as mgr:
             descr = mgr.get_descriptor(descriptor_handle)
             descr.DeterminationPeriod = 42
         data = coll.result(timeout=NOTIFICATION_TIMEOUT)
@@ -1210,14 +1210,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.log_watcher.setPaused(True)
         time.sleep(1)
         self.assertEqual(self.sdc_client.is_connected, True)
-        collectors = []
-        coll = observableproperties.SingleValueCollector(self.sdc_client,
-                                                         'is_connected')  # waiter for the next state transition
-        collectors.append(coll)
+        collectors = [observableproperties.SingleValueCollector(s, 'is_subscribed')
+                      for s in self.sdc_client.subscription_mgr.subscriptions.values()]
+        collectors.append(observableproperties.SingleValueCollector(self.sdc_client, 'is_connected'))
         self.sdc_device.stop_all(send_subscription_end=False)
         for coll in collectors:
-            is_connected = coll.result(timeout=15)
-            self.assertEqual(is_connected, False)
+            is_subscribed = coll.result(timeout=15)
+            self.assertFalse(is_subscribed)
+        self.assertFalse(self.sdc_client.is_connected)
         self.sdc_client.stop_all(unsubscribe=False)  # without unsubscribe, is faster and would make no sense anyway
 
     def test_is_connected_friendly(self):
@@ -1225,43 +1225,18 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.log_watcher.setPaused(True)
         time.sleep(1)
         self.assertEqual(self.sdc_client.is_connected, True)
-        collectors = []
-        coll = observableproperties.SingleValueCollector(self.sdc_client,
-                                                         'is_connected')  # waiter for the next state transition
-        collectors.append(coll)
+        collectors = [observableproperties.SingleValueCollector(s, 'is_subscribed')
+                      for s in self.sdc_client.subscription_mgr.subscriptions.values()]
+        collectors.append(observableproperties.SingleValueCollector(self.sdc_client, 'is_connected'))
         self.sdc_device.stop_all(send_subscription_end=True)
         for coll in collectors:
-            is_connected = coll.result(timeout=15)
-            self.assertEqual(is_connected, False)
+            is_subscribed = coll.result(timeout=15)
+            self.assertFalse(is_subscribed)
+        self.assertFalse(self.sdc_client.is_connected)
         self.sdc_client.stop_all(unsubscribe=False)  # without unsubscribe, is faster and would make no sense anyway
 
-    # def test_invalid_request(self):
-    #     """MDPWS R0012: If a HOSTED SERVICE receives a MESSAGE that is inconsistent with its WSDL description, the HOSTED
-    #     SERVICE SHOULD generate a SOAP Fault with a Code Value of 'Sender', unless a 'MustUnderstand' or
-    #     'VersionMismatch' Fault is generated
-    #     """
-    #     self.log_watcher.setPaused(True)
-    #     self.sdc_client.get_service_client._validate = False  # want to send an invalid request
-    #     try:
-    #         method = self.sdc_device.mdib.data_model.ns_helper.msgTag('Nonsense')
-    #         action_string = 'Nonsense'
-    #         message = self.sdc_client.get_service_client._msg_factory._mk_get_method_message(
-    #             self.sdc_client.get_service_client.endpoint_reference.address,
-    #             action_string,
-    #             method)
-    #         self.sdc_client.get_service_client.post_message(message)
-    #
-    #     except HTTPReturnCodeError as ex:
-    #         self.assertEqual(ex.status, 400)
-    #         self.assertEqual(ex.soap_fault.code, 's12:Sender')
-    #     else:
-    #         self.fail('HTTPReturnCodeError not raised')
 
     def test_invalid_request(self):
-        """MDPWS R0012: If a HOSTED SERVICE receives a MESSAGE that is inconsistent with its WSDL description, the HOSTED
-        SERVICE SHOULD generate a SOAP Fault with a Code Value of 'Sender', unless a 'MustUnderstand' or
-        'VersionMismatch' Fault is generated
-        """
         self.log_watcher.setPaused(True)
         self.sdc_client.get_service_client._validate = False  # want to send an invalid request
         try:
@@ -1627,3 +1602,113 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
 
     def test_metric_report_sync(self):
         runtest_metric_reports(self, self.sdc_device, self.sdc_client, self.logger)
+
+
+class TestEncryptionCombinations(unittest.TestCase):
+    """Check combinations of encrypted and unencrypted connections."""
+
+    def setUp(self):
+        basic_logging_setup()
+        self.logger = get_logger_adapter('sdc.test')
+        self.logger.info('############### start setUp %s ##############', self._testMethodName)
+
+        # test uses a simple self signed certificate, certificate verify would fail
+        client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        server_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        client_ssl_context.check_hostname = False
+        client_ssl_context.verify_mode = ssl.CERT_NONE
+        server_ssl_context.verify_mode = ssl.CERT_NONE
+
+        ca_folder = pathlib.Path(__file__).parent.joinpath('certificates')
+        client_ssl_context.load_cert_chain(certfile=ca_folder.joinpath('test_certificate.pem'),
+                                           keyfile=ca_folder.joinpath('test_private_key.pem'),
+                                           password='password')
+        server_ssl_context.load_cert_chain(certfile=ca_folder.joinpath('test_certificate.pem'),
+                                           keyfile=ca_folder.joinpath('test_private_key.pem'),
+                                           password='password')
+
+        self.ssl_context_container = sdc11073.certloader.SSLContextContainer(client_context=client_ssl_context,
+                                                                             server_context=server_ssl_context)
+
+        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd.start()
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
+                                                    default_components=default_sdc_provider_components_async,
+                                                    max_subscription_duration=10)  # shorter duration for faster tests
+        self.sdc_device_ssl = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
+                                                    default_components=default_sdc_provider_components_async,
+                                                    max_subscription_duration=10,  # shorter duration for faster tests
+                                                    ssl_context_container=self.ssl_context_container)
+
+        self.sdc_device.start_all()
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
+
+        self.sdc_device_ssl.start_all()
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+        self.sdc_device_ssl.set_location(utils.random_location(), self._loc_validators)
+
+        time.sleep(0.5)  # allow init of devices to complete
+        self.logger.info('############### setUp done %s ##############', self._testMethodName)
+        time.sleep(0.5)
+        self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
+
+    def tearDown(self):
+        self.logger.info('############### tearDown %s ... ##############\n', self._testMethodName)
+        self.log_watcher.setPaused(True)
+        self.sdc_device.stop_all()
+        self.sdc_device_ssl.stop_all()
+        try:
+            self.log_watcher.check()
+        except loghelper.LogWatchError as ex:
+            sys.stderr.write(repr(ex))
+            raise
+        self.logger.info('############### tearDown %s done ##############\n', self._testMethodName)
+
+    def test_basic_connect(self):
+        """Verify correct behavior of different combinations (un)encrypted provider and (un)encrypted consumer."""
+        # test connect to unencrypted provider
+        x_addr = self.sdc_device.get_xaddrs()[0]
+
+        # verify that invalid combination of arguments raises a ValueError
+        self.assertRaises(ValueError, SdcConsumer, x_addr, self.sdc_device.mdib.sdc_definitions,
+                          ssl_context_container=None, force_ssl_connect=True)
+
+        # verify that a forced ssl connect to an unencrypted provider raises an SSL Error
+        consumer = SdcConsumer(x_addr,
+                               self.sdc_device.mdib.sdc_definitions,
+                               self.ssl_context_container,
+                               force_ssl_connect=True)
+        self.assertRaises(ssl.SSLError, consumer.start_all)
+
+        # verify that an unforced ssl connect to an unencrypted provider is successful
+        consumer = SdcConsumer(x_addr,
+                               self.sdc_device.mdib.sdc_definitions,
+                               self.ssl_context_container,
+                               force_ssl_connect=False)
+        try:
+            consumer.start_all()
+            self.assertTrue(consumer.is_connected)
+            self.assertFalse(consumer.is_ssl_connection)
+        finally:
+            consumer.stop_all(unsubscribe=False)
+
+        # test connection to encrypted provider
+        x_addr = self.sdc_device_ssl.get_xaddrs()[0]
+
+        # verify that connect without certificates raises an error
+        consumer = SdcConsumer(x_addr,
+                               self.sdc_device.mdib.sdc_definitions,
+                               ssl_context_container=None,
+                               force_ssl_connect=False)
+        self.assertRaises(NotConnected, consumer.start_all)
+
+
+        # verify that connect with certificates works
+        consumer = SdcConsumer(x_addr,
+                               self.sdc_device.mdib.sdc_definitions,
+                               self.ssl_context_container,
+                               force_ssl_connect=False)
+        consumer.start_all()
+        self.assertTrue(consumer.is_connected)
+        self.assertTrue(consumer.is_ssl_connection)

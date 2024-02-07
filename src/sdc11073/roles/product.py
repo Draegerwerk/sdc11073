@@ -16,7 +16,7 @@ from .patientcontextprovider import GenericPatientContextProvider
 if TYPE_CHECKING:
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactions import TransactionManagerProtocol
+    from sdc11073.mdib.transactionsprotocol import TransactionManagerProtocol
     from sdc11073.provider.operations import OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 
@@ -138,8 +138,8 @@ class BaseProduct:
         for role_handler in self._all_providers_sorted():
             operation = role_handler.make_operation_instance(operation_descriptor_container, operation_cls_getter)
             if operation is not None:
-                self._logger.debug('%s provided operation for {operation_descriptor_container}',
-                                   role_handler.__class__.__name__)
+                self._logger.debug('%s provided operation for %s',
+                                   role_handler.__class__.__name__, operation_descriptor_container)
                 return operation
             self._logger.debug('%s: no handler for %s', role_handler.__class__.__name__, operation_descriptor_container)
         return None
