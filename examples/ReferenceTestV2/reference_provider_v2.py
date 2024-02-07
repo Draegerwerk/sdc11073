@@ -153,7 +153,7 @@ if __name__ == '__main__':
     pm = my_mdib.data_model.pm_names
     pm_types = my_mdib.data_model.pm_types
     patientDescriptorHandle = my_mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor)[0].Handle
-    with my_mdib.transaction_manager() as mgr:
+    with my_mdib.context_state_transaction() as mgr:
         patientContainer = mgr.mk_context_state(patientDescriptorHandle)
         patientContainer.CoreData.Givenname = "Given"
         patientContainer.CoreData.Middlename = ["Middle"]
@@ -191,7 +191,7 @@ if __name__ == '__main__':
         if oneContainer.Handle == set_string_handle:
             stringOperation = oneContainer
 
-    with sdc_provider.mdib.transaction_manager() as mgr:
+    with sdc_provider.mdib.metric_state_transaction() as mgr:
         state = mgr.get_state(valueOperation.OperationTarget)
         if not state.MetricValue:
             state.mk_metric_value()
@@ -205,13 +205,13 @@ if __name__ == '__main__':
         while True:
             if numeric_metric:
                 try:
-                    with sdc_provider.mdib.transaction_manager() as mgr:
+                    with sdc_provider.mdib.metric_state_transaction() as mgr:
                         state = mgr.get_state(numeric_metric.Handle)
                         if not state.MetricValue:
                             state.mk_metric_value()
                         state.MetricValue.Value = Decimal(num_current_value)
                         num_current_value += 1
-                    with sdc_provider.mdib.transaction_manager() as mgr:
+                    with sdc_provider.mdib.descriptor_transaction() as mgr:
                         descriptor: descriptorcontainers.AbstractMetricDescriptorContainer = mgr.get_descriptor(numeric_metric.Handle)
                         descriptor.Unit.Code = 'code1' if descriptor.Unit.Code == 'code2' else 'code2'
                 except Exception as ex:
@@ -220,7 +220,7 @@ if __name__ == '__main__':
                 print("Numeric Metric not found in MDIB!")
             if string_metric:
                 try:
-                    with sdc_provider.mdib.transaction_manager() as mgr:
+                    with sdc_provider.mdib.metric_state_transaction() as mgr:
                         state = mgr.get_state(string_metric.Handle)
                         if not state.MetricValue:
                             state.mk_metric_value()
@@ -233,13 +233,13 @@ if __name__ == '__main__':
 
             if alertCondition:
                 try:
-                    with sdc_provider.mdib.transaction_manager() as mgr:
+                    with sdc_provider.mdib.alert_state_transaction() as mgr:
                         state = mgr.get_state(alertCondition.Handle)
                         state.Presence = not state.Presence
                 except Exception as ex:
                     print(traceback.format_exc())
                 try:
-                    with sdc_provider.mdib.transaction_manager() as mgr:
+                    with sdc_provider.mdib.descriptor_transaction() as mgr:
                         now = datetime.datetime.now()
                         text = f'last changed at {now.hour:02d}:{now.minute:02d}:{now.second:02d}'
                         descriptor: descriptorcontainers.AlertConditionDescriptorContainer = mgr.get_descriptor(alertCondition.Handle)
@@ -261,7 +261,7 @@ if __name__ == '__main__':
 
             if alertSignal:
                 try:
-                    with sdc_provider.mdib.transaction_manager() as mgr:
+                    with sdc_provider.mdib.alert_state_transaction() as mgr:
                         state = mgr.get_state(alertSignal.Handle)
                         if state.Slot is None:
                             state.Slot = 1
@@ -274,7 +274,7 @@ if __name__ == '__main__':
 
             if battery_descriptor:
                 try:
-                    with sdc_provider.mdib.transaction_manager() as mgr:
+                    with sdc_provider.mdib.component_state_transaction() as mgr:
                         state = mgr.get_state(battery_descriptor.Handle)
                         if state.Voltage is None:
                             state.Voltage = pm_types.Measurement(value=Decimal('14.4'), unit=pm_types.CodedValue('xyz'))
@@ -287,7 +287,7 @@ if __name__ == '__main__':
                 print("battery state not found in MDIB")
 
             try:
-                with sdc_provider.mdib.transaction_manager() as mgr:
+                with sdc_provider.mdib.component_state_transaction() as mgr:
                     state = mgr.get_state(vmd_handle)
                     state.OperatingHours = 2 if state.OperatingHours != 2 else 1
                     print(f'operating hours = {state.OperatingHours}')
@@ -295,7 +295,7 @@ if __name__ == '__main__':
                 print(traceback.format_exc())
 
             try:
-                with sdc_provider.mdib.transaction_manager() as mgr:
+                with sdc_provider.mdib.component_state_transaction() as mgr:
                     state = mgr.get_state(mds_handle)
                     state.Lang = 'de' if state.Lang != 'de' else 'en'
                     print(f'mds lang = {state.Lang}')
@@ -313,7 +313,7 @@ if __name__ == '__main__':
                 channel = descriptorcontainers.ChannelDescriptorContainer(add_rm_channel_handle, add_rm_vmd_handle)
                 metric = descriptorcontainers.StringMetricDescriptorContainer(add_rm_metric_handle, add_rm_channel_handle)
                 metric.Unit = pm_types.CodedValue('123')
-                with sdc_provider.mdib.transaction_manager() as mgr:
+                with sdc_provider.mdib.descriptor_transaction() as mgr:
                     mgr.add_descriptor(vmd)
                     mgr.add_descriptor(channel)
                     mgr.add_descriptor(metric)
@@ -321,11 +321,11 @@ if __name__ == '__main__':
                     mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(channel))
                     mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(metric))
             else:
-                with sdc_provider.mdib.transaction_manager() as mgr:
+                with sdc_provider.mdib.descriptor_transaction() as mgr:
                     mgr.remove_descriptor(add_rm_vmd_handle)
 
             # enable disable operation
-            with sdc_provider.mdib.transaction_manager() as mgr:
+            with sdc_provider.mdib.operational_state_transaction() as mgr:
                 op_state = mgr.get_state('activate_0.sco.mds_0')
                 op_state.OperatingMode = pm_types.OperatingMode.ENABLED \
                     if op_state.OperatingMode == pm_types.OperatingMode.ENABLED \
