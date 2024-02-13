@@ -27,7 +27,6 @@ from sdc11073.xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisM
 from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
 from sdc11073.roles.protocols import ProductProtocol, WaveformProviderProtocol # import here for code cov. :(
 
-from .components import default_sdc_provider_components
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 
 if TYPE_CHECKING:
@@ -126,6 +125,7 @@ class SdcProvider:
         self._socket_timeout = socket_timeout or int(max_subscription_duration * 1.2)
         self._log_prefix = log_prefix
         if default_components is None:
+            from .components import default_sdc_provider_components  # lazy import avoids cyclic import
             default_components = default_sdc_provider_components
         self._components = copy.deepcopy(default_components)
         if specific_components is not None:
