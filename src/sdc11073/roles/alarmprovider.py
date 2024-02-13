@@ -15,8 +15,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
     def __init__(self, log_prefix):
         super().__init__(log_prefix)
 
-        # some time stamps for handling of delegable alert signals
-        self._lastActivateAllDelegableAlerts = 0 # time when _activateAllDelegableAlertSignals has been called last time
         self._lastSetAlertSignalState = {} # a lookup by alert signal handle , value = time of last call
 
         self._stopWorker = Event()
@@ -36,7 +34,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
     def stop(self):
         self._stopWorker.set()
         self._workerThread.join()
-
 
     def makeOperationInstance(self, operationDescriptorContainer):
         operationTargetHandle = operationDescriptorContainer.OperationTarget
@@ -90,7 +87,9 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 alert_signal_state.Presence = AlertSignalPresence.OFF
 
     def _getDescriptor(self, handle, mdib, transaction):
-        """ Helper that looks for descriptor first in current transaction, then in mdib. returns first found one or raises KeyError"""
+        """Helper that looks for descriptor first in current transaction, then in mdib.
+
+        Returns first found one or raises KeyError"""
         descriptor = None
         tr_item = transaction.descriptorUpdates.get(handle)
         if tr_item is not None:
@@ -283,35 +282,14 @@ class GenericAlarmProvider(providerbase.ProviderRole):
 
         value = previousValue
         for cnt in range(int((sourceRange.Upper - sourceRange.Lower) // sourceRange.StepWidth)):
-            if value != previousValue: break
-
+            if value != previousValue:
+                break
             if isLower:
                 value = round(sourceRange.Lower + (sourceRange.StepWidth*cnt), exp)
             else:
                 value = round(sourceRange.Upper - (sourceRange.StepWidth*cnt), exp)
 
         return value
-
-    def _activateAllDelegableAlertSignals(self, operationDescriptorContainer, value): #pylint: disable=unused-argument
-        # find all delegable Alert Signals in main alert system
-        # set ActivationState to "On"
-        # set all corresponding local alert signals to paused
-        self._lastActivateAllDelegableAlerts = time.time()
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            allAlertConditionDescriptors = self._mdib.descriptions.NODETYPE.get(
-                namespaces.domTag('AlertConditionDescriptor'), [])
-            allAlertConditionDescriptors += self._mdib.descriptions.NODETYPE.get(
-                namespaces.domTag('LimitAlertConditionDescriptor'), [])
-            for acd in allAlertConditionDescriptors:
-                signalDescriptors = self._mdib.descriptions.ConditionSignaled.get(acd.handle, [])
-                for sd in signalDescriptors:
-                    if sd.SignalDelegationSupported:
-                        ss = mgr.getAlertState(sd.handle)
-                        if ss.ActivationState == AlertActivation.OFF:
-                            ss.ActivationState = AlertActivation.ON
-                            self._pauseFallbackAlertSignals(sd, signalDescriptors, mgr)
-                        else:
-                            mgr.ungetState(ss)
 
     def _pauseFallbackAlertSignals(self, delegableSignalDescriptor, allSignalDescriptors, transaction):
         # look for local fallback signal (same Manifestation), and set it to paused
@@ -338,7 +316,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         return [tmp for tmp in allSignalDescriptors if not tmp.SignalDelegationSupported
                 and tmp.Manifestation == delegableSignalDescriptor.Manifestation
                 and tmp.ConditionSignaled == delegableSignalDescriptor.ConditionSignaled]
-
 
     def _delegate_alert_signal(self, operationInstance, value):
         operationTargetHandle = operationInstance.operationTarget
@@ -381,7 +358,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
             if shall_stop:
                 return
             self._updateAlertSystemState_CurrentAlerts()
-            #self._handleDelegateTimeouts()
 
     def _getAlertSystemStates_needingUpdate(self):
         """
@@ -414,26 +390,3 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         except:
             exc = traceback.format_exc()
             self._logger.error('_checkAlertStates: {}', exc)
-
-    # def _handleDelegateTimeouts(self):
-    #     if self._lastActivateAllDelegableAlerts:
-    #         # find the minimal invocation_effective_timeout
-    #         all_op_descrs = self._mdib.descriptions.NODETYPE.get(namespaces.domTag('SetAlertStateOperationDescriptor'), [])
-    #         timeouts = [op.InvocationEffectiveTimeout for op in all_op_descrs]
-    #         timeouts = [t for t in timeouts if t is not None]
-    #         if not timeouts:
-    #             return # nothing to do
-    #         minimal_invocation_effective_timeout = min(timeouts)
-    #         if time.time() - self._lastActivateAllDelegableAlerts > minimal_invocation_effective_timeout:
-    #             # expired, set all AlertSignalState.ActivationState to 'Off'
-    #             with self._mdib.mdibUpdateTransaction() as mgr:
-    #                 for op in all_op_descrs:
-    #                     signalDescr = self._mdib.descriptions.handle.getOne(op.OperationTarget)
-    #                     allSignalDescriptors = self._mdib.descriptions.ConditionSignaled.get(signalDescr.ConditionSignaled, [])
-    #                     ss = mgr.getAlertState(signalDescr.handle)
-    #                     if ss.ActivationState == AlertActivation.ON:
-    #                         ss.ActivationState = AlertActivation.OFF
-    #                         self._activateFallbackAlertSignals(signalDescr, allSignalDescriptors, mgr)
-    #                     else:
-    #                         mgr.ungetState(ss)
-    #             self._lastActivateAllDelegableAlerts = 0
