@@ -1622,7 +1622,7 @@ class WSDiscoveryBase():
             elif now < end:
                 time.sleep(end - now)
             now = time.monotonic()
-        return filterServices(self._remoteServices.values(), types, scopes)
+        return filterServices(list(self._remoteServices.values()), types, scopes)
 
     def searchMultipleTypes(self, typesList, scopes=None, timeout=10, repeatProbeInterval=3):
         """search for services given the list of TYPES and SCOPES in a given timeout.
@@ -1645,7 +1645,7 @@ class WSDiscoveryBase():
                 time.sleep(end - now)
         result = []
         for t in typesList:
-            result.extend(filterServices(self._remoteServices.values(), t, scopes))
+            result.extend(filterServices(list(self._remoteServices.values()), t, scopes))
         return result
 
     def searchMedicalDeviceServicesinLocation(self, sdcLocation, timeout=3, bicepsVersion=None):
