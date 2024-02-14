@@ -306,14 +306,6 @@ class DescriptorTransaction(_TransactionBase):
                     new_state.increment_state_version()
                     updates_dict[descriptor_container.Handle] = TransactionItem(old_state, new_state)
 
-    def _remove_corresponding_state(self, descriptor_container: AbstractDescriptorProtocol):
-        if descriptor_container.is_context_descriptor:
-            for state in self._mdib.context_states.descriptor_handle.get(descriptor_container.Handle, [])[:]:
-                self._mdib.context_states.remove_object_no_lock(state)
-        else:
-            state = self._mdib.states.descriptor_handle.get_one(descriptor_container.Handle, allow_none=True)
-            self._mdib.states.remove_object_no_lock(state)
-
     def _increment_parent_descriptor_version(self, proc: TransactionResult,
                                              descriptor_container: AbstractDescriptorProtocol):
         parent_descriptor_container = self._mdib.descriptions.handle.get_one(
