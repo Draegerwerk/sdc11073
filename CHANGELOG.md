@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `RuntimeError: dictionary changed size during iteration` for `remote_services` in the discovery [#335](https://github.com/Draegerwerk/sdc11073/issues/335) 
+- DescriptorTransaction sometimes causes wrong DescriptorVersion in states [#340](https://github.com/Draegerwerk/sdc11073/issues/340)
 
 ## [2.0.0rc2] - 2024-02-08
 

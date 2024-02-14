@@ -1,4 +1,4 @@
-import os
+import copy
 import pathlib
 import unittest
 
@@ -180,3 +180,51 @@ class TestTransactions(unittest.TestCase):
         with self._mdib.descriptor_transaction() as mgr:
             mgr.get_descriptor(context_descr[0].Handle)
             self.assertRaises(ApiUsageError, mgr.get_state, context_descr[0].Handle)
+
+    def test_remove_add(self):
+        """Verify that removing descriptors / states and adding them later again results in correct versions."""
+        descriptors = {descr.Handle: descr.mk_copy() for descr in self._mdib.descriptions.objects}
+        states = {state.DescriptorHandle: state.mk_copy() for state in self._mdib.states.objects}
+        context_states = {state.Handle: state.mk_copy() for state in self._mdib.context_states.objects}
+
+        # remove all root descriptors
+        root_descr = self._mdib.descriptions.parent_handle.get(None)
+        with self._mdib.descriptor_transaction() as mgr:
+            for descr in root_descr:
+                mgr.remove_descriptor(descr.Handle)
+
+        self.assertEqual(0, len(self._mdib.descriptions.objects))
+        self.assertEqual(0, len(self._mdib.states.objects))
+        self.assertEqual(0, len(self._mdib.context_states.objects))
+
+        with self._mdib.descriptor_transaction() as mgr:
+            for descr in descriptors.values():
+                mgr.add_descriptor(descr.mk_copy())
+            for state in states.values():
+                mgr.add_state(state.mk_copy())
+            for state in context_states.values():
+                mgr.add_state(state.mk_copy())
+
+        current_descriptors = {descr.Handle: descr.mk_copy() for descr in self._mdib.descriptions.objects}
+
+        # verify that all descriptors have incremented version
+        for descr in self._mdib.descriptions.objects:
+            self.assertEqual(descr.DescriptorVersion, current_descriptors[descr.Handle].DescriptorVersion)
+
+        # verify that all states have incremented version
+        for state in self._mdib.states.objects:
+            self.assertEqual(state.DescriptorVersion, current_descriptors[state.DescriptorHandle].DescriptorVersion)
+            self.assertEqual(state.StateVersion, states[state.DescriptorHandle].StateVersion + 1)
+
+        # verify that all context states have incremented version
+        for state in self._mdib.context_states.objects:
+            self.assertEqual(state.DescriptorVersion, current_descriptors[state.DescriptorHandle].DescriptorVersion)
+            self.assertEqual(state.StateVersion, context_states[state.Handle].StateVersion + 1)
+
+        # verify transaction content is als correct
+        transaction = self._mdib.transaction
+        for descr in transaction.descr_created:
+            self.assertEqual(descr.DescriptorVersion, current_descriptors[descr.Handle].DescriptorVersion)
+
+        for state in transaction.all_states():
+            self.assertEqual(state.DescriptorVersion, current_descriptors[state.DescriptorHandle].DescriptorVersion)

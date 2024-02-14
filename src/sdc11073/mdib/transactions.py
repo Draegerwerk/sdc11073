@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
     from .descriptorcontainers import AbstractDescriptorProtocol
     from .providermdib import ProviderMdib
-    from .statecontainers import AbstractStateContainer, AbstractStateProtocol
+    from .statecontainers import AbstractStateProtocol
 
 
 class _TransactionBase:
@@ -185,9 +185,12 @@ class DescriptorTransaction(_TransactionBase):
 
         # set reference to descriptor
         state_container.descriptor_container = self.descriptor_updates[state_container.DescriptorHandle].new
-
+        state_container.DescriptorVersion = state_container.descriptor_container.DescriptorVersion
         if adjust_state_version:
-            self._mdib.states.set_version(state_container)
+            if state_container.is_context_state:
+                self._mdib.context_states.set_version(state_container)
+            else:
+                self._mdib.states.set_version(state_container)
         updates_dict[key] = TransactionItem(None, state_container)
 
     def process_transaction(self, set_determination_time: bool) -> TransactionResultProtocol:  # noqa: ARG002
@@ -204,21 +207,21 @@ class DescriptorTransaction(_TransactionBase):
                                      if tr_item.new is None and tr_item.old is not None]
             to_be_created_handles = [tr_item.new.Handle for tr_item in self.descriptor_updates.values()
                                      if tr_item.old is None and tr_item.new is not None]
+            # Remark 1:
             # handling only updated states here: If a descriptor is created, it can be assumed that the
             # application also creates the state in a transaction.
             # The state will then be transported via that notification report.
             # Maybe this needs to be reworked, but at the time of this writing it seems fine.
+            #
+            # Remark 2:
+            # DescriptionModificationReport also contains the states that are related to the descriptors.
+            # => if there is one, update its DescriptorVersion and add it to list of states that shall be sent
+            # (Assuming that context descriptors (patient, location) are never changed,
+            #  additional check for states in self.context_states is not needed.
+            #  If this assumption is wrong, that functionality must be added!)
+
             for tr_item in self.descriptor_updates.values():
                 orig_descriptor, new_descriptor = tr_item.old, tr_item.new
-                if new_descriptor is not None:
-                    # DescriptionModificationReport also contains the states that are related to the descriptors.
-                    # => if there is one, update its DescriptorVersion and add it to list of states that shall be sent
-                    # (Assuming that context descriptors (patient, location) are never changed,
-                    #  additional check for states in self.context_states is not needed.
-                    #  If this assumption is wrong, that functionality must be added!)
-                    self._update_corresponding_state(new_descriptor)
-                else:  # descriptor delete
-                    self._remove_corresponding_state(orig_descriptor)
                 if orig_descriptor is None:
                     # this is a create operation
                     self._logger.debug(  # noqa: PLE1205
@@ -231,6 +234,7 @@ class DescriptorTransaction(_TransactionBase):
                             and new_descriptor.parent_handle not in to_be_created_handles:
                         # only update parent if it is not also created in this transaction
                         self._increment_parent_descriptor_version(proc, new_descriptor)
+                    self._update_corresponding_state(new_descriptor)
                 elif new_descriptor is None:
                     # this is a delete operation
                     self._logger.debug(  # noqa: PLE1205
@@ -250,8 +254,9 @@ class DescriptorTransaction(_TransactionBase):
                     self._logger.debug(  # noqa: PLE1205
                         'transaction_manager: update descriptor Handle={}, DescriptorVersion={}',
                         new_descriptor.Handle, new_descriptor.DescriptorVersion)
-                    self._mdib.descriptions.replace_object_no_lock(new_descriptor)
-
+                    orig_descriptor.update_from_other_container(new_descriptor)
+                    self._update_corresponding_state(orig_descriptor)
+                    self._mdib.descriptions.update_object_no_lock(orig_descriptor)
             for updates_dict, dest_list in ((self.alert_state_updates, proc.alert_updates),
                                             (self.metric_state_updates, proc.metric_updates),
                                             (self.context_state_updates, proc.ctxt_updates),
@@ -300,14 +305,6 @@ class DescriptorTransaction(_TransactionBase):
                     new_state.DescriptorVersion = descriptor_container.DescriptorVersion
                     new_state.increment_state_version()
                     updates_dict[descriptor_container.Handle] = TransactionItem(old_state, new_state)
-
-    def _remove_corresponding_state(self, descriptor_container: AbstractDescriptorProtocol):
-        if descriptor_container.is_context_descriptor:
-            for state in self._mdib.context_states.descriptor_handle.get(descriptor_container.Handle, [])[:]:
-                self._mdib.context_states.remove_object_no_lock(state)
-        else:
-            state = self._mdib.states.descriptor_handle.get_one(descriptor_container.Handle, allow_none=True)
-            self._mdib.states.remove_object_no_lock(state)
 
     def _increment_parent_descriptor_version(self, proc: TransactionResult,
                                              descriptor_container: AbstractDescriptorProtocol):
@@ -577,6 +574,7 @@ class ContextStateTransaction(_TransactionBase):
         if state_container.descriptor_container is None:
             descr = self._mdib.descriptions.handle.get_one(state_container.DescriptorHandle)
             state_container.descriptor_container = descr
+            state_container.DescriptorVersion = state_container.descriptor_container.DescriptorVersion
 
         if adjust_state_version:
             self._mdib.context_states.set_version(state_container)
