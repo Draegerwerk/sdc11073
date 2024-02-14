@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ## [2.0.0] - 2024-02-14
+
 ### Fixed
 
 - `RuntimeError: dictionary changed size during iteration` for `remote_services` in the discovery [#335](https://github.com/Draegerwerk/sdc11073/issues/335) 
