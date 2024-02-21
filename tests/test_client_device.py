@@ -27,6 +27,7 @@ from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.pysoap.msgfactory import CreatedMessage
+from sdc11073.pysoap.msgreader import MdibVersionGroupReader
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
@@ -527,6 +528,12 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def test_basic_connect(self):
         runtest_basic_connect(self, self.sdc_client)
         runtest_directed_probe(self, self.sdc_client, self.sdc_device)
+        cl_get_service = self.sdc_client.client('Get')
+        get_request_result = cl_get_service.get_mdib()
+        # verify that mdib version groups are identical in elements GetMdibResponse and Mdib
+        mdib_version_group1 = MdibVersionGroupReader.from_node(get_request_result.p_msg.msg_node)
+        mdib_version_group2 = MdibVersionGroupReader.from_node(get_request_result.p_msg.msg_node[0])
+        self.assertEqual(mdib_version_group1, mdib_version_group2)
 
     def test_renew_get_status(self):
         for s in self.sdc_client._subscription_mgr.subscriptions.values():
@@ -719,7 +726,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_instance_id(self):
         """ verify that the client receives correct EpisodicMetricReports and PeriodicMetricReports"""
-        self.assertIsNone(self.sdc_device.mdib.instance_id)
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         self.assertEqual(self.sdc_device.mdib.sequence_id, cl_mdib.sequence_id)

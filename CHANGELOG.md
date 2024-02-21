@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2024-02-21
+
+### Fixed
+- inconsistent InstanceId attributes in GetMdibResponse
+
 ## [2.0.0] - 2024-02-14
 
 ### Fixed

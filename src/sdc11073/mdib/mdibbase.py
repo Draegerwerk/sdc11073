@@ -391,6 +391,8 @@ class MdibBase:
         mdib_node = etree_.Element(msg.Mdib, nsmap=doc_nsmap)
         mdib_node.set('MdibVersion', str(self.mdib_version))
         mdib_node.set('SequenceId', self.sequence_id)
+        if self.instance_id is not None:
+            mdib_node.set('InstanceId', str(self.instance_id))
         md_description_node = self._reconstruct_md_description()
         mdib_node.append(md_description_node)
 
