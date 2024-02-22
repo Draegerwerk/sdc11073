@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- possible exception in Consumermdib._get_context_states
+
 ## [2.0.1] - 2024-02-21
 
 ### Fixed
