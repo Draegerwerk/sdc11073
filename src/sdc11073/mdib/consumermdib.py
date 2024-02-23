@@ -159,7 +159,6 @@ class ConsumerMdib(mdibbase.MdibBase):
         self.rt_buffers = {}  # key  is a handle, value is a ConsumerRtBuffer
         self._max_realtime_samples = max_realtime_samples
         self._last_wf_age_log = time.time()
-        self._context_mdib_version = None
         # a buffer for notifications that are received before initial get_mdib is done
         self._buffered_notifications = []
         self._buffered_notifications_lock = Lock()
@@ -272,10 +271,6 @@ class ConsumerMdib(mdibbase.MdibBase):
             self._logger.info('requesting context states...')
             response = context_service.get_context_states(handles)
             context_state_containers = response.result.ContextState
-
-            self._context_mdib_version = response.mdib_version
-            self._logger.debug('_get_context_states: setting _context_mdib_version to {}',  # noqa: PLE1205
-                               self._context_mdib_version)
 
             self._logger.debug('got {} context states', len(context_state_containers))  # noqa: PLE1205
             with self.context_states.lock:
