@@ -8,11 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- possible exception in Consumermdib._get_context_states
+
+- possible exception in ConsumerMdib._get_context_states  [#350](https://github.com/Draegerwerk/sdc11073/issues/350)
 
 ## [2.0.1] - 2024-02-21
 
 ### Fixed
+
 - inconsistent InstanceId attributes in GetMdibResponse
 
 ## [2.0.0] - 2024-02-14
