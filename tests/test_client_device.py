@@ -535,6 +535,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
         mdib_version_group2 = MdibVersionGroupReader.from_node(get_request_result.p_msg.msg_node[0])
         self.assertEqual(mdib_version_group1, mdib_version_group2)
 
+    def test_init_mdib_context_states(self):
+        # verify that consumer requests context states if GetMdibResponse contains no context states
+        self.sdc_device.contextstates_in_getmdib = False  # provider does not add context states to GetMdibResponse
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+        self.assertEqual(len(self.sdc_device.mdib.context_states.objects),
+                         len(cl_mdib.context_states.objects))
+
     def test_renew_get_status(self):
         for s in self.sdc_client._subscription_mgr.subscriptions.values():
             max_duration = self.sdc_device._max_subscription_duration
