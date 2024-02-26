@@ -1,6 +1,10 @@
+import dataclasses
+import enum
 import os
+import sys
 import time
 import traceback
+import typing
 from collections import defaultdict
 from concurrent import futures
 from decimal import Decimal
@@ -21,17 +25,40 @@ adapter_ip = os.getenv('ref_ip') or '127.0.0.1'  # noqa: SIM112
 ca_folder = os.getenv('ref_ca')  # noqa: SIM112
 ssl_passwd = os.getenv('ref_ssl_passwd') or None  # noqa: SIM112
 search_epr = os.getenv('ref_search_epr') or 'abc'  # noqa: SIM112
+# ref_discovery_runs indicates the maximum executions of wsdiscovery search services, "0" -> run until service is found
+discovery_runs = int(os.getenv('ref_discovery_runs', 0))  # noqa: SIM112
 
 ENABLE_COMMLOG = True
 
 
-def run_ref_test():
-    results = []
+class TestResult(enum.Enum):
+    """
+    Represents the overall test result.
+    """
+    PASSED = 'PASSED'
+    FAILED = 'FAILED'
+
+@dataclasses.dataclass
+class TestCollector:
+    overall_test_result: TestResult = TestResult.PASSED
+    test_messages: typing.List = dataclasses.field(default_factory=list)
+
+    def add_result(self, test_step_message: str, test_step_result: TestResult):
+        if not isinstance(test_step_result, TestResult):
+            raise ValueError("Unexpected parameter")
+        if self.overall_test_result is not TestResult.FAILED:
+            self.overall_test_result = test_step_result
+        self.test_messages.append(test_step_message)
+
+
+def run_ref_test() -> TestCollector:
+    test_collector = TestCollector()
     print(f'using adapter address {adapter_ip}')
     print('Test step 1: discover device which endpoint ends with "{}"'.format(search_epr))
     wsd = WSDiscovery(adapter_ip)
     wsd.start()
     my_service = None
+    discovery_counter = 0
     while my_service is None:
         services = wsd.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter)
         print('found {} services {}'.format(len(services), ', '.join([s.epr for s in services])))
@@ -40,8 +67,13 @@ def run_ref_test():
                 my_service = s
                 print('found service {}'.format(s.epr))
                 break
-    print('Test step 1 successful: device discovered')
-    results.append('### Test 1 ### passed')
+        discovery_counter += 1
+        if discovery_runs and discovery_counter >= discovery_runs:
+            print('### Test 1 ### failed - No suitable service was discovered')
+            test_collector.add_result('### Test 1 ### failed', TestResult.FAILED)
+            return test_collector
+    print('Test step 1 passed: device discovered')
+    test_collector.add_result('### Test 1 ### passed', TestResult.PASSED)
 
     print('Test step 2: connect to device...')
     try:
@@ -59,45 +91,46 @@ def run_ref_test():
                                               ssl_context_container=ssl_context_container,
                                               validate=True)
         client.start_all()
-        print('Test step 2 successful: connected to device')
-        results.append('### Test 2 ### passed')
+        print('Test step 2 passed: connected to device')
+        test_collector.add_result('### Test 2 ### passed', TestResult.PASSED)
     except:
         print(traceback.format_exc())
-        results.append('### Test 2 ### failed')
-        return results
+        test_collector.add_result('### Test 2 ### failed', TestResult.FAILED)
+        return test_collector
 
     print('Test step 3&4: get mdib and subscribe...')
     try:
         mdib = ConsumerMdib(client)
         mdib.init_mdib()
-        print('Test step 3&4 successful')
-        results.append('### Test 3 ### passed')
-        results.append('### Test 4 ### passed')
+        print('Test step 3&4 passed')
+        test_collector.add_result('### Test 3 ### passed', TestResult.PASSED)
+        test_collector.add_result('### Test 4 ### passed', TestResult.PASSED)
     except:
         print(traceback.format_exc())
-        results.append('### Test 3 ### failed')
-        results.append('### Test 4 ### failed')
-        return results
+        test_collector.add_result('### Test 3 ### failed', TestResult.FAILED)
+        test_collector.add_result('### Test 4 ### failed', TestResult.FAILED)
+        return test_collector
 
     pm = mdib.data_model.pm_names
 
     print('Test step 5: check that at least one patient context exists')
     patients = mdib.context_states.NODETYPE.get(pm.PatientContextState, [])
     if len(patients) > 0:
-        print('found {} patients, Test step 5 successful'.format(len(patients)))
-        results.append('### Test 5 ### passed')
+        print('found {} patients, Test step 5 passed'.format(len(patients)))
+        test_collector.add_result('### Test 5 ### passed', TestResult.PASSED)
     else:
         print('found no patients, Test step 5 failed')
-        results.append('### Test 5 ### failed')
+        test_collector.add_result('### Test 5 ### failed', TestResult.FAILED)
+
 
     print('Test step 6: check that at least one location context exists')
     locations = mdib.context_states.NODETYPE.get(pm.LocationContextState, [])
     if len(locations) > 0:
-        print('found {} locations, Test step 6 successful'.format(len(locations)))
-        results.append('### Test 6 ### passed')
+        print('found {} locations, Test step 6 passed'.format(len(locations)))
+        test_collector.add_result('### Test 6 ### passed', TestResult.PASSED)
     else:
         print('found no locations, Test step 6 failed')
-        results.append('### Test 6 ### failed')
+        test_collector.add_result('### Test 6 ### failed', TestResult.FAILED)
 
     print('Test step 7&8: count metric state updates and alert state updates')
     metric_updates = defaultdict(list)
@@ -123,32 +156,32 @@ def run_ref_test():
     print(metric_updates)
     print(alert_updates)
     if len(metric_updates) == 0:
-        results.append('### Test 7 ### failed')
+        test_collector.add_result('### Test 7 ### failed', TestResult.FAILED)
     else:
         for k, v in metric_updates.items():
             if len(v) < min_updates:
                 print('found only {} updates for {}, test step 7 failed'.format(len(v), k))
-                results.append(f'### Test 7 Handle {k} ### failed')
+                test_collector.add_result(f'### Test 7 Handle {k} ### failed', TestResult.FAILED)
             else:
                 print('found {} updates for {}, test step 7 ok'.format(len(v), k))
-                results.append(f'### Test 7 Handle {k} ### passed')
+                test_collector.add_result(f'### Test 7 Handle {k} ### passed', TestResult.PASSED)
     if len(alert_updates) == 0:
-        results.append('### Test 8 ### failed')
+        test_collector.add_result('### Test 8 ### failed', TestResult.FAILED)
     else:
         for k, v in alert_updates.items():
             if len(v) < min_updates:
                 print('found only {} updates for {}, test step 8 failed'.format(len(v), k))
-                results.append(f'### Test 8 Handle {k} ### failed')
+                test_collector.add_result(f'### Test 8 Handle {k} ### failed', TestResult.FAILED)
             else:
                 print('found {} updates for {}, test step 8 ok'.format(len(v), k))
-                results.append(f'### Test 8 Handle {k} ### passed')
+                test_collector.add_result(f'### Test 8 Handle {k} ### passed', TestResult.PASSED)
 
     print('Test step 9: call SetString operation')
     setstring_operations = mdib.descriptions.NODETYPE.get(pm.SetStringOperationDescriptor, [])
     setst_handle = 'string.ch0.vmd1_sco_0'
     if len(setstring_operations) == 0:
         print('Test step 9(SetString) failed, no SetString operation found')
-        results.append('### Test 9 ### failed')
+        test_collector.add_result('### Test 9 ### failed', TestResult.FAILED)
     else:
         for s in setstring_operations:
             if s.Handle != setst_handle:
@@ -161,16 +194,16 @@ def run_ref_test():
                     print(res)
                     if res.InvocationInfo.InvocationState != InvocationState.FINISHED:
                         print('set string operation {} did not finish with "Fin":{}'.format(s.Handle, res))
-                        results.append('### Test 9(SetString) ### failed')
+                        test_collector.add_result('### Test 9(SetString) ### failed', TestResult.FAILED)
                     else:
                         print('set string operation {} ok:{}'.format(s.Handle, res))
-                        results.append('### Test 9(SetString) ### passed')
+                        test_collector.add_result('### Test 9(SetString) ### passed', TestResult.PASSED)
                 except futures.TimeoutError:
                     print('timeout error')
-                    results.append('### Test 9(SetString) ### failed')
+                    test_collector.add_result('### Test 9(SetString) ### failed', TestResult.FAILED)
             except Exception as ex:
                 print(f'Test 9(SetString): {ex}')
-                results.append('### Test 9(SetString) ### failed')
+                test_collector.add_result('### Test 9(SetString) ### failed', TestResult.FAILED)
 
     print('Test step 9: call SetValue operation')
     setvalue_operations = mdib.descriptions.NODETYPE.get(pm.SetValueOperationDescriptor, [])
@@ -178,7 +211,7 @@ def run_ref_test():
     setval_handle = 'numeric.ch0.vmd1_sco_0'
     if len(setvalue_operations) == 0:
         print('Test step 9 failed, no SetValue operation found')
-        results.append('### Test 9(SetValue) ### failed')
+        test_collector.add_result('### Test 9(SetValue) ### failed', TestResult.FAILED)
     else:
         for s in setvalue_operations:
             if s.Handle != setval_handle:
@@ -191,22 +224,23 @@ def run_ref_test():
                     print(res)
                     if res.InvocationInfo.InvocationState != InvocationState.FINISHED:
                         print('set value operation {} did not finish with "Fin":{}'.format(s.Handle, res))
+                        test_collector.add_result('### Test 9(SetValue) ### failed', TestResult.FAILED)
                     else:
                         print('set value operation {} ok:{}'.format(s.Handle, res))
-                        results.append('### Test 9(SetValue) ### passed')
+                        test_collector.add_result('### Test 9(SetValue) ### passed', TestResult.PASSED)
                 except futures.TimeoutError:
                     print('timeout error')
-                    results.append('### Test 9(SetValue) ### failed')
+                    test_collector.add_result('### Test 9(SetValue) ### failed', TestResult.FAILED)
             except Exception as ex:
                 print(f'Test 9(SetValue): {ex}')
-                results.append('### Test 9(SetValue) ### failed')
+                test_collector.add_result('### Test 9(SetValue) ### failed', TestResult.FAILED)
 
     print('Test step 9: call Activate operation')
     activate_operations = mdib.descriptions.NODETYPE.get(pm.ActivateOperationDescriptor, [])
     activate_handle = 'actop.vmd1_sco_0'
     if len(setstring_operations) == 0:
         print('Test step 9 failed, no Activate operation found')
-        results.append('### Test 9(Activate) ### failed')
+        test_collector.add_result('### Test 9(Activate) ### failed', TestResult.FAILED)
     else:
         for s in activate_operations:
             if s.Handle != activate_handle:
@@ -219,25 +253,25 @@ def run_ref_test():
                     print(res)
                     if res.InvocationInfo.InvocationState != InvocationState.FINISHED:
                         print('activate operation {} did not finish with "Fin":{}'.format(s.Handle, res))
-                        results.append('### Test 9(Activate) ### failed')
+                        test_collector.add_result('### Test 9(Activate) ### failed', TestResult.FAILED)
                     else:
                         print('activate operation {} ok:{}'.format(s.Handle, res))
-                        results.append('### Test 9(Activate) ### passed')
+                        test_collector.add_result('### Test 9(Activate) ### passed', TestResult.PASSED)
                 except futures.TimeoutError:
                     print('timeout error')
-                    results.append('### Test 9(Activate) ### failed')
+                    test_collector.add_result('### Test 9(Activate) ### failed', TestResult.FAILED)
             except Exception as ex:
                 print(f'Test 9(Activate): {ex}')
-                results.append('### Test 9(Activate) ### failed')
+                test_collector.add_result('### Test 9(Activate) ### failed', TestResult.FAILED)
 
     print('Test step 10: cancel all subscriptions')
     success = client._subscription_mgr.unsubscribe_all()
     if success:
-        results.append('### Test 10(unsubscribe) ### passed')
+        test_collector.add_result('### Test 10(unsubscribe) ### passed', TestResult.PASSED)
     else:
-        results.append('### Test 10(unsubscribe) ### failed')
+        test_collector.add_result('### Test 10(unsubscribe) ### failed', TestResult.FAILED)
     time.sleep(2)
-    return results
+    return test_collector
 
 
 if __name__ == '__main__':
@@ -264,5 +298,6 @@ if __name__ == '__main__':
             logging.getLogger(name).setLevel(logging.DEBUG)
         comm_logger.start()
     run_results = run_ref_test()
-    for r in run_results:
+    for r in run_results.test_messages:
         print(r)
+    sys.exit(0 if run_results.overall_test_result is TestResult.PASSED else 1)
