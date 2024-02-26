@@ -1,5 +1,4 @@
 import time
-import random
 import traceback
 from threading import Thread, Event
 from .. import namespaces
@@ -222,74 +221,6 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 else:
                     # don't change
                     transaction.ungetState(alertSignalState)
-
-    def _setUpperLimit(self, operationDescriptorContainer, value):
-        """ set upper limit of an LimitAlertConditionStateContainer"""
-        operationTargetHandle = operationDescriptorContainer.operationTarget
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            operationStateContainer = mgr._deviceMdibContainer.states.descriptorHandle.getOne(operationDescriptorContainer.handle)
-            self._inAllowedRange(operationStateContainer, value)
-            state = mgr.getAlertState(operationTargetHandle)
-            self._logger.info('set upper limit handle="{}" from {} to {}', operationTargetHandle, state.Limits.Upper, value)
-            state.Limits.Upper = value
-
-    def _setLowerLimit(self, operationDescriptorContainer, value):
-        """ set lower limit of an LimitAlertConditionStateContainer"""
-        operationTargetHandle = operationDescriptorContainer.operationTarget
-        with self._mdib.mdibUpdateTransaction() as mgr:
-            operationStateContainer = self._mdib.states.descriptorHandle.getOne(operationDescriptorContainer.handle)
-            self._inAllowedRange(operationStateContainer, value)
-            state = mgr.getAlertState(operationTargetHandle)
-            self._logger.info('set lower limit handle={} from {} to {}', operationTargetHandle, state.Limits.Lower, value)
-            state.Limits.Lower = value
-
-    @staticmethod
-    def _inAllowedRange(operationStateContainer, value):
-        if operationStateContainer.AllowedRange:
-            max_upper = max([i.Upper for i in operationStateContainer.AllowedRange])
-            min_lower = min([i.Lower for i in operationStateContainer.AllowedRange])
-            if not min_lower <= value <= max_upper:
-                raise ValueError('value "{}" to be set is not in AllowedRanges {}'.format(value, operationStateContainer.AllowedRange))
-
-    def _getAcSourceRange(self, source):
-        """
-        Given the source of the AlertCondition return PhysiologicalRange
-        Only returns range with Lower, Upper and StepWidth
-        :param source: Source metric handle
-        @return: (Range) PhysiologicalRange
-        """
-
-        for handle in source:
-            state = self._mdib.states.descriptorHandle.getOne(handle)
-            ranges = state.PhysiologicalRange
-            # find range that has Upper Lower and Step
-            for rng in ranges:
-                if rng.Upper is not None and rng.Lower is not None and rng.StepWidth is not None:
-                    return rng
-        return None
-
-    def _generateValueWithinRange(self, sourceRange, previousValue, isLower=True):
-        """ Generates a value within range different from the previous value"""
-        if sourceRange is None:
-            if isLower:
-                return -random.random()
-            else:
-                return random.random()
-
-        exp = str(sourceRange.StepWidth)[::-1].find(".")
-        if exp == -1:
-            exp = 0
-
-        value = previousValue
-        for cnt in range(int((sourceRange.Upper - sourceRange.Lower) // sourceRange.StepWidth)):
-            if value != previousValue:
-                break
-            if isLower:
-                value = round(sourceRange.Lower + (sourceRange.StepWidth*cnt), exp)
-            else:
-                value = round(sourceRange.Upper - (sourceRange.StepWidth*cnt), exp)
-
-        return value
 
     def _pauseFallbackAlertSignals(self, delegableSignalDescriptor, allSignalDescriptors, transaction):
         # look for local fallback signal (same Manifestation), and set it to paused
