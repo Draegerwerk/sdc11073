@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - possible exception in ConsumerMdib._get_context_states  [#350](https://github.com/Draegerwerk/sdc11073/issues/350)
+- reference tests and example provider
 
 ## [2.0.1] - 2024-02-21
 

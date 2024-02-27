@@ -102,7 +102,7 @@ def set_reference_data(prov: provider.SdcProvider, loc: location.SdcLocation = N
     loc = loc or get_location()
     prov.set_location(loc, [pm_types.InstanceIdentifier('Validator', extension_string='System')])
     patient_handle = prov.mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor).Handle
-    with prov.mdib.transaction_manager() as mgr:
+    with prov.mdib.context_state_transaction() as mgr:
         patient_state = mgr.mk_context_state(patient_handle)
         patient_state.CoreData.Givenname = "Given"
         patient_state.CoreData.Middlename = ["Middle"]
@@ -160,7 +160,7 @@ def run_provider():
     value_operation = prov.mdib.descriptions.handle.get_one('numeric.ch0.vmd1_sco_0')
     string_operation = prov.mdib.descriptions.handle.get_one('enumstring.ch0.vmd1_sco_0')
 
-    with prov.mdib.transaction_manager() as mgr:
+    with prov.mdib.metric_state_transaction() as mgr:
         state = mgr.get_state(value_operation.OperationTarget)
         if not state.MetricValue:
             state.mk_metric_value()
@@ -174,7 +174,7 @@ def run_provider():
         current_value = 0
         while True:
             try:
-                with prov.mdib.transaction_manager() as mgr:
+                with prov.mdib.metric_state_transaction() as mgr:
                     state = mgr.get_state(metric.Handle)
                     if not state.MetricValue:
                         state.mk_metric_value()
@@ -185,7 +185,7 @@ def run_provider():
             except Exception:  # noqa: BLE001
                 logger.error(traceback.format_exc())
             try:
-                with prov.mdib.transaction_manager() as mgr:
+                with prov.mdib.alert_state_transaction() as mgr:
                     state = mgr.get_state(alert_condition.Handle)
                     state.Presence = not state.Presence
                     logger.info(f'Set @Presence={state.Presence} of the alert condition with the handle '
