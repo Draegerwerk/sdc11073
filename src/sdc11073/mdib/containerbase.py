@@ -93,6 +93,7 @@ class ContainerBase(object):
     def diff(self, other, ignore_property_names=None):
         """ compares all properties (except to be ignored ones).
         returns a list of strings that describe differences"""
+        max_float_diff = 1e-6
         ret = []
         ignore_list = ignore_property_names or []
         my_properties = self._sortedContainerProperties()
@@ -107,8 +108,13 @@ class ContainerBase(object):
             else:
                 if isinstance(my_value, float) or isinstance(other_value, float):
                     # cast both to float, if one is a Decimal Exception might be thrown
-                    if abs((float(my_value)-float(other_value))/float(my_value)) > 1e-10: # 1e-10 is good enough
-                        ret.append('{}={}, other={}'.format(name, my_value, other_value))
+                    try:
+                        if abs((float(my_value)-float(other_value))/float(my_value)) > max_float_diff:
+                            ret.append('{}={}, other={}'.format(name, my_value, other_value))
+                    except ZeroDivisionError:
+                        if abs(float(my_value) - float(other_value)) > max_float_diff:
+                            ret.append(f'{name}={my_value}, other={other_value}')
+
                 elif my_value != other_value:
                     ret.append('{}={}, other={}'.format(name, my_value, other_value))
         # check also if other has a different list of properties

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fixed a bug where the reason for a subscribe failure would not be logged correctly [#323](https://github.com/Draegerwerk/sdc11073/issues/323)
 - fixed a bug where `isConnected` may be `True`, even though the subscription is not subscribed, because `allSubscriptionsOkay` defaults value is `True` [#326](https://github.com/Draegerwerk/sdc11073/issues/326) and it needs one second bevor changing its value to `False`
 - `RuntimeError: dictionary changed size during iteration` for `remoteServices` in the discovery [#335](https://github.com/Draegerwerk/sdc11073/issues/335) 
+- fixed possible ZeroDivisionError in ContainerBase.diff() method
 
 ## [1.3.1] - 2023-12-04
 
