@@ -14,8 +14,19 @@ MdibVersion="5795" SequenceId="urn:uuid:4ed313b2-f925-418a-8476-6f3b4d06ee3e" In
 						</Type>
 						<Source>mds0</Source>
 					</AlertCondition>
+					<AlertCondition Kind="Tec" Priority="Me" Handle="ac1.mds0" DescriptorVersion="0" SafetyClassification="MedA">
+						<Type Code="1234567">
+							<ConceptDescription Lang="en-US">dummy technical condition</ConceptDescription>
+						</Type>
+						<Source>mds0</Source>
+					</AlertCondition>
+
 					<AlertSignal ConditionSignaled="ac0.mds0" Manifestation="Aud" Latching="false" Handle="as0.mds0" DescriptorVersion="0" SafetyClassification="MedA"/>
 					<AlertSignal ConditionSignaled="ac0.mds0" Manifestation="Aud" Latching="false" Handle="as0.mds0_rem" DescriptorVersion="0" SafetyClassification="MedA" SignalDelegationSupported="true"/>
+
+					<AlertSignal ConditionSignaled="ac1.mds0" Manifestation="Aud" Latching="false" Handle="as1.mds0" DescriptorVersion="0" SafetyClassification="MedA"/>
+					<AlertSignal ConditionSignaled="ac1.mds0" Manifestation="Aud" Latching="false" Handle="as1.mds0_rem" DescriptorVersion="0" SafetyClassification="MedA" SignalDelegationSupported="true"/>
+
 				</AlertSystem>
 				<Sco Handle="sco.mds0" DescriptorVersion="0">
 

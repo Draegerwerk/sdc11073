@@ -1,8 +1,7 @@
-from ..namespaces import Prefix_Namespace as Prefix
+
 from ..namespaces import domTag, siTag, nsmap
 from .. import sdcdevice
 from .. import pmtypes
-from .. import safety
 from ..nomenclature import NomenclatureCodes as nc
 
 from . import providerbase
@@ -141,14 +140,13 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
         SF959: If signal pause is initiated for an ACKNOWLEDGEABLE ALERT SIGNAL, the the Alert Provider shall set the
         AlertSignalState/ActivationState to 'Psd' and AlertSignalState/Presence to 'Ack' for that ALERT SIGNAL.
          """
-        alertSystemDescriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSystemDescriptor'))
-        if alertSystemDescriptors is None:
-            self._logger.error('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
-            return
         if self.USE_SAFETYCONTEXT:
             self._checkSafetyContext(request)
-
         with self._mdib.mdibUpdateTransaction() as tr:
+            alertSystemDescriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSystemDescriptor'))
+            if alertSystemDescriptors is None:
+                self._logger.error('SDC_SetAudioPauseOperation called, but no AlertSystemDescriptor in mdib found')
+                return
             for alertSystemDescriptor in alertSystemDescriptors:
                 alertSystemState = tr.getAlertState(alertSystemDescriptor.handle)
                 if alertSystemState.ActivationState != pmtypes.AlertActivation.ON:
@@ -192,10 +190,10 @@ class GenericSDCAudioPauseProvider(providerbase.ProviderRole):
         If global audio pause is initiated, all SystemSignalActivation/State for all alarm systems of the product with
         SystemSignalActivation/Manifestation evaluating to 'Aud' shall be set to 'Psd'.
          """
-        alertSystemDescriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSystemDescriptor'))
         if self.USE_SAFETYCONTEXT:
             self._checkSafetyContext(request)
         with self._mdib.mdibUpdateTransaction() as tr:
+            alertSystemDescriptors = self._mdib.descriptions.NODETYPE.get(domTag('AlertSystemDescriptor'))
             for alertSystemDescriptor in alertSystemDescriptors:
                 alertSystemState = tr.getAlertState(alertSystemDescriptor.handle)
                 if alertSystemState.ActivationState != pmtypes.AlertActivation.ON:

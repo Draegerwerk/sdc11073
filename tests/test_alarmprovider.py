@@ -2,11 +2,11 @@ import logging
 import sys
 import time
 import unittest
+from unittest import mock
 
 from sdc11073 import commlog
 from sdc11073 import loghelper
 from sdc11073 import pmtypes
-from sdc11073.location import SdcLocation
 from sdc11073.mdib.clientmdib import ClientMdibContainer
 from sdc11073.sdcclient import SdcClient
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
@@ -113,3 +113,48 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         time.sleep(5)
         self.assertEqual(pmtypes.AlertActivation.ON, local_alert_signal_state.ActivationState)
         self.assertEqual(pmtypes.AlertActivation.OFF, remote_alert_signal_state.ActivationState)
+
+    def test_current_alerts(self):
+        """Test AlertSystemState handling.
+
+         Verify that alarm provider sets alarm condition lists in AlertSystemState.
+         Verify that alarm provider periodically updates AlertSystemState.
+         """
+        mds_alert_system_state0 = self.sdc_device.mdib.states.descriptorHandle.getOne('asy.mds0')
+        # verify that initially the list of current alerts is empty
+        self.assertEqual(0, len(mds_alert_system_state0.PresentTechnicalAlarmConditions))
+        # AlertConditionState ac0.mds0 is ActivationState="On" and Presence="true" in initial mdib
+        # =>there is already one alert state in list
+        self.assertEqual(1, len(mds_alert_system_state0.PresentPhysiologicalAlarmConditions))
+        # activate technical alarm
+        with self.sdc_device.mdib.mdibUpdateTransaction() as mgr:
+            alert_condition_state = mgr.getAlertState('ac1.mds0')
+            alert_condition_state.ActivationState = pmtypes.AlertActivation.ON
+            alert_condition_state.Presence = True
+        mds_alert_system_state1 = self.sdc_device.mdib.states.descriptorHandle.getOne('asy.mds0')
+        self.assertEqual(1, len(mds_alert_system_state1.PresentTechnicalAlarmConditions))
+
+        # verify that alarm role provider sends alert system state periodically (self check)
+        # check both alert systems im mdib
+        vmd_alert_system_state1 = self.sdc_device.mdib.states.descriptorHandle.getOne('asy.vmd0')
+
+        time.sleep(6)  # self check period is 5 seconds, at least one self check must have happened
+        mds_alert_system_state2 = self.sdc_device.mdib.states.descriptorHandle.getOne('asy.mds0')
+        vmd_alert_system_state2 = self.sdc_device.mdib.states.descriptorHandle.getOne('asy.vmd0')
+        self.assertGreater(vmd_alert_system_state2.StateVersion, vmd_alert_system_state1.StateVersion)
+        self.assertGreater(mds_alert_system_state2.StateVersion, mds_alert_system_state1.StateVersion)
+        self.assertGreater(vmd_alert_system_state2.SelfCheckCount, vmd_alert_system_state1.SelfCheckCount)
+        self.assertGreater(mds_alert_system_state2.SelfCheckCount, mds_alert_system_state1.SelfCheckCount)
+
+        # verify that self check logs an error if something fails
+        self.log_watcher.setPaused(True)  # deactivate the main log watcher because the following will cause errors
+        tmp_log_watcher = loghelper.LogWatcher(logging.getLogger('sdc.device.GenericAlarmProvider'),
+                                               level=logging.ERROR)
+        my_mock = mock.MagicMock(side_effect = Exception('boom!'))
+        with mock.patch.object(self.sdc_device.mdib, 'mdibUpdateTransaction', my_mock):
+            time.sleep(3)
+        records = tmp_log_watcher.getAllRecords()
+        self.assertGreater(len(records), 0)
+        for record in records:
+            self.assertTrue('boom!' in record.record.message)
+
