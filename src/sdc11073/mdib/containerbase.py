@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import inspect
 from typing import Any
-
+import math
 from lxml.etree import Element, SubElement, QName
 
 from sdc11073 import observableproperties as properties
@@ -135,13 +135,8 @@ class ContainerBase:
                 ret.append(f'{name}={my_value}, other does not have this attribute')
             else:
                 if isinstance(my_value, float) or isinstance(other_value, float):
-                    # cast both to float, if one is a Decimal Exception might be thrown
-                    try:
-                        if abs((float(my_value) - float(other_value)) / float(my_value)) > max_float_diff:
-                            ret.append(f'{name}={my_value}, other={other_value}')
-                    except ZeroDivisionError:
-                        if abs(float(my_value) - float(other_value)) > max_float_diff:
-                            ret.append(f'{name}={my_value}, other={other_value}')
+                    if not math.isclose(my_value, other_value, rel_tol=max_float_diff, abs_tol=max_float_diff):
+                        ret.append(f'{name}={my_value}, other={other_value}')
                 elif my_value != other_value:
                     ret.append(f'{name}={my_value}, other={other_value}')
         # check also if other has a different list of properties
