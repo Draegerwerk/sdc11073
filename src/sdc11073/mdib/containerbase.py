@@ -1,5 +1,6 @@
 import copy
 import inspect
+import math
 from lxml import etree as etree_
 from .. import observableproperties as properties, xmlparsing
 from ..namespaces import QN_TYPE
@@ -107,14 +108,9 @@ class ContainerBase(object):
                 ret.append('{}={}, other does not have this attribute'.format(name, my_value))
             else:
                 if isinstance(my_value, float) or isinstance(other_value, float):
-                    # cast both to float, if one is a Decimal Exception might be thrown
-                    try:
-                        if abs((float(my_value)-float(other_value))/float(my_value)) > max_float_diff:
-                            ret.append('{}={}, other={}'.format(name, my_value, other_value))
-                    except ZeroDivisionError:
-                        if abs(float(my_value) - float(other_value)) > max_float_diff:
-                            ret.append(f'{name}={my_value}, other={other_value}')
-
+                    if not math.isclose(my_value, other_value,
+                                        rel_tol=max_float_diff, abs_tol=max_float_diff):
+                        ret.append('{}={}, other={}'.format(name, my_value, other_value))
                 elif my_value != other_value:
                     ret.append('{}={}, other={}'.format(name, my_value, other_value))
         # check also if other has a different list of properties
