@@ -795,6 +795,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
         alert_condition_state = self.sdc_device.mdib.states.NODETYPE[pm.AlertConditionState][0]
         descriptor_handle = alert_condition_state.DescriptorHandle
 
+        # there are possible rounding problems in timestamps.
+        # calculate a max_float_diff for max. 1 millisecond difference.
+        now = time.time()
+        max_float_diff_1ms = (now + 0.001) / now - 1
+
         for _activation_state, _actual_priority, _presence in product(list(pm_types.AlertActivation),
                                                                       list(pm_types.AlertConditionPriority),
                                                                       (True,
@@ -810,10 +815,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             client_state_container = client_mdib.states.descriptor_handle.get_one(
                 descriptor_handle)  # this shall be updated by notification
-            # there are possible rounding problems in timestamps.
-            # calculate a max_float_diff for max. 1 millisecond difference.
-            now = time.time()
-            max_float_diff_1ms = (now+0.001)/now -1
             self.assertEqual(client_state_container.diff(st, max_float_diff=max_float_diff_1ms), None)
 
         # pick an AlertSignal for testing
