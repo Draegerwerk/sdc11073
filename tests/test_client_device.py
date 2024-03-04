@@ -810,7 +810,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             client_state_container = client_mdib.states.descriptor_handle.get_one(
                 descriptor_handle)  # this shall be updated by notification
-            self.assertEqual(client_state_container.diff(st), None)
+            # there are possible rounding problems in timestamps.
+            # calculate a max_float_diff for max. 1 millisecond difference.
+            now = time.time()
+            max_float_diff_1ms = (now+0.001)/now -1
+            self.assertEqual(client_state_container.diff(st, max_float_diff=max_float_diff_1ms), None)
 
         # pick an AlertSignal for testing
         alert_condition_state = self.sdc_device.mdib.states.NODETYPE[pm.AlertSignalState][0]
@@ -831,7 +835,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             client_state_container = client_mdib.states.descriptor_handle.get_one(
                 descriptor_handle)  # this shall be updated by notification
-            self.assertEqual(client_state_container.diff(st), None)
+            self.assertEqual(client_state_container.diff(st, max_float_diff=max_float_diff_1ms), None)
 
         # verify that client also got a PeriodicAlertReport
         message_data = coll2.result(timeout=NOTIFICATION_TIMEOUT)

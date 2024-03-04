@@ -81,18 +81,18 @@ class TestStateContainers(unittest.TestCase):
         # if sc1 is zero, a diff < 1e-6 is considered equal enough
         self.assertIsNone(sc1.diff(sc2))
         sc2.LastSet = 1e-7
-        self.assertIsNone(sc1.diff(sc2))
+        self.assertIsNone(sc1.diff(sc2, max_float_diff = 1e-6))
         sc2.LastSet = 1e-5
-        self.assertEqual(1, len(sc1.diff(sc2)))
+        self.assertEqual(1, len(sc1.diff(sc2, max_float_diff = 1e-6)))
 
         # if sc1 is not zero, the value of abs((sc1-sc2)/sc1) < 1e-6 is considered equal enough
         sc1.LastSet = 10000.0
         sc2.LastSet = 10000.0
         self.assertIsNone(sc1.diff(sc2))
         sc2.LastSet = 10000.001
-        self.assertIsNone(sc1.diff(sc2))
+        self.assertIsNone(sc1.diff(sc2, max_float_diff = 1e-6))
         sc2.LastSet = 10000.1
-        self.assertEqual(1, len(sc1.diff(sc2)))
+        self.assertEqual(1, len(sc1.diff(sc2, max_float_diff = 1e-6)))
 
     def test_AbstractMetricStateContainer(self):
         descr = dc.NumericMetricDescriptorContainer(handle='123', parent_handle='456')

@@ -114,14 +114,17 @@ class ContainerBase:
                     ret.append((name, obj))
         return ret
 
-    def diff(self, other: ContainerBase, ignore_property_names: list[str] | None = None) -> None | list[str]:
+    def diff(self, other: ContainerBase,
+             ignore_property_names: list[str] | None = None,
+             max_float_diff = 1e-15) -> None | list[str]:
         """Compare all properties (except to be ignored ones).
 
         :param other: the object to compare with
         :param ignore_property_names: list of properties that shall be excluded from diff calculation
+        :param max_float_diff: parameter for math.isclose() if float values are incorporated.
+                                1e-15 corresponds to 15 digits max. accuracy (see sys.float_info.dig)
         :return: textual representation of differences or None if equal
         """
-        max_float_diff = 1e-6  # if difference is less or equal, two floats are considered equal
         ret = []
         ignore_list = ignore_property_names or []
         my_properties = self.sorted_container_properties()
