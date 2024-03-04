@@ -91,10 +91,17 @@ class ContainerBase(object):
         return ret
 
 
-    def diff(self, other, ignore_property_names=None):
+    def diff(self,
+             other,
+             ignore_property_names=None,
+             max_float_diff=1e-15):
         """ compares all properties (except to be ignored ones).
-        returns a list of strings that describe differences"""
-        max_float_diff = 1e-6
+        :param other: the object to compare with
+        :param ignore_property_names: list of properties that shall be excluded from diff calculation
+        :param max_float_diff: parameter for math.isclose() if float values are incorporated.
+                                1e-15 corresponds to 15 digits max. accuracy (see sys.float_info.dig)
+        :return: returns a list of strings that describe differences
+        """
         ret = []
         ignore_list = ignore_property_names or []
         my_properties = self._sortedContainerProperties()

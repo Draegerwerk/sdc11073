@@ -690,6 +690,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
             alertConditionDescr = sdcDevice.mdib.states.NODETYPE[namespaces.domTag('AlertConditionState')][0]
             descriptorHandle = alertConditionDescr.descriptorHandle
 
+            # there are possible rounding problems in timestamps.
+            # calculate a max_float_diff for max. 1 millisecond difference.
+            now = time.time()
+            max_float_diff_1ms = (now+0.001)/now -1
+
             for _activationState, _actualPriority, _presence in product(('On', 'Off', 'Psd'),
                                                                         ('Lo', 'Hi', 'Me', 'None'), (True,
                                                                                                      False)):  # test every possible combination
@@ -703,7 +708,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 coll.result(timeout=NOTIFICATION_TIMEOUT)
                 clientStateContainer = cl_mdib.states.descriptorHandle.getOne(
                     descriptorHandle)  # this shall be updated by notification
-                self.assertEqual(clientStateContainer.diff(st), [])
+
+                self.assertEqual(clientStateContainer.diff(st, max_float_diff=max_float_diff_1ms), [])
 
             # pick an AlertSignal for testing
             alertConditionDescr = sdcDevice.mdib.states.NODETYPE[namespaces.domTag('AlertSignalState')][0]
@@ -723,7 +729,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 coll.result(timeout=NOTIFICATION_TIMEOUT)
                 clientStateContainer = cl_mdib.states.descriptorHandle.getOne(
                     descriptorHandle)  # this shall be updated by notification
-                self.assertEqual(clientStateContainer.diff(st), [])
+                self.assertEqual(clientStateContainer.diff(st, max_float_diff=max_float_diff_1ms), [])
 
             # verify that client also got a PeriodicAlertReport
             periodic_report = coll2.result(timeout=NOTIFICATION_TIMEOUT)
