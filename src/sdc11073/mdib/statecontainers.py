@@ -266,13 +266,13 @@ class ClockStateContainer(AbstractDeviceComponentStateContainer):
     _props = ('ActiveSyncProtocol', 'ReferenceSource', 'DateAndTime', 'RemoteSync', 'Accuracy', 'LastSet', 'TimeZone',
               'CriticalUse')
 
-    def diff(self, other):
+    def diff(self, other, max_float_diff=1e-15):
         """ compares all properties EXCEPT DateAndTime.
         BICEPS says:
         "As the current date/time changes at a high frequency, a change of this value SHALL NOT cause
         an update of the state version unless it has been synchronized either remotely or manually."
         returns a list of strings that describe differences"""
-        return super().diff(other, ignore_property_names=['DateAndTime'])
+        return super().diff(other, ignore_property_names=['DateAndTime'], max_float_diff=max_float_diff)
 
 
 class SystemContextStateContainer(AbstractDeviceComponentStateContainer):

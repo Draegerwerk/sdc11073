@@ -1,5 +1,6 @@
 import copy
 import inspect
+import math
 from lxml import etree as etree_
 from .. import observableproperties as properties, xmlparsing
 from ..namespaces import QN_TYPE
@@ -90,9 +91,17 @@ class ContainerBase(object):
         return ret
 
 
-    def diff(self, other, ignore_property_names=None):
+    def diff(self,
+             other,
+             ignore_property_names=None,
+             max_float_diff=1e-15):
         """ compares all properties (except to be ignored ones).
-        returns a list of strings that describe differences"""
+        :param other: the object to compare with
+        :param ignore_property_names: list of properties that shall be excluded from diff calculation
+        :param max_float_diff: parameter for math.isclose() if float values are incorporated.
+                                1e-15 corresponds to 15 digits max. accuracy (see sys.float_info.dig)
+        :return: returns a list of strings that describe differences
+        """
         ret = []
         ignore_list = ignore_property_names or []
         my_properties = self._sortedContainerProperties()
@@ -106,8 +115,8 @@ class ContainerBase(object):
                 ret.append('{}={}, other does not have this attribute'.format(name, my_value))
             else:
                 if isinstance(my_value, float) or isinstance(other_value, float):
-                    # cast both to float, if one is a Decimal Exception might be thrown
-                    if abs((float(my_value)-float(other_value))/float(my_value)) > 1e-10: # 1e-10 is good enough
+                    if not math.isclose(my_value, other_value,
+                                        rel_tol=max_float_diff, abs_tol=max_float_diff):
                         ret.append('{}={}, other={}'.format(name, my_value, other_value))
                 elif my_value != other_value:
                     ret.append('{}={}, other={}'.format(name, my_value, other_value))
