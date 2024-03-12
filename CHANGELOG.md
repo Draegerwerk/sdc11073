@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - possible exception in ConsumerMdib._get_context_states  [#350](https://github.com/Draegerwerk/sdc11073/issues/350)
 - reference tests and example provider
 
+### Changed
+
+- ContainerBase.diff uses math.isclose for comparison, test added
+
 ## [2.0.1] - 2024-02-21
 
 ### Fixed
