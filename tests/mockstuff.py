@@ -127,6 +127,7 @@ class SomeDevice(SdcProvider):
                                 serial_number='12345')
 
         device_mdib_container = ProviderMdib.from_string(mdib_xml_data, log_prefix=log_prefix)
+        device_mdib_container.instance_id = 1  # set the optional value
         # set Metadata
         mdsDescriptors = device_mdib_container.descriptions.NODETYPE.get(pm.MdsDescriptor)
         for mdsDescriptor in mdsDescriptors:

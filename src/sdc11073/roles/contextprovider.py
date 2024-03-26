@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import uuid
 from typing import TYPE_CHECKING
 
 from sdc11073.provider.operations import ExecuteResult
@@ -51,7 +52,7 @@ class GenericContextProvider(providerbase.ProviderRole):
         proposed_context_states = params.operation_request.argument
         pm_types = self._mdib.data_model.pm_types
         operation_target_handles = []
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.context_state_transaction() as mgr:
             for proposed_st in proposed_context_states:
                 old_state_container = None
                 if proposed_st.DescriptorHandle != proposed_st.Handle:
@@ -63,8 +64,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                 if old_state_container is None:
                     # this is a new context state
                     # create a new unique handle
-                    handle_string = f'{proposed_st.DescriptorHandle}_{self._mdib.mdib_version}'
-                    proposed_st.Handle = handle_string
+                    proposed_st.Handle = uuid.uuid4().hex
                     operation_target_handles.append(proposed_st.Handle)
                     proposed_st.BindingMdibVersion = self._mdib.mdib_version
                     proposed_st.BindingStartTime = time.time()

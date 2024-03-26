@@ -27,14 +27,13 @@ from sdc11073.xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisM
 from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
 from sdc11073.roles.protocols import ProductProtocol, WaveformProviderProtocol # import here for code cov. :(
 
-from .components import default_sdc_provider_components
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 
 if TYPE_CHECKING:
     from enum import Enum
     from sdc11073.location import SdcLocation
     from sdc11073.mdib.providermdib import ProviderMdib
-    from sdc11073.mdib.transactions import TransactionProcessor
+    from sdc11073.mdib.transactionsprotocol import TransactionResultProtocol
     from sdc11073.mdib.statecontainers import AbstractStateProtocol
     from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
     from sdc11073.pysoap.msgfactory import CreatedMessage
@@ -126,6 +125,7 @@ class SdcProvider:
         self._socket_timeout = socket_timeout or int(max_subscription_duration * 1.2)
         self._log_prefix = log_prefix
         if default_components is None:
+            from .components import default_sdc_provider_components  # lazy import avoids cyclic import
             default_components = default_sdc_provider_components
         self._components = copy.deepcopy(default_components)
         if specific_components is not None:
@@ -382,7 +382,7 @@ class SdcProvider:
         return self.mdib.data_model.msg_types.InvocationState.FAILED
 
     def start_all(self,
-                  start_rtsample_loop: bool =True,
+                  start_rtsample_loop: bool = True,
                   periodic_reports_interval: float | None = None,
                   shared_http_server=None):
         """:param start_rtsample_loop: flag
@@ -488,53 +488,53 @@ class SdcProvider:
             xaddrs.append(f'{self._urlschema}://{addr}:{port}/{self.path_prefix}')
         return xaddrs
 
-    def _send_episodic_reports(self, transaction_processor: TransactionProcessor):
+    def _send_episodic_reports(self, transaction_result: TransactionResultProtocol):
         mdib_version_group = self._mdib.mdib_version_group
-        if transaction_processor.has_descriptor_updates:
+        if transaction_result.has_descriptor_updates:
             port_type_impl = self.hosted_services.description_event_service
-            updated = transaction_processor.descr_updated
-            created = transaction_processor.descr_created
-            deleted = transaction_processor.descr_deleted
-            states = transaction_processor.all_states()
+            updated = transaction_result.descr_updated
+            created = transaction_result.descr_created
+            deleted = transaction_result.descr_deleted
+            states = transaction_result.all_states()
             port_type_impl.send_descriptor_updates(
                 updated, created, deleted, states, mdib_version_group)
 
-        states = transaction_processor.metric_updates
+        states = transaction_result.metric_updates
         if len(states) > 0:
             port_type_impl = self.hosted_services.state_event_service
             port_type_impl.send_episodic_metric_report(
                 states, mdib_version_group)
             self._periodic_reports_handler.store_metric_states(mdib_version_group.mdib_version,
-                                                               transaction_processor.metric_updates)
+                                                               transaction_result.metric_updates)
 
-        states = transaction_processor.alert_updates
+        states = transaction_result.alert_updates
         if len(states) > 0:
             port_type_impl = self.hosted_services.state_event_service
             port_type_impl.send_episodic_alert_report(
                 states, mdib_version_group)
             self._periodic_reports_handler.store_alert_states(mdib_version_group.mdib_version, states)
 
-        states = transaction_processor.comp_updates
+        states = transaction_result.comp_updates
         if len(states) > 0:
             port_type_impl = self.hosted_services.state_event_service
             port_type_impl.send_episodic_component_state_report(
                 states, mdib_version_group)
             self._periodic_reports_handler.store_component_states(mdib_version_group.mdib_version, states)
 
-        states = transaction_processor.ctxt_updates
+        states = transaction_result.ctxt_updates
         if len(states) > 0:
             port_type_impl = self.hosted_services.context_service
             port_type_impl.send_episodic_context_report(
                 states, mdib_version_group)
             self._periodic_reports_handler.store_context_states(mdib_version_group.mdib_version, states)
 
-        states = transaction_processor.op_updates
+        states = transaction_result.op_updates
         if len(states) > 0:
             port_type_impl = self.hosted_services.state_event_service
             port_type_impl.send_episodic_operational_state_report(states, mdib_version_group)
             self._periodic_reports_handler.store_operational_states(mdib_version_group.mdib_version, states)
 
-        states = transaction_processor.rt_updates
+        states = transaction_result.rt_updates
         if len(states) > 0:
             port_type_impl = self.hosted_services.waveform_service
             port_type_impl.send_realtime_samples_report(states, mdib_version_group)

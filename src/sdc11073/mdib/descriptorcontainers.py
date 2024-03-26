@@ -204,17 +204,6 @@ class AbstractDescriptorContainer(ContainerBase):
                     ret.append(f'parent_handle={my_value}, other={other_value}')
         return None if len(ret) == 0 else ret
 
-    def mk_descriptor_node(self, tag: etree_.QName,
-                           ns_helper: NamespaceHelper, set_xsi_type: bool = True) -> xml_utils.LxmlElement:
-        """Create a lxml etree node from instance data.
-
-        :param tag: tag of node
-        :param ns_helper: namespaces.DocNamespaceHelper instance
-        :param set_xsi_type: if True, adds Type attribute to node
-        :return: an etree node
-        """
-        return self.mk_node(tag, ns_helper, set_xsi_type)
-
     def tag_name_for_child_descriptor(self, node_type: etree_.QName) -> (etree_.QName, bool):
         """Determine the tag name of a child descriptor.
 

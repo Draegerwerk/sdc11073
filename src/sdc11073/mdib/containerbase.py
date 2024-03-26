@@ -3,8 +3,8 @@ from __future__ import annotations
 import copy
 import inspect
 from typing import Any
-
-from lxml.etree import Element, QName
+import math
+from lxml.etree import Element, SubElement, QName
 
 from sdc11073 import observableproperties as properties
 from sdc11073.namespaces import QN_TYPE, NamespaceHelper
@@ -34,18 +34,27 @@ class ContainerBase:
         """Ignore default value and implied value, e.g. return None if value is not present in xml."""
         return getattr(self.__class__, attr_name).get_actual_value(self)
 
-    def mk_node(self, tag: QName, ns_helper: NamespaceHelper, set_xsi_type: bool = False) -> xml_utils.LxmlElement:
+    def mk_node(self,
+                tag: QName,
+                ns_helper: NamespaceHelper,
+                parent_node: xml_utils.LxmlElement | None = None,
+                set_xsi_type: bool = False) -> xml_utils.LxmlElement:
         """Create an etree node from instance data.
 
         :param tag: tag of the newly created node
         :param ns_helper: namespaces.NamespaceHelper instance
+        :param parent_node: optional parent node
         :param set_xsi_type: if True, adds Type attribute to node
         :return: etree node
         """
         ns_map = ns_helper.partial_map(ns_helper.PM,
                                        ns_helper.MSG,
                                        ns_helper.XSI)
-        node = Element(tag, nsmap=ns_map)
+        if parent_node is not None:
+            node = SubElement(parent_node, tag, nsmap=ns_map)
+        else:
+            node = Element(tag, nsmap=ns_map)
+
         self.update_node(node, ns_helper, set_xsi_type)
         return node
 
@@ -80,7 +89,7 @@ class ContainerBase:
                 new_value = getattr(other_container, prop_name)
                 setattr(self, prop_name, copy.copy(new_value))
 
-    def mk_copy(self, copy_node: bool = True) -> ContainerBase:
+    def mk_copy(self, copy_node: bool = False) -> ContainerBase:
         """Make a copy of self."""
         copied = copy.copy(self)
         if copy_node and self.node is not None:
@@ -105,14 +114,17 @@ class ContainerBase:
                     ret.append((name, obj))
         return ret
 
-    def diff(self, other: ContainerBase, ignore_property_names: list[str] | None = None) -> None | list[str]:
+    def diff(self, other: ContainerBase,
+             ignore_property_names: list[str] | None = None,
+             max_float_diff = 1e-15) -> None | list[str]:
         """Compare all properties (except to be ignored ones).
 
         :param other: the object to compare with
         :param ignore_property_names: list of properties that shall be excluded from diff calculation
+        :param max_float_diff: parameter for math.isclose() if float values are incorporated.
+                                1e-15 corresponds to 15 digits max. accuracy (see sys.float_info.dig)
         :return: textual representation of differences or None if equal
         """
-        max_float_diff = 1e-6  # if difference is less or equal, two floats are considered equal
         ret = []
         ignore_list = ignore_property_names or []
         my_properties = self.sorted_container_properties()
@@ -126,13 +138,8 @@ class ContainerBase:
                 ret.append(f'{name}={my_value}, other does not have this attribute')
             else:
                 if isinstance(my_value, float) or isinstance(other_value, float):
-                    # cast both to float, if one is a Decimal Exception might be thrown
-                    try:
-                        if abs((float(my_value) - float(other_value)) / float(my_value)) > max_float_diff:
-                            ret.append(f'{name}={my_value}, other={other_value}')
-                    except ZeroDivisionError:
-                        if abs(float(my_value) - float(other_value)) > max_float_diff:
-                            ret.append(f'{name}={my_value}, other={other_value}')
+                    if not math.isclose(my_value, other_value, rel_tol=max_float_diff, abs_tol=max_float_diff):
+                        ret.append(f'{name}={my_value}, other={other_value}')
                 elif my_value != other_value:
                     ret.append(f'{name}={my_value}, other={other_value}')
         # check also if other has a different list of properties

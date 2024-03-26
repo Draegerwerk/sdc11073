@@ -209,7 +209,7 @@ class WSDiscovery:
             elif now < end:
                 time.sleep(end - now)
             now = time.monotonic()
-        return filter_services(self._remote_services.values(), types, scopes)
+        return filter_services(list(self._remote_services.values()), types, scopes)
 
     def search_sdc_services(self,
                             scopes: wsd_types.ScopesType | None = None,
@@ -255,7 +255,7 @@ class WSDiscovery:
         # prevent possible duplicates by adding them to a dictionary by epr
         result = {}
         for _type in types_list:
-            tmp = filter_services(self._remote_services.values(), _type, scopes)
+            tmp = filter_services(list(self._remote_services.values()), _type, scopes)
             for srv in tmp:
                 result[srv.epr] = srv
         return list(result.values())

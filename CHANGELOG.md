@@ -8,17 +8,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- added a way to proccess operations sync (directly send FINISHED)
+
 - support for python version 3.12
 
 ### Fixed
+
+- possible exception in ConsumerMdib._get_context_states  [#350](https://github.com/Draegerwerk/sdc11073/issues/350)
+- reference tests and example provider
+
+### Changed
+
+- ContainerBase.diff uses math.isclose for comparison, test added
+
+## [2.0.1] - 2024-02-21
+
+### Fixed
+
+- inconsistent InstanceId attributes in GetMdibResponse
+
+## [2.0.0] - 2024-02-14
+
+### Fixed
+
+- `RuntimeError: dictionary changed size during iteration` for `remote_services` in the discovery [#335](https://github.com/Draegerwerk/sdc11073/issues/335) 
+- DescriptorTransaction sometimes causes wrong DescriptorVersion in states [#340](https://github.com/Draegerwerk/sdc11073/issues/340)
+
+## [2.0.0rc2] - 2024-02-08
+
+### Fixed
+
+- fixed a bug where sending and receiving socket are used after they have been closed already [#328](https://github.com/Draegerwerk/sdc11073/issues/328)
+- fixed a bug where `getsockname()` is called before the socket is binded
+- fixed cyclic import [#333](https://github.com/Draegerwerk/sdc11073/issues/333)
+
+## [2.0.0rc1] - 2024-01-31
+
+### Fixed
+
+- fixed a bug where comparing `ExtensionLocalValue` would fail when using the `!=` operator [#305](https://github.com/Draegerwerk/sdc11073/issues/305)
+- fixed wrong typing info in LocalizedText
+- added a safety sleep in consumer when starting http server
+- fixed possible caching errors in AlarmProvider and AudioPauseProvider 
+
+### Changed
+- new interface for transactions: split transaction into different kinds, e.g. descriptor_transaction, metric_state_transaction, etc.
+- `SdcConsumer` provides a dictionary with the current connection status of each subscription it is subscribed to [#271](https://github.com/Draegerwerk/sdc11073/issues/271)
+- added `force_ssl_connect` parameter to constructor of consumer.
+
+## [2.0.0a7] - 2024-01-04
+
+### Added
+- added a way to process operations directly (directly send 'Fin' instead of Wait, Started,...)
+- added handling of SystemErrorReports.
+
+### Fixed
 - basic_logging_setup only handles sdc logger, no more side effect due to calling logging.basicConfig. 
+- fix possible invalid prefix if QName is a node text.
+- fixed wrong response for SetContextState message. [#287](https://github.com/Draegerwerk/sdc11073/issues/287)
+- fixed connection problem when provider closes socket after first request. [#289](https://github.com/Draegerwerk/sdc11073/issues/289)
+- change default in ContainerBase.mk_copy to not copy node due to performance problems. [#294](https://github.com/Draegerwerk/sdc11073/issues/294)
+- waveform provider too slow
+- create MetricValue for DistributionSampleArrayMetricState
+- dropping of Bye-messages when stopping wsdiscovery
 
 ### Changed
 - change python classes of `addressing_types.py` to match ws-addressing standard of 2006 instead of 2004 
 - The final OperationInvokedReport has OperationTargetRef parameter set. 
   This required refactoring of Operations handling.
 - moved waveform generator from mdib to roles.waveformprovider
+- alert provider performs self check one second before SelfCheckInterval elapses
 
 ## [2.0.0a6] - 2023-09-11
 

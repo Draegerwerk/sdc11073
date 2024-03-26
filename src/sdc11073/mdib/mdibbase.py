@@ -141,15 +141,6 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
         """Remove objects from table without locking."""
         apply_map(self.remove_object_no_lock, objects)
 
-    def replace_object_no_lock(self, new_obj: AbstractDescriptorContainer):
-        """Remove existing descriptor_container and add new one, but do not touch child list of parent.
-
-        This keeps order.
-        """
-        orig_obj = self.handle.get_one(new_obj.Handle)
-        self.remove_object_no_lock(orig_obj)
-        self.add_object_no_lock(new_obj)
-
 
 class StatesLookup(_MultikeyWithVersionLookup):
     """StatesLookup is the table-like storage for states.
@@ -358,33 +349,34 @@ class MdibBase:
                                              attrib={'DescriptionVersion': str(self.mddescription_version)},
                                              nsmap=doc_nsmap)
         for root_container in root_containers:
-            node = self.make_descriptor_node(root_container, tag=pm.Mds, set_xsi_type=False)
-            md_description_node.append(node)
+            self.make_descriptor_node(root_container, md_description_node, tag=pm.Mds, set_xsi_type=False)
         return md_description_node
 
     def make_descriptor_node(self,
                              descriptor_container: AbstractDescriptorContainer,
+                             parent_node: xml_utils.LxmlElement,
                              tag: etree_.QName,
                              set_xsi_type: bool = True) -> xml_utils.LxmlElement:
         """Create a lxml etree node with subtree from instance data.
 
         :param descriptor_container: a descriptor container instance
+        :param parent_node: parent node
         :param tag: tag of node
         :param set_xsi_type: if true, the NODETYPE will be used to set the xsi:type attribute of the node
         :return: an etree node.
         """
         ns_map = self.nsmapper.partial_map(self.nsmapper.PM, self.nsmapper.XSI) \
             if set_xsi_type else self.nsmapper.partial_map(self.nsmapper.PM)
-        node = etree_.Element(tag,
-                              attrib={'Handle': descriptor_container.Handle},
-                              nsmap=ns_map)
+        node = etree_.SubElement(parent_node,
+                                 tag,
+                                 attrib={'Handle': descriptor_container.Handle},
+                                 nsmap=ns_map)
         descriptor_container.update_node(node, self.nsmapper, set_xsi_type)  # create all
         child_list = self.descriptions.parent_handle.get(descriptor_container.Handle, [])
         # append all child containers, then bring all child elements in correct order
         for child in child_list:
             child_tag, set_xsi = descriptor_container.tag_name_for_child_descriptor(child.NODETYPE)
-            child_node = self.make_descriptor_node(child, child_tag, set_xsi)
-            node.append(child_node)
+            self.make_descriptor_node(child, node, child_tag, set_xsi)
         descriptor_container.sort_child_nodes(node)
         return node
 
@@ -399,6 +391,8 @@ class MdibBase:
         mdib_node = etree_.Element(msg.Mdib, nsmap=doc_nsmap)
         mdib_node.set('MdibVersion', str(self.mdib_version))
         mdib_node.set('SequenceId', self.sequence_id)
+        if self.instance_id is not None:
+            mdib_node.set('InstanceId', str(self.instance_id))
         md_description_node = self._reconstruct_md_description()
         mdib_node.append(md_description_node)
 

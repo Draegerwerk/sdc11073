@@ -58,7 +58,7 @@ class Test_BuiltinOperations(unittest.TestCase):
                                       ssl_context_container=None,
                                       validate=CLIENT_VALIDATE,
                                       specific_components=specific_components)
-        self.sdc_client.start_all(subscribe_periodic_reports=True)
+        self.sdc_client.start_all()
         time.sleep(1)
         self._logger.info('############### setUp done %s ##############', self._testMethodName)
         time.sleep(0.5)
@@ -192,7 +192,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         # create a patient locally on device, then test update from client
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_context_report')
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.context_state_transaction() as mgr:
             st = mgr.mk_context_state(patient_descriptor_container.Handle)
             st.CoreData.Givenname = 'Max123'
             st.CoreData.Middlename = ['Willy']
@@ -271,7 +271,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         """
         # switch one alert system off
         alert_system_off = 'Asy.3208'
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.alert_state_transaction() as mgr:
             state = mgr.get_state(alert_system_off)
             state.ActivationState = pm_types.AlertActivation.OFF
         alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
@@ -282,8 +282,11 @@ class Test_BuiltinOperations(unittest.TestCase):
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
         coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
-        operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
-        future = set_service.activate(operation_handle=operation.Handle, arguments=None)
+        operation_pause = self.sdc_device.mdib.descriptions.coding.get_one(coding)
+        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
+        operation_cancel = self.sdc_device.mdib.descriptions.coding.get_one(coding)
+
+        future = set_service.activate(operation_handle=operation_pause.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
@@ -298,9 +301,7 @@ class Test_BuiltinOperations(unittest.TestCase):
             if alert_system_descriptor.Handle != alert_system_off:
                 self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
 
-        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
-        operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
-        future = set_service.activate(operation_handle=operation.Handle, arguments=None)
+        future = set_service.activate(operation_handle=operation_cancel.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
@@ -312,6 +313,22 @@ class Test_BuiltinOperations(unittest.TestCase):
         for alert_system_descriptor in alert_system_descriptors:
             state = self.sdc_client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
             self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.ON)
+
+        # now remove all alert systems from provider mdib and verify that operation now fails
+        with self.sdc_device.mdib.descriptor_transaction() as mgr:
+            for descr in alert_system_descriptors:
+                mgr.remove_descriptor(descr.Handle)
+        future = set_service.activate(operation_handle=operation_pause.Handle, arguments=None)
+        result = future.result(timeout=SET_TIMEOUT)
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msg_types.InvocationState.FAILED)
+
+        future = set_service.activate(operation_handle=operation_cancel.Handle, arguments=None)
+        result = future.result(timeout=SET_TIMEOUT)
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msg_types.InvocationState.FAILED)
+
+
 
     def test_audio_pause_two_clients(self):
         alert_system_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
@@ -334,7 +351,7 @@ class Test_BuiltinOperations(unittest.TestCase):
                                   validate=CLIENT_VALIDATE,
                                   specific_components=specific_components,
                                   log_prefix='client2')
-        sdc_client2.start_all(subscribe_periodic_reports=True)
+        sdc_client2.start_all()
         try:
             client_mdib2 = ConsumerMdib(sdc_client2)
             client_mdib2.init_mdib()

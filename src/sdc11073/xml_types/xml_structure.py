@@ -822,12 +822,11 @@ class NodeTextQNameProperty(_ElementBase):
                 sub_node.text = None
         else:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
-            value = docname_from_qname(py_value, sub_node.nsmap)
-            sub_node.text = value
+            sub_node.text = py_value  # this adds the namesoace to sube_node.nsmap
 
 
 def _compare_extension(left: xml_utils.LxmlElement, right: xml_utils.LxmlElement) -> bool:
-    # xml comparison
+    # SDPi R0019 and R0020 forbid the usage of XML mixed content or xml schema qname type in extensions
     try:
         if left.tag != right.tag:  # compare expanded names
             return False
@@ -860,6 +859,9 @@ class ExtensionLocalValue(list[xml_utils.LxmlElement]):
         except TypeError: # len of other cannot be determined
             return False
         return all(self.__class__.compare_method(left, right) for left, right in zip(self, other))
+
+    def __ne__(self, other):
+        return not self == other
 
 
 class ExtensionNodeProperty(_ElementBase):
@@ -986,12 +988,11 @@ class SubElementProperty(_ElementBase):
                     raise ValueError(f'mandatory value {self._sub_element_name} missing')
                 etree_.SubElement(node, self._sub_element_name, nsmap=node.nsmap)
         else:
-            sub_node = py_value.as_etree_node(self._sub_element_name, node.nsmap)
+            sub_node = py_value.as_etree_node(self._sub_element_name, node.nsmap, node)
             if hasattr(py_value, 'NODETYPE') and hasattr(self.value_class, 'NODETYPE') \
                     and py_value.NODETYPE != self.value_class.NODETYPE:
                 # set xsi type
                 sub_node.set(QN_TYPE, docname_from_qname(py_value.NODETYPE, node.nsmap))
-            node.append(sub_node)
 
 
 class ContainerProperty(_ElementBase):
@@ -1045,11 +1046,10 @@ class ContainerProperty(_ElementBase):
                 etree_.SubElement(node, self._sub_element_name, nsmap=node.nsmap)
         else:
             self.remove_sub_element(node)
-            sub_node = py_value.mk_node(self._sub_element_name, self._ns_helper)
+            sub_node = py_value.mk_node(self._sub_element_name, self._ns_helper, node)
             if py_value.NODETYPE != self.value_class.NODETYPE:
                 # set xsi type
                 sub_node.set(QN_TYPE, docname_from_qname(py_value.NODETYPE, node.nsmap))
-            node.append(sub_node)
 
 
 class _ElementListProperty(_ElementBase, ABC):
@@ -1106,12 +1106,11 @@ class SubElementListProperty(_ElementListProperty):
 
         if py_value is not None:
             for val in py_value:
-                sub_node = val.as_etree_node(self._sub_element_name, node.nsmap)
+                sub_node = val.as_etree_node(self._sub_element_name, node.nsmap, node)
                 if hasattr(val, 'NODETYPE') and hasattr(self.value_class, 'NODETYPE') \
                         and val.NODETYPE != self.value_class.NODETYPE:
                     # set xsi type
                     sub_node.set(QN_TYPE, docname_from_qname(val.NODETYPE, node.nsmap))
-                node.append(sub_node)
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__} datatype {self.value_class.__name__} in subelement {self._sub_element_name}'
@@ -1172,11 +1171,10 @@ class ContainerListProperty(_ElementListProperty):
         # ... and create new ones
         if py_value is not None:
             for val in py_value:
-                sub_node = val.mk_node(self._sub_element_name, self._ns_helper)
+                sub_node = val.mk_node(self._sub_element_name, self._ns_helper, node)
                 if val.NODETYPE != self.value_class.NODETYPE:
                     # set xsi type
                     sub_node.set(QN_TYPE, docname_from_qname(val.NODETYPE, node.nsmap))
-                node.append(sub_node)
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__} datatype {self.value_class.__name__} in subelement {self._sub_element_name}'
@@ -1269,7 +1267,7 @@ class SubElementWithSubElementListProperty(SubElementProperty):
         if py_value is None or py_value.is_empty():
             return
         self.remove_sub_element(node)
-        node.append(py_value.as_etree_node(self._sub_element_name, node.nsmap))
+        py_value.as_etree_node(self._sub_element_name, node.nsmap, node)  # creates a sub-node
 
     def __set__(self, instance: Any, py_value: Any):
         if isinstance(py_value, self.value_class):
@@ -1313,7 +1311,7 @@ class AnyEtreeNodeListProperty(_ElementListProperty):
         sub_node.extend(py_value)
 
     def __str__(self) -> str:
-        return f'{self.__class__.__name__} in subelement {self._sub_element_name}'
+        return f'{self.__class__.__name__} in sub-element {self._sub_element_name}'
 
 
 class NodeTextListProperty(_ElementListProperty):

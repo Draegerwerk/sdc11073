@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol, AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactions import TransactionManagerProtocol
+    from sdc11073.mdib.transactionsprotocol import TransactionManagerProtocol
     from sdc11073.provider.operations import OperationDefinitionBase, OperationDefinitionProtocol, ExecuteParameters
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 
@@ -32,6 +32,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
     """
 
     WORKER_THREAD_INTERVAL = 1.0  # seconds
+    self_check_safety_margin = 1.0 # how many seconds before SelfCheckInterval elapses a new self check is performed.
 
     def __init__(self, mdib: ProviderMdib, log_prefix: str):
         super().__init__(mdib, log_prefix)
@@ -177,8 +178,8 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         # find all alert systems for the changed alert conditions
         alert_system_states = set()
         for tmp in changed_alert_conditions:
-            alert_descriptor = transaction.get_descriptor_in_transaction(tmp.DescriptorHandle)
-            alert_system_descriptor = transaction.get_descriptor_in_transaction(alert_descriptor.parent_handle)
+            alert_descriptor = transaction.actual_descriptor(tmp.DescriptorHandle)
+            alert_system_descriptor = transaction.actual_descriptor(alert_descriptor.parent_handle)
             if alert_system_descriptor.Handle in transaction.alert_state_updates:
                 tmp_st = transaction.alert_state_updates[alert_system_descriptor.Handle]
                 if tmp_st.new is not None:
@@ -343,7 +344,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         value = params.operation_request.argument
         pm_types = self._mdib.data_model.pm_types
         operation_target_handle = params.operation_instance.operation_target_handle
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.alert_state_transaction() as mgr:
             state = mgr.get_state(operation_target_handle)
             self._logger.info('delegate alert signal %s of %s from %s to %s', operation_target_handle, state,
                               state.ActivationState, value.ActivationState)
@@ -363,7 +364,7 @@ class GenericAlarmProvider(providerbase.ProviderRole):
         """TimeoutHandler for delegated signal."""
         pm_types = self._mdib.data_model.pm_types
         operation_target_handle = operation_instance.operation_target_handle
-        with self._mdib.transaction_manager() as mgr:
+        with self._mdib.alert_state_transaction() as mgr:
             state = mgr.get_state(operation_target_handle)
             self._logger.info('timeout alert signal delegate operation=%s target=%s',
                               operation_instance.handle, operation_target_handle)
@@ -388,15 +389,14 @@ class GenericAlarmProvider(providerbase.ProviderRole):
 
     def _update_alert_system_state_current_alerts(self):
         """Update AlertSystemState present alarms list."""
-        states_needing_update = self._get_alert_system_states_needing_update()
-        if len(states_needing_update) > 0:
-            try:
-                with self._mdib.transaction_manager() as mgr:
+        try:
+            with self._mdib.alert_state_transaction() as mgr:
+                states_needing_update = self._get_alert_system_states_needing_update()
+                if len(states_needing_update) > 0:
                     tr_states = [mgr.get_state(s.DescriptorHandle) for s in states_needing_update]
                     self._update_alert_system_states(self._mdib, mgr, tr_states)
-            except Exception:
-                exc = traceback.format_exc()
-                self._logger.error('_checkAlertStates: %s', exc)
+        except Exception:
+            self._logger.error('_update_alert_system_state_current_alerts: %s', traceback.format_exc())
 
     def _get_alert_system_states_needing_update(self) -> list[AbstractStateProtocol]:
         """:return: all AlertSystemStateContainers of those last"""
@@ -409,12 +409,11 @@ class GenericAlarmProvider(providerbase.ProviderRole):
                 alert_system_state = self._mdib.states.descriptor_handle.get_one(alert_system_descr.Handle,
                                                                                  allow_none=True)
                 if alert_system_state is not None:
-                    selfcheck_period = alert_system_descr.SelfCheckPeriod
-                    if selfcheck_period is not None:
-                        last_selfcheck = alert_system_state.LastSelfCheck or 0.0
-                        if time.time() - last_selfcheck >= selfcheck_period:
+                    self_check_period = alert_system_descr.SelfCheckPeriod
+                    if self_check_period is not None:
+                        last_self_check = alert_system_state.LastSelfCheck or 0.0
+                        if time.time() - last_self_check >= self_check_period - self.self_check_safety_margin:
                             states_needing_update.append(alert_system_state)
         except Exception:
-            exc = traceback.format_exc()
-            self._logger.error('_get_alert_system_states_needing_update: %r', exc)
+            self._logger.error('_get_alert_system_states_needing_update: %r', traceback.format_exc())
         return states_needing_update

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import logging
 import time
 import uuid
-import logging
 from decimal import Decimal
 
 from sdc11073.location import SdcLocation
+from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ProviderMdib
 from sdc11073.provider import SdcProvider
 from sdc11073.provider.components import SdcProviderComponents
@@ -13,8 +14,8 @@ from sdc11073.roles.product import ExtendedProduct
 from sdc11073.wsdiscovery import WSDiscoverySingleAdapter
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types import pm_types
-from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
-from sdc11073.loghelper import basic_logging_setup
+from sdc11073.xml_types.dpws_types import ThisDeviceType
+from sdc11073.xml_types.dpws_types import ThisModelType
 
 # example SDC provider (device) that sends out metrics every now and then
 
@@ -32,7 +33,7 @@ def set_local_ensemble_context(mdib: ProviderMdib, ensemble_extension_string: st
         print("No ensemble contexts in mdib")
         return
     all_ensemble_context_states = mdib.context_states.descriptor_handle.get(descriptor_container.Handle, [])
-    with mdib.transaction_manager() as mgr:
+    with mdib.context_state_transaction() as mgr:
         # set all to currently associated Locations to Disassociated
         associated_ensemble_context_states = [l for l in all_ensemble_context_states if
                                               l.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
@@ -61,14 +62,14 @@ if __name__ == '__main__':
     my_location = SdcLocation(fac='HOSP', poc='CU2', bed='BedSim')
     # set model information for discovery
     dpws_model = ThisModelType(manufacturer='Draeger',
-                              manufacturer_url='www.draeger.com',
-                              model_name='TestDevice',
-                              model_number='1.0',
-                              model_url='www.draeger.com/model',
-                              presentation_url='www.draeger.com/model/presentation')
+                               manufacturer_url='www.draeger.com',
+                               model_name='TestDevice',
+                               model_number='1.0',
+                               model_url='www.draeger.com/model',
+                               presentation_url='www.draeger.com/model/presentation')
     dpws_device = ThisDeviceType(friendly_name='TestDevice',
-                                firmware_version='Version1',
-                                serial_number='12345')
+                                 firmware_version='Version1',
+                                 serial_number='12345')
     # create a device (provider) class that will do all the SDC magic
     # set role provider that supports Ensemble Contexts.
     specific_components = SdcProviderComponents(role_provider_class=ExtendedProduct)
@@ -89,10 +90,10 @@ if __name__ == '__main__':
     # get all metrics from the mdib (as described in the file)
     all_metric_descrs = [c for c in my_mdib.descriptions.objects if c.NODETYPE == pm.NumericMetricDescriptor]
     # now change all the metrics in one transaction
-    with my_mdib.transaction_manager() as mgr:
+    with my_mdib.metric_state_transaction() as transaction_mgr:
         for metric_descr in all_metric_descrs:
             # get the metric state of this specific metric
-            st = mgr.get_state(metric_descr.Handle)
+            st = transaction_mgr.get_state(metric_descr.Handle)
             # create a value in case it is not there yet
             st.mk_metric_value()
             # set the value and some other fields to a fixed value
@@ -105,8 +106,8 @@ if __name__ == '__main__':
     metric_value = 0
     while True:
         metric_value += 1
-        with my_mdib.transaction_manager() as mgr:
+        with my_mdib.metric_state_transaction() as transaction_mgr:
             for metricDescr in all_metric_descrs:
-                st = mgr.get_state(metricDescr.Handle)
+                st = transaction_mgr.get_state(metricDescr.Handle)
                 st.MetricValue.Value = Decimal(metric_value)
         time.sleep(5)

@@ -309,7 +309,7 @@ class LocalizedText(PropertyBasedPMType):
                  lang: str | None = None,
                  ref: str | None = None,
                  version: int | None = None,
-                 text_width: LocalizedText | None = None):
+                 text_width: LocalizedTextWidth | None = None):
         super().__init__()
         self.text = text
         self.Lang = lang
@@ -750,7 +750,7 @@ class SampleArrayValue(AbstractMetricValue):
     _props = ('Samples', 'ApplyAnnotation')
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__} Samples={self.Samples} ApplyAnnotations={self.ApplyAnnotation}'
+        return f'{self.__class__.__name__} Samples={self.Samples} ApplyAnnotation={self.ApplyAnnotation}'
 
 
 class RemedyInfo(PropertyBasedPMType):

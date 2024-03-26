@@ -10,7 +10,7 @@ from sdc11073.provider.operations import OperationDefinitionBase
 if TYPE_CHECKING:
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol, AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactions import TransactionManagerProtocol
+    from sdc11073.mdib.transactionsprotocol import TransactionManagerProtocol
     from sdc11073.provider.operations import ExecuteHandler, TimeoutHandler
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
     from sdc11073.xml_types.pm_types import CodedValue, SafetyClassification

@@ -9,6 +9,7 @@ from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import msg_types, pm_types
+from sdc11073.xml_types.actions import periodic_actions
 from tests import utils
 from tests.mockstuff import SomeDevice
 
@@ -52,7 +53,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
                                       ssl_context_container=None,
                                       validate=CLIENT_VALIDATE,
                                       log_prefix='<client> ')
-        self.sdc_client.start_all()
+        self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
 
         time.sleep(1)
         sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
@@ -87,7 +88,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         # set an alarm condition and start local signal
-        with self.sdc_device.mdib.transaction_manager() as mgr:
+        with self.sdc_device.mdib.alert_state_transaction() as mgr:
             alert_condition_state = mgr.get_state('ac0.mds0')
             alert_condition_state.ActivationState = pm_types.AlertActivation.ON
             alert_condition_state.Presence = True

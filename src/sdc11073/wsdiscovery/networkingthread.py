@@ -9,18 +9,22 @@ import struct
 import threading
 import time
 import traceback
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from enum import IntEnum
-from typing import TYPE_CHECKING, Any
+from typing import Any
+from typing import TYPE_CHECKING
 
 from lxml.etree import XMLSyntaxError
-
+from sdc11073 import commlog
 from sdc11073.exceptions import ValidationError
 
-from .common import MULTICAST_IPV4_ADDRESS, MULTICAST_OUT_TTL, message_reader
-from sdc11073 import commlog
+from .common import MULTICAST_IPV4_ADDRESS
+from .common import MULTICAST_OUT_TTL
+from .common import message_reader
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -66,6 +70,10 @@ class OutgoingMessage:
     addr: str
     port: int
     msg_type: _MessageType
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(addr={self.addr}, port={self.port}, " \
+               f"msg_type={self.msg_type}, created_message={self.created_message.serialize()})"
 
 
 @dataclass(frozen=True)
@@ -131,6 +139,7 @@ class _NetworkingThreadBase(ABC):
         else:
             _addr = socket.inet_aton(addr)
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, _addr)
+        sock.bind((addr, 0))
         return sock
 
     def add_unicast_message(self,
@@ -154,6 +163,10 @@ class _NetworkingThreadBase(ABC):
     def _repeated_enqueue_msg(self,
                               msg: OutgoingMessage,
                               delay_params: _UdpRepeatParams):
+        if self._quit_send_event.is_set():
+            self._logger.warning('_repeated_enqueue_msg: sending thread not running - message will be dropped - %s',
+                                 msg)
+            return
         initial_delay_ms = random.randint(0, delay_params.max_initial_delay_ms)
         next_send = time.time() + initial_delay_ms / 1000.0
         delta_t = random.randrange(delay_params.min_delay_ms, delay_params.max_delay_ms) / 1000.0  # millisec -> seconds
@@ -165,7 +178,7 @@ class _NetworkingThreadBase(ABC):
 
     def _run_send(self):
         """send-loop."""
-        while not self._quit_send_event.is_set():
+        while not self._quit_send_event.is_set() or not self._send_queue.empty():
             if self._send_queue.empty():
                 time.sleep(SEND_LOOP_IDLE_SLEEP)  # nothing to do currently
                 continue
@@ -288,9 +301,9 @@ class _NetworkingThreadBase(ABC):
 
     def join(self):
         self._logger.debug('%s: join... ', self.__class__.__name__)
-        self._recv_thread.join(1)
-        self._send_thread.join(1)
-        self._qread_thread.join(1)
+        self._recv_thread.join()
+        self._send_thread.join()
+        self._qread_thread.join()
         self._recv_thread = None
         self._send_thread = None
         self._qread_thread = None
