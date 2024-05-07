@@ -1,3 +1,4 @@
+from __future__ import annotations
 from collections import defaultdict, namedtuple
 from threading import RLock
 
@@ -43,17 +44,27 @@ class IndexDefinition(dict):
         super(IndexDefinition, self).__init__()
         self._getKeyFunc = getKeyFunc
         self._indexNoneValues = indexNoneValues
+        self._lock: RLock | None = None
 
     def getOne(self, key, allowNone=False):
-        try:
-            result = self[key]
-            if len(result) > 1:
-                raise RuntimeError('getOne: key "{}" has {} objects'.format(key, len(result)))
-            return result[0]
-        except KeyError:
-            if allowNone:
-                return
-            raise RuntimeError('key "{}" not found'.format(key))
+        with self._lock:
+            try:
+                result = self[key]
+                if len(result) > 1:
+                    raise RuntimeError('getOne: key "{}" has {} objects'.format(key, len(result)))
+                return result[0]
+            except KeyError:
+                if allowNone:
+                    return
+                raise RuntimeError('key "{}" not found'.format(key))
+
+    def get(self, *args, **kwargs):
+        """Overwritten get method that uses lock."""
+        with self._lock:
+            return super().get(*args, **kwargs)
+
+    def set_lock(self, lock):
+        self._lock = lock
 
     def _mkKeys(self, obj):
         key = self._getKeyFunc(obj)
@@ -161,6 +172,7 @@ class MultiKeyLookup(object):
 
     def addIndex(self, indexName, indexDefinition):
         self._idxDefs[indexName] = indexDefinition
+        indexDefinition.set_lock(self._lock)
         # add existing objects to new lookup
         for obj in self._objects:
             keys = indexDefinition._mkKeys(obj)
