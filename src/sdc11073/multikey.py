@@ -80,6 +80,11 @@ class IndexDefinition(dict):
         with self._lock:
             return super().get(*args, **kwargs)
 
+    def __getitem__(self, key) -> list[Any] | None:
+        """Overwritten __getitem__ method that uses lock."""
+        with self._lock:
+            return super().__getitem__(key)
+
     def set_lock(self, lock: RLock):
         """Set the lock to be used."""
         self._lock = lock
