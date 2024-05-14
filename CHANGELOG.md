@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- accessing a multikey may lead to IndexError [#359](https://github.com/Draegerwerk/sdc11073/issues/359)
+
 ## [1.3.2] - 2024-03-18
 
 ### Fixed
