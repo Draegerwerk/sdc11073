@@ -1031,7 +1031,8 @@ class ClinicalInfo(PropertyBasedPMType):
     Criticality: CriticalityType = cp.NodeEnumTextProperty(pm.Criticality, Criticality,
                                                            is_optional=True, implied_py_value=Criticality.Low)
     Description: list[LocalizedText] = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)
-    RelatedMeasurement: list[Measurement] = cp.SubElementListProperty(pm.RelatedMeasurement, value_class=Measurement)
+    RelatedMeasurement: list[RelatedMeasurement] = cp.SubElementListProperty(pm.RelatedMeasurement,
+                                                                             value_class=RelatedMeasurement)
     _props = ('Type', 'Code', 'Criticality', 'Description', 'RelatedMeasurement')
 
     def __init__(self,  # noqa: PLR0913
@@ -1039,7 +1040,7 @@ class ClinicalInfo(PropertyBasedPMType):
                  code: CodedValue | None = None,
                  criticality: CriticalityType | None = None,
                  descriptions: list[LocalizedText] | None = None,
-                 related_measurements: list[Measurement] | None = None):
+                 related_measurements: list[RelatedMeasurement] | None = None):
         super().__init__()
         self.Type = type_
         self.Code = code
