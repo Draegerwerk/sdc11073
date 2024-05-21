@@ -23,7 +23,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Setup hatch
         run: python -m pip install hatch
@@ -52,7 +52,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: [ "3.9", "3.10", "3.11" ]
+        python-version: [ "3.9", "3.10", "3.11", "3.12"]
         os: [ ubuntu-latest, windows-latest ]
         distribution: [ "${{ needs.build.outputs.WHL }}",
                         "${{ needs.build.outputs.TARGZ }}" ]
@@ -113,7 +113,7 @@ jobs:
           retention-days: 5
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: true
           token: "8c8b98c0-4c00-4f83-a598-81f3857e63e9" # https://github.com/codecov/codecov-action/issues/837#issuecomment-1530053511

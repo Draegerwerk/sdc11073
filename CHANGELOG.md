@@ -7,9 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- support for python version 3.12
+
+### Fixed
+
+- possible exception in ConsumerMdib._get_context_states [#350](https://github.com/Draegerwerk/sdc11073/issues/350)
+- reference tests and example provider
+- node member of DescriptorContainer not updated on description modification report [#357](https://github.com/Draegerwerk/sdc11073/issues/357)
+- accessing a multikey may lead to IndexError [#359](https://github.com/Draegerwerk/sdc11073/issues/359)
+
+### Changed
+
+- ContainerBase.diff uses math.isclose for comparison, test added
+
+## [2.0.1] - 2024-02-21
+
+### Fixed
+
+- inconsistent InstanceId attributes in GetMdibResponse
+
+## [2.0.0] - 2024-02-14
+
 ### Fixed
 
 - `RuntimeError: dictionary changed size during iteration` for `remote_services` in the discovery [#335](https://github.com/Draegerwerk/sdc11073/issues/335) 
+- DescriptorTransaction sometimes causes wrong DescriptorVersion in states [#340](https://github.com/Draegerwerk/sdc11073/issues/340)
 
 ## [2.0.0rc2] - 2024-02-08
 
