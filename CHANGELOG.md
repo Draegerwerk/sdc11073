@@ -45,7 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fixed a bug where `getsockname()` is called before the socket is binded
 - fixed cyclic import [#333](https://github.com/Draegerwerk/sdc11073/issues/333)
 
-
 ## [2.0.0rc1] - 2024-01-31
 
 ### Fixed
