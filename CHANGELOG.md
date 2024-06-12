@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `address already in use` error from `NetworkingThreadPosix` on macOS
 - possible exception in ConsumerMdib._get_context_states [#350](https://github.com/Draegerwerk/sdc11073/issues/350)
 - reference tests and example provider
 - node member of DescriptorContainer not updated on description modification report [#357](https://github.com/Draegerwerk/sdc11073/issues/357)
