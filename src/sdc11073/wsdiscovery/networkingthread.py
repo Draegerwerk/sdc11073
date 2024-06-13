@@ -345,6 +345,7 @@ class NetworkingThreadPosix(_NetworkingThreadBase):
     def _create_multicast_in_socket(self, addr: str, port: int) -> socket.SocketType:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         sock.bind((MULTICAST_IPV4_ADDRESS, port))
         sock.setblocking(False)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, self._make_mreq(addr))
@@ -354,6 +355,7 @@ class NetworkingThreadPosix(_NetworkingThreadBase):
     def _create_unicast_in_socket(self, addr: str, port: int) -> socket.SocketType:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         sock.bind((addr, port))
         sock.setblocking(False)
         return sock
