@@ -89,9 +89,7 @@ class NetworkingThread:
         self._quit_send_event = threading.Event()
         self._send_queue = queue.PriorityQueue(10000)
         self._read_queue = queue.Queue(10000)
-        self._known_message_ids = collections.deque(maxlen=50)
-        # ports from which messages will be ignored, because they origin from sockets from this instance
-        self._ports_ignored_for_incoming_messages: list[str] = []
+        self._known_message_ids = collections.deque(maxlen=200)
         self._inbound_selector = selectors.DefaultSelector()
         self._outbound_selector = selectors.DefaultSelector()
         self.multi_in = self._create_multicast_in_socket(my_ip_address, multicast_port)
@@ -99,15 +97,11 @@ class NetworkingThread:
 
     def _register_inbound_socket(self, sock: socket.SocketType):
         self._inbound_selector.register(sock, selectors.EVENT_READ)
-        info = sock.getsockname()
-        self._ports_ignored_for_incoming_messages.append(info[1])
-        self._logger.info('registered inbound socket on %s:%d', *info)
+        self._logger.info('registered inbound socket on %s:%d', *sock.getsockname())
 
     def _register_outbound_socket(self, sock: socket.SocketType):
         self._outbound_selector.register(sock, selectors.EVENT_WRITE)
-        info = sock.getsockname()
-        self._ports_ignored_for_incoming_messages.append(info[1])
-        self._logger.info('registered outbound socket on %s:%d', *info)
+        self._logger.info('registered outbound socket on %s:%d', *sock.getsockname())
 
     @staticmethod
     def _create_multicast_out_socket(addr: str) -> socket.SocketType:
@@ -181,18 +175,6 @@ class NetworkingThread:
             except:  # noqa: E722. use bare except here, this is a catch-all that keeps thread running.
                 self._logger.exception('exception during receiving')
 
-    def is_from_my_socket(self, addr: tuple[str, int]) -> bool:
-        """Determine whether an address tuple has its origin from one of the sockets of this instance."""
-        if addr[0] != self._my_ip_address:
-            # if the address is different then the incoming message is not from our sockets
-            return False
-
-        # TODO: if consumer and provider share the same udp stack then this would prevent message exchanges.
-        #  Filtering should be done on application level by checking message ids.
-        #  see https://github.com/Draegerwerk/sdc11073/issues/367
-        # True if the message has been sent from a port contained in the blacklisted port
-        return any(addr[1] == port for port in self._ports_ignored_for_incoming_messages)
-
     def _recv_messages(self):
         """For performance reasons this thread only writes to a queue, no parsing etc."""
         for key, _ in self._inbound_selector.select(timeout=0.1):
@@ -202,8 +184,6 @@ class NetworkingThread:
             except OSError as exc:
                 self._logger.warning('socket read error %s', exc)
                 time.sleep(0.01)
-                continue
-            if self.is_from_my_socket(addr):
                 continue
             self._logger.debug('received data on my socket %s', sock.getsockname())
             self._add_to_recv_queue(addr, data)
