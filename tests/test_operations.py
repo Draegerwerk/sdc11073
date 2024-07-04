@@ -642,7 +642,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
 
         operation_handle = my_operation_descriptor.Handle
-        for value in (Decimal(1), Decimal(42)):
+        for value in (Decimal(1), Decimal(42), 1.1, 10, "12"):
             self._logger.info('metric value = %s', value)
             future = set_service.set_numeric_value(operation_handle=operation_handle,
                                                    requested_numeric_value=value)
@@ -654,4 +654,4 @@ class Test_BuiltinOperations(unittest.TestCase):
 
             # verify that the corresponding state has been updated
             state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
-            self.assertEqual(state.MetricValue.Value, value)
+            self.assertEqual(state.MetricValue.Value, Decimal(str(value)))
