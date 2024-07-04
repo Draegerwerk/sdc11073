@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 class CreatedMessage:
-    def __init__(self, message, msg_factory):
+    def __init__(self, message: Soap12Envelope, msg_factory):
         self.p_msg = message
         self.msg_factory = msg_factory
 
