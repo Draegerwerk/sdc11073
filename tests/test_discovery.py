@@ -1,4 +1,5 @@
 import logging
+import selectors
 import socket
 import sys
 import threading
@@ -99,6 +100,8 @@ class TestDiscovery(unittest.TestCase):
 
         self.wsd_service.start()
         self.wsd_client.start()
+        self.wsd_service._networking_thread._outbound_selector.unregister(self.wsd_service._networking_thread.multi_out_uni_in_out)
+        self.wsd_service._networking_thread._outbound_selector.register(self.wsd_client._networking_thread.multi_out_uni_in_out, selectors.EVENT_WRITE)
         time.sleep(0.1)
 
         ttype1 = [utils.random_qname()]
@@ -420,3 +423,24 @@ class TestDiscovery(unittest.TestCase):
         finally:
             unicast_sock.close()
             self.log_watcher_service.setPaused(False)
+
+    def test_provider_and_consumer_share_same_udp_binding(self):
+        """Verify that a provider and a consumer can exchange messages even if they share the same ip and port."""
+        self.wsd_service.start()
+        self.wsd_client.start()
+        self.wsd_service._networking_thread._outbound_selector.unregister(self.wsd_service._networking_thread.multi_out_uni_in_out)
+        self.wsd_service._networking_thread._outbound_selector.register(self.wsd_client._networking_thread.multi_out_uni_in_out, selectors.EVENT_WRITE)
+        time.sleep(0.1)
+
+        ttype1 = [utils.random_qname()]
+        scopes1 = utils.random_scope()
+
+        addresses = [f"http://localhost:8080/{uuid.uuid4()}", 'http://{ip}/' + str(uuid.uuid4())]
+        epr = uuid.uuid4().hex
+        self.wsd_service.publish_service(epr, types=ttype1, scopes=scopes1, x_addrs=addresses)
+        time.sleep(1)
+
+        services = self.wsd_client.search_services(timeout=self.SEARCH_TIMEOUT)
+        self.assertTrue(any(s for s in services if s.epr == epr))
+
+        self.wsd_service._networking_thread._outbound_selector.unregister(self.wsd_client._networking_thread.multi_out_uni_in_out)
