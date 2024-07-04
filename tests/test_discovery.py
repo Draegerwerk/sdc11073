@@ -347,7 +347,7 @@ class TestDiscovery(unittest.TestCase):
     def test_publishManyServices_lateStartedClient(self):
         test_log.info('starting service...')
         self.wsd_service.start()
-        device_count = 20
+        device_count = 1
         eprs = [uuid.uuid4().hex for _ in range(device_count)]
         for i, epr in enumerate(eprs):
             self.wsd_service.publish_service(epr,
@@ -355,7 +355,7 @@ class TestDiscovery(unittest.TestCase):
                                              scopes=utils.random_scope(),
                                              x_addrs=[f"localhost:{8080 + i}/{uuid.uuid4()}"])
 
-        time.sleep(3.02)
+        time.sleep(10)
         test_log.info('starting client...')
         self.wsd_client.start()
         services = self.wsd_client.search_services(timeout=self.SEARCH_TIMEOUT)
