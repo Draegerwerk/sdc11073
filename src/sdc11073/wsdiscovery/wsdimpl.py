@@ -17,7 +17,7 @@ from sdc11073.xml_types import wsd_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 
 from .common import MULTICAST_IPV4_ADDRESS, MULTICAST_PORT, message_factory
-from sdc11073.wsdiscovery.networkingthread import NetworkingThread
+from sdc11073.wsdiscovery import networkingthread
 from .service import Service
 
 if TYPE_CHECKING:
@@ -510,7 +510,8 @@ class WSDiscovery:
         created_message = _mk_wsd_soap_message(inf, payload)
         created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'),
                                                                             ns_map=nsh.partial_map(nsh.WSD)))
-        self._networking_thread.add_unicast_message(created_message, addr[0], addr[1])
+        self._networking_thread.add_outbound_message(created_message, addr[0], addr[1],
+                                                     networkingthread.UNICAST_REPEAT_PARAMS)
 
     def _send_probe_match(self, services: list[Service], relates_to: str, addr: str):
         self._logger.info('sending probe match to %s for %d services', addr, len(services))
@@ -543,7 +544,8 @@ class WSDiscovery:
             created_message = _mk_wsd_soap_message(inf, payload)
             created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'),
                                                                                 ns_map=nsh.partial_map(nsh.WSD)))
-            self._networking_thread.add_unicast_message(created_message, addr[0], addr[1])
+            self._networking_thread.add_outbound_message(created_message, addr[0], addr[1],
+                                                         networkingthread.UNICAST_REPEAT_PARAMS)
 
     def _send_probe(self, types: Iterable[QName] | None = None, scopes: wsd_types.ScopesType | None = None):
         types = list(types) if types is not None else None  # enforce iteration
@@ -555,7 +557,8 @@ class WSDiscovery:
 
         inf = HeaderInformationBlock(action=payload.action, addr_to=ADDRESS_ALL)
         created_message = _mk_wsd_soap_message(inf, payload)
-        self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)
+        self._networking_thread.add_outbound_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port,
+                                                     networkingthread.MULTICAST_REPEAT_PARAMS)
 
     def _send_resolve(self, epr: str):
         self._logger.debug('sending resolve on %s', epr)
@@ -564,7 +567,8 @@ class WSDiscovery:
 
         inf = HeaderInformationBlock(action=payload.action, addr_to=ADDRESS_ALL)
         created_message = _mk_wsd_soap_message(inf, payload)
-        self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)
+        self._networking_thread.add_outbound_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port,
+                                                     networkingthread.MULTICAST_REPEAT_PARAMS)
 
     def _send_hello(self, service: Service):
         self._logger.info('sending hello on %s', service)
@@ -584,7 +588,8 @@ class WSDiscovery:
         created_message = _mk_wsd_soap_message(inf, payload)
         created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'),
                                                                             ns_map=nsh.partial_map(nsh.WSD)))
-        self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)
+        self._networking_thread.add_outbound_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port,
+                                                     networkingthread.MULTICAST_REPEAT_PARAMS)
 
     def _send_bye(self, service: Service):
         self._logger.debug('sending bye on %s', service)
@@ -601,12 +606,14 @@ class WSDiscovery:
         created_message = _mk_wsd_soap_message(inf, bye)
         created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'),
                                                                             ns_map=nsh.partial_map(nsh.WSD)))
-        self._networking_thread.add_multicast_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port)
+        self._networking_thread.add_outbound_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port,
+                                                     networkingthread.MULTICAST_REPEAT_PARAMS)
 
     def _start_threads(self):
         if self._networking_thread is not None:
             return
-        self._networking_thread = NetworkingThread(str(self._adapter.ip), self, self._logger, self.multicast_port)
+        self._networking_thread = networkingthread.NetworkingThread(str(self._adapter.ip), self, self._logger,
+                                                                    self.multicast_port)
         self._networking_thread.start()
 
     def _stop_threads(self):

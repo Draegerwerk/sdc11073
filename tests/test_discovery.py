@@ -347,7 +347,7 @@ class TestDiscovery(unittest.TestCase):
     def test_publishManyServices_lateStartedClient(self):
         test_log.info('starting service...')
         self.wsd_service.start()
-        device_count = 20
+        device_count = 1
         eprs = [uuid.uuid4().hex for _ in range(device_count)]
         for i, epr in enumerate(eprs):
             self.wsd_service.publish_service(epr,

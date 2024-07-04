@@ -71,8 +71,7 @@ class TestCommLogger(unittest.TestCase):
                 self.assertEqual(1, len([file for file in os.listdir(directory)
                                          if ip_address in file and http_method in file]))
 
-            for name in (commlog.MULTICAST_OUT,
-                         commlog.DISCOVERY_OUT,
+            for name in (commlog.DISCOVERY_OUT,
                          commlog.SOAP_REQUEST_OUT,
                          commlog.SOAP_RESPONSE_OUT):
                 logging.getLogger(name).debug(str(uuid.uuid4()))
@@ -82,8 +81,7 @@ class TestCommLogger(unittest.TestCase):
         """Test the comm directory logger out direction."""
         with tempfile.TemporaryDirectory() as directory, commlog.DirectoryLogger(log_folder=directory, log_out=True):
             self.assertEqual(0, len(os.listdir(directory)))
-            for i, name in enumerate((commlog.MULTICAST_OUT,
-                                      commlog.DISCOVERY_OUT,
+            for i, name in enumerate((commlog.DISCOVERY_OUT,
                                       commlog.SOAP_REQUEST_OUT,
                                       commlog.SOAP_RESPONSE_OUT),
                                      start=1):
