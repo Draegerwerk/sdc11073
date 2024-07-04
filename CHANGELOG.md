@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - node member of DescriptorContainer not updated on description modification report [#357](https://github.com/Draegerwerk/sdc11073/issues/357)
 - accessing a multikey may lead to IndexError [#359](https://github.com/Draegerwerk/sdc11073/issues/359)
 - wrong data type for ClinicalInfo.RelatedMeasurement[#362](https://github.com/Draegerwerk/sdc11073/issues/362)
+- fixed SetServiceClient.set_numeric_value not accepting float, int or string. 
 
 ### Changed
 
