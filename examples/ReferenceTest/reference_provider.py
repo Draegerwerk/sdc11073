@@ -45,7 +45,7 @@ def get_location() -> location.SdcLocation:
 
 def get_ssl_context() -> sdc11073.certloader.SSLContextContainer | None:
     """Get ssl context from environment or None."""
-    if (ca_folder := os.getenv('ref_ca',)) is None:  # noqa: SIM112
+    if (ca_folder := os.getenv('ref_ca')) is None:  # noqa: SIM112
         return None
     return mk_ssl_contexts_from_folder(ca_folder,
                                        private_key='user_private_key_encrypted.pem',
