@@ -1,8 +1,8 @@
 import unittest
 from unittest import mock
-from lxml.etree import QName, fromstring, tostring
+from lxml.etree import QName, Element, fromstring, tostring
 
-from sdc11073.xml_types import pm_types, xml_structure
+from sdc11073.xml_types import pm_types, xml_structure, basetypes
 
 
 class TestPmTypes(unittest.TestCase):
@@ -384,3 +384,12 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
         self.assertNotEqual(inst1, inst2)
         self.assertFalse(inst1 == inst2)
         self.assertTrue(inst1 != inst2)
+
+
+    def test_element_with_text_list(self):
+        """Verify that a ElementWithTextList.text is still a list if text of element is None. """
+        node = Element('bla')
+        self.assertIsNone(node.text)
+        obj = basetypes.ElementWithTextList.from_node(node)
+        self.assertEqual(obj.text, [])
+        print (obj.text)

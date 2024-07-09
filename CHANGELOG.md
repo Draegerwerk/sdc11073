@@ -21,7 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fixed a bug where sending and receiving socket are used after they have been closed already [#328](https://github.com/Draegerwerk/sdc11073/issues/328)
 - reduced the amount of udp sockets to 2 [#328](https://github.com/Draegerwerk/sdc11073/issues/328)
 - fixed `address already in use` bug [#328](https://github.com/Draegerwerk/sdc11073/issues/328)
-- fixed SetServiceClient.set_numeric_value not accepting float, int or string. 
+- fixed SetServiceClient.set_numeric_value not accepting float, int or string.
+- Exception in wsdiscovery if no Scopes in message [#356](https://github.com/Draegerwerk/sdc11073/issues/356)
 
 ### Changed
 
