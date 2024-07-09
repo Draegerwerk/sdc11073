@@ -93,7 +93,7 @@ class NetworkingThread:
         self._inbound_selector = selectors.DefaultSelector()
         self._outbound_selector = selectors.DefaultSelector()
         self.multi_in = self._create_multicast_in_socket(my_ip_address, multicast_port)
-        self.multi_out_uni_in_out = self._create_multi_in_uni_in_out_socket(my_ip_address)
+        self.multi_out_uni_in_out = self._create_multi_out_uni_in_out_socket(my_ip_address)
 
     def _register_inbound_socket(self, sock: socket.SocketType):
         self._inbound_selector.register(sock, selectors.EVENT_READ)
@@ -103,16 +103,7 @@ class NetworkingThread:
         self._outbound_selector.register(sock, selectors.EVENT_WRITE)
         self._logger.info('registered outbound socket on %s:%d', *sock.getsockname())
 
-    @staticmethod
-    def _create_multicast_out_socket(addr: str) -> socket.SocketType:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, MULTICAST_OUT_TTL)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(addr))
-
-        sock.bind((addr, 0))
-        return sock
-
-    def _create_multi_in_uni_in_out_socket(self, addr: str) -> socket.SocketType:
+    def _create_multi_out_uni_in_out_socket(self, addr: str) -> socket.SocketType:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         # set port explicitly when creating (it would otherwise be set after sending first message via this socket)
         sock.bind((addr, 0))
@@ -138,6 +129,7 @@ class NetworkingThread:
         """Add a message to the sending queue."""
         self._logger.debug('adding outbound message with Id "%s" to sending queue',
                            msg.p_msg.header_info_block.MessageID)
+        self._known_message_ids.appendleft(msg.p_msg.header_info_block.MessageID)
         self._repeated_enqueue_msg(OutgoingMessage(msg, addr, port), repeat_params)
 
     def _repeated_enqueue_msg(self, msg: OutgoingMessage, delay_params: _UdpRepeatParams):
