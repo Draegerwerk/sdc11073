@@ -439,7 +439,9 @@ class TestDiscovery(unittest.TestCase):
         time.sleep(1)
 
         services = self.wsd_client.search_services(timeout=self.SEARCH_TIMEOUT)
-        self.assertTrue(any(s for s in services if s.epr == epr))
-        self.assertTrue(epr not in self.wsd_service._remote_services)
-
-        self.wsd_service._networking_thread._outbound_selector.unregister(self.wsd_client._networking_thread.multi_out_uni_in_out)
+        try:
+            self.assertTrue(any(s for s in services if s.epr == epr))
+            self.assertTrue(epr not in self.wsd_service._remote_services)
+        finally:
+            # ensure that ports are swapped back to avoid crashes in teardown
+            self.wsd_service._networking_thread._outbound_selector.unregister(self.wsd_client._networking_thread.multi_out_uni_in_out)
