@@ -100,8 +100,6 @@ class TestDiscovery(unittest.TestCase):
 
         self.wsd_service.start()
         self.wsd_client.start()
-        self.wsd_service._networking_thread._outbound_selector.unregister(self.wsd_service._networking_thread.multi_out_uni_in_out)
-        self.wsd_service._networking_thread._outbound_selector.register(self.wsd_client._networking_thread.multi_out_uni_in_out, selectors.EVENT_WRITE)
         time.sleep(0.1)
 
         ttype1 = [utils.random_qname()]
