@@ -399,9 +399,10 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
 
         # test the case that the element that is supposed to contain the text does not exist.
         obj = basetypes.ElementWithTextList()
+        mocked = unittest.mock.MagicMock(side_effect=xml_structure.ElementNotFoundError)
         with unittest.mock.patch.object(xml_structure.NodeTextListProperty,
                                         '_get_element_by_child_name',
-                                        new=unittest.mock.MagicMock(side_effect=xml_structure.ElementNotFoundError)):
-
+                                        new=mocked):
             obj.update_from_node(node)
             self.assertEqual(obj.text, [])
+            mocked.assert_called_once()
