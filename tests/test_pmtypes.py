@@ -387,9 +387,21 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
 
 
     def test_element_with_text_list(self):
-        """Verify that a ElementWithTextList.text is still a list if text of element is None. """
-        node = Element('bla')
-        self.assertIsNone(node.text)
+        """Verify that a ElementWithTextList.text is a list even if text of node is None or element does not exist."""
+        node = Element('foo')
+        node.text = 'abc def ghi'
+        obj = basetypes.ElementWithTextList.from_node(node)
+        self.assertEqual(obj.text, ['abc', 'def', 'ghi'])
+
+        node.text = None
         obj = basetypes.ElementWithTextList.from_node(node)
         self.assertEqual(obj.text, [])
-        print (obj.text)
+
+        # test the case that the element that is supposed to contain the text does not exist.
+        obj = basetypes.ElementWithTextList()
+        with unittest.mock.patch.object(xml_structure.NodeTextListProperty,
+                                        '_get_element_by_child_name',
+                                        new=unittest.mock.MagicMock(side_effect=xml_structure.ElementNotFoundError)):
+
+            obj.update_from_node(node)
+            self.assertEqual(obj.text, [])
