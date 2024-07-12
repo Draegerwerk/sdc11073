@@ -76,8 +76,8 @@ jobs:
       - name: Install package and test dependencies
         run: pip install ${{ matrix.distribution }}[test]
 
-      - name: Detect suffix on ubuntu
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+      - name: Detect suffix on posix
+        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest' }}
         run: |
           echo SUFFIX=$(python -c "import pathlib;p=pathlib.Path('${{ matrix.distribution }}');print('whl') if p.suffix=='.whl' else print('tar_gz')") >> $GITHUB_ENV
 
