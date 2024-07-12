@@ -53,7 +53,7 @@ jobs:
     strategy:
       matrix:
         python-version: [ "3.9", "3.10", "3.11", "3.12"]
-        os: [ ubuntu-latest, windows-latest ]
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
         distribution: [ "${{ needs.build.outputs.WHL }}",
                         "${{ needs.build.outputs.TARGZ }}" ]
     runs-on: ${{ matrix.os }}

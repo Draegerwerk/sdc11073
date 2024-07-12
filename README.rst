@@ -2,7 +2,7 @@
 sdc11073
 ********
 
-|img1| |img2| |img3| |img4| |img5|
+|img1| |img2| |img3| |img4|
 
 .. |img1| image:: https://img.shields.io/pypi/pyversions/sdc11073
    :alt: pypi python version(s)
@@ -13,10 +13,7 @@ sdc11073
 .. |img3| image:: https://img.shields.io/pypi/dm/sdc11073
    :alt: pypi downloads per month
 
-.. |img4| image:: https://img.shields.io/badge/runs%20on-ubuntu%20%7C%20windows-blue
-   :alt: runs on which operating systems
-
-.. |img5| image:: https://codecov.io/gh/Draegerwerk/sdc11073/branch/master/graph/badge.svg?token=EPLCCZMWMM
+.. |img4| image:: https://codecov.io/gh/Draegerwerk/sdc11073/branch/master/graph/badge.svg?token=EPLCCZMWMM
    :target: https://codecov.io/gh/Draegerwerk/sdc11073
    :alt: test coverage
 

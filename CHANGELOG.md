@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - support for python version 3.12
+- macos pipeline [#373](https://github.com/Draegerwerk/sdc11073/issues/373)
 
 ### Fixed
 
