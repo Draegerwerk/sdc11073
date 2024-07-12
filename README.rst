@@ -55,7 +55,7 @@ you may use :code:`pip install -e .` for an `editable install <https://pip.pypa.
 Tutorials
 ---------
 
-Tutorials can be found in the `tutorial <tutorial/>`__ folder
+Tutorials can be found in the `tutorial <tutorial/>`__ folder.
 
 Tests
 =====
