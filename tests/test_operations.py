@@ -38,7 +38,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         basic_logging_setup()
         self._logger = logging.getLogger('sdc.test')
         self._logger.info('############### start setUp %s ##############', self._testMethodName)
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery(utils.get_network_adapter_for_testing().ip)
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         # in order to test correct handling of default namespaces, we make participant model the default namespace

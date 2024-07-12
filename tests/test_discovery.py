@@ -62,10 +62,10 @@ class TestDiscovery(unittest.TestCase):
         test_log.debug(f'setUp {self._testMethodName}')
 
         # give them different logger names so that output can be distinguished
-        self.wsd_client = wsdiscovery.WSDiscovery('127.0.0.1',
+        self.wsd_client = wsdiscovery.WSDiscovery(utils.get_network_adapter_for_testing().ip,
                                                   logger=loghelper.get_logger_adapter('wsd_client'),
                                                   multicast_port=self.MY_MULTICAST_PORT)
-        self.wsd_service = wsdiscovery.WSDiscovery('127.0.0.1',
+        self.wsd_service = wsdiscovery.WSDiscovery(utils.get_network_adapter_for_testing().ip,
                                                    logger=loghelper.get_logger_adapter('wsd_service'),
                                                    multicast_port=self.MY_MULTICAST_PORT)
         self.log_watcher_client = loghelper.LogWatcher(logging.getLogger('wsd_client'), level=logging.ERROR)
@@ -401,7 +401,7 @@ class TestDiscovery(unittest.TestCase):
 
     def test_unexpected_multicast_messages(self):
         """Verify that module is robust against all kind of invalid multicast and single cast messages."""
-        address = '127.0.0.1'
+        address = utils.get_network_adapter_for_testing().ip
         unicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         def send_and_assert_running(data):

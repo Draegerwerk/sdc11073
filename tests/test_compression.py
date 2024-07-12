@@ -31,7 +31,7 @@ class Test_Compression(unittest.TestCase):
 
     def setUp(self):
         # Start discovery
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery(utils.get_network_adapter_for_testing().ip)
         self.wsd.start()
         # Create a new device
         self.location = utils.random_location()

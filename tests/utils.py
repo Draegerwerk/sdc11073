@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import platform
 import random
 import string
 import uuid
 
 import lxml.etree
 
-from sdc11073 import location
+from sdc11073 import location, network
 from sdc11073.xml_types import wsd_types
 
 RFC3986 = string.ascii_letters + string.digits + '-_.~'
@@ -43,3 +44,13 @@ def random_qname() -> lxml.etree.QName:
 def random_scope() -> wsd_types.ScopesType:
     """Create random scope."""
     return wsd_types.ScopesType(random_location().scope_string)
+
+
+def get_network_adapter_for_testing() -> network.NetworkAdapter:
+    """Get a network adapter for testing."""
+    adapters = network.get_adapters()
+    if platform.system() == 'Darwin':
+        # macOS restricts sending multicast traffic from a loopback interface
+        return [adapter for adapter in adapters if not adapter.is_loopback][0]
+    else:
+        return [adapter for adapter in adapters if adapter.is_loopback][0]

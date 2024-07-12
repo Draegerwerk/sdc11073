@@ -18,7 +18,7 @@ class Test_Device(unittest.TestCase):
 
     def setUp(self):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
+        self.wsd = wsdiscovery.WSDiscovery(utils.get_network_adapter_for_testing().ip)
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         self.sdc_device.start_all()
@@ -65,13 +65,13 @@ class Test_Hello_And_Bye(unittest.TestCase):
             if epr == device_uuid.urn:
                 recv_bye.set()
 
-        wsd_device = wsdiscovery.WSDiscovery('127.0.0.1')
+        wsd_device = wsdiscovery.WSDiscovery(utils.get_network_adapter_for_testing().ip)
         wsd_device.start()
         sdc_device = SomeDevice.from_mdib_file(wsdiscovery=wsd_device,
                                                epr=device_uuid,
                                                mdib_xml_path='70041_MDIB_Final.xml')
 
-        wsd_obj = wsdiscovery.WSDiscovery('127.0.0.1')
+        wsd_obj = wsdiscovery.WSDiscovery(utils.get_network_adapter_for_testing().ip)
 
         wsd_obj.set_remote_service_hello_callback(callback=hello_callback,
                                                   scopes=wsd_types.ScopesType(value=loc.scope_string))

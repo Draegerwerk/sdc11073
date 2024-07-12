@@ -15,7 +15,7 @@ from sdc11073.provider.components import default_sdc_provider_components_sync
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
-from tests import mockstuff
+from tests import mockstuff, utils
 
 mdib_folder = os.path.dirname(__file__)
 
@@ -47,7 +47,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
                                      firmware_version='0.99',
                                      serial_number='123serial')
 
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery(utils.get_network_adapter_for_testing().ip)
         self.wsd.start()
         self.sdc_device = SdcProvider(self.wsd, this_model, this_device, self.mdib,
                                       default_components=default_sdc_provider_components_sync)

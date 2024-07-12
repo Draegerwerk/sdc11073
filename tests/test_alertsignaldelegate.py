@@ -36,7 +36,7 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
             comm_logger.start()
 
         logging.getLogger('sdc').info(f'############### start setUp {self._testMethodName} ##############')
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery(utils.get_network_adapter_for_testing().ip)
         self.wsd.start()
         my_uuid = None  # let device create one
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_two_mds.xml', log_prefix='<device> ')

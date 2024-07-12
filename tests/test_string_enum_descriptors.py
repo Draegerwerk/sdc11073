@@ -34,7 +34,7 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         if ENABLE_COMMLOG:
             comm_logger.start()
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery(utils.get_network_adapter_for_testing().ip)
         self.wsd.start()
         my_uuid = None  # let device create one
         # self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_tns.xml')

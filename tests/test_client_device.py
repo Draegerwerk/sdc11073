@@ -401,7 +401,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
     def _run_client_with_device(ssl_context_container):
         basic_logging_setup()
         log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
-        wsd = WSDiscovery('127.0.0.1')
+        wsd = WSDiscovery(utils.get_network_adapter_for_testing().ip)
         wsd.start()
         location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
         sdc_device = SomeDevice.from_mdib_file(wsd, None, mdib_70041, ssl_context_container=ssl_context_container)
@@ -477,7 +477,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.logger = get_logger_adapter('sdc.test')
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery(utils.get_network_adapter_for_testing().ip)
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
                                                     default_components=default_sdc_provider_components_async,
@@ -1326,7 +1326,7 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         self.logger = get_logger_adapter('sdc.test')
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery(utils.get_network_adapter_for_testing().ip)
         self.wsd.start()
         location = utils.random_location()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -1416,7 +1416,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         basic_logging_setup()
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery(utils.get_network_adapter_for_testing().ip)
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='<Final> ',
                                                     chunk_size=512)
@@ -1466,7 +1466,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         basic_logging_setup()
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery(utils.get_network_adapter_for_testing().ip)
         self.wsd.start()
 
         specific_components = SdcProviderComponents(
@@ -1559,7 +1559,7 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
         self.logger = get_logger_adapter('sdc.test')
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery(utils.get_network_adapter_for_testing().ip)
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='',
                                                     default_components=default_sdc_provider_components_sync,
@@ -1649,7 +1649,7 @@ class TestEncryptionCombinations(unittest.TestCase):
         self.ssl_context_container = sdc11073.certloader.SSLContextContainer(client_context=client_ssl_context,
                                                                              server_context=server_ssl_context)
 
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery(utils.get_network_adapter_for_testing().ip)
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
                                                     default_components=default_sdc_provider_components_async,
