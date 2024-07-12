@@ -401,7 +401,7 @@ class TestDiscovery(unittest.TestCase):
 
     def test_unexpected_multicast_messages(self):
         """Verify that module is robust against all kind of invalid multicast and single cast messages."""
-        address = utils.get_network_adapter_for_testing().ip
+        address = str(utils.get_network_adapter_for_testing().ip)
         unicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         def send_and_assert_running(data):
