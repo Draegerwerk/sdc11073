@@ -38,9 +38,9 @@ class ProviderMdibMethods:
         location_context_descriptors = mdib.descriptions.NODETYPE.get(pm.LocationContextDescriptor, [])
 
         for system_context_descriptor in system_context_descriptors:
-            child_location_descriptors = [ d for d in location_context_descriptors
-                                           if d.parent_handle == system_context_descriptor.Handle
-                                           and d.NODETYPE == pm.LocationContextDescriptor]
+            child_location_descriptors = [d for d in location_context_descriptors
+                                          if d.parent_handle == system_context_descriptor.Handle
+                                          and d.NODETYPE == pm.LocationContextDescriptor]
             if not child_location_descriptors:
                 descr_cls = mdib.data_model.get_descriptor_container_class(pm.LocationContextDescriptor)
                 descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_descriptor.Handle)
@@ -48,16 +48,16 @@ class ProviderMdibMethods:
                 mdib.descriptions.add_object(descr_container)
 
     def ensure_patient_context_descriptor(self):
-        """Create a LocationContextDescriptor if there is none in mdib."""
+        """Create a PatientContextDescriptor if there is none in mdib."""
         mdib = self._mdib
         pm = mdib.data_model.pm_names
         system_context_descriptors = mdib.descriptions.NODETYPE.get(pm.SystemContextDescriptor, [])
         patient_context_descriptors = mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor, [])
 
         for system_context_descriptor in system_context_descriptors:
-            child_location_descriptors = [ d for d in patient_context_descriptors
-                                           if d.parent_handle == system_context_descriptor.Handle
-                                           and d.NODETYPE == pm.PatientContextDescriptor]
+            child_location_descriptors = [d for d in patient_context_descriptors
+                                          if d.parent_handle == system_context_descriptor.Handle
+                                          and d.NODETYPE == pm.PatientContextDescriptor]
             if not child_location_descriptors:
                 descr_cls = mdib.data_model.get_descriptor_container_class(pm.PatientContextDescriptor)
                 descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_descriptor.Handle)
